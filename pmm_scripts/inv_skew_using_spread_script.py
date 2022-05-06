@@ -1,7 +1,7 @@
+from decimal import Decimal
 
 from hummingbot.core.event.events import BuyOrderCompletedEvent, SellOrderCompletedEvent
-from hummingbot.script.script_base import ScriptBase
-from decimal import Decimal
+from hummingbot.pmm_script.pmm_script_base import PMMScriptBase
 
 # Enter the inventory % threshold. When the % of an asset goes below this value, the script will change the spread value
 inv_pct_limit = 0.10
@@ -9,7 +9,7 @@ inv_pct_limit = 0.10
 new_spread = Decimal("0.005")
 
 
-class InventorySkewUsingSpread(ScriptBase):
+class InventorySkewUsingSpread(PMMScriptBase):
 
     def __init__(self):
         super().__init__()

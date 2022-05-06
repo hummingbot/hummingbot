@@ -9,11 +9,7 @@ from typing import Optional, Any, Dict, List, Union
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.core.event.events import TradeType
-from hummingbot.core.gateway import (
-    detect_existing_gateway_container,
-    get_gateway_paths,
-    restart_gateway
-)
+from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.logger import HummingbotLogger
 
 
@@ -197,15 +193,11 @@ class GatewayHttpClient:
             "configPath": config_path,
             "configValue": config_value,
         })
-
-        # temporary code until #25625 is implemented (delete afterwards)
-        # if the user had a gateway in a container, restart it
-        # otherwise if they manually run a gateway, they need to restart it themselves
-        container_info: Optional[Dict[str, Any]] = await detect_existing_gateway_container()
-        if container_info is not None:
-            await restart_gateway()
-
+        await self.post_restart()
         return response
+
+    async def post_restart(self):
+        await self.api_request("post", "restart", fail_silently=True)
 
     async def get_connectors(self, fail_silently: bool = False) -> Dict[str, Any]:
         return await self.api_request("get", "connectors", fail_silently=fail_silently)
@@ -330,7 +322,8 @@ class GatewayHttpClient:
             "base": base_asset,
             "quote": quote_asset,
             "amount": f"{amount:.18f}",
-            "side": side.name
+            "side": side.name,
+            "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }, fail_silently=fail_silently)
 
     async def get_transaction_status(
@@ -399,6 +392,8 @@ class GatewayHttpClient:
             "side": side.name,
             "amount": f"{amount:.18f}",
             "limitPrice": str(price),
+            "nonce": nonce,
+            "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }
         if nonce is not None:
             request_payload["nonce"] = int(nonce)

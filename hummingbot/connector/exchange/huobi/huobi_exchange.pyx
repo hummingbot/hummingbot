@@ -83,7 +83,7 @@ cdef class HuobiExchangeTransactionTracker(TransactionTracker):
 cdef class HuobiExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -503,8 +503,8 @@ cdef class HuobiExchange(ExchangeBase):
                     else:  # Handles "canceled" or "partial-canceled" order
                         self.c_stop_tracking_order(tracked_order.client_order_id)
                         self.logger().info(f"The market order {tracked_order.client_order_id} "
-                                           f"has been cancelled according to order status API.")
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                           f"has been canceled according to order status API.")
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                              OrderCancelledEvent(self._current_timestamp,
                                                                  tracked_order.client_order_id))
 
@@ -629,9 +629,9 @@ cdef class HuobiExchange(ExchangeBase):
 
         if order_status == "canceled":
             tracked_order.last_state = order_status
-            self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
+            self.logger().info(f"The order {tracked_order.client_order_id} has been canceled "
                                f"according to order delta websocket API.")
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+            self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp,
                                                      tracked_order.client_order_id))
             self.c_stop_tracking_order(tracked_order.client_order_id)
@@ -869,9 +869,9 @@ cdef class HuobiExchange(ExchangeBase):
             if order_state == 7:
                 # order-state is canceled
                 self.c_stop_tracking_order(tracked_order.client_order_id)
-                self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
+                self.logger().info(f"The order {tracked_order.client_order_id} has been canceled according"
                                    f" to order status API. order_state - {order_state}")
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp,
                                                          tracked_order.client_order_id))
             else:
