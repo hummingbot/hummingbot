@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import express from 'express';
 import { Request, Response, NextFunction } from 'express';
+import { ConfigRoutes } from './services/config/config.routes';
 import { SolanaRoutes } from './chains/solana/solana.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
 import { logger } from './services/logger';
@@ -45,6 +46,7 @@ gatewayApp.use(
 );
 
 // mount sub routers
+gatewayApp.use('/config', ConfigRoutes.router);
 gatewayApp.use('/network', NetworkRoutes.router);
 gatewayApp.use('/evm', EVMRoutes.router);
 gatewayApp.use('/connectors', ConnectorsRoutes.router);
@@ -73,11 +75,6 @@ gatewayApp.get(
   })
 );
 
-interface ConfigUpdateRequest {
-  configPath: string;
-  configValue: any;
-}
-
 // watch the exit even, spawn an independent process with the same args and
 // pass the stdio from this process to it.
 process.on('exit', function () {
@@ -87,34 +84,6 @@ process.on('exit', function () {
     stdio: 'inherit',
   });
 });
-
-gatewayApp.post(
-  '/config/update',
-  asyncHandler(
-    async (
-      req: Request<unknown, unknown, ConfigUpdateRequest>,
-      res: Response
-    ) => {
-      const config = ConfigManagerV2.getInstance().get(req.body.configPath);
-      if (typeof req.body.configValue == 'string')
-        switch (typeof config) {
-          case 'number':
-            req.body.configValue = Number(req.body.configValue);
-            break;
-          case 'boolean':
-            req.body.configValue =
-              req.body.configValue.toLowerCase() === 'true';
-            break;
-        }
-      ConfigManagerV2.getInstance().set(
-        req.body.configPath,
-        req.body.configValue
-      );
-
-      res.status(200).json({ message: 'The config has been updated' });
-    }
-  )
-);
 
 gatewayApp.post(
   '/restart',
