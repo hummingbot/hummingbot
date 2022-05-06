@@ -26,3 +26,4 @@ use_parentheses = true
 ensure_newline_before_comments = true
 combine_as_imports = true
 conda_env = "hummingbot"
+skip = ["setup.py"]
