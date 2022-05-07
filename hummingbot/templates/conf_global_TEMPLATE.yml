@@ -196,8 +196,8 @@ db_username: null
 db_password: null
 db_name: null
 
-script_enabled: null
-script_file_path: null
+pmm_script_enabled: null
+pmm_script_file_path: null
 
 # Balance Limit Configurations
 # e.g. Setting USDT and BTC limits on Binance.

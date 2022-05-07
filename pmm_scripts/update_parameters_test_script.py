@@ -1,10 +1,10 @@
 from decimal import Decimal
-from hummingbot.script.script_base import ScriptBase
+from hummingbot.pmm_script.pmm_script_base import PMMScriptBase
 
 
-class UpdateParametersTestScript(ScriptBase):
+class UpdateParametersTestPMMScript(PMMScriptBase):
     """
-    This script is intended for unit testing purpose only.
+    This PMM script is intended for unit testing purpose only.
     """
 
     def __init__(self):
