@@ -11,14 +11,15 @@ import hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_web
 import hummingbot.connector.derivative.coinflex_perpetual.constants as CONSTANTS
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_api_order_book_data_source import (
-    CoinflexPerpetualAPIOrderBookDataSource
+    CoinflexPerpetualAPIOrderBookDataSource,
 )
 from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_auth import CoinflexPerpetualAuth
 from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_order_book_tracker import (
-    CoinflexPerpetualOrderBookTracker
+    CoinflexPerpetualOrderBookTracker,
 )
-from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_user_stream_data_source import \
-    CoinflexPerpetualUserStreamDataSource
+from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_user_stream_data_source import (
+    CoinflexPerpetualUserStreamDataSource,
+)
 from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_utils import (
     decimal_val_or_none,
     get_new_client_order_id,
@@ -37,11 +38,7 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
-from hummingbot.core.event.events import (
-    FundingInfo,
-    FundingPaymentCompletedEvent,
-    MarketEvent,
-)
+from hummingbot.core.event.events import FundingInfo, FundingPaymentCompletedEvent, MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -337,7 +334,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with Coinflex Perpetual. Check API key and network connection."
             )
@@ -362,7 +359,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 for order_id in list(self._client_order_tracker.active_orders.keys()):
                     self.stop_tracking_order(order_id)
             else:
-                raise IOError(f"Error cancelling all account orders. Server Response: {response}")
+                raise IOError(f"Error canceling all account orders. Server Response: {response}")
         except Exception as e:
             self.logger().error("Could not cancel all account orders.")
             raise e
@@ -1269,7 +1266,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 if e.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
                     cancel_result = e.error_payload["data"][0]
                 else:
-                    self.logger().error(f"Unhandled error cancelling order: {client_order_id}. Error: {e.error_payload}", exc_info=True)
+                    self.logger().error(f"Unhandled error canceling order: {client_order_id}. Error: {e.error_payload}", exc_info=True)
 
             if cancel_result.get("status") in CONSTANTS.ORDER_CANCELLED_STATES:
                 cancelled_timestamp = cancel_result.get("timestamp", result.get("timestamp"))

@@ -31,6 +31,16 @@ export const isFloatString = (str: string): boolean => {
   return false;
 };
 
+export const isFractionString = (str: string): boolean => {
+  const fractionSplit = str.split('/');
+  if (fractionSplit.length == 2) {
+    return (
+      isIntegerString(fractionSplit[0]) && isIntegerString(fractionSplit[1])
+    );
+  }
+  return false;
+};
+
 // throw an error because the request parameter is malformed, collect all the
 // errors related to the request to give the most information possible
 export const throwIfErrorsExist = (errors: Array<string>): void => {

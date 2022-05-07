@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, PropertyMock, patch
 from aioresponses import aioresponses
 from async_timeout import timeout
 from bidict import bidict
+
 from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS
 from hummingbot.connector.exchange.coinflex import coinflex_web_utils
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
@@ -728,7 +729,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Successfully cancelled order {order.client_order_id}."
+                f"Successfully canceled order {order.client_order_id}."
             )
         )
 
@@ -780,7 +781,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                f"Unhandled error cancelling order: {order.client_order_id}. Error: {expected_error}"
+                f"Unhandled error canceling order: {order.client_order_id}. Error: {expected_error}"
             )
         )
 
@@ -909,7 +910,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Successfully cancelled order {order1.client_order_id}."
+                f"Successfully canceled order {order1.client_order_id}."
             )
         )
 
@@ -1048,7 +1049,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
         self.assertTrue(
-            self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}.")
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
         )
 
     @aioresponses()
@@ -1299,7 +1300,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(order.is_done)
 
         self.assertTrue(
-            self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}.")
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
         )
 
     def test_user_stream_update_for_order_fill(self):
@@ -1440,7 +1441,7 @@ class CoinflexExchangeTests(TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELLED
+            initial_state=OrderState.CANCELED
         ))
         orders.append(InFlightOrder(
             client_order_id="OID3",
