@@ -3,6 +3,8 @@ import {
   bigNumberWithDecimalToStr,
   gasCostInEthString,
   countDecimals,
+  fromFractionString,
+  toFractionString,
 } from '../../src/services/base';
 import 'jest-extended';
 
@@ -43,4 +45,26 @@ test('bigNumberWithDecimalToStr', () => {
 
 test('gasCostInEthString', () => {
   expect(gasCostInEthString(200, 21000)).toEqual('0.004200000000000000');
+});
+
+test('fromFractionString', () => {
+  expect(fromFractionString('1/1')).toEqual(1);
+  expect(fromFractionString('1/2')).toEqual(0.5);
+  expect(fromFractionString('3/4')).toEqual(0.75);
+  expect(fromFractionString('1/100')).toEqual(0.01);
+  expect(fromFractionString('hello')).toEqual(null);
+});
+
+test('toFractionString', () => {
+  expect(toFractionString(1)).toEqual('1/1');
+  expect(toFractionString(0.2)).toEqual('1/5');
+  expect(toFractionString(0.1)).toEqual('1/10');
+  expect(toFractionString(0.3)).toEqual('3/10');
+  expect(toFractionString(0.01)).toEqual('1/100');
+  expect(toFractionString('1/100')).toEqual('1/100');
+  expect(toFractionString('2/100')).toEqual('1/50');
+  expect(toFractionString('3/100')).toEqual('3/100');
+  expect(toFractionString('0.2')).toEqual('1/5');
+  expect(toFractionString('hello')).toEqual(null);
+  expect(toFractionString('0abc')).toEqual(null);
 });
