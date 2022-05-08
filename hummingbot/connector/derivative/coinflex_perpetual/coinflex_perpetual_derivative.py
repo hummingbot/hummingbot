@@ -1221,7 +1221,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 disable_retries=True
             )
 
-            self.logger().debug(f"Order create result: \n{order_result}")
+            self.logger().debug(f"DEBUG:: Order create result: \n{order_result}")
 
             order_result = order_result["data"][0]
 
@@ -1299,17 +1299,18 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     cancel_result = e.error_payload["data"][0]
                 else:
                     self.logger().error(f"Unhandled error canceling order: {client_order_id}. Error: {e.error_payload}", exc_info=True)
-
+            self.logger().debug(f"Order cancel result: \n{result}")
             if cancel_result.get("status") in CONSTANTS.ORDER_CANCELLED_STATES:
                 cancelled_timestamp = cancel_result.get("timestamp", result.get("timestamp"))
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=client_order_id,
                     trading_pair=tracked_order.trading_pair,
                     update_timestamp=int(cancelled_timestamp) * 1e-3 if cancelled_timestamp else self.current_timestamp,
-                    new_state=OrderState.CANCELLED,
+                    new_state=OrderState.CANCELED,
                 )
                 self._client_order_tracker.process_order_update(order_update)
             else:
+                self.logger().debug(f"Unknown Order cancel result for debug: \n{result}")
                 if not self._process_order_not_found(client_order_id, tracked_order):
                     raise IOError
             return cancel_result
