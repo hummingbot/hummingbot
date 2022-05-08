@@ -13,8 +13,7 @@ from aioresponses import aioresponses
 from async_timeout import timeout
 from bidict import bidict
 
-from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS
-from hummingbot.connector.exchange.coinflex import coinflex_web_utils
+from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS, coinflex_web_utils
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.connector.exchange.coinflex.coinflex_exchange import CoinflexExchange
 from hummingbot.connector.trading_rule import TradingRule
