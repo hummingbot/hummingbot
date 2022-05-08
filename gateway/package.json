@@ -56,6 +56,7 @@
     "level": "^7.0.1",
     "level-party": "^5.1.1",
     "lodash": "^4.17.21",
+    "mathjs": "^10.5.0",
     "minimist": "^1.2.5",
     "morgan": "^1.10.0",
     "swagger-ui-express": "^4.1.6",
