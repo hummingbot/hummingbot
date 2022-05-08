@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
