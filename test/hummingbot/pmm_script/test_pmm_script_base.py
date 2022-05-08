@@ -1,15 +1,14 @@
-#!/usr/bin/env python
-
 import unittest
 from decimal import Decimal
 from statistics import mean
-from hummingbot.script.script_base import ScriptBase
+
+from hummingbot.pmm_script.pmm_script_base import PMMScriptBase
 
 
-class ScriptIteratorUnitTest(unittest.TestCase):
+class PMMScriptIteratorTests(unittest.TestCase):
 
     def test_avg_mid_price(self):
-        script_base = ScriptBase()
+        script_base = PMMScriptBase()
         script_base.mid_prices = [Decimal("10.1"), Decimal("10.2"), Decimal("10.1"), Decimal("10.2"), Decimal("10.4"),
                                   Decimal("10.5"), Decimal("10.3"), Decimal("10.6"), Decimal("10.7"), Decimal("10.8"),
                                   Decimal("10.0"), Decimal("10.1"), Decimal("10.1"), Decimal("10.1"), Decimal("10.1")]
@@ -27,7 +26,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("10.1"), avg_price)
 
     def test_take_samples(self):
-        script_base = ScriptBase()
+        script_base = PMMScriptBase()
         a_list = [1, 2, 3, 4, 5, 6, 7]
         samples = script_base.take_samples(a_list, 3, 10)
         # since there is not enough sample size, it should return None
@@ -46,7 +45,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         self.assertEqual(expected, samples)
 
     def test_avg_and_median_mid_price_chg(self):
-        script_base = ScriptBase()
+        script_base = PMMScriptBase()
         script_base.mid_prices = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
         avg_chg = script_base.avg_price_volatility(3, 10)
         # since there is not enough sample size, it should return None
@@ -66,8 +65,8 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         self.assertEqual(expected_chg, script_base.avg_price_volatility(10, 1))
 
     def test_round_by_step(self):
-        self.assertEqual(Decimal("1.75"), ScriptBase.round_by_step(Decimal("1.8"), Decimal("0.25")))
-        self.assertEqual(Decimal("1.75"), ScriptBase.round_by_step(Decimal("1.75"), Decimal("0.25")))
-        self.assertEqual(Decimal("1.75"), ScriptBase.round_by_step(Decimal("1.7567"), Decimal("0.01")))
-        self.assertEqual(Decimal("1"), ScriptBase.round_by_step(Decimal("1.7567"), Decimal("1")))
-        self.assertEqual(Decimal("-1.75"), ScriptBase.round_by_step(Decimal("-1.8"), Decimal("0.25")))
+        self.assertEqual(Decimal("1.75"), PMMScriptBase.round_by_step(Decimal("1.8"), Decimal("0.25")))
+        self.assertEqual(Decimal("1.75"), PMMScriptBase.round_by_step(Decimal("1.75"), Decimal("0.25")))
+        self.assertEqual(Decimal("1.75"), PMMScriptBase.round_by_step(Decimal("1.7567"), Decimal("0.01")))
+        self.assertEqual(Decimal("1"), PMMScriptBase.round_by_step(Decimal("1.7567"), Decimal("1")))
+        self.assertEqual(Decimal("-1.75"), PMMScriptBase.round_by_step(Decimal("-1.8"), Decimal("0.25")))
