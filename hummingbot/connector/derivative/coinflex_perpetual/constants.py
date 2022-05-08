@@ -74,7 +74,7 @@ ORDER_STATE = {
 }
 
 for state in ORDER_CANCELLED_STATES:
-    ORDER_STATE[state] = OrderState.CANCELLED
+    ORDER_STATE[state] = OrderState.CANCELED
 
 ORDER_NOT_FOUND_ERROR = "Open order not found with clientOrderId or orderId"
 
