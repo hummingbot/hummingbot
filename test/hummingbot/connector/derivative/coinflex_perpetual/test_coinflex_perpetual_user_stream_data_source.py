@@ -1,6 +1,7 @@
 import asyncio
 import re
 import unittest
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -13,7 +14,6 @@ from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_user_
     CoinflexPerpetualUserStreamDataSource,
 )
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class CoinflexPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):

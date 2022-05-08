@@ -3,8 +3,8 @@ import unittest
 
 from mock import patch
 
-import hummingbot.connector.derivative.coinflex_perpetual.constants as CONSTANTS
 import hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_utils as utils
+import hummingbot.connector.derivative.coinflex_perpetual.constants as CONSTANTS
 
 
 class CoinflexPerpetualUtilsUnitTests(unittest.TestCase):
