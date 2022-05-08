@@ -38,7 +38,13 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
-from hummingbot.core.event.events import FundingInfo, FundingPaymentCompletedEvent, MarketEvent
+from hummingbot.core.event.events import (
+    AccountEvent,
+    FundingInfo,
+    FundingPaymentCompletedEvent,
+    MarketEvent,
+    PositionModeChangeEvent,
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -570,7 +576,31 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self.logger().warning("CoinFLEX does not support setting leverage.")
 
     def set_position_mode(self, position_mode: PositionMode):
+        """
+        CoinFLEX only supports ONEWAY position mode.
+        """
         self._position_mode = PositionMode.ONEWAY
+
+        if self._trading_pairs is not None:
+            for trading_pair in self._trading_pairs:
+                if position_mode == PositionMode.ONEWAY:
+                    self.trigger_event(AccountEvent.PositionModeChangeSucceeded,
+                                       PositionModeChangeEvent(
+                                           self.current_timestamp,
+                                           trading_pair,
+                                           position_mode
+                                       ))
+                    self.logger().info(f"Using {position_mode.name} position mode.")
+                else:
+                    self.trigger_event(AccountEvent.PositionModeChangeFailed,
+                                       PositionModeChangeEvent(
+                                           self.current_timestamp,
+                                           trading_pair,
+                                           position_mode,
+                                           "CoinFLEX only supports ONEWAY position mode."
+                                       ))
+                    self.logger().error(f"Unable to set postion mode to {position_mode.name}.")
+                    self.logger().info(f"Using {self._position_mode.name} position mode.")
 
     def supported_position_modes(self):
         """
@@ -1190,6 +1220,8 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 is_auth_required=True,
                 disable_retries=True
             )
+
+            self.logger().debug(f"Order create result: \n{order_result}")
 
             order_result = order_result["data"][0]
 

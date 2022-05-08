@@ -4,11 +4,18 @@ from typing import Any, Dict
 import hummingbot.connector.derivative.coinflex_perpetual.constants as CONSTANTS
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.0000"),
+    taker_percent_fee_decimal=Decimal("0.0008"),
+    buy_percent_fee_deducted_from_returns=True
+)
+
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "BTC-USD"
-DEFAULT_FEES = [0.0, 0.08]
 
 
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
