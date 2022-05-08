@@ -1,15 +1,11 @@
 import asyncio
 import logging
 import random
-import ujson
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Dict,
-    Mapping,
-    Optional,
-)
+from typing import Any, Dict, Mapping, Optional
 from urllib.parse import urlencode
+
+import ujson
 
 import hummingbot.connector.derivative.coinflex_perpetual.constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler

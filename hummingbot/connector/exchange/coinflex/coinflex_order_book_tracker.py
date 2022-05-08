@@ -2,12 +2,7 @@ import asyncio
 import logging
 import time
 from collections import defaultdict, deque
-from typing import (
-    Deque,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Deque, Dict, List, Optional
 
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
