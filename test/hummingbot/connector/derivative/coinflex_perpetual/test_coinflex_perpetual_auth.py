@@ -1,15 +1,15 @@
 import asyncio
 import hashlib
 import hmac
-from base64 import b64encode
 import unittest
+from base64 import b64encode
 from copy import copy
 from datetime import datetime
 from typing import Awaitable
 from unittest.mock import patch
 
-from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_auth import CoinflexPerpetualAuth
 import hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_web_utils as web_utils
+from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_auth import CoinflexPerpetualAuth
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 
 

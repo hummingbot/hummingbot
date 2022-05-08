@@ -7,6 +7,7 @@ from typing import Awaitable
 from unittest.mock import patch
 
 from aioresponses.core import aioresponses
+
 import hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_web_utils as web_utils
 import hummingbot.connector.derivative.coinflex_perpetual.constants as CONSTANTS
 from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_web_utils import (
