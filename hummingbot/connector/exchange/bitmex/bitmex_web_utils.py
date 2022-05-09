@@ -3,9 +3,12 @@ from typing import Any, Dict, Optional
 import hummingbot.connector.exchange.bitmex.constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTRequest, RESTMethod
-from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.connections.data_types import (RESTMethod,
+                                                                  RESTRequest)
+from hummingbot.core.web_assistant.rest_pre_processors import \
+    RESTPreProcessorBase
+from hummingbot.core.web_assistant.web_assistants_factory import \
+    WebAssistantsFactory
 
 
 class BitmexRESTPreProcessor(RESTPreProcessorBase):

@@ -1,11 +1,9 @@
 from collections import namedtuple
 
+import hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_web_utils as web_utils
+import hummingbot.connector.derivative.bitmex_perpetual.constants as CONSTANTS
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
-
-import hummingbot.connector.derivative.bitmex_perpetual.constants as CONSTANTS
-
-import hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_web_utils as web_utils
 
 CENTRALIZED = True
 

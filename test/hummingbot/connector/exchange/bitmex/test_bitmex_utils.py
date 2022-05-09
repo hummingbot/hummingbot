@@ -2,13 +2,12 @@ import asyncio
 import json
 import re
 import unittest
-
-from aioresponses.core import aioresponses
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 import hummingbot.connector.exchange.bitmex.bitmex_utils as utils
 import hummingbot.connector.exchange.bitmex.bitmex_web_utils as web_utils
 import hummingbot.connector.exchange.bitmex.constants as CONSTANTS
+from aioresponses.core import aioresponses
 
 
 class BitmexUtilsUnitTests(unittest.TestCase):

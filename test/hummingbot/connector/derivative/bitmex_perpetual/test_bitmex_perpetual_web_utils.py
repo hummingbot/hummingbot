@@ -4,11 +4,12 @@ from typing import Awaitable
 
 import hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_web_utils as web_utils
 import hummingbot.connector.derivative.bitmex_perpetual.constants as CONSTANTS
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_web_utils import (
-    BitmexPerpetualRESTPreProcessor,
-)
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_web_utils import \
+    BitmexPerpetualRESTPreProcessor
+from hummingbot.core.web_assistant.connections.data_types import (RESTMethod,
+                                                                  RESTRequest)
+from hummingbot.core.web_assistant.web_assistants_factory import \
+    WebAssistantsFactory
 
 
 class BitmexPerpetualWebUtilsUnitTests(unittest.TestCase):

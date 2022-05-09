@@ -1,5 +1,5 @@
-from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
-
+from hummingbot.core.api_throttler.data_types import (LinkedLimitWeightPair,
+                                                      RateLimit)
 
 EXCHANGE_NAME = "bitmex_perpetual"
 BROKER_ID = "bitmex_perp"
