@@ -16,7 +16,7 @@ export async function getChain(
     chainInstance = Avalanche.getInstance(network);
   else if (chain === 'harmony') chainInstance = Harmony.getInstance(network);
   else throw new Error('unsupported chain');
-  if (!chainInstance.ready()) {
+  if (!chainInstance.ready) {
     await chainInstance.init();
   }
   return chainInstance;
@@ -35,7 +35,7 @@ export async function getConnector(
   else if (chain === 'avalanche' && connector === 'pangolin')
     connectorInstance = Pangolin.getInstance(chain, network);
   else throw new Error('unsupported chain or connector');
-  if (!connectorInstance.ready()) {
+  if (!connectorInstance.ready) {
     await connectorInstance.init();
   }
   return connectorInstance;

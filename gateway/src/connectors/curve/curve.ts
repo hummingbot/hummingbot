@@ -60,6 +60,8 @@ export class Curve {
         SERVICE_UNITIALIZED_ERROR_CODE
       );
 
+     // await this._ethereum.init()
+
     await curve.init(
       'Infura',
       {

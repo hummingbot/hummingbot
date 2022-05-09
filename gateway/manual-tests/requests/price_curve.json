@@ -1,5 +1,5 @@
 {
-  "connector": "uniswap",
+  "connector": "curve",
   "chain": "ethereum",
   "network": "kovan",
   "quote": "WETH",
