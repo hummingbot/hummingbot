@@ -8,7 +8,6 @@ from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_api_order
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.web_assistants_factory import \
     WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
