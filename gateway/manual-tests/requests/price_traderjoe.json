@@ -1,0 +1,9 @@
+{
+  "connector": "traderjoe",
+  "chain": "avalanche",
+  "network": "avalanche",
+  "quote": "WAVAX",
+  "base": "WETH.e",
+  "amount": "1",
+  "side": "BUY"
+}
