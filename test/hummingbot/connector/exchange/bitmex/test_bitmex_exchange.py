@@ -5,32 +5,27 @@ import re
 import time
 import unittest
 from decimal import Decimal
+from test.hummingbot.connector.network_mocking_assistant import \
+    NetworkMockingAssistant
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 from unittest.mock import AsyncMock, patch
 
+import hummingbot.connector.exchange.bitmex.bitmex_utils as utils
+import hummingbot.connector.exchange.bitmex.bitmex_web_utils as web_utils
+import hummingbot.connector.exchange.bitmex.constants as CONSTANTS
 import pandas as pd
 from aioresponses.core import aioresponses
 from bidict import bidict
-
-
-import hummingbot.connector.exchange.bitmex.bitmex_web_utils as web_utils
-import hummingbot.connector.exchange.bitmex.bitmex_utils as utils
-import hummingbot.connector.exchange.bitmex.constants as CONSTANTS
 from hummingbot.connector.exchange.bitmex.bitmex_api_order_book_data_source import \
     BitmexAPIOrderBookDataSource
-from hummingbot.connector.exchange.bitmex.bitmex_exchange import \
-    BitmexExchange
+from hummingbot.connector.exchange.bitmex.bitmex_exchange import BitmexExchange
 from hummingbot.connector.exchange.bitmex.bitmex_order_status import \
     BitmexOrderStatus
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderFilledEvent,
-)
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 
 
 class BitmexExchangeUnitTest(unittest.TestCase):

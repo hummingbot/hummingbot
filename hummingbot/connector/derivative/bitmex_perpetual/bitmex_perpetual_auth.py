@@ -1,11 +1,12 @@
 import hashlib
 import hmac
 import json
-from urllib.parse import urlparse, urlencode
 import time
+from urllib.parse import urlencode, urlparse
 
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import (RESTRequest,
+                                                                  WSRequest)
 
 EXPIRATION = 25  # seconds
 

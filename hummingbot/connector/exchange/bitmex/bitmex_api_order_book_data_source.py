@@ -5,21 +5,22 @@ import time
 from collections import defaultdict
 from typing import Any, Dict, List, Mapping, Optional
 
-from bidict import bidict, ValueDuplicationError
-
 import hummingbot.connector.exchange.bitmex.bitmex_utils as utils
 import hummingbot.connector.exchange.bitmex.bitmex_web_utils as web_utils
 import hummingbot.connector.exchange.bitmex.constants as CONSTANTS
-
-from hummingbot.connector.exchange.bitmex.bitmex_order_book import BitmexOrderBook
+from bidict import ValueDuplicationError, bidict
+from hummingbot.connector.exchange.bitmex.bitmex_order_book import \
+    BitmexOrderBook
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.order_book_tracker_data_source import \
+    OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.connections.data_types import WSRequest
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.web_assistants_factory import \
+    WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 

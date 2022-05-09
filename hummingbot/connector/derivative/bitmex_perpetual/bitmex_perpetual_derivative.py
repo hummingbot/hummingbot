@@ -6,50 +6,50 @@ from collections import defaultdict
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_in_flight_order import BitmexPerpetualInFlightOrder
 import hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_utils as utils
 import hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_web_utils as web_utils
 import hummingbot.connector.derivative.bitmex_perpetual.constants as CONSTANTS
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.core.data_type.transaction_tracker import TransactionTracker
-from hummingbot.core.event.event_listener import EventListener
-from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_api_order_book_data_source import (
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_api_order_book_data_source import \
     BitmexPerpetualAPIOrderBookDataSource
-)
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_auth import BitmexPerpetualAuth
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_book_tracker import (
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_auth import \
+    BitmexPerpetualAuth
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_in_flight_order import \
+    BitmexPerpetualInFlightOrder
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_book_tracker import \
     BitmexPerpetualOrderBookTracker
-)
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_user_stream_tracker import (
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_user_stream_tracker import \
     BitmexPerpetualUserStreamTracker
-)
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    BuyOrderCreatedEvent,
-    FundingInfo,
-    MarketEvent,
-    MarketOrderFailureEvent,
-    OrderCancelledEvent,
-    OrderFilledEvent,
-    SellOrderCompletedEvent,
-    SellOrderCreatedEvent,
-)
-from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
+from hummingbot.connector.derivative.perpetual_budget_checker import \
+    PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
+from hummingbot.connector.utils import (combine_to_hb_trading_pair,
+                                        get_new_client_order_id)
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
+from hummingbot.core.data_type.common import (OrderType, PositionAction,
+                                              PositionMode, PositionSide,
+                                              TradeType)
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.transaction_tracker import TransactionTracker
+from hummingbot.core.event.event_listener import EventListener
+from hummingbot.core.event.events import (AccountEvent, BuyOrderCompletedEvent,
+                                          BuyOrderCreatedEvent, FundingInfo,
+                                          MarketEvent, MarketOrderFailureEvent,
+                                          OrderCancelledEvent,
+                                          OrderFilledEvent,
+                                          PositionModeChangeEvent,
+                                          SellOrderCompletedEvent,
+                                          SellOrderCreatedEvent)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -774,7 +774,15 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         return [PositionMode.ONEWAY]
 
     def set_position_mode(self, position_mode: PositionMode):
-        self._position_mode = PositionMode.ONEWAY
+        for trading_pair in self._trading_pairs:
+            self._position_mode = PositionMode.ONEWAY
+            self.trigger_event(
+                AccountEvent.PositionModeChangeSucceeded,
+                PositionModeChangeEvent(
+                    self.current_timestamp,
+                    trading_pair,
+                    position_mode
+                ))
 
     def adjust_quote_based_amounts(
         self,

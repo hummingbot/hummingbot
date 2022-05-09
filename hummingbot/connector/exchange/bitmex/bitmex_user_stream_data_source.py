@@ -2,13 +2,16 @@ import asyncio
 import logging
 import time
 from typing import Optional
+
 import hummingbot.connector.exchange.bitmex.bitmex_web_utils as web_utils
 from hummingbot.connector.exchange.bitmex.bitmex_auth import BitmexAuth
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.data_type.user_stream_tracker_data_source import \
+    UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSRequest
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.web_assistants_factory import \
+    WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 

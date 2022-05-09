@@ -1,17 +1,15 @@
 import asyncio
 import time
 import unittest
-
 from collections import deque
-from typing import (
-    Deque,
-    Optional,
-    Union,
-)
+from typing import Deque, Optional, Union
 
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_book import BitmexPerpetualOrderBook
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_book_tracker import BitmexPerpetualOrderBookTracker
-from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_book import \
+    BitmexPerpetualOrderBook
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_book_tracker import \
+    BitmexPerpetualOrderBookTracker
+from hummingbot.core.data_type.order_book_message import (OrderBookMessage,
+                                                          OrderBookMessageType)
 
 
 class BitmexPerpetualOrderBookTrackerUnitTests(unittest.TestCase):

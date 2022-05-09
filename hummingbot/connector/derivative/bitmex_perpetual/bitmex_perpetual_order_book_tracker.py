@@ -1,18 +1,17 @@
-import logging
 import asyncio
+import logging
+from collections import defaultdict, deque
+from typing import Deque, Dict, List, Optional
 
-from typing import Optional, List, Deque, Dict
-from collections import deque, defaultdict
-
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_api_order_book_data_source import \
+    BitmexPerpetualAPIOrderBookDataSource
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.web_assistants_factory import \
+    WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_api_order_book_data_source import (
-    BitmexPerpetualAPIOrderBookDataSource,
-)
 
 
 class BitmexPerpetualOrderBookTracker(OrderBookTracker):
@@ -58,9 +57,6 @@ class BitmexPerpetualOrderBookTracker(OrderBookTracker):
 
     def start(self):
         super().start()
-        self._order_book_stream_listener_task = safe_ensure_future(
-            self._data_source.listen_for_subscriptions()
-        )
 
     def stop(self):
         self._order_book_stream_listener_task and self._order_book_stream_listener_task.cancel()
