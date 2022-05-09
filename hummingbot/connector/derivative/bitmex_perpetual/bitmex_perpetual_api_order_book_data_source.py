@@ -8,10 +8,11 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional
 
+from bidict import ValueDuplicationError, bidict
+
 import hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_utils as utils
 import hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_web_utils as web_utils
 import hummingbot.connector.derivative.bitmex_perpetual.constants as CONSTANTS
-from bidict import ValueDuplicationError, bidict
 from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_book import BitmexPerpetualOrderBook
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler

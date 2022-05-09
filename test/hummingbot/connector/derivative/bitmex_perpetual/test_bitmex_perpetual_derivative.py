@@ -9,12 +9,13 @@ from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAs
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 from unittest.mock import AsyncMock, patch
 
-import hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_utils as utils
-import hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_web_utils as web_utils
-import hummingbot.connector.derivative.bitmex_perpetual.constants as CONSTANTS
 import pandas as pd
 from aioresponses.core import aioresponses
 from bidict import bidict
+
+import hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_utils as utils
+import hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_web_utils as web_utils
+import hummingbot.connector.derivative.bitmex_perpetual.constants as CONSTANTS
 from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_api_order_book_data_source import (
     BitmexPerpetualAPIOrderBookDataSource,
 )

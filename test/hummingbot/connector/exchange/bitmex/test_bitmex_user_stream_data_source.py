@@ -4,9 +4,10 @@ from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAs
 from typing import Any, Awaitable, Dict, Optional
 from unittest.mock import AsyncMock, patch
 
-import hummingbot.connector.exchange.bitmex.constants as CONSTANTS
 import ujson
 from aioresponses.core import aioresponses
+
+import hummingbot.connector.exchange.bitmex.constants as CONSTANTS
 from hummingbot.connector.exchange.bitmex.bitmex_auth import BitmexAuth
 from hummingbot.connector.exchange.bitmex.bitmex_user_stream_data_source import BitmexUserStreamDataSource
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
