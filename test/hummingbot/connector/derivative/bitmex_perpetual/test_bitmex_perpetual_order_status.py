@@ -1,7 +1,6 @@
 import unittest
 
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_status import \
-    BitmexPerpetualOrderStatus
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_status import BitmexPerpetualOrderStatus
 
 
 class BitmexPerpetualOrderStatusUnitTests(unittest.TestCase):

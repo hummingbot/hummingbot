@@ -3,8 +3,7 @@ import json
 import re
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import \
-    NetworkMockingAssistant
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Dict, List
 from unittest.mock import AsyncMock, patch
 
@@ -13,13 +12,13 @@ import hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_web_uti
 import hummingbot.connector.derivative.bitmex_perpetual.constants as CONSTANTS
 from aioresponses.core import aioresponses
 from bidict import bidict
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_api_order_book_data_source import \
-    BitmexPerpetualAPIOrderBookDataSource
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_api_order_book_data_source import (
+    BitmexPerpetualAPIOrderBookDataSource,
+)
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (OrderBookMessage,
-                                                          OrderBookMessageType)
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
 class BitmexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):

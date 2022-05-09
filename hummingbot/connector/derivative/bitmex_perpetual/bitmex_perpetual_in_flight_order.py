@@ -1,8 +1,7 @@
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_status import \
-    BitmexPerpetualOrderStatus
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_status import BitmexPerpetualOrderStatus
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import MarketEvent, OrderType, TradeType
 
