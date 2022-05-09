@@ -139,7 +139,7 @@ class BitmexExchange(ExchangeBase):
 
         self._bitmex_time_synchronizer = TimeSynchronizer()
         self._auth: BitmexAuth = BitmexAuth(api_key=bitmex_api_key,
-                                                              api_secret=bitmex_api_secret)
+                                            api_secret=bitmex_api_secret)
 
         self._trading_pairs = trading_pairs
         self._trading_required = trading_required
