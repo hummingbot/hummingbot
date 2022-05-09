@@ -23,7 +23,7 @@ from hummingbot.connector.exchange.bitmex.bitmex_exchange import \
 from hummingbot.connector.exchange.bitmex.bitmex_order_status import \
     BitmexOrderStatus
 from hummingbot.connector.utils import get_new_client_order_id
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -237,7 +237,6 @@ class BitmexExchangeUnitTest(unittest.TestCase):
         self.exchange._trading_pairs.remove("XBT-USDT")
 
     def test_format_trading_rules(self):
-        margin_asset = self.quote_asset
         min_order_size = Decimal('1E-9')
         min_price_increment = 2
         min_base_amount_increment = Decimal('1E-9')
