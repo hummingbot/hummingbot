@@ -342,7 +342,7 @@ export class EVMNonceManager {
             break;
           }
         }
-        if (!newNonce) {
+        if (newNonce === null) {
           // All pending nonce have yet to expire.
           // Use last entry in pendingNonce to determine next nonce.
           newNonce = new NonceInfo(
