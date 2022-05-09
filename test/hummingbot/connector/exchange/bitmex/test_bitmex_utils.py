@@ -4,10 +4,11 @@ import re
 import unittest
 from typing import Any, Dict, List
 
+from aioresponses.core import aioresponses
+
 import hummingbot.connector.exchange.bitmex.bitmex_utils as utils
 import hummingbot.connector.exchange.bitmex.bitmex_web_utils as web_utils
 import hummingbot.connector.exchange.bitmex.constants as CONSTANTS
-from aioresponses.core import aioresponses
 
 
 class BitmexUtilsUnitTests(unittest.TestCase):

@@ -5,10 +5,11 @@ import time
 from collections import defaultdict
 from typing import Any, Dict, List, Mapping, Optional
 
+from bidict import ValueDuplicationError, bidict
+
 import hummingbot.connector.exchange.bitmex.bitmex_utils as utils
 import hummingbot.connector.exchange.bitmex.bitmex_web_utils as web_utils
 import hummingbot.connector.exchange.bitmex.constants as CONSTANTS
-from bidict import ValueDuplicationError, bidict
 from hummingbot.connector.exchange.bitmex.bitmex_order_book import BitmexOrderBook
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler

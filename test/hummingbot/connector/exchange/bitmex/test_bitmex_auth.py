@@ -7,9 +7,10 @@ import unittest
 from typing import Awaitable
 from urllib.parse import urlencode
 
+from mock import patch
+
 from hummingbot.connector.exchange.bitmex.bitmex_auth import EXPIRATION, BitmexAuth
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
-from mock import patch
 
 MOCK_TS = 1648733370.792768
 
