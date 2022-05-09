@@ -32,6 +32,10 @@ configurations:
     configurationPath: pangolin.yml
     schemaPath: pangolin-schema.json
 
+  $namespace traderjoe:
+    configurationPath: traderjoe.yml
+    schemaPath: traderjoe-schema.json
+    
   $namespace server:
     configurationPath: server.yml
     schemaPath: server-schema.json
