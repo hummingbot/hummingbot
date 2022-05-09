@@ -25,12 +25,12 @@ afterEach(() => {
   unpatch();
 });
 
-const address: string = '0x4324c35f21Cc6Ed3507F71Abd472Da4236A95b8e';
+const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 
 const patchGetWallet = () => {
   patch(ethereum, 'getWallet', () => {
     return {
-      address: '0x4324c35f21Cc6Ed3507F71Abd472Da4236A95b8e',
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     };
   });
 };
