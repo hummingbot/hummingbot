@@ -69,7 +69,6 @@ class BitmexUserStreamDataSource(UserStreamTrackerDataSource):
 
                 auth_request: WSRequest = WSRequest(auth_payload)
                 await ws.send(auth_request)
-                # await ws.ping()  # to update last_recv_timestamp
 
                 # # send subscribe
                 # order - Live updates on your orders

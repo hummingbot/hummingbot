@@ -41,7 +41,6 @@ class BitmexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         api_factory: Optional[WebAssistantsFactory] = None,
     ):
         super().__init__(trading_pairs)
-        self._api_factory: WebAssistantsFactory = WebAssistantsFactory()
         self._api_factory: WebAssistantsFactory = api_factory or web_utils.build_api_factory()
         self._ws_assistant: Optional[WSAssistant] = None
         self._order_book_create_function = lambda: OrderBook()
@@ -306,11 +305,9 @@ class BitmexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         ws = None
         while True:
             try:
-                ws = await self._subscribe_to_order_book_streams()
+                ws: WSAssistant = await self._subscribe_to_order_book_streams()
 
                 async for msg in ws.iter_messages():
-                    if "result" in msg.data:
-                        continue
                     if 'table' in msg.data:
                         if "orderBookL2" in msg.data["table"]:
                             self._message_queue[CONSTANTS.DIFF_STREAM_ID].put_nowait(msg)

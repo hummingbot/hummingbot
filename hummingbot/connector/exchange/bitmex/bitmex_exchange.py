@@ -1012,13 +1012,13 @@ class BitmexExchange(ExchangeBase):
             is_auth_required=True,
             params={"currency": "all"}
         )
-        if not (len(self._token_multiplier) > 0):
-            await self._initialize_token_decimals()
 
         for currency_info in account_info:
             await self.set_balance(currency_info)
 
     async def set_balance(self, data: Dict[str, Any]):
+        if not (len(self._token_multiplier) > 0):
+            await self._initialize_token_decimals()
         asset_name = data['currency'].upper()
         total_balance = Decimal(str(data['amount']))
         pending_credit = Decimal(str(data['pendingCredit']))
