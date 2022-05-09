@@ -58,9 +58,6 @@ class BitmexOrderBookTracker(OrderBookTracker):
 
     def start(self):
         super().start()
-        self._order_book_stream_listener_task = safe_ensure_future(
-            self._data_source.listen_for_subscriptions()
-        )
 
     def stop(self):
         self._order_book_stream_listener_task and self._order_book_stream_listener_task.cancel()

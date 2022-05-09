@@ -42,7 +42,7 @@ class BitmexUserStreamTracker(UserStreamTracker):
         self._api_factory = api_factory
         self._time_synchronizer = time_synchronizer
 
-        super().__init__()
+        super().__init__(self._data_source)
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
 
