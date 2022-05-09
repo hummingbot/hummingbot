@@ -5,8 +5,7 @@ import re
 import time
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import \
-    NetworkMockingAssistant
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 from unittest.mock import AsyncMock, patch
 
@@ -16,15 +15,13 @@ import hummingbot.connector.derivative.bitmex_perpetual.constants as CONSTANTS
 import pandas as pd
 from aioresponses.core import aioresponses
 from bidict import bidict
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_api_order_book_data_source import \
-    BitmexPerpetualAPIOrderBookDataSource
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_derivative import \
-    BitmexPerpetualDerivative
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_status import \
-    BitmexPerpetualOrderStatus
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_api_order_book_data_source import (
+    BitmexPerpetualAPIOrderBookDataSource,
+)
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_derivative import BitmexPerpetualDerivative
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_status import BitmexPerpetualOrderStatus
 from hummingbot.connector.utils import get_new_client_order_id
-from hummingbot.core.data_type.common import (OrderType, PositionAction,
-                                              PositionMode, TradeType)
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent

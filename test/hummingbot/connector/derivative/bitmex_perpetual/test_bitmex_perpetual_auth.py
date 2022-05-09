@@ -7,10 +7,8 @@ import unittest
 from typing import Awaitable
 from urllib.parse import urlencode
 
-from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_auth import (EXPIRATION,
-                                                                                    BitmexPerpetualAuth)
-from hummingbot.core.web_assistant.connections.data_types import (RESTMethod,
-                                                                  RESTRequest)
+from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_auth import EXPIRATION, BitmexPerpetualAuth
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from mock import patch
 
 MOCK_TS = 1648733370.792768

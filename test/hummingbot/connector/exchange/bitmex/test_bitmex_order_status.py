@@ -1,7 +1,6 @@
 import unittest
 
-from hummingbot.connector.exchange.bitmex.bitmex_order_status import \
-    BitmexOrderStatus
+from hummingbot.connector.exchange.bitmex.bitmex_order_status import BitmexOrderStatus
 
 
 class BitmexOrderStatusUnitTests(unittest.TestCase):

@@ -4,16 +4,13 @@ from typing import Optional
 
 import hummingbot.connector.exchange.bitmex.constants as CONSTANTS
 from hummingbot.connector.exchange.bitmex.bitmex_auth import BitmexAuth
-from hummingbot.connector.exchange.bitmex.bitmex_user_stream_data_source import \
-    BitmexUserStreamDataSource
+from hummingbot.connector.exchange.bitmex.bitmex_user_stream_data_source import BitmexUserStreamDataSource
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
-from hummingbot.core.data_type.user_stream_tracker_data_source import \
-    UserStreamTrackerDataSource
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.web_assistant.web_assistants_factory import \
-    WebAssistantsFactory
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 
 

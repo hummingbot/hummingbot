@@ -10,37 +10,34 @@ import hummingbot.connector.exchange.bitmex.bitmex_utils as utils
 import hummingbot.connector.exchange.bitmex.bitmex_web_utils as web_utils
 import hummingbot.connector.exchange.bitmex.constants as CONSTANTS
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange.bitmex.bitmex_api_order_book_data_source import \
-    BitmexAPIOrderBookDataSource
+from hummingbot.connector.exchange.bitmex.bitmex_api_order_book_data_source import BitmexAPIOrderBookDataSource
 from hummingbot.connector.exchange.bitmex.bitmex_auth import BitmexAuth
-from hummingbot.connector.exchange.bitmex.bitmex_in_flight_order import \
-    BitmexInFlightOrder
-from hummingbot.connector.exchange.bitmex.bitmex_order_book_tracker import \
-    BitmexOrderBookTracker
-from hummingbot.connector.exchange.bitmex.bitmex_user_stream_tracker import \
-    BitmexUserStreamTracker
+from hummingbot.connector.exchange.bitmex.bitmex_in_flight_order import BitmexInFlightOrder
+from hummingbot.connector.exchange.bitmex.bitmex_order_book_tracker import BitmexOrderBookTracker
+from hummingbot.connector.exchange.bitmex.bitmex_user_stream_tracker import BitmexUserStreamTracker
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import (combine_to_hb_trading_pair,
-                                        get_new_client_order_id)
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.trade_fee import (DeductedFromReturnsTradeFee,
-                                                 TradeFeeBase)
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TradeFeeBase
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.event_listener import EventListener
-from hummingbot.core.event.events import (BuyOrderCompletedEvent,
-                                          BuyOrderCreatedEvent, MarketEvent,
-                                          MarketOrderFailureEvent,
-                                          OrderCancelledEvent,
-                                          OrderFilledEvent,
-                                          SellOrderCompletedEvent,
-                                          SellOrderCreatedEvent)
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
@@ -433,10 +430,6 @@ class BitmexExchange(ExchangeBase):
             self._user_stream_event_listener_task = None
 
     async def _update_order_status(self):
-        # This is intended to be a backup measure to close straggler orders, in case ftx's user stream events
-        # are not capturing the updates as intended. Also handles filled events that are not captured by
-        # _user_stream_event_listener
-        # The poll interval for order status is 10 seconds.
         last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
         current_tick = int(self.current_timestamp / self.UPDATE_ORDERS_INTERVAL)
 
