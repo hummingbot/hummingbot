@@ -185,7 +185,7 @@ describe('Full Flow', () => {
   it('getTicker ["SOL/USDT"]', async () => {
     request = {
       ...commonParameters,
-      marketName: 'SRM/SOL',
+      marketName: marketName,
     };
     response = (await getTickers(request)).body;
     console.log('tickers', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
