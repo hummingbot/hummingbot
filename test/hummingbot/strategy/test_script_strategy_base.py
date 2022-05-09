@@ -155,6 +155,6 @@ class ScriptStrategyBaseTest(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 log_level="INFO",
-                message=f"({self.trading_pair}) Cancelling the limit order {order_id}."
+                message=f"({self.trading_pair}) Canceling the limit order {order_id}."
             )
         )
