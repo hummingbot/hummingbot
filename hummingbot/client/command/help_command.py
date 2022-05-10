@@ -16,4 +16,7 @@ class HelpCommand:
 
             for subparsers_action in subparsers_actions:
                 subparser = subparsers_action.choices.get(command)
-                self._notify(subparser.format_help())
+                try:
+                    self._notify(subparser.format_help())
+                except AttributeError:
+                    self._notify("Invalid help argument")
