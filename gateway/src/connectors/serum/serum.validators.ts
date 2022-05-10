@@ -13,7 +13,8 @@ import { OrderSide, OrderType } from './serum.types';
 
 export const validateOrderClientId: Validator = mkValidator(
   'id',
-  (value) => `Invalid client id (${value}), it needs to be in big number format.`,
+  (value) =>
+    `Invalid client id (${value}), it needs to be in big number format.`,
   (target) => isNaturalNumberString(target),
   true
 );
@@ -23,7 +24,9 @@ export const validateOrderClientIds: Validator = mkValidator(
   (_value) => `Invalid client ids, it needs to be an array of big numbers.`,
   (target) => {
     let ok = true;
-    target === undefined ? ok = true : target.map((item: any) => ok = isNaturalNumberString(item) && ok);
+    target === undefined
+      ? (ok = true)
+      : target.map((item: any) => (ok = isNaturalNumberString(item) && ok));
     return ok;
   },
   true
@@ -31,7 +34,8 @@ export const validateOrderClientIds: Validator = mkValidator(
 
 export const validateOrderExchangeId: Validator = mkValidator(
   'exchangeId',
-  (value) => `Invalid exchange id (${value}), it needs to be in big number format.`,
+  (value) =>
+    `Invalid exchange id (${value}), it needs to be in big number format.`,
   (target) => target === undefined || isNaturalNumberString(target),
   true
 );
@@ -41,7 +45,9 @@ export const validateOrderExchangeIds: Validator = mkValidator(
   (_value) => `Invalid client ids, it needs to be an array of big numbers.`,
   (target) => {
     let ok = true;
-    target === undefined ? ok = true : target.map((item: any) => ok = isNaturalNumberString(item) && ok);
+    target === undefined
+      ? (ok = true)
+      : target.map((item: any) => (ok = isNaturalNumberString(item) && ok));
     return ok;
   },
   true
@@ -59,7 +65,9 @@ export const validateOrderMarketNames: Validator = mkValidator(
   (_value) => `Invalid market names, it needs to be an array of strings.`,
   (target) => {
     let ok = true;
-    target === undefined ? ok = true : target.map((item: any) => ok = item.trim().length && ok);
+    target === undefined
+      ? (ok = true)
+      : target.map((item: any) => (ok = item.trim().length && ok));
     return ok;
   },
   true
@@ -75,7 +83,10 @@ export const validateOrderOwnerAddress: Validator = mkValidator(
 export const validateOrderSide: Validator = mkValidator(
   'side',
   (value) => `Invalid order side (${value}).`,
-  (target) => Object.values(OrderSide).map(i => i.toLowerCase()).includes(target.toLowerCase()),
+  (target) =>
+    Object.values(OrderSide)
+      .map((i) => i.toLowerCase())
+      .includes(target.toLowerCase()),
   false
 );
 
@@ -96,69 +107,99 @@ export const validateOrderAmount: Validator = mkValidator(
 export const validateOrderType: Validator = mkValidator(
   'type',
   (value) => `Invalid order type (${value}).`,
-  (target) => target === undefined ? true : Object.values(OrderType).map(item => item.toLowerCase()).includes(target.toLowerCase()),
+  (target) =>
+    target === undefined
+      ? true
+      : Object.values(OrderType)
+          .map((item) => item.toLowerCase())
+          .includes(target.toLowerCase()),
   true
 );
 
-export const validateGetMarketRequest: RequestValidator = mkRequestValidator([
-  mkValidator(
-    '',
-    (_request) => `No market was informed. If you want to get a market, please inform the parameter "name".`,
-    (request) => request.name,
-    false,
-    true
-  )
-], StatusCodes.BAD_REQUEST);
+export const validateGetMarketRequest: RequestValidator = mkRequestValidator(
+  [
+    mkValidator(
+      '',
+      (_request) =>
+        `No market was informed. If you want to get a market, please inform the parameter "name".`,
+      (request) => request.name,
+      false,
+      true
+    ),
+  ],
+  StatusCodes.BAD_REQUEST
+);
 
-export const validateGetMarketsRequest: RequestValidator = mkRequestValidator([
-  mkValidator(
-    '',
-    (_request) => `No markets were informed. If you want to get all markets, please do not inform the parameter "names".`,
-    (request) => request.names && request.names.length,
-    false,
-    true
-  )
-], StatusCodes.BAD_REQUEST);
+export const validateGetMarketsRequest: RequestValidator = mkRequestValidator(
+  [
+    mkValidator(
+      '',
+      (_request) =>
+        `No markets were informed. If you want to get all markets, please do not inform the parameter "names".`,
+      (request) => request.names && request.names.length,
+      false,
+      true
+    ),
+  ],
+  StatusCodes.BAD_REQUEST
+);
 
-export const validateGetOrderBookRequest: RequestValidator = mkRequestValidator([
-  mkValidator(
-    '',
-    (_request) => `No market name was informed. If you want to get an order book, please inform the parameter "marketName".`,
-    (request) => request.marketName,
-    false,
-    true
-  )
-], StatusCodes.BAD_REQUEST);
+export const validateGetOrderBookRequest: RequestValidator = mkRequestValidator(
+  [
+    mkValidator(
+      '',
+      (_request) =>
+        `No market name was informed. If you want to get an order book, please inform the parameter "marketName".`,
+      (request) => request.marketName,
+      false,
+      true
+    ),
+  ],
+  StatusCodes.BAD_REQUEST
+);
 
-export const validateGetOrderBooksRequest: RequestValidator = mkRequestValidator([
-  mkValidator(
-    '',
-    (_request) => `No market names were informed. If you want to get all order books, please do not inform the parameter "marketNames".`,
-    (request) => request.marketNames && request.marketNames.length,
-    false,
-    true
-  )
-], StatusCodes.BAD_REQUEST);
+export const validateGetOrderBooksRequest: RequestValidator =
+  mkRequestValidator(
+    [
+      mkValidator(
+        '',
+        (_request) =>
+          `No market names were informed. If you want to get all order books, please do not inform the parameter "marketNames".`,
+        (request) => request.marketNames && request.marketNames.length,
+        false,
+        true
+      ),
+    ],
+    StatusCodes.BAD_REQUEST
+  );
 
-export const validateGetTickerRequest: RequestValidator = mkRequestValidator([
-  mkValidator(
-    '',
-    (_request) => `No market name was informed. If you want to get a ticker, please inform the parameter "marketName".`,
-    (request) => request.marketName,
-    false,
-    true
-  )
-], StatusCodes.BAD_REQUEST);
+export const validateGetTickerRequest: RequestValidator = mkRequestValidator(
+  [
+    mkValidator(
+      '',
+      (_request) =>
+        `No market name was informed. If you want to get a ticker, please inform the parameter "marketName".`,
+      (request) => request.marketName,
+      false,
+      true
+    ),
+  ],
+  StatusCodes.BAD_REQUEST
+);
 
-export const validateGetTickersRequest: RequestValidator = mkRequestValidator([
-  mkValidator(
-    '',
-    (_request) => `No market names were informed. If you want to get all tickers, please do not inform the parameter "marketNames".`,
-    (request) => request.marketNames && request.marketNames.length,
-    false,
-    true
-  )
-], StatusCodes.BAD_REQUEST);
+export const validateGetTickersRequest: RequestValidator = mkRequestValidator(
+  [
+    mkValidator(
+      '',
+      (_request) =>
+        `No market names were informed. If you want to get all tickers, please do not inform the parameter "marketNames".`,
+      (request) => request.marketNames && request.marketNames.length,
+      false,
+      true
+    ),
+  ],
+  StatusCodes.BAD_REQUEST
+);
 
 export const validateGetOrderRequest: RequestValidator = mkRequestValidator(
   [
@@ -166,28 +207,32 @@ export const validateGetOrderRequest: RequestValidator = mkRequestValidator(
     validateOrderExchangeId,
     // validateOrderMarketName,
     validateOrderOwnerAddress,
-  ], StatusCodes.BAD_REQUEST,
+  ],
+  StatusCodes.BAD_REQUEST,
   (request) => `Error when trying to get order "${request.id}"`
 );
 
-export const validateGetOrdersRequest: RequestValidator = mkRequestValidator([
-  mkValidator(
-    '',
-    (_request) => `No orders were informed.`,
-    (request) => request && request.length,
-    false,
-    true
-  ),
-  mkBatchValidator(
-    [
-      validateOrderClientIds,
-      validateOrderExchangeIds,
-      // validateOrderMarketName,
-      validateOrderOwnerAddress,
-    ],
-    (_item, index) => `Invalid get orders request at position ${index}:`
-  )
-], StatusCodes.BAD_REQUEST);
+export const validateGetOrdersRequest: RequestValidator = mkRequestValidator(
+  [
+    mkValidator(
+      '',
+      (_request) => `No orders were informed.`,
+      (request) => request && request.length,
+      false,
+      true
+    ),
+    mkBatchValidator(
+      [
+        validateOrderClientIds,
+        validateOrderExchangeIds,
+        // validateOrderMarketName,
+        validateOrderOwnerAddress,
+      ],
+      (_item, index) => `Invalid get orders request at position ${index}:`
+    ),
+  ],
+  StatusCodes.BAD_REQUEST
+);
 
 export const validateCreateOrderRequest: RequestValidator = mkRequestValidator(
   [
@@ -197,32 +242,37 @@ export const validateCreateOrderRequest: RequestValidator = mkRequestValidator(
     validateOrderSide,
     validateOrderPrice,
     validateOrderAmount,
-    validateOrderType
-  ], StatusCodes.BAD_REQUEST,
+    validateOrderType,
+  ],
+  StatusCodes.BAD_REQUEST,
   (request) => `Error when trying to create order "${request.id}"`
 );
 
-export const validateCreateOrdersRequest: RequestValidator = mkRequestValidator([
-  mkValidator(
-    '',
-    (_request) => `No orders were informed.`,
-    (request) => request && request.length,
-    false,
-    true
-  ),
-  mkBatchValidator(
-    [
-      validateOrderClientId,
-      validateOrderMarketName,
-      validateOrderOwnerAddress,
-      validateOrderSide,
-      validateOrderPrice,
-      validateOrderAmount,
-      validateOrderType
-    ],
-    (item, index) => `Invalid create orders request at position ${index} with id / exchange id "${item.id} / ${item.exchangeId}":`
-  )
-], StatusCodes.BAD_REQUEST);
+export const validateCreateOrdersRequest: RequestValidator = mkRequestValidator(
+  [
+    mkValidator(
+      '',
+      (_request) => `No orders were informed.`,
+      (request) => request && request.length,
+      false,
+      true
+    ),
+    mkBatchValidator(
+      [
+        validateOrderClientId,
+        validateOrderMarketName,
+        validateOrderOwnerAddress,
+        validateOrderSide,
+        validateOrderPrice,
+        validateOrderAmount,
+        validateOrderType,
+      ],
+      (item, index) =>
+        `Invalid create orders request at position ${index} with id / exchange id "${item.id} / ${item.exchangeId}":`
+    ),
+  ],
+  StatusCodes.BAD_REQUEST
+);
 
 export const validateCancelOrderRequest: RequestValidator = mkRequestValidator(
   [
@@ -230,28 +280,32 @@ export const validateCancelOrderRequest: RequestValidator = mkRequestValidator(
     validateOrderExchangeId,
     validateOrderMarketName,
     validateOrderOwnerAddress,
-  ], StatusCodes.BAD_REQUEST,
+  ],
+  StatusCodes.BAD_REQUEST,
   (request) => `Error when trying to cancel order "${request.id}"`
 );
 
-export const validateCancelOrdersRequest: RequestValidator = mkRequestValidator([
-  mkValidator(
-    '',
-    (_request) => `No orders were informed.`,
-    (request) => request && request.length,
-    false,
-    true
-  ),
-  mkBatchValidator(
-    [
-      validateOrderClientIds,
-      validateOrderExchangeIds,
-      validateOrderMarketName,
-      validateOrderOwnerAddress,
-    ],
-    (_item, index) => `Invalid cancel orders request at position ${index}:`
-  )
-], StatusCodes.BAD_REQUEST);
+export const validateCancelOrdersRequest: RequestValidator = mkRequestValidator(
+  [
+    mkValidator(
+      '',
+      (_request) => `No orders were informed.`,
+      (request) => request && request.length,
+      false,
+      true
+    ),
+    mkBatchValidator(
+      [
+        validateOrderClientIds,
+        validateOrderExchangeIds,
+        validateOrderMarketName,
+        validateOrderOwnerAddress,
+      ],
+      (_item, index) => `Invalid cancel orders request at position ${index}:`
+    ),
+  ],
+  StatusCodes.BAD_REQUEST
+);
 
 export const validateGetOpenOrderRequest: RequestValidator = mkRequestValidator(
   [
@@ -259,96 +313,116 @@ export const validateGetOpenOrderRequest: RequestValidator = mkRequestValidator(
     validateOrderExchangeId,
     // validateOrderMarketName,
     validateOrderOwnerAddress,
-  ], StatusCodes.BAD_REQUEST,
+  ],
+  StatusCodes.BAD_REQUEST,
   (request) => `Error when trying to get open order "${request.id}"`
 );
 
-export const validateGetOpenOrdersRequest: RequestValidator = mkRequestValidator([
-  mkValidator(
-    '',
-    (_request) => `No orders were informed.`,
-    (request) => request && request.length,
-    false,
-    true
-  ),
-  mkBatchValidator(
+export const validateGetOpenOrdersRequest: RequestValidator =
+  mkRequestValidator(
     [
-      validateOrderClientIds,
-      validateOrderExchangeIds,
-      // validateOrderMarketName,
-      validateOrderOwnerAddress,
+      mkValidator(
+        '',
+        (_request) => `No orders were informed.`,
+        (request) => request && request.length,
+        false,
+        true
+      ),
+      mkBatchValidator(
+        [
+          validateOrderClientIds,
+          validateOrderExchangeIds,
+          // validateOrderMarketName,
+          validateOrderOwnerAddress,
+        ],
+        (_item, index) =>
+          `Invalid get open orders request at position ${index}:`
+      ),
     ],
-    (_item, index) => `Invalid get open orders request at position ${index}:`
-  )
-], StatusCodes.BAD_REQUEST);
+    StatusCodes.BAD_REQUEST
+  );
 
-export const validateCancelOpenOrderRequest: RequestValidator = mkRequestValidator(
-  [
-    validateOrderClientId,
-    validateOrderExchangeId,
-    validateOrderMarketName,
-    validateOrderOwnerAddress,
-  ], StatusCodes.BAD_REQUEST,
-  (request) => `Error when trying to cancel open order "${request.id}"`
-);
-
-export const validateCancelOpenOrdersRequest: RequestValidator = mkRequestValidator([
-  mkValidator(
-    '',
-    (_request) => `No orders were informed.`,
-    (request) => request && request.length,
-    false,
-    true
-  ),
-  mkBatchValidator(
+export const validateCancelOpenOrderRequest: RequestValidator =
+  mkRequestValidator(
     [
-      validateOrderClientIds,
-      validateOrderExchangeIds,
+      validateOrderClientId,
+      validateOrderExchangeId,
       validateOrderMarketName,
       validateOrderOwnerAddress,
     ],
-    (_item, index) => `Invalid cancel open orders request at position ${index}:`
-  )
-], StatusCodes.BAD_REQUEST);
+    StatusCodes.BAD_REQUEST,
+    (request) => `Error when trying to cancel open order "${request.id}"`
+  );
 
-export const validateGetFilledOrderRequest: RequestValidator = mkRequestValidator(
-  [
-    validateOrderClientId,
-    validateOrderExchangeId,
-    // validateOrderMarketName,
-    validateOrderOwnerAddress,
-  ], StatusCodes.BAD_REQUEST,
-  (request) => `Error when trying to get filled order "${request.id}"`
-);
-
-export const validateGetFilledOrdersRequest: RequestValidator = mkRequestValidator([
-  mkValidator(
-    '',
-    (_request) => `No orders were informed.`,
-    (request) => request && request.length,
-    false,
-    true
-  ),
-  mkBatchValidator(
+export const validateCancelOpenOrdersRequest: RequestValidator =
+  mkRequestValidator(
     [
-      validateOrderClientIds,
-      validateOrderExchangeIds,
+      mkValidator(
+        '',
+        (_request) => `No orders were informed.`,
+        (request) => request && request.length,
+        false,
+        true
+      ),
+      mkBatchValidator(
+        [
+          validateOrderClientIds,
+          validateOrderExchangeIds,
+          validateOrderMarketName,
+          validateOrderOwnerAddress,
+        ],
+        (_item, index) =>
+          `Invalid cancel open orders request at position ${index}:`
+      ),
+    ],
+    StatusCodes.BAD_REQUEST
+  );
+
+export const validateGetFilledOrderRequest: RequestValidator =
+  mkRequestValidator(
+    [
+      validateOrderClientId,
+      validateOrderExchangeId,
       // validateOrderMarketName,
       validateOrderOwnerAddress,
     ],
-    (_item, index) => `Invalid get filled orders request at position ${index}:`
-  )
-], StatusCodes.BAD_REQUEST);
+    StatusCodes.BAD_REQUEST,
+    (request) => `Error when trying to get filled order "${request.id}"`
+  );
+
+export const validateGetFilledOrdersRequest: RequestValidator =
+  mkRequestValidator(
+    [
+      mkValidator(
+        '',
+        (_request) => `No orders were informed.`,
+        (request) => request && request.length,
+        false,
+        true
+      ),
+      mkBatchValidator(
+        [
+          validateOrderClientIds,
+          validateOrderExchangeIds,
+          // validateOrderMarketName,
+          validateOrderOwnerAddress,
+        ],
+        (_item, index) =>
+          `Invalid get filled orders request at position ${index}:`
+      ),
+    ],
+    StatusCodes.BAD_REQUEST
+  );
 
 export const validateSettleFundsRequest: RequestValidator = mkRequestValidator(
-  [
-    validateOrderMarketName,
-    validateOrderOwnerAddress,
-  ], StatusCodes.BAD_REQUEST,
-  (request) => `Error when trying to settle funds for market "${request.marketName}."`
+  [validateOrderMarketName, validateOrderOwnerAddress],
+  StatusCodes.BAD_REQUEST,
+  (request) =>
+    `Error when trying to settle funds for market "${request.marketName}."`
 );
 
-export const validateSettleFundsSeveralRequest: RequestValidator = mkRequestValidator([
-  validateOrderMarketNames,
-  validateOrderOwnerAddress,
-], StatusCodes.BAD_REQUEST);
+export const validateSettleFundsSeveralRequest: RequestValidator =
+  mkRequestValidator(
+    [validateOrderMarketNames, validateOrderOwnerAddress],
+    StatusCodes.BAD_REQUEST
+  );

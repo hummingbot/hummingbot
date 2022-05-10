@@ -1,10 +1,20 @@
 import web3 from 'web3';
 
+export const getNotNullOrThrowError = <R>(
+  value?: any,
+  errorMessage: string = 'Value is null or undefined'
+): R => {
+  if (!value) throw new Error(errorMessage);
+
+  return value as R;
+};
+
 /**
  *
  * @param milliseconds
  */
-export const sleep = (milliseconds: number) => new Promise(callback => setTimeout(callback, milliseconds));
+export const sleep = (milliseconds: number) =>
+  new Promise((callback) => setTimeout(callback, milliseconds));
 
 /**
  * Same as Promise.all(items.map(item => task(item))), but it waits for
@@ -18,13 +28,21 @@ export const sleep = (milliseconds: number) => new Promise(callback => setTimeou
  * @param {int} delayInMilliseconds Delay between each batch.
  * @returns {B[]}
  */
-export const promiseAllInBatches = async <I, O>(task: (item: I) => O, items: any[], batchSize: number, delayInMilliseconds: number = 0): Promise<O[]> => {
+export const promiseAllInBatches = async <I, O>(
+  task: (item: I) => O,
+  items: any[],
+  batchSize: number,
+  delayInMilliseconds: number = 0
+): Promise<O[]> => {
   let position = 0;
   let results: any[] = [];
 
   while (position < items.length) {
     const itemsForBatch = items.slice(position, position + batchSize);
-    results = [...results, ...await Promise.all(itemsForBatch.map(item => task(item)))];
+    results = [
+      ...results,
+      ...(await Promise.all(itemsForBatch.map((item) => task(item)))),
+    ];
     await sleep(delayInMilliseconds);
     position += batchSize;
   }
@@ -224,24 +242,24 @@ if (typeof JSON.retrocycle !== 'function') {
   };
 }
 
-// // @ts-ignore
-// JSON.originalStringify = JSON.stringify;
-//
-// // @ts-ignore
-// JSON.stringify = (value: any, replacer?: (this: any, key: string, value: any) => any, space?: string | number): string => {
-//   // @ts-ignore
-//   return JSON.originalStringify(JSON.decycle(value), replacer, space);
-// };
-//
-// // @ts-ignore
-// JSON.originalParse = JSON.parse;
-//
-// JSON.parse = (text: string, reviver?: (this: any, key: string, value: any) => any): any => {
-//   try {
-//     // @ts-ignore
-//     return JSON.originalParse(JSON.retrocycle(text), reviver);
-//   } catch (exception) {
-//     // TODO remove later!!!
-//     throw exception;
-//   }
-// };
+// @ts-ignore
+JSON.originalStringify = JSON.stringify;
+
+// @ts-ignore
+JSON.stringify = (value: any, replacer?: (this: any, key: string, value: any) => any, space?: string | number): string => {
+  // @ts-ignore
+  return JSON.originalStringify(JSON.decycle(value), replacer, space);
+};
+
+// @ts-ignore
+JSON.originalParse = JSON.parse;
+
+JSON.parse = (text: string, reviver?: (this: any, key: string, value: any) => any): any => {
+  try {
+    // @ts-ignore
+    return JSON.originalParse(JSON.retrocycle(text), reviver);
+  } catch (exception) {
+    // TODO remove later!!!
+    throw exception;
+  }
+};
