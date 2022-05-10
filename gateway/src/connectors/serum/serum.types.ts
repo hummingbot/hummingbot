@@ -1,9 +1,12 @@
-import { Market as SMarket, Orderbook as SOrderBook } from '@project-serum/serum';
+import {
+  Market as SMarket,
+  Orderbook as SOrderBook,
+} from '@project-serum/serum';
 import {
   MarketOptions as SMarketOptions,
   OpenOrders as SOpenOrders,
   Order as SOrder,
-  OrderParams as SOrderParams
+  OrderParams as SOrderParams,
 } from '@project-serum/serum/lib/market';
 import { PublicKey, TransactionSignature } from '@solana/web3.js';
 import BN from 'bn.js';
@@ -57,7 +60,7 @@ export enum OrderStatus {
 
 export enum OrderType {
   LIMIT = 'LIMIT',
-  IOC = 'IOC',// Immediate or Cancel
+  IOC = 'IOC', // Immediate or Cancel
   POST_ONLY = 'POST_ONLY',
 }
 
@@ -121,7 +124,7 @@ export interface Fee {
 //
 
 export type GetMarketsRequest =
-  {}
+  | Record<string, never>
   | { name: string }
   | { names: string[] };
 
@@ -136,10 +139,12 @@ export interface GetMarketResponse {
   fees: Fee;
 }
 
-export type GetMarketsResponse = IMap<string, GetMarketResponse> | GetMarketResponse;
+export type GetMarketsResponse =
+  | IMap<string, GetMarketResponse>
+  | GetMarketResponse;
 
 export type GetOrderBooksRequest =
-  {}
+  | Record<string, never>
   | { marketName: string }
   | { marketNames: string[] };
 
@@ -149,10 +154,12 @@ export interface GetOrderBookResponse {
   asks: Map<string, GetOrderResponse>;
 }
 
-export type GetOrderBooksResponse = IMap<string, GetOrderBookResponse> | GetOrderBookResponse;
+export type GetOrderBooksResponse =
+  | IMap<string, GetOrderBookResponse>
+  | GetOrderBookResponse;
 
 export type GetTickersRequest =
-  {}
+  | Record<string, never>
   | { marketName: string }
   | { marketNames: string[] };
 
@@ -161,7 +168,9 @@ export interface GetTickerResponse {
   timestamp: number;
 }
 
-export type GetTickersResponse = IMap<string, GetTickerResponse> | GetTickerResponse;
+export type GetTickersResponse =
+  | IMap<string, GetTickerResponse>
+  | GetTickerResponse;
 
 export interface GetOrderRequest {
   id?: string;
@@ -192,7 +201,7 @@ export interface GetOrderResponse {
 }
 
 export type GetOrdersResponse =
-  IMap<string, IMap<string, GetOrderResponse>>
+  | IMap<string, IMap<string, GetOrderResponse>>
   | IMap<string, GetOrderResponse>
   | GetOrderResponse;
 
@@ -220,7 +229,9 @@ export interface CreateOrderResponse {
   fee?: number;
 }
 
-export type CreateOrdersResponse = IMap<string, CreateOrderResponse> | CreateOrderResponse;
+export type CreateOrdersResponse =
+  | IMap<string, CreateOrderResponse>
+  | CreateOrderResponse;
 
 export interface CancelOrderRequest {
   id?: string;
@@ -249,7 +260,9 @@ export interface CancelOrderResponse {
   fee?: number;
 }
 
-export type CancelOrdersResponse = IMap<string, CancelOrderResponse> | CancelOrderResponse;
+export type CancelOrdersResponse =
+  | IMap<string, CancelOrderResponse>
+  | CancelOrderResponse;
 
 export interface GetOpenOrderRequest {
   id?: string;
@@ -279,7 +292,7 @@ export interface GetOpenOrderResponse {
 }
 
 export type GetOpenOrdersResponse =
-  IMap<string, IMap<string, GetOpenOrderResponse>>
+  | IMap<string, IMap<string, GetOpenOrderResponse>>
   | IMap<string, GetOpenOrderResponse>
   | GetOpenOrderResponse;
 
@@ -311,7 +324,7 @@ export interface CancelOpenOrderResponse {
 }
 
 export type CancelOpenOrdersResponse =
-  IMap<string, IMap<string, CancelOpenOrderResponse>>
+  | IMap<string, IMap<string, CancelOpenOrderResponse>>
   | IMap<string, CancelOpenOrderResponse>
   | CancelOpenOrderResponse;
 
@@ -344,34 +357,31 @@ export interface GetFilledOrderResponse {
 }
 
 export type GetFilledOrdersResponse =
-  IMap<string, IMap<string, GetFilledOrderResponse>>
+  | IMap<string, IMap<string, GetFilledOrderResponse>>
   | IMap<string, GetFilledOrderResponse>
   | GetFilledOrderResponse;
 
 export type PostSettleFundsRequest =
-  { ownerAddress: string }
-  | { marketName: string, ownerAddress: string }
-  | { marketNames: string[], ownerAddress: string };
+  | { ownerAddress: string }
+  | { marketName: string; ownerAddress: string }
+  | { marketNames: string[]; ownerAddress: string };
 
 export type PostSettleFundResponse = Fund[];
 
-export type PostSettleFundsResponse = IMap<string, PostSettleFundResponse> | PostSettleFundResponse;
+export type PostSettleFundsResponse =
+  | IMap<string, PostSettleFundResponse>
+  | PostSettleFundResponse;
 
 //
 //  Errors
 //
 
-export class SerumishError extends Error {
-}
+export class SerumishError extends Error {}
 
-export class MarketNotFoundError extends SerumishError {
-}
+export class MarketNotFoundError extends SerumishError {}
 
-export class TickerNotFoundError extends SerumishError {
-}
+export class TickerNotFoundError extends SerumishError {}
 
-export class OrderNotFoundError extends SerumishError {
-}
+export class OrderNotFoundError extends SerumishError {}
 
-export class FundsSettlementError extends SerumishError {
-}
+export class FundsSettlementError extends SerumishError {}

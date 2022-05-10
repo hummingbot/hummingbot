@@ -26,7 +26,16 @@ import {
   SerumPostSettleFundsRequest,
   SerumPostSettleFundsResponse,
 } from './serum.requests';
-import { Fund, IMap, Market, MarketNotFoundError, Order, OrderBook, OrderNotFoundError, Ticker } from './serum.types';
+import {
+  Fund,
+  IMap,
+  Market,
+  MarketNotFoundError,
+  Order,
+  OrderBook,
+  OrderNotFoundError,
+  Ticker,
+} from './serum.types';
 import {
   validateCancelOpenOrderRequest,
   validateCancelOpenOrdersRequest,
@@ -47,7 +56,7 @@ import {
   validateGetTickerRequest,
   validateGetTickersRequest,
   validateSettleFundsRequest,
-  validateSettleFundsSeveralRequest
+  validateSettleFundsSeveralRequest,
 } from './serum.validators';
 
 /**
@@ -68,17 +77,19 @@ export async function getMarkets(
     validateGetMarketRequest(request);
 
     try {
-      response.body = convertToJsonIfNeeded(convert<Market, SerumGetMarketsResponse>(await serum.getMarket(request.name), Types.GetMarketsResponse));
+      response.body = convertToJsonIfNeeded(
+        convert<Market, SerumGetMarketsResponse>(
+          await serum.getMarket(request.name),
+          Types.GetMarketsResponse
+        )
+      );
 
       response.status = StatusCodes.OK;
 
       return response;
     } catch (exception) {
       if (exception instanceof MarketNotFoundError) {
-        throw new HttpException(
-          StatusCodes.NOT_FOUND,
-          exception.message
-        );
+        throw new HttpException(StatusCodes.NOT_FOUND, exception.message);
       } else {
         throw exception;
       }
@@ -89,7 +100,12 @@ export async function getMarkets(
     validateGetMarketsRequest(request);
 
     try {
-      response.body = convertToJsonIfNeeded(convert<IMap<string, Market>, SerumGetMarketsResponse>(await serum.getMarkets(request.names), Types.GetMarketsResponse));
+      response.body = convertToJsonIfNeeded(
+        convert<IMap<string, Market>, SerumGetMarketsResponse>(
+          await serum.getMarkets(request.names),
+          Types.GetMarketsResponse
+        )
+      );
 
       response.status = StatusCodes.OK;
 
@@ -103,7 +119,12 @@ export async function getMarkets(
     }
   }
 
-  response.body = convertToJsonIfNeeded(convert<IMap<string, Market>, SerumGetMarketsResponse>(await serum.getAllMarkets(), Types.GetMarketsResponse));
+  response.body = convertToJsonIfNeeded(
+    convert<IMap<string, Market>, SerumGetMarketsResponse>(
+      await serum.getAllMarkets(),
+      Types.GetMarketsResponse
+    )
+  );
 
   response.status = StatusCodes.OK;
 
@@ -128,7 +149,12 @@ export async function getOrderBooks(
     validateGetOrderBookRequest(request);
 
     try {
-      response.body = convertToJsonIfNeeded(convert<OrderBook, SerumGetOrderBooksResponse>(await serum.getOrderBook(request.marketName), Types.GetOrderBooksResponse));
+      response.body = convertToJsonIfNeeded(
+        convert<OrderBook, SerumGetOrderBooksResponse>(
+          await serum.getOrderBook(request.marketName),
+          Types.GetOrderBooksResponse
+        )
+      );
 
       response.status = StatusCodes.OK;
 
@@ -146,7 +172,12 @@ export async function getOrderBooks(
     validateGetOrderBooksRequest(request);
 
     try {
-      response.body = convertToJsonIfNeeded(convert<IMap<string, OrderBook>, SerumGetOrderBooksResponse>(await serum.getOrderBooks(request.marketNames), Types.GetOrderBooksResponse));
+      response.body = convertToJsonIfNeeded(
+        convert<IMap<string, OrderBook>, SerumGetOrderBooksResponse>(
+          await serum.getOrderBooks(request.marketNames),
+          Types.GetOrderBooksResponse
+        )
+      );
 
       response.status = StatusCodes.OK;
 
@@ -160,7 +191,12 @@ export async function getOrderBooks(
     }
   }
 
-  response.body = convertToJsonIfNeeded(convert<IMap<string, OrderBook>, SerumGetOrderBooksResponse>(await serum.getAllOrderBooks(), Types.GetOrderBooksResponse));
+  response.body = convertToJsonIfNeeded(
+    convert<IMap<string, OrderBook>, SerumGetOrderBooksResponse>(
+      await serum.getAllOrderBooks(),
+      Types.GetOrderBooksResponse
+    )
+  );
 
   response.status = StatusCodes.OK;
 
@@ -185,7 +221,12 @@ export async function getTickers(
     validateGetTickerRequest(request);
 
     try {
-      response.body = convertToJsonIfNeeded(convert<Ticker, SerumGetTickersResponse>(await serum.getTicker(request.marketName), Types.GetTickersResponse));
+      response.body = convertToJsonIfNeeded(
+        convert<Ticker, SerumGetTickersResponse>(
+          await serum.getTicker(request.marketName),
+          Types.GetTickersResponse
+        )
+      );
 
       response.status = StatusCodes.OK;
 
@@ -203,7 +244,12 @@ export async function getTickers(
     validateGetTickersRequest(request);
 
     try {
-      response.body = convertToJsonIfNeeded(convert<IMap<string, Ticker>, SerumGetTickersResponse>(await serum.getTickers(request.marketNames), Types.GetTickersResponse));
+      response.body = convertToJsonIfNeeded(
+        convert<IMap<string, Ticker>, SerumGetTickersResponse>(
+          await serum.getTickers(request.marketNames),
+          Types.GetTickersResponse
+        )
+      );
 
       response.status = StatusCodes.OK;
 
@@ -217,7 +263,12 @@ export async function getTickers(
     }
   }
 
-  response.body = convertToJsonIfNeeded(convert<IMap<string, Ticker>, SerumGetTickersResponse>(await serum.getAllTickers(), Types.GetTickersResponse));
+  response.body = convertToJsonIfNeeded(
+    convert<IMap<string, Ticker>, SerumGetTickersResponse>(
+      await serum.getAllTickers(),
+      Types.GetTickersResponse
+    )
+  );
 
   response.status = StatusCodes.OK;
 
@@ -242,7 +293,12 @@ export async function getOrders(
     validateGetOrderRequest(request.order);
 
     try {
-      response.body = convertToJsonIfNeeded(convert<Order, SerumGetOrdersResponse>(await serum.getOrder(request.order), Types.GetOrdersResponse));
+      response.body = convertToJsonIfNeeded(
+        convert<Order, SerumGetOrdersResponse>(
+          await serum.getOrder(request.order),
+          Types.GetOrdersResponse
+        )
+      );
 
       response.status = StatusCodes.OK;
 
@@ -260,7 +316,12 @@ export async function getOrders(
     validateGetOrdersRequest(request.orders);
 
     try {
-      response.body = convertToJsonIfNeeded(convert<IMap<string, Order>, SerumGetOrdersResponse>(await serum.getOrders(request.orders), Types.GetOrdersResponse));
+      response.body = convertToJsonIfNeeded(
+        convert<IMap<string, Order>, SerumGetOrdersResponse>(
+          await serum.getOrders(request.orders),
+          Types.GetOrdersResponse
+        )
+      );
 
       response.status = StatusCodes.OK;
 
@@ -274,7 +335,12 @@ export async function getOrders(
     }
   }
 
-  response.body = convertToJsonIfNeeded(convert<IMap<string, IMap<string, Order>>, SerumGetOrdersResponse>(await serum.getAllOrders(request.ownerAddress), Types.GetFilledOrdersResponse));
+  response.body = convertToJsonIfNeeded(
+    convert<IMap<string, IMap<string, Order>>, SerumGetOrdersResponse>(
+      await serum.getAllOrders(request.ownerAddress),
+      Types.GetFilledOrdersResponse
+    )
+  );
 
   response.status = StatusCodes.OK;
 
@@ -298,7 +364,12 @@ export async function createOrders(
   if ('order' in request) {
     validateCreateOrderRequest(request.order);
 
-    response.body = convertToJsonIfNeeded(convert<Order, SerumCreateOrdersResponse>(await serum.createOrder(request.order), Types.CreateOrdersResponse));
+    response.body = convertToJsonIfNeeded(
+      convert<Order, SerumCreateOrdersResponse>(
+        await serum.createOrder(request.order),
+        Types.CreateOrdersResponse
+      )
+    );
 
     response.status = StatusCodes.OK;
 
@@ -308,7 +379,12 @@ export async function createOrders(
   if ('orders' in request) {
     validateCreateOrdersRequest(request.orders);
 
-    response.body = convertToJsonIfNeeded(convert<IMap<string, Order>, SerumCreateOrdersResponse>(await serum.createOrders(request.orders), Types.CreateOrdersResponse));
+    response.body = convertToJsonIfNeeded(
+      convert<IMap<string, Order>, SerumCreateOrdersResponse>(
+        await serum.createOrders(request.orders),
+        Types.CreateOrdersResponse
+      )
+    );
 
     response.status = StatusCodes.OK;
 
@@ -338,7 +414,12 @@ export async function cancelOrders(
   if ('order' in request) {
     validateCancelOrderRequest(request.order);
 
-    response.body = convertToJsonIfNeeded(convert<Order, SerumCancelOrdersResponse>(await serum.cancelOrder(request.order), Types.CancelOrdersResponse));
+    response.body = convertToJsonIfNeeded(
+      convert<Order, SerumCancelOrdersResponse>(
+        await serum.cancelOrder(request.order),
+        Types.CancelOrdersResponse
+      )
+    );
 
     response.status = StatusCodes.OK;
 
@@ -348,14 +429,24 @@ export async function cancelOrders(
   if ('orders' in request) {
     validateCancelOrdersRequest(request.orders);
 
-    response.body = convertToJsonIfNeeded(convert<IMap<string, Order>, SerumCancelOrdersResponse>(await serum.cancelOrders(request.orders), Types.CancelOrdersResponse));
+    response.body = convertToJsonIfNeeded(
+      convert<IMap<string, Order>, SerumCancelOrdersResponse>(
+        await serum.cancelOrders(request.orders),
+        Types.CancelOrdersResponse
+      )
+    );
 
     response.status = StatusCodes.OK;
 
     return response;
   }
 
-  response.body = convertToJsonIfNeeded(convert<IMap<string, Order>, SerumCancelOrdersResponse>(await serum.cancelAllOpenOrders(request.ownerAddress), Types.CancelOpenOrdersResponse));
+  response.body = convertToJsonIfNeeded(
+    convert<IMap<string, Order>, SerumCancelOrdersResponse>(
+      await serum.cancelAllOpenOrders(request.ownerAddress),
+      Types.CancelOpenOrdersResponse
+    )
+  );
 
   response.status = StatusCodes.OK;
 
@@ -380,7 +471,12 @@ export async function getOpenOrders(
     validateGetOpenOrderRequest(request.order);
 
     try {
-      response.body = convertToJsonIfNeeded(convert<Order, SerumGetOpenOrdersResponse>(await serum.getOpenOrder(request.order), Types.GetOpenOrdersResponse));
+      response.body = convertToJsonIfNeeded(
+        convert<Order, SerumGetOpenOrdersResponse>(
+          await serum.getOpenOrder(request.order),
+          Types.GetOpenOrdersResponse
+        )
+      );
 
       response.status = StatusCodes.OK;
 
@@ -398,7 +494,12 @@ export async function getOpenOrders(
     validateGetOpenOrdersRequest(request.orders);
 
     try {
-      response.body = convertToJsonIfNeeded(convert<IMap<string, Order>, SerumGetOpenOrdersResponse>(await serum.getOpenOrders(request.orders), Types.GetOpenOrdersResponse));
+      response.body = convertToJsonIfNeeded(
+        convert<IMap<string, Order>, SerumGetOpenOrdersResponse>(
+          await serum.getOpenOrders(request.orders),
+          Types.GetOpenOrdersResponse
+        )
+      );
 
       response.status = StatusCodes.OK;
 
@@ -412,7 +513,12 @@ export async function getOpenOrders(
     }
   }
 
-  response.body = convertToJsonIfNeeded(convert<IMap<string, IMap<string, Order>>, SerumGetOpenOrdersResponse>(await serum.getAllOpenOrders(request.ownerAddress), Types.GetOpenOrdersResponse));
+  response.body = convertToJsonIfNeeded(
+    convert<IMap<string, IMap<string, Order>>, SerumGetOpenOrdersResponse>(
+      await serum.getAllOpenOrders(request.ownerAddress),
+      Types.GetOpenOrdersResponse
+    )
+  );
 
   response.status = StatusCodes.OK;
 
@@ -436,7 +542,12 @@ export async function cancelOpenOrders(
   if ('order' in request) {
     validateCancelOpenOrderRequest(request.order);
 
-    response.body = convertToJsonIfNeeded(convert<Order, SerumCancelOpenOrdersResponse>(await serum.cancelOrder(request.order), Types.CancelOpenOrdersResponse));
+    response.body = convertToJsonIfNeeded(
+      convert<Order, SerumCancelOpenOrdersResponse>(
+        await serum.cancelOrder(request.order),
+        Types.CancelOpenOrdersResponse
+      )
+    );
 
     response.status = StatusCodes.OK;
 
@@ -446,14 +557,24 @@ export async function cancelOpenOrders(
   if ('orders' in request) {
     validateCancelOpenOrdersRequest(request.orders);
 
-    response.body = convertToJsonIfNeeded(convert<IMap<string, Order>, SerumCancelOpenOrdersResponse>(await serum.cancelOrders(request.orders), Types.CancelOpenOrdersResponse));
+    response.body = convertToJsonIfNeeded(
+      convert<IMap<string, Order>, SerumCancelOpenOrdersResponse>(
+        await serum.cancelOrders(request.orders),
+        Types.CancelOpenOrdersResponse
+      )
+    );
 
     response.status = StatusCodes.OK;
 
     return response;
   }
 
-  response.body = convertToJsonIfNeeded(convert<IMap<string, Order>, SerumCancelOpenOrdersResponse>(await serum.cancelAllOpenOrders(request.ownerAddress), Types.CancelOpenOrdersResponse));
+  response.body = convertToJsonIfNeeded(
+    convert<IMap<string, Order>, SerumCancelOpenOrdersResponse>(
+      await serum.cancelAllOpenOrders(request.ownerAddress),
+      Types.CancelOpenOrdersResponse
+    )
+  );
 
   response.status = StatusCodes.OK;
 
@@ -478,7 +599,12 @@ export async function getFilledOrders(
     validateGetFilledOrderRequest(request.order);
 
     try {
-      response.body = convertToJsonIfNeeded(convert<Order, SerumGetFilledOrdersResponse>(await serum.getFilledOrder(request.order), Types.GetFilledOrdersResponse));
+      response.body = convertToJsonIfNeeded(
+        convert<Order, SerumGetFilledOrdersResponse>(
+          await serum.getFilledOrder(request.order),
+          Types.GetFilledOrdersResponse
+        )
+      );
 
       response.status = StatusCodes.OK;
 
@@ -496,7 +622,12 @@ export async function getFilledOrders(
     validateGetFilledOrdersRequest(request.orders);
 
     try {
-      response.body = convertToJsonIfNeeded(convert<IMap<string, Order>, SerumGetFilledOrdersResponse>(await serum.getFilledOrders(request.orders), Types.GetFilledOrdersResponse));
+      response.body = convertToJsonIfNeeded(
+        convert<IMap<string, Order>, SerumGetFilledOrdersResponse>(
+          await serum.getFilledOrders(request.orders),
+          Types.GetFilledOrdersResponse
+        )
+      );
 
       response.status = StatusCodes.OK;
 
@@ -510,7 +641,12 @@ export async function getFilledOrders(
     }
   }
 
-  response.body = convertToJsonIfNeeded(convert<IMap<string, IMap<string, Order>>, SerumGetFilledOrdersResponse>(await serum.getAllFilledOrders(), Types.GetFilledOrdersResponse));
+  response.body = convertToJsonIfNeeded(
+    convert<IMap<string, IMap<string, Order>>, SerumGetFilledOrdersResponse>(
+      await serum.getAllFilledOrders(),
+      Types.GetFilledOrdersResponse
+    )
+  );
 
   response.status = StatusCodes.OK;
 
@@ -535,7 +671,15 @@ export async function settleFunds(
     validateSettleFundsRequest(request);
 
     try {
-      response.body = convertToJsonIfNeeded(convert<Fund[], SerumPostSettleFundsResponse>(await serum.settleFundsForMarket(request.marketName, request.ownerAddress), Types.PostSettleFundsResponse));
+      response.body = convertToJsonIfNeeded(
+        convert<Fund[], SerumPostSettleFundsResponse>(
+          await serum.settleFundsForMarket(
+            request.marketName,
+            request.ownerAddress
+          ),
+          Types.PostSettleFundsResponse
+        )
+      );
 
       response.status = StatusCodes.OK;
 
@@ -553,7 +697,15 @@ export async function settleFunds(
     validateSettleFundsSeveralRequest(request);
 
     try {
-      response.body = convertToJsonIfNeeded(convert<IMap<string, Fund[]>, SerumPostSettleFundsResponse>(await serum.settleFundsForMarkets(request.marketNames, request.ownerAddress), Types.PostSettleFundsResponse));
+      response.body = convertToJsonIfNeeded(
+        convert<IMap<string, Fund[]>, SerumPostSettleFundsResponse>(
+          await serum.settleFundsForMarkets(
+            request.marketNames,
+            request.ownerAddress
+          ),
+          Types.PostSettleFundsResponse
+        )
+      );
 
       response.status = StatusCodes.OK;
 
@@ -567,7 +719,12 @@ export async function settleFunds(
     }
   }
 
-  response.body = convertToJsonIfNeeded(convert<IMap<string, Fund[]>, SerumPostSettleFundsResponse>(await serum.settleAllFunds(request.ownerAddress), Types.PostSettleFundsResponse));
+  response.body = convertToJsonIfNeeded(
+    convert<IMap<string, Fund[]>, SerumPostSettleFundsResponse>(
+      await serum.settleAllFunds(request.ownerAddress),
+      Types.PostSettleFundsResponse
+    )
+  );
 
   response.status = StatusCodes.OK;
 

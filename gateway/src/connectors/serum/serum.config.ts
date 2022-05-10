@@ -42,6 +42,6 @@ export function getSerumConfig(network: string): SerumConfig.Config {
     tickers: {
       source: configManager.get(`${prefix}.tickers.source`),
       url: configManager.get(`${prefix}.tickers.url`),
-    }
+    },
   };
 }

@@ -1,3 +1,4 @@
+import { getNotNullOrThrowError } from './serum.helpers';
 import {
   BasicSerumMarket,
   CancelOpenOrderResponse,
@@ -32,7 +33,7 @@ import {
   SerumOrder,
   SerumOrderBook,
   SerumOrderParams,
-  Ticker
+  Ticker,
 } from './serum.types';
 
 export enum Types {
@@ -48,33 +49,21 @@ export enum Types {
   PostSettleFundsResponse = 'PostSettleFundsResponse',
 }
 
-type SingleInput =
-  Market
-  | OrderBook
-  | Ticker
-  | Order
-  | Fund[]
-  ;
+type SingleInput = Market | OrderBook | Ticker | Order | Fund[];
 
 type InputMap =
-  IMap<string, Market>
+  | IMap<string, Market>
   | IMap<string, OrderBook>
   | IMap<string, Ticker>
   | IMap<string, Order>
-  | IMap<string, Fund[]>
-  ;
+  | IMap<string, Fund[]>;
 
-type InputMapMap =
-  IMap<string, InputMap>
+type InputMapMap = IMap<string, InputMap>;
 
-type Input =
-  SingleInput
-  | InputMap
-  | InputMapMap
-  ;
+type Input = SingleInput | InputMap | InputMapMap;
 
 type SingleOutput =
-  GetMarketsResponse
+  | GetMarketsResponse
   | GetOrderBooksResponse
   | GetTickersResponse
   | GetOrdersResponse
@@ -83,30 +72,24 @@ type SingleOutput =
   | GetOpenOrdersResponse
   | CancelOpenOrdersResponse
   | GetFilledOrdersResponse
-  | PostSettleFundsResponse
-  ;
+  | PostSettleFundsResponse;
 
-type Output =
-  SingleOutput
-  ;
+type Output = SingleOutput;
 
-export const convert =
-  <I extends Input,
-    O extends Output>(
-    input: I,
-    type: Types
-  ):
-    O => {
-    if (IMap.isMap(input)) {
-      if (IMap.isMap(input.first())) {
-        return convertMapMap(input as InputMapMap, type);
-      }
-
-      return convertMap(input as InputMap, type);
+export const convert = <I extends Input, O extends Output>(
+  input: I,
+  type: Types
+): O => {
+  if (IMap.isMap(input)) {
+    if (IMap.isMap(input.first())) {
+      return convertMapMap(input as InputMapMap, type);
     }
 
-    return convertSingle<O>(input as SingleInput, type);
-  };
+    return convertMap(input as InputMap, type);
+  }
+
+  return convertSingle<O>(input as SingleInput, type);
+};
 
 export const convertMapMap = <O extends Output>(
   input: InputMapMap,
@@ -140,7 +123,10 @@ export const convertMap = <O extends Output>(
   return output as unknown as O;
 };
 
-export const convertSingle = <O extends Output>(input: SingleInput, type: Types): O => {
+export const convertSingle = <O extends Output>(
+  input: SingleInput,
+  type: Types
+): O => {
   if (type === Types.GetMarketsResponse)
     return convertToGetMarketResponse(input as Market) as O;
 
@@ -182,7 +168,7 @@ export const convertToJsonIfNeeded = (input: any): any => {
 
 export const convertSerumMarketToMarket = (
   market: SerumMarket,
-  extraInfo: Record<string, unknown> | BasicSerumMarket,
+  extraInfo: Record<string, unknown> | BasicSerumMarket
 ): Market => {
   return {
     name: extraInfo.name,
@@ -193,7 +179,7 @@ export const convertSerumMarketToMarket = (
     tickSize: market.tickSize,
     minimumBaseIncrement: market.decoded.baseLotSize,
     fees: market.decoded.fee,
-    market: market
+    market: market,
   } as Market;
 };
 
@@ -217,7 +203,7 @@ export const convertArrayOfSerumOrdersToMapOfOrders = (
   market: Market,
   orders: SerumOrder[] | SerumOrderBook | any[],
   ownerAddress?: string,
-  status?: OrderStatus,
+  status?: OrderStatus
 ): IMap<string, Order> => {
   const result = IMap<string, Order>().asMutable();
 
@@ -245,7 +231,7 @@ export const convertToTicker = (input: any): Ticker => {
   return {
     price: price,
     timestamp: timestamp,
-    ticker: input
+    ticker: input,
   };
 };
 
@@ -256,25 +242,39 @@ export const convertSerumOrderToOrder = (
   orderParameters?: SerumOrderParams<any>,
   ownerAddress?: string,
   status?: OrderStatus,
-  signature?: string,
+  signature?: string
 ): Order => {
   return {
     id: order?.clientId?.toString() || candidate?.id || undefined,
     exchangeId: order?.orderId.toString() || undefined, // TODO check the possibility to retrieve the exchange id from a new order.
     marketName: market.name,
     ownerAddress: ownerAddress || candidate?.ownerAddress,
-    price: order?.price || candidate!.price,
-    amount: order?.size || candidate!.amount,
-    side: order ? convertSerumSideToOrderSide(order.side) : candidate!.side,
+    price: getNotNullOrThrowError(
+      order?.price || candidate?.price,
+      'Price is not defined.'
+    ),
+    amount: getNotNullOrThrowError(
+      order?.size || candidate?.amount,
+      'Amount is not defined.'
+    ),
+    side: getNotNullOrThrowError(
+      order ? convertSerumSideToOrderSide(order.side) : candidate?.side,
+      'Side is not defined.'
+    ),
     status: status,
-    type: orderParameters ? convertSerumTypeToOrderType(orderParameters.orderType!) : undefined,
+    type:
+      orderParameters && orderParameters.orderType
+        ? convertSerumTypeToOrderType(orderParameters.orderType)
+        : undefined,
     fillmentTimestamp: undefined,
     signature: signature,
-    order: order
+    order: order,
   };
 };
 
-export const convertToGetMarketResponse = (input: Market): GetMarketResponse => {
+export const convertToGetMarketResponse = (
+  input: Market
+): GetMarketResponse => {
   return {
     name: input.name,
     address: input.address,
@@ -283,22 +283,30 @@ export const convertToGetMarketResponse = (input: Market): GetMarketResponse => 
     minimumOrderSize: input.minimumOrderSize,
     tickSize: input.tickSize,
     minimumBaseIncrement: input.minimumBaseIncrement?.toString(),
-    fees: input.fees
+    fees: input.fees,
   };
 };
 
-export const convertToGetOrderBookResponse = (input: OrderBook): GetOrderBookResponse => {
+export const convertToGetOrderBookResponse = (
+  input: OrderBook
+): GetOrderBookResponse => {
   return {
     market: convertToGetMarketResponse(input.market),
-    bids: input.bids.map(item => convertToGetOrderResponse(item)).toJS() as unknown as Map<string, any>,
-    asks: input.asks.map(item => convertToGetOrderResponse(item)).toJS() as unknown as Map<string, any>
+    bids: input.bids
+      .map((item) => convertToGetOrderResponse(item))
+      .toJS() as unknown as Map<string, any>,
+    asks: input.asks
+      .map((item) => convertToGetOrderResponse(item))
+      .toJS() as unknown as Map<string, any>,
   };
 };
 
-export const convertToGetTickerResponse = (input: Ticker): GetTickerResponse => {
+export const convertToGetTickerResponse = (
+  input: Ticker
+): GetTickerResponse => {
   return {
     price: input.price,
-    timestamp: input.timestamp
+    timestamp: input.timestamp,
   };
 };
 
@@ -307,7 +315,10 @@ export const convertToGetOrderResponse = (input: Order): GetOrderResponse => {
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: input.ownerAddress!,
+    ownerAddress: getNotNullOrThrowError(
+      input.ownerAddress,
+      'Owner address is not defined.'
+    ),
     price: input.price,
     amount: input.amount,
     side: input.side,
@@ -317,12 +328,17 @@ export const convertToGetOrderResponse = (input: Order): GetOrderResponse => {
   };
 };
 
-export const convertToCreateOrderResponse = (input: Order): CreateOrderResponse => {
+export const convertToCreateOrderResponse = (
+  input: Order
+): CreateOrderResponse => {
   return {
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: input.ownerAddress!,
+    ownerAddress: getNotNullOrThrowError(
+      input.ownerAddress,
+      'Owner address is not defined.'
+    ),
     price: input.price,
     amount: input.amount,
     side: input.side,
@@ -331,12 +347,17 @@ export const convertToCreateOrderResponse = (input: Order): CreateOrderResponse 
   };
 };
 
-export const convertToCancelOrderResponse = (input: Order): CancelOrderResponse => {
+export const convertToCancelOrderResponse = (
+  input: Order
+): CancelOrderResponse => {
   return {
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: input.ownerAddress!,
+    ownerAddress: getNotNullOrThrowError(
+      input.ownerAddress,
+      'Owner address is not defined.'
+    ),
     price: input.price,
     amount: input.amount,
     side: input.side,
@@ -345,12 +366,17 @@ export const convertToCancelOrderResponse = (input: Order): CancelOrderResponse 
   };
 };
 
-export const convertToGetOpenOrderResponse = (input: Order): GetOpenOrderResponse => {
+export const convertToGetOpenOrderResponse = (
+  input: Order
+): GetOpenOrderResponse => {
   return {
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: input.ownerAddress!,
+    ownerAddress: getNotNullOrThrowError(
+      input.ownerAddress,
+      'Owner address is not defined.'
+    ),
     price: input.price,
     amount: input.amount,
     side: input.side,
@@ -359,11 +385,16 @@ export const convertToGetOpenOrderResponse = (input: Order): GetOpenOrderRespons
   };
 };
 
-export const convertToCancelOpenOrderResponse = (input: Order): CancelOpenOrderResponse => ({
+export const convertToCancelOpenOrderResponse = (
+  input: Order
+): CancelOpenOrderResponse => ({
   id: input.id,
   exchangeId: input.exchangeId,
   marketName: input.marketName,
-  ownerAddress: input.ownerAddress!,
+  ownerAddress: getNotNullOrThrowError(
+    input.ownerAddress,
+    'Owner address is not defined.'
+  ),
   price: input.price,
   amount: input.amount,
   side: input.side,
@@ -371,47 +402,60 @@ export const convertToCancelOpenOrderResponse = (input: Order): CancelOpenOrderR
   type: input.type,
 });
 
-export const convertToGetFilledOrderResponse = (input: Order): GetFilledOrderResponse => {
+export const convertToGetFilledOrderResponse = (
+  input: Order
+): GetFilledOrderResponse => {
   return {
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: input.ownerAddress!,
+    ownerAddress: getNotNullOrThrowError(
+      input.ownerAddress,
+      'Owner address is not defined.'
+    ),
     price: input.price,
     amount: input.amount,
     side: input.side,
     status: input.status,
     type: input.type,
-    fillmentTimestamp: input.fillmentTimestamp
+    fillmentTimestamp: input.fillmentTimestamp,
   };
 };
 
-export const convertToPostSettleFundsResponse = (input: Fund[]): PostSettleFundsResponse => {
+export const convertToPostSettleFundsResponse = (
+  input: Fund[]
+): PostSettleFundsResponse => {
   return input;
 };
 
-export const convertOrderSideToSerumSide = (input: OrderSide): 'buy' | 'sell' => {
+export const convertOrderSideToSerumSide = (
+  input: OrderSide
+): 'buy' | 'sell' => {
   return input.toLowerCase() as 'buy' | 'sell';
 };
 
-export const convertSerumSideToOrderSide = (input: 'buy' | 'sell'): OrderSide => {
+export const convertSerumSideToOrderSide = (
+  input: 'buy' | 'sell'
+): OrderSide => {
   if (input == 'buy') return OrderSide.BUY;
   if (input == 'sell') return OrderSide.SELL;
   throw new Error(`Invalid order side: ${input}`);
 };
 
-export const convertOrderTypeToSerumType = (input?: OrderType): 'limit' | 'ioc' | 'postOnly' => {
-  if (!input)
-    return 'limit';
+export const convertOrderTypeToSerumType = (
+  input?: OrderType
+): 'limit' | 'ioc' | 'postOnly' => {
+  if (!input) return 'limit';
   else if (['limit', 'ioc'].includes(input.toLowerCase()))
     return input.toLowerCase() as 'limit' | 'ioc' | 'postOnly';
   else if (['post_only', 'postOnly'].includes(input.toLowerCase()))
     return 'postOnly';
-  else
-    throw new Error(`Invalid order type: ${input}`);
+  else throw new Error(`Invalid order type: ${input}`);
 };
 
-export const convertSerumTypeToOrderType = (input: 'limit' | 'ioc' | 'postOnly'): OrderType => {
+export const convertSerumTypeToOrderType = (
+  input: 'limit' | 'ioc' | 'postOnly'
+): OrderType => {
   if (input == 'limit') return OrderType.LIMIT;
   if (input == 'ioc') return OrderType.IOC;
   if (input == 'postOnly') return OrderType.POST_ONLY;

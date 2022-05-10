@@ -5,10 +5,11 @@ https://raw.githubusercontent.com/project-serum/serum-ts/master/LICENSE
  */
 
 import { getFilteredProgramAccounts } from '@blockworks-foundation/mango-client';
-import { getFeeTier, supportsSrmFeeDiscounts } from '@project-serum/serum/lib/fees';
+import {
+  getFeeTier,
+  supportsSrmFeeDiscounts,
+} from '@project-serum/serum/lib/fees';
 import { DexInstructions } from '@project-serum/serum/lib/instructions';
-// @ts-ignore
-import { accountFlagsLayout, publicKeyLayout, u128, u64 } from '@project-serum/serum/lib/layout';
 import {
   _MARKET_STAT_LAYOUT_V1,
   getMintDecimals,
@@ -19,11 +20,12 @@ import {
   Orderbook,
   OrderParams,
   OrderParamsAccounts,
-  OrderParamsBase
+  OrderParamsBase,
 } from '@project-serum/serum/lib/market';
-import { decodeEventQueue, decodeRequestQueue } from '@project-serum/serum/lib/queue';
-// @ts-ignore
-import { Slab, SLAB_LAYOUT } from '@project-serum/serum/lib/slab';
+import {
+  decodeEventQueue,
+  decodeRequestQueue,
+} from '@project-serum/serum/lib/queue';
 import {
   closeAccount,
   initializeAccount,
@@ -49,9 +51,10 @@ import {
 } from '@solana/web3.js';
 import BN from 'bn.js';
 import { Buffer } from 'buffer';
-// @ts-ignore
-import { blob, seq, struct, u8 } from 'buffer-layout';
-import { promisesBatchSize, promisesDelayInMilliseconds } from '../serum.constants';
+import {
+  promisesBatchSize,
+  promisesDelayInMilliseconds,
+} from '../serum.constants';
 import { promiseAllInBatches } from '../serum.helpers';
 import { OriginalSerumMarket } from '../serum.types';
 
@@ -65,7 +68,6 @@ export class Market {
   private _openOrdersAccountsCache: {
     [publickKey: string]: { accounts: OpenOrders[]; ts: number };
   };
-  // @ts-ignore
   private _layoutOverride?: any;
 
   private _feeDiscountKeysCache: {
@@ -81,15 +83,14 @@ export class Market {
   };
 
   constructor(
-    // @ts-ignore
     decoded,
     baseMintDecimals: number,
     quoteMintDecimals: number,
     options: MarketOptions = {},
     programId: PublicKey,
-    layoutOverride?: any,
+    layoutOverride?: any
   ) {
-    const {skipPreflight = false, commitment = 'recent'} = options;
+    const { skipPreflight = false, commitment = 'recent' } = options;
     if (!decoded.accountFlags.initialized || !decoded.accountFlags.market) {
       throw new Error('Invalid market state');
     }
@@ -97,7 +98,6 @@ export class Market {
     this._baseSplTokenDecimals = baseMintDecimals;
     this._quoteSplTokenDecimals = quoteMintDecimals;
     this._skipPreflight = skipPreflight;
-    // @ts-ignore
     this._commitment = commitment;
     this._programId = programId;
     this._openOrdersAccountsCache = {};
@@ -116,7 +116,7 @@ export class Market {
     connection: Connection,
     baseMintAddress: PublicKey,
     quoteMintAddress: PublicKey,
-    programId: PublicKey,
+    programId: PublicKey
   ) {
     const filters = [
       {
@@ -140,11 +140,11 @@ export class Market {
     address: PublicKey,
     options: MarketOptions = {},
     programId: PublicKey,
-    layoutOverride?: any,
+    layoutOverride?: any
   ) {
-    const {owner, data} = throwIfNull(
+    const { owner, data } = throwIfNull(
       await connection.getAccountInfo(address),
-      'Market not found',
+      'Market not found'
     );
     if (!owner.equals(programId)) {
       throw new Error('Address not owned by program: ' + owner.toBase58());
@@ -167,7 +167,7 @@ export class Market {
       quoteMintDecimals,
       options,
       programId,
-      layoutOverride,
+      layoutOverride
     );
   }
 
@@ -204,15 +204,15 @@ export class Market {
   }
 
   async loadBids(connection: Connection): Promise<Orderbook> {
-    const {data} = throwIfNull(
-      await connection.getAccountInfo(this._decoded.bids),
+    const { data } = throwIfNull(
+      await connection.getAccountInfo(this._decoded.bids)
     );
     return Orderbook.decode(this as unknown as OriginalSerumMarket, data);
   }
 
   async loadAsks(connection: Connection): Promise<Orderbook> {
-    const {data} = throwIfNull(
-      await connection.getAccountInfo(this._decoded.asks),
+    const { data } = throwIfNull(
+      await connection.getAccountInfo(this._decoded.asks)
     );
     return Orderbook.decode(this as unknown as OriginalSerumMarket, data);
   }
@@ -220,7 +220,7 @@ export class Market {
   async loadOrdersForOwner(
     connection: Connection,
     ownerAddress: PublicKey,
-    cacheDurationMs = 0,
+    cacheDurationMs = 0
   ): Promise<Order[]> {
     const [bids, asks, openOrdersAccounts] = await Promise.all([
       this.loadBids(connection),
@@ -228,29 +228,28 @@ export class Market {
       this.findOpenOrdersAccountsForOwner(
         connection,
         ownerAddress,
-        cacheDurationMs,
+        cacheDurationMs
       ),
     ]);
-    // @ts-ignore
     return this.filterForOpenOrders(bids, asks, openOrdersAccounts);
   }
 
   filterForOpenOrders(
     bids: Orderbook,
     asks: Orderbook,
-    openOrdersAccounts: OpenOrders[],
+    openOrdersAccounts: OpenOrders[]
   ): Order[] {
     return [...bids, ...asks].filter((order) =>
       openOrdersAccounts.some((openOrders) =>
-        order.openOrdersAddress.equals(openOrders.address),
-      ),
+        order.openOrdersAddress.equals(openOrders.address)
+      )
     );
   }
 
   async findBaseTokenAccountsForOwner(
     connection: Connection,
     ownerAddress: PublicKey,
-    includeUnwrappedSol = false,
+    includeUnwrappedSol = false
   ): Promise<Array<{ pubkey: PublicKey; account: AccountInfo<Buffer> }>> {
     if (this.baseMintAddress.equals(WRAPPED_SOL_MINT) && includeUnwrappedSol) {
       const [wrapped, unwrapped] = await Promise.all([
@@ -258,22 +257,21 @@ export class Market {
         connection.getAccountInfo(ownerAddress),
       ]);
       if (unwrapped !== null) {
-        return [{pubkey: ownerAddress, account: unwrapped}, ...wrapped];
+        return [{ pubkey: ownerAddress, account: unwrapped }, ...wrapped];
       }
-      // @ts-ignore
       return wrapped;
     }
     return await this.getTokenAccountsByOwnerForMint(
       connection,
       ownerAddress,
-      this.baseMintAddress,
+      this.baseMintAddress
     );
   }
 
   async getTokenAccountsByOwnerForMint(
     connection: Connection,
     ownerAddress: PublicKey,
-    mintAddress: PublicKey,
+    mintAddress: PublicKey
   ): Promise<Array<{ pubkey: PublicKey; account: AccountInfo<Buffer> }>> {
     return (
       await connection.getTokenAccountsByOwner(ownerAddress, {
@@ -285,7 +283,7 @@ export class Market {
   async findQuoteTokenAccountsForOwner(
     connection: Connection,
     ownerAddress: PublicKey,
-    includeUnwrappedSol = false,
+    includeUnwrappedSol = false
   ): Promise<{ pubkey: PublicKey; account: AccountInfo<Buffer> }[]> {
     if (this.quoteMintAddress.equals(WRAPPED_SOL_MINT) && includeUnwrappedSol) {
       const [wrapped, unwrapped] = await Promise.all([
@@ -293,22 +291,21 @@ export class Market {
         connection.getAccountInfo(ownerAddress),
       ]);
       if (unwrapped !== null) {
-        return [{pubkey: ownerAddress, account: unwrapped}, ...wrapped];
+        return [{ pubkey: ownerAddress, account: unwrapped }, ...wrapped];
       }
-      // @ts-ignore
       return wrapped;
     }
     return await this.getTokenAccountsByOwnerForMint(
       connection,
       ownerAddress,
-      this.quoteMintAddress,
+      this.quoteMintAddress
     );
   }
 
   async findOpenOrdersAccountsForOwner(
     connection: Connection,
     ownerAddress: PublicKey,
-    cacheDurationMs = 0,
+    cacheDurationMs = 0
   ): Promise<OpenOrders[]> {
     const strOwner = ownerAddress.toBase58();
     const now = new Date().getTime();
@@ -322,7 +319,7 @@ export class Market {
       connection,
       this.address,
       ownerAddress,
-      this._programId,
+      this._programId
     );
     this._openOrdersAccountsCache[strOwner] = {
       accounts: openOrdersAccountsForOwner,
@@ -335,20 +332,23 @@ export class Market {
     connection: Connection,
     accounts: OrderParamsAccounts,
     orders: OrderParamsBase[],
-    cacheDurationMs = 0,
+    cacheDurationMs = 0
   ) {
     if (!accounts.openOrdersAccount && !accounts.openOrdersAddressKey) {
-      const ownerAddress: PublicKey = accounts.owner.publicKey ?? accounts.owner;
+      const ownerAddress: PublicKey =
+        accounts.owner.publicKey ?? accounts.owner;
       const openOrdersAccounts = await this.findOpenOrdersAccountsForOwner(
         connection,
         ownerAddress,
-        cacheDurationMs,
+        cacheDurationMs
       );
       accounts.openOrdersAddressKey = openOrdersAccounts[0].address;
     }
 
     const transaction = new Transaction();
-    transaction.add(this.makeReplaceOrdersByClientIdsInstruction(accounts, orders));
+    transaction.add(
+      this.makeReplaceOrdersByClientIdsInstruction(accounts, orders)
+    );
     return await this._sendTransaction(connection, transaction, [
       accounts.owner,
     ]);
@@ -369,22 +369,23 @@ export class Market {
       feeDiscountPubkey,
       maxTs,
       replaceIfExists = false,
-    }: OrderParams,
+    }: OrderParams
   ) {
-    const {transaction, signers} = await this.makePlaceOrderTransaction<Account>(connection, {
-      owner,
-      payer,
-      side,
-      price,
-      size,
-      orderType,
-      clientId,
-      openOrdersAddressKey,
-      openOrdersAccount,
-      feeDiscountPubkey,
-      maxTs,
-      replaceIfExists,
-    });
+    const { transaction, signers } =
+      await this.makePlaceOrderTransaction<Account>(connection, {
+        owner,
+        payer,
+        side,
+        price,
+        size,
+        orderType,
+        clientId,
+        openOrdersAddressKey,
+        openOrdersAccount,
+        feeDiscountPubkey,
+        maxTs,
+        replaceIfExists,
+      });
     return await this._sendTransaction(connection, transaction, [
       owner,
       ...signers,
@@ -393,10 +394,13 @@ export class Market {
 
   async placeOrders(
     connection: Connection,
-    orders: OrderParams<Account>[],
+    orders: OrderParams<Account>[]
   ): Promise<TransactionSignature[]> {
     const transactionSignatures = new Array<TransactionSignature>();
-    const ownersMap = new Map<Account, { transaction: Transaction, signers: Array<Account> }>();
+    const ownersMap = new Map<
+      Account,
+      { transaction: Transaction; signers: Array<Account> }
+    >();
 
     for (const {
       owner,
@@ -414,47 +418,63 @@ export class Market {
     } of orders) {
       let item = ownersMap.get(owner);
       if (!item) {
-        item = {transaction: new Transaction(), signers: []};
+        item = { transaction: new Transaction(), signers: [] };
         ownersMap.set(owner, item);
       }
 
       const transaction: Transaction = item.transaction;
       const signers: Array<Account> = item.signers;
 
-      const partial = await this.makePlaceOrderTransactionForBatch(transaction, connection, {
-        owner,
-        payer,
-        side,
-        price,
-        size,
-        orderType,
-        clientId,
-        openOrdersAddressKey,
-        openOrdersAccount,
-        feeDiscountPubkey,
-        maxTs,
-        replaceIfExists,
-      } as OrderParams);
+      const partial = await this.makePlaceOrderTransactionForBatch(
+        transaction,
+        connection,
+        {
+          owner,
+          payer,
+          side,
+          price,
+          size,
+          orderType,
+          clientId,
+          openOrdersAddressKey,
+          openOrdersAccount,
+          feeDiscountPubkey,
+          maxTs,
+          replaceIfExists,
+        } as OrderParams
+      );
 
       signers.push(...partial.signers);
     }
 
-    const sendTransaction = async (entry: [Account, { transaction: Transaction, signers: Array<Account> }]) => {
-      transactionSignatures.push(await this._sendTransaction(connection, entry[1].transaction, [entry[0], ...(entry[1].signers)]));
+    const sendTransaction = async (
+      entry: [Account, { transaction: Transaction; signers: Array<Account> }]
+    ) => {
+      transactionSignatures.push(
+        await this._sendTransaction(connection, entry[1].transaction, [
+          entry[0],
+          ...entry[1].signers,
+        ])
+      );
     };
 
-    await promiseAllInBatches(sendTransaction, Array.from(ownersMap.entries()), promisesBatchSize, promisesDelayInMilliseconds);
+    await promiseAllInBatches(
+      sendTransaction,
+      Array.from(ownersMap.entries()),
+      promisesBatchSize,
+      promisesDelayInMilliseconds
+    );
 
     return transactionSignatures;
   }
 
   getSplTokenBalanceFromAccountInfo(
     accountInfo: AccountInfo<Buffer>,
-    decimals: number,
+    decimals: number
   ): number {
     return divideBnToNumber(
       new BN(accountInfo.data.slice(64, 72), 10, 'le'),
-      new BN(10).pow(new BN(decimals)),
+      new BN(10).pow(new BN(decimals))
     );
   }
 
@@ -473,13 +493,15 @@ export class Market {
   async findFeeDiscountKeys(
     connection: Connection,
     ownerAddress: PublicKey,
-    cacheDurationMs = 0,
-  ): Promise<Array<{
-    pubkey: PublicKey;
-    feeTier: number;
-    balance: number;
-    mint: PublicKey;
-  }>> {
+    cacheDurationMs = 0
+  ): Promise<
+    Array<{
+      pubkey: PublicKey;
+      feeTier: number;
+      balance: number;
+      mint: PublicKey;
+    }>
+  > {
     let sortedAccounts: Array<{
       balance: number;
       mint: PublicKey;
@@ -501,12 +523,12 @@ export class Market {
         await this.getTokenAccountsByOwnerForMint(
           connection,
           ownerAddress,
-          MSRM_MINT,
+          MSRM_MINT
         )
-      ).map(({pubkey, account}) => {
+      ).map(({ pubkey, account }) => {
         const balance = this.getSplTokenBalanceFromAccountInfo(
           account,
-          MSRM_DECIMALS,
+          MSRM_DECIMALS
         );
         return {
           pubkey,
@@ -519,12 +541,12 @@ export class Market {
         await this.getTokenAccountsByOwnerForMint(
           connection,
           ownerAddress,
-          SRM_MINT,
+          SRM_MINT
         )
-      ).map(({pubkey, account}) => {
+      ).map(({ pubkey, account }) => {
         const balance = this.getSplTokenBalanceFromAccountInfo(
           account,
-          SRM_DECIMALS,
+          SRM_DECIMALS
         );
         return {
           pubkey,
@@ -559,12 +581,12 @@ export class Market {
   async findBestFeeDiscountKey(
     connection: Connection,
     ownerAddress: PublicKey,
-    cacheDurationMs = 30000,
+    cacheDurationMs = 30000
   ): Promise<{ pubkey: PublicKey | null; feeTier: number }> {
     const accounts = await this.findFeeDiscountKeys(
       connection,
       ownerAddress,
-      cacheDurationMs,
+      cacheDurationMs
     );
     if (accounts.length > 0) {
       return {
@@ -596,14 +618,13 @@ export class Market {
       replaceIfExists = false,
     }: OrderParams<T>,
     cacheDurationMs = 0,
-    feeDiscountPubkeyCacheDurationMs = 0,
+    feeDiscountPubkeyCacheDurationMs = 0
   ) {
-    // @ts-ignore
     const ownerAddress: PublicKey = owner.publicKey ?? owner;
     const openOrdersAccounts = await this.findOpenOrdersAccountsForOwner(
       connection,
       ownerAddress,
-      cacheDurationMs,
+      cacheDurationMs
     );
     const transaction = new Transaction();
     const signers: Account[] = [];
@@ -620,7 +641,7 @@ export class Market {
         await this.findBestFeeDiscountKey(
           connection,
           ownerAddress,
-          feeDiscountPubkeyCacheDurationMs,
+          feeDiscountPubkeyCacheDurationMs
         )
       ).pubkey;
     } else {
@@ -641,8 +662,8 @@ export class Market {
           this.address,
           ownerAddress,
           account.publicKey,
-          this._programId,
-        ),
+          this._programId
+        )
       );
       openOrdersAddress = account.publicKey;
       signers.push(account);
@@ -683,14 +704,14 @@ export class Market {
             lamports,
             space: 165,
             programId: TOKEN_PROGRAM_ID,
-          }),
+          })
         );
         transaction.add(
           initializeAccount({
             account: wrappedSolAccount.publicKey,
             mint: WRAPPED_SOL_MINT,
             owner: ownerAddress,
-          }),
+          })
         );
         signers.push(wrappedSolAccount);
       } else {
@@ -720,11 +741,11 @@ export class Market {
           source: wrappedSolAccount.publicKey,
           destination: ownerAddress,
           owner: ownerAddress,
-        }),
+        })
       );
     }
 
-    return {transaction, signers, payer: owner};
+    return { transaction, signers, payer: owner };
   }
 
   async makePlaceOrderTransactionForBatch<T extends PublicKey | Account>(
@@ -746,14 +767,13 @@ export class Market {
       replaceIfExists = false,
     }: OrderParams<T>,
     cacheDurationMs = 0,
-    feeDiscountPubkeyCacheDurationMs = 0,
+    feeDiscountPubkeyCacheDurationMs = 0
   ) {
-    // @ts-ignore
     const ownerAddress: PublicKey = owner.publicKey ?? owner;
     const openOrdersAccounts = await this.findOpenOrdersAccountsForOwner(
       connection,
       ownerAddress,
-      cacheDurationMs,
+      cacheDurationMs
     );
     const signers: Account[] = [];
 
@@ -769,7 +789,7 @@ export class Market {
         await this.findBestFeeDiscountKey(
           connection,
           ownerAddress,
-          feeDiscountPubkeyCacheDurationMs,
+          feeDiscountPubkeyCacheDurationMs
         )
       ).pubkey;
     } else {
@@ -790,8 +810,8 @@ export class Market {
           this.address,
           ownerAddress,
           account.publicKey,
-          this._programId,
-        ),
+          this._programId
+        )
       );
       openOrdersAddress = account.publicKey;
       signers.push(account);
@@ -832,14 +852,14 @@ export class Market {
             lamports,
             space: 165,
             programId: TOKEN_PROGRAM_ID,
-          }),
+          })
         );
         transaction.add(
           initializeAccount({
             account: wrappedSolAccount.publicKey,
             mint: WRAPPED_SOL_MINT,
             owner: ownerAddress,
-          }),
+          })
         );
         signers.push(wrappedSolAccount);
       } else {
@@ -869,17 +889,16 @@ export class Market {
           source: wrappedSolAccount.publicKey,
           destination: ownerAddress,
           owner: ownerAddress,
-        }),
+        })
       );
     }
 
-    return {transaction, signers, payer: owner};
+    return { transaction, signers, payer: owner };
   }
 
   makePlaceOrderInstruction<T extends PublicKey | Account>(
-    // @ts-ignore
     connection: Connection,
-    params: OrderParams<T>,
+    params: OrderParams<T>
   ): TransactionInstruction {
     const {
       owner,
@@ -893,7 +912,6 @@ export class Market {
       openOrdersAccount,
       feeDiscountPubkey = null,
     } = params;
-    // @ts-ignore
     const ownerAddress: PublicKey = owner.publicKey ?? owner;
     if (this.baseSizeNumberToLots(size).lte(new BN(0))) {
       throw new Error('size too small');
@@ -918,7 +936,6 @@ export class Market {
         orderType,
         clientId,
         programId: this._programId,
-        // @ts-ignore
         feeDiscountPubkey: this.supportsSrmFeeDiscounts
           ? feeDiscountPubkey
           : null,
@@ -929,7 +946,7 @@ export class Market {
   }
 
   makeNewOrderV3Instruction<T extends PublicKey | Account>(
-    params: OrderParams<T>,
+    params: OrderParams<T>
   ): TransactionInstruction {
     const {
       owner,
@@ -947,7 +964,6 @@ export class Market {
       maxTs,
       replaceIfExists,
     } = params;
-    // @ts-ignore
     const ownerAddress: PublicKey = owner.publicKey ?? owner;
     return DexInstructions.newOrderV3({
       market: this.address,
@@ -966,26 +982,24 @@ export class Market {
       limitPrice: this.priceNumberToLots(price),
       maxBaseQuantity: this.baseSizeNumberToLots(size),
       maxQuoteQuantity: new BN(this._decoded.quoteLotSize.toNumber()).mul(
-        this.baseSizeNumberToLots(size).mul(this.priceNumberToLots(price)),
+        this.baseSizeNumberToLots(size).mul(this.priceNumberToLots(price))
       ),
       orderType,
       clientId,
       programId: programId ?? this._programId,
       selfTradeBehavior,
-      // @ts-ignore
       feeDiscountPubkey: this.supportsSrmFeeDiscounts
         ? feeDiscountPubkey
         : null,
-      // @ts-ignore
       maxTs,
       replaceIfExists,
     });
   }
 
   makeReplaceOrdersByClientIdsInstruction<T extends PublicKey | Account>(
-    accounts: OrderParamsAccounts<T>, orders: OrderParamsBase<T>[],
+    accounts: OrderParamsAccounts<T>,
+    orders: OrderParamsBase<T>[]
   ): TransactionInstruction {
-    // @ts-ignore
     const ownerAddress: PublicKey = accounts.owner.publicKey ?? accounts.owner;
     return DexInstructions.replaceOrdersByClientIds({
       market: this.address,
@@ -1001,38 +1015,38 @@ export class Market {
       owner: ownerAddress,
       payer: accounts.payer,
       programId: accounts.programId ?? this._programId,
-      // @ts-ignore
       feeDiscountPubkey: this.supportsSrmFeeDiscounts
         ? accounts.feeDiscountPubkey
         : null,
-      orders: orders.map(order => ({
+      orders: orders.map((order) => ({
         side: order.side,
         limitPrice: this.priceNumberToLots(order.price),
         maxBaseQuantity: this.baseSizeNumberToLots(order.size),
         maxQuoteQuantity: new BN(this._decoded.quoteLotSize.toNumber()).mul(
-          this.baseSizeNumberToLots(order.size).mul(this.priceNumberToLots(order.price)),
+          this.baseSizeNumberToLots(order.size).mul(
+            this.priceNumberToLots(order.price)
+          )
         ),
         orderType: order.orderType,
         clientId: order.clientId,
         programId: accounts.programId ?? this._programId,
         selfTradeBehavior: order.selfTradeBehavior,
-        // @ts-ignore
         maxTs: order.maxTs,
-      }))
+      })),
     });
   }
 
   private async _sendTransaction(
     connection: Connection,
     transaction: Transaction,
-    signers: Array<Account>,
+    signers: Array<Account>
   ): Promise<TransactionSignature> {
     const signature = await connection.sendTransaction(transaction, signers, {
       skipPreflight: this._skipPreflight,
     });
-    const {value} = await connection.confirmTransaction(
+    const { value } = await connection.confirmTransaction(
       signature,
-      this._commitment,
+      this._commitment
     );
     if (value?.err) {
       throw new Error(JSON.stringify(value.err));
@@ -1044,13 +1058,13 @@ export class Market {
     connection: Connection,
     owner: Account,
     openOrders: PublicKey,
-    clientId: BN,
+    clientId: BN
   ) {
     const transaction = await this.makeCancelOrderByClientIdTransaction(
       connection,
       owner.publicKey,
       openOrders,
-      clientId,
+      clientId
     );
     return await this._sendTransaction(connection, transaction, [owner]);
   }
@@ -1059,23 +1073,22 @@ export class Market {
     connection: Connection,
     owner: Account,
     openOrders: PublicKey,
-    clientIds: BN[],
+    clientIds: BN[]
   ) {
     const transaction = await this.makeCancelOrdersByClientIdsTransaction(
       connection,
       owner.publicKey,
       openOrders,
-      clientIds,
+      clientIds
     );
     return await this._sendTransaction(connection, transaction, [owner]);
   }
 
   async makeCancelOrderByClientIdTransaction(
-    // @ts-ignore
     connection: Connection,
     owner: PublicKey,
     openOrders: PublicKey,
-    clientId: BN,
+    clientId: BN
   ) {
     const transaction = new Transaction();
     if (this.usesRequestQueue) {
@@ -1087,7 +1100,7 @@ export class Market {
           requestQueue: this._decoded.requestQueue,
           clientId,
           programId: this._programId,
-        }),
+        })
       );
     } else {
       transaction.add(
@@ -1100,18 +1113,17 @@ export class Market {
           eventQueue: this._decoded.eventQueue,
           clientId,
           programId: this._programId,
-        }),
+        })
       );
     }
     return transaction;
   }
 
   async makeCancelOrdersByClientIdsTransaction(
-    // @ts-ignore
     connection: Connection,
     owner: PublicKey,
     openOrders: PublicKey,
-    clientIds: BN[],
+    clientIds: BN[]
   ) {
     const transaction = new Transaction();
     transaction.add(
@@ -1124,7 +1136,7 @@ export class Market {
         eventQueue: this._decoded.eventQueue,
         clientIds,
         programId: this._programId,
-      }),
+      })
     );
     return transaction;
   }
@@ -1133,12 +1145,16 @@ export class Market {
     const transaction = await this.makeCancelOrderTransaction(
       connection,
       owner.publicKey,
-      order,
+      order
     );
     return await this._sendTransaction(connection, transaction, [owner]);
   }
 
-  async cancelOrders(connection: Connection, owner: Account, orders: Order[]): Promise<TransactionSignature> {
+  async cancelOrders(
+    connection: Connection,
+    owner: Account,
+    orders: Order[]
+  ): Promise<TransactionSignature> {
     if (!orders.length) throw new Error('No orders provided');
 
     const transaction = new Transaction();
@@ -1148,7 +1164,7 @@ export class Market {
         transaction,
         connection,
         owner.publicKey,
-        order,
+        order
       );
     }
 
@@ -1158,7 +1174,7 @@ export class Market {
   async makeCancelOrderTransaction(
     connection: Connection,
     owner: PublicKey,
-    order: Order,
+    order: Order
   ) {
     const transaction = new Transaction();
     transaction.add(this.makeCancelOrderInstruction(connection, owner, order));
@@ -1169,7 +1185,7 @@ export class Market {
     transaction: Transaction,
     connection: Connection,
     owner: PublicKey,
-    order: Order,
+    order: Order
   ) {
     transaction.add(this.makeCancelOrderInstruction(connection, owner, order));
 
@@ -1177,10 +1193,9 @@ export class Market {
   }
 
   makeCancelOrderInstruction(
-    // @ts-ignore
     connection: Connection,
     owner: PublicKey,
-    order: Order,
+    order: Order
   ) {
     if (this.usesRequestQueue) {
       return DexInstructions.cancelOrder({
@@ -1211,7 +1226,7 @@ export class Market {
 
   public makeConsumeEventsInstruction(
     openOrdersAccounts: Array<PublicKey>,
-    limit: number,
+    limit: number
   ): TransactionInstruction {
     return DexInstructions.consumeEvents({
       market: this.address,
@@ -1226,7 +1241,7 @@ export class Market {
 
   public makeConsumeEventsPermissionedInstruction(
     openOrdersAccounts: Array<PublicKey>,
-    limit: number,
+    limit: number
   ): TransactionInstruction {
     return DexInstructions.consumeEventsPermissioned({
       market: this.address,
@@ -1244,7 +1259,7 @@ export class Market {
     openOrders: OpenOrders,
     baseWallet: PublicKey,
     quoteWallet: PublicKey,
-    referrerQuoteWallet: PublicKey | null = null,
+    referrerQuoteWallet: PublicKey | null = null
   ) {
     if (!openOrders.owner.equals(owner.publicKey)) {
       throw new Error('Invalid open orders account');
@@ -1252,12 +1267,12 @@ export class Market {
     if (referrerQuoteWallet && !this.supportsReferralFees) {
       throw new Error('This program ID does not support referrerQuoteWallet');
     }
-    const {transaction, signers} = await this.makeSettleFundsTransaction(
+    const { transaction, signers } = await this.makeSettleFundsTransaction(
       connection,
       openOrders,
       baseWallet,
       quoteWallet,
-      referrerQuoteWallet,
+      referrerQuoteWallet
     );
     return await this._sendTransaction(connection, transaction, [
       owner,
@@ -1268,19 +1283,28 @@ export class Market {
   async settleSeveralFunds(
     connection: Connection,
     settlements: {
-      owner: Account,
-      openOrders: OpenOrders,
-      baseWallet: PublicKey,
-      quoteWallet: PublicKey,
-      referrerQuoteWallet: PublicKey | null
+      owner: Account;
+      openOrders: OpenOrders;
+      baseWallet: PublicKey;
+      quoteWallet: PublicKey;
+      referrerQuoteWallet: PublicKey | null;
     }[],
-    transaction: Transaction = new Transaction(),
+    transaction: Transaction = new Transaction()
   ): Promise<TransactionSignature[]> {
     const transactionSignatures = new Array<TransactionSignature>();
-    const ownersMap = new Map<Account, { transaction: Transaction, signers: Array<Account> }>();
-    const onwersCount = new Set(settlements.map(item => item.owner)).size;
+    const ownersMap = new Map<
+      Account,
+      { transaction: Transaction; signers: Array<Account> }
+    >();
+    const onwersCount = new Set(settlements.map((item) => item.owner)).size;
 
-    for (const {owner, openOrders, baseWallet, quoteWallet, referrerQuoteWallet = null} of settlements) {
+    for (const {
+      owner,
+      openOrders,
+      baseWallet,
+      quoteWallet,
+      referrerQuoteWallet = null,
+    } of settlements) {
       if (!openOrders.owner.equals(owner.publicKey)) {
         throw new Error('Invalid open orders account');
       }
@@ -1291,11 +1315,12 @@ export class Market {
 
       let item = ownersMap.get(owner);
       if (!item) {
-        item = {transaction: new Transaction(), signers: []};
+        item = { transaction: new Transaction(), signers: [] };
         ownersMap.set(owner, item);
       }
 
-      const targetTransaction: Transaction = onwersCount == 1 ? transaction : item.transaction;
+      const targetTransaction: Transaction =
+        onwersCount == 1 ? transaction : item.transaction;
       const signers: Array<Account> = item.signers;
 
       const partial = await this.makeSettleFundsTransactionForBatch(
@@ -1304,17 +1329,29 @@ export class Market {
         openOrders,
         baseWallet,
         quoteWallet,
-        referrerQuoteWallet,
+        referrerQuoteWallet
       );
 
       signers.push(...partial.signers);
     }
 
-    const sendTransaction = async (entry: [Account, { transaction: Transaction, signers: Array<Account> }]) => {
-      transactionSignatures.push(await this._sendTransaction(connection, entry[1].transaction, [entry[0], ...(entry[1].signers)]));
+    const sendTransaction = async (
+      entry: [Account, { transaction: Transaction; signers: Array<Account> }]
+    ) => {
+      transactionSignatures.push(
+        await this._sendTransaction(connection, entry[1].transaction, [
+          entry[0],
+          ...entry[1].signers,
+        ])
+      );
     };
 
-    await promiseAllInBatches(sendTransaction, Array.from(ownersMap.entries()), promisesBatchSize, promisesDelayInMilliseconds);
+    await promiseAllInBatches(
+      sendTransaction,
+      Array.from(ownersMap.entries()),
+      promisesBatchSize,
+      promisesDelayInMilliseconds
+    );
 
     return transactionSignatures;
   }
@@ -1324,15 +1361,14 @@ export class Market {
     openOrders: OpenOrders,
     baseWallet: PublicKey,
     quoteWallet: PublicKey,
-    referrerQuoteWallet: PublicKey | null = null,
+    referrerQuoteWallet: PublicKey | null = null
   ) {
-    // @ts-ignore
     const vaultSigner = await PublicKey.createProgramAddress(
       [
         this.address.toBuffer(),
         this._decoded.vaultSignerNonce.toArrayLike(Buffer, 'le', 8),
       ],
-      this._programId,
+      this._programId
     );
 
     const transaction = new Transaction();
@@ -1353,14 +1389,14 @@ export class Market {
           lamports: await connection.getMinimumBalanceForRentExemption(165),
           space: 165,
           programId: TOKEN_PROGRAM_ID,
-        }),
+        })
       );
       transaction.add(
         initializeAccount({
           account: wrappedSolAccount.publicKey,
           mint: WRAPPED_SOL_MINT,
           owner: openOrders.owner,
-        }),
+        })
       );
       signers.push(wrappedSolAccount);
     }
@@ -1383,7 +1419,7 @@ export class Market {
         vaultSigner,
         programId: this._programId,
         referrerQuoteWallet,
-      }),
+      })
     );
 
     if (wrappedSolAccount) {
@@ -1392,11 +1428,11 @@ export class Market {
           source: wrappedSolAccount.publicKey,
           destination: openOrders.owner,
           owner: openOrders.owner,
-        }),
+        })
       );
     }
 
-    return {transaction, signers, payer: openOrders.owner};
+    return { transaction, signers, payer: openOrders.owner };
   }
 
   async makeSettleFundsTransactionForBatch(
@@ -1405,15 +1441,14 @@ export class Market {
     openOrders: OpenOrders,
     baseWallet: PublicKey,
     quoteWallet: PublicKey,
-    referrerQuoteWallet: PublicKey | null = null,
+    referrerQuoteWallet: PublicKey | null = null
   ) {
-    // @ts-ignore
     const vaultSigner = await PublicKey.createProgramAddress(
       [
         this.address.toBuffer(),
         this._decoded.vaultSignerNonce.toArrayLike(Buffer, 'le', 8),
       ],
-      this._programId,
+      this._programId
     );
 
     const signers: Account[] = [];
@@ -1433,14 +1468,14 @@ export class Market {
           lamports: await connection.getMinimumBalanceForRentExemption(165),
           space: 165,
           programId: TOKEN_PROGRAM_ID,
-        }),
+        })
       );
       transaction.add(
         initializeAccount({
           account: wrappedSolAccount.publicKey,
           mint: WRAPPED_SOL_MINT,
           owner: openOrders.owner,
-        }),
+        })
       );
       signers.push(wrappedSolAccount);
     }
@@ -1463,7 +1498,7 @@ export class Market {
         vaultSigner,
         programId: this._programId,
         referrerQuoteWallet,
-      }),
+      })
     );
 
     if (wrappedSolAccount) {
@@ -1472,11 +1507,11 @@ export class Market {
           source: wrappedSolAccount.publicKey,
           destination: openOrders.owner,
           owner: openOrders.owner,
-        }),
+        })
       );
     }
 
-    return {transaction, signers, payer: openOrders.owner};
+    return { transaction, signers, payer: openOrders.owner };
   }
 
   async matchOrders(connection: Connection, feePayer: Account, limit: number) {
@@ -1497,39 +1532,38 @@ export class Market {
         quoteVault: this._decoded.quoteVault,
         limit,
         programId: this._programId,
-      }),
+      })
     );
     return tx;
   }
 
   async loadRequestQueue(connection: Connection) {
-    const {data} = throwIfNull(
-      await connection.getAccountInfo(this._decoded.requestQueue),
+    const { data } = throwIfNull(
+      await connection.getAccountInfo(this._decoded.requestQueue)
     );
     return decodeRequestQueue(data);
   }
 
   async loadEventQueue(connection: Connection) {
-    const {data} = throwIfNull(
-      await connection.getAccountInfo(this._decoded.eventQueue),
+    const { data } = throwIfNull(
+      await connection.getAccountInfo(this._decoded.eventQueue)
     );
     return decodeEventQueue(data);
   }
 
   async loadFills(connection: Connection, limit = 100) {
     // TODO: once there's a separate source of fills use that instead
-    const {data} = throwIfNull(
-      await connection.getAccountInfo(this._decoded.eventQueue),
+    const { data } = throwIfNull(
+      await connection.getAccountInfo(this._decoded.eventQueue)
     );
     const events = decodeEventQueue(data, limit);
     return events
       .filter(
-        (event) => event.eventFlags.fill && event.nativeQuantityPaid.gtn(0),
+        (event) => event.eventFlags.fill && event.nativeQuantityPaid.gtn(0)
       )
       .map(this.parseFillEvent.bind(this));
   }
 
-  // @ts-ignore
   parseFillEvent(event) {
     let size, price, side, priceBeforeFees;
     if (event.eventFlags.bid) {
@@ -1539,11 +1573,11 @@ export class Market {
         : event.nativeQuantityPaid.sub(event.nativeFeeOrRebate);
       price = divideBnToNumber(
         priceBeforeFees.mul(this._baseSplTokenMultiplier),
-        this._quoteSplTokenMultiplier.mul(event.nativeQuantityReleased),
+        this._quoteSplTokenMultiplier.mul(event.nativeQuantityReleased)
       );
       size = divideBnToNumber(
         event.nativeQuantityReleased,
-        this._baseSplTokenMultiplier,
+        this._baseSplTokenMultiplier
       );
     } else {
       side = 'sell';
@@ -1552,11 +1586,11 @@ export class Market {
         : event.nativeQuantityReleased.add(event.nativeFeeOrRebate);
       price = divideBnToNumber(
         priceBeforeFees.mul(this._baseSplTokenMultiplier),
-        this._quoteSplTokenMultiplier.mul(event.nativeQuantityPaid),
+        this._quoteSplTokenMultiplier.mul(event.nativeQuantityPaid)
       );
       size = divideBnToNumber(
         event.nativeQuantityPaid,
-        this._baseSplTokenMultiplier,
+        this._baseSplTokenMultiplier
       );
     }
     return {
@@ -1581,7 +1615,7 @@ export class Market {
   priceLotsToNumber(price: BN) {
     return divideBnToNumber(
       price.mul(this._decoded.quoteLotSize).mul(this._baseSplTokenMultiplier),
-      this._decoded.baseLotSize.mul(this._quoteSplTokenMultiplier),
+      this._decoded.baseLotSize.mul(this._quoteSplTokenMultiplier)
     );
   }
 
@@ -1591,9 +1625,9 @@ export class Market {
         (price *
           Math.pow(10, this._quoteSplTokenDecimals) *
           this._decoded.baseLotSize.toNumber()) /
-        (Math.pow(10, this._baseSplTokenDecimals) *
-          this._decoded.quoteLotSize.toNumber()),
-      ),
+          (Math.pow(10, this._baseSplTokenDecimals) *
+            this._decoded.quoteLotSize.toNumber())
+      )
     );
   }
 
@@ -1608,13 +1642,13 @@ export class Market {
   baseSizeLotsToNumber(size: BN) {
     return divideBnToNumber(
       size.mul(this._decoded.baseLotSize),
-      this._baseSplTokenMultiplier,
+      this._baseSplTokenMultiplier
     );
   }
 
   baseSizeNumberToLots(size: number): BN {
     const native = new BN(
-      Math.round(size * Math.pow(10, this._baseSplTokenDecimals)),
+      Math.round(size * Math.pow(10, this._baseSplTokenDecimals))
     );
     // rounds down to the nearest lot size
     return native.div(this._decoded.baseLotSize);
@@ -1623,13 +1657,13 @@ export class Market {
   quoteSizeLotsToNumber(size: BN) {
     return divideBnToNumber(
       size.mul(this._decoded.quoteLotSize),
-      this._quoteSplTokenMultiplier,
+      this._quoteSplTokenMultiplier
     );
   }
 
   quoteSizeNumberToLots(size: number): BN {
     const native = new BN(
-      Math.round(size * Math.pow(10, this._quoteSplTokenDecimals)),
+      Math.round(size * Math.pow(10, this._quoteSplTokenDecimals))
     );
     // rounds down to the nearest lot size
     return native.div(this._decoded.quoteLotSize);
@@ -1644,20 +1678,12 @@ export class Market {
   }
 }
 
-// @ts-ignore
-function getPriceFromKey(key) {
-  return key.ushrn(64);
-}
-
 function divideBnToNumber(numerator: BN, denominator: BN): number {
   const quotient = numerator.div(denominator).toNumber();
   const rem = numerator.umod(denominator);
   const gcd = rem.gcd(denominator);
   return quotient + rem.div(gcd).toNumber() / denominator.div(gcd).toNumber();
 }
-
-// @ts-ignore
-const MINT_LAYOUT = struct([blob(44), u8('decimals'), blob(37)]);
 
 function throwIfNull<T>(value: T | null, message = 'account not found'): T {
   if (value === null) {
