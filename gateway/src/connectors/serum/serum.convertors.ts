@@ -315,10 +315,7 @@ export const convertToGetOrderResponse = (input: Order): GetOrderResponse => {
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: getNotNullOrThrowError(
-      input.ownerAddress,
-      'Owner address is not defined.'
-    ),
+    ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
     side: input.side,
@@ -335,10 +332,7 @@ export const convertToCreateOrderResponse = (
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: getNotNullOrThrowError(
-      input.ownerAddress,
-      'Owner address is not defined.'
-    ),
+    ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
     side: input.side,
@@ -354,10 +348,7 @@ export const convertToCancelOrderResponse = (
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: getNotNullOrThrowError(
-      input.ownerAddress,
-      'Owner address is not defined.'
-    ),
+    ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
     side: input.side,
@@ -373,10 +364,7 @@ export const convertToGetOpenOrderResponse = (
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: getNotNullOrThrowError(
-      input.ownerAddress,
-      'Owner address is not defined.'
-    ),
+    ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
     side: input.side,
@@ -409,10 +397,7 @@ export const convertToGetFilledOrderResponse = (
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: getNotNullOrThrowError(
-      input.ownerAddress,
-      'Owner address is not defined.'
-    ),
+    ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
     side: input.side,

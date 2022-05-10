@@ -190,7 +190,7 @@ export interface GetOrderResponse {
   id?: string;
   exchangeId?: string;
   marketName: string;
-  ownerAddress: string;
+  ownerAddress?: string;
   price: number;
   amount: number;
   side: OrderSide;
@@ -220,7 +220,7 @@ export interface CreateOrderResponse {
   id?: string;
   exchangeId?: string;
   marketName: string;
-  ownerAddress: string;
+  ownerAddress?: string;
   price: number;
   amount: number;
   side: OrderSide;
@@ -251,7 +251,7 @@ export interface CancelOrderResponse {
   id?: string;
   exchangeId?: string;
   marketName: string;
-  ownerAddress: string;
+  ownerAddress?: string;
   price: number;
   amount: number;
   side: OrderSide;
@@ -282,7 +282,7 @@ export interface GetOpenOrderResponse {
   id?: string;
   exchangeId?: string;
   marketName: string;
-  ownerAddress: string;
+  ownerAddress?: string;
   price: number;
   amount: number;
   side: OrderSide;
@@ -346,7 +346,7 @@ export interface GetFilledOrderResponse {
   id?: string;
   exchangeId?: string;
   marketName: string;
-  ownerAddress: string;
+  ownerAddress?: string;
   price: number;
   amount: number;
   side: OrderSide;
