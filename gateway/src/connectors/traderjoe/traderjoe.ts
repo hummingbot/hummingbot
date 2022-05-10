@@ -9,7 +9,7 @@ import {
 } from 'ethers';
 import { isFractionString } from '../../services/validators';
 import { TraderjoeConfig } from './traderjoe.config';
-import routerAbi from './JoePair.json';
+import routerAbi from './IJoeRouter02.json';
 import {
   Fetcher,
   Percent,
@@ -269,6 +269,7 @@ export class Traderjoe implements Uniswapish {
       nonce = await this.avalanche.nonceManager.getNonce(wallet.address);
     }
     let tx;
+    console.log(result);
     if (maxFeePerGas || maxPriorityFeePerGas) {
       tx = await contract[result.methodName](...result.args, {
         gasLimit: gasLimit,

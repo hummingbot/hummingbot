@@ -1,0 +1,10 @@
+{
+  "address": "$AVALANCHE_ADDRESS",
+  "base": "WAVAX",
+  "quote": "USDC",
+  "amount": "0.00001",
+  "side": "SELL",
+  "chain": "avalanche",
+  "network": "avalanche",
+  "connector": "traderjoe"
+}
