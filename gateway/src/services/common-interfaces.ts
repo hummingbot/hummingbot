@@ -77,6 +77,10 @@ export interface Uniswapish {
    */
   ttl: number;
 
+  init(): Promise<void>;
+
+  ready(): boolean;
+
   /**
    * Given a token's address, return the connector's native representation of
    * the token.
@@ -188,6 +192,10 @@ export interface UniswapLPish {
    * Default time-to-live for swap transactions, in seconds.
    */
   ttl: number;
+
+  init(): Promise<void>;
+
+  ready(): boolean;
 
   /**
    * Given a token's address, return the connector's native representation of
