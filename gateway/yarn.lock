@@ -1753,9 +1753,9 @@
     buffer "~6.0.3"
 
 "@solana/spl-token-registry@^0.2.700":
-  version "0.2.3863"
-  resolved "https://registry.yarnpkg.com/@solana/spl-token-registry/-/spl-token-registry-0.2.3863.tgz#f9d19b4f038bb095f8809bba778036e0344d78ec"
-  integrity sha512-ga+AhfOjioFoCgrLkBq3yeFDhLN0Yn7h3dXc09owKQmv5+YIfhN4B1m/9VOlA1S837WzDDTNaw8ovPKSByCJyQ==
+  version "0.2.3879"
+  resolved "https://registry.yarnpkg.com/@solana/spl-token-registry/-/spl-token-registry-0.2.3879.tgz#e6f303961d30ed6926f679316769eaa494354d0f"
+  integrity sha512-X4qcwRfiOMpgDe6Sj+PposuRTpOtXhLIVvyvBz2JhNMgs+woLFtgpcnsUwuvNsXExKQS9wmofwoqZTJ43YI5CQ==
   dependencies:
     cross-fetch "3.0.6"
 
@@ -3306,9 +3306,9 @@ camelcase@^6.2.0:
   integrity sha512-Gmy6FhYlCY7uOElZUSbxo2UCDH8owEk996gkbrpsgGtrJLM3J7jGxl9Ic7Qwwj4ivOE5AWZWRMecDdF7hqGjFA==
 
 caniuse-lite@^1.0.30001332:
-  version "1.0.30001338"
-  resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30001338.tgz#b5dd7a7941a51a16480bdf6ff82bded1628eec0d"
-  integrity sha512-1gLHWyfVoRDsHieO+CaeYe7jSo/MT7D7lhaXUiwwbuR5BwQxORs0f1tAwUSQr3YbxRXJvxHM/PA5FfPQRnsPeQ==
+  version "1.0.30001339"
+  resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30001339.tgz#f9aece4ea8156071613b27791547ba0b33f176cf"
+  integrity sha512-Es8PiVqCe+uXdms0Gu5xP5PF2bxLR7OBp3wUzUnuO7OHzhOfCyg3hdiGWVPVxhiuniOzng+hTc1u3fEQ0TlkSQ==
 
 caseless@~0.12.0:
   version "0.12.0"
@@ -6139,9 +6139,9 @@ ip6@0.0.4:
   integrity sha1-RMWp23njnUBSAbTXjROzhw5I2zE=
 
 ip@~1.1.0:
-  version "1.1.5"
-  resolved "https://registry.yarnpkg.com/ip/-/ip-1.1.5.tgz#bdded70114290828c0a039e72ef25f5aaec4354a"
-  integrity sha1-vd7XARQpCCjAoDnnLvJfWq7ENUo=
+  version "1.1.6"
+  resolved "https://registry.yarnpkg.com/ip/-/ip-1.1.6.tgz#5a651a37644586e18b6ba3b48ca122bf56495f67"
+  integrity sha512-/dAvCivFs/VexXAtiAoMIqyhkhStNC9CPD0h1noonimOgB1xrCkexF2c5CjlqQ72GgMPjN6tiV+oreoPv3Ft1g==
 
 ipaddr.js@1.2:
   version "1.2.0"
@@ -7620,7 +7620,7 @@ map-visit@^1.0.0:
   dependencies:
     object-visit "^1.0.0"
 
-mathjs@*:
+mathjs@*, mathjs@^10.5.0:
   version "10.5.2"
   resolved "https://registry.yarnpkg.com/mathjs/-/mathjs-10.5.2.tgz#bf0618b99b662a3af8a2613b6489ec0422314b08"
   integrity sha512-yLl2yA597A+07+xsOgy1+pq/m4ZokQceWQbB9OsIkK2guCpA2Px9k11zul93eJAA0WUFZiMK6VcruY9ZBbSKjA==
