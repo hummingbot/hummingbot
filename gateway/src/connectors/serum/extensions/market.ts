@@ -68,7 +68,7 @@ export class Market {
   private _openOrdersAccountsCache: {
     [publickKey: string]: { accounts: OpenOrders[]; ts: number };
   };
-  private _layoutOverride?: any;
+  protected _layoutOverride?: any;
 
   private _feeDiscountKeysCache: {
     [publicKey: string]: {
@@ -83,7 +83,7 @@ export class Market {
   };
 
   constructor(
-    decoded,
+    decoded: any,
     baseMintDecimals: number,
     quoteMintDecimals: number,
     options: MarketOptions = {},
@@ -620,7 +620,7 @@ export class Market {
     cacheDurationMs = 0,
     feeDiscountPubkeyCacheDurationMs = 0
   ) {
-    const ownerAddress: PublicKey = owner.publicKey ?? owner;
+    const ownerAddress: PublicKey = (owner as Account).publicKey ?? owner;
     const openOrdersAccounts = await this.findOpenOrdersAccountsForOwner(
       connection,
       ownerAddress,
@@ -769,7 +769,7 @@ export class Market {
     cacheDurationMs = 0,
     feeDiscountPubkeyCacheDurationMs = 0
   ) {
-    const ownerAddress: PublicKey = owner.publicKey ?? owner;
+    const ownerAddress: PublicKey = (owner as Account).publicKey ?? owner;
     const openOrdersAccounts = await this.findOpenOrdersAccountsForOwner(
       connection,
       ownerAddress,
@@ -897,7 +897,7 @@ export class Market {
   }
 
   makePlaceOrderInstruction<T extends PublicKey | Account>(
-    connection: Connection,
+    _connection: Connection,
     params: OrderParams<T>
   ): TransactionInstruction {
     const {
@@ -912,7 +912,7 @@ export class Market {
       openOrdersAccount,
       feeDiscountPubkey = null,
     } = params;
-    const ownerAddress: PublicKey = owner.publicKey ?? owner;
+    const ownerAddress: PublicKey = (owner as Account).publicKey ?? owner;
     if (this.baseSizeNumberToLots(size).lte(new BN(0))) {
       throw new Error('size too small');
     }
@@ -964,7 +964,7 @@ export class Market {
       maxTs,
       replaceIfExists,
     } = params;
-    const ownerAddress: PublicKey = owner.publicKey ?? owner;
+    const ownerAddress: PublicKey = (owner as Account).publicKey ?? owner;
     return DexInstructions.newOrderV3({
       market: this.address,
       bids: this._decoded.bids,
@@ -1000,7 +1000,8 @@ export class Market {
     accounts: OrderParamsAccounts<T>,
     orders: OrderParamsBase<T>[]
   ): TransactionInstruction {
-    const ownerAddress: PublicKey = accounts.owner.publicKey ?? accounts.owner;
+    const ownerAddress: PublicKey =
+      (accounts.owner as Account).publicKey ?? accounts.owner;
     return DexInstructions.replaceOrdersByClientIds({
       market: this.address,
       bids: this._decoded.bids,
@@ -1085,7 +1086,7 @@ export class Market {
   }
 
   async makeCancelOrderByClientIdTransaction(
-    connection: Connection,
+    _connection: Connection,
     owner: PublicKey,
     openOrders: PublicKey,
     clientId: BN
@@ -1120,7 +1121,7 @@ export class Market {
   }
 
   async makeCancelOrdersByClientIdsTransaction(
-    connection: Connection,
+    _connection: Connection,
     owner: PublicKey,
     openOrders: PublicKey,
     clientIds: BN[]
@@ -1193,7 +1194,7 @@ export class Market {
   }
 
   makeCancelOrderInstruction(
-    connection: Connection,
+    _connection: Connection,
     owner: PublicKey,
     order: Order
   ) {
@@ -1564,7 +1565,7 @@ export class Market {
       .map(this.parseFillEvent.bind(this));
   }
 
-  parseFillEvent(event) {
+  parseFillEvent(event: any) {
     let size, price, side, priceBeforeFees;
     if (event.eventFlags.bid) {
       side = 'buy';
