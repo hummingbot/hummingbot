@@ -3,11 +3,16 @@ import math
 import unittest
 from copy import deepcopy
 from decimal import Decimal
-from typing import List, Tuple
+from typing import (
+    Dict,
+    List,
+    Tuple
+)
 
 import numpy as np
 import pandas as pd
 
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
@@ -25,8 +30,14 @@ from hummingbot.core.event.events import (
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
+from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
+    AvellanedaMarketMakingConfigMap,
+    MultiOrderLevelModel,
+    TrackHangingOrdersModel
+)
 from hummingbot.strategy.data_types import PriceSize, Proposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+
 
 s_decimal_zero = Decimal(0)
 s_decimal_one = Decimal(1)
@@ -64,7 +75,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Strategy Initial Configuration Parameters
         cls.order_amount: Decimal = Decimal("10")
-        cls.inventory_target_base_pct: Decimal = Decimal("0.5")     # Indicates 50%
+        cls.inventory_target_base_pct: Decimal = Decimal("50")     # 50%
         cls.min_spread: Decimal = Decimal("0.0")                   # Default strategy value
         cls.risk_factor_finite: Decimal = Decimal("0.8")
         cls.risk_factor_infinite: Decimal = Decimal("1")
@@ -98,13 +109,13 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             )
         )
 
+        config_settings = self.get_default_map()
+        self.config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
+
         self.strategy: AvellanedaMarketMakingStrategy = AvellanedaMarketMakingStrategy()
         self.strategy.init_params(
+            config_map=self.config_map,
             market_info=self.market_info,
-            order_amount=self.order_amount,
-            min_spread=self.min_spread,
-            inventory_target_base_pct=self.inventory_target_base_pct,
-            risk_factor=self.risk_factor_finite
         )
 
         self.avg_vol_indicator: InstantVolatilityIndicator = InstantVolatilityIndicator(sampling_length=100,
@@ -125,6 +136,21 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.strategy.stop(self.clock)
         super().tearDown()
+
+    def get_default_map(self) -> Dict[str, str]:
+        config_settings = {
+            "exchange": self.market.name,
+            "market": self.trading_pair,
+            "execution_timeframe_mode": "infinite",
+            "order_amount": self.order_amount,
+            "order_optimization_enabled": "yes",
+            "min_spread": self.min_spread,
+            "risk_factor": self.risk_factor_finite,
+            "order_refresh_time": "30",
+            "inventory_target_base_pct": self.inventory_target_base_pct,
+            "add_transaction_costs": "yes",
+        }
+        return config_settings
 
     def simulate_low_volatility(self, strategy: AvellanedaMarketMakingStrategy):
         if self.volatility_indicator_low_vol is None:
@@ -369,7 +395,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def test_order_refresh_tolerance_pct(self):
         # Default value for order_refresh_tolerance_pct
-        self.assertEqual(Decimal(-1), self.strategy.order_refresh_tolerance_pct)
+        self.assertEqual(Decimal(0), self.strategy.order_refresh_tolerance_pct)
 
         # Test setter method
         self.strategy.order_refresh_tolerance_pct = Decimal("1")
@@ -593,7 +619,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         quote_asset_amount = self.market.get_balance(self.trading_pair.split("-")[1])
         base_value = base_asset_amount * current_price
         inventory_value = base_value + quote_asset_amount
-        target_inventory_value = Decimal((inventory_value * self.inventory_target_base_pct) / current_price)
+        target_inventory_value = Decimal((inventory_value * self.inventory_target_base_pct / Decimal('100')) / current_price)
 
         expected_quantize_order_amount = self.market.quantize_order_amount(self.trading_pair, target_inventory_value)
 
@@ -689,16 +715,29 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(str(expected_proposal), str(self.strategy.create_proposal_based_on_order_override()))
 
     def test_get_level_spreads(self):
+        order_levels_mode = MultiOrderLevelModel()
+        order_levels_mode.order_levels = 4
+        order_levels_mode.level_distances = 1
+
+        config_settings = {
+            "exchange": self.market.name,
+            "market": self.trading_pair,
+            "execution_timeframe_mode": "infinite",
+            "order_amount": self.order_amount,
+            "order_optimization_enabled": "yes",
+            "order_levels_mode": order_levels_mode,
+            "min_spread": self.min_spread,
+            "risk_factor": self.risk_factor_infinite,
+            "order_refresh_time": "60",
+            "inventory_target_base_pct": self.inventory_target_base_pct,
+        }
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
+
         # Re-initialize strategy with order_level configurations
         self.strategy = AvellanedaMarketMakingStrategy()
         self.strategy.init_params(
+            config_map=config_map,
             market_info=self.market_info,
-            order_amount=self.order_amount,
-            order_levels=4,
-            level_distances=1,
-            risk_factor=self.risk_factor_infinite,
-            execution_timeframe="infinite",
-            inventory_target_base_pct=self.inventory_target_base_pct,
         )
         self.strategy.start(self.clock, self.start_timestamp)
 
@@ -976,7 +1015,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         initial_proposal: Proposal = Proposal([PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)])
         # <<<<< Test Preparation End
 
-        # (1) Default Both Enabled: order_optimization = True, add_transaction_costs_to_orders = True
+        # (1) Default: order_optimization = True, add_transaction_costs_to_orders = False
+        #self.strategy.add_transaction_costs_to_orders = True
 
         #   Intentionally make top_bid/ask_price lower/higher respectively & set TradeFees
         ob_bids: List[OrderBookRow] = [OrderBookRow(bid_price * Decimal("0.5"), self.order_amount, 2)]
@@ -1147,6 +1187,9 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         buy_prices: List[Decimal] = [bid_price]
         sell_prices: List[Decimal] = [ask_price]
 
+        bid_price: Decimal = Decimal("98.5")
+        ask_price: Decimal = Decimal("100.5")
+
         proposal: Proposal = Proposal(
             [PriceSize(bid_price, self.order_amount)],  # Bids
             [PriceSize(ask_price, self.order_amount)]   # Sells
@@ -1154,11 +1197,11 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         proposal_buys = [buy.price for buy in proposal.buys]
         proposal_sells = [sell.price for sell in proposal.sells]
 
-        # Default order_refresh_tolerance_pct is -1. So it will always NOT be within tolerance
+        # Default order_refresh_tolerance_pct is 0. So it will always NOT be within tolerance
         self.assertFalse(self.strategy.is_within_tolerance(buy_prices, proposal_buys))
         self.assertFalse(self.strategy.is_within_tolerance(sell_prices, proposal_sells))
 
-        self.strategy.order_refresh_tolerance_pct = Decimal("1.0")
+        self.strategy.order_refresh_tolerance_pct = Decimal("10.0")
 
         self.assertTrue(self.strategy.is_within_tolerance(buy_prices, proposal_buys))
         self.assertTrue(self.strategy.is_within_tolerance(sell_prices, proposal_sells))
@@ -1193,14 +1236,20 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Case (2): Has active orders and within _order_refresh_tolerance_pct.
         # Note: Order will NOT be cancelled
-        self.strategy.order_refresh_tolerance_pct = Decimal("100")
+        self.strategy.order_refresh_tolerance_pct = Decimal("10")
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_buy_order)
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_sell_order)
         self.assertEqual(2, len(self.strategy.active_orders))
 
         # Case (3a): Has active orders and EXCEED _order_refresh_tolerance_pct BUT cancel_timestamp > current_timestamp
         # Note: Orders will NOT be cancelled
-        self.strategy.order_refresh_tolerance_pct = Decimal("-1")
+        self.strategy.order_refresh_tolerance_pct = Decimal("0")
+        bid_price: Decimal = Decimal("98.5")
+        ask_price: Decimal = Decimal("100.5")
+        proposal: Proposal = Proposal(
+            [PriceSize(bid_price, self.order_amount)],  # Bids
+            [PriceSize(ask_price, self.order_amount)]   # Sells
+        )
         self.assertEqual(2, len(self.strategy.active_orders))
 
         self.strategy.cancel_active_orders(proposal)
@@ -1217,7 +1266,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Case (4): Has active orders and within _order_refresh_tolerance_pct BUT cancel_timestamp > current_timestamp
         # Note: Order not cancelled
-        self.strategy.order_refresh_tolerance_pct = Decimal("100")
+        self.strategy.order_refresh_tolerance_pct = Decimal("10")
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_buy_order)
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_sell_order)
         self.assertEqual(2, len(self.strategy.active_orders))
@@ -1272,6 +1321,19 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertTrue(self.strategy.to_create_orders(proposal))
 
     def test_existing_hanging_orders_are_included_in_budget_constraint(self):
+        config_settings = {
+            "exchange": self.market.name,
+            "market": self.trading_pair,
+            "execution_timeframe_mode": "infinite",
+            "order_amount": self.order_amount,
+            "min_spread": self.min_spread,
+            "risk_factor": self.risk_factor_finite,
+            "hanging_orders_mode": {"hanging_orders_cancel_pct": 99},
+            "order_refresh_time": "60",
+            "inventory_target_base_pct": self.inventory_target_base_pct,
+            "filled_order_delay": 30,
+        }
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
 
         self.market.set_balance("COINALPHA", 100)
         self.market.set_balance("HBOT", 50000)
@@ -1279,14 +1341,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Create a new strategy, with hanging orders enabled
         self.strategy = AvellanedaMarketMakingStrategy()
         self.strategy.init_params(
+            config_map=config_map,
             market_info=self.market_info,
-            order_amount=self.order_amount,
-            min_spread=self.min_spread,
-            inventory_target_base_pct=self.inventory_target_base_pct,
-            risk_factor=self.risk_factor_finite,
-            hanging_orders_enabled=True,
-            hanging_orders_cancel_pct=Decimal(1),
-            filled_order_delay=30
         )
 
         # Create a new clock to start the strategy from scratch
@@ -1335,10 +1391,27 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(expected_quote_balance, current_quote_balance)
 
     def test_not_filled_order_changed_to_hanging_order_after_refresh_time(self):
+        hanging_orders_model = TrackHangingOrdersModel()
+        hanging_orders_model.hanging_orders_cancel_pct = "99"
 
         # Refresh has to happend after filled_order_delay
         refresh_time = 80
         filled_extension_time = 60
+
+        config_settings = {
+            "exchange": self.market.name,
+            "market": self.trading_pair,
+            "execution_timeframe_mode": "infinite",
+            "order_amount": self.order_amount,
+            "order_optimization_enabled": "yes",
+            "min_spread": self.min_spread,
+            "risk_factor": self.risk_factor_finite,
+            "order_refresh_time": refresh_time,
+            "inventory_target_base_pct": self.inventory_target_base_pct,
+            "hanging_orders_mode": hanging_orders_model,
+            "filled_order_delay": filled_extension_time
+        }
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
 
         self.market.set_balance("COINALPHA", 100)
         self.market.set_balance("HBOT", 50000)
@@ -1346,15 +1419,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Create a new strategy, with hanging orders enabled
         self.strategy = AvellanedaMarketMakingStrategy()
         self.strategy.init_params(
+            config_map=config_map,
             market_info=self.market_info,
-            order_amount=self.order_amount,
-            min_spread=self.min_spread,
-            inventory_target_base_pct=self.inventory_target_base_pct,
-            risk_factor=self.risk_factor_finite,
-            hanging_orders_enabled=True,
-            hanging_orders_cancel_pct=Decimal(1),
-            order_refresh_time=refresh_time,
-            filled_order_delay=filled_extension_time
         )
 
         # Create a new clock to start the strategy from scratch
@@ -1415,6 +1481,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         refresh_time = self.strategy.order_refresh_time
 
         self.strategy.avg_vol = self.avg_vol_indicator
+        self.strategy.order_refresh_tolerance_pct = -1
 
         # Simulate low volatility
         self.simulate_low_volatility(self.strategy)
