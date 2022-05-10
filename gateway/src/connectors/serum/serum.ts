@@ -197,58 +197,58 @@ export class Serum {
     );
   }
 
-  /**
-   * 1 external API call.
-   *
-   * @param market
-   * @param connection
-   * @param owner
-   * @param payer
-   * @param side
-   * @param price
-   * @param size
-   * @param orderType
-   * @param clientId
-   * @param openOrdersAddressKey
-   * @param openOrdersAccount
-   * @param feeDiscountPubkey
-   * @param maxTs
-   * @param replaceIfExists
-   * @private
-   */
-  private async serumMarketPlaceOrder(
-    market: SerumMarket,
-    connection: Connection,
-    {
-      owner,
-      payer,
-      side,
-      price,
-      size,
-      orderType,
-      clientId,
-      openOrdersAddressKey,
-      openOrdersAccount,
-      feeDiscountPubkey,
-      maxTs,
-      replaceIfExists,
-    }: SerumOrderParams<Account>
-  ): Promise<TransactionSignature> {
-    return await market.placeOrder(connection, {
-      owner,
-      payer,
-      side,
-      price,
-      size,
-      orderType,
-      clientId,
-      openOrdersAddressKey,
-      openOrdersAccount,
-      feeDiscountPubkey,
-      maxTs,
-      replaceIfExists,
-    });
-  }
+  // /**
+  //  * 1 external API call.
+  //  *
+  //  * @param market
+  //  * @param connection
+  //  * @param owner
+  //  * @param payer
+  //  * @param side
+  //  * @param price
+  //  * @param size
+  //  * @param orderType
+  //  * @param clientId
+  //  * @param openOrdersAddressKey
+  //  * @param openOrdersAccount
+  //  * @param feeDiscountPubkey
+  //  * @param maxTs
+  //  * @param replaceIfExists
+  //  * @private
+  //  */
+  // private async serumMarketPlaceOrder(
+  //   market: SerumMarket,
+  //   connection: Connection,
+  //   {
+  //     owner,
+  //     payer,
+  //     side,
+  //     price,
+  //     size,
+  //     orderType,
+  //     clientId,
+  //     openOrdersAddressKey,
+  //     openOrdersAccount,
+  //     feeDiscountPubkey,
+  //     maxTs,
+  //     replaceIfExists,
+  //   }: SerumOrderParams<Account>
+  // ): Promise<TransactionSignature> {
+  //   return await market.placeOrder(connection, {
+  //     owner,
+  //     payer,
+  //     side,
+  //     price,
+  //     size,
+  //     orderType,
+  //     clientId,
+  //     openOrdersAddressKey,
+  //     openOrdersAccount,
+  //     feeDiscountPubkey,
+  //     maxTs,
+  //     replaceIfExists,
+  //   });
+  // }
 
   /**
    * Place one or more orders in a single transaction for each owner informed.

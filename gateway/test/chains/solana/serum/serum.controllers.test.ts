@@ -1,5 +1,3 @@
-import { Account } from '@solana/web3.js';
-import BN from 'bn.js';
 import 'jest-extended';
 import { Solana } from '../../../../src/chains/solana/solana';
 import {
@@ -21,13 +19,10 @@ import { default as config } from './fixtures/serumConfig';
 
 jest.setTimeout(1000000);
 
-let serum: Serum;
-let solana: Solana;
-
 beforeAll(async () => {
-  solana = await Solana.getInstance(config.solana.network);
+  await Solana.getInstance(config.solana.network);
 
-  serum = await Serum.getInstance(config.serum.chain, config.serum.network);
+  await Serum.getInstance(config.serum.chain, config.serum.network);
 
   // await reset();
 });
@@ -44,104 +39,103 @@ const commonParameters = {
 
 const marketNames = ['SOL/USDT', 'SOL/USDC'];
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const reset = async () => {
-  const connection = serum.getConnection();
-  const markets = await (
-    await Serum.getInstance(commonParameters.chain, commonParameters.network)
-  ).getMarkets(marketNames);
-  const ownerKeyPair = await solana.getKeypair(
-    config.solana.wallet.owner.address
-  );
-  const owner = new Account(ownerKeyPair.secretKey);
-
-  for (const market of markets.values()) {
-    console.log(`Resetting market ${market.name}:`);
-
-    const serumMarket = market.market;
-    const openOrders = await serumMarket.loadOrdersForOwner(
-      connection,
-      owner.publicKey
-    );
-
-    console.log('Open orders found:', JSON.stringify(openOrders, null, 2));
-
-    for (const openOrder of openOrders) {
-      try {
-        const result = await serumMarket.cancelOrder(
-          connection,
-          owner,
-          openOrder
-        );
-        console.log(
-          `Cancelling order ${openOrder.orderId}:`,
-          JSON.stringify(result, null, 2)
-        );
-      } catch (exception: any) {
-        if (
-          exception.message.includes('It is unknown if it succeeded or failed.')
-        ) {
-          console.log(exception);
-        } else {
-          throw exception;
-        }
-      }
-    }
-
-    for (const openOrders of await serumMarket.findOpenOrdersAccountsForOwner(
-      connection,
-      owner.publicKey
-    )) {
-      console.log(
-        `Settling funds for orders:`,
-        JSON.stringify(openOrders, null, 2)
-      );
-
-      if (
-        openOrders.baseTokenFree.gt(new BN(0)) ||
-        openOrders.quoteTokenFree.gt(new BN(0))
-      ) {
-        const base = await serumMarket.findBaseTokenAccountsForOwner(
-          connection,
-          owner.publicKey,
-          true
-        );
-        const baseTokenAccount = base[0].pubkey;
-        const quote = await serumMarket.findQuoteTokenAccountsForOwner(
-          connection,
-          owner.publicKey,
-          true
-        );
-        const quoteTokenAccount = quote[0].pubkey;
-
-        try {
-          const result = await serumMarket.settleFunds(
-            connection,
-            owner,
-            openOrders,
-            baseTokenAccount,
-            quoteTokenAccount
-          );
-
-          console.log(
-            `Result of settling funds:`,
-            JSON.stringify(result, null, 2)
-          );
-        } catch (exception: any) {
-          if (
-            exception.message.includes(
-              'It is unknown if it succeeded or failed.'
-            )
-          ) {
-            console.log(exception);
-          } else {
-            throw exception;
-          }
-        }
-      }
-    }
-  }
-};
+// const reset = async () => {
+//   const connection = serum.getConnection();
+//   const markets = await (
+//     await Serum.getInstance(commonParameters.chain, commonParameters.network)
+//   ).getMarkets(marketNames);
+//   const ownerKeyPair = await solana.getKeypair(
+//     config.solana.wallet.owner.address
+//   );
+//   const owner = new Account(ownerKeyPair.secretKey);
+//
+//   for (const market of markets.values()) {
+//     console.log(`Resetting market ${market.name}:`);
+//
+//     const serumMarket = market.market;
+//     const openOrders = await serumMarket.loadOrdersForOwner(
+//       connection,
+//       owner.publicKey
+//     );
+//
+//     console.log('Open orders found:', JSON.stringify(openOrders, null, 2));
+//
+//     for (const openOrder of openOrders) {
+//       try {
+//         const result = await serumMarket.cancelOrder(
+//           connection,
+//           owner,
+//           openOrder
+//         );
+//         console.log(
+//           `Cancelling order ${openOrder.orderId}:`,
+//           JSON.stringify(result, null, 2)
+//         );
+//       } catch (exception: any) {
+//         if (
+//           exception.message.includes('It is unknown if it succeeded or failed.')
+//         ) {
+//           console.log(exception);
+//         } else {
+//           throw exception;
+//         }
+//       }
+//     }
+//
+//     for (const openOrders of await serumMarket.findOpenOrdersAccountsForOwner(
+//       connection,
+//       owner.publicKey
+//     )) {
+//       console.log(
+//         `Settling funds for orders:`,
+//         JSON.stringify(openOrders, null, 2)
+//       );
+//
+//       if (
+//         openOrders.baseTokenFree.gt(new BN(0)) ||
+//         openOrders.quoteTokenFree.gt(new BN(0))
+//       ) {
+//         const base = await serumMarket.findBaseTokenAccountsForOwner(
+//           connection,
+//           owner.publicKey,
+//           true
+//         );
+//         const baseTokenAccount = base[0].pubkey;
+//         const quote = await serumMarket.findQuoteTokenAccountsForOwner(
+//           connection,
+//           owner.publicKey,
+//           true
+//         );
+//         const quoteTokenAccount = quote[0].pubkey;
+//
+//         try {
+//           const result = await serumMarket.settleFunds(
+//             connection,
+//             owner,
+//             openOrders,
+//             baseTokenAccount,
+//             quoteTokenAccount
+//           );
+//
+//           console.log(
+//             `Result of settling funds:`,
+//             JSON.stringify(result, null, 2)
+//           );
+//         } catch (exception: any) {
+//           if (
+//             exception.message.includes(
+//               'It is unknown if it succeeded or failed.'
+//             )
+//           ) {
+//             console.log(exception);
+//           } else {
+//             throw exception;
+//           }
+//         }
+//       }
+//     }
+//   }
+// };
 
 // TODO remove console.logs!!!
 describe('Full Flow', () => {
