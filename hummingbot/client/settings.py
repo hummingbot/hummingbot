@@ -35,9 +35,7 @@ DEFAULT_ETHEREUM_RPC_URL = "https://mainnet.coinalpha.com/hummingbot-test-node"
 TEMPLATE_PATH = root_path() / "hummingbot" / "templates"
 CONF_DIR_PATH = root_path() / "conf"
 STRATEGIES_CONF_DIR_PATH = CONF_DIR_PATH / "strategies"
-STRATEGIES_CONF_DIR_PATH.mkdir(parents=True, exist_ok=True)
 CONNECTORS_CONF_DIR_PATH = CONF_DIR_PATH / "connectors"
-CONNECTORS_CONF_DIR_PATH.mkdir(parents=True, exist_ok=True)
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
 PMM_SCRIPTS_PATH = root_path() / "pmm_scripts"
@@ -49,6 +47,13 @@ CERTS_PATH = root_path() / "certs"
 GATEAWAY_CA_CERT_PATH = CERTS_PATH / "ca_cert.pem"
 GATEAWAY_CLIENT_CERT_PATH = CERTS_PATH / "client_cert.pem"
 GATEAWAY_CLIENT_KEY_PATH = CERTS_PATH / "client_key.pem"
+
+PAPER_TRADE_EXCHANGES = [  # todo: fix after global config map refactor
+    "binance_paper_trade",
+    "kucoin_paper_trade",
+    "ascend_ex_paper_trade",
+    "gate_io_paper_trade",
+]
 
 
 class ConnectorType(Enum):
@@ -308,7 +313,7 @@ class AllConnectorSettings:
     @classmethod
     def get_all_connectors(cls) -> List[str]:
         """Avoids circular import problems introduced by `create_connector_settings`."""
-        connector_names = []
+        connector_names = PAPER_TRADE_EXCHANGES
         type_dirs: List[DirEntry] = [
             cast(DirEntry, f) for f in
             scandir(f"{root_path() / 'hummingbot' / 'connector'}")

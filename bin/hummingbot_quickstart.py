@@ -91,18 +91,21 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     hb = HummingbotApplication.main_application()
     # Todo: validate strategy and config_file_name before assinging
 
+    strategy_config = None
     if config_file_name is not None:
         hb.strategy_file_name = config_file_name
-        hb.strategy_name = await load_strategy_config_map_from_file(
+        strategy_config = await load_strategy_config_map_from_file(
             STRATEGIES_CONF_DIR_PATH / config_file_name
         )
+        hb.strategy_name = strategy_config.strategy
+        hb.strategy_config_map = strategy_config
 
     # To ensure quickstart runs with the default value of False for kill_switch_enabled if not present
     if not global_config_map.get("kill_switch_enabled"):
         global_config_map.get("kill_switch_enabled").value = False
 
-    if hb.strategy_name and hb.strategy_file_name:
-        if not all_configs_complete(hb.strategy_name):
+    if strategy_config is not None:
+        if not all_configs_complete(strategy_config):
             hb.status()
 
     # The listener needs to have a named variable for keeping reference, since the event listener system

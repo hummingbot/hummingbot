@@ -118,7 +118,7 @@ class BalanceCommand:
 
         self.notify(f"\n\nExchanges Total: {RateOracle.global_token_symbol} {exchanges_total:.0f}    ")
 
-        celo_address = CELO_KEYS.celo_address if hasattr("celo_address", CELO_KEYS) else None
+        celo_address = CELO_KEYS.celo_address if hasattr(CELO_KEYS, "celo_address") else None
         if celo_address is not None:
             try:
                 if not CeloCLI.unlocked:
