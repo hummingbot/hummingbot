@@ -1,14 +1,14 @@
-import {Market as SMarket, Orderbook as SOrderBook} from '@project-serum/serum';
+import { Market as SMarket, Orderbook as SOrderBook } from '@project-serum/serum';
 import {
   MarketOptions as SMarketOptions,
   OpenOrders as SOpenOrders,
   Order as SOrder,
   OrderParams as SOrderParams
 } from '@project-serum/serum/lib/market';
-import {PublicKey, TransactionSignature} from '@solana/web3.js';
-import BN from "bn.js";
-import {Map as ImmutableMap, Set as ImmutableSet} from 'immutable';
-import {Market as ExtendedMarket} from './extensions/market';
+import { PublicKey, TransactionSignature } from '@solana/web3.js';
+import BN from 'bn.js';
+import { Map as ImmutableMap, Set as ImmutableSet } from 'immutable';
+import { Market as ExtendedMarket } from './extensions/market';
 
 export type IMap<K, V> = ImmutableMap<K, V>;
 export const IMap = ImmutableMap;
@@ -33,10 +33,10 @@ interface PlainBasicSerumMarket {
 }
 
 interface FatBasicSerumMarket {
-    address: PublicKey;
-    name: string;
-    programId: PublicKey;
-    deprecated: boolean;
+  address: PublicKey;
+  name: string;
+  programId: PublicKey;
+  deprecated: boolean;
 }
 
 export type BasicSerumMarket = PlainBasicSerumMarket | FatBasicSerumMarket;
@@ -148,6 +148,7 @@ export interface GetOrderBookResponse {
   bids: Map<string, GetOrderResponse>;
   asks: Map<string, GetOrderResponse>;
 }
+
 export type GetOrderBooksResponse = IMap<string, GetOrderBookResponse> | GetOrderBookResponse;
 
 export type GetTickersRequest =
@@ -190,7 +191,10 @@ export interface GetOrderResponse {
   fillmentTimestamp?: number;
 }
 
-export type GetOrdersResponse = IMap<string, IMap<string, GetOrderResponse>> | IMap<string, GetOrderResponse> | GetOrderResponse;
+export type GetOrdersResponse =
+  IMap<string, IMap<string, GetOrderResponse>>
+  | IMap<string, GetOrderResponse>
+  | GetOrderResponse;
 
 export interface CreateOrdersRequest {
   id?: string;
@@ -213,7 +217,7 @@ export interface CreateOrderResponse {
   side: OrderSide;
   status?: OrderStatus;
   type?: OrderType;
-  fee?: number
+  fee?: number;
 }
 
 export type CreateOrdersResponse = IMap<string, CreateOrderResponse> | CreateOrderResponse;
@@ -242,7 +246,7 @@ export interface CancelOrderResponse {
   side: OrderSide;
   status?: OrderStatus;
   type?: OrderType;
-  fee?: number
+  fee?: number;
 }
 
 export type CancelOrdersResponse = IMap<string, CancelOrderResponse> | CancelOrderResponse;
@@ -271,10 +275,13 @@ export interface GetOpenOrderResponse {
   side: OrderSide;
   status?: OrderStatus;
   type?: OrderType;
-  fee?: number
+  fee?: number;
 }
 
-export type GetOpenOrdersResponse = IMap<string, IMap<string, GetOpenOrderResponse>> | IMap<string, GetOpenOrderResponse> | GetOpenOrderResponse;
+export type GetOpenOrdersResponse =
+  IMap<string, IMap<string, GetOpenOrderResponse>>
+  | IMap<string, GetOpenOrderResponse>
+  | GetOpenOrderResponse;
 
 export interface CancelOpenOrderRequest {
   id?: string;
@@ -300,10 +307,13 @@ export interface CancelOpenOrderResponse {
   side: OrderSide;
   status?: OrderStatus;
   type?: OrderType;
-  fee?: number
+  fee?: number;
 }
 
-export type CancelOpenOrdersResponse = IMap<string, IMap<string, CancelOpenOrderResponse>> | IMap<string, CancelOpenOrderResponse> | CancelOpenOrderResponse;
+export type CancelOpenOrdersResponse =
+  IMap<string, IMap<string, CancelOpenOrderResponse>>
+  | IMap<string, CancelOpenOrderResponse>
+  | CancelOpenOrderResponse;
 
 export interface GetFilledOrderRequest {
   id?: string;
@@ -333,7 +343,10 @@ export interface GetFilledOrderResponse {
   fillmentTimestamp?: number;
 }
 
-export type GetFilledOrdersResponse = IMap<string, IMap<string, GetFilledOrderResponse>> | IMap<string, GetFilledOrderResponse> | GetFilledOrderResponse;
+export type GetFilledOrdersResponse =
+  IMap<string, IMap<string, GetFilledOrderResponse>>
+  | IMap<string, GetFilledOrderResponse>
+  | GetFilledOrderResponse;
 
 export type PostSettleFundsRequest =
   { ownerAddress: string }
@@ -348,12 +361,17 @@ export type PostSettleFundsResponse = IMap<string, PostSettleFundResponse> | Pos
 //  Errors
 //
 
-export class SerumishError extends Error {}
+export class SerumishError extends Error {
+}
 
-export class MarketNotFoundError extends SerumishError {}
+export class MarketNotFoundError extends SerumishError {
+}
 
-export class TickerNotFoundError extends SerumishError {}
+export class TickerNotFoundError extends SerumishError {
+}
 
-export class OrderNotFoundError extends SerumishError {}
+export class OrderNotFoundError extends SerumishError {
+}
 
-export class FundsSettlementError extends SerumishError {}
+export class FundsSettlementError extends SerumishError {
+}

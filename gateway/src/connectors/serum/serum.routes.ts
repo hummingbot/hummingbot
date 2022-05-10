@@ -1,25 +1,30 @@
 import { Request, Response, Router } from 'express';
-import { asyncHandler } from '../../services/error-handler';
-import { verifySolanaIsAvailable } from '../../chains/solana/solana-middlewares';
-import { verifySerumIsAvailable } from './serum-middlewares';
+import { StatusCodes } from 'http-status-codes';
 import { Solana } from '../../chains/solana/solana';
+import { verifySolanaIsAvailable } from '../../chains/solana/solana-middlewares';
 import { validatePublicKey } from '../../chains/solana/solana.validators';
+import { asyncHandler } from '../../services/error-handler';
+import { Serum } from './serum';
+import { verifySerumIsAvailable } from './serum-middlewares';
 import {
   cancelOpenOrders,
   cancelOrders,
+  createOrders,
   getFilledOrders,
   getMarkets,
   getOpenOrders,
   getOrderBooks,
   getOrders,
   getTickers,
-  createOrders, settleFunds,
+  settleFunds,
 } from './serum.controllers';
 import {
   SerumCancelOpenOrdersRequest,
   SerumCancelOpenOrdersResponse,
   SerumCancelOrdersRequest,
   SerumCancelOrdersResponse,
+  SerumCreateOrdersRequest,
+  SerumCreateOrdersResponse,
   SerumGetFilledOrdersRequest,
   SerumGetFilledOrdersResponse,
   SerumGetMarketsRequest,
@@ -32,11 +37,9 @@ import {
   SerumGetOrdersResponse,
   SerumGetTickersRequest,
   SerumGetTickersResponse,
-  SerumCreateOrdersRequest,
-  SerumCreateOrdersResponse, SerumPostSettleFundsRequest, SerumPostSettleFundsResponse,
+  SerumPostSettleFundsRequest,
+  SerumPostSettleFundsResponse,
 } from './serum.requests';
-import { Serum } from './serum';
-import { StatusCodes } from 'http-status-codes';
 
 export namespace SerumRoutes {
   export const router = Router();

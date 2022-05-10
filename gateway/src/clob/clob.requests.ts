@@ -3,6 +3,8 @@ import {
   SerumCancelOpenOrdersResponse,
   SerumCancelOrdersRequest,
   SerumCancelOrdersResponse,
+  SerumCreateOrdersRequest,
+  SerumCreateOrdersResponse,
   SerumGetFilledOrdersRequest,
   SerumGetFilledOrdersResponse,
   SerumGetMarketsRequest,
@@ -15,8 +17,8 @@ import {
   SerumGetOrdersResponse,
   SerumGetTickersRequest,
   SerumGetTickersResponse,
-  SerumCreateOrdersRequest,
-  SerumCreateOrdersResponse, SerumPostSettleFundsRequest, SerumPostSettleFundsResponse,
+  SerumPostSettleFundsRequest,
+  SerumPostSettleFundsResponse,
 } from '../connectors/serum/serum.requests';
 
 export type ClobDeleteOpenOrdersRequest = SerumCancelOpenOrdersRequest;

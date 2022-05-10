@@ -1,14 +1,14 @@
-import {MARKETS} from '@project-serum/serum';
+import { MARKETS } from '@project-serum/serum';
 import express from 'express';
-import {Express} from 'express-serve-static-core';
-import {StatusCodes} from 'http-status-codes';
+import { Express } from 'express-serve-static-core';
+import { StatusCodes } from 'http-status-codes';
 import 'jest-extended';
 import request from 'supertest';
-import {Solana} from '../../../../src/chains/solana/solana';
-import {ClobRoutes} from '../../../../src/clob/clob.routes';
-import {Serum} from '../../../../src/connectors/serum/serum';
-import {convertToGetOrderResponse} from "../../../../src/connectors/serum/serum.convertors";
-import {SerumRoutes} from '../../../../src/connectors/serum/serum.routes';
+import { Solana } from '../../../../src/chains/solana/solana';
+import { ClobRoutes } from '../../../../src/clob/clob.routes';
+import { Serum } from '../../../../src/connectors/serum/serum';
+import { convertToGetOrderResponse } from "../../../../src/connectors/serum/serum.convertors";
+import { SerumRoutes } from '../../../../src/connectors/serum/serum.routes';
 import {
   CreateOrdersRequest,
   GetMarketResponse,
@@ -19,9 +19,9 @@ import {
   OrderStatus,
   Ticker
 } from '../../../../src/connectors/serum/serum.types';
-import {unpatch} from '../../../services/patch';
-import {getNewOrderTemplate} from "./fixtures/dummy";
-import {default as config} from './fixtures/serumConfig';
+import { unpatch } from '../../../services/patch';
+import { getNewOrderTemplate } from "./fixtures/dummy";
+import { default as config } from './fixtures/serumConfig';
 
 let app: Express;
 let serum: Serum;

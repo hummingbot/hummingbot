@@ -1,7 +1,6 @@
 // @ts-nocheck
-import {CreateOrdersRequest, OrderSide, OrderType} from "../../../../../src/connectors/serum/serum.types";
-import {default as config} from './serumConfig';
-import {MARKETS} from "@project-serum/serum";
+import { CreateOrdersRequest, OrderSide, OrderType } from "../../../../../src/connectors/serum/serum.types";
+import { default as config } from './serumConfig';
 
 // const marketNames = MARKETS.map(item => item.name);
 const marketNames = ['SOL/USDT'];

@@ -4,23 +4,37 @@ Apache License Version 2.0
 https://raw.githubusercontent.com/project-serum/serum-ts/master/LICENSE
  */
 
-import {getFilteredProgramAccounts} from "@blockworks-foundation/mango-client";
+import { getFilteredProgramAccounts } from '@blockworks-foundation/mango-client';
+import { getFeeTier, supportsSrmFeeDiscounts } from '@project-serum/serum/lib/fees';
+import { DexInstructions } from '@project-serum/serum/lib/instructions';
+// @ts-ignore
+import { accountFlagsLayout, publicKeyLayout, u128, u64 } from '@project-serum/serum/lib/layout';
 import {
   _MARKET_STAT_LAYOUT_V1,
   getMintDecimals,
   MARKET_STATE_LAYOUT_V2,
-  MarketOptions, OpenOrders, Order,
-  Orderbook, OrderParams,
-  OrderParamsAccounts, OrderParamsBase
-} from "@project-serum/serum/lib/market";
-// @ts-ignore
-import { blob, seq, struct, u8 } from 'buffer-layout';
-// @ts-ignore
-import { accountFlagsLayout, publicKeyLayout, u128, u64 } from '@project-serum/serum/lib/layout';
+  MarketOptions,
+  OpenOrders,
+  Order,
+  Orderbook,
+  OrderParams,
+  OrderParamsAccounts,
+  OrderParamsBase
+} from '@project-serum/serum/lib/market';
+import { decodeEventQueue, decodeRequestQueue } from '@project-serum/serum/lib/queue';
 // @ts-ignore
 import { Slab, SLAB_LAYOUT } from '@project-serum/serum/lib/slab';
-import { DexInstructions } from '@project-serum/serum/lib/instructions';
-import BN from 'bn.js';
+import {
+  closeAccount,
+  initializeAccount,
+  MSRM_DECIMALS,
+  MSRM_MINT,
+  SRM_DECIMALS,
+  SRM_MINT,
+  TOKEN_PROGRAM_ID,
+  WRAPPED_SOL_MINT,
+} from '@project-serum/serum/lib/token-instructions';
+import { getLayoutVersion } from '@project-serum/serum/lib/tokens_and_markets';
 import {
   Account,
   AccountInfo,
@@ -33,23 +47,13 @@ import {
   TransactionInstruction,
   TransactionSignature,
 } from '@solana/web3.js';
-import { decodeEventQueue, decodeRequestQueue } from '@project-serum/serum/lib/queue';
+import BN from 'bn.js';
 import { Buffer } from 'buffer';
-import { getFeeTier, supportsSrmFeeDiscounts } from '@project-serum/serum/lib/fees';
-import {
-  closeAccount,
-  initializeAccount,
-  MSRM_DECIMALS,
-  MSRM_MINT,
-  SRM_DECIMALS,
-  SRM_MINT,
-  TOKEN_PROGRAM_ID,
-  WRAPPED_SOL_MINT,
-} from '@project-serum/serum/lib/token-instructions';
-import { getLayoutVersion } from '@project-serum/serum/lib/tokens_and_markets';
-import {promisesBatchSize, promisesDelayInMilliseconds} from "../serum.constants";
-import {promiseAllInBatches} from "../serum.helpers";
-import {OriginalSerumMarket} from "../serum.types";
+// @ts-ignore
+import { blob, seq, struct, u8 } from 'buffer-layout';
+import { promisesBatchSize, promisesDelayInMilliseconds } from '../serum.constants';
+import { promiseAllInBatches } from '../serum.helpers';
+import { OriginalSerumMarket } from '../serum.types';
 
 export class Market {
   private _decoded: any;
@@ -85,7 +89,7 @@ export class Market {
     programId: PublicKey,
     layoutOverride?: any,
   ) {
-    const { skipPreflight = false, commitment = 'recent' } = options;
+    const {skipPreflight = false, commitment = 'recent'} = options;
     if (!decoded.accountFlags.initialized || !decoded.accountFlags.market) {
       throw new Error('Invalid market state');
     }
@@ -138,7 +142,7 @@ export class Market {
     programId: PublicKey,
     layoutOverride?: any,
   ) {
-    const { owner, data } = throwIfNull(
+    const {owner, data} = throwIfNull(
       await connection.getAccountInfo(address),
       'Market not found',
     );
@@ -200,14 +204,14 @@ export class Market {
   }
 
   async loadBids(connection: Connection): Promise<Orderbook> {
-    const { data } = throwIfNull(
+    const {data} = throwIfNull(
       await connection.getAccountInfo(this._decoded.bids),
     );
     return Orderbook.decode(this as unknown as OriginalSerumMarket, data);
   }
 
   async loadAsks(connection: Connection): Promise<Orderbook> {
-    const { data } = throwIfNull(
+    const {data} = throwIfNull(
       await connection.getAccountInfo(this._decoded.asks),
     );
     return Orderbook.decode(this as unknown as OriginalSerumMarket, data);
@@ -254,7 +258,7 @@ export class Market {
         connection.getAccountInfo(ownerAddress),
       ]);
       if (unwrapped !== null) {
-        return [{ pubkey: ownerAddress, account: unwrapped }, ...wrapped];
+        return [{pubkey: ownerAddress, account: unwrapped}, ...wrapped];
       }
       // @ts-ignore
       return wrapped;
@@ -289,7 +293,7 @@ export class Market {
         connection.getAccountInfo(ownerAddress),
       ]);
       if (unwrapped !== null) {
-        return [{ pubkey: ownerAddress, account: unwrapped }, ...wrapped];
+        return [{pubkey: ownerAddress, account: unwrapped}, ...wrapped];
       }
       // @ts-ignore
       return wrapped;
@@ -367,9 +371,7 @@ export class Market {
       replaceIfExists = false,
     }: OrderParams,
   ) {
-    const { transaction, signers } = await this.makePlaceOrderTransaction<
-      Account
-    >(connection, {
+    const {transaction, signers} = await this.makePlaceOrderTransaction<Account>(connection, {
       owner,
       payer,
       side,
@@ -394,9 +396,22 @@ export class Market {
     orders: OrderParams<Account>[],
   ): Promise<TransactionSignature[]> {
     const transactionSignatures = new Array<TransactionSignature>();
-    const ownersMap = new Map<Account, {transaction: Transaction, signers: Array<Account>}>();
+    const ownersMap = new Map<Account, { transaction: Transaction, signers: Array<Account> }>();
 
-    for (const { owner, payer, side, price, size, orderType = 'limit', clientId, openOrdersAddressKey, openOrdersAccount, feeDiscountPubkey, maxTs, replaceIfExists = false, } of orders) {
+    for (const {
+      owner,
+      payer,
+      side,
+      price,
+      size,
+      orderType = 'limit',
+      clientId,
+      openOrdersAddressKey,
+      openOrdersAccount,
+      feeDiscountPubkey,
+      maxTs,
+      replaceIfExists = false,
+    } of orders) {
       let item = ownersMap.get(owner);
       if (!item) {
         item = {transaction: new Transaction(), signers: []};
@@ -421,12 +436,12 @@ export class Market {
         replaceIfExists,
       } as OrderParams);
 
-      signers.push(...partial.signers)
+      signers.push(...partial.signers);
     }
 
-    const sendTransaction = async (entry: [Account, {transaction: Transaction, signers: Array<Account>}]) => {
+    const sendTransaction = async (entry: [Account, { transaction: Transaction, signers: Array<Account> }]) => {
       transactionSignatures.push(await this._sendTransaction(connection, entry[1].transaction, [entry[0], ...(entry[1].signers)]));
-    }
+    };
 
     await promiseAllInBatches(sendTransaction, Array.from(ownersMap.entries()), promisesBatchSize, promisesDelayInMilliseconds);
 
@@ -459,14 +474,12 @@ export class Market {
     connection: Connection,
     ownerAddress: PublicKey,
     cacheDurationMs = 0,
-  ): Promise<
-    Array<{
-      pubkey: PublicKey;
-      feeTier: number;
-      balance: number;
-      mint: PublicKey;
-    }>
-  > {
+  ): Promise<Array<{
+    pubkey: PublicKey;
+    feeTier: number;
+    balance: number;
+    mint: PublicKey;
+  }>> {
     let sortedAccounts: Array<{
       balance: number;
       mint: PublicKey;
@@ -490,7 +503,7 @@ export class Market {
           ownerAddress,
           MSRM_MINT,
         )
-      ).map(({ pubkey, account }) => {
+      ).map(({pubkey, account}) => {
         const balance = this.getSplTokenBalanceFromAccountInfo(
           account,
           MSRM_DECIMALS,
@@ -508,7 +521,7 @@ export class Market {
           ownerAddress,
           SRM_MINT,
         )
-      ).map(({ pubkey, account }) => {
+      ).map(({pubkey, account}) => {
         const balance = this.getSplTokenBalanceFromAccountInfo(
           account,
           SRM_DECIMALS,
@@ -711,7 +724,7 @@ export class Market {
       );
     }
 
-    return { transaction, signers, payer: owner };
+    return {transaction, signers, payer: owner};
   }
 
   async makePlaceOrderTransactionForBatch<T extends PublicKey | Account>(
@@ -860,7 +873,7 @@ export class Market {
       );
     }
 
-    return { transaction, signers, payer: owner };
+    return {transaction, signers, payer: owner};
   }
 
   makePlaceOrderInstruction<T extends PublicKey | Account>(
@@ -1017,7 +1030,7 @@ export class Market {
     const signature = await connection.sendTransaction(transaction, signers, {
       skipPreflight: this._skipPreflight,
     });
-    const { value } = await connection.confirmTransaction(
+    const {value} = await connection.confirmTransaction(
       signature,
       this._commitment,
     );
@@ -1239,7 +1252,7 @@ export class Market {
     if (referrerQuoteWallet && !this.supportsReferralFees) {
       throw new Error('This program ID does not support referrerQuoteWallet');
     }
-    const { transaction, signers } = await this.makeSettleFundsTransaction(
+    const {transaction, signers} = await this.makeSettleFundsTransaction(
       connection,
       openOrders,
       baseWallet,
@@ -1264,10 +1277,10 @@ export class Market {
     transaction: Transaction = new Transaction(),
   ): Promise<TransactionSignature[]> {
     const transactionSignatures = new Array<TransactionSignature>();
-    const ownersMap = new Map<Account, {transaction: Transaction, signers: Array<Account>}>();
-    const onwersCount = new Set(settlements.map(item => item.owner)).size
+    const ownersMap = new Map<Account, { transaction: Transaction, signers: Array<Account> }>();
+    const onwersCount = new Set(settlements.map(item => item.owner)).size;
 
-    for (const { owner, openOrders, baseWallet, quoteWallet, referrerQuoteWallet = null } of settlements) {
+    for (const {owner, openOrders, baseWallet, quoteWallet, referrerQuoteWallet = null} of settlements) {
       if (!openOrders.owner.equals(owner.publicKey)) {
         throw new Error('Invalid open orders account');
       }
@@ -1282,7 +1295,7 @@ export class Market {
         ownersMap.set(owner, item);
       }
 
-      const targetTransaction: Transaction = onwersCount == 1 ? transaction : item.transaction
+      const targetTransaction: Transaction = onwersCount == 1 ? transaction : item.transaction;
       const signers: Array<Account> = item.signers;
 
       const partial = await this.makeSettleFundsTransactionForBatch(
@@ -1294,12 +1307,12 @@ export class Market {
         referrerQuoteWallet,
       );
 
-      signers.push(...partial.signers)
+      signers.push(...partial.signers);
     }
 
-    const sendTransaction = async (entry: [Account, {transaction: Transaction, signers: Array<Account>}]) => {
+    const sendTransaction = async (entry: [Account, { transaction: Transaction, signers: Array<Account> }]) => {
       transactionSignatures.push(await this._sendTransaction(connection, entry[1].transaction, [entry[0], ...(entry[1].signers)]));
-    }
+    };
 
     await promiseAllInBatches(sendTransaction, Array.from(ownersMap.entries()), promisesBatchSize, promisesDelayInMilliseconds);
 
@@ -1383,7 +1396,7 @@ export class Market {
       );
     }
 
-    return { transaction, signers, payer: openOrders.owner };
+    return {transaction, signers, payer: openOrders.owner};
   }
 
   async makeSettleFundsTransactionForBatch(
@@ -1463,7 +1476,7 @@ export class Market {
       );
     }
 
-    return { transaction, signers, payer: openOrders.owner };
+    return {transaction, signers, payer: openOrders.owner};
   }
 
   async matchOrders(connection: Connection, feePayer: Account, limit: number) {
@@ -1490,14 +1503,14 @@ export class Market {
   }
 
   async loadRequestQueue(connection: Connection) {
-    const { data } = throwIfNull(
+    const {data} = throwIfNull(
       await connection.getAccountInfo(this._decoded.requestQueue),
     );
     return decodeRequestQueue(data);
   }
 
   async loadEventQueue(connection: Connection) {
-    const { data } = throwIfNull(
+    const {data} = throwIfNull(
       await connection.getAccountInfo(this._decoded.eventQueue),
     );
     return decodeEventQueue(data);
@@ -1505,7 +1518,7 @@ export class Market {
 
   async loadFills(connection: Connection, limit = 100) {
     // TODO: once there's a separate source of fills use that instead
-    const { data } = throwIfNull(
+    const {data} = throwIfNull(
       await connection.getAccountInfo(this._decoded.eventQueue),
     );
     const events = decodeEventQueue(data, limit);

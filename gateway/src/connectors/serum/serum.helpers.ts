@@ -18,7 +18,7 @@ export const sleep = (milliseconds: number) => new Promise(callback => setTimeou
  * @param {int} delayInMilliseconds Delay between each batch.
  * @returns {B[]}
  */
-export const promiseAllInBatches = async <I, O>(task: (item: I) => O, items: any[], batchSize: number, delayInMilliseconds: number = 0): Promise<O[]> =>{
+export const promiseAllInBatches = async <I, O>(task: (item: I) => O, items: any[], batchSize: number, delayInMilliseconds: number = 0): Promise<O[]> => {
   let position = 0;
   let results: any[] = [];
 
@@ -30,11 +30,11 @@ export const promiseAllInBatches = async <I, O>(task: (item: I) => O, items: any
   }
 
   return results;
-}
+};
 
 export const getRandonBN = () => {
   return web3.utils.toBN(web3.utils.randomHex(32));
-}
+};
 
 /* eslint-disable */
 /* tslint:disable */
@@ -63,10 +63,10 @@ export const getRandonBN = () => {
 */
 
 // @ts-ignore
-if (typeof JSON.decycle !== "function") {
+if (typeof JSON.decycle !== 'function') {
   // @ts-ignore
   JSON.decycle = function decycle(object, replacer) {
-    "use strict";
+    'use strict';
 
 // Make a deep copy of an object or array, assuring that there is at most
 // one instance of each object or array in the resulting structure. The
@@ -111,7 +111,7 @@ if (typeof JSON.decycle !== "function") {
 // one of the weird builtin objects.
 
       if (
-        typeof value === "object"
+        typeof value === 'object'
         && value !== null
         && !(value instanceof Boolean)
         && !(value instanceof Date)
@@ -138,7 +138,7 @@ if (typeof JSON.decycle !== "function") {
         if (Array.isArray(value)) {
           nu = [];
           value.forEach(function (element, i) {
-            nu[i] = derez(element, path + "[" + i + "]");
+            nu[i] = derez(element, path + '[' + i + ']');
           });
         } else {
 
@@ -148,22 +148,22 @@ if (typeof JSON.decycle !== "function") {
           Object.keys(value).forEach(function (name) {
             nu[name] = derez(
               value[name],
-              path + "[" + JSON.stringify(name) + "]"
+              path + '[' + JSON.stringify(name) + ']'
             );
           });
         }
         return nu;
       }
       return value;
-    }(object, "$"));
+    }(object, '$'));
   };
 }
 
 // @ts-ignore
-if (typeof JSON.retrocycle !== "function") {
+if (typeof JSON.retrocycle !== 'function') {
   // @ts-ignore
   JSON.retrocycle = function retrocycle($) {
-    "use strict";
+    'use strict';
 
 // Restore an object that was reduced by decycle. Members whose values are
 // objects of the form
@@ -193,12 +193,12 @@ if (typeof JSON.retrocycle !== "function") {
 // replaces the $ref object with a reference to the value that is found by
 // the path.
 
-      if (value && typeof value === "object") {
+      if (value && typeof value === 'object') {
         if (Array.isArray(value)) {
           value.forEach(function (element, i) {
-            if (typeof element === "object" && element !== null) {
+            if (typeof element === 'object' && element !== null) {
               var path = element.$ref;
-              if (typeof path === "string" && px.test(path)) {
+              if (typeof path === 'string' && px.test(path)) {
                 value[i] = eval(path);
               } else {
                 rez(element);
@@ -208,9 +208,9 @@ if (typeof JSON.retrocycle !== "function") {
         } else {
           Object.keys(value).forEach(function (name) {
             var item = value[name];
-            if (typeof item === "object" && item !== null) {
+            if (typeof item === 'object' && item !== null) {
               var path = item.$ref;
-              if (typeof path === "string" && px.test(path)) {
+              if (typeof path === 'string' && px.test(path)) {
                 value[name] = eval(path);
               } else {
                 rez(item);
@@ -224,24 +224,24 @@ if (typeof JSON.retrocycle !== "function") {
   };
 }
 
-// @ts-ignore
-JSON.originalStringify = JSON.stringify;
-
-// @ts-ignore
-JSON.stringify = (value: any, replacer?: (this: any, key: string, value: any) => any, space?: string | number): string => {
-  // @ts-ignore
-  return JSON.originalStringify(JSON.decycle(value), replacer, space);
-};
-
-// @ts-ignore
-JSON.originalParse = JSON.parse;
-
-JSON.parse = (text: string, reviver?: (this: any, key: string, value: any) => any): any => {
-  try {
-    // @ts-ignore
-    return JSON.originalParse(JSON.retrocycle(text), reviver);
-  } catch (exception) {
-    // TODO remove later!!!
-    throw exception;
-  }
-};
+// // @ts-ignore
+// JSON.originalStringify = JSON.stringify;
+//
+// // @ts-ignore
+// JSON.stringify = (value: any, replacer?: (this: any, key: string, value: any) => any, space?: string | number): string => {
+//   // @ts-ignore
+//   return JSON.originalStringify(JSON.decycle(value), replacer, space);
+// };
+//
+// // @ts-ignore
+// JSON.originalParse = JSON.parse;
+//
+// JSON.parse = (text: string, reviver?: (this: any, key: string, value: any) => any): any => {
+//   try {
+//     // @ts-ignore
+//     return JSON.originalParse(JSON.retrocycle(text), reviver);
+//   } catch (exception) {
+//     // TODO remove later!!!
+//     throw exception;
+//   }
+// };

@@ -1,9 +1,9 @@
-import {StatusCodes} from 'http-status-codes';
-import {Solanaish} from '../../chains/solana/solana';
-import {ResponseWrapper} from '../../services/common-interfaces';
-import {HttpException} from '../../services/error-handler';
-import {Serumish} from './serum';
-import {convert, convertToJsonIfNeeded, Types} from "./serum.convertors";
+import { StatusCodes } from 'http-status-codes';
+import { Solanaish } from '../../chains/solana/solana';
+import { ResponseWrapper } from '../../services/common-interfaces';
+import { HttpException } from '../../services/error-handler';
+import { Serumish } from './serum';
+import { convert, convertToJsonIfNeeded, Types } from './serum.convertors';
 import {
   SerumCancelOpenOrdersRequest,
   SerumCancelOpenOrdersResponse,
@@ -26,11 +26,12 @@ import {
   SerumPostSettleFundsRequest,
   SerumPostSettleFundsResponse,
 } from './serum.requests';
-import {Fund, IMap, Market, MarketNotFoundError, Order, OrderBook, OrderNotFoundError, Ticker} from './serum.types';
+import { Fund, IMap, Market, MarketNotFoundError, Order, OrderBook, OrderNotFoundError, Ticker } from './serum.types';
 import {
   validateCancelOpenOrderRequest,
   validateCancelOpenOrdersRequest,
-  validateCancelOrderRequest, validateCancelOrdersRequest,
+  validateCancelOrderRequest,
+  validateCancelOrdersRequest,
   validateCreateOrderRequest,
   validateCreateOrdersRequest,
   validateGetFilledOrderRequest,
@@ -47,7 +48,7 @@ import {
   validateGetTickersRequest,
   validateSettleFundsRequest,
   validateSettleFundsSeveralRequest
-} from "./serum.validators";
+} from './serum.validators';
 
 /**
  * Get the all or the informed markets and their configurations.

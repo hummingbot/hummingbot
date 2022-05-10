@@ -1,18 +1,18 @@
-import request from 'supertest';
-import { patch, unpatch } from '../../services/patch';
-import { gatewayApp } from '../../../src/app';
-import { Solana } from '../../../src/chains/solana/solana';
-import { publicKey, privateKey } from './solana.validators.test';
-import { tokenSymbols, txHash } from '../../services/validators.test';
-import { TransactionResponseStatusCode } from '../../../src/chains/solana/solana.requests';
-import * as getTransactionData from './fixtures/getTransaction.json';
-import getTokenAccountData from './fixtures/getTokenAccount';
-import getOrCreateAssociatedTokenAccountData from './fixtures/getOrCreateAssociatedTokenAccount';
-import * as getTokenListData from './fixtures/getTokenList.json';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { BigNumber } from 'ethers';
+import request from 'supertest';
+import { gatewayApp } from '../../../src/app';
+import { Solana } from '../../../src/chains/solana/solana';
+import { TransactionResponseStatusCode } from '../../../src/chains/solana/solana.requests';
+import { patch, unpatch } from '../../services/patch';
+import { tokenSymbols, txHash } from '../../services/validators.test';
+import getOrCreateAssociatedTokenAccountData from './fixtures/getOrCreateAssociatedTokenAccount';
 import { default as config } from './fixtures/getSolanaConfig';
+import getTokenAccountData from './fixtures/getTokenAccount';
+import * as getTokenListData from './fixtures/getTokenList.json';
+import * as getTransactionData from './fixtures/getTransaction.json';
+import { privateKey, publicKey } from './solana.validators.test';
 
 let solana: Solana;
 beforeAll(async () => {

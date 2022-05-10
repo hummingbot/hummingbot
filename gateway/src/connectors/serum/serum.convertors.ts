@@ -33,7 +33,7 @@ import {
   SerumOrderBook,
   SerumOrderParams,
   Ticker
-} from "./serum.types";
+} from './serum.types';
 
 export enum Types {
   GetMarketsResponse = 'GetMarketsResponse',
@@ -54,7 +54,7 @@ type SingleInput =
   | Ticker
   | Order
   | Fund[]
-;
+  ;
 
 type InputMap =
   IMap<string, Market>
@@ -62,7 +62,7 @@ type InputMap =
   | IMap<string, Ticker>
   | IMap<string, Order>
   | IMap<string, Fund[]>
-;
+  ;
 
 type InputMapMap =
   IMap<string, InputMap>
@@ -71,7 +71,7 @@ type Input =
   SingleInput
   | InputMap
   | InputMapMap
-;
+  ;
 
 type SingleOutput =
   GetMarketsResponse
@@ -84,31 +84,29 @@ type SingleOutput =
   | CancelOpenOrdersResponse
   | GetFilledOrdersResponse
   | PostSettleFundsResponse
-;
+  ;
 
 type Output =
   SingleOutput
-;
+  ;
 
 export const convert =
-  <
-    I extends Input,
-    O extends Output
-  >(
+  <I extends Input,
+    O extends Output>(
     input: I,
     type: Types
   ):
-O => {
-  if (IMap.isMap(input)) {
-    if (IMap.isMap(input.first())) {
-      return convertMapMap(input as InputMapMap, type);
+    O => {
+    if (IMap.isMap(input)) {
+      if (IMap.isMap(input.first())) {
+        return convertMapMap(input as InputMapMap, type);
+      }
+
+      return convertMap(input as InputMap, type);
     }
 
-    return convertMap(input as InputMap, type);
-  }
-
-  return convertSingle<O>(input as SingleInput, type);
-}
+    return convertSingle<O>(input as SingleInput, type);
+  };
 
 export const convertMapMap = <O extends Output>(
   input: InputMapMap,
@@ -125,7 +123,7 @@ export const convertMapMap = <O extends Output>(
   }
 
   return output as unknown as O;
-}
+};
 
 export const convertMap = <O extends Output>(
   input: InputMap,
@@ -140,7 +138,7 @@ export const convertMap = <O extends Output>(
   }
 
   return output as unknown as O;
-}
+};
 
 export const convertSingle = <O extends Output>(input: SingleInput, type: Types): O => {
   if (type === Types.GetMarketsResponse)
@@ -180,7 +178,7 @@ export const convertToJsonIfNeeded = (input: any): any => {
   if (IMap.isMap(input)) return input.toJS();
 
   return input;
-}
+};
 
 export const convertSerumMarketToMarket = (
   market: SerumMarket,
@@ -197,7 +195,7 @@ export const convertSerumMarketToMarket = (
     fees: market.decoded.fee,
     market: market
   } as Market;
-}
+};
 
 export const convertMarketBidsAndAsksToOrderBook = (
   market: Market,
@@ -213,7 +211,7 @@ export const convertMarketBidsAndAsksToOrderBook = (
       bids: bids,
     },
   } as OrderBook;
-}
+};
 
 export const convertArrayOfSerumOrdersToMapOfOrders = (
   market: Market,
@@ -238,7 +236,7 @@ export const convertArrayOfSerumOrdersToMapOfOrders = (
   }
 
   return result;
-}
+};
 
 export const convertToTicker = (input: any): Ticker => {
   const price = parseFloat(input.price);
@@ -249,7 +247,7 @@ export const convertToTicker = (input: any): Ticker => {
     timestamp: timestamp,
     ticker: input
   };
-}
+};
 
 export const convertSerumOrderToOrder = (
   market: Market,
@@ -269,7 +267,7 @@ export const convertSerumOrderToOrder = (
     amount: order?.size || candidate!.amount,
     side: order ? convertSerumSideToOrderSide(order.side) : candidate!.side,
     status: status,
-    type: orderParameters ? convertSerumTypeToOrderType(orderParameters.orderType!): undefined,
+    type: orderParameters ? convertSerumTypeToOrderType(orderParameters.orderType!) : undefined,
     fillmentTimestamp: undefined,
     signature: signature,
     order: order
@@ -286,23 +284,23 @@ export const convertToGetMarketResponse = (input: Market): GetMarketResponse => 
     tickSize: input.tickSize,
     minimumBaseIncrement: input.minimumBaseIncrement?.toString(),
     fees: input.fees
-  }
-}
+  };
+};
 
 export const convertToGetOrderBookResponse = (input: OrderBook): GetOrderBookResponse => {
   return {
     market: convertToGetMarketResponse(input.market),
     bids: input.bids.map(item => convertToGetOrderResponse(item)).toJS() as unknown as Map<string, any>,
     asks: input.asks.map(item => convertToGetOrderResponse(item)).toJS() as unknown as Map<string, any>
-  }
-}
+  };
+};
 
 export const convertToGetTickerResponse = (input: Ticker): GetTickerResponse => {
   return {
     price: input.price,
     timestamp: input.timestamp
-  }
-}
+  };
+};
 
 export const convertToGetOrderResponse = (input: Order): GetOrderResponse => {
   return {
@@ -316,8 +314,8 @@ export const convertToGetOrderResponse = (input: Order): GetOrderResponse => {
     status: input.status,
     type: input.type,
     fillmentTimestamp: input.fillmentTimestamp,
-  }
-}
+  };
+};
 
 export const convertToCreateOrderResponse = (input: Order): CreateOrderResponse => {
   return {
@@ -330,8 +328,8 @@ export const convertToCreateOrderResponse = (input: Order): CreateOrderResponse 
     side: input.side,
     status: input.status,
     type: input.type,
-  }
-}
+  };
+};
 
 export const convertToCancelOrderResponse = (input: Order): CancelOrderResponse => {
   return {
@@ -344,8 +342,8 @@ export const convertToCancelOrderResponse = (input: Order): CancelOrderResponse 
     side: input.side,
     status: input.status,
     type: input.type,
-  }
-}
+  };
+};
 
 export const convertToGetOpenOrderResponse = (input: Order): GetOpenOrderResponse => {
   return {
@@ -358,8 +356,8 @@ export const convertToGetOpenOrderResponse = (input: Order): GetOpenOrderRespons
     side: input.side,
     status: input.status,
     type: input.type,
-  }
-}
+  };
+};
 
 export const convertToCancelOpenOrderResponse = (input: Order): CancelOpenOrderResponse => ({
   id: input.id,
@@ -371,7 +369,7 @@ export const convertToCancelOpenOrderResponse = (input: Order): CancelOpenOrderR
   side: input.side,
   status: input.status,
   type: input.type,
-})
+});
 
 export const convertToGetFilledOrderResponse = (input: Order): GetFilledOrderResponse => {
   return {
@@ -385,37 +383,37 @@ export const convertToGetFilledOrderResponse = (input: Order): GetFilledOrderRes
     status: input.status,
     type: input.type,
     fillmentTimestamp: input.fillmentTimestamp
-  }
-}
+  };
+};
 
 export const convertToPostSettleFundsResponse = (input: Fund[]): PostSettleFundsResponse => {
   return input;
-}
+};
 
 export const convertOrderSideToSerumSide = (input: OrderSide): 'buy' | 'sell' => {
-  return input.toLowerCase() as 'buy' | 'sell'
-}
+  return input.toLowerCase() as 'buy' | 'sell';
+};
 
 export const convertSerumSideToOrderSide = (input: 'buy' | 'sell'): OrderSide => {
   if (input == 'buy') return OrderSide.BUY;
   if (input == 'sell') return OrderSide.SELL;
   throw new Error(`Invalid order side: ${input}`);
-}
+};
 
 export const convertOrderTypeToSerumType = (input?: OrderType): 'limit' | 'ioc' | 'postOnly' => {
   if (!input)
-    return 'limit'
+    return 'limit';
   else if (['limit', 'ioc'].includes(input.toLowerCase()))
-    return input.toLowerCase() as 'limit' | 'ioc' | 'postOnly'
+    return input.toLowerCase() as 'limit' | 'ioc' | 'postOnly';
   else if (['post_only', 'postOnly'].includes(input.toLowerCase()))
-    return 'postOnly'
+    return 'postOnly';
   else
-    throw new Error(`Invalid order type: ${input}`)
-}
+    throw new Error(`Invalid order type: ${input}`);
+};
 
 export const convertSerumTypeToOrderType = (input: 'limit' | 'ioc' | 'postOnly'): OrderType => {
   if (input == 'limit') return OrderType.LIMIT;
   if (input == 'ioc') return OrderType.IOC;
   if (input == 'postOnly') return OrderType.POST_ONLY;
   throw new Error(`Invalid order type: ${input}`);
-}
+};

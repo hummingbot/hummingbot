@@ -1,8 +1,8 @@
-import {Solanaish} from '../chains/solana/solana';
-import {Serumish} from '../connectors/serum/serum';
+import { Solanaish } from '../chains/solana/solana';
+import { Serumish } from '../connectors/serum/serum';
 import * as serumControllers from '../connectors/serum/serum.controllers';
-import {ResponseWrapper} from '../services/common-interfaces';
-import {getChain, getConnector} from '../services/connection-manager';
+import { ResponseWrapper } from '../services/common-interfaces';
+import { getChain, getConnector } from '../services/connection-manager';
 import {
   ClobDeleteOpenOrdersRequest,
   ClobDeleteOpenOrdersResponse,
