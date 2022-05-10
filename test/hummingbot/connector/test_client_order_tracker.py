@@ -427,13 +427,13 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             exchange_order_id=order.exchange_order_id,
             trading_pair=self.trading_pair,
             update_timestamp=1,
-            new_state=OrderState.CANCELLED,
+            new_state=OrderState.CANCELED,
         )
 
         update_future = self.tracker.process_order_update(order_cancelled_update)
         self.async_run_with_timeout(update_future)
 
-        self.assertTrue(self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}."))
+        self.assertTrue(self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
         self.assertEqual(0, len(self.tracker.active_orders))
         self.assertEqual(1, len(self.tracker.cached_orders))
         self.assertEqual(1, len(self.order_cancelled_logger.event_log))
@@ -783,7 +783,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             amount=Decimal("1000.0"),
             creation_timestamp=1640001112.223,
             price=Decimal("1.0"),
-            initial_state=OrderState.CANCELLED
+            initial_state=OrderState.CANCELED
         ))
         orders.append(InFlightOrder(
             client_order_id="OID3",
