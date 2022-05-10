@@ -47,7 +47,7 @@ class MovingPriceBand:
         :param timestamp: current timestamp of the strategy/connector
         :param price: reference price to set price band
         """
-        self._price_floor = (Decimal("100") + self.price_floor_pct) / Decimal("100") * price
+        self._price_floor = (Decimal("100") - self.price_floor_pct) / Decimal("100") * price
         self._price_ceiling = (Decimal("100") + self.price_ceiling_pct) / Decimal("100") * price
         self._set_time = timestamp
         self.logger().info(
