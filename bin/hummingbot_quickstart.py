@@ -16,6 +16,7 @@ from bin.docker_connection import fork_and_start
 from bin.hummingbot import UIStartListener, detect_available_port
 from hummingbot import init_logging
 from hummingbot.client.config.config_crypt import BaseSecretsManager, ETHKeyFileSecretManger
+from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
 from hummingbot.client.config.config_helpers import (
     all_configs_complete,
     create_yml_files_legacy,
@@ -97,7 +98,11 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
         strategy_config = await load_strategy_config_map_from_file(
             STRATEGIES_CONF_DIR_PATH / config_file_name
         )
-        hb.strategy_name = strategy_config.strategy
+        hb.strategy_name = (
+            strategy_config.strategy
+            if isinstance(strategy_config, BaseStrategyConfigMap)
+            else strategy_config.get("strategy").value
+        )
         hb.strategy_config_map = strategy_config
 
     # To ensure quickstart runs with the default value of False for kill_switch_enabled if not present
