@@ -356,7 +356,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                             params=params,
                                             )
         elif method == "POST":
-
             if is_auth_required:
                 params = self._auth.extend_params_with_authentication_info(params=body)
             async with self._throttler.execute_task(limit_id):
@@ -689,7 +688,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     )
                     self._client_order_tracker.process_order_update(order_update)
                 else:
-                    raise IOError(f"Bybit Perpetual encountered a problem cancelling the order"
+                    raise IOError(f"Bybit Perpetual encountered a problem canceling the order"
                                   f" ({response['ret_code']} - {response['ret_msg']})")
 
             return client_order_id
@@ -736,7 +735,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         failed_cancellations.append(CancellationResult(order.client_order_id, False))
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with ByBit Perpetual. Check API key and network connection."
             )

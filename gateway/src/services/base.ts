@@ -1,4 +1,6 @@
 import { BigNumber } from 'ethers';
+import { format, fraction, number } from 'mathjs';
+import { isFractionString, isFloatString } from './validators';
 
 // the type of information source for tokens
 export type TokenListType = 'FILE' | 'URL';
@@ -79,3 +81,32 @@ export const latency = (startTime: number, endTime: number): number => {
 };
 
 export const walletPath = './conf/wallets';
+
+// convert a fraction string to a number
+export const fromFractionString = (value: string): number | null => {
+  if (isFractionString(value)) {
+    const num = number(fraction(value)); // this can return different mathematical values, control for number
+    if (typeof num === 'number') {
+      return num;
+    } else {
+      return null;
+    }
+  } else {
+    return null;
+  }
+};
+
+// convert a number to a fraction string or verify that a string is a string
+// of a fraction
+export const toFractionString = (value: number | string): string | null => {
+  if (typeof value === 'number') {
+    return format(fraction(value), { fraction: 'ratio' });
+  } else {
+    if (isFractionString(value) || isFloatString(value)) {
+      return format(fraction(value), { fraction: 'ratio' });
+    } else {
+      return null;
+    }
+  }
+  return null;
+};

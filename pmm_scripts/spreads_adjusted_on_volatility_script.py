@@ -1,8 +1,9 @@
-from decimal import Decimal
-from datetime import datetime
 import time
-from hummingbot.script.script_base import ScriptBase
-from os.path import realpath, join
+from datetime import datetime
+from decimal import Decimal
+from os.path import join, realpath
+
+from hummingbot.pmm_script.pmm_script_base import PMMScriptBase
 
 s_decimal_1 = Decimal("1")
 LOGS_PATH = realpath(join(__file__, "../../logs/"))
@@ -14,7 +15,7 @@ def log_to_file(file_name, message):
         f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " - " + message + "\n")
 
 
-class SpreadsAdjustedOnVolatility(ScriptBase):
+class SpreadsAdjustedOnVolatility(PMMScriptBase):
     """
     Demonstrates how to adjust bid and ask spreads based on price volatility.
     The volatility, in this example, is simply a price change compared to the previous cycle regardless of its
