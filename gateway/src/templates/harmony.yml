@@ -17,4 +17,4 @@ network: 'harmony'
 autoGasPrice: true
 manualGasPrice: 30
 gasPricerefreshTime: 60
-gasLimit: 300000
+gasLimit: 3000000
