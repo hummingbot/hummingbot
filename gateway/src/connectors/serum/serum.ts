@@ -1,12 +1,12 @@
-import {MARKETS} from '@project-serum/serum';
-import {Account, AccountInfo, Connection, PublicKey, Transaction, TransactionSignature} from '@solana/web3.js';
+import { MARKETS } from '@project-serum/serum';
+import { Account, AccountInfo, Connection, PublicKey, Transaction, TransactionSignature } from '@solana/web3.js';
 import axios from 'axios';
 import BN from 'bn.js';
-import {Cache, CacheContainer} from 'node-ts-cache';
-import {MemoryStorage} from 'node-ts-cache-storage-memory';
-import {Solana} from '../../chains/solana/solana';
-import {getSerumConfig, SerumConfig} from './serum.config';
-import {promisesBatchSize, promisesDelayInMilliseconds, serumMarketsTimeToLive} from './serum.constants';
+import { Cache, CacheContainer } from 'node-ts-cache';
+import { MemoryStorage } from 'node-ts-cache-storage-memory';
+import { Solana } from '../../chains/solana/solana';
+import { getSerumConfig, SerumConfig } from './serum.config';
+import { promisesBatchSize, promisesDelayInMilliseconds, serumMarketsTimeToLive } from './serum.constants';
 import {
   convertArrayOfSerumOrdersToMapOfOrders,
   convertMarketBidsAndAsksToOrderBook,
@@ -16,7 +16,7 @@ import {
   convertSerumOrderToOrder,
   convertToTicker
 } from './serum.convertors';
-import {getRandonBN, promiseAllInBatches} from './serum.helpers';
+import { getRandonBN, promiseAllInBatches } from './serum.helpers';
 import {
   BasicSerumMarket,
   CancelOrderRequest,
@@ -85,7 +85,7 @@ export class Serum {
     this.chain = chain;
     this.network = network;
 
-    this.config = getSerumConfig(network)
+    this.config = getSerumConfig(network);
 
     this.connection = new Connection(this.config.network.rpcURL);
   }
@@ -101,7 +101,7 @@ export class Serum {
    * @private
    */
   private async serumLoadMarket(connection: Connection, address: PublicKey, options: SerumMarketOptions | undefined, programId: PublicKey, layoutOverride?: any): Promise<SerumMarket> {
-    return await SerumMarket.load(connection,address, <SerumMarketOptions>options, programId, layoutOverride);
+    return await SerumMarket.load(connection, address, <SerumMarketOptions>options, programId, layoutOverride);
   }
 
   /**
@@ -171,10 +171,36 @@ export class Serum {
    * @private
    */
   // @ts-ignore
-  private async serumMarketPlaceOrder(market: SerumMarket, connection: Connection, { owner, payer, side, price, size, orderType, clientId, openOrdersAddressKey, openOrdersAccount, feeDiscountPubkey, maxTs, replaceIfExists, }: SerumOrderParams<Account>): Promise<TransactionSignature> {
+  private async serumMarketPlaceOrder(market: SerumMarket, connection: Connection, {
+    owner,
+    payer,
+    side,
+    price,
+    size,
+    orderType,
+    clientId,
+    openOrdersAddressKey,
+    openOrdersAccount,
+    feeDiscountPubkey,
+    maxTs,
+    replaceIfExists,
+  }: SerumOrderParams<Account>): Promise<TransactionSignature> {
     return await market.placeOrder(
       connection,
-      { owner, payer, side, price, size, orderType, clientId, openOrdersAddressKey, openOrdersAccount, feeDiscountPubkey, maxTs, replaceIfExists, }
+      {
+        owner,
+        payer,
+        side,
+        price,
+        size,
+        orderType,
+        clientId,
+        openOrdersAddressKey,
+        openOrdersAccount,
+        feeDiscountPubkey,
+        maxTs,
+        replaceIfExists,
+      }
     );
   }
 
@@ -285,8 +311,8 @@ export class Serum {
    * @param includeUnwrappedSol
    * @private
    */
-  @Cache(caches.serumFindBaseTokenAccountsForOwner, { isCachedForever: true })
-  private async serumFindBaseTokenAccountsForOwner(market: SerumMarket, connection: Connection, ownerAddress: PublicKey, includeUnwrappedSol?: boolean): Promise<Array<{pubkey: PublicKey; account: AccountInfo<Buffer>;}>> {
+  @Cache(caches.serumFindBaseTokenAccountsForOwner, {isCachedForever: true})
+  private async serumFindBaseTokenAccountsForOwner(market: SerumMarket, connection: Connection, ownerAddress: PublicKey, includeUnwrappedSol?: boolean): Promise<Array<{ pubkey: PublicKey; account: AccountInfo<Buffer>; }>> {
     return await market.findBaseTokenAccountsForOwner(connection, ownerAddress, includeUnwrappedSol);
   }
 
@@ -299,8 +325,8 @@ export class Serum {
    * @param includeUnwrappedSol
    * @private
    */
-  @Cache(caches.serumFindQuoteTokenAccountsForOwner, { isCachedForever: true })
-  private async serumFindQuoteTokenAccountsForOwner(market: SerumMarket, connection: Connection, ownerAddress: PublicKey, includeUnwrappedSol?: boolean): Promise<Array<{pubkey: PublicKey; account: AccountInfo<Buffer>;}>> {
+  @Cache(caches.serumFindQuoteTokenAccountsForOwner, {isCachedForever: true})
+  private async serumFindQuoteTokenAccountsForOwner(market: SerumMarket, connection: Connection, ownerAddress: PublicKey, includeUnwrappedSol?: boolean): Promise<Array<{ pubkey: PublicKey; account: AccountInfo<Buffer>; }>> {
     return await market.findQuoteTokenAccountsForOwner(connection, ownerAddress, includeUnwrappedSol);
   }
 
@@ -354,7 +380,7 @@ export class Serum {
    * @param chain
    * @param network
    */
-  @Cache(caches.instances, { isCachedForever: true })
+  @Cache(caches.instances, {isCachedForever: true})
   static async getInstance(chain: string, network: string): Promise<Serum> {
     const instance = new Serum(chain, network);
 
@@ -421,11 +447,11 @@ export class Serum {
   async getMarkets(names: string[]): Promise<IMap<string, Market>> {
     const markets = IMap<string, Market>().asMutable();
 
-    const getMarket = async(name: string): Promise<void> => {
+    const getMarket = async (name: string): Promise<void> => {
       const market = await this.getMarket(name);
 
       markets.set(name, market);
-    }
+    };
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
     await promiseAllInBatches(getMarket, names, promisesBatchSize, promisesDelayInMilliseconds);
@@ -436,7 +462,7 @@ export class Serum {
   /**
    * $numberOfAllowedMarkets external API calls.
    */
-  @Cache(caches.markets, { ttl: serumMarketsTimeToLive })
+  @Cache(caches.markets, {ttl: serumMarketsTimeToLive})
   async getAllMarkets(): Promise<IMap<string, Market>> {
     const allMarkets = IMap<string, Market>().asMutable();
 
@@ -459,7 +485,7 @@ export class Serum {
         && (this.config.markets.whiteList.length ? this.config.markets.whiteList.includes(item.name) : true)
     );
 
-    const loadMarket = async(market: BasicSerumMarket): Promise<void> => {
+    const loadMarket = async (market: BasicSerumMarket): Promise<void> => {
       const serumMarket = await this.serumLoadMarket(
         this.connection,
         new PublicKey(market.address),
@@ -474,7 +500,7 @@ export class Serum {
           market
         )
       );
-    }
+    };
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
     // It takes on average about 44s to load all the markets
@@ -509,11 +535,11 @@ export class Serum {
   async getOrderBooks(marketNames: string[]): Promise<IMap<string, OrderBook>> {
     const orderBooks = IMap<string, OrderBook>().asMutable();
 
-    const getOrderBook = async(marketName: string): Promise<void> => {
+    const getOrderBook = async (marketName: string): Promise<void> => {
       const orderBook = await this.getOrderBook(marketName);
 
       orderBooks.set(marketName, orderBook);
-    }
+    };
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
     await promiseAllInBatches(getOrderBook, marketNames, promisesBatchSize, promisesDelayInMilliseconds);
@@ -541,9 +567,9 @@ export class Serum {
     try {
       if (this.config.tickers.source === TickerSource.NOMIMCS) {
         const url = (
-            this.config.tickers.url
-            || "https://nomics.com/data/exchange-markets-ticker?convert=USD&exchange=serum_dex&interval=1d&market=${marketAddress}"
-          ).replace("${marketAddress}", market.address.toString());
+          this.config.tickers.url
+          || 'https://nomics.com/data/exchange-markets-ticker?convert=USD&exchange=serum_dex&interval=1d&market=${marketAddress}'
+        ).replace('${marketAddress}', market.address.toString());
 
         const result: { price: any, last_updated_at: any } = (await axios.get(url)).data.items[0];
 
@@ -575,11 +601,11 @@ export class Serum {
   async getTickers(marketNames: string[]): Promise<IMap<string, Ticker>> {
     const tickers = IMap<string, Ticker>().asMutable();
 
-    const getTicker = async(marketName: string): Promise<void> => {
+    const getTicker = async (marketName: string): Promise<void> => {
       const ticker = await this.getTicker(marketName);
 
       tickers.set(marketName, ticker);
-    }
+    };
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
     await promiseAllInBatches(getTicker, marketNames, promisesBatchSize, promisesDelayInMilliseconds);
@@ -598,7 +624,7 @@ export class Serum {
 
   /**
    * 1 or $numberOfAllowedMarkets external API calls.
-   * 
+   *
    * @param target
    */
   async getOpenOrder(target: GetOpenOrderRequest): Promise<Order> {
@@ -666,15 +692,15 @@ export class Serum {
       orders.concat(
         temporary.filter((order: Order) => {
           return (order.ownerAddress === target.ownerAddress
-          && (target.marketName ? order.marketName === target.marketName : true)
-          && (
-            (target.ids?.length || target.exchangeIds?.length)
-              ? (
-                target.ids?.includes(order.id!)
-                || target.exchangeIds?.includes(order.exchangeId!)
-              )
-            : true
-          ));
+            && (target.marketName ? order.marketName === target.marketName : true)
+            && (
+              (target.ids?.length || target.exchangeIds?.length)
+                ? (
+                  target.ids?.includes(order.id!)
+                  || target.exchangeIds?.includes(order.exchangeId!)
+                )
+                : true
+            ));
         })
       );
     }
@@ -717,7 +743,7 @@ export class Serum {
 
     const getOpenOrders = async (market: Market): Promise<void> => {
       result.set(market.name, await this.getOpenOrdersForMarket(market.name, ownerAddress));
-    }
+    };
 
     await promiseAllInBatches<Market, Promise<void>>(
       getOpenOrders, Array.from(markets.values()), promisesBatchSize, promisesDelayInMilliseconds
@@ -809,15 +835,15 @@ export class Serum {
       orders.concat(
         temporary.filter((order: Order) => {
           return (order.ownerAddress === target.ownerAddress
-          && (target.marketName ? order.marketName === target.marketName : true)
-          && (
-            (target.ids?.length || target.exchangeIds?.length)
-              ? (
-                target.ids?.includes(order.id!)
-                || target.exchangeIds?.includes(order.exchangeId!)
-              )
-            : true
-          ));
+            && (target.marketName ? order.marketName === target.marketName : true)
+            && (
+              (target.ids?.length || target.exchangeIds?.length)
+                ? (
+                  target.ids?.includes(order.id!)
+                  || target.exchangeIds?.includes(order.exchangeId!)
+                )
+                : true
+            ));
         })
       );
     }
@@ -853,7 +879,7 @@ export class Serum {
 
     const getFilledOrders = async (market: Market): Promise<void> => {
       result.set(market.name, await this.getFilledOrdersForMarket(market.name));
-    }
+    };
 
     await promiseAllInBatches<Market, Promise<void>>(
       getFilledOrders, Array.from(markets.values()), promisesBatchSize, promisesDelayInMilliseconds
@@ -928,15 +954,15 @@ export class Serum {
       orders.concat(
         temporary.filter((order: Order) => {
           return (order.ownerAddress === target.ownerAddress
-          && (target.marketName ? order.marketName === target.marketName : true)
-          && (
-            (target.ids?.length || target.exchangeIds?.length)
-              ? (
-                target.ids?.includes(order.id!)
-                || target.exchangeIds?.includes(order.exchangeId!)
-              )
-            : true
-          ));
+            && (target.marketName ? order.marketName === target.marketName : true)
+            && (
+              (target.ids?.length || target.exchangeIds?.length)
+                ? (
+                  target.ids?.includes(order.id!)
+                  || target.exchangeIds?.includes(order.exchangeId!)
+                )
+                : true
+            ));
         })
       );
     }
@@ -970,7 +996,7 @@ export class Serum {
 
     const getOrders = async (market: Market): Promise<void> => {
       result.set(market.name, await this.getOrdersForMarket(market.name, ownerAddress));
-    }
+    };
 
     await promiseAllInBatches<Market, Promise<void>>(
       getOrders, Array.from(markets.values()), promisesBatchSize, promisesDelayInMilliseconds
@@ -1009,14 +1035,14 @@ export class Serum {
   ): Promise<IMap<string, Order>> {
     // TODO Check the maximum number of orders that we can create at once!!!
 
-    const ordersMap = IMap<Market, IMap<Account, {request: CreateOrdersRequest, serum: SerumOrderParams<Account>}[]>>().asMutable();
+    const ordersMap = IMap<Market, IMap<Account, { request: CreateOrdersRequest, serum: SerumOrderParams<Account> }[]>>().asMutable();
 
     for (const candidate of candidates) {
       const market = (await this.getMarket(candidate.marketName));
 
       let marketMap = ordersMap.get(market);
       if (!marketMap) {
-        marketMap = IMap<Account, {request: CreateOrdersRequest, serum: SerumOrderParams<Account>}[]>().asMutable();
+        marketMap = IMap<Account, { request: CreateOrdersRequest, serum: SerumOrderParams<Account> }[]>().asMutable();
         ordersMap.set(market, marketMap!);
       }
 
@@ -1091,7 +1117,7 @@ export class Serum {
 
     const owner = await this.solana.getAccount(target.ownerAddress);
 
-    const order = await this.getOpenOrder({ ...target });
+    const order = await this.getOpenOrder({...target});
 
     try {
       order.signature = await this.serumMarketCancelOrdersAndSettleFunds(market.market, this.connection, owner, [order.order!]);
@@ -1202,14 +1228,15 @@ export class Serum {
   async settleFundsForMarket(marketName: string, ownerAddress: string): Promise<TransactionSignature[]> {
     const market = await this.getMarket(marketName);
     const owner = await this.solana.getAccount(ownerAddress);
+    const signatures: TransactionSignature[] = [];
 
-    const fundsSettlements: {
-      owner: Account,
-      openOrders: SerumOpenOrders,
-      baseWallet: PublicKey,
-      quoteWallet: PublicKey,
-      referrerQuoteWallet: PublicKey | null
-    }[] = [];
+    // const fundsSettlements: {
+    //   owner: Account,
+    //   openOrders: SerumOpenOrders,
+    //   baseWallet: PublicKey,
+    //   quoteWallet: PublicKey,
+    //   referrerQuoteWallet: PublicKey | null
+    // }[] = [];
 
     for (const openOrders of await this.serumFindOpenOrdersAccountsForOwner(
       market.market,
@@ -1223,29 +1250,49 @@ export class Serum {
         const quote = await this.serumFindQuoteTokenAccountsForOwner(market.market, this.connection, owner.publicKey, true);
         const quoteWallet = quote[0].pubkey;
 
-        fundsSettlements.push({
-          owner,
-          openOrders,
-          baseWallet,
-          quoteWallet,
-          referrerQuoteWallet: null
-        });
+        try {
+          signatures.push(await this.serumSettleFunds(
+            market.market,
+            this.connection,
+            owner,
+            openOrders,
+            baseWallet,
+            quoteWallet,
+            null,
+          ));
+        } catch (exception: any) {
+          if (exception.message.includes('It is unknown if it succeeded or failed.')) {
+            throw new FundsSettlementError(`Unknown state when settling the funds for the market "${marketName}": ${exception.message}`);
+          } else {
+            throw exception;
+          }
+        }
+
+        // fundsSettlements.push({
+        //   owner,
+        //   openOrders,
+        //   baseWallet,
+        //   quoteWallet,
+        //   referrerQuoteWallet: null
+        // });
       }
     }
 
-    try {
-      return await this.serumSettleSeveralFunds(
-        market.market,
-        this.connection,
-        fundsSettlements
-      );
-    } catch (exception: any) {
-      if (exception.message.includes('It is unknown if it succeeded or failed.')) {
-        throw new FundsSettlementError(`Unknown state when settling the funds for the market "${marketName}": ${exception.message}`);
-      } else {
-        throw exception;
-      }
-    }
+    // try {
+    //   return await this.serumSettleSeveralFunds(
+    //     market.market,
+    //     this.connection,
+    //     fundsSettlements
+    //   );
+    // } catch (exception: any) {
+    //   if (exception.message.includes('It is unknown if it succeeded or failed.')) {
+    //     throw new FundsSettlementError(`Unknown state when settling the funds for the market "${marketName}": ${exception.message}`);
+    //   } else {
+    //     throw exception;
+    //   }
+    // }
+
+    return signatures;
   }
 
   /**
@@ -1257,11 +1304,11 @@ export class Serum {
   async settleFundsForMarkets(marketNames: string[], ownerAddress: string): Promise<IMap<string, Fund[]>> {
     const funds = IMap<string, Fund[]>().asMutable();
 
-    const settleFunds = async(marketName: string): Promise<void> => {
+    const settleFunds = async (marketName: string): Promise<void> => {
       const signatures = await this.settleFundsForMarket(marketName, ownerAddress);
 
       funds.set(marketName, signatures);
-    }
+    };
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
     await promiseAllInBatches(settleFunds, marketNames, promisesBatchSize, promisesDelayInMilliseconds);
@@ -1274,7 +1321,7 @@ export class Serum {
    *
    * @param ownerAddress
    */
-  async settleAllFunds(ownerAddress: string): Promise<IMap<string, Fund[]>>{
+  async settleAllFunds(ownerAddress: string): Promise<IMap<string, Fund[]>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
 
     return this.settleFundsForMarkets(marketNames, ownerAddress);

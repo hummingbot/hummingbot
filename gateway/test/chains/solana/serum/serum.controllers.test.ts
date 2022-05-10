@@ -1,14 +1,25 @@
-import 'jest-extended';
-import {Serum} from '../../../../src/connectors/serum/serum';
-import {unpatch} from '../../../services/patch';
-import {Solana} from '../../../../src/chains/solana/solana';
-import {default as config} from './fixtures/serumConfig';
-// @ts-ignore
-import { cancelOpenOrders, cancelOrders, createOrders, getFilledOrders, getMarkets, getOpenOrders, getOrderBooks, getOrders, getTickers, settleFunds } from '../../../../src/clob/clob.controllers';
-// @ts-ignore
-import {getNewOrderTemplate} from './fixtures/dummy';
+import { Account } from '@solana/web3.js';
 import BN from 'bn.js';
-import {Account} from '@solana/web3.js';
+import 'jest-extended';
+import { Solana } from '../../../../src/chains/solana/solana';
+// @ts-ignore
+import {
+  cancelOpenOrders,
+  cancelOrders,
+  createOrders,
+  getFilledOrders,
+  getMarkets,
+  getOpenOrders,
+  getOrderBooks,
+  getOrders,
+  getTickers,
+  settleFunds
+} from '../../../../src/clob/clob.controllers';
+import { Serum } from '../../../../src/connectors/serum/serum';
+import { unpatch } from '../../../services/patch';
+// @ts-ignore
+import { getNewOrderTemplate } from './fixtures/dummy';
+import { default as config } from './fixtures/serumConfig';
 
 jest.setTimeout(1000000);
 

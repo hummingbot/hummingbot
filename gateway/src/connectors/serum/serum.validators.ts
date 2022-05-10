@@ -1,14 +1,15 @@
-import {StatusCodes} from "http-status-codes";
+import { StatusCodes } from 'http-status-codes';
 import {
   isBase58,
   isFloatString,
-  isNaturalNumberString, mkBatchValidator,
+  isNaturalNumberString,
+  mkBatchValidator,
   mkRequestValidator,
   mkValidator,
   RequestValidator,
-  Validator
+  Validator,
 } from '../../services/validators';
-import {OrderSide, OrderType} from "./serum.types";
+import { OrderSide, OrderType } from './serum.types';
 
 export const validateOrderClientId: Validator = mkValidator(
   'id',
@@ -20,7 +21,11 @@ export const validateOrderClientId: Validator = mkValidator(
 export const validateOrderClientIds: Validator = mkValidator(
   'ids',
   (_value) => `Invalid client ids, it needs to be an array of big numbers.`,
-  (target) => {let ok = true; target === undefined ? ok = true : target.map((item: any) => ok = isNaturalNumberString(item) && ok); return ok;},
+  (target) => {
+    let ok = true;
+    target === undefined ? ok = true : target.map((item: any) => ok = isNaturalNumberString(item) && ok);
+    return ok;
+  },
   true
 );
 
@@ -34,7 +39,11 @@ export const validateOrderExchangeId: Validator = mkValidator(
 export const validateOrderExchangeIds: Validator = mkValidator(
   'exchangeIds',
   (_value) => `Invalid client ids, it needs to be an array of big numbers.`,
-  (target) => {let ok = true; target === undefined ? ok = true : target.map((item: any) => ok = isNaturalNumberString(item) && ok); return ok;},
+  (target) => {
+    let ok = true;
+    target === undefined ? ok = true : target.map((item: any) => ok = isNaturalNumberString(item) && ok);
+    return ok;
+  },
   true
 );
 
@@ -48,7 +57,11 @@ export const validateOrderMarketName: Validator = mkValidator(
 export const validateOrderMarketNames: Validator = mkValidator(
   'marketNames',
   (_value) => `Invalid market names, it needs to be an array of strings.`,
-  (target) => {let ok = true; target === undefined ? ok = true : target.map((item: any) => ok = item.trim().length && ok); return ok;},
+  (target) => {
+    let ok = true;
+    target === undefined ? ok = true : target.map((item: any) => ok = item.trim().length && ok);
+    return ok;
+  },
   true
 );
 
@@ -155,7 +168,7 @@ export const validateGetOrderRequest: RequestValidator = mkRequestValidator(
     validateOrderOwnerAddress,
   ], StatusCodes.BAD_REQUEST,
   (request) => `Error when trying to get order "${request.id}"`
-)
+);
 
 export const validateGetOrdersRequest: RequestValidator = mkRequestValidator([
   mkValidator(
@@ -219,7 +232,7 @@ export const validateCancelOrderRequest: RequestValidator = mkRequestValidator(
     validateOrderOwnerAddress,
   ], StatusCodes.BAD_REQUEST,
   (request) => `Error when trying to cancel order "${request.id}"`
-)
+);
 
 export const validateCancelOrdersRequest: RequestValidator = mkRequestValidator([
   mkValidator(
@@ -248,7 +261,7 @@ export const validateGetOpenOrderRequest: RequestValidator = mkRequestValidator(
     validateOrderOwnerAddress,
   ], StatusCodes.BAD_REQUEST,
   (request) => `Error when trying to get open order "${request.id}"`
-)
+);
 
 export const validateGetOpenOrdersRequest: RequestValidator = mkRequestValidator([
   mkValidator(
@@ -277,7 +290,7 @@ export const validateCancelOpenOrderRequest: RequestValidator = mkRequestValidat
     validateOrderOwnerAddress,
   ], StatusCodes.BAD_REQUEST,
   (request) => `Error when trying to cancel open order "${request.id}"`
-)
+);
 
 export const validateCancelOpenOrdersRequest: RequestValidator = mkRequestValidator([
   mkValidator(
@@ -306,7 +319,7 @@ export const validateGetFilledOrderRequest: RequestValidator = mkRequestValidato
     validateOrderOwnerAddress,
   ], StatusCodes.BAD_REQUEST,
   (request) => `Error when trying to get filled order "${request.id}"`
-)
+);
 
 export const validateGetFilledOrdersRequest: RequestValidator = mkRequestValidator([
   mkValidator(
@@ -333,7 +346,7 @@ export const validateSettleFundsRequest: RequestValidator = mkRequestValidator(
     validateOrderOwnerAddress,
   ], StatusCodes.BAD_REQUEST,
   (request) => `Error when trying to settle funds for market "${request.marketName}."`
-)
+);
 
 export const validateSettleFundsSeveralRequest: RequestValidator = mkRequestValidator([
   validateOrderMarketNames,

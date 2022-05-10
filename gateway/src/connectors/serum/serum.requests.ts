@@ -1,4 +1,4 @@
-import {NetworkSelectionRequest} from '../../services/common-interfaces';
+import { NetworkSelectionRequest } from '../../services/common-interfaces';
 import {
   CancelOpenOrderRequest,
   CancelOpenOrdersRequest,
@@ -22,7 +22,9 @@ import {
   GetOrdersRequest,
   GetOrdersResponse,
   GetTickersRequest,
-  GetTickersResponse, PostSettleFundsRequest, PostSettleFundsResponse,
+  GetTickersResponse,
+  PostSettleFundsRequest,
+  PostSettleFundsResponse,
 } from './serum.types';
 
 //
@@ -61,8 +63,8 @@ export type SerumGetOrdersRequest = NetworkSelectionRequest &
     | { ownerAddress: string }
     | { order: GetOrderRequest }
     | {
-        orders: GetOrdersRequest[];
-      }
+      orders: GetOrdersRequest[];
+    }
   );
 
 export type SerumGetOrdersResponse = GetOrdersResponse;
@@ -75,8 +77,8 @@ export type SerumCreateOrdersRequest = NetworkSelectionRequest &
   (
     | { order: CreateOrdersRequest }
     | {
-        orders: CreateOrdersRequest[];
-      }
+      orders: CreateOrdersRequest[];
+    }
   );
 
 export type SerumCreateOrdersResponse = CreateOrdersResponse;
@@ -90,8 +92,8 @@ export type SerumCancelOrdersRequest = NetworkSelectionRequest &
     | { ownerAddress: string }
     | { order: CancelOrderRequest }
     | {
-        orders: CancelOrdersRequest[];
-      }
+      orders: CancelOrdersRequest[];
+    }
   );
 
 export type SerumCancelOrdersResponse = CancelOrdersResponse;
@@ -105,8 +107,8 @@ export type SerumGetOpenOrdersRequest = NetworkSelectionRequest &
     | { ownerAddress: string }
     | { order: GetOpenOrderRequest }
     | {
-        orders: GetOpenOrdersRequest[];
-      }
+      orders: GetOpenOrdersRequest[];
+    }
   );
 
 export type SerumGetOpenOrdersResponse = GetOpenOrdersResponse;
@@ -120,8 +122,8 @@ export type SerumCancelOpenOrdersRequest = NetworkSelectionRequest &
     | { ownerAddress: string }
     | { order: CancelOpenOrderRequest }
     | {
-        orders: CancelOpenOrdersRequest[];
-      }
+      orders: CancelOpenOrdersRequest[];
+    }
   );
 
 export type SerumCancelOpenOrdersResponse = CancelOpenOrdersResponse;
@@ -135,8 +137,8 @@ export type SerumGetFilledOrdersRequest = NetworkSelectionRequest &
     | { ownerAddress: string }
     | { order: GetFilledOrderRequest }
     | {
-        orders: GetFilledOrdersRequest[];
-      }
+      orders: GetFilledOrdersRequest[];
+    }
   );
 
 export type SerumGetFilledOrdersResponse = GetFilledOrdersResponse;
