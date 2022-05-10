@@ -127,7 +127,7 @@ export const mkBatchValidator = (
   return (items: any[]) => {
     let errors: string[] = [];
 
-    for (const [index, item] of items.values()) {
+    for (const [index, item] of items.entries()) {
       const itemErrors: string[] = [];
 
       for (const validator of validators) {

@@ -132,7 +132,7 @@ export interface GetMarketResponse {
   deprecated: boolean;
   minimumOrderSize: number;
   tickSize: number;
-  minimumBaseIncrement?: BN;
+  minimumBaseIncrement?: string;
   fees: Fee;
 }
 
@@ -145,8 +145,8 @@ export type GetOrderBooksRequest =
 
 export interface GetOrderBookResponse {
   market: GetMarketResponse;
-  bids: IMap<string, GetOrderResponse>;
-  asks: IMap<string, GetOrderResponse>;
+  bids: Map<string, GetOrderResponse>;
+  asks: Map<string, GetOrderResponse>;
 }
 export type GetOrderBooksResponse = IMap<string, GetOrderBookResponse> | GetOrderBookResponse;
 

@@ -6,7 +6,7 @@ import {Cache, CacheContainer} from 'node-ts-cache';
 import {MemoryStorage} from 'node-ts-cache-storage-memory';
 import {Solana} from '../../chains/solana/solana';
 import {getSerumConfig, SerumConfig} from './serum.config';
-import {promisesBatchSize, promisesDelayInMilliseconds, serumMarketsTTL} from './serum.constants';
+import {promisesBatchSize, promisesDelayInMilliseconds, serumMarketsTimeToLive} from './serum.constants';
 import {
   convertArrayOfSerumOrdersToMapOfOrders,
   convertMarketBidsAndAsksToOrderBook,
@@ -206,7 +206,7 @@ export class Serum {
 
   /**
    * Cancel one or more order in a single transaction.
-   * 1 external API call.
+   * 2 external API call.
    *
    * @param market
    * @param connection
@@ -215,16 +215,7 @@ export class Serum {
    * @private
    */
   private async serumMarketCancelOrdersAndSettleFunds(market: SerumMarket, connection: Connection, owner: Account, orders: SerumOrder[]): Promise<TransactionSignature> {
-    const transaction = new Transaction();
-
-    for (const order of orders) {
-      await market.makeCancelOrderTransactionForBatch(
-        transaction,
-        connection,
-        owner.publicKey,
-        order,
-      );
-    }
+    return await market.cancelOrders(connection, owner, orders);
 
     const fundsSettlements: {
       owner: Account,
@@ -260,14 +251,15 @@ export class Serum {
       return (await this.serumSettleSeveralFunds(
         market,
         connection,
-        fundsSettlements
+        fundsSettlements,
+        new Transaction(), // There's only one owner.
       ))[0]; // There's only one owner.
     } catch (exception: any) {
       if (exception.message.includes('It is unknown if it succeeded or failed.')) {
         throw new FundsSettlementError(`Unknown state when settling the funds for the market: ${exception.message}`);
+      } else {
+        throw exception;
       }
-
-      throw exception;
     }
   }
 
@@ -347,9 +339,10 @@ export class Serum {
       baseWallet: PublicKey,
       quoteWallet: PublicKey,
       referrerQuoteWallet: PublicKey | null
-    }[]
+    }[],
+    transaction: Transaction = new Transaction(),
   ): Promise<TransactionSignature[]> {
-    return await market.settleSeveralFunds(connection, settlements);
+    return await market.settleSeveralFunds(connection, settlements, transaction);
   }
 
   /**
@@ -443,7 +436,7 @@ export class Serum {
   /**
    * $numberOfAllowedMarkets external API calls.
    */
-  @Cache(caches.markets, { ttl: serumMarketsTTL })
+  @Cache(caches.markets, { ttl: serumMarketsTimeToLive })
   async getAllMarkets(): Promise<IMap<string, Market>> {
     const allMarkets = IMap<string, Market>().asMutable();
 
@@ -547,10 +540,12 @@ export class Serum {
 
     try {
       if (this.config.tickers.source === TickerSource.NOMIMCS) {
-        const result: { price: any, last_updated_at: any } = (await axios.get(
-          this.config.tickers.url
-          || `https://nomics.com/data/exchange-markets-ticker?convert=USD&exchange=serum_dex&interval=1d&market=${market.address}`
-        )).data.items[0];
+        const url = (
+            this.config.tickers.url
+            || "https://nomics.com/data/exchange-markets-ticker?convert=USD&exchange=serum_dex&interval=1d&market=${marketAddress}"
+          ).replace("${marketAddress}", market.address.toString());
+
+        const result: { price: any, last_updated_at: any } = (await axios.get(url)).data.items[0];
 
         return convertToTicker(result);
       }
@@ -673,8 +668,12 @@ export class Serum {
           return (order.ownerAddress === target.ownerAddress
           && (target.marketName ? order.marketName === target.marketName : true)
           && (
-            target.ids?.includes(order.id!)
-            || target.exchangeIds?.includes(order.exchangeId!)
+            (target.ids?.length || target.exchangeIds?.length)
+              ? (
+                target.ids?.includes(order.id!)
+                || target.exchangeIds?.includes(order.exchangeId!)
+              )
+            : true
           ));
         })
       );
@@ -812,12 +811,18 @@ export class Serum {
           return (order.ownerAddress === target.ownerAddress
           && (target.marketName ? order.marketName === target.marketName : true)
           && (
-            target.ids?.includes(order.id!)
-            || target.exchangeIds?.includes(order.exchangeId!)
+            (target.ids?.length || target.exchangeIds?.length)
+              ? (
+                target.ids?.includes(order.id!)
+                || target.exchangeIds?.includes(order.exchangeId!)
+              )
+            : true
           ));
         })
       );
     }
+
+    if (!orders.size) throw new OrderNotFoundError('No filled orders found.');
 
     return orders;
   }
@@ -925,8 +930,12 @@ export class Serum {
           return (order.ownerAddress === target.ownerAddress
           && (target.marketName ? order.marketName === target.marketName : true)
           && (
-            target.ids?.includes(order.id!)
-            || target.exchangeIds?.includes(order.exchangeId!)
+            (target.ids?.length || target.exchangeIds?.length)
+              ? (
+                target.ids?.includes(order.id!)
+                || target.exchangeIds?.includes(order.exchangeId!)
+              )
+            : true
           ));
         })
       );
@@ -1038,17 +1047,18 @@ export class Serum {
     for (const [market, marketMap] of ordersMap.entries()) {
       for (const [owner, orders] of marketMap.entries()) {
         let status: OrderStatus;
-        let signatures: TransactionSignature[]
+        let signatures: TransactionSignature[];
         try {
           signatures = await this.serumMarketPlaceOrders(market.market, this.connection, orders.map(order => order.serum));
 
           status = OrderStatus.OPEN;
         } catch (exception: any) {
           if (exception.message.includes('It is unknown if it succeeded or failed.')) {
+            signatures = [];
             status = OrderStatus.CREATION_PENDING;
+          } else {
+            throw exception;
           }
-
-          throw exception;
         }
 
         for (const order of orders) {
@@ -1094,9 +1104,9 @@ export class Serum {
         order.status = OrderStatus.CANCELATION_PENDING;
 
         return order;
+      } else {
+        throw exception;
       }
-
-      throw exception;
     }
   }
 
@@ -1136,23 +1146,30 @@ export class Serum {
     const canceledOrders = IMap<string, Order>().asMutable();
     for (const [market, marketMap] of ordersMap.entries()) {
       for (const [owner, orders] of marketMap.entries()) {
+        const serumOrders = orders.map(order => order.order!);
+
+        if (!serumOrders.length) continue;
+
         let status: OrderStatus;
         let signature: TransactionSignature;
         try {
-          signature = await this.serumMarketCancelOrdersAndSettleFunds(market.market, this.connection, owner, orders.map(order => order.order!));
+          signature = await this.serumMarketCancelOrdersAndSettleFunds(market.market, this.connection, owner, serumOrders);
 
           status = OrderStatus.CANCELED;
         } catch (exception: any) {
           if (exception.message.includes('It is unknown if it succeeded or failed.')) {
+            signature = '';
             status = OrderStatus.CANCELATION_PENDING;
+          } else {
+            throw exception;
           }
-
-          throw exception;
         }
 
-        for (const order of orders) {
-          order.status = status;
-          order.signature = signature;
+        if (orders.length) {
+          for (const order of orders) {
+            order.status = status;
+            order.signature = signature;
+          }
         }
       }
     }
@@ -1225,9 +1242,9 @@ export class Serum {
     } catch (exception: any) {
       if (exception.message.includes('It is unknown if it succeeded or failed.')) {
         throw new FundsSettlementError(`Unknown state when settling the funds for the market "${marketName}": ${exception.message}`);
+      } else {
+        throw exception;
       }
-
-      throw exception;
     }
   }
 

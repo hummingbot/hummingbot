@@ -20,21 +20,21 @@ export const validateOrderClientId: Validator = mkValidator(
 export const validateOrderClientIds: Validator = mkValidator(
   'ids',
   (_value) => `Invalid client ids, it needs to be an array of big numbers.`,
-  (target) => {let ok = true; target.map((item: any) => ok = isNaturalNumberString(item) && ok); return ok;},
+  (target) => {let ok = true; target === undefined ? ok = true : target.map((item: any) => ok = isNaturalNumberString(item) && ok); return ok;},
   true
 );
 
 export const validateOrderExchangeId: Validator = mkValidator(
   'exchangeId',
   (value) => `Invalid exchange id (${value}), it needs to be in big number format.`,
-  (target) => isNaturalNumberString(target),
+  (target) => target === undefined || isNaturalNumberString(target),
   true
 );
 
 export const validateOrderExchangeIds: Validator = mkValidator(
   'exchangeIds',
   (_value) => `Invalid client ids, it needs to be an array of big numbers.`,
-  (target) => {let ok = true; target.map((item: any) => ok = isNaturalNumberString(item) && ok); return ok;},
+  (target) => {let ok = true; target === undefined ? ok = true : target.map((item: any) => ok = isNaturalNumberString(item) && ok); return ok;},
   true
 );
 
@@ -48,7 +48,7 @@ export const validateOrderMarketName: Validator = mkValidator(
 export const validateOrderMarketNames: Validator = mkValidator(
   'marketNames',
   (_value) => `Invalid market names, it needs to be an array of strings.`,
-  (target) => {let ok = true; target.map((item: any) => ok = item.trim().length && ok); return ok;},
+  (target) => {let ok = true; target === undefined ? ok = true : target.map((item: any) => ok = item.trim().length && ok); return ok;},
   true
 );
 
@@ -83,7 +83,7 @@ export const validateOrderAmount: Validator = mkValidator(
 export const validateOrderType: Validator = mkValidator(
   'type',
   (value) => `Invalid order type (${value}).`,
-  (target) => Object.values(OrderType).map(item => item.toLowerCase()).includes(target.toLowerCase()),
+  (target) => target === undefined ? true : Object.values(OrderType).map(item => item.toLowerCase()).includes(target.toLowerCase()),
   true
 );
 
@@ -151,7 +151,7 @@ export const validateGetOrderRequest: RequestValidator = mkRequestValidator(
   [
     validateOrderClientId,
     validateOrderExchangeId,
-    validateOrderMarketName,
+    // validateOrderMarketName,
     validateOrderOwnerAddress,
   ], StatusCodes.BAD_REQUEST,
   (request) => `Error when trying to get order "${request.id}"`
@@ -161,7 +161,7 @@ export const validateGetOrdersRequest: RequestValidator = mkRequestValidator([
   mkValidator(
     '',
     (_request) => `No orders were informed.`,
-    (request) => request.orders && request.orders.length,
+    (request) => request && request.length,
     false,
     true
   ),
@@ -169,7 +169,7 @@ export const validateGetOrdersRequest: RequestValidator = mkRequestValidator([
     [
       validateOrderClientIds,
       validateOrderExchangeIds,
-      validateOrderMarketName,
+      // validateOrderMarketName,
       validateOrderOwnerAddress,
     ],
     (_item, index) => `Invalid get orders request at position ${index}:`
@@ -193,7 +193,7 @@ export const validateCreateOrdersRequest: RequestValidator = mkRequestValidator(
   mkValidator(
     '',
     (_request) => `No orders were informed.`,
-    (request) => request.orders && request.orders.length,
+    (request) => request && request.length,
     false,
     true
   ),
@@ -225,7 +225,7 @@ export const validateCancelOrdersRequest: RequestValidator = mkRequestValidator(
   mkValidator(
     '',
     (_request) => `No orders were informed.`,
-    (request) => request.orders && request.orders.length,
+    (request) => request && request.length,
     false,
     true
   ),
@@ -244,7 +244,7 @@ export const validateGetOpenOrderRequest: RequestValidator = mkRequestValidator(
   [
     validateOrderClientId,
     validateOrderExchangeId,
-    validateOrderMarketName,
+    // validateOrderMarketName,
     validateOrderOwnerAddress,
   ], StatusCodes.BAD_REQUEST,
   (request) => `Error when trying to get open order "${request.id}"`
@@ -254,7 +254,7 @@ export const validateGetOpenOrdersRequest: RequestValidator = mkRequestValidator
   mkValidator(
     '',
     (_request) => `No orders were informed.`,
-    (request) => request.orders && request.orders.length,
+    (request) => request && request.length,
     false,
     true
   ),
@@ -262,7 +262,7 @@ export const validateGetOpenOrdersRequest: RequestValidator = mkRequestValidator
     [
       validateOrderClientIds,
       validateOrderExchangeIds,
-      validateOrderMarketName,
+      // validateOrderMarketName,
       validateOrderOwnerAddress,
     ],
     (_item, index) => `Invalid get open orders request at position ${index}:`
@@ -283,7 +283,7 @@ export const validateCancelOpenOrdersRequest: RequestValidator = mkRequestValida
   mkValidator(
     '',
     (_request) => `No orders were informed.`,
-    (request) => request.orders && request.orders.length,
+    (request) => request && request.length,
     false,
     true
   ),
@@ -302,7 +302,7 @@ export const validateGetFilledOrderRequest: RequestValidator = mkRequestValidato
   [
     validateOrderClientId,
     validateOrderExchangeId,
-    validateOrderMarketName,
+    // validateOrderMarketName,
     validateOrderOwnerAddress,
   ], StatusCodes.BAD_REQUEST,
   (request) => `Error when trying to get filled order "${request.id}"`
@@ -312,7 +312,7 @@ export const validateGetFilledOrdersRequest: RequestValidator = mkRequestValidat
   mkValidator(
     '',
     (_request) => `No orders were informed.`,
-    (request) => request.orders && request.orders.length,
+    (request) => request && request.length,
     false,
     true
   ),
@@ -320,7 +320,7 @@ export const validateGetFilledOrdersRequest: RequestValidator = mkRequestValidat
     [
       validateOrderClientIds,
       validateOrderExchangeIds,
-      validateOrderMarketName,
+      // validateOrderMarketName,
       validateOrderOwnerAddress,
     ],
     (_item, index) => `Invalid get filled orders request at position ${index}:`
@@ -336,18 +336,6 @@ export const validateSettleFundsRequest: RequestValidator = mkRequestValidator(
 )
 
 export const validateSettleFundsSeveralRequest: RequestValidator = mkRequestValidator([
-  mkValidator(
-    '',
-    (_request) => `No orders were informed.`,
-    (request) => request.orders && request.orders.length,
-    false,
-    true
-  ),
-  mkBatchValidator(
-    [
-      validateOrderMarketNames,
-      validateOrderOwnerAddress,
-    ],
-    (_item, index) => `Invalid get filled orders request at position ${index}:`
-  )
+  validateOrderMarketNames,
+  validateOrderOwnerAddress,
 ], StatusCodes.BAD_REQUEST);

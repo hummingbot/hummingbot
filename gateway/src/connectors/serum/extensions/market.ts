@@ -1125,8 +1125,9 @@ export class Market {
     return await this._sendTransaction(connection, transaction, [owner]);
   }
 
-  // TODO Add the settling of funds!!!
   async cancelOrders(connection: Connection, owner: Account, orders: Order[]): Promise<TransactionSignature> {
+    if (!orders.length) throw new Error('No orders provided');
+
     const transaction = new Transaction();
 
     for (const order of orders) {
@@ -1259,10 +1260,12 @@ export class Market {
       baseWallet: PublicKey,
       quoteWallet: PublicKey,
       referrerQuoteWallet: PublicKey | null
-    }[]
+    }[],
+    transaction: Transaction = new Transaction(),
   ): Promise<TransactionSignature[]> {
     const transactionSignatures = new Array<TransactionSignature>();
     const ownersMap = new Map<Account, {transaction: Transaction, signers: Array<Account>}>();
+    const onwersCount = new Set(settlements.map(item => item.owner)).size
 
     for (const { owner, openOrders, baseWallet, quoteWallet, referrerQuoteWallet = null } of settlements) {
       if (!openOrders.owner.equals(owner.publicKey)) {
@@ -1279,11 +1282,11 @@ export class Market {
         ownersMap.set(owner, item);
       }
 
-      const transaction: Transaction = item.transaction;
+      const targetTransaction: Transaction = onwersCount == 1 ? transaction : item.transaction
       const signers: Array<Account> = item.signers;
 
       const partial = await this.makeSettleFundsTransactionForBatch(
-        transaction,
+        targetTransaction,
         connection,
         openOrders,
         baseWallet,
