@@ -23,11 +23,11 @@ beforeAll(async () => {
   serum = await Serum.getInstance(config.serum.chain, config.serum.network);
 
   // await reset();
-  });
+});
 
 afterEach(() => {
   unpatch();
-  });
+});
 
 const commonParameters = {
   chain: config.serum.chain,
@@ -53,8 +53,16 @@ const reset = async () => {
     console.log('Open orders found:', JSON.stringify(openOrders, null, 2));
 
     for (let openOrder of openOrders) {
-      const result = await serumMarket.cancelOrder(connection, owner, openOrder)
-      console.log(`Cancelling order ${openOrder.orderId}:`, JSON.stringify(result, null, 2));
+      try {
+        const result = await serumMarket.cancelOrder(connection, owner, openOrder)
+        console.log(`Cancelling order ${openOrder.orderId}:`, JSON.stringify(result, null, 2));
+      } catch (exception: any) {
+        if (exception.message.includes('It is unknown if it succeeded or failed.')) {
+          console.log(exception);
+        } else {
+          throw exception;
+        }
+      }
     }
 
     for (const openOrders of await serumMarket.findOpenOrdersAccountsForOwner(
@@ -69,20 +77,29 @@ const reset = async () => {
         const quote = await serumMarket.findQuoteTokenAccountsForOwner(connection, owner.publicKey, true);
         const quoteTokenAccount = quote[0].pubkey;
 
-        const result = await serumMarket.settleFunds(
-          connection,
-          owner,
-          openOrders,
-          baseTokenAccount,
-          quoteTokenAccount,
-        );
+        try {
+          const result = await serumMarket.settleFunds(
+            connection,
+            owner,
+            openOrders,
+            baseTokenAccount,
+            quoteTokenAccount,
+          );
 
-        console.log(`Result of settling funds:`, JSON.stringify(result, null, 2));
+          console.log(`Result of settling funds:`, JSON.stringify(result, null, 2));
+        } catch (exception: any) {
+          if (exception.message.includes('It is unknown if it succeeded or failed.')) {
+            console.log(exception);
+          } else {
+            throw exception;
+          }
+        }
       }
     }
   }
 }
 
+// TODO remove console.logs!!!
 describe('Full Flow', () => {
   /*
   create order [0]
@@ -217,14 +234,14 @@ describe('Full Flow', () => {
     console.log('cancel all open orders', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
   });
 
-  it('settleFunds (all)', async () => {
-    request = {
-      ...commonParameters,
-      ownerAddress: config.solana.wallet.owner.address,
-    };
-    response = await settleFunds(request);
-    console.log('settle all funds', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
-  });
+  // it('settleFunds (all)', async () => {
+  //   request = {
+  //     ...commonParameters,
+  //     ownerAddress: config.solana.wallet.owner.address,
+  //   };
+  //   response = await settleFunds(request);
+  //   console.log('settle all funds', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+  // });
 
   it('getOpenOrders (all)', async () => {
     request = {

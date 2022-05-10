@@ -176,6 +176,12 @@ export const convertSingle = <O extends Output>(input: SingleInput, type: Types)
   throw new Error(`Unsupported input type "${type}".`);
 };
 
+export const convertToJsonIfNeeded = (input: any): any => {
+  if (IMap.isMap(input)) return input.toJS();
+
+  return input;
+}
+
 export const convertSerumMarketToMarket = (
   market: SerumMarket,
   extraInfo: Record<string, unknown> | BasicSerumMarket,
@@ -236,7 +242,7 @@ export const convertArrayOfSerumOrdersToMapOfOrders = (
 
 export const convertToTicker = (input: any): Ticker => {
   const price = parseFloat(input.price);
-  const timestamp = new Date(input.last_updated_at).getTime();
+  const timestamp = new Date(input.last_updated).getTime();
 
   return {
     price: price,
@@ -278,7 +284,7 @@ export const convertToGetMarketResponse = (input: Market): GetMarketResponse => 
     deprecated: input.deprecated,
     minimumOrderSize: input.minimumOrderSize,
     tickSize: input.tickSize,
-    minimumBaseIncrement: input.minimumBaseIncrement,
+    minimumBaseIncrement: input.minimumBaseIncrement?.toString(),
     fees: input.fees
   }
 }
@@ -286,8 +292,8 @@ export const convertToGetMarketResponse = (input: Market): GetMarketResponse => 
 export const convertToGetOrderBookResponse = (input: OrderBook): GetOrderBookResponse => {
   return {
     market: convertToGetMarketResponse(input.market),
-    bids: input.bids.map(item => convertToGetOrderResponse(item)),
-    asks: input.asks.map(item => convertToGetOrderResponse(item))
+    bids: input.bids.map(item => convertToGetOrderResponse(item)).toJS() as unknown as Map<string, any>,
+    asks: input.asks.map(item => convertToGetOrderResponse(item)).toJS() as unknown as Map<string, any>
   }
 }
 

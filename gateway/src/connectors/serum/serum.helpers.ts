@@ -237,6 +237,11 @@ JSON.stringify = (value: any, replacer?: (this: any, key: string, value: any) =>
 JSON.originalParse = JSON.parse;
 
 JSON.parse = (text: string, reviver?: (this: any, key: string, value: any) => any): any => {
-  // @ts-ignore
-  return JSON.originalParse(JSON.retrocycle(text), reviver);
+  try {
+    // @ts-ignore
+    return JSON.originalParse(JSON.retrocycle(text), reviver);
+  } catch (exception) {
+    // TODO remove later!!!
+    throw exception;
+  }
 };
