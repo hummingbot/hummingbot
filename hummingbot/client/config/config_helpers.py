@@ -424,7 +424,6 @@ def get_strategy_config_map(
     """
     Given the name of a strategy, find and load strategy-specific config map.
     """
-    config_map = None
     try:
         config_cls = get_strategy_pydantic_config_cls(strategy)
         if config_cls is None:  # legacy
@@ -712,8 +711,9 @@ def save_to_yml(yml_path: Path, cm: ClientConfigAdapter):
         logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
 
 
-async def write_config_to_yml(strategy_name, strategy_file_name):
-    strategy_config_map = get_strategy_config_map(strategy_name)
+def write_config_to_yml(
+    strategy_config_map: Union[ClientConfigAdapter, Dict], strategy_file_name: str
+):
     strategy_file_path = Path(STRATEGIES_CONF_DIR_PATH) / strategy_file_name
     if isinstance(strategy_config_map, ClientConfigAdapter):
         save_to_yml(strategy_file_path, strategy_config_map)
@@ -776,12 +776,16 @@ def short_strategy_name(strategy: str) -> str:
         return strategy
 
 
-def all_configs_complete(strategy):
-    strategy_map = get_strategy_config_map(strategy)
-    return config_map_complete(global_config_map) and config_map_complete(strategy_map)
+def all_configs_complete(strategy_config):
+    strategy_valid = (
+        config_map_complete_legacy(strategy_config)
+        if isinstance(strategy_config, Dict)
+        else len(strategy_config.validate_model()) == 0
+    )
+    return config_map_complete_legacy(global_config_map) and strategy_valid
 
 
-def config_map_complete(config_map):
+def config_map_complete_legacy(config_map):
     return not any(c.required and c.value is None for c in config_map.values())
 
 

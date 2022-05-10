@@ -39,9 +39,8 @@ class UIStartListener(EventListener):
 
     async def ui_start_handler(self):
         hb: HummingbotApplication = self.hummingbot_app
-
-        if hb.strategy_file_name is not None and hb.strategy_name is not None:
-            await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
+        if hb.strategy_config_map is not None:
+            write_config_to_yml(hb.strategy_config_map, hb.strategy_file_name)
             hb.start(global_config_map.get("log_level").value)
 
 

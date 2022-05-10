@@ -32,7 +32,7 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Optional[Base
     err_msg = None
     secrets_manager = None
     if Security.new_password_required() and legacy_confs_exist():
-        migrate_configs_prompt(secrets_manager_cls)
+        secrets_manager = migrate_configs_prompt(secrets_manager_cls)
     if Security.new_password_required():
         show_welcome()
         password = input_dialog(
@@ -68,8 +68,8 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Optional[Base
         if password is None:
             return None
         secrets_manager = secrets_manager_cls(password)
-        if not Security.login(secrets_manager):
-            err_msg = "Invalid password - please try again."
+    if err_msg is None and not Security.login(secrets_manager):
+        err_msg = "Invalid password - please try again."
     if err_msg is not None:
         message_dialog(
             title='Error',
@@ -91,7 +91,7 @@ def legacy_confs_exist() -> bool:
     return exist
 
 
-def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager]):
+def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> BaseSecretsManager:
     message_dialog(
         title='Configs Migration',
         text="""
@@ -139,6 +139,7 @@ def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager]):
 
                                 """,
             style=dialog_style).run()
+    return secrets_manager
 
 
 def show_welcome():
