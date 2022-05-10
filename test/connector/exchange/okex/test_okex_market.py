@@ -7,22 +7,22 @@ import time
 import unittest
 from decimal import Decimal
 from os.path import join, realpath
+from test.connector.exchange.okex.fixture_okex import FixtureOKEx
 from typing import List, Optional
 from unittest import mock
 
 import conf
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.connector.exchange.okex.constants import (
+    OKEX_BALANCE_PATH,
     OKEX_BASE_URL,
-    OKEX_SERVER_TIME_PATH,
-    OKEX_INSTRUMENTS_URL,
-    OKEX_PLACE_ORDER,
-    OKEX_ORDER_DETAILS_URL,
-    OKEX_ORDER_CANCEL,
-    OKEX_BATCH_ORDER_CANCEL,
-    OKEX_BALANCE_URL,
-    OKEX_PRICE_URL,
+    OKEX_BATCH_ORDER_CANCEL_PATH,
     OKEX_DEPTH_URL,
+    OKEX_INSTRUMENTS_URL,
+    OKEX_ORDER_CANCEL_PATH,
+    OKEX_ORDER_DETAILS_PATH,
+    OKEX_PLACE_ORDER_PATH,
+    OKEX_SERVER_TIME_PATH,
     OKEX_TICKERS_URL,
 )
 from hummingbot.connector.exchange.okex.okex_exchange import OkexExchange
@@ -48,7 +48,6 @@ from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
-from test.connector.exchange.okex.fixture_okex import FixtureOKEx
 
 MOCK_API_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 # MOCK_API_ENABLED = True
@@ -103,11 +102,10 @@ class OkexExchangeUnitTest(unittest.TestCase):
 
             # warning: second parameter starts with /
             cls.web_app.update_response("get", API_BASE_URL, cls.strip_host_from_okex_url(OKEX_INSTRUMENTS_URL), FixtureOKEx.OKEX_INSTRUMENTS_URL)
-            cls.web_app.update_response("get", API_BASE_URL, cls.strip_host_from_okex_url(OKEX_PRICE_URL).format(trading_pair='ETH-USDT'), FixtureOKEx.INSTRUMENT_TICKER)
             cls.web_app.update_response("get", API_BASE_URL, cls.strip_host_from_okex_url(OKEX_DEPTH_URL).format(trading_pair='ETH-USDT'), FixtureOKEx.OKEX_ORDER_BOOK)
             cls.web_app.update_response("get", API_BASE_URL, cls.strip_host_from_okex_url(OKEX_TICKERS_URL),
                                         FixtureOKEx.OKEX_TICKERS)
-            cls.web_app.update_response("get", API_BASE_URL, '/' + OKEX_BALANCE_URL, FixtureOKEx.OKEX_BALANCE_URL)
+            cls.web_app.update_response("get", API_BASE_URL, '/' + OKEX_BALANCE_PATH, FixtureOKEx.OKEX_BALANCE_URL)
             cls.web_app.update_response("get", API_BASE_URL, '/' + OKEX_SERVER_TIME_PATH, FixtureOKEx.TIMESTAMP)
 
             # cls.web_app.update_response("POST", API_BASE_URL, '/' + OKEX_PLACE_ORDER, FixtureOKEx.ORDER_PLACE)
@@ -234,7 +232,7 @@ class OkexExchangeUnitTest(unittest.TestCase):
             # resp = exch_order_id
             side = 'buy' if is_buy else 'sell'
             order_id = f"{side}-{trading_pair}-{nonce}"
-            self.web_app.update_response("post", API_BASE_URL, "/" + OKEX_PLACE_ORDER, resp)
+            self.web_app.update_response("post", API_BASE_URL, "/" + OKEX_PLACE_ORDER_PATH, resp)
         market = self.market if market_connector is None else market_connector
         if is_buy:
             order_id = market.buy(trading_pair, amount, order_type, price)
@@ -245,7 +243,7 @@ class OkexExchangeUnitTest(unittest.TestCase):
             # resp is the response passed by parameter
             resp["data"][0]["ordId"] = exch_order_id
             resp["data"][0]["clOrdId"] = order_id
-            self.web_app.update_response("get", API_BASE_URL, '/' + OKEX_ORDER_DETAILS_URL.format(ordId=exch_order_id, trading_pair="ETH-USDT"), resp)
+            self.web_app.update_response("get", API_BASE_URL, '/' + OKEX_ORDER_DETAILS_PATH.format(ordId=exch_order_id, trading_pair="ETH-USDT"), resp)
         return order_id, exch_order_id
 
     def cancel_order(self, trading_pair, order_id, exchange_order_id, get_resp):
@@ -253,14 +251,14 @@ class OkexExchangeUnitTest(unittest.TestCase):
             resp = FixtureOKEx.ORDER_CANCEL.copy()
             resp["data"][0]["ordId"] = exchange_order_id
             resp["data"][0]["clOrdId"] = order_id
-            self.web_app.update_response("post", API_BASE_URL, '/' + OKEX_ORDER_CANCEL,
+            self.web_app.update_response("post", API_BASE_URL, '/' + OKEX_ORDER_CANCEL_PATH,
                                          resp, params={"ordId": exchange_order_id})
         self.market.cancel(trading_pair, order_id)
         if MOCK_API_ENABLED:
             resp = get_resp.copy()
             resp["data"][0]["ordId"] = exchange_order_id
             resp["data"][0]["clOrdId"] = order_id
-            self.web_app.update_response("get", API_BASE_URL, '/' + OKEX_ORDER_DETAILS_URL.format(ordId=exchange_order_id, trading_pair="ETH-USDT"), resp)
+            self.web_app.update_response("get", API_BASE_URL, '/' + OKEX_ORDER_DETAILS_PATH.format(ordId=exchange_order_id, trading_pair="ETH-USDT"), resp)
 
     def test_limit_maker_rejections(self):
         if MOCK_API_ENABLED:
@@ -419,7 +417,7 @@ class OkexExchangeUnitTest(unittest.TestCase):
         if MOCK_API_ENABLED:
             resp = FixtureOKEx.ORDERS_BATCH_CANCELLED.copy()
             resp["data"][0]["ordId"] = exch_order_id1
-            self.web_app.update_response("post", API_BASE_URL, '/' + OKEX_BATCH_ORDER_CANCEL, resp)
+            self.web_app.update_response("post", API_BASE_URL, '/' + OKEX_BATCH_ORDER_CANCEL_PATH, resp)
 
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
         for cr in cancellation_results:

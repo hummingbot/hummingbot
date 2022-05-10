@@ -62,9 +62,9 @@ class KucoinExchange(ExchangePyBase):
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
 
+        super().__init__()
         self._domain = domain
         self._time_synchronizer = TimeSynchronizer()
-        super().__init__()
         self._auth = KucoinAuth(
             api_key=kucoin_api_key,
             passphrase=kucoin_passphrase,
@@ -312,6 +312,8 @@ class KucoinExchange(ExchangePyBase):
                         client_order_id = cr
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
+        except asyncio.CancelledError:
+            raise
         except Exception:
             self.logger().network(
                 "Unexpected error cancelling orders.",

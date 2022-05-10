@@ -4,23 +4,21 @@ import re
 import unittest
 from collections import Awaitable
 from decimal import Decimal
-from typing import Dict, NamedTuple, Optional, List
+from typing import Dict, List, NamedTuple, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 from bidict import bidict
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange.kucoin import (
-    kucoin_constants as CONSTANTS,
-    kucoin_web_utils as web_utils,
-)
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS, kucoin_web_utils as web_utils
 from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -30,11 +28,10 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.network_iterator import NetworkStatus
 
 
-class TestKucoinExchange(unittest.TestCase):
+class KucoinExchangeTests(unittest.TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 

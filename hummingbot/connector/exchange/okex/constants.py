@@ -1,7 +1,7 @@
 import sys
-from urllib.parse import urljoin
 
 from hummingbot.core.api_throttler.data_types import RateLimit
+from hummingbot.core.data_type.in_flight_order import OrderState
 
 CLIENT_ID_PREFIX = "93027a12dac34fBC"
 MAX_ID_LEN = 32
@@ -15,25 +15,16 @@ OKEX_BASE_URL = "https://www.okx.com/"
 
 OKEX_SERVER_TIME_PATH = '/api/v5/public/time'
 OKEX_INSTRUMENTS_PATH = '/api/v5/public/instruments'
-OKEX_TICKERS_PATH = '/api/v5/market/tickers'
 OKEX_TICKER_PATH = '/api/v5/market/ticker'
 OKEX_ORDER_BOOK_PATH = '/api/v5/market/books'
 
-# TODO: remove URLs
-OKEX_INSTRUMENTS_URL = urljoin(OKEX_BASE_URL, OKEX_INSTRUMENTS_PATH)
-OKEX_TICKERS_URL = urljoin(OKEX_BASE_URL, OKEX_TICKERS_PATH)
-OKEX_DEPTH_URL = urljoin(OKEX_BASE_URL, OKEX_ORDER_BOOK_PATH)
-OKEX_PRICE_URL = urljoin(OKEX_BASE_URL, 'api/v5/public/instruments/{trading_pair}/ticker')
-
 # Auth required
-
-OKEX_PLACE_ORDER = "/api/v5/trade/order"
-OKEX_ORDER_DETAILS_URL = '/api/v5/trade/order?ordId={ordId}&instId={trading_pair}'
-OKEX_ORDER_CANCEL = '/api/v5/trade/cancel-order'
-OKEX_BATCH_ORDER_CANCEL = '/api/v5/trade/cancel-batch-orders'
-OKEX_BALANCE_URL = '/api/v5/account/balance'
-OKEX_FEE_URL = '/api/v5/account/trade-fee?instType={instType}&instId={trading_pair}'
-
+OKEX_PLACE_ORDER_PATH = "/api/v5/trade/order"
+OKEX_ORDER_DETAILS_PATH = '/api/v5/trade/order'
+OKEX_ORDER_CANCEL_PATH = '/api/v5/trade/cancel-order'
+OKEX_BATCH_ORDER_CANCEL_PATH = '/api/v5/trade/cancel-batch-orders'
+OKEX_BALANCE_PATH = '/api/v5/account/balance'
+OKEX_TRADE_FILLS_PATH = "/api/v5/trade/fills"
 
 # WS
 OKEX_WS_URI_PUBLIC = "wss://ws.okx.com:8443/ws/v5/public"
@@ -54,6 +45,13 @@ WS_REQUEST_LIMIT_ID = "WSRequest"
 WS_SUBSCRIPTION_LIMIT_ID = "WSSubscription"
 WS_LOGIN_LIMIT_ID = "WSLogin"
 
+ORDER_STATE = {
+    "live": OrderState.OPEN,
+    "filled": OrderState.FILLED,
+    "partially_filled": OrderState.PARTIALLY_FILLED,
+    "canceled": OrderState.CANCELLED,
+}
+
 NO_LIMIT = sys.maxsize
 
 RATE_LIMITS = [
@@ -65,4 +63,10 @@ RATE_LIMITS = [
     RateLimit(limit_id=OKEX_INSTRUMENTS_PATH, limit=20, time_interval=2),
     RateLimit(limit_id=OKEX_TICKER_PATH, limit=20, time_interval=2),
     RateLimit(limit_id=OKEX_ORDER_BOOK_PATH, limit=20, time_interval=2),
+    RateLimit(limit_id=OKEX_PLACE_ORDER_PATH, limit=60, time_interval=2),
+    RateLimit(limit_id=OKEX_ORDER_DETAILS_PATH, limit=60, time_interval=2),
+    RateLimit(limit_id=OKEX_ORDER_CANCEL_PATH, limit=60, time_interval=2),
+    RateLimit(limit_id=OKEX_BATCH_ORDER_CANCEL_PATH, limit=300, time_interval=2),
+    RateLimit(limit_id=OKEX_BALANCE_PATH, limit=10, time_interval=2),
+    RateLimit(limit_id=OKEX_TRADE_FILLS_PATH, limit=60, time_interval=2),
 ]
