@@ -1,3 +1,4 @@
+import asyncio
 import time
 from decimal import Decimal
 from typing import Dict, List, Set, Tuple
@@ -480,3 +481,9 @@ cdef class ConnectorBase(NetworkIterator):
         :return: The machine time (time.time())
         """
         return time.time()
+
+    async def _sleep(self, delay: float):
+        """
+        Method created to enable tests to prevent processes from sleeping
+        """
+        await asyncio.sleep(delay)
