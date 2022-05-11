@@ -1,4 +1,4 @@
-from os.path import join, realpath, dirname
+from os.path import dirname, join, realpath
 from typing import Dict
 
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -22,7 +22,6 @@ from hummingbot.client.settings import MAXIMUM_LOG_PANE_LINE_COUNT, MAXIMUM_OUTP
 from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea, FormattedTextLexer
 from hummingbot.core.gateway.status_monitor import Status as GatewayStatus
-
 
 HEADER = """
                                                 *,.
