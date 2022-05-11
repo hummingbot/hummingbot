@@ -12,6 +12,7 @@ import {
 } from '../../../src/services/error-handler';
 
 import 'jest-extended';
+import { ReferenceCountingCloseable } from '../../../src/services/refcounting-closeable';
 
 const exampleAddress = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 
@@ -21,14 +22,17 @@ afterEach(() => {
 
 describe('unitiated EVMNodeService', () => {
   let dbPath = '';
+  const handle: string = ReferenceCountingCloseable.createHandle();
   let nonceManager: EVMNonceManager;
+
   beforeAll(async () => {
     dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce1.test.level'));
     nonceManager = new EVMNonceManager('ethereum', 43, dbPath, 0);
+    nonceManager.declareOwnership(handle);
   });
 
   afterAll(async () => {
-    await nonceManager.close();
+    await nonceManager.close(handle);
     fs.rmSync(dbPath, { force: true, recursive: true });
   });
 
@@ -78,6 +82,7 @@ describe('unitiated EVMNodeService', () => {
     );
 
     const nonceManager2 = new EVMNonceManager('ethereum', 43, dbPath, -5);
+    nonceManager2.declareOwnership(handle);
 
     try {
       await expect(nonceManager2.init(provider)).rejects.toThrow(
@@ -89,7 +94,7 @@ describe('unitiated EVMNodeService', () => {
         )
       );
     } finally {
-      await nonceManager2.close();
+      await nonceManager2.close(handle);
     }
   });
 });
@@ -97,9 +102,12 @@ describe('unitiated EVMNodeService', () => {
 describe('EVMNodeService', () => {
   let nonceManager: EVMNonceManager;
   let dbPath = '';
+  const handle: string = ReferenceCountingCloseable.createHandle();
+
   beforeAll(async () => {
     dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce2.test.level'));
     nonceManager = new EVMNonceManager('ethereum', 43, dbPath, 60);
+    nonceManager.declareOwnership(handle);
     const provider = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
     );
@@ -107,7 +115,7 @@ describe('EVMNodeService', () => {
   });
 
   afterAll(async () => {
-    await nonceManager.close();
+    await nonceManager.close(handle);
     fs.rmSync(dbPath, { force: true, recursive: true });
   });
   const patchGetTransactionCount = () => {
@@ -155,15 +163,19 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
   let nonceManager1: EVMNonceManager;
   let nonceManager2: EVMNonceManager;
   let dbPath = '';
+  const handle: string = ReferenceCountingCloseable.createHandle();
+
   beforeAll(async () => {
     dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce3.test.level'));
     nonceManager1 = new EVMNonceManager('ethereum', 43, dbPath, 60);
     const provider1 = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
     );
+    nonceManager1.declareOwnership(handle);
     await nonceManager1.init(provider1);
 
     nonceManager2 = new EVMNonceManager('avalanche', 56, dbPath, 60);
+    nonceManager2.declareOwnership(handle);
     const provider2 = new providers.StaticJsonRpcProvider(
       'https://avalanche.node.com'
     );
@@ -171,8 +183,8 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
   });
 
   afterAll(async () => {
-    await nonceManager1.close();
-    await nonceManager2.close();
+    await nonceManager1.close(handle);
+    await nonceManager2.close(handle);
     fs.rmSync(dbPath, { force: true, recursive: true });
   });
   it('commitNonce with a provided txNonce should increase the nonce by 1', async () => {

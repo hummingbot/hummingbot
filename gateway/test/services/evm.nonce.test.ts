@@ -9,9 +9,12 @@ import {
 import 'jest-extended';
 import { providers } from 'ethers';
 import { patch } from './patch';
+import { ReferenceCountingCloseable } from '../../src/services/refcounting-closeable';
 
 describe('Test NonceLocalStorage', () => {
   let dbPath: string = '';
+  let db: NonceLocalStorage;
+  const handle: string = ReferenceCountingCloseable.createHandle();
 
   beforeAll(async () => {
     dbPath = await fsp.mkdtemp(
@@ -19,9 +22,17 @@ describe('Test NonceLocalStorage', () => {
     );
   });
 
+  beforeEach(() => {
+    db = NonceLocalStorage.getInstance(dbPath, handle);
+  });
+
   afterAll(async () => {
     await fse.emptyDir(dbPath);
     fs.rmSync(dbPath, { force: true, recursive: true });
+  });
+
+  afterEach(async () => {
+    await db.close(handle);
   });
 
   it('save, get and delete nonces', async () => {
@@ -29,8 +40,6 @@ describe('Test NonceLocalStorage', () => {
     const testChain1Id = 1;
     const address1 = 'A';
     const address2 = 'B';
-
-    const db = NonceLocalStorage.getInstance(dbPath);
 
     // clean up any previous db runs
     await db.deleteNonce(testChain1, testChain1Id, address1);

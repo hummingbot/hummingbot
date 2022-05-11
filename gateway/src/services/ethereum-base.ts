@@ -16,6 +16,7 @@ import { EvmTxStorage } from './evm.tx-storage';
 import fse from 'fs-extra';
 import { ConfigManagerCertPassphrase } from './config-manager-cert-passphrase';
 import { logger } from './logger';
+import { ReferenceCountingCloseable } from './refcounting-closeable';
 
 // information about an Ethereum token
 export interface TokenInfo {
@@ -46,8 +47,9 @@ export class EthereumBase {
   public tokenListSource: string;
   public tokenListType: TokenListType;
   public cache: NodeCache;
-  public _nonceManager: EVMNonceManager;
-  private _txStorage: EvmTxStorage;
+  private readonly _refCountingHandle: string;
+  private readonly _nonceManager: EVMNonceManager;
+  private readonly _txStorage: EvmTxStorage;
 
   constructor(
     chainName: string,
@@ -66,9 +68,15 @@ export class EthereumBase {
     this.gasPriceConstant = gasPriceConstant;
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
+
+    this._refCountingHandle = ReferenceCountingCloseable.createHandle();
     this._nonceManager = new EVMNonceManager(chainName, chainId, nonceDbPath);
+    this._nonceManager.declareOwnership(this._refCountingHandle);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
-    this._txStorage = EvmTxStorage.getInstance(transactionDbPath);
+    this._txStorage = EvmTxStorage.getInstance(
+      transactionDbPath,
+      this._refCountingHandle
+    );
   }
 
   ready(): boolean {
@@ -338,7 +346,7 @@ export class EthereumBase {
   }
 
   async close() {
-    await this._nonceManager.close();
-    await this._txStorage.close();
+    await this._nonceManager.close(this._refCountingHandle);
+    await this._txStorage.close(this._refCountingHandle);
   }
 }

@@ -4,9 +4,12 @@ import fse from 'fs-extra';
 import path from 'path';
 import { EvmTxStorage } from '../../src/services/evm.tx-storage';
 import 'jest-extended';
+import { ReferenceCountingCloseable } from '../../src/services/refcounting-closeable';
 
 describe('Test local-storage', () => {
   let dbPath: string = '';
+  let db: EvmTxStorage;
+  let handle: string;
 
   beforeAll(async () => {
     dbPath = await fsp.mkdtemp(
@@ -19,6 +22,15 @@ describe('Test local-storage', () => {
     fs.rmSync(dbPath, { force: true, recursive: true });
   });
 
+  beforeEach(() => {
+    handle = ReferenceCountingCloseable.createHandle();
+    db = EvmTxStorage.getInstance(dbPath, handle);
+  });
+
+  afterEach(async () => {
+    await db.close(handle);
+  });
+
   it('save, get and delete a key value pair in the local db', async () => {
     const testChain1 = 'ethereum';
     const testChain1Id = 423;
@@ -28,8 +40,6 @@ describe('Test local-storage', () => {
     const testChain1Tx2 =
       '0xadaef9c4540192e45c991ffe6f12cc86be9c07b80b43487edddddddddddddddd'; // noqa: mock
     const testChain1GasPrice2 = 200300;
-
-    const db = EvmTxStorage.getInstance(dbPath);
 
     // clean up any previous db runs
     await db.deleteTx(testChain1, testChain1Id, testChain1Tx1);

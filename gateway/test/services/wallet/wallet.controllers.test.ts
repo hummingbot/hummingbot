@@ -37,6 +37,9 @@ beforeEach(() =>
 );
 
 afterAll(async () => {
+  await avalanche.close();
+  await eth.close();
+  await harmony.close();
   await overrideConfigs.resetConfigs();
 });
 
