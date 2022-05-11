@@ -1,6 +1,7 @@
 import fs from 'fs';
 import fsp from 'fs/promises';
 import fse from 'fs-extra';
+import os from 'os';
 import path from 'path';
 import { EvmTxStorage } from '../../src/services/evm.tx-storage';
 import 'jest-extended';
@@ -13,7 +14,7 @@ describe('Test local-storage', () => {
 
   beforeAll(async () => {
     dbPath = await fsp.mkdtemp(
-      path.join(__dirname, '/evm.tx-storage.test.level')
+      path.join(os.tmpdir(), '/evm.tx-storage.test.level')
     );
   });
 
