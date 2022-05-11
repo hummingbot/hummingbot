@@ -430,28 +430,31 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self.get_config_map_indicators()
 
     def get_config_map_execution_mode(self):
-        execution_mode = self._config_map.execution_timeframe_mode.title
-        execution_timeframe = self._config_map.execution_timeframe_mode.Config.title
-        if execution_mode == FromDateToDateModel.Config.title:
-            start_time = self._config_map.execution_timeframe_mode.start_datetime
-            end_time = self._config_map.execution_timeframe_mode.end_datetime
-            execution_state = RunInTimeConditionalExecutionState(start_timestamp=start_time, end_timestamp=end_time)
-        elif execution_mode == DailyBetweenTimesModel.Config.title:
-            start_time = self._config_map.execution_timeframe_mode.start_time
-            end_time = self._config_map.execution_timeframe_mode.end_time
-            execution_state = RunInTimeConditionalExecutionState(start_timestamp=start_time, end_timestamp=end_time)
-        else:
-            start_time = None
-            end_time = None
-            execution_state = RunAlwaysExecutionState()
+        try:
+            execution_mode = self._config_map.execution_timeframe_mode.title
+            execution_timeframe = self._config_map.execution_timeframe_mode.Config.title
+            if execution_mode == FromDateToDateModel.Config.title:
+                start_time = self._config_map.execution_timeframe_mode.start_datetime
+                end_time = self._config_map.execution_timeframe_mode.end_datetime
+                execution_state = RunInTimeConditionalExecutionState(start_timestamp=start_time, end_timestamp=end_time)
+            elif execution_mode == DailyBetweenTimesModel.Config.title:
+                start_time = self._config_map.execution_timeframe_mode.start_time
+                end_time = self._config_map.execution_timeframe_mode.end_time
+                execution_state = RunInTimeConditionalExecutionState(start_timestamp=start_time, end_timestamp=end_time)
+            else:
+                start_time = None
+                end_time = None
+                execution_state = RunAlwaysExecutionState()
 
-        # Something has changed?
-        if self._execution_state is None or self._execution_state != execution_state:
-            self._execution_state = execution_state
-            self._execution_mode = execution_mode
-            self._execution_timeframe = execution_timeframe
-            self._start_time = start_time
-            self._end_time = end_time
+            # Something has changed?
+            if self._execution_state is None or self._execution_state != execution_state:
+                self._execution_state = execution_state
+                self._execution_mode = execution_mode
+                self._execution_timeframe = execution_timeframe
+                self._start_time = start_time
+                self._end_time = end_time
+        except AttributeError:
+            self.logger().info("A parameter is missing in the execution timeframe mode configuration.")
 
     def get_config_map_hanging_orders(self):
         if self._config_map.hanging_orders_mode.title == TrackHangingOrdersModel.Config.title:
