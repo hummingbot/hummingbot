@@ -99,7 +99,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self._ready_to_start = False
         self._last_arb_op_reported_ts = 0
         self._position_mode_ready = False
-        self._strategy_initialized = False
+        self._position_mode_not_ready_counter = 0
         self._trading_started = False
 
     def all_markets_ready(self):
@@ -134,23 +134,30 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         return [s for s in self._perp_market_info.market.account_positions.values() if
                 s.trading_pair == self._perp_market_info.trading_pair and s.amount != s_decimal_zero]
 
+    def apply_initial_settings(self):
+        self._perp_market_info.market.set_leverage(self._perp_market_info.trading_pair, self._perp_leverage)
+        self._perp_market_info.market.set_position_mode(PositionMode.ONEWAY)
+
     def tick(self, timestamp: float):
         """
         Clock tick entry point, is run every second (on normal tick setting).
         :param timestamp: current tick timestamp
         """
-        if not self._all_markets_ready or not self._strategy_initialized or not self._trading_started:
+        if not self._all_markets_ready or not self._position_mode_ready or not self._trading_started:
             self._all_markets_ready = self.all_markets_ready()
             if not self._all_markets_ready:
                 return
             else:
                 self.logger().info("Markets are ready.")
 
-            if not self._strategy_initialized:
-                self._perp_market_info.market.set_leverage(self._perp_market_info.trading_pair, self._perp_leverage)
-                self._perp_market_info.market.set_position_mode(PositionMode.ONEWAY)
-                self._strategy_initialized = True
+            if not self._position_mode_ready:
+                self._position_mode_not_ready_counter += 1
+                # Attempt to switch position mode every 10 ticks only to not to spam and DDOS
+                if self._position_mode_not_ready_counter == 10:
+                    self._perp_market_info.market.set_position_mode(PositionMode.ONEWAY)
+                    self._position_mode_not_ready_counter = 0
                 return
+            self._position_mode_not_ready_counter = 0
 
             self.logger().info("Trading started.")
             self._trading_started = True
@@ -512,6 +519,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
     def start(self, clock: Clock, timestamp: float):
         self._ready_to_start = False
+        self.apply_initial_settings()
 
     def stop(self, clock: Clock):
         if self._main_task is not None:
