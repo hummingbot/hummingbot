@@ -1,5 +1,6 @@
 import fs from 'fs';
 import fsp from 'fs/promises';
+import os from 'os';
 import path from 'path';
 
 import { patch, unpatch } from '../../services/patch';
@@ -26,7 +27,9 @@ describe('unitiated EVMNodeService', () => {
   let nonceManager: EVMNonceManager;
 
   beforeAll(async () => {
-    dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce1.test.level'));
+    dbPath = await fsp.mkdtemp(
+      path.join(os.tmpdir(), '/evm-nonce1.test.level')
+    );
     nonceManager = new EVMNonceManager('ethereum', 43, dbPath, 0);
     nonceManager.declareOwnership(handle);
   });
@@ -105,7 +108,9 @@ describe('EVMNodeService', () => {
   const handle: string = ReferenceCountingCloseable.createHandle();
 
   beforeAll(async () => {
-    dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce2.test.level'));
+    dbPath = await fsp.mkdtemp(
+      path.join(os.tmpdir(), '/evm-nonce2.test.level')
+    );
     nonceManager = new EVMNonceManager('ethereum', 43, dbPath, 60);
     nonceManager.declareOwnership(handle);
     const provider = new providers.StaticJsonRpcProvider(
@@ -166,7 +171,9 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
   const handle: string = ReferenceCountingCloseable.createHandle();
 
   beforeAll(async () => {
-    dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce3.test.level'));
+    dbPath = await fsp.mkdtemp(
+      path.join(os.tmpdir(), '/evm-nonce3.test.level')
+    );
     nonceManager1 = new EVMNonceManager('ethereum', 43, dbPath, 60);
     const provider1 = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'

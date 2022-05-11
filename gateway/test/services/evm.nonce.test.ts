@@ -1,6 +1,7 @@
 import fs from 'fs';
 import fsp from 'fs/promises';
 import fse from 'fs-extra';
+import os from 'os';
 import path from 'path';
 import {
   NonceLocalStorage,
@@ -18,7 +19,7 @@ describe('Test NonceLocalStorage', () => {
 
   beforeAll(async () => {
     dbPath = await fsp.mkdtemp(
-      path.join(__dirname, '/NonceLocalStorage.test.level')
+      path.join(os.tmpdir(), '/NonceLocalStorage.test.level')
     );
   });
 

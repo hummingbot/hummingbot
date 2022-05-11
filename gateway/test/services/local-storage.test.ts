@@ -1,6 +1,7 @@
 import fs from 'fs';
 import fsp from 'fs/promises';
 import fse from 'fs-extra';
+import os from 'os';
 import path from 'path';
 import { LocalStorage } from '../../src/services/local-storage';
 import 'jest-extended';
@@ -10,7 +11,9 @@ let dbPath: string = '';
 const handle: string = ReferenceCountingCloseable.createHandle();
 
 beforeAll(async () => {
-  dbPath = await fsp.mkdtemp(path.join(__dirname, '/local-storage.test.level'));
+  dbPath = await fsp.mkdtemp(
+    path.join(os.tmpdir(), '/local-storage.test.level')
+  );
 });
 
 afterAll(async () => {

@@ -1,6 +1,7 @@
 import { ConfigManagerV2 } from '../src/services/config-manager-v2';
 import fse from 'fs-extra';
 import fsp from 'fs/promises';
+import os from 'os';
 import path from 'path';
 
 export class OverrideConfigs {
@@ -22,10 +23,10 @@ export class OverrideConfigs {
   async init(): Promise<void> {
     if (!this.#initialized) {
       this.#tempNonceDbPath = await fsp.mkdtemp(
-        path.join(__dirname, '/nonce.test.level')
+        path.join(os.tmpdir(), '/nonce.test.level')
       );
       this.#tempTransactionDbPath = await fsp.mkdtemp(
-        path.join(__dirname, '/transaction.test.level')
+        path.join(os.tmpdir(), '/transaction.test.level')
       );
     }
   }
