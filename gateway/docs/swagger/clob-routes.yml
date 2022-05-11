@@ -1,0 +1,274 @@
+paths:
+  /clob:
+    get:
+      tags:
+        - 'clob'
+      summary: 'Verify Serum Routes Status'
+      description: 'Verify if the Serum routes are ready to use along with some other useful information. '
+      operationId: 'root'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/ClobRootRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/ClobRootResponse'
+  /clob/markets:
+    get:
+      tags:
+        - 'clob'
+      summary: ''
+      description: ''
+      operationId: 'markets'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/ClobMarketsRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/ClobGetMarketsResponse'
+        '404':
+          description: ''
+  /clob/orderBooks:
+    get:
+      tags:
+        - 'clob'
+      summary: ''
+      description: ''
+      operationId: 'orderBooks'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/ClobGetOrderBooksRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/ClobGetOrderBooksResponse'
+        '404':
+          description: ''
+  /clob/tickers:
+    get:
+      tags:
+        - 'clob'
+      summary: ''
+      description: ''
+      operationId: 'tickers'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/ClobGetTickersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/ClobGetTickersResponse'
+        '404':
+          description: ''
+  /clob/getOrders:
+    get:
+      tags:
+        - 'clob'
+      summary: ''
+      description: ''
+      operationId: 'getOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/ClobGetOrdersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/ClobGetOrdersResponse'
+        '404':
+          description: ''
+  /clob/createOrders:
+    get:
+      tags:
+        - 'clob'
+      summary: ''
+      description: ''
+      operationId: 'createOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/ClobPostCreateOrdersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/ClobPostCreateOrdersResponse'
+        '404':
+          description: ''
+  /clob/cancelOrders:
+    get:
+      tags:
+        - 'clob'
+      summary: ''
+      description: ''
+      operationId: 'cancelOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/ClobDeleteCancelOrdersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/ClobDeleteCancelOrdersResponse'
+        '404':
+          description: ''
+  /clob/getOpenOrders:
+    get:
+      tags:
+        - 'clob'
+      summary: ''
+      description: ''
+      operationId: 'getOpenOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/ClobGetOpenOrdersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/ClobGetOpenOrdersResponse'
+        '404':
+          description: ''
+  /clob/cancelOpenOrders:
+    get:
+      tags:
+        - 'clob'
+      summary: ''
+      description: ''
+      operationId: 'cancelOpenOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/ClobDeleteCancelOpenOrdersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/ClobDeleteCancelOpenOrdersResponse'
+        '404':
+          description: ''
+  /clob/getFilledOrders:
+    get:
+      tags:
+        - 'clob'
+      summary: ''
+      description: ''
+      operationId: 'getFilledOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/ClobGetFilledOrdersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/ClobGetFilledOrdersResponse'
+        '404':
+          description: ''
+  /clob/settleFunds:
+    get:
+      tags:
+        - 'clob'
+      summary: ''
+      description: ''
+      operationId: 'settleFunds'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/ClobPostSettleFundsRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/ClobPostSettleFundsResponse'
+        '404':
+          description: ''

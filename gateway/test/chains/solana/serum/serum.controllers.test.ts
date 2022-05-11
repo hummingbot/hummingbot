@@ -591,43 +591,43 @@ describe('Full Flow', () => {
   //   console.log('get order', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
   // });
 
-  it('getFilledOrders [2]', async () => {
-    request = {
-      ...commonParameters,
-      order: {
-        id: orderIds[2],
-        ownerAddress: config.solana.wallet.owner.address,
-      },
-    };
-    response = await getFilledOrders(request);
-    console.log(
-      'get filled order',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
-  });
-
-  it('getFilledOrders [3, 4]', async () => {
-    request = {
-      ...commonParameters,
-      orders: [
-        {
-          ids: orderIds.slice(3, 5),
-          ownerAddress: config.solana.wallet.owner.address,
-        },
-      ],
-    };
-    response = await getFilledOrders(request);
-    console.log(
-      'get filled orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
-  });
+  // it('getFilledOrders [2]', async () => {
+  //   request = {
+  //     ...commonParameters,
+  //     order: {
+  //       id: orderIds[2],
+  //       ownerAddress: config.solana.wallet.owner.address,
+  //     },
+  //   };
+  //   response = await getFilledOrders(request);
+  //   console.log(
+  //     'get filled order',
+  //     'request:',
+  //     JSON.stringify(request, null, 2),
+  //     'response',
+  //     JSON.stringify(response, null, 2)
+  //   );
+  // });
+  //
+  // it('getFilledOrders [3, 4]', async () => {
+  //   request = {
+  //     ...commonParameters,
+  //     orders: [
+  //       {
+  //         ids: orderIds.slice(3, 5),
+  //         ownerAddress: config.solana.wallet.owner.address,
+  //       },
+  //     ],
+  //   };
+  //   response = await getFilledOrders(request);
+  //   console.log(
+  //     'get filled orders',
+  //     'request:',
+  //     JSON.stringify(request, null, 2),
+  //     'response',
+  //     JSON.stringify(response, null, 2)
+  //   );
+  // });
 
   it('getFilledOrders (all)', async () => {
     request = {
