@@ -15,8 +15,8 @@
     "dev:debug": "nodemon --inspect src/index.ts",
     "start": "nodemon dist/src/index.js",
     "copy-files": "copyfiles -a 'src/**/schema/*.json' 'src/templates/*.yml' 'test/services/data/**/*.*' dist",
-    "test:unit": "jest --runInBand --verbose --forceExit ./test/",
-    "test:cov": "jest --runInBand --coverage --forceExit ./test/",
+    "test:unit": "jest --verbose --forceExit ./test/",
+    "test:cov": "jest --coverage --forceExit ./test/",
     "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts"
   },
   "dependencies": {
