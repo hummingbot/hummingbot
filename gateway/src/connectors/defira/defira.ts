@@ -2,6 +2,7 @@ import {
   InitializationError,
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
+  UniswapishPriceError,
 } from '../../services/error-handler';
 import { isFractionString } from '../../services/validators';
 import { DefiraConfig } from './defira.config';
@@ -24,12 +25,12 @@ import {
 import { BigNumber, Transaction, Wallet } from 'ethers';
 import { logger } from '../../services/logger';
 import { percentRegexp } from '../../services/config-manager-v2';
-import { Ethereum } from '../../chains/ethereum/ethereum';
+import { Harmony } from '../../chains/harmony/harmony';
 import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 
 export class defira implements Uniswapish {
   private static _instances: { [name: string]: defira };
-  private ethereum: Ethereum;
+  private harmony: Harmony;
   private _chain: string;
   private _router: string;
   private _routerAbi: ContractInterface;
@@ -42,8 +43,8 @@ export class defira implements Uniswapish {
   private constructor(chain: string, network: string) {
     this._chain = chain;
     const config = DefiraConfig.config;
-    this.ethereum = Ethereum.getInstance(network);
-    this.chainId = this.ethereum.chainId;
+    this.harmony = Harmony.getInstance(network);
+    this.chainId = this.harmony.chainId;
     this._ttl = DefiraConfig.config.ttl(2);
     this._routerAbi = routerAbi.abi;
     this._gasLimit = DefiraConfig.config.gasLimit(2);
@@ -72,12 +73,12 @@ export class defira implements Uniswapish {
   }
 
   public async init() {
-    if (this._chain == 'ethereum' && !this.ethereum.ready())
+    if (this._chain == 'ethereum' && !this.harmony.ready())
       throw new InitializationError(
         SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
         SERVICE_UNITIALIZED_ERROR_CODE
       );
-    for (const token of this.ethereum.storedTokenList) {
+    for (const token of this.harmony.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
         token.address,
@@ -168,7 +169,7 @@ export class defira implements Uniswapish {
     const pair: Pair = await Fetcher.fetchPairData(
       baseToken,
       quoteToken,
-      this.ethereum.provider
+      this.harmony.provider
     );
     const trades: Trade[] = Trade.bestTradeExactIn(
       [pair],
@@ -218,7 +219,7 @@ export class defira implements Uniswapish {
     const pair: Pair = await Fetcher.fetchPairData(
       quoteToken,
       baseToken,
-      this.ethereum.provider
+      this.harmony.provider
     );
     const trades: Trade[] = Trade.bestTradeExactOut(
       [pair],
@@ -278,7 +279,7 @@ export class defira implements Uniswapish {
 
     const contract: Contract = new Contract(defiraRouter, abi, wallet);
     if (nonce === undefined) {
-      nonce = await this.ethereum.nonceManager.getNonce(wallet.address);
+      nonce = await this.harmony.nonceManager.getNonce(wallet.address);
     }
     let tx: ContractTransaction;
     if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
@@ -299,7 +300,7 @@ export class defira implements Uniswapish {
     }
 
     logger.info(tx);
-    await this.ethereum.nonceManager.commitNonce(wallet.address, nonce);
+    await this.harmony.nonceManager.commitNonce(wallet.address, nonce);
     return tx;
   }
 }

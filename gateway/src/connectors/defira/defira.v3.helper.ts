@@ -6,7 +6,7 @@ import { Token, CurrencyAmount, Percent, Price } from '@uniswap/sdk-core';
 import * as uniV3 from '@uniswap/v3-sdk';
 import { providers, Wallet, Signer, utils } from 'ethers';
 import { percentRegexp } from '../../services/config-manager-v2';
-import { Ethereum } from '../../chains/ethereum/ethereum';
+import { Harmony } from '../../chains/harmony/harmony';
 import {
   PoolState,
   RawPosition,
@@ -17,7 +17,7 @@ import {
 import * as math from 'mathjs';
 
 export class DefiraV3Helper {
-  protected ethereum: Ethereum;
+  protected harmony: Harmony;
   private _router: string;
   private _nftManager: string;
   private _ttl: number;
@@ -26,7 +26,7 @@ export class DefiraV3Helper {
   private _poolAbi: ContractInterface;
 
   constructor(network: string) {
-    this.ethereum = Ethereum.getInstance(network);
+    this.harmony = Harmony.getInstance(network);
     this._router = DefiraConfig.config.uniswapV3RouterAddress(network);
     this._nftManager = DefiraConfig.config.uniswapV3NftManagerAddress(network);
     this._ttl = DefiraConfig.config.ttl(3);
@@ -63,14 +63,14 @@ export class DefiraV3Helper {
   }
 
   public getTokenByAddress(address: string): Token {
-    const tokenFilter = this.ethereum.storedTokenList.filter(
+    const tokenFilter = this.harmony.storedTokenList.filter(
       (t) => t.address === address
     );
     if (tokenFilter.length === 0) {
       throw `Cannot find token info for token address ${address}.`;
     }
     return new Token(
-      this.ethereum.chainId,
+      this.harmony.chainId,
       tokenFilter[0].address,
       tokenFilter[0].decimals,
       tokenFilter[0].symbol,
@@ -177,7 +177,7 @@ export class DefiraV3Helper {
             tier
           );
           poolDataRequests.push(
-            this.getPoolState(poolAddress, tier, this.ethereum.provider)
+            this.getPoolState(poolAddress, tier, this.harmony.provider)
           );
         }
       }
