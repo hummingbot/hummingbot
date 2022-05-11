@@ -2,8 +2,8 @@
   "connector": "traderjoe",
   "chain": "avalanche",
   "network": "avalanche",
-  "quote": "WAVAX",
-  "base": "WETH.e",
+  "quote": "USDC",
+  "base": "WAVAX",
   "amount": "1",
-  "side": "BUY"
+  "side": "SELL"
 }
