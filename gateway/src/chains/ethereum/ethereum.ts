@@ -182,4 +182,11 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     );
     return this.cancelTxWithGasPrice(wallet, nonce, this._gasPrice * 2);
   }
+
+  async close() {
+    await super.close();
+    if (this._chain in Ethereum._instances) {
+      delete Ethereum._instances[this._chain];
+    }
+  }
 }

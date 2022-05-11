@@ -15,7 +15,7 @@ beforeAll(async () => {
   await overrideConfigs.updateConfigs();
 
   avalanche = Avalanche.getInstance('fuji');
-  patchEVMNonceManager(avalanche._nonceManager);
+  patchEVMNonceManager(avalanche.nonceManager);
   await avalanche.init();
 
   pangolin = Pangolin.getInstance('avalanche', 'fuji');
@@ -23,7 +23,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  patchEVMNonceManager(avalanche._nonceManager);
+  patchEVMNonceManager(avalanche.nonceManager);
 });
 
 afterEach(() => {
@@ -31,9 +31,7 @@ afterEach(() => {
 });
 
 afterAll(async () => {
-  // await avalanche.nonceManager.close();
-  // await avalanche.txStorage.close();
-
+  await avalanche.close();
   await overrideConfigs.resetConfigs();
 });
 

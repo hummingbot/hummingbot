@@ -31,12 +31,12 @@ beforeAll(async () => {
   await overrideConfigs.updateConfigs();
 
   harmony = Harmony.getInstance('testnet');
-  patchEVMNonceManager(harmony._nonceManager);
+  patchEVMNonceManager(harmony.nonceManager);
   await harmony.init();
 });
 
 beforeEach(() => {
-  patchEVMNonceManager(harmony._nonceManager);
+  patchEVMNonceManager(harmony.nonceManager);
 });
 
 afterEach(() => {
@@ -44,8 +44,7 @@ afterEach(() => {
 });
 
 afterAll(async () => {
-  // await harmony.nonceManager.close();
-  // await harmony.txStorage.close();
+  await harmony.close();
   await overrideConfigs.resetConfigs();
 });
 

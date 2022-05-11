@@ -30,6 +30,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await overrideConfigs.resetConfigs();
+  await avalanche.close();
 });
 
 afterEach(unpatch);

@@ -39,7 +39,7 @@ beforeAll(async () => {
   await overrideConfigs.updateConfigs();
 
   ethereum = Ethereum.getInstance('kovan');
-  patchEVMNonceManager(ethereum._nonceManager);
+  patchEVMNonceManager(ethereum.nonceManager);
   await ethereum.init();
 
   uniswap = Uniswap.getInstance('ethereum', 'kovan');
@@ -47,7 +47,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  patchEVMNonceManager(ethereum._nonceManager);
+  patchEVMNonceManager(ethereum.nonceManager);
 });
 
 afterEach(() => {
@@ -55,9 +55,7 @@ afterEach(() => {
 });
 
 afterAll(async () => {
-  // await ethereum.nonceManager.close();
-  // await ethereum.txStorage.close();
-
+  await ethereum.close();
   await overrideConfigs.resetConfigs();
 });
 

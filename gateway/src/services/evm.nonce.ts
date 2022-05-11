@@ -6,29 +6,18 @@ import {
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from './error-handler';
+import { ReferenceCountingCloseable } from './refcounting-closeable';
 
-export class NonceLocalStorage {
-  private static _instances: { [name: string]: NonceLocalStorage };
+export class NonceLocalStorage extends ReferenceCountingCloseable {
+  private readonly _localStorage: LocalStorage;
 
-  readonly localStorage: LocalStorage;
-
-  private constructor(dbPath: string) {
-    this.localStorage = LocalStorage.getInstance(dbPath);
-  }
-
-  public static getInstance(dbPath: string): NonceLocalStorage {
-    if (NonceLocalStorage._instances === undefined) {
-      NonceLocalStorage._instances = {};
-    }
-    if (!(dbPath in NonceLocalStorage._instances)) {
-      NonceLocalStorage._instances[dbPath] = new NonceLocalStorage(dbPath);
-    }
-
-    return NonceLocalStorage._instances[dbPath];
+  protected constructor(dbPath: string) {
+    super(dbPath);
+    this._localStorage = LocalStorage.getInstance(dbPath, this.handle);
   }
 
   public async init(): Promise<void> {
-    await this.localStorage.init();
+    await this._localStorage.init();
   }
 
   public async saveNonce(
@@ -37,7 +26,7 @@ export class NonceLocalStorage {
     address: string,
     nonce: number
   ): Promise<void> {
-    return this.localStorage.save(
+    return this._localStorage.save(
       chain + '/' + String(chainId) + '/' + address,
       nonce
     );
@@ -48,14 +37,16 @@ export class NonceLocalStorage {
     chainId: number,
     address: string
   ): Promise<void> {
-    return this.localStorage.del(chain + '/' + String(chainId) + '/' + address);
+    return this._localStorage.del(
+      chain + '/' + String(chainId) + '/' + address
+    );
   }
 
   public async getNonces(
     chain: string,
     chainId: number
   ): Promise<Record<string, number>> {
-    return this.localStorage.get((key: string, value: any) => {
+    return this._localStorage.get((key: string, value: any) => {
       const splitKey = key.split('/');
       if (
         splitKey.length === 3 &&
@@ -66,6 +57,13 @@ export class NonceLocalStorage {
       }
       return;
     });
+  }
+
+  public async close(handle: string): Promise<void> {
+    await super.close(handle);
+    if (this.refCount < 1) {
+      await this._localStorage.close(this.handle);
+    }
   }
 }
 
@@ -103,14 +101,13 @@ export class NonceLocalStorage {
  *    cancel happens, the API logic **must** call commitNonce() to reset the
  *    cached nonce back to the specified position.
  */
-export class EVMNonceManager {
+export class EVMNonceManager extends ReferenceCountingCloseable {
   #addressToNonce: Record<string, [number, Date]> = {};
-
   #initialized: boolean = false;
-  #chainId: number;
-  #chainName: string;
-  #localNonceTTL: number;
   #db: NonceLocalStorage;
+  readonly #chainId: number;
+  readonly #chainName: string;
+  readonly #localNonceTTL: number;
 
   // this should be private but then we cannot mock it
   public _provider: ethers.providers.Provider | null = null;
@@ -121,10 +118,13 @@ export class EVMNonceManager {
     dbPath: string,
     localNonceTTL: number = 300
   ) {
+    const refCountKey: string = `${chainName}/${chainId}/${dbPath}`;
+    super(refCountKey);
+
     this.#chainName = chainName;
     this.#chainId = chainId;
     this.#localNonceTTL = localNonceTTL;
-    this.#db = NonceLocalStorage.getInstance(dbPath);
+    this.#db = NonceLocalStorage.getInstance(dbPath, this.handle);
   }
 
   // init can be called many times and generally should always be called
@@ -272,7 +272,10 @@ export class EVMNonceManager {
     }
   }
 
-  async close(): Promise<void> {
-    await this.#db.localStorage.close();
+  async close(ownerHandle: string): Promise<void> {
+    await super.close(ownerHandle);
+    if (this.refCount < 1) {
+      await this.#db.close(this.handle);
+    }
   }
 }

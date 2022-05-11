@@ -4,8 +4,10 @@ import fse from 'fs-extra';
 import path from 'path';
 import { LocalStorage } from '../../src/services/local-storage';
 import 'jest-extended';
+import { ReferenceCountingCloseable } from '../../src/services/refcounting-closeable';
 
 let dbPath: string = '';
+const handle: string = ReferenceCountingCloseable.createHandle();
 
 beforeAll(async () => {
   dbPath = await fsp.mkdtemp(path.join(__dirname, '/local-storage.test.level'));
@@ -14,6 +16,9 @@ beforeAll(async () => {
 afterAll(async () => {
   await fse.emptyDir(dbPath);
   fs.rmSync(dbPath, { force: true, recursive: true });
+
+  const db: LocalStorage = LocalStorage.getInstance(dbPath, handle);
+  await db.close(handle);
 });
 
 describe('Test local-storage', () => {
@@ -21,7 +26,7 @@ describe('Test local-storage', () => {
     const testKey = 'abc';
     const testValue = 123;
 
-    const db = LocalStorage.getInstance(dbPath);
+    const db: LocalStorage = LocalStorage.getInstance(dbPath, handle);
 
     // clean up any previous db runs
     await db.del(testKey);
@@ -52,7 +57,7 @@ describe('Test local-storage', () => {
   });
 
   it('Put and retrieve a objects', async () => {
-    const db = LocalStorage.getInstance(dbPath);
+    const db: LocalStorage = LocalStorage.getInstance(dbPath, handle);
 
     const firstKey: string = 'camel';
     const firstValue = { kingdom: 'animalia', family: 'camelidae' };
