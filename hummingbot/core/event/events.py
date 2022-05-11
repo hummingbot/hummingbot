@@ -22,11 +22,11 @@ class MarketEvent(Enum):
     BuyOrderCreated = 200
     SellOrderCreated = 201
     FundingPaymentCompleted = 202
-    RangePositionInitiated = 300
-    RangePositionCreated = 301
-    RangePositionRemoved = 302
-    RangePositionUpdated = 303
-    RangePositionFailure = 304
+    RangePositionLiquidityAdded = 300
+    RangePositionLiquidityRemoved = 301
+    RangePositionUpdate = 302
+    RangePositionUpdateFailure = 303
+    RangePositionFeeCollected = 304
 
 
 class OrderBookEvent(int, Enum):
@@ -227,58 +227,55 @@ class SellOrderCreatedEvent:
 
 
 @dataclass
-class RangePositionInitiatedEvent:
+class RangePositionLiquidityAddedEvent:
     timestamp: float
-    hb_id: str
-    tx_hash: str
+    order_id: str
+    exchange_order_id: str
     trading_pair: str
     fee_tier: str
     lower_price: Decimal
     upper_price: Decimal
-    base_amount: Decimal
-    quote_amount: Decimal
-    status: str
-    gas_price: Decimal
+    amount: Decimal
+    creation_timestamp: float
+    token_id: Optional[int] = None
 
 
 @dataclass
-class RangePositionCreatedEvent:
+class RangePositionLiquidityRemovedEvent:
     timestamp: float
-    hb_id: str
-    tx_hash: str
+    order_id: str
+    exchange_order_id: str
     token_id: str
-    trading_pair: str
-    fee_tier: str
-    lower_price: Decimal
-    upper_price: Decimal
-    base_amount: Decimal
-    quote_amount: Decimal
-    status: str
-    gas_price: Decimal
 
 
 @dataclass
-class RangePositionUpdatedEvent:
+class RangePositionUpdateEvent:
     timestamp: float
-    hb_id: str
-    tx_hash: str
-    token_id: str
-    base_amount: Decimal
-    quote_amount: Decimal
-    status: str
+    order_id: str
+    exchange_order_id: str
+    order_action: LPType,
+    trading_pair: Optional[str]
+    fee_tier: Optional[str]
+    lower_price: Optional[Decimal]
+    upper_price: Optional[Decimal]
+    amount: Optional[Decimal]
+    creation_timestamp: float
+    token_id: Optional[int] = None
 
 
 @dataclass
-class RangePositionRemovedEvent:
+class RangePositionUpdateFailureEvent:
     timestamp: float
-    hb_id: str
-    token_id: Optional[str] = None
+    order_id: str
+    order_action: LPType
 
 
 @dataclass
-class RangePositionFailureEvent:
+class RangePositionFeeCollectedEvent:
     timestamp: float
-    hb_id: str
+    oder_id: str
+    exchange_order_id: str
+    token_id: int = None
 
 
 class LimitOrderStatus(Enum):

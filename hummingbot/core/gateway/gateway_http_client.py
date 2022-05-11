@@ -454,3 +454,142 @@ class GatewayHttpClient:
             "network": network,
             "connector": connector,
         })
+
+    async def amm_lp_add(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            address: str,
+            token0: str,
+            token1: str,
+            amount0: Decimal,
+            amount1: Decimal,
+            fee: str,
+            lowerPrice: Decimal,
+            upperPrice: Decimal,
+            tokenId: Optional[int] = None,
+            nonce: Optional[int] = None,
+            max_fee_per_gas: Optional[int] = None,
+            max_priority_fee_per_gas: Optional[int] = None
+    ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "token0": token0,
+            "token1": token1,
+            "amount0": f"{amount0:.18f}",
+            "amount1": f"{amount1:.18f}",
+            "fee": fee,
+            "lowerPrice": str(lowerPrice),
+            "upperPrice": str(upperPrice),
+            "tokenId": tokenId,
+            "nonce": nonce,
+        }
+        if tokenId is not None:
+            request_payload["tokenId"] = int(tokenId)
+        if nonce is not None:
+            request_payload["nonce"] = int(nonce)
+        if max_fee_per_gas is not None:
+            request_payload["maxFeePerGas"] = str(max_fee_per_gas)
+        if max_priority_fee_per_gas is not None:
+            request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
+        return await self.api_request("post", "amm/liquidity/add", request_payload)
+
+    async def amm_lp_remove(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            address: str,
+            tokenId: int,
+            decreasePercent: Optional[int] = None,
+            nonce: Optional[int] = None,
+            max_fee_per_gas: Optional[int] = None,
+            max_priority_fee_per_gas: Optional[int] = None
+    ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "tokenId": tokenId,
+            "decreasePercent": decreasePercent,
+            "nonce": nonce,
+        }
+        if decreasePercent is not None:
+            request_payload["decreasePercent"] = int(decreasePercent)
+        if nonce is not None:
+            request_payload["nonce"] = int(nonce)
+        if max_fee_per_gas is not None:
+            request_payload["maxFeePerGas"] = str(max_fee_per_gas)
+        if max_priority_fee_per_gas is not None:
+            request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
+        return await self.api_request("post", "amm/liquidity/remove", request_payload)
+
+    async def amm_lp_collect_fees(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            address: str,
+            tokenId: int,
+            nonce: Optional[int] = None,
+            max_fee_per_gas: Optional[int] = None,
+            max_priority_fee_per_gas: Optional[int] = None
+    ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "tokenId": tokenId,
+            "nonce": nonce,
+        }
+        if nonce is not None:
+            request_payload["nonce"] = int(nonce)
+        if max_fee_per_gas is not None:
+            request_payload["maxFeePerGas"] = str(max_fee_per_gas)
+        if max_priority_fee_per_gas is not None:
+            request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
+        return await self.api_request("post", "amm/liquidity/collect_fees", request_payload)
+
+    async def amm_lp_position(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            tokenId: int,
+    ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "tokenId": tokenId,
+        }
+        return await self.api_request("post", "amm/liquidity/position", request_payload)
+
+    async def amm_lp_price(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            token0: str,
+            token1: str,
+            fee: str,
+            period: Optional[int] = 1,
+            internal: Optional[int] = 1,
+    ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "token0": token0,
+            "token1": token1,
+            "fee": fee,
+            "period": period,
+            "internal": internal,
+        }
+        return await self.api_request("post", "amm/liquidity/price", request_payload)
