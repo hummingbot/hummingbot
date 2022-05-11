@@ -30,6 +30,7 @@ class ArbProposalSide:
     amount: Decimal
     extra_flat_fees: List[TokenAmount]
     completed_event: asyncio.Event = asyncio.Event()
+    failed_event: asyncio.Event = asyncio.Event()
 
     def __repr__(self):
         side = "buy" if self.is_buy else "sell"
@@ -40,8 +41,15 @@ class ArbProposalSide:
     def is_completed(self) -> bool:
         return self.completed_event.is_set()
 
+    @property
+    def is_failed(self) -> bool:
+        return self.failed_event.is_set()
+
     def set_completed(self):
         self.completed_event.set()
+
+    def set_failed(self):
+        self.failed_event.set()
 
 
 class ArbProposal:
@@ -60,6 +68,10 @@ class ArbProposal:
             raise Exception("first_side and second_side must be on different side of buy and sell.")
         self.first_side: ArbProposalSide = first_side
         self.second_side: ArbProposalSide = second_side
+
+    @property
+    def has_failed_orders(self) -> bool:
+        return any([self.first_side.is_failed, self.second_side.is_failed])
 
     def profit_pct(
             self,
