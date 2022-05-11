@@ -21,10 +21,14 @@ tags:
     description: 'Manage private keys available for use in Gateway'
   - name: 'amm'
     description: 'Interact with AMM decentralized exchanges'
+  - name: 'clob'
+    description: 'Interact with CLOB decentralized exchanges'
   - name: 'evm'
     description: 'Interact with EVM based blockchains'
   - name: 'solana'
     description: 'Interact with the Solana blockchain'
+  - name: 'serum
+    description: 'Interact with the Serum for Solana blockchain'
 
 schemes:
   - 'http'
