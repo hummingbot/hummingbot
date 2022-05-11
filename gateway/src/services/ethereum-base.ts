@@ -336,4 +336,9 @@ export class EthereumBase {
 
     return response;
   }
+
+  async close() {
+    await this._nonceManager.close();
+    await this._txStorage.close();
+  }
 }
