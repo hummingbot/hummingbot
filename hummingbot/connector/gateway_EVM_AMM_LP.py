@@ -457,7 +457,7 @@ class GatewayEVMAMMLP(ConnectorBase):
         :param fee: the market tier to add liquidity on
         """
 
-        trade_type = LPType.ADD
+        lp_type = LPType.ADD
         amount0 = self.quantize_order_amount(trading_pair, amount)
         amount1 = self.quantize_order_amount(trading_pair, Decimal("1") / amount)
         lower_price = self.quantize_order_price(trading_pair, lower_price)
@@ -465,11 +465,10 @@ class GatewayEVMAMMLP(ConnectorBase):
         token0, token1 = trading_pair.split("-")
         self.start_tracking_order(order_id=order_id,
                                   trading_pair=trading_pair,
-                                  trade_type=trade_type,
+                                  lp_type=lp_type,
                                   lower_price=lower_price,
                                   upper_price=upper_price,
-                                  amount0=amount0
-                                  fee=fee)
+                                  amount0=amount0)
         try:
             order_result: Dict[str, Any] = await GatewayHttpClient.get_instance().amm_lp_add(
                 self.chain,
@@ -496,7 +495,7 @@ class GatewayEVMAMMLP(ConnectorBase):
             self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
 
             if tracked_order is not None:
-                self.logger().info(f"Created {trade_type.name} liquidity order {order_id} txHash: {transaction_hash} "
+                self.logger().info(f"Created {lp_type.name} liquidity order {order_id} txHash: {transaction_hash} "
                                    f"on {self.network}. Estimated Gas Cost: {gas_cost} "
                                    f" (gas limit: {gas_limit}, gas price: {gas_price})")
                 tracked_order.update_exchange_order_id(transaction_hash)
@@ -513,7 +512,7 @@ class GatewayEVMAMMLP(ConnectorBase):
                     timestamp=self.current_timestamp,
                     order_id=order_id,
                     exchange_order_id=transaction_hash,
-                    order_action=trade_type,
+                    order_action=lp_type,
                     trading_pair=trading_pair,
                     fee_tier=fee,
                     lower_price=lower_price,
@@ -523,19 +522,19 @@ class GatewayEVMAMMLP(ConnectorBase):
                 ))
             else:
                 self.trigger_event(MarketEvent.RangePositionUpdateFailureEvent,
-                                   RangePositionUpdateFailureEvent(self.current_timestamp, order_id, trade_type))
+                                   RangePositionUpdateFailureEvent(self.current_timestamp, order_id, lp_type))
                 self.stop_tracking_order(order_id)
         except asyncio.CancelledError:
             raise
         except Exception:
             self.stop_tracking_order(order_id)
             self.logger().error(
-                f"Error submitting {trade_type.name} liquidity order to {self.connector_name} on {self.network} for "
+                f"Error submitting {lp_type.name} liquidity order to {self.connector_name} on {self.network} for "
                 f"{trading_pair} "
                 exc_info=True
             )
             self.trigger_event(MarketEvent.RangePositionUpdateFailureEvent,
-                               RangePositionUpdateFailureEvent(self.current_timestamp, order_id, trade_type))
+                               RangePositionUpdateFailureEvent(self.current_timestamp, order_id, lp_type))
             self.stop_tracking_order(order_id)
 
     def remove_liquidity(self, trading_pair: str, token_id: int, reduce_percent: Optional[int] = 100, **request_args) -> str:
@@ -566,10 +565,10 @@ class GatewayEVMAMMLP(ConnectorBase):
         :param reduce_percent: Percentage of liquidity to remove(as integer).
         """
 
-        trade_type = LPType.REMOVE
+        lp_type = LPType.REMOVE
         self.start_tracking_order(order_id=order_id,
                                   trading_pair=trading_pair,
-                                  trade_type=trade_type,
+                                  lp_type=lp_type,
                                   token_id=token_id)
         try:
             order_result: Dict[str, Any] = await GatewayHttpClient.get_instance().amm_lp_remove(
@@ -592,7 +591,7 @@ class GatewayEVMAMMLP(ConnectorBase):
             self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
 
             if tracked_order is not None:
-                self.logger().info(f"Created {trade_type.name} liquidity order {order_id} txHash: {transaction_hash} "
+                self.logger().info(f"Created {lp_type.name} liquidity order {order_id} txHash: {transaction_hash} "
                                    f"on {self.network}. Estimated Gas Cost: {gas_cost} "
                                    f" (gas limit: {gas_limit}, gas price: {gas_price})")
                 tracked_order.update_exchange_order_id(transaction_hash)
@@ -609,26 +608,26 @@ class GatewayEVMAMMLP(ConnectorBase):
                     timestamp=self.current_timestamp,
                     order_id=order_id,
                     exchange_order_id=transaction_hash,
-                    order_action=trade_type,
+                    order_action=lp_type,
                     trading_pair=trading_pair,
                     creation_timestamp=tracked_order.creation_timestamp,
                     token_id=token_id,
                 ))
             else:
                 self.trigger_event(MarketEvent.RangePositionUpdateFailure,
-                                   RangePositionUpdateFailureEvent(self.current_timestamp, order_id, trade_type))
+                                   RangePositionUpdateFailureEvent(self.current_timestamp, order_id, lp_type))
                 self.stop_tracking_order(order_id)
         except asyncio.CancelledError:
             raise
         except Exception:
             self.stop_tracking_order(order_id)
             self.logger().error(
-                f"Error submitting {trade_type.name} liquidity order to {self.connector_name} on {self.network} for "
+                f"Error submitting {lp_type.name} liquidity order to {self.connector_name} on {self.network} for "
                 f"{trading_pair} "
                 exc_info=True
             )
             self.trigger_event(MarketEvent.RangePositionUpdateFailure,
-                               RangePositionUpdateFailureEvent(self.current_timestamp, order_id, trade_type))
+                               RangePositionUpdateFailureEvent(self.current_timestamp, order_id, lp_type))
             self.stop_tracking_order(order_id)
 
     def collet_fees(self, trading_pair: str, token_id: int, **request_args) -> str:
@@ -656,10 +655,10 @@ class GatewayEVMAMMLP(ConnectorBase):
         :param token_id: The market trading pair
         """
 
-        trade_type = LPType.COLLECT
+        lp_type = LPType.COLLECT
         self.start_tracking_order(order_id=order_id,
                                   trading_pair=trading_pair,
-                                  trade_type=trade_type,
+                                  lp_type=lp_type,
                                   token_id=token_id)
         try:
             order_result: Dict[str, Any] = await GatewayHttpClient.get_instance().amm_lp_collect_fees(
@@ -681,7 +680,7 @@ class GatewayEVMAMMLP(ConnectorBase):
             self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
 
             if tracked_order is not None:
-                self.logger().info(f"Submitted {trade_type.name} request {order_id} txHash: {transaction_hash} "
+                self.logger().info(f"Submitted {lp_type.name} request {order_id} txHash: {transaction_hash} "
                                    f"on {self.network}. Estimated Gas Cost: {gas_cost} "
                                    f" (gas limit: {gas_limit}, gas price: {gas_price})")
                 tracked_order.update_exchange_order_id(transaction_hash)
@@ -698,37 +697,36 @@ class GatewayEVMAMMLP(ConnectorBase):
                     timestamp=self.current_timestamp,
                     order_id=order_id,
                     exchange_order_id=transaction_hash,
-                    order_action=trade_type,
+                    order_action=lp_type,
                     trading_pair=trading_pair,
                     creation_timestamp=tracked_order.creation_timestamp,
                     token_id=token_id,
                 ))
             else:
                 self.trigger_event(MarketEvent.RangePositionUpdateFailure,
-                                   RangePositionUpdateFailureEvent(self.current_timestamp, order_id, trade_type))
+                                   RangePositionUpdateFailureEvent(self.current_timestamp, order_id, lp_type))
                 self.stop_tracking_order(order_id)
         except asyncio.CancelledError:
             raise
         except Exception:
             self.stop_tracking_order(order_id)
             self.logger().error(
-                f"Error submitting {trade_type.name} request to {self.connector_name} on {self.network} for "
+                f"Error submitting {lp_type.name} request to {self.connector_name} on {self.network} for "
                 f"{trading_pair} "
                 exc_info=True
             )
             self.trigger_event(MarketEvent.RangePositionUpdateFailure,
-                               RangePositionUpdateFailureEvent(self.current_timestamp, order_id, trade_type))
+                               RangePositionUpdateFailureEvent(self.current_timestamp, order_id, lp_type))
             self.stop_tracking_order(order_id)
 
     def start_tracking_order(self,
                              order_id: str,
                              exchange_order_id: Optional[str] = None,
                              trading_pair: str = "",
-                             trade_type: Optional[LPType] = LPType.ADD,
+                             lp_type: Optional[LPType] = LPType.ADD,
                              lower_price: Optional[Decimal] = s_decimal_0,
                              upper_price: Optional[Decimal] = s_decimal_0,
-                             amount0: Optional[Decimal] = s_decimal_0,
-                             fee: Optional[str] = "LOW",
+                             amount: Optional[Decimal] = s_decimal_0,
                              token_id: Optional[int] = 0,
                              gas_price: Decimal = s_decimal_0):
         """
@@ -738,10 +736,11 @@ class GatewayEVMAMMLP(ConnectorBase):
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=trade_type,
-            price=price,
+            lp_type=lp_type,
+            lower_price=lower_price,
+            upper_price=upper_price,
             amount=amount,
+            token_id=token_id,
             gas_price=gas_price,
             creation_timestamp=self.current_timestamp
         )
@@ -846,7 +845,7 @@ class GatewayEVMAMMLP(ConnectorBase):
                                     tracked_order.exchange_order_id,
                                 )
                             )
-                            self.logger().info(f"The {tracked_order.trade_type.name} order "
+                            self.logger().info(f"The {tracked_order.lp_type.name} order "
                                                f"{tracked_order.client_order_id} has been canceled "
                                                f"according to the order status API.")
                         elif self.is_approval_order(tracked_order):
