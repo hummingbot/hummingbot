@@ -232,12 +232,12 @@ class RangePositionLiquidityAddedEvent:
     order_id: str
     exchange_order_id: str
     trading_pair: str
-    fee_tier: str
     lower_price: Decimal
     upper_price: Decimal
     amount: Decimal
     creation_timestamp: float
-    token_id: Optional[int] = None
+    trade_fee: TradeFeeBase
+    token_id: Optional[int] = 0
 
 
 @dataclass
@@ -245,7 +245,9 @@ class RangePositionLiquidityRemovedEvent:
     timestamp: float
     order_id: str
     exchange_order_id: str
+    trading_pair: str
     token_id: str
+    trade_fee: TradeFeeBase
 
 
 @dataclass
@@ -260,7 +262,7 @@ class RangePositionUpdateEvent:
     upper_price: Optional[Decimal]
     amount: Optional[Decimal]
     creation_timestamp: float
-    token_id: Optional[int] = None
+    token_id: Optional[int] = 0
 
 
 @dataclass
@@ -275,7 +277,9 @@ class RangePositionFeeCollectedEvent:
     timestamp: float
     oder_id: str
     exchange_order_id: str
+    trading_pair: str
     token_id: int = None
+    trade_fee: TradeFeeBase
 
 
 class LimitOrderStatus(Enum):

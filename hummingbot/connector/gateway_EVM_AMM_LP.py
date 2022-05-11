@@ -875,7 +875,7 @@ class GatewayEVMAMMLP(ConnectorBase):
 
         # split canceled and non-canceled orders
         tx_hash_list: List[str] = await safe_gather(
-            *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders]
+            *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders if not tracked_order.is_nft]
         )
         self.logger().debug(
             "Polling for order status updates of %d orders.",
@@ -885,7 +885,8 @@ class GatewayEVMAMMLP(ConnectorBase):
             GatewayHttpClient.get_instance().get_transaction_status(
                 self.chain,
                 self.network,
-                tx_hash
+                tx_hash,
+                connector=self.connector_name
             )
             for tx_hash in tx_hash_list
         ], return_exceptions=True)
@@ -901,57 +902,127 @@ class GatewayEVMAMMLP(ConnectorBase):
                     gas_used: int = update_result["txReceipt"]["gasUsed"]
                     gas_price: Decimal = tracked_order.gas_price
                     fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
-                    self.trigger_event(
-                        MarketEvent.OrderFilled,
-                        OrderFilledEvent(
-                            self.current_timestamp,
-                            tracked_order.client_order_id,
-                            tracked_order.trading_pair,
-                            tracked_order.trade_type,
-                            tracked_order.order_type,
-                            Decimal(str(tracked_order.price)),
-                            Decimal(str(tracked_order.amount)),
-                            AddedToCostTradeFee(
-                                flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
-                            ),
-                            exchange_trade_id=tracked_order.exchange_order_id
+                    if tracked_order.order_type is LPType.ADD:
+                        token_id = int(list(filter(lambda evt: evt["name"] == "tokenId", list(filter(lambda log: log["name"] == "IncreaseLiquidity", update_result["txReceipt"]["logs"]))[0]["events"]))[0]["value"])
+                        self.trigger_event(
+                            MarketEvent.RangePositionLiquidityAdded,
+                            RangePositionLiquidityAddedEvent(
+                                timestamp=self.current_timestamp,
+                                order_id=tracked_order.client_order_id,
+                                exchange_order_id=tracked_order.exchange_order_id,
+                                trading_pair=tracked_order.trading_pair,
+                                lower_price=Decimal(str(tracked_order.lower_price)),
+                                upper_price=Decimal(str(tracked_order.upper_price)),
+                                amount=Decimal(str(tracked_order.amount)),
+                                trade_fee=AddedToCostTradeFee(
+                                    flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
+                                ),
+                                token_id=token_id,
+                            )
                         )
-                    )
-                    tracked_order.last_state = "FILLED"
-                    event_tag: MarketEvent = (
-                        MarketEvent.BuyOrderCompleted if tracked_order.trade_type is LPType.BUY
-                        else MarketEvent.SellOrderCompleted
-                    )
-                    event_class: Union[Type[BuyOrderCompletedEvent], Type[SellOrderCompletedEvent]] = (
-                        BuyOrderCompletedEvent if tracked_order.trade_type is LPType.BUY
-                        else SellOrderCompletedEvent
-                    )
-                    self.trigger_event(
-                        event_tag,
-                        event_class(
-                            timestamp=self.current_timestamp,
-                            order_id=tracked_order.client_order_id,
-                            base_asset=tracked_order.base_asset,
-                            quote_asset=tracked_order.quote_asset,
-                            base_asset_amount=tracked_order.executed_amount_base,
-                            quote_asset_amount=tracked_order.executed_amount_quote,
-                            order_type=tracked_order.order_type,
-                            exchange_order_id=tracked_order.exchange_order_id
-                        )
-                    )
+                        # check if there are existing tokenIds being tracked
+                        if not self.token_id_exists(token_id):
+                            tracked_order.last_state = "CREATED"
+                            continue
+                    else:
+                        reduce_evt = list(filter(lambda evt: evt["name"] == "tokenId", list(filter(lambda log: log["name"] == "DecreaseLiquidity", update_result["txReceipt"]["logs"]))[0]["events"]))
+                        collect_evt = list(filter(lambda evt: evt["name"] == "tokenId", list(filter(lambda log: log["name"] == "Collect", update_result["txReceipt"]["logs"]))[0]["events"]))
+                        if len(reduce_evt) > 0:
+                            token_id = int(reduce_evt[0]["value"])
+                            self.trigger_event(
+                                MarketEvent.RangePositionLiquidityAdded,
+                                RangePositionLiquidityAddedEvent(
+                                    timestamp=self.current_timestamp,
+                                    order_id=tracked_order.client_order_id,
+                                    exchange_order_id=tracked_order.exchange_order_id,
+                                    trading_pair=tracked_order.trading_pair,
+                                    token_id=token_id,
+                                    trade_fee=AddedToCostTradeFee(
+                                        flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
+                                    ),
+                                )
+                            )
+                        if len(collect_evt) > 0:
+                            token_id = int(collect_evt[0]["value"])
+                            self.trigger_event(
+                                MarketEvent.RangePositionLiquidityRemoved,
+                                RangePositionLiquidityRemovedEvent(
+                                    timestamp=self.current_timestamp,
+                                    order_id=tracked_order.client_order_id,
+                                    exchange_order_id=tracked_order.exchange_order_id,
+                                    trading_pair=tracked_order.trading_pair,
+                                    token_id=token_id,
+                                    trade_fee=AddedToCostTradeFee(
+                                        flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
+                                    ),
+                                )
+                            )
+                    tracked_order.last_state = "COMPLETED"
                 else:
                     self.logger().info(
-                        f"The market order {tracked_order.client_order_id} has failed according to order status API. ")
-                    self.trigger_event(MarketEvent.OrderFailure,
-                                       MarketOrderFailureEvent(
+                        f"The LP update order {tracked_order.client_order_id} has failed according to order status API. ")
+                    self.trigger_event(MarketEvent.RangePositionUpdateFailure,
+                                       RangePositionUpdateFailureEvent(
                                            self.current_timestamp,
                                            tracked_order.client_order_id,
                                            tracked_order.order_type
                                        ))
                 self.stop_tracking_order(tracked_order.client_order_id)
+        
+    async def update_nft(self, tracked_orders: List[GatewayInFlightLPOrder]):
+        """
+        Calls REST API to get status update for each created in-flight tokens.
+        """
+        nft_orders: List[GatewayInFlightLPOrder] = [tracked_order for tracked_order in tracked_orders if tracked_order.is_nft]
+        token_id_list: List[int] = [nft_order.token_id for nft_order in nft_orders]
+        if len(nft_orders) < 1:
+            return
 
-    def get_taker_order_type(self):
-        return OrderType.LIMIT
+        self.logger().debug(
+            "Polling for nft updates for %d tokens.",
+            len(nft_orders)
+        )
+
+        nft_update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
+            GatewayHttpClient.get_instance().amm_lp_position(
+                self.chain,
+                self.network,
+                self.connector_name,
+                token_id,
+            )
+            for token_id in token_id_list
+        ], return_exceptions=True)
+
+        for nft_order, nft_update_result in zip(nft_orders, nft_update_results):
+            if isinstance(nft_update_result, Exception):
+                raise nft_update_result
+            lower_price = Decimal(nft_update_result["lowerPrice"])
+            upper_price = Decimal(nft_update_result["upperPrice"])
+            amount_0 = Decimal(nft_update_result["amount0"])
+            amount_1 = Decimal(nft_update_result["amount1"])
+            unclaimed_fee_0 = Decimal(nft_update_result["unclaimedToken0"])
+            unclaimed_fee_1 = Decimal(nft_update_result["unclaimedToken1"])
+            if amount_0 + amount_1 + unclaimed_fee_0 + unclaimed_fee_1 == s_decimal_0:  # position closed, stop tracking
+                nft_order.last_state = "COMPLETED"
+                self.stop_tracking_order(nft_order.client_order_id)     
+            else:
+                nft_order.adjusted_lower_price = lower_price
+                nft_order.adjusted_upper_price = upper_price
+                if nft_order.trading_pair.split("-")[0] != nft_update_result["token0"]:
+                    unclaimed_fee_0, unclaimed_fee_1 = unclaimed_fee_1, unclaimed_fee_0
+                nft_order.unclaimed_fee_0 = unclaimed_fee_0
+                nft_order.unclaimed_fee_1 = unclaimed_fee_1
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            pass
+
+    def token_id_exists(token_id: int) -> bool:
+        """
+        Checks if there are existing tracked inflight orders with same token id created earlier.
+        """
+        token_id_list = [order.token_id for order in self.amm_lp_orders if order.lp_type is LPType.ADD and order.is_nft]
+        return len(token_id_list) > 0
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
         return Decimal("1e-15")
@@ -1039,7 +1110,8 @@ class GatewayEVMAMMLP(ConnectorBase):
                     self.update_balances(on_interval=True),
                     self.update_canceling_transactions(self.canceling_orders),
                     self.update_token_approval_status(self.approval_orders),
-                    self.update_order_status(self.amm_orders)
+                    self.update_order_status(self.amm_lp_orders),
+                    self.update_nft(self.amm_lp_orders)
                 )
                 self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
