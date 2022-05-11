@@ -372,11 +372,13 @@ class GatewayHttpClient:
             chain: str,
             network: str,
             transaction_hash: str,
+            connector: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         return await self.api_request("post", "network/poll", {
             "chain": chain,
             "network": network,
+            "connector": connector,
             "txHash": transaction_hash
         }, fail_silently=fail_silently)
 
@@ -468,7 +470,7 @@ class GatewayHttpClient:
             fee: str,
             lowerPrice: Decimal,
             upperPrice: Decimal,
-            tokenId: Optional[int] = None,
+            token_id: Optional[int] = None,
             nonce: Optional[int] = None,
             max_fee_per_gas: Optional[int] = None,
             max_priority_fee_per_gas: Optional[int] = None
@@ -485,11 +487,11 @@ class GatewayHttpClient:
             "fee": fee,
             "lowerPrice": str(lowerPrice),
             "upperPrice": str(upperPrice),
-            "tokenId": tokenId,
+            "tokenId": token_id,
             "nonce": nonce,
         }
-        if tokenId is not None:
-            request_payload["tokenId"] = int(tokenId)
+        if token_id is not None:
+            request_payload["tokenId"] = int(token_id)
         if nonce is not None:
             request_payload["nonce"] = int(nonce)
         if max_fee_per_gas is not None:
@@ -504,7 +506,7 @@ class GatewayHttpClient:
             network: str,
             connector: str,
             address: str,
-            tokenId: int,
+            token_id: int,
             decreasePercent: Optional[int] = None,
             nonce: Optional[int] = None,
             max_fee_per_gas: Optional[int] = None,
@@ -515,7 +517,7 @@ class GatewayHttpClient:
             "network": network,
             "connector": connector,
             "address": address,
-            "tokenId": tokenId,
+            "tokenId": token_id,
             "decreasePercent": decreasePercent,
             "nonce": nonce,
         }
@@ -535,7 +537,7 @@ class GatewayHttpClient:
             network: str,
             connector: str,
             address: str,
-            tokenId: int,
+            token_id: int,
             nonce: Optional[int] = None,
             max_fee_per_gas: Optional[int] = None,
             max_priority_fee_per_gas: Optional[int] = None
@@ -545,7 +547,7 @@ class GatewayHttpClient:
             "network": network,
             "connector": connector,
             "address": address,
-            "tokenId": tokenId,
+            "tokenId": token_id,
             "nonce": nonce,
         }
         if nonce is not None:
@@ -561,13 +563,13 @@ class GatewayHttpClient:
             chain: str,
             network: str,
             connector: str,
-            tokenId: int,
+            token_id: int,
     ) -> Dict[str, Any]:
         request_payload: Dict[str, Any] = {
             "chain": chain,
             "network": network,
             "connector": connector,
-            "tokenId": tokenId,
+            "tokenId": token_id,
         }
         return await self.api_request("post", "amm/liquidity/position", request_payload)
 

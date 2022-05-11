@@ -15,7 +15,7 @@ class GatewayInFlightLPOrder(GatewayInFlightOrder):
                  client_order_id: str,
                  exchange_order_id: Optional[str],
                  trading_pair: str,
-                 order_type: LPType,
+                 lp_type: LPType,
                  lower_price: Decimal,
                  upper_price: Decimal,
                  amount: Decimal,
@@ -34,6 +34,7 @@ class GatewayInFlightLPOrder(GatewayInFlightOrder):
             creation_timestamp,
             initial_state,
         )
+        self.lp_type = lp_type
         self.lower_price = lower_price
         self.upper_price = upper_price
         self.token_id = token_id
@@ -45,6 +46,14 @@ class GatewayInFlightLPOrder(GatewayInFlightOrder):
         self._gas_price = gas_price
         self.nonce = 0
         self._cancel_tx_hash: Optional[str] = None
+
+    @property
+    def is_done(self) -> bool:
+        return self.last_state in {"CREATED", "COMPLETED", "CANCELED", "REJECTED", "EXPIRED"}
+
+    @property
+    def is_nft(self) -> bool:
+        return self.last_state == "CREATED"
 
     def to_json(self) -> Dict[str, Any]:
         return {
