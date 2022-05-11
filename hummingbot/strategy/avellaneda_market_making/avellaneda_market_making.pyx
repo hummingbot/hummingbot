@@ -465,14 +465,16 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             hanging_orders_cancel_pct = Decimal("0")
 
         if self._hanging_orders_enabled != hanging_orders_enabled:
+            # Hanging order tracker instance doesn't exist - create from scratch
             self._hanging_orders_enabled = hanging_orders_enabled
             self._hanging_orders_cancel_pct = hanging_orders_cancel_pct
             self._hanging_orders_tracker = HangingOrdersTracker(self,
                                                                 hanging_orders_cancel_pct / Decimal('100'))
+            self._hanging_orders_tracker.register_events(self.active_markets)
         elif self._hanging_orders_cancel_pct != hanging_orders_cancel_pct:
+            # Hanging order tracker instance existst - only update variable
             self._hanging_orders_cancel_pct = hanging_orders_cancel_pct
-            self._hanging_orders_tracker = HangingOrdersTracker(self,
-                                                                hanging_orders_cancel_pct / Decimal('100'))
+            self._hanging_orders_tracker.hanging_orders_cancel_pct = hanging_orders_cancel_pct / Decimal('100')
 
     def get_config_map_indicators(self):
         volatility_buffer_size = self._config_map.volatility_buffer_size
