@@ -3,11 +3,11 @@ const level = require('level-party');
 
 export class LocalStorage {
   readonly #dbPath: string;
-  #db: LevelDB;
+  protected db: LevelDB;
 
   constructor(dbPath: string) {
     this.#dbPath = dbPath;
-    this.#db = level(dbPath, { createIfMissing: true });
+    this.db = level(dbPath, { createIfMissing: true });
   }
 
   get dbPath(): string {
@@ -15,17 +15,17 @@ export class LocalStorage {
   }
 
   public async save(key: string, value: any): Promise<void> {
-    return this.#db.put(key, value);
+    return this.db.put(key, value);
   }
 
   public async del(key: string): Promise<void> {
-    return this.#db.del(key);
+    return this.db.del(key);
   }
 
   public async get(
     readFunc: (key: string, string: any) => [string, any] | undefined
   ): Promise<Record<string, any>> {
-    const stream = this.#db.createReadStream();
+    const stream = this.db.createReadStream();
     const result = await new Promise<Record<string, any>>((resolve, reject) => {
       const results: Record<string, any> = {};
       stream
@@ -47,6 +47,6 @@ export class LocalStorage {
   }
 
   public async close(): Promise<void> {
-    await this.#db.close();
+    await this.db.close();
   }
 }
