@@ -1,5 +1,6 @@
+// TODO: probably won't need this file
 import { logger } from '../../services/logger';
-import { UniswapConfig } from './uniswap.config';
+import { DefiraConfig } from './defira.config';
 import { Contract, ContractInterface } from '@ethersproject/contracts';
 import { Token, CurrencyAmount, Percent, Price } from '@uniswap/sdk-core';
 import * as uniV3 from '@uniswap/v3-sdk';
@@ -12,10 +13,10 @@ import {
   AddLiquidityData,
   IncreaseLiquidityData,
   ReduceLiquidityData,
-} from './uniswap.v3.interfaces';
+} from './defira.v3.interfaces';
 import * as math from 'mathjs';
 
-export class UniswapV3Helper {
+export class DefiraV3Helper {
   protected ethereum: Ethereum;
   private _router: string;
   private _nftManager: string;
@@ -26,9 +27,9 @@ export class UniswapV3Helper {
 
   constructor(network: string) {
     this.ethereum = Ethereum.getInstance(network);
-    this._router = UniswapConfig.config.uniswapV3RouterAddress(network);
-    this._nftManager = UniswapConfig.config.uniswapV3NftManagerAddress(network);
-    this._ttl = UniswapConfig.config.ttl(3);
+    this._router = DefiraConfig.config.uniswapV3RouterAddress(network);
+    this._nftManager = DefiraConfig.config.uniswapV3NftManagerAddress(network);
+    this._ttl = DefiraConfig.config.ttl(3);
     this._routerAbi =
       require('@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json').abi;
     this._nftAbi =
@@ -83,7 +84,7 @@ export class UniswapV3Helper {
   }
 
   getSlippagePercentage(): Percent {
-    const allowedSlippage = UniswapConfig.config.allowedSlippage(3);
+    const allowedSlippage = DefiraConfig.config.allowedSlippage(3);
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(

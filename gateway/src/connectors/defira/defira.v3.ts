@@ -1,3 +1,4 @@
+// TODO: probably won't need this file
 import {
   InitializationError,
   UniswapishPriceError,
@@ -5,13 +6,13 @@ import {
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from '../../services/error-handler';
 import { logger } from '../../services/logger';
-import { UniswapConfig } from './uniswap.config';
+import { DefiraConfig } from './defira.config';
 import { Contract, ContractInterface } from '@ethersproject/contracts';
 import { Token, CurrencyAmount, TradeType } from '@uniswap/sdk-core';
 import * as uniV3 from '@uniswap/v3-sdk';
 import { BigNumber, Transaction, Wallet, utils } from 'ethers';
 import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
-import { UniswapV3Helper } from './uniswap.v3.helper';
+import { DefiraV3Helper } from './defira.v3.helper';
 
 const MaxUint128 = BigNumber.from(2).pow(128).sub(1);
 
@@ -27,8 +28,8 @@ export type Overrides = {
 type SellTrade = uniV3.Trade<Token, Token, TradeType.EXACT_INPUT>;
 type BuyTrade = uniV3.Trade<Token, Token, TradeType.EXACT_OUTPUT>;
 
-export class UniswapV3 extends UniswapV3Helper implements Uniswapish {
-  private static _instances: { [name: string]: UniswapV3 };
+export class DefiraV3 extends DefiraV3Helper implements Uniswapish {
+  private static _instances: { [name: string]: DefiraV3 };
   private _chain: string;
   private _gasLimit: number;
   private _ready: boolean = false;
@@ -36,18 +37,18 @@ export class UniswapV3 extends UniswapV3Helper implements Uniswapish {
   private constructor(chain: string, network: string) {
     super(network);
     this._chain = chain;
-    this._gasLimit = UniswapConfig.config.gasLimit(3);
+    this._gasLimit = DefiraConfig.config.gasLimit(3);
   }
 
-  public static getInstance(chain: string, network: string): UniswapV3 {
-    if (UniswapV3._instances === undefined) {
-      UniswapV3._instances = {};
+  public static getInstance(chain: string, network: string): DefiraV3 {
+    if (DefiraV3._instances === undefined) {
+      DefiraV3._instances = {};
     }
-    if (!(chain + network in UniswapV3._instances)) {
-      UniswapV3._instances[chain + network] = new UniswapV3(chain, network);
+    if (!(chain + network in DefiraV3._instances)) {
+      DefiraV3._instances[chain + network] = new DefiraV3(chain, network);
     }
 
-    return UniswapV3._instances[chain + network];
+    return DefiraV3._instances[chain + network];
   }
 
   public async init() {
@@ -152,7 +153,7 @@ export class UniswapV3 extends UniswapV3Helper implements Uniswapish {
    * @param wallet Wallet
    * @param trade Expected trade
    * @param gasPrice Base gas price, for pre-EIP1559 transactions
-   * @param uniswapRouter Router smart contract address
+   * @param defiraRouter Router smart contract address
    * @param ttl How long the swap is valid before expiry, in seconds
    * @param abi Router contract ABI
    * @param gasLimit Gas limit
@@ -164,7 +165,7 @@ export class UniswapV3 extends UniswapV3Helper implements Uniswapish {
     wallet: Wallet,
     trade: uniV3.Trade<Token, Token, TradeType>,
     gasPrice: number,
-    uniswapRouter: string,
+    defiraRouter: string,
     ttl: number,
     abi: ContractInterface,
     gasLimit: number,
@@ -177,7 +178,7 @@ export class UniswapV3 extends UniswapV3Helper implements Uniswapish {
       recipient: wallet.address,
       slippageTolerance: this.getSlippagePercentage(),
     });
-    const contract: Contract = new Contract(uniswapRouter, abi, wallet);
+    const contract: Contract = new Contract(defiraRouter, abi, wallet);
 
     const tx: Transaction = await contract.multicall(
       [calldata],

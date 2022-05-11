@@ -1,12 +1,11 @@
 import {
   InitializationError,
-  UniswapishPriceError,
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from '../../services/error-handler';
 import { isFractionString } from '../../services/validators';
-import { UniswapConfig } from './uniswap.config';
-import routerAbi from './uniswap_v2_router_abi.json';
+import { DefiraConfig } from './defira.config';
+import routerAbi from './defira_v2_router_abi.json';
 import {
   Contract,
   ContractInterface,
@@ -28,8 +27,8 @@ import { percentRegexp } from '../../services/config-manager-v2';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 
-export class Uniswap implements Uniswapish {
-  private static _instances: { [name: string]: Uniswap };
+export class defira implements Uniswapish {
+  private static _instances: { [name: string]: defira };
   private ethereum: Ethereum;
   private _chain: string;
   private _router: string;
@@ -42,24 +41,24 @@ export class Uniswap implements Uniswapish {
 
   private constructor(chain: string, network: string) {
     this._chain = chain;
-    const config = UniswapConfig.config;
+    const config = DefiraConfig.config;
     this.ethereum = Ethereum.getInstance(network);
     this.chainId = this.ethereum.chainId;
-    this._ttl = UniswapConfig.config.ttl(2);
+    this._ttl = DefiraConfig.config.ttl(2);
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = UniswapConfig.config.gasLimit(2);
+    this._gasLimit = DefiraConfig.config.gasLimit(2);
     this._router = config.uniswapV2RouterAddress(network);
   }
 
-  public static getInstance(chain: string, network: string): Uniswap {
-    if (Uniswap._instances === undefined) {
-      Uniswap._instances = {};
+  public static getInstance(chain: string, network: string): defira {
+    if (defira._instances === undefined) {
+      defira._instances = {};
     }
-    if (!(chain + network in Uniswap._instances)) {
-      Uniswap._instances[chain + network] = new Uniswap(chain, network);
+    if (!(chain + network in defira._instances)) {
+      defira._instances[chain + network] = new defira(chain, network);
     }
 
-    return Uniswap._instances[chain + network];
+    return defira._instances[chain + network];
   }
 
   /**
@@ -134,7 +133,7 @@ export class Uniswap implements Uniswapish {
       return new Percent(fractionSplit[0], fractionSplit[1]);
     }
 
-    const allowedSlippage = UniswapConfig.config.allowedSlippage(2);
+    const allowedSlippage = DefiraConfig.config.allowedSlippage(2);
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(
@@ -245,12 +244,12 @@ export class Uniswap implements Uniswapish {
   }
 
   /**
-   * Given a wallet and a Uniswap trade, try to execute it on blockchain.
+   * Given a wallet and a defira trade, try to execute it on blockchain.
    *
    * @param wallet Wallet
    * @param trade Expected trade
    * @param gasPrice Base gas price, for pre-EIP1559 transactions
-   * @param uniswapRouter Router smart contract address
+   * @param defiraRouter Router smart contract address
    * @param ttl How long the swap is valid before expiry, in seconds
    * @param abi Router contract ABI
    * @param gasLimit Gas limit
@@ -262,7 +261,7 @@ export class Uniswap implements Uniswapish {
     wallet: Wallet,
     trade: Trade,
     gasPrice: number,
-    uniswapRouter: string,
+    defiraRouter: string,
     ttl: number,
     abi: ContractInterface,
     gasLimit: number,
@@ -277,7 +276,7 @@ export class Uniswap implements Uniswapish {
       allowedSlippage: this.getAllowedSlippage(allowedSlippage),
     });
 
-    const contract: Contract = new Contract(uniswapRouter, abi, wallet);
+    const contract: Contract = new Contract(defiraRouter, abi, wallet);
     if (nonce === undefined) {
       nonce = await this.ethereum.nonceManager.getNonce(wallet.address);
     }
