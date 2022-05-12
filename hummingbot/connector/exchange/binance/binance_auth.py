@@ -1,16 +1,12 @@
 import hashlib
 import hmac
 from collections import OrderedDict
-
-from typing import (
-    Any,
-    Dict
-)
+from typing import Any, Dict
 from urllib.parse import urlencode
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTRequest, RESTMethod, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
 
 class BinanceAuth(AuthBase):
