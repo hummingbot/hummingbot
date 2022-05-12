@@ -9,8 +9,7 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 import aiohttp
 from async_timeout import timeout
 
-from hummingbot.connector.exchange.wazirx import wazirx_constants as CONSTANTS
-from hummingbot.connector.exchange.wazirx import wazirx_utils
+from hummingbot.connector.exchange.wazirx import wazirx_constants as CONSTANTS, wazirx_utils
 from hummingbot.connector.exchange.wazirx.wazirx_api_order_book_data_source import WazirxAPIOrderBookDataSource
 from hummingbot.connector.exchange.wazirx.wazirx_auth import WazirxAuth
 from hummingbot.connector.exchange.wazirx.wazirx_in_flight_order import WazirxInFlightOrder
@@ -691,7 +690,7 @@ class WazirxExchange(ExchangeBase):
                 tracked_order.last_state = order_msg["status"]
 
                 if tracked_order.is_cancelled:
-                    self.logger().info(f"Successfully cancelled order {client_order_id}.")
+                    self.logger().info(f"Successfully canceled order {client_order_id}.")
                     self.trigger_event(
                         MarketEvent.OrderCancelled,
                         OrderCancelledEvent(
@@ -786,7 +785,7 @@ class WazirxExchange(ExchangeBase):
         except Exception:
             self.logger().error("Cancel all failed.", exc_info=True)
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order on Wazirx. Check API key and network connection."
             )

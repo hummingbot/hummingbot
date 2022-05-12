@@ -9,8 +9,9 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 import aiohttp
 
 from hummingbot.connector.exchange.crypto_com import crypto_com_constants as CONSTANTS, crypto_com_utils
-from hummingbot.connector.exchange.crypto_com.crypto_com_api_order_book_data_source import \
-    CryptoComAPIOrderBookDataSource
+from hummingbot.connector.exchange.crypto_com.crypto_com_api_order_book_data_source import (
+    CryptoComAPIOrderBookDataSource,
+)
 from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
 from hummingbot.connector.exchange.crypto_com.crypto_com_in_flight_order import CryptoComInFlightOrder
 from hummingbot.connector.exchange.crypto_com.crypto_com_order_book_tracker import CryptoComOrderBookTracker
@@ -20,7 +21,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -34,7 +35,6 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -634,7 +634,7 @@ class CryptoComExchange(ExchangeBase):
         # Update order execution status
         tracked_order.last_state = order_msg["status"]
         if tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {client_order_id}.")
+            self.logger().info(f"Successfully canceled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(
                                    self.current_timestamp,

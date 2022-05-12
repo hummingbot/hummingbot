@@ -3,14 +3,7 @@ import logging
 import math
 import time
 from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-    Union,
-)
+from typing import Any, AsyncIterable, Dict, List, Optional, Union
 
 import aiohttp
 import ujson
@@ -18,10 +11,7 @@ import ujson
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source import NdaxAPIOrderBookDataSource
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
-from hummingbot.connector.exchange.ndax.ndax_in_flight_order import (
-    NdaxInFlightOrder,
-    NdaxInFlightOrderNotCreated,
-)
+from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder, NdaxInFlightOrderNotCreated
 from hummingbot.connector.exchange.ndax.ndax_order_book_tracker import NdaxOrderBookTracker
 from hummingbot.connector.exchange.ndax.ndax_user_stream_tracker import NdaxUserStreamTracker
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
@@ -967,7 +957,7 @@ class NdaxExchange(ExchangeBase):
             if was_locally_working and tracked_order.is_working:
                 self.trigger_order_created_event(tracked_order)
             elif tracked_order.is_cancelled:
-                self.logger().info(f"Successfully cancelled order {client_order_id}")
+                self.logger().info(f"Successfully canceled order {client_order_id}")
                 self.trigger_event(MarketEvent.OrderCancelled,
                                    OrderCancelledEvent(
                                        self.current_timestamp,

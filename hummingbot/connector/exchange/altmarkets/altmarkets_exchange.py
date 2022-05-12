@@ -4,18 +4,15 @@ import math
 import time
 import traceback
 from decimal import Decimal
-from typing import Any
-from typing import AsyncIterable
-from typing import Dict
-from typing import List
-from typing import Optional
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 from async_timeout import timeout
 
 import hummingbot.connector.exchange.altmarkets.altmarkets_http_utils as http_utils
-from hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source import \
-    AltmarketsAPIOrderBookDataSource
+from hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source import (
+    AltmarketsAPIOrderBookDataSource,
+)
 from hummingbot.connector.exchange.altmarkets.altmarkets_auth import AltmarketsAuth
 from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
 from hummingbot.connector.exchange.altmarkets.altmarkets_in_flight_order import AltmarketsInFlightOrder
@@ -26,7 +23,7 @@ from hummingbot.connector.exchange.altmarkets.altmarkets_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
-    str_date_to_ts
+    str_date_to_ts,
 )
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
@@ -559,9 +556,9 @@ class AltmarketsExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except asyncio.TimeoutError:
-            self.logger().info(f"The order {order_id} could not be cancelled due to a timeout."
+            self.logger().info(f"The order {order_id} could not be canceled due to a timeout."
                                " The action will be retried later.")
-            errors_found = {"message": "Timeout during order cancellation"}
+            errors_found = {"message": "Timeout during order cancelation"}
         except AltmarketsAPIError as e:
             errors_found = e.error_payload.get('errors', e.error_payload)
             if isinstance(errors_found, dict):
@@ -571,7 +568,7 @@ class AltmarketsExchange(ExchangeBase):
 
         if order_state in Constants.ORDER_STATES['CANCEL_WAIT'] or \
                 self._order_not_found_records.get(order_id, 0) >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
-            self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
+            self.logger().info(f"Successfully canceled order {order_id} on {Constants.EXCHANGE_NAME}.")
             self.stop_tracking_order(order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, order_id))
@@ -754,7 +751,7 @@ class AltmarketsExchange(ExchangeBase):
         if updated:
             safe_ensure_future(self._trigger_order_fill(tracked_order, order_msg))
         if tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+            self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
             self.stop_tracking_order(tracked_order.client_order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id))

@@ -17,7 +17,7 @@ from hummingbot.connector.exchange.mexc.mexc_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     num_to_increment,
-    ws_order_status_convert_to_str
+    ws_order_status_convert_to_str,
 )
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.trading_rule import TradingRule
@@ -60,7 +60,7 @@ class MexcExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled
@@ -430,9 +430,9 @@ class MexcExchange(ExchangeBase):
                     if order_status == "CANCELED" or order_status == "PARTIALLY_CANCELED":
                         tracked_order.last_state = order_status
                         self.stop_tracking_order(tracked_order.client_order_id)
-                        self.logger().info(f"Order {tracked_order.client_order_id} has been cancelled "
+                        self.logger().info(f"Order {tracked_order.client_order_id} has been canceled "
                                            f"according to order delta restful API.")
-                        self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                        self.trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                            OrderCancelledEvent(self.current_timestamp,
                                                                tracked_order.client_order_id))
                 except Exception as ex:
@@ -573,9 +573,9 @@ class MexcExchange(ExchangeBase):
 
         if order_status == "CANCELED" or order_status == "PARTIALLY_CANCELED":
             tracked_order.last_state = order_status
-            self.logger().info(f"Order {tracked_order.client_order_id} has been cancelled "
+            self.logger().info(f"Order {tracked_order.client_order_id} has been canceled "
                                f"according to order delta websocket API.")
-            self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+            self.trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                OrderCancelledEvent(self.current_timestamp,
                                                    tracked_order.client_order_id))
             self.stop_tracking_order(tracked_order.client_order_id)
@@ -840,7 +840,7 @@ class MexcExchange(ExchangeBase):
                                 result_bool = True if order_result_value == "invalid order state" or order_result_value == "success" else False
                                 cancellation_results.append(CancellationResult(o.client_order_id, result_bool))
                                 if result_bool:
-                                    self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                    self.trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                                        OrderCancelledEvent(self.current_timestamp,
                                                                            order_id=o.client_order_id,
                                                                            exchange_order_id=o.exchange_order_id))

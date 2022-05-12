@@ -62,7 +62,7 @@ cdef class BeaxyExchangeTransactionTracker(TransactionTracker):
 cdef class BeaxyExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -344,7 +344,7 @@ cdef class BeaxyExchange(ExchangeBase):
                 )
                 tracked_order.last_state = 'CLOSED'
                 self.c_trigger_event(
-                    self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                    self.MARKET_ORDER_CANCELED_EVENT_TAG,
                     OrderCancelledEvent(self._current_timestamp, client_order_id)
                 )
                 self.c_stop_tracking_order(client_order_id)
@@ -449,7 +449,7 @@ cdef class BeaxyExchange(ExchangeBase):
                     self.logger().info(f'The market order {tracked_order.client_order_id} has failed/been cancelled '
                                        f'according to order status API.')
                     tracked_order.last_state = 'cancelled'
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                          OrderCancelledEvent(
                                              self._current_timestamp,
                                              tracked_order.client_order_id
@@ -674,7 +674,7 @@ cdef class BeaxyExchange(ExchangeBase):
             if e.result and 'Active order not found or already cancelled.' in e.result['items']:
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
         except IOError as ioe:
@@ -966,7 +966,7 @@ cdef class BeaxyExchange(ExchangeBase):
 
                     elif order_status == 'canceled':
                         tracked_order.last_state = 'canceled'
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                              OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
                         self.c_stop_tracking_order(tracked_order.client_order_id)
                     elif order_status in ['rejected', 'replaced', 'suspended']:

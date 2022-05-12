@@ -2,7 +2,8 @@ import asyncio
 import json
 import time
 import unittest
-from collections import Awaitable
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from typing import Awaitable
 from unittest.mock import AsyncMock, patch
 
 import aiohttp
@@ -10,9 +11,8 @@ import numpy as np
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_utils import build_gate_io_api_factory
-from hummingbot.connector.exchange.gate_io.gate_io_websocket import GateIoWebsocket
+from hummingbot.connector.exchange.gate_io.gate_io_web_utils import GateIoWebsocket
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class GateIoWebsocketTest(unittest.TestCase):

@@ -27,9 +27,6 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ws_endpoint = "ws://someEndpoint"
-        cls.api_key = "someKey"
-        cls.api_passphrase = "somePassPhrase"
-        cls.api_secret_key = "someSecretKey"
 
     def setUp(self) -> None:
         super().setUp()

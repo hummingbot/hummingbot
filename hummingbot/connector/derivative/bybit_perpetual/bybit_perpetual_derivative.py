@@ -15,17 +15,17 @@ import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import (
-    BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource
+    BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource,
 )
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker import (
-    BybitPerpetualOrderBookTracker
+    BybitPerpetualOrderBookTracker,
 )
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_user_stream_tracker import (
-    BybitPerpetualUserStreamTracker
+    BybitPerpetualUserStreamTracker,
 )
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import (
-    BybitPerpetualWebSocketAdaptor
+    BybitPerpetualWebSocketAdaptor,
 )
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
@@ -689,7 +689,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     )
                     self._client_order_tracker.process_order_update(order_update)
                 else:
-                    raise IOError(f"Bybit Perpetual encountered a problem cancelling the order"
+                    raise IOError(f"Bybit Perpetual encountered a problem canceling the order"
                                   f" ({response['ret_code']} - {response['ret_msg']})")
 
             return client_order_id
@@ -736,7 +736,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         failed_cancellations.append(CancellationResult(order.client_order_id, False))
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with ByBit Perpetual. Check API key and network connection."
             )
