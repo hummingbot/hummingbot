@@ -3,8 +3,8 @@ paths:
     get:
       tags:
         - 'clob'
-      summary: 'Verify Serum Routes Status'
-      description: 'Verify if the Serum routes are ready to use along with some other useful information. '
+      summary: 'Verify Clob Routes Status'
+      description: 'Verify if the Clob routes are ready to use and show some other useful information. '
       operationId: 'root'
       consumes:
         - 'application/json'
@@ -39,7 +39,7 @@ paths:
           description: ''
           required: true
           schema:
-            $ref: '#/definitions/ClobMarketsRequest'
+            $ref: '#/definitions/ClobGetMarketsRequest'
       responses:
         '200':
           description: ''
@@ -97,31 +97,6 @@ paths:
             $ref: '#/definitions/ClobGetTickersResponse'
         '404':
           description: ''
-  /clob/getOrders:
-    get:
-      tags:
-        - 'clob'
-      summary: ''
-      description: ''
-      operationId: 'getOrders'
-      consumes:
-        - 'application/json'
-      produces:
-        - 'application/json'
-      parameters:
-        - in: 'body'
-          name: 'body'
-          description: ''
-          required: true
-          schema:
-            $ref: '#/definitions/ClobGetOrdersRequest'
-      responses:
-        '200':
-          description: ''
-          schema:
-            $ref: '#/definitions/ClobGetOrdersResponse'
-        '404':
-          description: ''
   /clob/createOrders:
     get:
       tags:
@@ -145,6 +120,31 @@ paths:
           description: ''
           schema:
             $ref: '#/definitions/ClobPostCreateOrdersResponse'
+        '404':
+          description: ''\
+  /clob/getOrders:
+    get:
+      tags:
+        - 'clob'
+      summary: ''
+      description: ''
+      operationId: 'getOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/ClobGetOrdersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/ClobGetOrdersResponse'
         '404':
           description: ''
   /clob/cancelOrders:

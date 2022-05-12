@@ -1,5 +1,5 @@
 import 'jest-extended';
-import { Solana } from '../../../../src/chains/solana/solana';
+import { Solana } from '../../src/chains/solana/solana';
 import {
   cancelOpenOrders,
   cancelOrders,
@@ -11,16 +11,16 @@ import {
   getOrders,
   getTickers,
   settleFunds,
-} from '../../../../src/clob/clob.controllers';
-import { Serum } from '../../../../src/connectors/serum/serum';
-import { unpatch } from '../../../services/patch';
-import { getNewOrderTemplate } from './fixtures/dummy';
-import { default as config } from './fixtures/serumConfig';
+} from '../../src/clob/clob.controllers';
+import { Serum } from '../../src/connectors/serum/serum';
+import { unpatch } from '../services/patch';
+import { getNewOrderTemplate } from '../connectors/serum/fixtures/dummy';
+import { default as config } from '../connectors/serum/fixtures/serumConfig';
 
 jest.setTimeout(1000000);
 
 beforeAll(async () => {
-  await Solana.getInstance(config.solana.network);
+  await Solana.getInstance(config.serum.network);
 
   await Serum.getInstance(config.serum.chain, config.serum.network);
 
@@ -187,13 +187,6 @@ describe('Full Flow', () => {
       name: marketName,
     };
     response = (await getMarkets(request)).body;
-    console.log(
-      'markets:',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getMarkets ["SOL/USDT", "SOL/USDC"]', async () => {
@@ -202,13 +195,6 @@ describe('Full Flow', () => {
       names: marketNames,
     };
     response = (await getMarkets(request)).body;
-    console.log(
-      'markets',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getMarkets (all)', async () => {
@@ -216,13 +202,7 @@ describe('Full Flow', () => {
       ...commonParameters,
     };
     response = (await getMarkets(request)).body;
-    console.log(
-      'markets',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
+    console.log(JSON.stringify(response, null, 2));
   });
 
   it('getOrderBook ["SOL/USDT"]', async () => {
@@ -231,13 +211,6 @@ describe('Full Flow', () => {
       marketName: marketName,
     };
     response = (await getOrderBooks(request)).body;
-    console.log(
-      'order books',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOrderBooks ["SOL/USDT", "SOL/USDC"]', async () => {
@@ -246,13 +219,6 @@ describe('Full Flow', () => {
       marketNames: marketNames,
     };
     response = (await getOrderBooks(request)).body;
-    console.log(
-      'order books:',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOrderBooks (all)', async () => {
@@ -260,13 +226,6 @@ describe('Full Flow', () => {
       ...commonParameters,
     };
     response = (await getOrderBooks(request)).body;
-    console.log(
-      'order books:',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getTicker ["SOL/USDT"]', async () => {
@@ -275,13 +234,6 @@ describe('Full Flow', () => {
       marketName: marketName,
     };
     response = (await getTickers(request)).body;
-    console.log(
-      'tickers',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getTickers ["SOL/USDT", "SOL/USDC"]', async () => {
@@ -290,13 +242,6 @@ describe('Full Flow', () => {
       marketNames: marketNames,
     };
     response = (await getTickers(request)).body;
-    console.log(
-      'tickers',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getTickers (all)', async () => {
@@ -304,13 +249,6 @@ describe('Full Flow', () => {
       ...commonParameters,
     };
     response = (await getTickers(request)).body;
-    console.log(
-      'tickers',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('cancelOpenOrders (all)', async () => {
@@ -319,13 +257,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await cancelOpenOrders(request);
-    console.log(
-      'cancel all open orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   // it('settleFunds (all)', async () => {
@@ -343,13 +274,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await getOpenOrders(request);
-    console.log(
-      'get all open orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('createOrder [0]', async () => {
@@ -362,13 +286,6 @@ describe('Full Flow', () => {
       })(),
     };
     response = await createOrders(request);
-    console.log(
-      'create order',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('createOrders [1, 2, 3, 4, 5, 6, 7]', async () => {
@@ -414,13 +331,6 @@ describe('Full Flow', () => {
       ],
     };
     response = await createOrders(request);
-    console.log(
-      'create orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOpenOrder [0]', async () => {
@@ -432,13 +342,6 @@ describe('Full Flow', () => {
       },
     };
     response = await getOpenOrders(request);
-    console.log(
-      'get open order',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOrder [1]', async () => {
@@ -450,13 +353,6 @@ describe('Full Flow', () => {
       },
     };
     response = await getOrders(request);
-    console.log(
-      'get order',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOpenOrders [2, 3]', async () => {
@@ -470,13 +366,6 @@ describe('Full Flow', () => {
       ],
     };
     response = await getOpenOrders(request);
-    console.log(
-      'get open orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOrders [3, 4]', async () => {
@@ -490,13 +379,6 @@ describe('Full Flow', () => {
       ],
     };
     response = await getOrders(request);
-    console.log(
-      'get orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOpenOrders (all)', async () => {
@@ -505,13 +387,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await getOpenOrders(request);
-    console.log(
-      'get all open orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOrders (all)', async () => {
@@ -520,13 +395,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await getOrders(request);
-    console.log(
-      'get all orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('cancelOpenOrders [0]', async () => {
@@ -539,13 +407,6 @@ describe('Full Flow', () => {
       },
     };
     response = await cancelOpenOrders(request);
-    console.log(
-      'cancel open order',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('cancelOrders [1]', async () => {
@@ -558,13 +419,6 @@ describe('Full Flow', () => {
       },
     };
     response = await cancelOrders(request);
-    console.log(
-      'cancel order',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   // it('getOpenOrders [0]', async () => {
@@ -635,13 +489,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await getFilledOrders(request);
-    console.log(
-      'get all filled orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('cancelOpenOrders [2, 3]', async () => {
@@ -656,13 +503,6 @@ describe('Full Flow', () => {
       ],
     };
     response = await cancelOpenOrders(request);
-    console.log(
-      'cancel open orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('cancelOrders [4, 5]', async () => {
@@ -677,13 +517,6 @@ describe('Full Flow', () => {
       ],
     };
     response = await cancelOrders(request);
-    console.log(
-      'cancel orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOpenOrders [2, 3]', async () => {
@@ -697,13 +530,6 @@ describe('Full Flow', () => {
       ],
     };
     response = await getOpenOrders(request);
-    console.log(
-      'get open orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOrders [4, 5]', async () => {
@@ -717,13 +543,6 @@ describe('Full Flow', () => {
       ],
     };
     response = await getOrders(request);
-    console.log(
-      'get orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('cancelOpenOrders (all)', async () => {
@@ -732,13 +551,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await cancelOpenOrders(request);
-    console.log(
-      'cancel all open orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOpenOrders (all)', async () => {
@@ -747,13 +559,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await getOpenOrders(request);
-    console.log(
-      'get all open orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOrders (all)', async () => {
@@ -762,13 +567,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await getOrders(request);
-    console.log(
-      'get all orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('createOrders [8, 9]', async () => {
@@ -788,13 +586,6 @@ describe('Full Flow', () => {
       ],
     };
     response = await createOrders(request);
-    console.log(
-      'create orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOpenOrders (all)', async () => {
@@ -803,13 +594,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await getOpenOrders(request);
-    console.log(
-      'get all open orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOrders (all)', async () => {
@@ -818,13 +602,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await getOrders(request);
-    console.log(
-      'get all orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('cancelOrders (all)', async () => {
@@ -833,13 +610,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await cancelOrders(request);
-    console.log(
-      'cancel all orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOpenOrders (all)', async () => {
@@ -848,13 +618,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await getOpenOrders(request);
-    console.log(
-      'get all open orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('getOrders (all)', async () => {
@@ -863,13 +626,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await getOrders(request);
-    console.log(
-      'get all orders',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('settleFunds ["SOL/USDT"]', async () => {
@@ -879,13 +635,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await settleFunds(request);
-    console.log(
-      'settle funds for market',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('settleFunds ["SOL/USDT", "SOL/USDC"]', async () => {
@@ -895,13 +644,6 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await settleFunds(request);
-    console.log(
-      'settle funds for markets',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
 
   it('settleFunds (all)', async () => {
@@ -910,12 +652,7 @@ describe('Full Flow', () => {
       ownerAddress: config.solana.wallet.owner.address,
     };
     response = await settleFunds(request);
-    console.log(
-      'settle all funds',
-      'request:',
-      JSON.stringify(request, null, 2),
-      'response',
-      JSON.stringify(response, null, 2)
-    );
   });
+
+  expect(response);
 });
