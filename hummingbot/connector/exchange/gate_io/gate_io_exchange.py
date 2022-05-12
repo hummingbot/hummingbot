@@ -84,7 +84,7 @@ class GateIoExchange(ExchangePyBase):
     def check_network_request_path(self):
         return CONSTANTS.NETWORK_CHECK_PATH_URL
 
-    def _supported_order_types(self):
+    def supported_order_types(self):
         return [OrderType.LIMIT]
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
@@ -179,8 +179,8 @@ class GateIoExchange(ExchangePyBase):
             is_auth_required=True,
             limit_id=endpoint,
         )
-        if order_result.get('status') in {"cancelled"}:
-            raise web_utils.APIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
+        if order_result.get("status") in {"cancelled"}:
+            raise web_utils.APIError({"label": "ORDER_REJECTED", "message": "Order rejected."})
         exchange_order_id = str(order_result["id"])
         return exchange_order_id, time.time()
 
@@ -300,7 +300,7 @@ class GateIoExchange(ExchangePyBase):
 
     async def _update_trading_fees(self):
         """
-        Initialize mapping of trade symbols in exchange notation to trade symbols in client notation
+        Update fees information from the exchange
         """
         pass
 
