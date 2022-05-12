@@ -3,9 +3,11 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
-from hummingbot.connector.exchange.kucoin import kucoin_utils as utils
-from hummingbot.connector.exchange.kucoin import kucoin_web_utils as web_utils
+from hummingbot.connector.exchange.kucoin import (
+    kucoin_constants as CONSTANTS,
+    kucoin_utils as utils,
+    kucoin_web_utils as web_utils,
+)
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_api_user_stream_data_source import KucoinAPIUserStreamDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
@@ -77,7 +79,7 @@ class KucoinExchange(ExchangePyBase):
     def check_network_request_path(self):
         return CONSTANTS.SERVER_TIME_PATH_URL
 
-    def _supported_order_types(self):
+    def supported_order_types(self):
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
