@@ -260,6 +260,7 @@ JSON.parse = (text: string, reviver?: (this: any, key: string, value: any) => an
     return JSON.originalParse(JSON.retrocycle(text), reviver);
   } catch (exception) {
     // TODO remove later!!!
-    throw exception;
+    console.log(exception);
+    return text;
   }
 };

@@ -1314,6 +1314,7 @@ export class Serum {
         marketMap?.set(owner, ownerOrders);
       }
 
+      // TODO fix for buy orders!!!
       const payer = owner.publicKey;
 
       const candidateSerumOrder: SerumOrderParams<Account> = {

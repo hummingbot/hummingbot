@@ -88,7 +88,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       name: marketName,
     };
-    response = (await getMarkets(solana, serum, request)).body;
+    response = await getMarkets(solana, serum, request);
   });
 
   it('getMarkets ["SOL/USDT", "SOL/USDC"]', async () => {
@@ -96,14 +96,14 @@ describe('Full Flow', () => {
       ...commonParameters,
       names: marketNames,
     };
-    response = (await getMarkets(solana, serum, request)).body;
+    response = await getMarkets(solana, serum, request);
   });
 
   it('getMarkets (all)', async () => {
     request = {
       ...commonParameters,
     };
-    response = (await getMarkets(solana, serum, request)).body;
+    response = await getMarkets(solana, serum, request);
   });
 
   it('getOrderBook ["SOL/USDT"]', async () => {
@@ -111,7 +111,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       marketName: marketName,
     };
-    response = (await getOrderBooks(solana, serum, request)).body;
+    response = await getOrderBooks(solana, serum, request);
   });
 
   it('getOrderBooks ["SOL/USDT", "SOL/USDC"]', async () => {
@@ -119,14 +119,14 @@ describe('Full Flow', () => {
       ...commonParameters,
       marketNames: marketNames,
     };
-    response = (await getOrderBooks(solana, serum, request)).body;
+    response = await getOrderBooks(solana, serum, request);
   });
 
   it('getOrderBooks (all)', async () => {
     request = {
       ...commonParameters,
     };
-    response = (await getOrderBooks(solana, serum, request)).body;
+    response = await getOrderBooks(solana, serum, request);
   });
 
   it('getTicker ["SOL/USDT"]', async () => {
@@ -134,7 +134,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       marketName: marketName,
     };
-    response = (await getTickers(solana, serum, request)).body;
+    response = await getTickers(solana, serum, request);
   });
 
   it('getTickers ["SOL/USDT", "SOL/USDC"]', async () => {
@@ -142,14 +142,14 @@ describe('Full Flow', () => {
       ...commonParameters,
       marketNames: marketNames,
     };
-    response = (await getTickers(solana, serum, request)).body;
+    response = await getTickers(solana, serum, request);
   });
 
   it('getTickers (all)', async () => {
     request = {
       ...commonParameters,
     };
-    response = (await getTickers(solana, serum, request)).body;
+    response = await getTickers(solana, serum, request);
   });
 
   it('cancelOpenOrders (all)', async () => {
