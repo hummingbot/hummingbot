@@ -10,19 +10,21 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 
 GET_GATEWAY_EX_ORDER_ID_TIMEOUT = 30  # seconds
 
+s_decimal_0 = Decimal("0")
+
 
 class GatewayInFlightOrder(InFlightOrder):
     def __init__(self,
                  client_order_id: str,
-                 exchange_order_id: Optional[str],
                  trading_pair: str,
                  order_type: OrderType,
                  trade_type: TradeType,
-                 price: Decimal,
-                 amount: Decimal,
                  creation_timestamp: float,
-                 gas_price: Optional[Decimal] = Decimal("0"),
-                 initial_state: str = OrderState.PENDING_CREATE):
+                 price: Decimal = s_decimal_0,
+                 amount: Decimal = s_decimal_0,
+                 exchange_order_id: Optional[str] = None,
+                 gas_price: Optional[Decimal] = s_decimal_0,
+                 initial_state: OrderState = OrderState.PENDING_CREATE):
         super().__init__(
             client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
@@ -35,7 +37,7 @@ class GatewayInFlightOrder(InFlightOrder):
             initial_state=initial_state
         )
         self._gas_price = gas_price
-        self._nonce: int = 0
+        self._nonce: int = -1
         self._cancel_tx_hash: Optional[str] = None
 
     @property
@@ -160,6 +162,7 @@ class GatewayInFlightOrder(InFlightOrder):
                                   in data.get("order_fills", {}).items()})
         order._nonce = data["nonce"]
         order._cancel_tx_hash = data["cancel_tx_hash"]
+        order._gas_price = data["gas_price"]
 
         order.check_filled_condition()
 
@@ -186,5 +189,6 @@ class GatewayInFlightOrder(InFlightOrder):
             "creation_timestamp": self.creation_timestamp,
             "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()},
             "nonce": self._nonce,
-            "cancel_tx_hash": self._cancel_tx_hash
+            "cancel_tx_hash": self._cancel_tx_hash,
+            "gas_price": self._gas_price
         }
