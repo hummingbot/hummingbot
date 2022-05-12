@@ -54,13 +54,12 @@ export class Curve {
   // curve.init('Web3', { externalProvider: <WEB3_PROVIDER> }, { chainId: 1 });
 
   public async init() {
+    await this._ethereum.init();
     if (this._chain == 'ethereum' && !this._ethereum.ready())
       throw new InitializationError(
         SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
         SERVICE_UNITIALIZED_ERROR_CODE
       );
-
-     // await this._ethereum.init()
 
     await curve.init(
       'Infura',
@@ -98,43 +97,28 @@ export class Curve {
     tokenIn: string,
     tokenOut: string,
     tokenAmount: string
-  ): Promise<any> {
-    // await this.initCurve(wallet);
-    const { route, output } = await curve.getBestRouteAndOutput(
+  ): Promise<string> {
+    const { output } = await curve.getBestRouteAndOutput(
       tokenIn,
       tokenOut,
       tokenAmount
     );
-    return { route, output };
+    return output; // price returned as float string
   }
 
-  // maxSlippage
+  async expectedAmount(
+    tokenIn: string,
+    tokenOut: string,
+    tokenAmount: string
+  ): Promise<string> {
+    return curve.routerExchangeExpected(tokenIn, tokenOut, tokenAmount);
+  }
+
   async executeTrade(
     tokenIn: string,
     tokenOut: string,
     tokenAmount: string
   ): Promise<any> {
-    // await this.initCurve(wallet);
     await curve.routerExchange(tokenIn, tokenOut, tokenAmount); // returns transaction hash
   }
-
-  // export interface TradeResponse {
-  //   network: string;
-  //   timestamp: number;
-  //   latency: number;
-  //   base: string;
-  //   quote: string;
-  //   amount: string;
-  //   expectedIn?: string;
-  //   expectedOut?: string;
-  //   price: string;
-  //   gasPrice: number;
-  //   gasLimit: number;
-  //   gasCost: string;
-  //   nonce: number;
-  //   txHash: string | undefined;
-  // }
-  // curve.estimateGas.getBestRouteAndOutput(tokenIn, tokenOut, tokenAmount);
 }
-
-// routerExchange
