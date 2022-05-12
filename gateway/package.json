@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@blockworks-foundation/mango-client": "^3.2.14",
-    "@curvefi/api": "^1.24.0",
+    "@curvefi/api": "^1.25.0",
     "@ethersproject/experimental": "^5.3.0",
     "@harmony-js/core": "^0.1.57",
     "@harmony-js/utils": "^0.1.56",
