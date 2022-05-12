@@ -2,17 +2,14 @@ import asyncio
 import logging
 import random
 import time
-from typing import Any, AsyncIterable, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 import hummingbot.connector.exchange.gate_io.gate_io_constants as CONSTANTS
-from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest, WSResponse
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from hummingbot.core.web_assistant.ws_assistant import WSAssistant
-from hummingbot.logger import HummingbotLogger
 
 
 def public_rest_url(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
@@ -24,12 +21,12 @@ def public_rest_url(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
 
     :return: the full URL to the endpoint
     """
-    if CONSTANTS.REST_URL[-1] != '/' and endpoint[0] != '/':
-        endpoint = '/' + endpoint
+    if CONSTANTS.REST_URL[-1] != "/" and endpoint[0] != "/":
+        endpoint = "/" + endpoint
     return CONSTANTS.REST_URL + endpoint
 
 
-def private_rest_url(endpoint: str, domain: str = "") -> str:
+def private_rest_url(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     return public_rest_url(endpoint, domain)
 
 
@@ -116,7 +113,7 @@ async def api_request(path: Optional[str] = None,
                 return j
 
             # handling of retries
-            if retry and not return_err:
+            if retry:
                 # if retries is == max, we continue and raise exception
                 if retries < CONSTANTS.API_MAX_RETRIES:
                     time_sleep = retry_sleep_time(retries)
@@ -127,7 +124,7 @@ async def api_request(path: Optional[str] = None,
                     await _sleep(time_sleep)
                     continue
 
-            if return_err:
+            elif return_err:
                 error_response = await response.json()
                 await close_session_if()
                 return error_response
@@ -174,128 +171,6 @@ class APIError(IOError):
         else:
             self.error_message = error_payload
             self.error_label = error_payload
-
-
-class GateIoWebsocket:
-    _logger: Optional[HummingbotLogger] = None
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(__name__)
-        return cls._logger
-
-    def __init__(self,
-                 auth: Optional[GateIoAuth] = None,
-                 api_factory: Optional[WebAssistantsFactory] = None):
-        self._auth: Optional[GateIoAuth] = auth
-        self._is_private = True if self._auth is not None else False
-        self._api_factory = api_factory or build_api_factory()
-        self._ws_assistant: Optional[WSAssistant] = None
-        self._closed = True
-
-    @property
-    def last_recv_time(self) -> float:
-        last_recv_time = 0
-        if self._ws_assistant is not None:
-            last_recv_time = self._ws_assistant.last_recv_time
-        return last_recv_time
-
-    async def connect(self):
-        self._ws_assistant = await self._api_factory.get_ws_assistant()
-        await self._ws_assistant.connect(
-            ws_url=CONSTANTS.WS_URL,
-            ping_timeout=CONSTANTS.PING_TIMEOUT,
-            message_timeout=CONSTANTS.MESSAGE_TIMEOUT,
-        )
-        self._closed = False
-
-    async def disconnect(self):
-        self._closed = True
-        if self._ws_assistant is not None:
-            await self._ws_assistant.disconnect()
-            self._ws_assistant = None
-
-    async def _messages(self) -> AsyncIterable[Any]:
-        try:
-            while True:
-                try:
-                    msg = await self._get_message()
-                    data = msg.data
-
-                    # Raise API error for login failures.
-                    if data.get("error", None) is not None:
-                        err_msg = data.get("error", {}).get("message", data["error"])
-                        raise APIError({
-                            "label": "WSS_ERROR",
-                            "message": f"Error received via websocket - {err_msg}."
-                        })
-
-                    if data.get("channel") == "spot.pong":
-                        continue
-
-                    yield data
-
-                except ValueError:
-                    self.logger().debug("Unexpected error during _messages", exc_info=True)
-                    continue
-        except ConnectionError:
-            if not self._closed:
-                self.logger().warning("The websocket connection was unexpectedly closed.")
-        finally:
-            await self.disconnect()
-
-    async def _get_message(self) -> WSResponse:
-        try:
-            response = await self._ws_assistant.receive()
-        except asyncio.TimeoutError:
-            self.logger().debug("Message receive timed out. Sending ping.")
-            await self.request(channel="spot.ping")
-            response = await self._ws_assistant.receive()
-        return response
-
-    async def _emit(self, channel: str, data: Optional[Dict[str, Any]] = None) -> int:
-        data = data or {}
-        payload = {
-            "time": int(time.time()),
-            "channel": channel,
-            **data,
-        }
-        # if auth class was passed into websocket class
-        # we need to emit authenticated requests
-        if self._is_private:
-            payload["auth"] = self._auth._get_auth_headers_ws(payload)
-        request = WSRequest(payload)
-        await self._ws_assistant.send(request)
-        return payload["time"]
-
-    async def request(self, channel: str, data: Optional[Dict[str, Any]] = None) -> int:
-        data = data or {}
-        return await self._emit(channel, data)
-
-    async def subscribe(self,
-                        channel: str,
-                        trading_pairs: Optional[List[str]] = None) -> int:
-        ws_params = {
-            "event": "subscribe",
-        }
-        if trading_pairs is not None:
-            ws_params["payload"] = trading_pairs
-        return await self.request(channel, ws_params)
-
-    async def unsubscribe(self,
-                          channel: str,
-                          trading_pairs: Optional[List[str]] = None) -> int:
-        ws_params = {
-            "event": "unsubscribe",
-        }
-        if trading_pairs is not None:
-            ws_params["payload"] = trading_pairs
-        return await self.request(channel, ws_params)
-
-    async def on_message(self) -> AsyncIterable[Any]:
-        async for msg in self._messages():
-            yield msg
 
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:

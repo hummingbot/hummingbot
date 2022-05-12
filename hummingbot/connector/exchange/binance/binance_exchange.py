@@ -3,9 +3,11 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS
-from hummingbot.connector.exchange.binance import binance_utils
-from hummingbot.connector.exchange.binance import binance_web_utils as web_utils
+from hummingbot.connector.exchange.binance import (
+    binance_constants as CONSTANTS,
+    binance_utils,
+    binance_web_utils as web_utils,
+)
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
@@ -89,7 +91,7 @@ class BinanceExchange(ExchangePyBase):
     def check_network_request_path(self):
         return CONSTANTS.PING_PATH_URL
 
-    def _supported_order_types(self):
+    def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
@@ -246,7 +248,7 @@ class BinanceExchange(ExchangePyBase):
 
     async def _update_trading_fees(self):
         """
-        Initialize mapping of trade symbols in exchange notation to trade symbols in client notation
+        Update fees information from the exchange
         """
         pass
 

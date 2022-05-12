@@ -4,7 +4,6 @@ import time
 from typing import List, Optional
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
-from hummingbot.connector.exchange.gate_io import gate_io_web_utils as web_utils
 from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_web_utils import APIError
@@ -36,7 +35,6 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
         super().__init__()
         self._api_factory = api_factory
         self._auth: GateIoAuth = auth
-        self._ws: Optional[web_utils.GateIoWebsocket] = None
         self._trading_pairs: List[str] = trading_pairs
         self._ws_assistant: Optional[WSAssistant] = None
         self._last_ws_message_sent_timestamp = 0
