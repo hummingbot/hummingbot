@@ -1,13 +1,12 @@
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.config_validators import validate_bool
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_helpers import (
-    parse_cvar_value,
-    parse_config_default_to_text,
-)
-from .import_command import ImportCommand
-from hummingbot.client.config.config_var import ConfigVar
 from typing import TYPE_CHECKING
+
+from hummingbot.client.config.config_helpers import parse_config_default_to_text, parse_cvar_value
+from hummingbot.client.config.config_validators import validate_bool
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.utils.async_utils import safe_ensure_future
+
+from .import_command import ImportCommand
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -38,7 +37,7 @@ class PreviousCommand:
 
         previous_strategy = ConfigVar(
             key="previous_strategy_answer",
-            prompt=f"Do you want to import the previously stored config? ({file_name}) (Yes/No) >>>",
+            prompt=f"Do you want to import the previously stored config? [{file_name}] (Yes/No) >>>",
             type_str="bool",
             validator=validate_bool,
         )
