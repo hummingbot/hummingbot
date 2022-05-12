@@ -7,7 +7,6 @@ import {
   Wallet,
 } from 'ethers';
 import axios from 'axios';
-// import fs from 'fs/promises';
 import { promises as fs } from 'fs';
 import { TokenListType, TokenValue, walletPath } from './base';
 import { EVMNonceManager } from './evm.nonce';
@@ -332,5 +331,20 @@ export class EthereumBase {
     logger.info(response);
 
     return response;
+  }
+
+  /**
+   * Get the base gas fee and the current max priority fee from the EVM
+   * node, and add them together.
+   */
+  async getGasPrice(): Promise<number | null> {
+    const feeData: providers.FeeData = await this._provider.getFeeData();
+    if (feeData.gasPrice !== null && feeData.maxPriorityFeePerGas !== null) {
+      return (
+        feeData.gasPrice.add(feeData.maxPriorityFeePerGas).toNumber() * 1e-9
+      );
+    } else {
+      return null;
+    }
   }
 }
