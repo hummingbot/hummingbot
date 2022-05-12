@@ -1,6 +1,7 @@
 import asyncio
 import unittest
 from decimal import Decimal
+from test.mock.mock_perp_connector import MockPerpConnector
 from unittest.mock import patch
 
 import pandas as pd
@@ -24,7 +25,6 @@ from hummingbot.strategy.spot_perpetual_arbitrage.spot_perpetual_arbitrage impor
     SpotPerpetualArbitrageStrategy,
     StrategyState,
 )
-from test.mock.mock_perp_connector import MockPerpConnector
 
 trading_pair = "HBOT-USDT"
 base_asset = trading_pair.split("-")[0]
