@@ -942,7 +942,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             list buys = []
             list sells = []
         bid_level_spreads, ask_level_spreads = self._get_level_spreads()
-        size = market.c_quantize_order_amount(self.trading_pair,  self._config_map.order_amount)
+        size = market.c_quantize_order_amount(self.trading_pair, self._config_map.order_amount)
         if size > 0:
             for level in range(self.order_levels):
                 bid_price = market.c_quantize_order_price(self.trading_pair,
