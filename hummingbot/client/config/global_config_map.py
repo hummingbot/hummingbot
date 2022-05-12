@@ -12,6 +12,9 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.settings import AllConnectorSettings, DEFAULT_KEY_FILE_PATH, DEFAULT_LOG_FILE_PATH
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
 
+PMM_SCRIPT_ENABLED_KEY = "pmm_script_enabled"
+PMM_SCRIPT_FILE_PATH_KEY = "pmm_script_file_path"
+
 
 def generate_client_id() -> str:
     vals = [random.choice(range(0, 256)) for i in range(0, 20)]
@@ -22,11 +25,11 @@ def using_exchange(exchange: str) -> Callable:
     return using_exchange_pointer(exchange)
 
 
-def validate_script_file_path(file_path: str) -> Optional[bool]:
+def validate_pmm_script_file_path(file_path: str) -> Optional[bool]:
     import hummingbot.client.settings as settings
     path, name = os.path.split(file_path)
     if path == "":
-        file_path = os.path.join(settings.SCRIPTS_PATH, file_path)
+        file_path = os.path.join(settings.PMM_SCRIPTS_PATH, file_path)
     if not os.path.isfile(file_path):
         return f"{file_path} file does not exist."
 
@@ -203,18 +206,18 @@ main_config_map = {
                   type_str="str",
                   required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
                   default="dbname"),
-    "script_enabled":
-        ConfigVar(key="script_enabled",
-                  prompt="Would you like to enable script feature? (Yes/No) >>> ",
+    PMM_SCRIPT_ENABLED_KEY:
+        ConfigVar(key=PMM_SCRIPT_ENABLED_KEY,
+                  prompt="Would you like to enable PMM script feature? (Yes/No) >>> ",
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
-    "script_file_path":
-        ConfigVar(key="script_file_path",
-                  prompt='Enter path to your script file >>> ',
+    PMM_SCRIPT_FILE_PATH_KEY:
+        ConfigVar(key=PMM_SCRIPT_FILE_PATH_KEY,
+                  prompt='Enter path to your PMM script file >>> ',
                   type_str="str",
-                  required_if=lambda: global_config_map["script_enabled"].value,
-                  validator=validate_script_file_path),
+                  required_if=lambda: global_config_map[PMM_SCRIPT_ENABLED_KEY].value,
+                  validator=validate_pmm_script_file_path),
     "balance_asset_limit":
         ConfigVar(key="balance_asset_limit",
                   prompt="Use the `balance limit` command"

@@ -1,11 +1,11 @@
-from hummingbot.script.script_base import ScriptBase
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent
 )
+from hummingbot.pmm_script.pmm_script_base import PMMScriptBase
 
 
-class PingPongScript(ScriptBase):
+class PingPongPMMScript(PMMScriptBase):
     """
     Demonstrates how to set up a ping pong trading strategy which alternates buy and sell orders.
     If a buy order is filled, there will be one less buy order submitted at the next refresh cycle.
