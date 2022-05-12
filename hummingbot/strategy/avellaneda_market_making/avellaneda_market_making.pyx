@@ -155,10 +155,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     @property
     def order_refresh_tolerance_pct(self) -> Decimal:
-        if self._config_map.order_refresh_tolerance_pct is not None:
-            return self._config_map.order_refresh_tolerance_pct
-        else:
-            return Decimal("0")
+        return self._config_map.order_refresh_tolerance_pct
 
     @order_refresh_tolerance_pct.setter
     def order_refresh_tolerance_pct(self, value: Decimal):
