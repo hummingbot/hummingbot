@@ -15,9 +15,7 @@ class BaseTrailingIndicator(ABC):
         return pmm_logger
 
     def __init__(self, sampling_length: int = 30, processing_length: int = 15):
-        self._sampling_length = sampling_length
         self._sampling_buffer = RingBuffer(sampling_length)
-        self._processing_length = processing_length
         self._processing_buffer = RingBuffer(processing_length)
         self._samples_length = 0
 
@@ -58,18 +56,16 @@ class BaseTrailingIndicator(ABC):
 
     @property
     def sampling_length(self) -> int:
-        return self._sampling_length
+        return self._sampling_buffer.length
 
     @sampling_length.setter
     def sampling_length(self, value):
-        self._sampling_length = value
         self._sampling_buffer.length = value
 
     @property
     def processing_length(self) -> int:
-        return self._processing_length
+        return self._processing_buffer.length
 
     @processing_length.setter
     def processing_length(self, value):
-        self._processing_length = value
         self._processing_buffer.length = value
