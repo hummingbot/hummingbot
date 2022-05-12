@@ -37,7 +37,7 @@ class PreviousCommand:
 
         previous_strategy = ConfigVar(
             key="previous_strategy_answer",
-            prompt=f"Do you want to import the previously stored config? ({file_name}) (Yes/No) >>>",
+            prompt=f"Do you want to import the previously stored config? [{file_name}] (Yes/No) >>>",
             type_str="bool",
             validator=validate_bool,
         )
