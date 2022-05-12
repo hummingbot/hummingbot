@@ -32,7 +32,7 @@ class PreviousCommandUnitTest(unittest.TestCase):
 
     def test_no_previous_strategy_found(self):
         global_config_map["previous_strategy"].value = None
-        self.app.previous_statrategy(option="")
+        self.app.previous_strategy(option="")
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with("No previous strategy found."))
 
