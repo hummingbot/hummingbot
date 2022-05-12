@@ -448,7 +448,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 self._start_time = start_time
                 self._end_time = end_time
         except AttributeError:
-            self.logger().info("A parameter is missing in the execution timeframe mode configuration.")
+            # A parameter is missing in the execution timeframe mode configuration
+            pass
 
     def get_config_map_hanging_orders(self):
         if self._config_map.hanging_orders_mode.title == TrackHangingOrdersModel.Config.title:
