@@ -856,4 +856,186 @@ definitions:
       gasCost:
         type: 'string'
         example: '0.014466048000000000'
-
+  SerumRootRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      chain:
+        type: string
+        example: solana
+      network:
+        type: string
+        example: mainnet-beta
+      connector:
+        type: string
+        example: serum
+  SerumRootResponse:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'connection'
+      - 'timestamp'
+    properties:
+      chain:
+        type: string
+        example: solana
+      network:
+        type: string
+        example: mainnet-beta
+      connector:
+        type: string
+        example: serum
+      connection:
+        type: boolean
+        example: true
+      timestamp:
+        type: number
+        example: 1652304454740
+  SerumGetMarketsRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      chain:
+        type: string
+        example: solana
+      network:
+        type: string
+        example: mainnet-beta
+      connector:
+        type: string
+        example: serum
+      name:
+        type: string
+        example: 'SOL/USDT'
+      names:
+        type: array
+        items:
+          type: string
+          example:
+            - 'SOL/USDT'
+            - 'SOL/USDC'
+  SerumGetMarketResponse:
+    type: object
+    properties:
+      name:
+        type: string
+        example: SOL/USDT
+      address:
+        type: string
+        example: HWHvQhFmJB3NUcu1aihKmrKegfVxBEHzwVX6yZCKEsi1
+      programId:
+        type: string
+        example: 9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin
+      deprecated:
+        type: boolean
+        example: false
+      minimumOrderSize:
+        type: number
+        example: 0.1
+      tickSize:
+        type: number
+        example: 0.001
+      minimumBaseIncrement:
+        type: string
+        example: 100000000
+  SerumGetMarketsResponse:
+    additionalProperties:
+      $ref: '#/definitions/SerumGetMarketResponse'
+  SerumGetOrderBooksRequest:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumGetOrderBooksResponse:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumGetTickersRequest:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumGetTickersResponse:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumPostCreateOrdersRequest:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumPostCreateOrdersResponse:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumGetOrdersRequest:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumGetOrdersResponse:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumDeleteCancelOrdersRequest:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumDeleteCancelOrdersResponse:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumGetOpenOrdersRequest:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumGetOpenOrdersResponse:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumDeleteCancelOpenOrdersRequest:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumDeleteCancelOpenOrdersResponse:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumGetFilledOrdersRequest:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumGetFilledOrdersResponse:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumPostSettleFundsRequest:
+    type: 'object'
+    required:
+      - ''
+    properties:
+  SerumPostSettleFundsResponse:
+    type: 'object'
+    required:
+      - ''
+    properties:

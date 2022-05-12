@@ -1,0 +1,274 @@
+paths:
+  /serum:
+    get:
+      tags:
+        - 'serum'
+      summary: 'Verify Serum Routes Status'
+      description: 'Verify if the Serum routes are ready to use and show some other useful information. '
+      operationId: 'root'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/SerumRootRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/SerumRootResponse'
+  /Serum/markets:
+    get:
+      tags:
+        - 'serum'
+      summary: ''
+      description: ''
+      operationId: 'markets'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/SerumGetMarketsRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/SerumGetMarketsResponse'
+        '404':
+          description: ''
+  /Serum/orderBooks:
+    get:
+      tags:
+        - 'serum'
+      summary: ''
+      description: ''
+      operationId: 'orderBooks'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/SerumGetOrderBooksRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/SerumGetOrderBooksResponse'
+        '404':
+          description: ''
+  /Serum/tickers:
+    get:
+      tags:
+        - 'serum'
+      summary: ''
+      description: ''
+      operationId: 'tickers'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/SerumGetTickersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/SerumGetTickersResponse'
+        '404':
+          description: ''
+  /Serum/createOrders:
+    get:
+      tags:
+        - 'serum'
+      summary: ''
+      description: ''
+      operationId: 'createOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/SerumPostCreateOrdersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/SerumPostCreateOrdersResponse'
+        '404':
+          description: ''\
+  /Serum/getOrders:
+    get:
+      tags:
+        - 'serum'
+      summary: ''
+      description: ''
+      operationId: 'getOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/SerumGetOrdersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/SerumGetOrdersResponse'
+        '404':
+          description: ''
+  /Serum/cancelOrders:
+    get:
+      tags:
+        - 'serum'
+      summary: ''
+      description: ''
+      operationId: 'cancelOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/SerumDeleteCancelOrdersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/SerumDeleteCancelOrdersResponse'
+        '404':
+          description: ''
+  /Serum/getOpenOrders:
+    get:
+      tags:
+        - 'serum'
+      summary: ''
+      description: ''
+      operationId: 'getOpenOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/SerumGetOpenOrdersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/SerumGetOpenOrdersResponse'
+        '404':
+          description: ''
+  /Serum/cancelOpenOrders:
+    get:
+      tags:
+        - 'serum'
+      summary: ''
+      description: ''
+      operationId: 'cancelOpenOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/SerumDeleteCancelOpenOrdersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/SerumDeleteCancelOpenOrdersResponse'
+        '404':
+          description: ''
+  /Serum/getFilledOrders:
+    get:
+      tags:
+        - 'serum'
+      summary: ''
+      description: ''
+      operationId: 'getFilledOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/SerumGetFilledOrdersRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/SerumGetFilledOrdersResponse'
+        '404':
+          description: ''
+  /Serum/settleFunds:
+    get:
+      tags:
+        - 'serum'
+      summary: ''
+      description: ''
+      operationId: 'settleFunds'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: ''
+          required: true
+          schema:
+            $ref: '#/definitions/SerumPostSettleFundsRequest'
+      responses:
+        '200':
+          description: ''
+          schema:
+            $ref: '#/definitions/SerumPostSettleFundsResponse'
+        '404':
+          description: ''

@@ -27,8 +27,8 @@ tags:
     description: 'Interact with EVM based blockchains'
   - name: 'solana'
     description: 'Interact with the Solana blockchain'
-  - name: 'serum
-    description: 'Interact with the Serum for Solana blockchain'
+  - name: 'serum'
+    description: 'Interact with Serum to operate on Solana blockchain'
 
 schemes:
   - 'http'

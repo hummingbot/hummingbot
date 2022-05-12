@@ -1,15 +1,18 @@
-// @ts-nocheck
-import { CreateOrdersRequest, OrderSide, OrderType } from "../../../../../src/connectors/serum/serum.types";
+import {
+  CreateOrdersRequest,
+  OrderSide,
+  OrderType,
+} from '../../../../src/connectors/serum/serum.types';
 import { default as config } from './serumConfig';
 
 // const marketNames = MARKETS.map(item => item.name);
 const marketNames = ['SOL/USDT'];
 
-const getRandomChoice = (array: any[]) => array[Math.floor(Math.random() * array.length)];
+const getRandomChoice = (array: any[]) =>
+  array[Math.floor(Math.random() * array.length)];
 
 export const getNewOrderTemplate = (): CreateOrdersRequest => {
-  // const side = getRandomChoice(Object.values(OrderSide));
-  const side = OrderSide.SELL;
+  const side = getRandomChoice(Object.values(OrderSide));
   const price = side == OrderSide.BUY ? 0.1 : 9999.99;
   const amount = side == OrderSide.BUY ? 0.1 : 0.1;
   // const type = getRandomChoice(Object.values(OrderType));
@@ -24,5 +27,5 @@ export const getNewOrderTemplate = (): CreateOrdersRequest => {
     price: price,
     amount: amount,
     type: type,
-  }
-}
+  };
+};
