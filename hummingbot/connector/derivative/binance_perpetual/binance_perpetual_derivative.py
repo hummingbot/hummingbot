@@ -10,18 +10,18 @@ from async_timeout import timeout
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.derivative.binance_perpetual import (
+    binance_perpetual_web_utils as web_utils,
     constants as CONSTANTS,
-    binance_perpetual_web_utils as web_utils
 )
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
-    BinancePerpetualAPIOrderBookDataSource
+    BinancePerpetualAPIOrderBookDataSource,
 )
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import (
-    BinancePerpetualOrderBookTracker
+    BinancePerpetualOrderBookTracker,
 )
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source import (
-    BinancePerpetualUserStreamDataSource
+    BinancePerpetualUserStreamDataSource,
 )
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
@@ -338,7 +338,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                         failed_cancellations.append(CancellationResult(order.client_order_id, False))
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with Binance Perpetual. Check API key and network connection."
             )
@@ -359,7 +359,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 for order_id in list(self._client_order_tracker.active_orders.keys()):
                     self.stop_tracking_order(order_id)
             else:
-                raise IOError(f"Error cancelling all account orders. Server Response: {response}")
+                raise IOError(f"Error canceling all account orders. Server Response: {response}")
         except Exception as e:
             self.logger().error("Could not cancel all account orders.")
             raise e
@@ -1339,7 +1339,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             )
             if response.get("code") == -2011 or "Unknown order sent" in response.get("msg", ""):
                 self.logger().debug(f"The order {client_order_id} does not exist on Binance Perpetuals. "
-                                    f"No cancellation needed.")
+                                    f"No cancelation needed.")
                 self.stop_tracking_order(client_order_id)
                 return None
             return client_order_id

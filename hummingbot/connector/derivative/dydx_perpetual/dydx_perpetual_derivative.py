@@ -22,7 +22,7 @@ from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tr
 )
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import (
-    DydxPerpetualUserStreamTracker
+    DydxPerpetualUserStreamTracker,
 )
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_utils import build_api_factory
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
@@ -31,13 +31,7 @@ from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import (
-    OrderType,
-    PositionAction,
-    PositionMode,
-    PositionSide,
-    TradeType
-)
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -74,7 +68,7 @@ def now():
 
 BUY_ORDER_COMPLETED_EVENT = MarketEvent.BuyOrderCompleted
 SELL_ORDER_COMPLETED_EVENT = MarketEvent.SellOrderCompleted
-ORDER_CANCELLED_EVENT = MarketEvent.OrderCancelled
+ORDER_CANCELED_EVENT = MarketEvent.OrderCancelled
 ORDER_EXPIRED_EVENT = MarketEvent.OrderExpired
 ORDER_FILLED_EVENT = MarketEvent.OrderFilled
 ORDER_FAILURE_EVENT = MarketEvent.OrderFailure
@@ -508,12 +502,13 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def cancel_order(self, client_order_id: str):
         in_flight_order = self._in_flight_orders.get(client_order_id)
         cancellation_event = OrderCancelledEvent(now(), client_order_id)
-        exchange_order_id = in_flight_order.exchange_order_id
 
         if in_flight_order is None:
-            self.logger().warning("Cancelled an untracked order {client_order_id}")
-            self.trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
+            self.logger().warning("Canceled an untracked order {client_order_id}")
+            self.trigger_event(ORDER_CANCELED_EVENT, cancellation_event)
             return False
+
+        exchange_order_id = in_flight_order.exchange_order_id
 
         try:
             if exchange_order_id is None:
@@ -522,7 +517,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 if in_flight_order.creation_timestamp < (self.time_now_s() - UNRECOGNIZED_ORDER_DEBOUCE):
                     # We'll just have to assume that this order doesn't exist
                     self.stop_tracking_order(in_flight_order.client_order_id)
-                    self.trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
+                    self.trigger_event(ORDER_CANCELED_EVENT, cancellation_event)
                     return False
                 else:
                     raise Exception(f"order {client_order_id} has no exchange id")
@@ -534,15 +529,15 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 if in_flight_order.creation_timestamp < (self.time_now_s() - UNRECOGNIZED_ORDER_DEBOUCE):
                     # Order didn't exist on exchange, mark this as canceled
                     self.stop_tracking_order(in_flight_order.client_order_id)
-                    self.trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
+                    self.trigger_event(ORDER_CANCELED_EVENT, cancellation_event)
                     return False
                 else:
                     raise Exception(
-                        f"order {client_order_id} does not yet exist on the exchange and could not be cancelled."
+                        f"order {client_order_id} does not yet exist on the exchange and could not be canceled."
                     )
             elif "is already canceled" in str(e):
                 self.stop_tracking_order(in_flight_order.client_order_id)
-                self.trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
+                self.trigger_event(ORDER_CANCELED_EVENT, cancellation_event)
                 return False
             elif "is already filled" in str(e):
                 response = await self.dydx_client.get_order(exchange_order_id)
@@ -573,7 +568,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             return False
 
         cancel_verifier = LatchingEventResponder(set_cancellation_status, len(cancellation_queue))
-        self.add_listener(ORDER_CANCELLED_EVENT, cancel_verifier)
+        self.add_listener(ORDER_CANCELED_EVENT, cancel_verifier)
 
         for order_id, in_flight in cancellation_queue.items():
             try:
@@ -588,7 +583,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 order_status[order_id] = True
 
         await cancel_verifier.wait_for_completion(timeout_seconds)
-        self.remove_listener(ORDER_CANCELLED_EVENT, cancel_verifier)
+        self.remove_listener(ORDER_CANCELED_EVENT, cancel_verifier)
 
         return [CancellationResult(order_id=order_id, success=success) for order_id, success in order_status.items()]
 
@@ -738,10 +733,10 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         # Issue relevent events
         for (market_event, new_amount, new_price, new_fee) in issuable_events:
             if market_event == MarketEvent.OrderCancelled:
-                self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}")
+                self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}")
                 self.stop_tracking_order(tracked_order.client_order_id)
                 self.trigger_event(
-                    ORDER_CANCELLED_EVENT, OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id)
+                    ORDER_CANCELED_EVENT, OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id)
                 )
             elif market_event == MarketEvent.OrderFilled:
                 self.trigger_event(

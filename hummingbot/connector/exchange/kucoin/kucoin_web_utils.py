@@ -127,7 +127,6 @@ async def get_current_server_time(
         throttler_limit_id=CONSTANTS.SERVER_TIME_PATH_URL,
     )
     server_time = response["data"]
-
     return server_time
 
 
