@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class PreviousCommand:
-    def previous_statrategy(
+    def previous_strategy(
         self,  # type: HummingbotApplication
         option: str,
     ):
@@ -37,7 +37,7 @@ class PreviousCommand:
 
         previous_strategy = ConfigVar(
             key="previous_strategy_answer",
-            prompt=f"Dou you want to import the previously stored strategy? ({file_name}) (Yes/No) >>>",
+            prompt=f"Do you want to import the previously stored config? ({file_name}) (Yes/No) >>>",
             type_str="bool",
             validator=validate_bool,
         )
@@ -75,6 +75,6 @@ class PreviousCommand:
         config.value = parse_cvar_value(config, input_value)
         err_msg = await config.validate(input_value)
         if err_msg is not None:
-            self._notify(err_msg)
+            self.notify(err_msg)
             config.value = None
             await self.prompt_answer(config)
