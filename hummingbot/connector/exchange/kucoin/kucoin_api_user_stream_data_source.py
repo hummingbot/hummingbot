@@ -1,12 +1,12 @@
 import asyncio
 import logging
 import time
-from typing import Optional, List
+from typing import List, Optional
 
 from hummingbot.connector.exchange.kucoin import (
+    kucoin_auth,
     kucoin_constants as CONSTANTS,
     kucoin_web_utils as web_utils,
-    kucoin_auth
 )
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
