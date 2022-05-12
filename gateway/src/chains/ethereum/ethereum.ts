@@ -1,7 +1,7 @@
 import abi from '../../services/ethereum.abi.json';
 import axios from 'axios';
 import { logger } from '../../services/logger';
-import { BigNumber, Contract, Transaction, Wallet } from 'ethers';
+import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
 import { EthereumConfig, getEthereumConfig } from './ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
@@ -131,7 +131,12 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       // divide by 10 to convert it to Gwei
       this._gasPrice = data[EthereumConfig.ethGasStationConfig.gasLevel] / 10;
     } else {
-      this._gasPrice = await this.getGasPriceFromEthereumNode();
+      const gasPrice = await this.getGasPrice();
+      if (gasPrice !== null) {
+        this._gasPrice = gasPrice;
+      } else {
+        console.log('gasPrice is unexpectedly null.');
+      }
     }
 
     this._gasPriceLastUpdated = new Date();
@@ -139,18 +144,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       this.updateGasPrice.bind(this),
       this._gasPriceRefreshInterval * 1000
     );
-  }
-
-  /**
-   * Get the base gas fee and the current max priority fee from the Ethereum
-   * node, and add them together.
-   */
-  async getGasPriceFromEthereumNode(): Promise<number> {
-    const baseFee: BigNumber = await this.provider.getGasPrice();
-    const priorityFee: BigNumber = BigNumber.from(
-      await this.provider.send('eth_maxPriorityFeePerGas', [])
-    );
-    return baseFee.add(priorityFee).toNumber() * 1e-9;
   }
 
   getContract(
