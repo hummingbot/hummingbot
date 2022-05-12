@@ -688,8 +688,12 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             tracked_order = self.in_flight_orders.get(client_order_id)
             if not tracked_order:
                 return
-            async with timeout(self._sleep_time(5)):
-                await tracked_order.get_exchange_order_id()
+            try:
+                async with timeout(self._sleep_time(5)):
+                    await tracked_order.get_exchange_order_id()
+            except asyncio.TimeoutError:
+                self.logger().error(f"Failed to get exchange order id for order: {tracked_order}")
+                raise
             exec_amt_base = decimal_val_or_none(order_data.get("matchQuantity"))
             if exec_amt_base:
                 fill_price = decimal_val_or_none(order_data.get("matchPrice"))
@@ -1285,6 +1289,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "responseType": "FULL",
                 "orders": [cancel_params],
             }
+            result = None
             try:
                 result = await self._api_request(
                     method=RESTMethod.DELETE,
