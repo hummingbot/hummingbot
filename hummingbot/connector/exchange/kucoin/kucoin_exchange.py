@@ -82,7 +82,7 @@ class KucoinExchange(ExchangePyBase):
     def check_network_request_path(self):
         return CONSTANTS.SERVER_TIME_PATH_URL
 
-    def _supported_order_types(self):
+    def supported_order_types(self):
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:

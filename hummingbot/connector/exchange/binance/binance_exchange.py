@@ -92,7 +92,7 @@ class BinanceExchange(ExchangePyBase):
     def check_network_request_path(self):
         return CONSTANTS.PING_PATH_URL
 
-    def _supported_order_types(self):
+    def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
@@ -232,7 +232,7 @@ class BinanceExchange(ExchangePyBase):
 
     async def _update_trading_fees(self):
         """
-        Initialize mapping of trade symbols in exchange notation to trade symbols in client notation
+        Update fees information from the exchange
         """
         pass
 

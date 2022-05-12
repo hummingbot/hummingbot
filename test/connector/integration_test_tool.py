@@ -1,20 +1,18 @@
+import asyncio
+import functools
+import logging
 import sys
 import time
-import logging
-import asyncio
-from distutils.util import strtobool
-import functools
-
 from decimal import Decimal
+from distutils.util import strtobool
+
 import aiohttp
 
-# from hummingbot.user.user_balances import UserBalances
 import hummingbot.core.web_assistant.connections.rest_connection
-from hummingbot.core.network_iterator import NetworkStatus
 import hummingbot.logger.logger
-from hummingbot.logger.logger import HummingbotLogger
-
 from certs import creds
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.logger.logger import HummingbotLogger
 
 this_loop = asyncio.get_event_loop()
 
@@ -83,12 +81,13 @@ hummingbot.logger.logger.HummingbotLogger = TestingHL
 logging.getLogger().setLevel(logging.DEBUG)
 
 
+from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange  # noqa: E402
+from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange  # noqa: E402
+
 # Has to be after connection tracing override of RESTConnection
 from hummingbot.connector.trading_rule import TradingRule  # noqa: E402
 from hummingbot.core.data_type.common import OrderType  # noqa: E402
 from hummingbot.core.event.event_logger import EventLogger  # noqa: E402
-from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange  # noqa: E402
-from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange  # noqa: E402
 
 
 async def sleep_yes_no(question):
@@ -123,9 +122,6 @@ def get_binance(ec):
         binance_api_secret=creds.s,
         trading_pairs=[ec.pair],
     )
-    # exchange.ORDERBOOK_DS_CLASS._trading_pair_symbol_map = {
-    #    "com": bidict({f"{ec.base}{ec.quote}": ec.pair})
-    # }
     return exchange
 
 
@@ -135,9 +131,6 @@ def get_gate_io(ec):
         gate_io_secret_key=creds.s,
         trading_pairs=[ec.pair],
     )
-    # exchange.ORDERBOOK_DS_CLASS._trading_pair_symbol_map = {
-    #    exchange.DEFAULT_DOMAIN: bidict({f"{ec.base}{ec.quote}": ec.pair})
-    # }
     return exchange
 
 
@@ -210,7 +203,6 @@ class ExchangeClient(object):
     async def start(self):
         self.set_trading_pair("ETH", "USDT")
 
-        # self.exchange = get_binance(self)
         self.exchange = get_gate_io(self)
         self.exchange._time_synchronizer.add_time_offset_ms_sample(0)
         self.exchange._user_stream_tracker._user_stream = PrintingQueue()
@@ -235,7 +227,6 @@ class ExchangeClient(object):
         async_input = functools.partial(prompt, end='', flush=True)
 
         global ENABLE_CONNECTION_TRACING
-        # ENABLE_CONNECTION_TRACING = True
 
         # wait for network init
         while True:
@@ -245,9 +236,8 @@ class ExchangeClient(object):
             print(f'\n{r}')
             if r == NetworkStatus.CONNECTED:
                 print("Exchange status: ", self.exchange.status_dict)
-                # print("Trading pair symbol map from OB DS: ", self.exchange._orderbook_ds._trading_pair_symbol_map)
-                # api_keys = { "gate_io_api_key": creds.k, "gate_io_secret_key": creds.s, }
                 # Can be used to test for invalid keys
+                # api_keys = { "gate_io_api_key": creds.k, "gate_io_secret_key": creds.s, }
                 # await UserBalances.instance().add_exchange(self.exchange.name, **api_keys)
                 print('\n')
                 break

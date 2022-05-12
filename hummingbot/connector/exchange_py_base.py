@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
@@ -30,7 +30,7 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 from hummingbot.logger import HummingbotLogger
 
 
-class ExchangePyBase(ExchangeBase):
+class ExchangePyBase(ExchangeBase, ABC):
     _logger = None
 
     SHORT_POLL_INTERVAL = 5.0
@@ -80,12 +80,6 @@ class ExchangePyBase(ExchangeBase):
         if cls._logger is None:
             cls._logger = logging.getLogger(__name__)
         return cls._logger
-
-    # Price logic
-    #
-    @staticmethod
-    def quantize_value(value: Decimal, quantum: Decimal) -> Decimal:
-        return (value // quantum) * quantum
 
     @property
     @abstractmethod
@@ -141,14 +135,46 @@ class ExchangePyBase(ExchangeBase):
             for in_flight_order in self.in_flight_orders.values()
         ]
 
-    def supported_order_types(self):
-        return self._supported_order_types()
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        return {
+            "symbols_mapping_initialized": self._orderbook_ds.trading_pair_symbol_map_ready(
+                domain=self.domain),
+            "order_books_initialized": self._order_book_tracker.ready,
+            "account_balance": not self._trading_required or len(self._account_balances) > 0,
+            "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
+            "user_stream_initialized":
+                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
+        }
 
-    def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
-        if price.is_nan():
-            return price
-        price_quantum = self.get_order_price_quantum(trading_pair, price)
-        return ExchangePyBase.quantize_value(price, price_quantum)
+    @property
+    def ready(self) -> bool:
+        """
+        Returns True if the connector is ready to operate (all connections established with the exchange). If it is
+        not ready it returns False.
+        """
+        return all(self.status_dict.values())
+
+    @property
+    def name_cap(self) -> str:
+        return self.name.capitalize()
+
+    @property
+    def tracking_states(self) -> Dict[str, any]:
+        """
+        Returns a dictionary associating current active orders client id to their JSON representation
+        """
+        return {
+            key: value.to_json()
+            for key, value in self.in_flight_orders.items()
+            if not value.is_done
+        }
+
+    @abstractmethod
+    def supported_order_types(self):
+        raise NotImplementedError
+
+    # === Price logic ===
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
         """
@@ -210,26 +236,6 @@ class ExchangePyBase(ExchangeBase):
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return self._order_book_tracker.order_books[trading_pair]
 
-    @property
-    def status_dict(self) -> Dict[str, bool]:
-        return {
-            "symbols_mapping_initialized": self._orderbook_ds.trading_pair_symbol_map_ready(
-                domain=self.domain),
-            "order_books_initialized": self._order_book_tracker.ready,
-            "account_balance": not self._trading_required or len(self._account_balances) > 0,
-            "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
-            "user_stream_initialized":
-                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
-        }
-
-    @property
-    def ready(self) -> bool:
-        """
-        Returns True if the connector is ready to operate (all connections established with the exchange). If it is
-        not ready it returns False.
-        """
-        return all(self.status_dict.values())
-
     def tick(self, timestamp: float):
         """
         Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
@@ -245,8 +251,8 @@ class ExchangePyBase(ExchangeBase):
             self._poll_notifier.set()
         self._last_timestamp = timestamp
 
-    # Orders placing
-    #
+    # === Orders placing ===
+
     def buy(self,
             trading_pair: str,
             amount: Decimal,
@@ -359,16 +365,8 @@ class ExchangePyBase(ExchangeBase):
                 for cr in cancellation_results:
                     if isinstance(cr, Exception):
                         continue
-
-                    client_order_id = None
-                    # Binance allows cancellations only by using its own order id, not ours
-                    # TODO this should go to an implementation specific method that is
-                    # overridden by Binance and in other cases where applicable
-                    if isinstance(cr, dict) and "origClientOrderId" in cr:
-                        client_order_id = cr.get("origClientOrderId")
-                    if cr is not None:
-                        if not client_order_id:
-                            client_order_id = cr
+                    client_order_id = cr
+                    if client_order_id is not None:
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
@@ -379,22 +377,6 @@ class ExchangePyBase(ExchangeBase):
             )
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
         return successful_cancellations + failed_cancellations
-
-    @abstractmethod
-    def _supported_order_types(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def _create_web_assistants_factory(self) -> WebAssistantsFactory:
-        raise NotImplementedError
-
-    @abstractmethod
-    def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        raise NotImplementedError
-
-    @abstractmethod
-    def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        raise NotImplementedError
 
     async def _create_order(self,
                             trade_type: TradeType,
@@ -516,18 +498,7 @@ class ExchangePyBase(ExchangeBase):
                     f"Failed to cancel order {order_id}", exc_info=True)
         return None
 
-    # Order Tracking
-    #
-    @property
-    def tracking_states(self) -> Dict[str, any]:
-        """
-        Returns a dictionary associating current active orders client id to their JSON representation
-        """
-        return {
-            key: value.to_json()
-            for key, value in self.in_flight_orders.items()
-            if not value.is_done
-        }
+    # === Order Tracking ===
 
     def restore_tracking_states(self, saved_states: Dict[str, Any]):
         """
@@ -581,18 +552,17 @@ class ExchangePyBase(ExchangeBase):
     async def _sleep(self, delay: float):
         await asyncio.sleep(delay)
 
-    @property
-    def name_cap(self) -> str:
-        return self.name.capitalize()
+    # === Implementation-specific methods ===
 
-    # Implementation-specific methods
-    #
+    @abstractmethod
     def name(self):
         raise NotImplementedError
 
-    def _place_cancel(self):
+    @abstractmethod
+    async def _place_cancel(self):
         raise NotImplementedError
 
+    @abstractmethod
     async def _place_order(self,
                            order_id: str,
                            trading_pair: str,
@@ -613,8 +583,7 @@ class ExchangePyBase(ExchangeBase):
                  is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         raise NotImplementedError
 
-    # Network-API-related code
-    #
+    # === Network-API-related code ===
 
     # overridden in implementation of exchanges
     #
@@ -636,6 +605,25 @@ class ExchangePyBase(ExchangeBase):
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+
+    async def stop_network(self):
+        """
+        This function is executed when the connector is stopped. It perform a general cleanup and stops all background
+        tasks that require the connection with the exchange to work.
+        """
+        self._stop_network()
+
+    async def check_network(self) -> NetworkStatus:
+        """
+        Checks connectivity with the exchange using the API
+        """
+        try:
+            await self._api_get(path_url=self.check_network_request_path)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
 
     def _stop_network(self):
         # Resets timestamps and events for status_polling_loop
@@ -660,26 +648,7 @@ class ExchangePyBase(ExchangeBase):
             self._user_stream_event_listener_task.cancel()
             self._user_stream_event_listener_task = None
 
-    async def stop_network(self):
-        """
-        This function is executed when the connector is stopped. It perform a general cleanup and stops all background
-        tasks that require the connection with the exchange to work.
-        """
-        self._stop_network()
-
-    async def check_network(self) -> NetworkStatus:
-        """
-        Checks connectivity with the exchange using the API
-        """
-        try:
-            await self._api_get(path_url=self.check_network_request_path)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            return NetworkStatus.NOT_CONNECTED
-        return NetworkStatus.CONNECTED
-
-    # loops and sync related methods
+    # === loops and sync related methods ===
     #
     async def _trading_rules_polling_loop(self):
         """
@@ -777,9 +746,8 @@ class ExchangePyBase(ExchangeBase):
                 self.logger().exception("Error while reading user events queue. Retrying in 1s.")
                 await self._sleep(1.0)
 
-    # Exchange / Trading logic methods
-    # that call the API
-    #
+    # === Exchange / Trading logic methods that call the API ===
+
     async def _update_trading_rules(self):
         exchange_info = await self._api_get(path_url=self.trading_rules_request_path)
         trading_rules_list = await self._format_trading_rules(exchange_info)
@@ -852,4 +820,16 @@ class ExchangePyBase(ExchangeBase):
 
     @abstractmethod
     def _update_balances(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _create_web_assistants_factory(self) -> WebAssistantsFactory:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         raise NotImplementedError
