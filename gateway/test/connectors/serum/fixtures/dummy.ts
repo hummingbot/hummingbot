@@ -12,8 +12,13 @@ const getRandomChoice = (array: any[]) =>
   array[Math.floor(Math.random() * array.length)];
 
 export const getNewOrderTemplate = (): CreateOrdersRequest => {
-  const side = getRandomChoice(Object.values(OrderSide));
+  // const side = getRandomChoice(Object.values(OrderSide));
+  const side = OrderSide.SELL;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   const price = side == OrderSide.BUY ? 0.1 : 9999.99;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   const amount = side == OrderSide.BUY ? 0.1 : 0.1;
   // const type = getRandomChoice(Object.values(OrderType));
   const type = OrderType.LIMIT;

@@ -856,6 +856,27 @@ definitions:
       gasCost:
         type: 'string'
         example: '0.014466048000000000'
+
+  SerumOrderSideEnum:
+    type: string
+    enum:
+      - BUY
+      - SELL
+  SerumOrderTypeEnum:
+    type: string
+    enum:
+      - LIMIT
+      - IOC
+      - POST_ONLY
+  SerumOrderStatusEnum:
+    type: string
+    enum:
+      - OPEN
+      - CANCELED
+      - FILLED
+      - CREATION_PENDING
+      - CANCELATION_PENDING
+      - UNKNOWN
   SerumRootRequest:
     type: 'object'
     required:
@@ -922,7 +943,7 @@ definitions:
           example:
             - 'SOL/USDT'
             - 'SOL/USDC'
-  SerumGetMarketResponse:
+  SerumGetMarketsResponseItem:
     type: object
     properties:
       name:
@@ -946,96 +967,278 @@ definitions:
       minimumBaseIncrement:
         type: string
         example: 100000000
+  SerumGetMarketsResponseList:
+    type: array
+    items:
+      $ref: '#/definitions/SerumGetMarketsResponseItem'
   SerumGetMarketsResponse:
     additionalProperties:
-      $ref: '#/definitions/SerumGetMarketResponse'
+      $ref: '#/definitions/SerumGetMarketsResponseList'
   SerumGetOrderBooksRequest:
     type: 'object'
     required:
-      - ''
+      - 'chain'
+      - 'network'
+      - 'connector'
     properties:
+      chain:
+        type: string
+        example: solana
+      network:
+        type: string
+        example: mainnet-beta
+      connector:
+        type: string
+        example: serum
+      marketName:
+        type: string
+        example: 'SOL/USDT'
+      marketNames:
+        type: array
+        items:
+          type: string
+          example:
+            - 'SOL/USDT'
+            - 'SOL/USDC'
+  SerumGetOrderBooksResponseItem:
+    type: object
+    properties:
+      market:
+        $ref: '#/definitions/SerumGetMarketsResponseItem'
+      bids:
+        $ref: '#/definitions/SerumOrderListResponse'
+      asks:
+        $ref: '#/definitions/SerumOrderListResponse'
+  SerumGetOrderBooksResponseList:
+    type: array
+    items:
+      $ref: '#/definitions/SerumGetOrderBooksResponseItem'
   SerumGetOrderBooksResponse:
-    type: 'object'
-    required:
-      - ''
-    properties:
+    additionalProperties:
+      $ref: '#/definitions/SerumGetOrderBooksRequestList'
   SerumGetTickersRequest:
     type: 'object'
     required:
-      - ''
+      - 'chain'
+      - 'network'
+      - 'connector'
     properties:
+      chain:
+        type: string
+        example: solana
+      network:
+        type: string
+        example: mainnet-beta
+      connector:
+        type: string
+        example: serum
+      marketName:
+        type: string
+        example: 'SOL/USDT'
+      marketNames:
+        type: array
+        items:
+          type: string
+          example:
+            - 'SOL/USDT'
+            - 'SOL/USDC'
+  SerumGetTickersResponseItem:
+    type: object
+    properties:
+      price:
+        type: number
+        example: 43.37523838
+      timestamp:
+        type: number
+        example: 1652363040000
+  SerumGetTickersResponseList:
+    type: array
+    items:
+      $ref: '#/definitions/SerumGetTickersResponseItem'
   SerumGetTickersResponse:
-    type: 'object'
+    additionalProperties:
+      $ref: '#/definitions/SerumGetTickersResponseList'
+  SerumPostCreateOrdersItemRequest:
+    type: object
     required:
-      - ''
+      - 'marketName'
+      - 'ownerAddress'
+      - 'payerAddress'
+      - 'side'
+      - 'price'
+      - 'amount'
     properties:
+      id:
+        type: string
+        example: 123456789
+      marketName:
+        type: string
+        example: SOL/USDT
+      ownerAddress:
+        type: string
+        example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      payerAddress:
+        type: string
+        example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      side:
+        $ref: '#/definitions/SerumOrderSide'
+      price:
+        type: number
+        example: 9999.99
+      amount:
+        type: number
+        example: 0.1
+      type:
+        $ref: '#/definitions/SerumOrderType'
+    SerumPostCreateOrdersListRequest:
+      type: array
+      items:
+        $ref: '#/definitions/SerumPostCreateOrdersItemRequest'
   SerumPostCreateOrdersRequest:
     type: 'object'
     required:
-      - ''
+      - 'chain'
+      - 'network'
+      - 'connector'
     properties:
-  SerumPostCreateOrdersResponse:
+      chain:
+        type: string
+        example: solana
+      network:
+        type: string
+        example: mainnet-beta
+      connector:
+        type: string
+        example: serum
+      order:
+        $ref: '#/definitions/SerumPostCreateOrdersItemRequest'
+      orders:
+        $ref: '#/definitions/SerumPostCreateOrdersListRequest'
+  SerumPostCreateOrdersResponseItem:
     type: 'object'
     required:
-      - ''
+      - 'id'
+      - 'exchangeId'
+      - 'marketName'
+      - 'price'
+      - 'amount'
+      - 'side'
     properties:
+      id:
+        type: string
+        example: 123456789
+      marketName:
+        type: string
+        example: SOL/USDT
+      ownerAddress:
+        type: string
+        example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      price:
+        type: number
+        example: 250
+      amount:
+        type: number
+        example: 0.1
+      side:
+        $ref: '#/definitions/SerumOrderSide'
+      status:
+        $ref: '#/definitions/SerumOrderStatus'
+      type:
+        $ref: '#/definitions/SerumOrderType'
+  SerumPostCreateOrdersResponseList:
+    type: array
+    items:
+      $ref: '#/definitions/SerumPostCreateOrdersResponseItem'
+  SerumPostCreateOrdersResponse:
+    additionalProperties:
+      $ref: '#/definitions/SerumPostCreateOrdersResponseList'
   SerumGetOrdersRequest:
     type: 'object'
     required:
       - ''
     properties:
-  SerumGetOrdersResponse:
-    type: 'object'
-    required:
-      - ''
+  SerumGetOrdersResponseItem:
+    type: object
     properties:
+  SerumGetOrdersResponseList:
+    type: array
+    items:
+      $ref: '#/definitions/SerumGetOrdersResponseItem'
+  SerumGetOrdersResponse:
+    additionalProperties:
+      $ref: '#/definitions/SerumGetOrdersResponseList'
   SerumDeleteCancelOrdersRequest:
     type: 'object'
     required:
       - ''
     properties:
-  SerumDeleteCancelOrdersResponse:
-    type: 'object'
-    required:
-      - ''
+  SerumDeleteCancelOrdersResponseItem:
+    type: object
     properties:
+  SerumDeleteCancelOrdersResponseList:
+    type: array
+    items:
+      $ref: '#/definitions/SerumDeleteCancelOrdersResponseItem'
+  SerumDeleteCancelOrdersResponse:
+    additionalProperties:
+      $ref: '#/definitions/SerumDeleteCancelOrdersResponseList'
   SerumGetOpenOrdersRequest:
     type: 'object'
     required:
       - ''
     properties:
-  SerumGetOpenOrdersResponse:
-    type: 'object'
-    required:
-      - ''
+  SerumGetOpenOrdersResponseItem:
+    type: object
     properties:
+  SerumGetOpenOrdersResponseList:
+    type: array
+    items:
+      $ref: '#/definitions/SerumGetOpenOrdersResponseItem'
+  SerumGetOpenOrdersResponse:
+    additionalProperties:
+      $ref: '#/definitions/SerumGetOpenOrdersResponseList'
   SerumDeleteCancelOpenOrdersRequest:
     type: 'object'
     required:
       - ''
     properties:
-  SerumDeleteCancelOpenOrdersResponse:
-    type: 'object'
-    required:
-      - ''
+  SerumDeleteCancelOpenOrdersResponseItem:
+    type: object
     properties:
+  SerumDeleteCancelOpenOrdersResponseList:
+    type: array
+    items:
+      $ref: '#/definitions/SerumDeleteCancelOpenOrdersResponseItem'
+  SerumDeleteCancelOpenOrdersResponse:
+    additionalProperties:
+      $ref: '#/definitions/SerumDeleteCancelOpenOrdersResponseList'
   SerumGetFilledOrdersRequest:
     type: 'object'
     required:
       - ''
     properties:
-  SerumGetFilledOrdersResponse:
-    type: 'object'
-    required:
-      - ''
+  SerumGetFilledOrdersResponseItem:
+    type: object
     properties:
+  SerumGetFilledOrdersResponseList:
+    type: array
+    items:
+      $ref: '#/definitions/SerumGetFilledOrdersResponseItem'
+  SerumGetFilledOrdersResponse:
+    additionalProperties:
+      $ref: '#/definitions/SerumGetFilledOrdersResponseList'
   SerumPostSettleFundsRequest:
     type: 'object'
     required:
       - ''
     properties:
-  SerumPostSettleFundsResponse:
-    type: 'object'
-    required:
-      - ''
+  SerumPostSettleFundsResponseItem:
+    type: object
     properties:
+  SerumPostSettleFundsResponseList:
+    type: array
+    items:
+      $ref: '#/definitions/SerumPostSettleFundsResponseItem'
+  SerumPostSettleFundsResponse:
+    additionalProperties:
+      $ref: '#/definitions/SerumPostSettleFundsResponseList'
