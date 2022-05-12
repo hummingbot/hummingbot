@@ -180,10 +180,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     @property
     def inventory_target_base_pct(self) -> Decimal:
-        if self._config_map.inventory_target_base_pct is not None:
-            return self._config_map.inventory_target_base_pct
-        else:
-            return 0
+        return self._config_map.inventory_target_base_pct
 
     @inventory_target_base_pct.setter
     def inventory_target_base_pct(self, value: Decimal):
