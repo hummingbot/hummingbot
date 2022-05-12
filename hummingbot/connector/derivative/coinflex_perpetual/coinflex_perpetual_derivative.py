@@ -53,6 +53,7 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 bpm_logger = None
+NaN = float("nan")
 
 
 class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
@@ -1134,7 +1135,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=client_order_id,
                 trading_pair=tracked_order.trading_pair,
-                update_timestamp=self.current_timestamp,
+                update_timestamp=self.current_timestamp if self.current_timestamp != NaN else int(time.time()),
                 new_state=OrderState.FAILED,
             )
             self._client_order_tracker.process_order_update(order_update)
@@ -1175,6 +1176,9 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         if position_action not in [PositionAction.OPEN, PositionAction.CLOSE]:
             raise ValueError("Specify either OPEN_POSITION or CLOSE_POSITION position_action.")
+
+        if self.current_timestamp == NaN:
+            raise ValueError("Cannot create orders while connector is starting/stopping.")
 
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
