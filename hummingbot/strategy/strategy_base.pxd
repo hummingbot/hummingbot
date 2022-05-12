@@ -17,6 +17,8 @@ cdef class StrategyBase(TimeIterator):
         EventListener _sb_complete_buy_order_listener
         EventListener _sb_complete_sell_order_listener
         EventListener _sb_complete_funding_payment_listener
+        EventListener _sb_position_mode_change_success_listener
+        EventListener _sb_position_mode_change_failure_listener
         EventListener _sb_create_range_position_order_listener
         EventListener _sb_remove_range_position_order_listener
         bint _sb_delegate_lock
@@ -33,6 +35,8 @@ cdef class StrategyBase(TimeIterator):
     cdef c_did_complete_buy_order(self, object order_completed_event)
     cdef c_did_complete_sell_order(self, object order_completed_event)
     cdef c_did_complete_funding_payment(self, object funding_payment_completed_event)
+    cdef c_did_change_position_mode_succeed(self, object position_mode_changed_event)
+    cdef c_did_change_position_mode_fail(self, object position_mode_changed_event)
     cdef c_did_create_range_position_order(self, object order_created_event)
     cdef c_did_remove_range_position_order(self, object order_completed_event)
 

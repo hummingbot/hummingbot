@@ -75,7 +75,7 @@ class FixtureKucoin:
             "stop": "", "cancelExist": False,
             "clientOid": "sell-ETH-USDT-1581056966892386"}}
 
-    GET_CANCELLED_ORDER = {
+    GET_CANCELED_ORDER = {
         "code": "200000",
         "data": {
             "symbol": "ETH-USDT", "hidden": False, "opType": "DEAL", "fee": "0",
@@ -101,6 +101,6 @@ class FixtureKucoin:
             "postOnly": False, "stopPrice": "0", "size": "0.01", "stop": "",
             "cancelExist": False, "clientOid": "buy-ETH-USDT-1581058129011078"}}
 
-    ORDERS_BATCH_CANCELLED = {
+    ORDERS_BATCH_CANCELED = {
         "code": "200000",
         "data": {"cancelledOrderIds": ["5e3d0851051a350008723a81", "5e3d08516e350a0009bcd272"]}}
