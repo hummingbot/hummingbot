@@ -19,7 +19,7 @@ describe('validateAddress', () => {
   it('valid when req.address is a address', () => {
     expect(
       validateAddress({
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       })
     ).toEqual([]);
   });
@@ -27,7 +27,7 @@ describe('validateAddress', () => {
   it('valid when req.address is a bech32 address', () => {
     expect(
       validateAddress({
-        address: 'one1l2sjl5gzl6rz8jffn3etq0j9zpljwu44u9889l',
+        publicKey: 'one1l2sjl5gzl6rz8jffn3etq0j9zpljwu44u9889l',
       })
     ).toEqual([]);
   });
@@ -43,7 +43,7 @@ describe('validateAddress', () => {
   it('return error when req.address is invalid', () => {
     expect(
       validateAddress({
-        address: 'world',
+        publicKey: 'world',
       })
     ).toEqual([invalidAddressError]);
   });

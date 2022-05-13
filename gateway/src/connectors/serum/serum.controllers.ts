@@ -58,6 +58,8 @@ import {
   validateSettleFundsRequest,
   validateSettleFundsSeveralRequest,
 } from './serum.validators';
+import './extensions/cycle';
+import './extensions/json';
 
 /**
  * Get the all or the informed markets and their configurations.

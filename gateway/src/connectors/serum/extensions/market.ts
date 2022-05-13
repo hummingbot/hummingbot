@@ -51,10 +51,7 @@ import {
 } from '@solana/web3.js';
 import BN from 'bn.js';
 import { Buffer } from 'buffer';
-import {
-  promisesBatchSize,
-  promisesDelayInMilliseconds,
-} from '../serum.constants';
+import { default as constants } from '../serum.constants';
 import { promiseAllInBatches } from '../serum.helpers';
 import { OriginalSerumMarket } from '../serum.types';
 
@@ -461,8 +458,8 @@ export class Market {
     await promiseAllInBatches(
       sendTransaction,
       Array.from(ownersMap.entries()),
-      promisesBatchSize,
-      promisesDelayInMilliseconds
+      constants.parallel.all.batchSize,
+      constants.parallel.all.delayBetweenBatches
     );
 
     return transactionSignatures;
@@ -1350,8 +1347,8 @@ export class Market {
     await promiseAllInBatches(
       sendTransaction,
       Array.from(ownersMap.entries()),
-      promisesBatchSize,
-      promisesDelayInMilliseconds
+      constants.parallel.all.batchSize,
+      constants.parallel.all.delayBetweenBatches
     );
 
     return transactionSignatures;

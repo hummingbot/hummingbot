@@ -58,7 +58,7 @@ describe('POST /wallet/add', () => {
   it('return 200 for well formed ethereum request', async () => {
     patch(eth, 'getWalletFromPrivateKey', () => {
       return {
-        address: twoAddress,
+        publicKey: twoAddress,
       };
     });
 
@@ -80,7 +80,7 @@ describe('POST /wallet/add', () => {
   it('return 200 for well formed avalanche request', async () => {
     patch(avalanche, 'getWalletFromPrivateKey', () => {
       return {
-        address: twoAddress,
+        publicKey: twoAddress,
       };
     });
 
@@ -103,7 +103,7 @@ describe('POST /wallet/add', () => {
   it('return 200 for well formed harmony request', async () => {
     patch(harmony, 'getWalletFromPrivateKey', () => {
       return {
-        address: twoAddress,
+        publicKey: twoAddress,
       };
     });
 
@@ -126,7 +126,7 @@ describe('POST /wallet/add', () => {
   it('return 404 for ill-formed avalanche request', async () => {
     patch(avalanche, 'getWalletFromPrivateKey', () => {
       return {
-        address: twoAddress,
+        publicKey: twoAddress,
       };
     });
 
@@ -144,7 +144,7 @@ describe('POST /wallet/add', () => {
   it('return 404 for ill-formed harmony request', async () => {
     patch(harmony, 'getWalletFromPrivateKey', () => {
       return {
-        address: twoAddress,
+        publicKey: twoAddress,
       };
     });
 
@@ -164,7 +164,7 @@ describe('DELETE /wallet/remove', () => {
   it('return 200 for well formed ethereum request', async () => {
     patch(eth, 'getWalletFromPrivateKey', () => {
       return {
-        address: twoAddress,
+        publicKey: twoAddress,
       };
     });
 
@@ -186,7 +186,7 @@ describe('DELETE /wallet/remove', () => {
     await request(gatewayApp)
       .delete(`/wallet/remove`)
       .send({
-        address: twoAddress,
+        publicKey: twoAddress,
         chain: 'ethereum',
       })
 
@@ -197,7 +197,7 @@ describe('DELETE /wallet/remove', () => {
   it('return 200 for well formed harmony request', async () => {
     patch(harmony, 'getWalletFromPrivateKey', () => {
       return {
-        address: twoAddress,
+        publicKey: twoAddress,
       };
     });
 
@@ -219,7 +219,7 @@ describe('DELETE /wallet/remove', () => {
     await request(gatewayApp)
       .delete(`/wallet/remove`)
       .send({
-        address: twoAddress,
+        publicKey: twoAddress,
         chain: 'harmony',
       })
 
@@ -236,7 +236,7 @@ describe('GET /wallet', () => {
   it('return 200 for well formed ethereum request', async () => {
     patch(eth, 'getWalletFromPrivateKey', () => {
       return {
-        address: twoAddress,
+        publicKey: twoAddress,
       };
     });
 
@@ -271,7 +271,7 @@ describe('GET /wallet', () => {
   it('return 200 for well formed harmony request', async () => {
     patch(harmony, 'getWalletFromPrivateKey', () => {
       return {
-        address: twoAddress,
+        publicKey: twoAddress,
       };
     });
 

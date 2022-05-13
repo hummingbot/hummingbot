@@ -30,7 +30,7 @@ const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 const patchGetWallet = () => {
   patch(ethereum, 'getWallet', () => {
     return {
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     };
   });
 };
@@ -48,14 +48,14 @@ const patchStoredTokenList = () => {
         chainId: 42,
         name: 'WETH',
         symbol: 'WETH',
-        address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+        publicKey: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
         decimals: 18,
       },
       {
         chainId: 42,
         name: 'DAI',
         symbol: 'DAI',
-        address: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
+        publicKey: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
         decimals: 18,
       },
     ];
@@ -69,7 +69,7 @@ const patchGetTokenBySymbol = () => {
         chainId: 42,
         name: 'WETH',
         symbol: 'WETH',
-        address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+        publicKey: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
         decimals: 18,
       };
     } else {
@@ -77,7 +77,7 @@ const patchGetTokenBySymbol = () => {
         chainId: 42,
         name: 'DAI',
         symbol: 'DAI',
-        address: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
+        publicKey: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
         decimals: 18,
       };
     }
@@ -90,7 +90,7 @@ const patchGetTokenByAddress = () => {
       chainId: 42,
       name: 'WETH',
       symbol: 'WETH',
-      address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+      publicKey: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
       decimals: 18,
     };
   });
@@ -366,7 +366,7 @@ describe('POST /amm/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'BUY',
         nonce: 21,
       })
@@ -388,7 +388,7 @@ describe('POST /amm/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'BUY',
       })
       .set('Accept', 'application/json')
@@ -406,7 +406,7 @@ describe('POST /amm/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'BUY',
         nonce: 21,
         maxFeePerGas: '5000000000',
@@ -438,7 +438,7 @@ describe('POST /amm/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'SELL',
         nonce: 21,
       })
@@ -460,7 +460,7 @@ describe('POST /amm/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'SELL',
         nonce: 21,
         maxFeePerGas: '5000000000',
@@ -481,7 +481,7 @@ describe('POST /amm/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'SELL',
         nonce: 21,
         limitPrice: '9',
@@ -501,7 +501,7 @@ describe('POST /amm/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'BUY',
         nonce: 21,
         limitPrice: '999999999999999999999',
@@ -521,7 +521,7 @@ describe('POST /amm/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'BUY',
         nonce: 21,
         limitPrice: '9',
@@ -541,7 +541,7 @@ describe('POST /amm/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'SELL',
         nonce: 21,
         limitPrice: '99999999999',
@@ -561,7 +561,7 @@ describe('POST /amm/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: 10000,
-        address: 'da8',
+        publicKey: 'da8',
         side: 'comprar',
       })
       .set('Accept', 'application/json')
@@ -586,7 +586,7 @@ describe('POST /amm/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'SELL',
         nonce: 21,
         maxFeePerGas: '5000000000',
@@ -615,7 +615,7 @@ describe('POST /amm/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'BUY',
         nonce: 21,
         maxFeePerGas: '5000000000',

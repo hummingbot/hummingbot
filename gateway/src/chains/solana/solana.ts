@@ -1,11 +1,11 @@
-import {Cache, CacheContainer} from "node-ts-cache";
-import {MemoryStorage} from "node-ts-cache-storage-memory";
-import {logger} from '../../services/logger';
-import {SolanaConfig} from './solana.config';
-import {countDecimals, TokenValue, walletPath} from '../../services/base';
+import { Cache, CacheContainer } from 'node-ts-cache';
+import { MemoryStorage } from 'node-ts-cache-storage-memory';
+import { logger } from '../../services/logger';
+import { SolanaConfig } from './solana.config';
+import { countDecimals, TokenValue, walletPath } from '../../services/base';
 import NodeCache from 'node-cache';
 import bs58 from 'bs58';
-import {BigNumber} from 'ethers';
+import { BigNumber } from 'ethers';
 import {
   Account,
   AccountInfo,
@@ -20,11 +20,14 @@ import {
   TokenAmount,
   TransactionResponse,
 } from '@solana/web3.js';
-import {AccountInfo as TokenAccount, Token as TokenProgram,} from '@solana/spl-token';
-import {TokenInfo, TokenListProvider} from '@solana/spl-token-registry';
-import {TransactionResponseStatusCode} from './solana.requests';
+import {
+  AccountInfo as TokenAccount,
+  Token as TokenProgram,
+} from '@solana/spl-token';
+import { TokenInfo, TokenListProvider } from '@solana/spl-token-registry';
+import { TransactionResponseStatusCode } from './solana.requests';
 import fse from 'fs-extra';
-import {ConfigManagerCertPassphrase} from '../../services/config-manager-cert-passphrase';
+import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 
 const crypto = require('crypto').webcrypto;
 
@@ -186,6 +189,7 @@ export class Solana implements Solanaish {
     return Keypair.fromSecretKey(decoded);
   }
 
+  // TODO Mock for unit tests!!!
   async getAccount(address: string): Promise<Account> {
     const keypair = await this.getKeypair(address);
 
@@ -208,7 +212,8 @@ export class Solana implements Solanaish {
       })
     ).value.map((item) => item.pubkey)[0];
 
-    const programAddress = (await PublicKey.findProgramAddress(
+    const programAddress = (
+      await PublicKey.findProgramAddress(
         [
           walletAddress.toBuffer(),
           tokenProgramId.toBuffer(),

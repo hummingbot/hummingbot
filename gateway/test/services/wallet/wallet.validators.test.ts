@@ -174,7 +174,7 @@ describe('validateAddress', () => {
   it('valid when address is a string', () => {
     expect(
       validateAddress({
-        address: '0x000000000000000000000000000000000000000',
+        publicKey: '0x000000000000000000000000000000000000000',
       })
     ).toEqual([]);
   });
@@ -190,7 +190,7 @@ describe('validateAddress', () => {
   it('return error when req.address is not a string', () => {
     expect(
       validateAddress({
-        address: 1,
+        publicKey: 1,
       })
     ).toEqual([invalidAddressError]);
   });

@@ -13,24 +13,19 @@ import {
   getTickers,
   settleFunds,
 } from '../../../src/connectors/serum/serum.controllers';
-import { default as config } from '../../connectors/serum/fixtures/serumConfig';
-import { unpatch } from '../../services/patch';
-import { getNewOrderTemplate } from './fixtures/dummy';
-import { default as patchesInitializer } from './fixtures/patches';
+import { getNewOrderTemplate } from '../../../test/connectors/serum/fixtures/dummy';
+import { default as config } from './../../../test/connectors/serum/fixtures/serumConfig';
+import { unpatch } from '../../../test/services/patch';
 
 jest.setTimeout(1000000);
 
 let solana: Solana;
 let serum: Serum;
 
-let patches: any;
-
 beforeAll(async () => {
   solana = await Solana.getInstance(config.serum.network);
 
   serum = await Serum.getInstance(config.serum.chain, config.serum.network);
-
-  patches = patchesInitializer(solana, serum);
 });
 
 afterEach(() => {
@@ -183,8 +178,6 @@ describe('Full Flow', () => {
   });
 
   it('createOrder [0]', async () => {
-    patches.solana.getKeypair();
-
     request = {
       ...commonParameters,
       order: (() => {
@@ -197,8 +190,6 @@ describe('Full Flow', () => {
   });
 
   it('createOrders [1, 2, 3, 4, 5, 6, 7]', async () => {
-    patches.solana.getKeypair();
-
     request = {
       ...commonParameters,
       orders: [

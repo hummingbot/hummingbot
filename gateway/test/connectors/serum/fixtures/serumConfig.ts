@@ -2,12 +2,14 @@ export default {
   solana: {
     wallet: {
       owner: {
-        address: '8wvTyrdGmrjFUAdg4yHoBtPu9eE41t8fxruxTh7ufMkQ',
-        // address: '3skU2fVbR4iV3nkSYmKSFsn2VwM1GzSp9QfWQmsnZJdy',
+        publicKey: 'FMosjpvtAxwL6GFDSL31o9pU5somKjifbkt32bEgLddf',
+        privateKey:
+          '3mFmUEqdf86r7VEs8gCAHaEZ2gBmXzpgVPPjQ71fbMDYejso3Qqd18AgnkUbyqFyHrCDC7BUJLSXRqZuLK7Bd9yP',
       },
       payer: {
-        address: '8wvTyrdGmrjFUAdg4yHoBtPu9eE41t8fxruxTh7ufMkQ',
-        // address: '3skU2fVbR4iV3nkSYmKSFsn2VwM1GzSp9QfWQmsnZJdy',
+        publicKey: 'Frao7w1tXtB9i2PAj6bbLXLVUypLrDCm92MNpBWNg6VW',
+        privateKey:
+          '5xxXkxGHPx77yuKJJeCfGbSERvxSuiUm9zSS7PHVQijsUQZd7BLek8ER5vZ8RVfojNQ3hx5QiZLgpHMxPstjLeRN',
       },
     },
   },
