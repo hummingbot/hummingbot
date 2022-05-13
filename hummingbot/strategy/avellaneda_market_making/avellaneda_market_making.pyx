@@ -731,8 +731,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 # Avellaneda-Stoikov for an infinite timespan
                 # The equations in the paper for this contain a few mistakes
                 # - the units don't align with the rest of the paper
-                # - volatility cancells itself out completely
-                # - the risk factor gets partially cancelled
+                # - volatility cancels itself out completely
+                # - the risk factor gets partially canceled
                 # The proposed solution is to use the same equation as for the constrained timespan but with
                 # a fixed time left
                 time_left_fraction = 1
