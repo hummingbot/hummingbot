@@ -24,7 +24,7 @@ describe('validatePublicKey', () => {
   it('valid when req.publicKey is a publicKey', () => {
     expect(
       validatePublicKey({
-        address: publicKey,
+        publicKey: publicKey,
       })
     ).toEqual([]);
   });
@@ -40,7 +40,7 @@ describe('validatePublicKey', () => {
   it('return error when req.publicKey is invalid', () => {
     expect(
       validatePublicKey({
-        address: 'world',
+        publicKey: 'world',
       })
     ).toEqual([invalidPublicKeyError]);
   });

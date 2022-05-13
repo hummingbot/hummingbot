@@ -17,6 +17,31 @@
       },
       "additionalProperties": false
     },
+    "parallel": {
+      "type": "object",
+      "required": ["all"],
+      "properties": {
+        "all": {
+          "type": "object",
+          "required": ["batchSize", "delayBetweenBatches"],
+          "properties": {
+            "batchSize": { "type": "integer" },
+            "delayBetweenBatches": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "cache": {
+      "type": "object",
+      "required": ["markets"],
+      "properties": {
+        "markets": {
+          "type": "integer"
+        }
+      }
+    },
     "markets": {
       "type": "object",
       "required": ["url"],
@@ -43,7 +68,9 @@
     "network",
     "networks",
     "markets",
-    "tickers"
+    "tickers",
+    "parallel",
+    "cache"
   ],
   "additionalProperties": false
 }

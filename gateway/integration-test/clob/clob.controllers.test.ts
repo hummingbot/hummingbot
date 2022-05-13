@@ -1,6 +1,5 @@
 import 'jest-extended';
-import { Solana } from '../../../src/chains/solana/solana';
-import { Serum } from '../../../src/connectors/serum/serum';
+import { Solana } from '../../src/chains/solana/solana';
 import {
   cancelOpenOrders,
   cancelOrders,
@@ -12,25 +11,21 @@ import {
   getOrders,
   getTickers,
   settleFunds,
-} from '../../../src/connectors/serum/serum.controllers';
-import { default as config } from '../../connectors/serum/fixtures/serumConfig';
-import { unpatch } from '../../services/patch';
-import { getNewOrderTemplate } from './fixtures/dummy';
-import { default as patchesInitializer } from './fixtures/patches';
+} from '../../src/clob/clob.controllers';
+import { Serum } from '../../src/connectors/serum/serum';
+import { OrderSide, OrderType } from '../../src/connectors/serum/serum.types';
+import { getNewOrdersTemplates, getNewOrderTemplate, } from '../../test/connectors/serum/fixtures/dummy';
+import { default as config } from '../../test/connectors/serum/fixtures/serumConfig';
+import { unpatch } from '../../test/services/patch';
 
 jest.setTimeout(1000000);
 
-let solana: Solana;
-let serum: Serum;
-
-let patches: any;
-
 beforeAll(async () => {
-  solana = await Solana.getInstance(config.serum.network);
+  await Solana.getInstance(config.serum.network);
 
-  serum = await Serum.getInstance(config.serum.chain, config.serum.network);
+  await Serum.getInstance(config.serum.chain, config.serum.network);
 
-  patches = patchesInitializer(solana, serum);
+  // await reset();
 });
 
 afterEach(() => {
@@ -44,6 +39,104 @@ const commonParameters = {
 };
 
 const marketNames = ['SOL/USDT', 'SOL/USDC'];
+
+// const reset = async () => {
+//   const connection = serum.getConnection();
+//   const markets = await (
+//     await Serum.getInstance(commonParameters.chain, commonParameters.network)
+//   ).getMarkets(marketNames);
+//   const ownerKeyPair = await solana.getKeypair(
+//     config.solana.wallet.owner.address
+//   );
+//   const owner = new Account(ownerKeyPair.secretKey);
+//
+//   for (const market of markets.values()) {
+//     console.log(`Resetting market ${market.name}:`);
+//
+//     const serumMarket = market.market;
+//     const openOrders = await serumMarket.loadOrdersForOwner(
+//       connection,
+//       owner.publicKey
+//     );
+//
+//     console.log('Open orders found:', JSON.stringify(openOrders, null, 2));
+//
+//     for (const openOrder of openOrders) {
+//       try {
+//         const result = await serumMarket.cancelOrder(
+//           connection,
+//           owner,
+//           openOrder
+//         );
+//         console.log(
+//           `Cancelling order ${openOrder.orderId}:`,
+//           JSON.stringify(result, null, 2)
+//         );
+//       } catch (exception: any) {
+//         if (
+//           exception.message.includes('It is unknown if it succeeded or failed.')
+//         ) {
+//           console.log(exception);
+//         } else {
+//           throw exception;
+//         }
+//       }
+//     }
+//
+//     for (const openOrders of await serumMarket.findOpenOrdersAccountsForOwner(
+//       connection,
+//       owner.publicKey
+//     )) {
+//       console.log(
+//         `Settling funds for orders:`,
+//         JSON.stringify(openOrders, null, 2)
+//       );
+//
+//       if (
+//         openOrders.baseTokenFree.gt(new BN(0)) ||
+//         openOrders.quoteTokenFree.gt(new BN(0))
+//       ) {
+//         const base = await serumMarket.findBaseTokenAccountsForOwner(
+//           connection,
+//           owner.publicKey,
+//           true
+//         );
+//         const baseTokenAccount = base[0].pubkey;
+//         const quote = await serumMarket.findQuoteTokenAccountsForOwner(
+//           connection,
+//           owner.publicKey,
+//           true
+//         );
+//         const quoteTokenAccount = quote[0].pubkey;
+//
+//         try {
+//           const result = await serumMarket.settleFunds(
+//             connection,
+//             owner,
+//             openOrders,
+//             baseTokenAccount,
+//             quoteTokenAccount
+//           );
+//
+//           console.log(
+//             `Result of settling funds:`,
+//             JSON.stringify(result, null, 2)
+//           );
+//         } catch (exception: any) {
+//           if (
+//             exception.message.includes(
+//               'It is unknown if it succeeded or failed.'
+//             )
+//           ) {
+//             console.log(exception);
+//           } else {
+//             throw exception;
+//           }
+//         }
+//       }
+//     }
+//   }
+// };
 
 describe('Full Flow', () => {
   /*
@@ -93,7 +186,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       name: marketName,
     };
-    response = await getMarkets(solana, serum, request);
+    response = await getMarkets(request);
   });
 
   it('getMarkets ["SOL/USDT", "SOL/USDC"]', async () => {
@@ -101,14 +194,15 @@ describe('Full Flow', () => {
       ...commonParameters,
       names: marketNames,
     };
-    response = await getMarkets(solana, serum, request);
+    response = await getMarkets(request);
   });
 
   it('getMarkets (all)', async () => {
     request = {
       ...commonParameters,
     };
-    response = await getMarkets(solana, serum, request);
+    response = await getMarkets(request);
+    console.log(JSON.stringify(response, null, 2));
   });
 
   it('getOrderBook ["SOL/USDT"]', async () => {
@@ -116,7 +210,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       marketName: marketName,
     };
-    response = await getOrderBooks(solana, serum, request);
+    response = await getOrderBooks(request);
   });
 
   it('getOrderBooks ["SOL/USDT", "SOL/USDC"]', async () => {
@@ -124,14 +218,14 @@ describe('Full Flow', () => {
       ...commonParameters,
       marketNames: marketNames,
     };
-    response = await getOrderBooks(solana, serum, request);
+    response = await getOrderBooks(request);
   });
 
   it('getOrderBooks (all)', async () => {
     request = {
       ...commonParameters,
     };
-    response = await getOrderBooks(solana, serum, request);
+    response = await getOrderBooks(request);
   });
 
   it('getTicker ["SOL/USDT"]', async () => {
@@ -139,7 +233,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       marketName: marketName,
     };
-    response = await getTickers(solana, serum, request);
+    response = await getTickers(request);
   });
 
   it('getTickers ["SOL/USDT", "SOL/USDC"]', async () => {
@@ -147,14 +241,14 @@ describe('Full Flow', () => {
       ...commonParameters,
       marketNames: marketNames,
     };
-    response = await getTickers(solana, serum, request);
+    response = await getTickers(request);
   });
 
   it('getTickers (all)', async () => {
     request = {
       ...commonParameters,
     };
-    response = await getTickers(solana, serum, request);
+    response = await getTickers(request);
   });
 
   it('cancelOpenOrders (all)', async () => {
@@ -162,7 +256,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await cancelOpenOrders(solana, serum, request);
+    response = await cancelOpenOrders(request);
   });
 
   // it('settleFunds (all)', async () => {
@@ -170,8 +264,14 @@ describe('Full Flow', () => {
   //     ...commonParameters,
   //     ownerAddress: config.solana.wallet.owner.address,
   //   };
-  //   response = await settleFunds(solana, serum, request);
-  //   console.log('settle all funds', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+  //   response = await settleFunds(request);
+  //   console.log(
+  //     'settleFunds',
+  //     '\nrequest:\n',
+  //     JSON.stringify(request, null, 2),
+  //     '\nresponse:\n',
+  //     JSON.stringify(response.body, null, 2)
+  //   );
   // });
 
   it('getOpenOrders (all)', async () => {
@@ -179,68 +279,28 @@ describe('Full Flow', () => {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await getOpenOrders(solana, serum, request);
+    response = await getOpenOrders(request);
   });
 
   it('createOrder [0]', async () => {
-    patches.solana.getKeypair();
-
     request = {
       ...commonParameters,
-      order: (() => {
-        const order = getNewOrderTemplate();
-        order.id = orderIds[0];
-        return order;
-      })(),
+      order: getNewOrderTemplate({
+        id: '0',
+        side: OrderSide.BUY,
+        type: OrderType.LIMIT,
+        payerAddress: config.solana.wallet.payer.publicKey,
+      }),
     };
-    response = await createOrders(solana, serum, request);
+    response = await createOrders(request);
   });
 
   it('createOrders [1, 2, 3, 4, 5, 6, 7]', async () => {
-    patches.solana.getKeypair();
-
     request = {
       ...commonParameters,
-      orders: [
-        (() => {
-          const order = getNewOrderTemplate();
-          order.id = orderIds[1];
-          return order;
-        })(),
-        (() => {
-          const order = getNewOrderTemplate();
-          order.id = orderIds[2];
-          return order;
-        })(),
-        (() => {
-          const order = getNewOrderTemplate();
-          order.id = orderIds[3];
-          return order;
-        })(),
-        (() => {
-          const order = getNewOrderTemplate();
-          order.id = orderIds[4];
-          return order;
-        })(),
-        (() => {
-          const order = getNewOrderTemplate();
-          order.id = orderIds[5];
-          return order;
-        })(),
-        (() => {
-          const order = getNewOrderTemplate();
-          order.id = orderIds[6];
-          return order;
-        })(),
-        (() => {
-          const order = getNewOrderTemplate();
-          order.id = orderIds[7];
-          return order;
-        })(),
-        // (() => { const order = getNewOrderTemplate(); order.id = orderIds[8]; return order; })(),
-      ],
+      orders: getNewOrdersTemplates(7),
     };
-    response = await createOrders(solana, serum, request);
+    response = await createOrders(request);
   });
 
   it('getOpenOrder [0]', async () => {
@@ -251,7 +311,7 @@ describe('Full Flow', () => {
         ownerAddress: config.solana.wallet.owner.publicKey,
       },
     };
-    response = await getOpenOrders(solana, serum, request);
+    response = await getOpenOrders(request);
   });
 
   it('getOrder [1]', async () => {
@@ -262,7 +322,7 @@ describe('Full Flow', () => {
         ownerAddress: config.solana.wallet.owner.publicKey,
       },
     };
-    response = await getOrders(solana, serum, request);
+    response = await getOrders(request);
   });
 
   it('getOpenOrders [2, 3]', async () => {
@@ -275,7 +335,7 @@ describe('Full Flow', () => {
         },
       ],
     };
-    response = await getOpenOrders(solana, serum, request);
+    response = await getOpenOrders(request);
   });
 
   it('getOrders [3, 4]', async () => {
@@ -288,7 +348,7 @@ describe('Full Flow', () => {
         },
       ],
     };
-    response = await getOrders(solana, serum, request);
+    response = await getOrders(request);
   });
 
   it('getOpenOrders (all)', async () => {
@@ -296,7 +356,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await getOpenOrders(solana, serum, request);
+    response = await getOpenOrders(request);
   });
 
   it('getOrders (all)', async () => {
@@ -304,7 +364,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await getOrders(solana, serum, request);
+    response = await getOrders(request);
   });
 
   it('cancelOpenOrders [0]', async () => {
@@ -316,7 +376,7 @@ describe('Full Flow', () => {
         marketName: marketName,
       },
     };
-    response = await cancelOpenOrders(solana, serum, request);
+    response = await cancelOpenOrders(request);
   });
 
   it('cancelOrders [1]', async () => {
@@ -328,7 +388,7 @@ describe('Full Flow', () => {
         marketName: marketName,
       },
     };
-    response = await cancelOrders(solana, serum, request);
+    response = await cancelOrders(request);
   });
 
   // it('getOpenOrders [0]', async () => {
@@ -339,8 +399,14 @@ describe('Full Flow', () => {
   //       ownerAddress: config.solana.wallet.owner.address
   //     },
   //   };
-  //   response = await getOpenOrders(solana, serum, request);
-  //   console.log('get open order', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+  //   response = await getOpenOrders(request);
+  //   console.log(
+  //     'getOpenOrders',
+  //     '\nrequest:\n',
+  //     JSON.stringify(request, null, 2),
+  //     '\nresponse:\n',
+  //     JSON.stringify(response.body, null, 2)
+  //   );
   // });
 
   // it('getOrders [1]', async () => {
@@ -351,8 +417,14 @@ describe('Full Flow', () => {
   //       ownerAddress: config.solana.wallet.owner.address
   //     },
   //   };
-  //   response = await getOrders(solana, serum, request);
-  //   console.log('get order', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+  //   response = await getOrders(request);
+  //   console.log(
+  //     'getOrders',
+  //     '\nrequest:\n',
+  //     JSON.stringify(request, null, 2),
+  //     '\nresponse:\n',
+  //     JSON.stringify(response.body, null, 2)
+  //   );
   // });
 
   // it('getFilledOrders [2]', async () => {
@@ -363,13 +435,13 @@ describe('Full Flow', () => {
   //       ownerAddress: config.solana.wallet.owner.address,
   //     },
   //   };
-  //   response = await getFilledOrders(solana, serum, request);
+  //   response = await getFilledOrders(request);
   //   console.log(
-  //     'get filled order',
-  //     'request:',
+  //     'getFilledOrders',
+  //     '\nrequest:\n',
   //     JSON.stringify(request, null, 2),
-  //     'response',
-  //     JSON.stringify(response, null, 2)
+  //     '\nresponse:\n',
+  //     JSON.stringify(response.body, null, 2)
   //   );
   // });
   //
@@ -383,13 +455,13 @@ describe('Full Flow', () => {
   //       },
   //     ],
   //   };
-  //   response = await getFilledOrders(solana, serum, request);
+  //   response = await getFilledOrders(request);
   //   console.log(
-  //     'get filled orders',
-  //     'request:',
+  //     'getFilledOrders',
+  //     '\nrequest:\n',
   //     JSON.stringify(request, null, 2),
-  //     'response',
-  //     JSON.stringify(response, null, 2)
+  //     '\nresponse:\n',
+  //     JSON.stringify(response.body, null, 2)
   //   );
   // });
 
@@ -398,7 +470,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await getFilledOrders(solana, serum, request);
+    response = await getFilledOrders(request);
   });
 
   it('cancelOpenOrders [2, 3]', async () => {
@@ -412,7 +484,7 @@ describe('Full Flow', () => {
         },
       ],
     };
-    response = await cancelOpenOrders(solana, serum, request);
+    response = await cancelOpenOrders(request);
   });
 
   it('cancelOrders [4, 5]', async () => {
@@ -426,7 +498,7 @@ describe('Full Flow', () => {
         },
       ],
     };
-    response = await cancelOrders(solana, serum, request);
+    response = await cancelOrders(request);
   });
 
   it('getOpenOrders [2, 3]', async () => {
@@ -439,7 +511,7 @@ describe('Full Flow', () => {
         },
       ],
     };
-    response = await getOpenOrders(solana, serum, request);
+    response = await getOpenOrders(request);
   });
 
   it('getOrders [4, 5]', async () => {
@@ -452,7 +524,7 @@ describe('Full Flow', () => {
         },
       ],
     };
-    response = await getOrders(solana, serum, request);
+    response = await getOrders(request);
   });
 
   it('cancelOpenOrders (all)', async () => {
@@ -460,7 +532,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await cancelOpenOrders(solana, serum, request);
+    response = await cancelOpenOrders(request);
   });
 
   it('getOpenOrders (all)', async () => {
@@ -468,7 +540,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await getOpenOrders(solana, serum, request);
+    response = await getOpenOrders(request);
   });
 
   it('getOrders (all)', async () => {
@@ -476,7 +548,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await getOrders(solana, serum, request);
+    response = await getOrders(request);
   });
 
   it('createOrders [8, 9]', async () => {
@@ -495,7 +567,7 @@ describe('Full Flow', () => {
         })(),
       ],
     };
-    response = await createOrders(solana, serum, request);
+    response = await createOrders(request);
   });
 
   it('getOpenOrders (all)', async () => {
@@ -503,7 +575,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await getOpenOrders(solana, serum, request);
+    response = await getOpenOrders(request);
   });
 
   it('getOrders (all)', async () => {
@@ -511,7 +583,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await getOrders(solana, serum, request);
+    response = await getOrders(request);
   });
 
   it('cancelOrders (all)', async () => {
@@ -519,7 +591,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await cancelOrders(solana, serum, request);
+    response = await cancelOrders(request);
   });
 
   it('getOpenOrders (all)', async () => {
@@ -527,7 +599,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await getOpenOrders(solana, serum, request);
+    response = await getOpenOrders(request);
   });
 
   it('getOrders (all)', async () => {
@@ -535,7 +607,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await getOrders(solana, serum, request);
+    response = await getOrders(request);
   });
 
   it('settleFunds ["SOL/USDT"]', async () => {
@@ -544,7 +616,7 @@ describe('Full Flow', () => {
       marketName: marketName,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await settleFunds(solana, serum, request);
+    response = await settleFunds(request);
   });
 
   it('settleFunds ["SOL/USDT", "SOL/USDC"]', async () => {
@@ -553,7 +625,7 @@ describe('Full Flow', () => {
       marketNames: marketNames,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await settleFunds(solana, serum, request);
+    response = await settleFunds(request);
   });
 
   it('settleFunds (all)', async () => {
@@ -561,7 +633,7 @@ describe('Full Flow', () => {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await settleFunds(solana, serum, request);
+    response = await settleFunds(request);
   });
 
   expect(response);

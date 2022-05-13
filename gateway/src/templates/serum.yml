@@ -8,8 +8,12 @@ networks: # Serum and Solana networks need to have the same name
     rpcURL: https://testnet.solana.com # The api.testnet... endpoint wasn't working.
   devnet:
     rpcURL: https://api.devnet.solana.com
-# how much the execution price is allowed to move unfavorably from the trade
-# execution price. It uses a rational number for precision.
+parallel:
+  all:
+    batchSize: 100
+    delayBetweenBatches: 15000 # in milliseconds
+cache:
+  markets: 3600 # in seconds
 markets:
   url: https://raw.githubusercontent.com/project-serum/serum-ts/master/packages/serum/src/markets.json
   whitelist:

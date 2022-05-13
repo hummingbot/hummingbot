@@ -28,7 +28,7 @@ afterEach(() => unpatch());
 const patchGetWallet = () => {
   patch(eth, 'getWallet', () => {
     return {
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     };
   });
 };
@@ -112,7 +112,7 @@ describe('POST /evm/allowances', () => {
     const theSpender = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
     eth.getSpender = jest.fn().mockReturnValue(theSpender);
     eth.getContract = jest.fn().mockReturnValue({
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
     patchGetERC20Allowance();
 
@@ -121,7 +121,7 @@ describe('POST /evm/allowances', () => {
       .send({
         chain: 'ethereum',
         network: 'kovan',
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: theSpender,
         tokenSymbols: ['WETH', 'DAI'],
       })
@@ -139,7 +139,7 @@ describe('POST /evm/allowances', () => {
       .send({
         chain: 'ethereum',
         network: 'kovan',
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: '0xSpender',
         tokenSymbols: ['WETH', 'DAI'],
       })
@@ -154,7 +154,7 @@ describe('POST /network/balances', () => {
     patchGetNativeBalance();
     patchGetERC20Balance();
     eth.getContract = jest.fn().mockReturnValue({
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
     await request(gatewayApp)
@@ -162,7 +162,7 @@ describe('POST /network/balances', () => {
       .send({
         chain: 'ethereum',
         network: 'kovan',
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['WETH', 'DAI'],
       })
       .set('Accept', 'application/json')
@@ -178,7 +178,7 @@ describe('POST /network/balances', () => {
     patchGetNativeBalance();
     patchGetERC20Balance();
     eth.getContract = jest.fn().mockReturnValue({
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
     await request(gatewayApp)
@@ -186,7 +186,7 @@ describe('POST /network/balances', () => {
       .send({
         chain: 'ethereum',
         network: 'kovan',
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['ETH'],
       })
       .set('Accept', 'application/json')
@@ -202,7 +202,7 @@ describe('POST /network/balances', () => {
     patchGetNativeBalance();
     patchGetERC20Balance();
     eth.getContract = jest.fn().mockReturnValue({
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
     await request(gatewayApp)
@@ -210,7 +210,7 @@ describe('POST /network/balances', () => {
       .send({
         chain: 'ethereum',
         network: 'kovan',
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['XXX', 'YYY'],
       })
       .set('Accept', 'application/json')
@@ -224,7 +224,7 @@ describe('POST /network/balances', () => {
       .send({
         chain: 'ethereum',
         network: 'kovan',
-        address: 'da857cbda0ba96757fed842617a4',
+        publicKey: 'da857cbda0ba96757fed842617a4',
       })
       .expect(404);
   });
@@ -240,7 +240,7 @@ describe('POST /evm/nonce', () => {
       .send({
         chain: 'ethereum',
         network: 'kovan',
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       })
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
@@ -254,7 +254,7 @@ describe('POST /evm/nonce', () => {
       .send({
         chain: 'ethereum',
         network: 'kovan',
-        address: 'da857cbda0ba96757fed842617a4',
+        publicKey: 'da857cbda0ba96757fed842617a4',
       })
       .expect(404);
   });
@@ -264,7 +264,7 @@ describe('POST /evm/approve', () => {
   it('approve without nonce parameter should return 200', async () => {
     patchGetWallet();
     eth.getContract = jest.fn().mockReturnValue({
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
     patch(eth.nonceManager, 'getNonce', () => 115);
     patchGetTokenBySymbol();
@@ -275,7 +275,7 @@ describe('POST /evm/approve', () => {
       .send({
         chain: 'ethereum',
         network: 'kovan',
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
       })
@@ -295,7 +295,7 @@ describe('POST /evm/approve', () => {
       .send({
         chain: 'ethereum',
         network: 'kovan',
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
         nonce: 115,
@@ -319,7 +319,7 @@ describe('POST /evm/approve', () => {
       .send({
         chain: 'ethereum',
         network: 'kovan',
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
         nonce: 115,
@@ -337,7 +337,7 @@ describe('POST /evm/approve', () => {
       .send({
         chain: 'ethereum',
         network: 'kovan',
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 123,
         nonce: '23',
@@ -350,7 +350,7 @@ describe('POST /evm/cancel', () => {
   it('should return 200', async () => {
     // override getWallet (network call)
     eth.getWallet = jest.fn().mockReturnValue({
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
     eth.cancelTx = jest.fn().mockReturnValue({
@@ -362,7 +362,7 @@ describe('POST /evm/cancel', () => {
       .send({
         chain: 'ethereum',
         network: 'kovan',
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         nonce: 23,
       })
       .set('Accept', 'application/json')
@@ -381,7 +381,7 @@ describe('POST /evm/cancel', () => {
       .send({
         chain: 'ethereum',
         network: 'kovan',
-        address: '',
+        publicKey: '',
         nonce: '23',
       })
       .expect(404);

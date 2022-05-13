@@ -22,7 +22,7 @@ const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 const patchGetWallet = () => {
   patch(avalanche, 'getWallet', () => {
     return {
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     };
   });
 };
@@ -34,14 +34,14 @@ const patchStoredTokenList = () => {
         chainId: 43114,
         name: 'WETH',
         symbol: 'WETH',
-        address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+        publicKey: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
         decimals: 18,
       },
       {
         chainId: 43114,
         name: 'Wrapped AVAX',
         symbol: 'WAVAX',
-        address: '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7',
+        publicKey: '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7',
         decimals: 18,
       },
     ];
@@ -55,7 +55,7 @@ const patchGetTokenBySymbol = () => {
         chainId: 43114,
         name: 'WETH',
         symbol: 'WETH',
-        address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+        publicKey: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
         decimals: 18,
       };
     } else {
@@ -63,7 +63,7 @@ const patchGetTokenBySymbol = () => {
         chainId: 42,
         name: 'WAVAX',
         symbol: 'WAVAX',
-        address: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
+        publicKey: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
         decimals: 18,
       };
     }
@@ -76,7 +76,7 @@ const patchGetTokenByAddress = () => {
       chainId: 43114,
       name: 'WETH',
       symbol: 'WETH',
-      address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+      publicKey: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
       decimals: 18,
     };
   });
@@ -198,7 +198,7 @@ describe('POST /amm/price', () => {
           chainId: 43114,
           name: 'WETH',
           symbol: 'WETH',
-          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          publicKey: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
           decimals: 18,
         };
       } else {
@@ -231,7 +231,7 @@ describe('POST /amm/price', () => {
           chainId: 43114,
           name: 'WETH',
           symbol: 'WETH',
-          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          publicKey: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
           decimals: 18,
         };
       } else {
@@ -278,7 +278,7 @@ describe('POST /amm/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'BUY',
         nonce: 21,
       })
@@ -300,7 +300,7 @@ describe('POST /amm/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'BUY',
       })
       .set('Accept', 'application/json')
@@ -318,7 +318,7 @@ describe('POST /amm/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'BUY',
         nonce: 21,
         maxFeePerGas: '5000000000',
@@ -349,7 +349,7 @@ describe('POST /amm/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'SELL',
         nonce: 21,
       })
@@ -371,7 +371,7 @@ describe('POST /amm/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'SELL',
         nonce: 21,
         maxFeePerGas: '5000000000',
@@ -391,7 +391,7 @@ describe('POST /amm/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: 10000,
-        address: 'da8',
+        publicKey: 'da8',
         side: 'comprar',
       })
       .set('Accept', 'application/json')
@@ -406,7 +406,7 @@ describe('POST /amm/trade', () => {
           chainId: 43114,
           name: 'WETH',
           symbol: 'WETH',
-          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          publicKey: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
           decimals: 18,
         };
       } else {
@@ -423,7 +423,7 @@ describe('POST /amm/trade', () => {
         quote: 'WETH',
         base: 'BITCOIN',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'BUY',
         nonce: 21,
         maxFeePerGas: '5000000000',
@@ -441,7 +441,7 @@ describe('POST /amm/trade', () => {
           chainId: 43114,
           name: 'WETH',
           symbol: 'WETH',
-          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          publicKey: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
           decimals: 18,
         };
       } else {
@@ -458,7 +458,7 @@ describe('POST /amm/trade', () => {
         quote: 'BITCOIN',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'BUY',
         nonce: 21,
         maxFeePerGas: '5000000000',
@@ -479,7 +479,7 @@ describe('POST /amm/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'SELL',
         nonce: 21,
         limitPrice: '9',
@@ -499,7 +499,7 @@ describe('POST /amm/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'BUY',
         nonce: 21,
         limitPrice: '999999999999999999999',
@@ -519,7 +519,7 @@ describe('POST /amm/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'SELL',
         nonce: 21,
         limitPrice: '99999999999',
@@ -539,7 +539,7 @@ describe('POST /amm/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        address,
+        publicKey: publicKey,
         side: 'BUY',
         nonce: 21,
         limitPrice: '9',

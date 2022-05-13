@@ -1,23 +1,13 @@
 import { MARKETS } from '@project-serum/serum';
-import {
-  Account,
-  AccountInfo,
-  Connection,
-  PublicKey,
-  Transaction,
-  TransactionSignature,
-} from '@solana/web3.js';
+import { Account, AccountInfo, Connection, PublicKey, Transaction, TransactionSignature, } from '@solana/web3.js';
 import axios from 'axios';
 import BN from 'bn.js';
 import { Cache, CacheContainer } from 'node-ts-cache';
 import { MemoryStorage } from 'node-ts-cache-storage-memory';
+import { NodeFsStorage } from 'node-ts-cache-storage-node-fs';
 import { Solana } from '../../chains/solana/solana';
 import { getSerumConfig, SerumConfig } from './serum.config';
-import {
-  promisesBatchSize,
-  promisesDelayInMilliseconds,
-  serumMarketsTimeToLive,
-} from './serum.constants';
+import { default as constants } from './serum.constants';
 import {
   convertArrayOfSerumOrdersToMapOfOrders,
   convertMarketBidsAndAsksToOrderBook,
@@ -27,11 +17,7 @@ import {
   convertSerumOrderToOrder,
   convertToTicker,
 } from './serum.convertors';
-import {
-  getNotNullOrThrowError,
-  getRandonBN,
-  promiseAllInBatches,
-} from './serum.helpers';
+import { getNotNullOrThrowError, getRandonBN, promiseAllInBatches, } from './serum.helpers';
 import {
   BasicSerumMarket,
   CancelOrderRequest,
@@ -68,6 +54,51 @@ const caches = {
   markets: new CacheContainer(new MemoryStorage()),
   serumFindQuoteTokenAccountsForOwner: new CacheContainer(new MemoryStorage()),
   serumFindBaseTokenAccountsForOwner: new CacheContainer(new MemoryStorage()),
+
+  filesystem: {
+    serumGetMarketsInformation: new CacheContainer(
+      new NodeFsStorage('/tmp/serumGetMarketsInformation.json')
+    ),
+    serumLoadMarket: new CacheContainer(
+      new NodeFsStorage('/tmp/serumLoadMarket.json')
+    ),
+    serumMarketLoadBids: new CacheContainer(
+      new NodeFsStorage('/tmp/serumMarketLoadBids.json')
+    ),
+    serumMarketLoadAsks: new CacheContainer(
+      new NodeFsStorage('/tmp/serumMarketLoadAsks.json')
+    ),
+    serumMarketLoadFills: new CacheContainer(
+      new NodeFsStorage('/tmp/serumMarketLoadFills.json')
+    ),
+    serumMarketLoadOrdersForOwner: new CacheContainer(
+      new NodeFsStorage('/tmp/serumMarketLoadOrdersForOwner.json')
+    ),
+    serumMarketPlaceOrders: new CacheContainer(
+      new NodeFsStorage('/tmp/serumMarketPlaceOrders.json')
+    ),
+    serumMarketCancelOrdersAndSettleFunds: new CacheContainer(
+      new NodeFsStorage('/tmp/serumMarketCancelOrdersAndSettleFunds.json')
+    ),
+    serumFindOpenOrdersAccountsForOwner: new CacheContainer(
+      new NodeFsStorage('/tmp/serumFindOpenOrdersAccountsForOwner.json')
+    ),
+    serumFindBaseTokenAccountsForOwner: new CacheContainer(
+      new NodeFsStorage('/tmp/serumFindBaseTokenAccountsForOwner.json')
+    ),
+    serumFindQuoteTokenAccountsForOwner: new CacheContainer(
+      new NodeFsStorage('/tmp/serumFindQuoteTokenAccountsForOwner.json')
+    ),
+    serumSettleFunds: new CacheContainer(
+      new NodeFsStorage('/tmp/serumSettleFunds.json')
+    ),
+    serumSettleSeveralFunds: new CacheContainer(
+      new NodeFsStorage('/tmp/serumSettleSeveralFunds.json')
+    ),
+    getSolanaAccount: new CacheContainer(
+      new NodeFsStorage('/tmp/getSolanaAccount.json')
+    ),
+  },
 };
 
 export type Serumish = Serum;
@@ -75,7 +106,7 @@ export type Serumish = Serum;
 /**
  * Serum is a wrapper around the Serum API.
  *
- * // TODO Listen the events from the serum API to automatically settle the funds (specially when filling orders)!!!
+ * // TODO Listen the events from the serum API to automatically settle the funds (specially when filling orders)
  */
 export class Serum {
   private initializing: boolean = false;
@@ -105,6 +136,25 @@ export class Serum {
     this.connection = new Connection(this.config.network.rpcURL);
   }
 
+  @Cache(caches.filesystem.serumGetMarketsInformation, {
+    isCachedForever: true,
+  })
+  private async serumGetMarketsInformation(): Promise<BasicSerumMarket[]> {
+    const marketsURL =
+      this.config.markets.url ||
+      'https://raw.githubusercontent.com/project-serum/serum-ts/master/packages/serum/src/markets.json';
+
+    let marketsInformation: BasicSerumMarket[];
+
+    try {
+      marketsInformation = (await axios.get(marketsURL)).data;
+    } catch (e) {
+      marketsInformation = MARKETS;
+    }
+
+    return marketsInformation;
+  }
+
   /**
    * 1 external API call.
    *
@@ -115,6 +165,9 @@ export class Serum {
    * @param layoutOverride
    * @private
    */
+  // @Cache(caches.filesystem.serumLoadMarket, {
+  //   isCachedForever: true,
+  // })
   private async serumLoadMarket(
     connection: Connection,
     address: PublicKey,
@@ -138,6 +191,9 @@ export class Serum {
    * @param connection
    * @private
    */
+  @Cache(caches.filesystem.serumMarketLoadBids, {
+    isCachedForever: true,
+  })
   private async serumMarketLoadBids(
     market: SerumMarket,
     connection: Connection
@@ -152,6 +208,9 @@ export class Serum {
    * @param connection
    * @private
    */
+  @Cache(caches.filesystem.serumMarketLoadAsks, {
+    isCachedForever: true,
+  })
   private async serumMarketLoadAsks(
     market: SerumMarket,
     connection: Connection
@@ -167,6 +226,9 @@ export class Serum {
    * @param limit
    * @private
    */
+  @Cache(caches.filesystem.serumMarketLoadFills, {
+    isCachedForever: true,
+  })
   private async serumMarketLoadFills(
     market: SerumMarket,
     connection: Connection,
@@ -184,6 +246,9 @@ export class Serum {
    * @param cacheDurationMs
    * @private
    */
+  @Cache(caches.filesystem.serumMarketLoadOrdersForOwner, {
+    isCachedForever: true,
+  })
   private async serumMarketLoadOrdersForOwner(
     market: SerumMarket,
     connection: Connection,
@@ -259,6 +324,9 @@ export class Serum {
    * @param orders
    * @private
    */
+  @Cache(caches.filesystem.serumMarketPlaceOrders, {
+    isCachedForever: true,
+  })
   private async serumMarketPlaceOrders(
     market: SerumMarket,
     connection: Connection,
@@ -290,6 +358,9 @@ export class Serum {
    * @param orders
    * @private
    */
+  @Cache(caches.filesystem.serumMarketCancelOrdersAndSettleFunds, {
+    isCachedForever: true,
+  })
   private async serumMarketCancelOrdersAndSettleFunds(
     market: SerumMarket,
     connection: Connection,
@@ -372,6 +443,9 @@ export class Serum {
    * @param cacheDurationMs
    * @private
    */
+  @Cache(caches.filesystem.serumFindOpenOrdersAccountsForOwner, {
+    isCachedForever: true,
+  })
   private async serumFindOpenOrdersAccountsForOwner(
     market: SerumMarket,
     connection: Connection,
@@ -394,7 +468,10 @@ export class Serum {
    * @param includeUnwrappedSol
    * @private
    */
-  @Cache(caches.serumFindBaseTokenAccountsForOwner, { isCachedForever: true })
+  // @Cache(caches.serumFindBaseTokenAccountsForOwner, { isCachedForever: true })
+  @Cache(caches.filesystem.serumFindBaseTokenAccountsForOwner, {
+    isCachedForever: true,
+  })
   private async serumFindBaseTokenAccountsForOwner(
     market: SerumMarket,
     connection: Connection,
@@ -417,7 +494,10 @@ export class Serum {
    * @param includeUnwrappedSol
    * @private
    */
-  @Cache(caches.serumFindQuoteTokenAccountsForOwner, { isCachedForever: true })
+  // @Cache(caches.serumFindQuoteTokenAccountsForOwner, { isCachedForever: true })
+  @Cache(caches.filesystem.serumFindQuoteTokenAccountsForOwner, {
+    isCachedForever: true,
+  })
   private async serumFindQuoteTokenAccountsForOwner(
     market: SerumMarket,
     connection: Connection,
@@ -443,6 +523,9 @@ export class Serum {
    * @param referrerQuoteWallet
    * @private
    */
+  @Cache(caches.filesystem.serumSettleFunds, {
+    isCachedForever: true,
+  })
   private async serumSettleFunds(
     market: SerumMarket,
     connection: Connection,
@@ -471,6 +554,9 @@ export class Serum {
    * @param settlements
    * @private
    */
+  @Cache(caches.filesystem.serumSettleSeveralFunds, {
+    isCachedForever: true,
+  })
   private async serumSettleSeveralFunds(
     market: SerumMarket,
     connection: Connection,
@@ -488,6 +574,13 @@ export class Serum {
       settlements,
       transaction
     );
+  }
+
+  @Cache(caches.filesystem.getSolanaAccount, {
+    isCachedForever: true,
+  })
+  private async getSolanaAccount(address: string): Promise<Account> {
+    return await this.solana.getAccount(address);
   }
 
   /**
@@ -576,8 +669,8 @@ export class Serum {
     await promiseAllInBatches(
       getMarket,
       names,
-      promisesBatchSize,
-      promisesDelayInMilliseconds
+      constants.parallel.all.batchSize,
+      constants.parallel.all.delayBetweenBatches
     );
 
     return markets;
@@ -586,21 +679,12 @@ export class Serum {
   /**
    * $numberOfAllowedMarkets external API calls.
    */
-  @Cache(caches.markets, { ttl: serumMarketsTimeToLive })
+  @Cache(caches.markets, { ttl: constants.cache.markets })
   async getAllMarkets(): Promise<IMap<string, Market>> {
     const allMarkets = IMap<string, Market>().asMutable();
 
-    const marketsURL =
-      this.config.markets.url ||
-      'https://raw.githubusercontent.com/project-serum/serum-ts/master/packages/serum/src/markets.json';
-
-    let marketsInformation: BasicSerumMarket[];
-
-    try {
-      marketsInformation = (await axios.get(marketsURL)).data;
-    } catch (e) {
-      marketsInformation = MARKETS;
-    }
+    let marketsInformation: BasicSerumMarket[] =
+      await this.serumGetMarketsInformation();
 
     marketsInformation = marketsInformation.filter(
       (item) =>
@@ -632,8 +716,8 @@ export class Serum {
     await promiseAllInBatches(
       loadMarket,
       marketsInformation,
-      promisesBatchSize,
-      promisesDelayInMilliseconds
+      constants.parallel.all.batchSize,
+      constants.parallel.all.delayBetweenBatches
     );
 
     return allMarkets;
@@ -671,8 +755,8 @@ export class Serum {
     await promiseAllInBatches(
       getOrderBook,
       marketNames,
-      promisesBatchSize,
-      promisesDelayInMilliseconds
+      constants.parallel.all.batchSize,
+      constants.parallel.all.delayBetweenBatches
     );
 
     return orderBooks;
@@ -689,6 +773,7 @@ export class Serum {
 
   /**
    * 1 external API call.
+   * // TODO mock response for unit tests!!!
    *
    * @param marketName
    */
@@ -748,8 +833,8 @@ export class Serum {
     await promiseAllInBatches(
       getTicker,
       marketNames,
-      promisesBatchSize,
-      promisesDelayInMilliseconds
+      constants.parallel.all.batchSize,
+      constants.parallel.all.delayBetweenBatches
     );
 
     return tickers;
@@ -853,8 +938,8 @@ export class Serum {
     await promiseAllInBatches(
       getOrders,
       targets,
-      promisesBatchSize,
-      promisesDelayInMilliseconds
+      constants.parallel.all.batchSize,
+      constants.parallel.all.delayBetweenBatches
     );
 
     for (const target of targets) {
@@ -889,7 +974,7 @@ export class Serum {
   ): Promise<IMap<string, Order>> {
     const market = await this.getMarket(marketName);
 
-    const owner = await this.solana.getAccount(ownerAddress);
+    const owner = await this.getSolanaAccount(ownerAddress);
 
     const serumOpenOrders = await this.serumMarketLoadOrdersForOwner(
       market.market,
@@ -929,8 +1014,8 @@ export class Serum {
     await promiseAllInBatches<Market, Promise<void>>(
       getOpenOrders,
       Array.from(markets.values()),
-      promisesBatchSize,
-      promisesDelayInMilliseconds
+      constants.parallel.all.batchSize,
+      constants.parallel.all.delayBetweenBatches
     );
 
     return result;
@@ -1030,8 +1115,8 @@ export class Serum {
     await promiseAllInBatches(
       getOrders,
       targets,
-      promisesBatchSize,
-      promisesDelayInMilliseconds
+      constants.parallel.all.batchSize,
+      constants.parallel.all.delayBetweenBatches
     );
 
     for (const target of targets) {
@@ -1072,7 +1157,7 @@ export class Serum {
       0
     );
 
-    // TODO check if it's possible to get the owner address!!!
+    // TODO check if it's possible to get the owner address
     return convertArrayOfSerumOrdersToMapOfOrders(
       market,
       orders,
@@ -1100,8 +1185,8 @@ export class Serum {
     await promiseAllInBatches<Market, Promise<void>>(
       getFilledOrders,
       Array.from(markets.values()),
-      promisesBatchSize,
-      promisesDelayInMilliseconds
+      constants.parallel.all.batchSize,
+      constants.parallel.all.delayBetweenBatches
     );
 
     return result;
@@ -1183,8 +1268,8 @@ export class Serum {
     await promiseAllInBatches(
       getOrders,
       targets,
-      promisesBatchSize,
-      promisesDelayInMilliseconds
+      constants.parallel.all.batchSize,
+      constants.parallel.all.delayBetweenBatches
     );
 
     for (const target of targets) {
@@ -1247,8 +1332,8 @@ export class Serum {
     await promiseAllInBatches<Market, Promise<void>>(
       getOrders,
       Array.from(markets.values()),
-      promisesBatchSize,
-      promisesDelayInMilliseconds
+      constants.parallel.all.batchSize,
+      constants.parallel.all.delayBetweenBatches
     );
 
     return result;
@@ -1284,7 +1369,7 @@ export class Serum {
   async createOrders(
     candidates: CreateOrdersRequest[]
   ): Promise<IMap<string, Order>> {
-    // TODO Check the maximum number of orders that we can create at once!!!
+    // TODO Check the maximum number of orders that we can create at once
 
     const ordersMap = IMap<
       Market,
@@ -1306,7 +1391,7 @@ export class Serum {
         ordersMap.set(market, marketMap!);
       }
 
-      const owner = await this.solana.getAccount(candidate.ownerAddress);
+      const owner = await this.getSolanaAccount(candidate.ownerAddress);
 
       let ownerOrders = marketMap?.get(owner);
       if (!ownerOrders) {
@@ -1314,7 +1399,6 @@ export class Serum {
         marketMap?.set(owner, ownerOrders);
       }
 
-      // TODO fix for buy orders!!!
       const payer = (await this.solana.getAccount(candidate.payerAddress))
         .publicKey;
 
@@ -1381,14 +1465,14 @@ export class Serum {
   }
 
   /**
-   * external API calls. // TODO fix!!!
+   * (4 + $numberOfOpenAccountsForOwner) or (3 + $numberOfAllowedMarkets + $numberOfOpenAccountsForOwner) external API calls.
    *
    * @param target
    */
   async cancelOrder(target: CancelOrderRequest): Promise<Order> {
     const market = await this.getMarket(target.marketName);
 
-    const owner = await this.solana.getAccount(target.ownerAddress);
+    const owner = await this.getSolanaAccount(target.ownerAddress);
 
     const order = await this.getOpenOrder({ ...target });
 
@@ -1438,7 +1522,7 @@ export class Serum {
         ordersMap.set(market, marketMap!);
       }
 
-      const owner = await this.solana.getAccount(target.ownerAddress);
+      const owner = await this.getSolanaAccount(target.ownerAddress);
 
       let ownerOrders = marketMap?.get(owner);
       if (!ownerOrders) {
@@ -1528,7 +1612,7 @@ export class Serum {
     ownerAddress: string
   ): Promise<TransactionSignature[]> {
     const market = await this.getMarket(marketName);
-    const owner = await this.solana.getAccount(ownerAddress);
+    const owner = await this.getSolanaAccount(ownerAddress);
     const signatures: TransactionSignature[] = [];
 
     // const fundsSettlements: {
@@ -1642,8 +1726,8 @@ export class Serum {
     await promiseAllInBatches(
       settleFunds,
       marketNames,
-      promisesBatchSize,
-      promisesDelayInMilliseconds
+      constants.parallel.all.batchSize,
+      constants.parallel.all.delayBetweenBatches
     );
 
     return funds;

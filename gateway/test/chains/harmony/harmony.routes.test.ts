@@ -23,7 +23,7 @@ const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 const patchGetWallet = () => {
   patch(harmony, 'getWallet', () => {
     return {
-      address,
+      publicKey: publicKey,
     };
   });
 };
@@ -36,7 +36,7 @@ const patchGetTokenBySymbol = () => {
   patch(harmony, 'getTokenBySymbol', () => {
     return {
       chainId: 1666600000,
-      address: '0xcF664087a5bB0237a0BAd6742852ec6c8d69A27a',
+      publicKey: '0xcF664087a5bB0237a0BAd6742852ec6c8d69A27a',
       decimals: 18,
       name: 'Wrapped ONE',
       symbol: 'WONE',
@@ -97,7 +97,7 @@ describe('POST /evm/nonce', () => {
       .send({
         chain: 'harmony',
         network: 'testnet',
-        address,
+        publicKey: publicKey,
       })
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
@@ -111,7 +111,7 @@ describe('POST /evm/nonce', () => {
       .send({
         chain: 'harmony',
         network: 'testnet',
-        address: 'da857cbda0ba96757fed842617a4',
+        publicKey: 'da857cbda0ba96757fed842617a4',
       })
       .expect(404);
   });
@@ -121,7 +121,7 @@ describe('POST /evm/approve', () => {
   it('should return 200', async () => {
     patchGetWallet();
     harmony.getContract = jest.fn().mockReturnValue({
-      address,
+      publicKey: publicKey,
     });
     patch(harmony.nonceManager, 'getNonce', () => 115);
     patchGetTokenBySymbol();
@@ -132,7 +132,7 @@ describe('POST /evm/approve', () => {
       .send({
         chain: 'harmony',
         network: 'testnet',
-        address,
+        publicKey: publicKey,
         spender: 'sushiswap',
         token: 'SUSHI',
       })
@@ -150,7 +150,7 @@ describe('POST /evm/approve', () => {
       .send({
         chain: 'harmony',
         network: 'testnet',
-        address,
+        publicKey: publicKey,
         spender: 'sushiswap',
         token: 123,
         nonce: '23',
@@ -166,7 +166,7 @@ describe('POST /evm/allowances', () => {
     const spender = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
     harmony.getSpender = jest.fn().mockReturnValue(spender);
     harmony.getContract = jest.fn().mockReturnValue({
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
     patchGetERC20Allowance();
 
@@ -175,7 +175,7 @@ describe('POST /evm/allowances', () => {
       .send({
         chain: 'harmony',
         network: 'testnet',
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: spender,
         tokenSymbols: ['WETH', 'DAI'],
       })
@@ -195,7 +195,7 @@ describe('POST /network/balances', () => {
     patchGetNativeBalance();
     patchGetERC20Balance();
     harmony.getContract = jest.fn().mockReturnValue({
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
     await request(gatewayApp)
@@ -203,7 +203,7 @@ describe('POST /network/balances', () => {
       .send({
         chain: 'harmony',
         network: 'testnet',
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['WETH', 'DAI'],
       })
       .set('Accept', 'application/json')
@@ -218,7 +218,7 @@ describe('POST /evm/cancel', () => {
   it('should return 200', async () => {
     // override getWallet (network call)
     harmony.getWallet = jest.fn().mockReturnValue({
-      address,
+      publicKey: publicKey,
     });
 
     harmony.cancelTx = jest.fn().mockReturnValue({
@@ -230,7 +230,7 @@ describe('POST /evm/cancel', () => {
       .send({
         chain: 'harmony',
         network: 'testnet',
-        address,
+        publicKey: publicKey,
         nonce: 23,
       })
       .set('Accept', 'application/json')
@@ -249,7 +249,7 @@ describe('POST /evm/cancel', () => {
       .send({
         chain: 'harmony',
         network: 'testnet',
-        address: '',
+        publicKey: '',
         nonce: '23',
       })
       .expect(404);

@@ -36,7 +36,7 @@ describe('nonce', () => {
   it('return a nonce for a wallet', async () => {
     patch(harmony, 'getWallet', () => {
       return {
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       };
     });
     patch(harmony.nonceManager, 'getNonce', () => 2);
@@ -71,7 +71,7 @@ describe('allowances', () => {
   it('return allowances for an owner, spender and tokens', async () => {
     patch(harmony, 'getWallet', () => {
       return {
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       };
     });
 
@@ -109,14 +109,14 @@ describe('approve', () => {
       return sushiswap;
     });
     harmony.getContract = jest.fn().mockReturnValue({
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
     patch(harmony, 'ready', () => true);
 
     patch(harmony, 'getWallet', () => {
       return {
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       };
     });
 
@@ -175,7 +175,7 @@ describe('approve', () => {
 
     patch(harmony, 'getWallet', () => {
       return {
-        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       };
     });
 

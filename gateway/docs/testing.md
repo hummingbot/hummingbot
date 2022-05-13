@@ -138,10 +138,10 @@ Here is an example:
 
 ```TypeScript
     patch(eth, 'getWallet', () => {
-      return {
-        address: '0...',
-      };
-    });
+  return {
+    publicKey: '0...',
+  };
+});
 ```
 
 Normally `eth.getWallet` would take a private key and return a `Wallet` object
