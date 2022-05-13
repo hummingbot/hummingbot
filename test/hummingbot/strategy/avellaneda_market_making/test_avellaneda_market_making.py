@@ -32,6 +32,9 @@ from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import 
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
     AvellanedaMarketMakingConfigMap,
+    DailyBetweenTimesModel,
+    FromDateToDateModel,
+    InfiniteModel,
     MultiOrderLevelModel,
     TrackHangingOrdersModel
 )
@@ -393,63 +396,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
     def test_market_info(self):
         self.assertEqual(self.market_info, self.strategy.market_info)
 
-    def test_order_refresh_tolerance_pct(self):
-        # Default value for order_refresh_tolerance_pct
-        self.assertEqual(Decimal(0), self.strategy.order_refresh_tolerance_pct)
-
-        # Test setter method
-        self.strategy.order_refresh_tolerance_pct = Decimal("1")
-
-        self.assertEqual(Decimal("1"), self.strategy.order_refresh_tolerance_pct)
-
-    def test_order_amount(self):
-        self.assertEqual(self.order_amount, self.strategy.order_amount)
-
-        # Test setter method
-        self.strategy.order_amount = Decimal("1")
-
-        self.assertEqual(Decimal("1"), self.strategy.order_amount)
-
-    def test_inventory_target_base_pct(self):
-        self.assertEqual(self.inventory_target_base_pct, self.strategy.inventory_target_base_pct)
-
-        # Test setter method
-        self.strategy.inventory_target_base_pct = Decimal("1")
-
-        self.assertEqual(Decimal("1"), self.strategy.inventory_target_base_pct)
-
-    def test_order_optimization_enabled(self):
-        self.assertFalse(s_decimal_zero, self.strategy.order_optimization_enabled)
-
-        # Test setter method
-        self.strategy.order_optimization_enabled = True
-
-        self.assertTrue(self.strategy.order_optimization_enabled)
-
-    def test_order_refresh_time(self):
-        self.assertEqual(float(30.0), self.strategy.order_refresh_time)
-
-        # Test setter method
-        self.strategy.order_refresh_time = float(1.0)
-
-        self.assertEqual(float(1.0), self.strategy.order_refresh_time)
-
-    def test_filled_order_delay(self):
-        self.assertEqual(float(60.0), self.strategy.filled_order_delay)
-
-        # Test setter method
-        self.strategy.filled_order_delay = float(1.0)
-
-        self.assertEqual(float(1.0), self.strategy.filled_order_delay)
-
-    def test_add_transaction_costs_to_orders(self):
-        self.assertTrue(self.strategy.order_optimization_enabled)
-
-        # Test setter method
-        self.strategy.order_optimization_enabled = False
-
-        self.assertFalse(self.strategy.order_optimization_enabled)
-
     def test_base_asset(self):
         self.assertEqual(self.trading_pair.split("-")[0], self.strategy.base_asset)
 
@@ -645,9 +591,9 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def test_calculate_reservation_price_and_optimal_spread_timeframe_constrained(self):
         # Init params
-        self.strategy.execution_timeframe = "daily_between_times"
-        self.strategy.start_time = (datetime.datetime.fromtimestamp(self.strategy.current_timestamp) - datetime.timedelta(minutes=30)).time()
-        self.strategy.end_time = (datetime.datetime.fromtimestamp(self.strategy.current_timestamp) + datetime.timedelta(minutes=30)).time()
+        start_time = (datetime.datetime.fromtimestamp(self.strategy.current_timestamp) - datetime.timedelta(minutes=30)).time().strftime("%H:%M:%S")
+        end_time = (datetime.datetime.fromtimestamp(self.strategy.current_timestamp) + datetime.timedelta(minutes=30)).time().strftime("%H:%M:%S")
+        self.config_map.execution_timeframe_mode = DailyBetweenTimesModel(start_time=start_time, end_time=end_time)
 
         # Simulate low volatility
         self.simulate_low_volatility(self.strategy)
@@ -667,8 +613,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def test_calculate_reservation_price_and_optimal_spread_timeframe_infinite(self):
         # Init params
-        self.strategy.execution_timeframe = "infinite"
-        self.strategy.gamma = self.risk_factor_infinite
+        self.config_map.execution_timeframe_mode = InfiniteModel()
+        self.config_map.risk_factor = self.risk_factor_infinite
 
         # Simulate low volatility
         self.simulate_low_volatility(self.strategy)
@@ -697,7 +643,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         }
 
         # Re-configure strategy with order_ride configurations
-        self.strategy.order_override = order_override
+        self.config_map.order_override =  order_override
 
         expected_proposal = (list(), list())
         for order in order_override.values():
@@ -801,7 +747,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(empty_proposal, self.strategy.create_proposal_based_on_order_levels())
 
         # Re-initialize strategy with order_level configurations
-        self.strategy.order_levels = 2
+        order_levels_mode = MultiOrderLevelModel()
+        order_levels_mode.order_levels = 2
+        order_levels_mode.level_distances = 1
+        self.config_map.order_levels_mode = order_levels_mode
 
         # Calculate order levels
         bid_level_spreads, ask_level_spreads = self.strategy._get_level_spreads()
@@ -878,7 +827,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         }
 
         # Re-configure strategy with order_ride configurations
-        self.strategy.order_override = order_override
+        self.config_map.order_override =  order_override
 
         expected_buys = []
         expected_sells = []
@@ -899,10 +848,13 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(str(expected_proposal), str(self.strategy.create_base_proposal()))
 
         # Reset order_override configuration
-        self.strategy.order_override = {}
+        self.config_map.order_override =  {}
 
         # (3) With order_levels
-        self.strategy.order_levels = 2
+        order_levels_mode = MultiOrderLevelModel()
+        order_levels_mode.order_levels = 2
+        order_levels_mode.level_distances = 1
+        self.config_map.order_levels_mode = order_levels_mode
 
         # Calculate order levels
         bid_level_spreads, ask_level_spreads = self.strategy._get_level_spreads()
@@ -1043,7 +995,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertAlmostEqual(expected_ask_price, new_ask_price, 6)
 
         # (2) With none enabled
-        self.strategy.order_optimization_enabled = self.strategy.add_transaction_costs_to_orders = False
+        self.config_map.order_optimization_enabled = self.config_map.add_transaction_costs = False
 
         new_proposal: Proposal = deepcopy(initial_proposal)
         self.strategy.apply_order_price_modifiers(new_proposal)
@@ -1135,7 +1087,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         }
 
         # Re-configure strategy with order_ride configurations
-        self.strategy.order_override = order_override
+        self.config_map.order_override =  order_override
 
         self.strategy.apply_order_amount_eta_transformation(proposal)
 
@@ -1144,7 +1096,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Test (2) Check proposal when order_override is None
 
         # Re-configure strategy with order_ride configurations
-        self.strategy.order_override = None
+        self.config_map.order_override =  None
 
         proposal: Proposal = deepcopy(initial_proposal)
 
@@ -1201,7 +1153,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertFalse(self.strategy.is_within_tolerance(buy_prices, proposal_buys))
         self.assertFalse(self.strategy.is_within_tolerance(sell_prices, proposal_sells))
 
-        self.strategy.order_refresh_tolerance_pct = Decimal("10.0")
+        self.config_map.order_refresh_tolerance_pct = Decimal("10.0")
 
         self.assertTrue(self.strategy.is_within_tolerance(buy_prices, proposal_buys))
         self.assertTrue(self.strategy.is_within_tolerance(sell_prices, proposal_sells))
@@ -1236,14 +1188,14 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Case (2): Has active orders and within _order_refresh_tolerance_pct.
         # Note: Order will NOT be cancelled
-        self.strategy.order_refresh_tolerance_pct = Decimal("10")
+        self.config_map.order_refresh_tolerance_pct = Decimal("10")
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_buy_order)
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_sell_order)
         self.assertEqual(2, len(self.strategy.active_orders))
 
         # Case (3a): Has active orders and EXCEED _order_refresh_tolerance_pct BUT cancel_timestamp > current_timestamp
         # Note: Orders will NOT be cancelled
-        self.strategy.order_refresh_tolerance_pct = Decimal("0")
+        self.config_map.order_refresh_tolerance_pct = Decimal("0")
         bid_price: Decimal = Decimal("98.5")
         ask_price: Decimal = Decimal("100.5")
         proposal: Proposal = Proposal(
@@ -1266,7 +1218,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Case (4): Has active orders and within _order_refresh_tolerance_pct BUT cancel_timestamp > current_timestamp
         # Note: Order not cancelled
-        self.strategy.order_refresh_tolerance_pct = Decimal("10")
+        self.config_map.order_refresh_tolerance_pct = Decimal("10")
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_buy_order)
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_sell_order)
         self.assertEqual(2, len(self.strategy.active_orders))
@@ -1276,7 +1228,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(2, len(self.strategy.active_orders))
 
         # Case (5): Has active orders and within _order_refresh_tolerance_pct AND cancel_timestamp <= current_timestamp
-        self.strategy.order_refresh_tolerance_pct = s_decimal_neg_one
+        self.config_map.order_refresh_tolerance_pct = s_decimal_neg_one
 
         self.clock.backtest_til(self.strategy.current_timestamp + self.strategy.order_refresh_time + 1)
 
@@ -1481,7 +1433,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         refresh_time = self.strategy.order_refresh_time
 
         self.strategy.avg_vol = self.avg_vol_indicator
-        self.strategy.order_refresh_tolerance_pct = -1
+        self.config_map.order_refresh_tolerance_pct = -1
 
         # Simulate low volatility
         self.simulate_low_volatility(self.strategy)

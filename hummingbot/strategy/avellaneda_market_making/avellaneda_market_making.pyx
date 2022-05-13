@@ -129,10 +129,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     def min_spread(self):
         return self._config_map.min_spread
 
-    @min_spread.setter
-    def min_spread(self, value):
-        self._config_map.min_spread = value
-
     @property
     def avg_vol(self):
         return self._avg_vol
@@ -157,34 +153,17 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     def order_refresh_tolerance_pct(self) -> Decimal:
         return self._config_map.order_refresh_tolerance_pct
 
-    @order_refresh_tolerance_pct.setter
-    def order_refresh_tolerance_pct(self, value: Decimal):
-        if self._config_map.order_refresh_tolerance_pct is not None:
-            self._config_map.order_refresh_tolerance_pct = value
-
     @property
     def order_refresh_tolerance(self) -> Decimal:
         return self._config_map.order_refresh_tolerance_pct / Decimal('100')
-
-    @order_refresh_tolerance.setter
-    def order_refresh_tolerance(self, value: Decimal):
-        self._config_map.order_refresh_tolerance_pct = value * Decimal('100')
 
     @property
     def order_amount(self) -> Decimal:
         return self._config_map.order_amount
 
-    @order_amount.setter
-    def order_amount(self, value: Decimal):
-        self._config_map.order_amount = value
-
     @property
     def inventory_target_base_pct(self) -> Decimal:
         return self._config_map.inventory_target_base_pct
-
-    @inventory_target_base_pct.setter
-    def inventory_target_base_pct(self, value: Decimal):
-        self._config_map.inventory_target_base_pct = value
 
     @property
     def inventory_target_base(self) -> Decimal:
@@ -198,33 +177,17 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     def order_optimization_enabled(self) -> bool:
         return self._config_map.order_optimization_enabled
 
-    @order_optimization_enabled.setter
-    def order_optimization_enabled(self, value: bool):
-        self._config_map.order_optimization_enabled = value
-
     @property
     def order_refresh_time(self) -> float:
         return self._config_map.order_refresh_time
-
-    @order_refresh_time.setter
-    def order_refresh_time(self, value: float):
-        self._config_map.order_refresh_time = value
 
     @property
     def filled_order_delay(self) -> float:
         return self._config_map.filled_order_delay
 
-    @filled_order_delay.setter
-    def filled_order_delay(self, value: float):
-        self._config_map.filled_order_delay = value
-
     @property
     def order_override(self) -> Dict[str, any]:
         return self._config_map.order_override
-
-    @order_override.setter
-    def order_override(self, value):
-        self._config_map.order_override = value
 
     @property
     def order_levels(self) -> int:
@@ -233,14 +196,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         else:
             return 0
 
-    @order_levels.setter
-    def order_levels(self, value):
-        if value == 0:
-            self._config_map.order_levels_mode = SingleOrderLevelModel()
-        else:
-            self._config_map.order_levels_mode = MultiOrderLevelModel()
-            self._config_map.order_levels_mode.order_levels = value
-
     @property
     def level_distances(self) -> int:
         if self._config_map.order_levels_mode.title == MultiOrderLevelModel.Config.title:
@@ -248,26 +203,13 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         else:
             return 0
 
-    @level_distances.setter
-    def level_distances(self, value):
-        if self._config_map.order_levels_mode.title == MultiOrderLevelModel.Config.title:
-            self._config_map.order_levels_mode.level_distances = value
-
     @property
     def max_order_age(self):
         return self._config_map.max_order_age
 
-    @max_order_age.setter
-    def max_order_age(self, value):
-        self._config_map.max_order_age = value
-
     @property
     def add_transaction_costs_to_orders(self) -> bool:
         return self._config_map.add_transaction_costs
-
-    @add_transaction_costs_to_orders.setter
-    def add_transaction_costs_to_orders(self, value: bool):
-        self._config_map.add_transaction_costs = value
 
     @property
     def base_asset(self):
@@ -284,10 +226,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     @property
     def gamma(self):
         return self._config_map.risk_factor
-
-    @gamma.setter
-    def gamma(self, value):
-        self._config_map.risk_factor = value
 
     @property
     def alpha(self):
@@ -308,10 +246,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     @property
     def eta(self):
         return self._config_map.order_amount_shape_factor
-
-    @eta.setter
-    def eta(self, value):
-        self._config_map.order_amount_shape_factor = value
 
     @property
     def reservation_price(self):
@@ -344,10 +278,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     @property
     def execution_timeframe(self):
         return self._execution_timeframe
-
-    @execution_timeframe.setter
-    def execution_timeframe(self, value):
-        self._execution_timeframe = value
 
     @property
     def start_time(self) -> time:
