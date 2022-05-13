@@ -324,6 +324,11 @@ export class UniswapLPHelper {
     upperPrice: number,
     tokenId: number = 0
   ): Promise<AddPosReturn> {
+    if (token1.sortsBefore(token0)) {
+      [token0, token1] = [token1, token0];
+      [amount0, amount1] = [amount1, amount0];
+      [lowerPrice, upperPrice] = [1 / upperPrice, 1 / lowerPrice];
+    }
     const lowerPriceInFraction = math.fraction(lowerPrice) as math.Fraction;
     const upperPriceInFraction = math.fraction(upperPrice) as math.Fraction;
     const poolData = await this.getPoolState(
