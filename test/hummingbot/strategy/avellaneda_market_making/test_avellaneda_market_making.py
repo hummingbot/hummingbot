@@ -591,8 +591,12 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def test_calculate_reservation_price_and_optimal_spread_timeframe_constrained(self):
         # Init params
-        start_time = (datetime.datetime.fromtimestamp(self.strategy.current_timestamp) - datetime.timedelta(minutes=30)).time().strftime("%H:%M:%S")
-        end_time = (datetime.datetime.fromtimestamp(self.strategy.current_timestamp) + datetime.timedelta(minutes=30)).time().strftime("%H:%M:%S")
+        start_time = (
+            datetime.datetime.fromtimestamp(self.strategy.current_timestamp) - datetime.timedelta(minutes=30)
+        ).time().strftime("%H:%M:%S")
+        end_time = (
+            datetime.datetime.fromtimestamp(self.strategy.current_timestamp) + datetime.timedelta(minutes=30)
+        ).time().strftime("%H:%M:%S")
         self.config_map.execution_timeframe_mode = DailyBetweenTimesModel(start_time=start_time, end_time=end_time)
 
         # Simulate low volatility
