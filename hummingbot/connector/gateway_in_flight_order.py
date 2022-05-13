@@ -162,7 +162,7 @@ class GatewayInFlightOrder(InFlightOrder):
                                   in data.get("order_fills", {}).items()})
         order._nonce = data["nonce"]
         order._cancel_tx_hash = data["cancel_tx_hash"]
-        order._gas_price = data["gas_price"]
+        order._gas_price = Decimal(data["gas_price"])
 
         order.check_filled_condition()
 
@@ -190,5 +190,5 @@ class GatewayInFlightOrder(InFlightOrder):
             "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()},
             "nonce": self._nonce,
             "cancel_tx_hash": self._cancel_tx_hash,
-            "gas_price": self._gas_price
+            "gas_price": str(self._gas_price)
         }
