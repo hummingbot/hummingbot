@@ -110,7 +110,10 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
 
     def test_strategy_fails_to_initialize_position_mode(self):
         self.clock.add_iterator(self.strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
         self.strategy._strategy_initialized = True
+        self.strategy._position_mode_ready = True
+        # Setting ONEWAY in initial settings failed
         self.perp_connector.set_position_mode(PositionMode.HEDGE)
         self.clock.backtest_til(self.start_timestamp + 2)
         self.assertTrue(self._is_logged("INFO", "Markets are ready."))
@@ -121,6 +124,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
 
     def test_strategy_starts_with_multiple_active_position(self):
         # arbitrary adding multiple actuve positions here, which should never happen in real trading on oneway mode
+        self.strategy._position_mode_ready = True
         self.perp_connector._account_positions[trading_pair + "SHORT"] = Position(
             trading_pair,
             PositionSide.SHORT,
@@ -148,6 +152,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         Tests if the strategy can start
         """
 
+        self.strategy._position_mode_ready = True
         self.clock.add_iterator(self.strategy)
         self.perp_connector._account_positions[trading_pair] = Position(
             trading_pair,
@@ -171,6 +176,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         Tests if the strategy start then stop when there is an existing position where position amount doesn't match
         strategy order amount
         """
+        self.strategy._position_mode_ready = True
         self.clock.add_iterator(self.strategy)
         self.perp_connector._account_positions[trading_pair] = Position(
             trading_pair,
@@ -286,6 +292,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.assertTrue(len(taker_orders) == 0)
 
     def test_arbitrage_buy_spot_sell_perp(self):
+        self.strategy._position_mode_ready = True
         self.clock.add_iterator(self.strategy)
         self.assertEqual(StrategyState.Closed, self.strategy.strategy_state)
         self.turn_clock(2)
@@ -378,6 +385,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.assertEqual(6, len(self.strategy.tracked_market_orders))
 
     def test_arbitrage_sell_spot_buy_perp_opening(self):
+        self.strategy._position_mode_ready = True
         self.perp_connector.set_balanced_order_book(trading_pair=trading_pair,
                                                     mid_price=90,
                                                     min_price=1,
