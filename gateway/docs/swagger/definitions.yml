@@ -857,7 +857,7 @@ definitions:
         type: 'string'
         example: '0.014466048000000000'
 
-  SerumOrderSideEnum:
+    SerumOrderSideEnum:
     type: string
     enum:
       - BUY
@@ -1000,22 +1000,88 @@ definitions:
           example:
             - 'SOL/USDT'
             - 'SOL/USDC'
+  SerumGetOrderBooksBidsResponseItem:
+    type: 'object'
+    required:
+      - 'id'
+      - 'exchangeId'
+      - 'marketName'
+      - 'price'
+      - 'amount'
+      - 'side'
+    properties:
+      id:
+        type: string
+        example: 123456789
+      marketName:
+        type: string
+        example: SOL/USDT
+      ownerAddress:
+        type: string
+        example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      price:
+        type: number
+        example: 250
+      amount:
+        type: number
+        example: 0.1
+      side:
+        $ref: '#/definitions/SerumOrderSideEnum'
+      status:
+        $ref: '#/definitions/SerumOrderStatusEnum'
+      type:
+        $ref: '#/definitions/SerumOrderTypeEnum'
+  SerumGetOrderBooksBidsResponseList:
+    type: array
+    items:
+      $ref: '#/definitions/SerumGetOrderBooksBidsResponseItem'
+  SerumGetOrderBooksAsksResponseItem:
+    type: 'object'
+    required:
+      - 'id'
+      - 'exchangeId'
+      - 'marketName'
+      - 'price'
+      - 'amount'
+      - 'side'
+    properties:
+      id:
+        type: string
+        example: 123456789
+      marketName:
+        type: string
+        example: SOL/USDT
+      ownerAddress:
+        type: string
+        example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      price:
+        type: number
+        example: 250
+      amount:
+        type: number
+        example: 0.1
+      side:
+        $ref: '#/definitions/SerumOrderSideEnum'
+      status:
+        $ref: '#/definitions/SerumOrderStatusEnum'
+      type:
+        $ref: '#/definitions/SerumOrderTypeEnum'
+  SerumGetOrderBooksAsksResponseList:
+    type: array
+    items:
+      $ref: '#/definitions/SerumGetOrderBooksAsksResponseItem'
   SerumGetOrderBooksResponseItem:
     type: object
     properties:
       market:
         $ref: '#/definitions/SerumGetMarketsResponseItem'
       bids:
-        $ref: '#/definitions/SerumOrderListResponse'
+        $ref: '#/definitions/SerumGetOrderBooksBidsResponseList'
       asks:
-        $ref: '#/definitions/SerumOrderListResponse'
-  SerumGetOrderBooksResponseList:
-    type: array
-    items:
-      $ref: '#/definitions/SerumGetOrderBooksResponseItem'
+        $ref: '#/definitions/SerumGetOrderBooksAsksResponseList'
   SerumGetOrderBooksResponse:
     additionalProperties:
-      $ref: '#/definitions/SerumGetOrderBooksRequestList'
+      $ref: '#/definitions/SerumGetOrderBooksResponseItem'
   SerumGetTickersRequest:
     type: 'object'
     required:
@@ -1051,13 +1117,9 @@ definitions:
       timestamp:
         type: number
         example: 1652363040000
-  SerumGetTickersResponseList:
-    type: array
-    items:
-      $ref: '#/definitions/SerumGetTickersResponseItem'
   SerumGetTickersResponse:
     additionalProperties:
-      $ref: '#/definitions/SerumGetTickersResponseList'
+      $ref: '#/definitions/SerumGetTickersResponseItem'
   SerumPostCreateOrdersItemRequest:
     type: object
     required:
@@ -1081,7 +1143,7 @@ definitions:
         type: string
         example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
       side:
-        $ref: '#/definitions/SerumOrderSide'
+        $ref: '#/definitions/SerumOrderSideEnum'
       price:
         type: number
         example: 9999.99
@@ -1089,11 +1151,11 @@ definitions:
         type: number
         example: 0.1
       type:
-        $ref: '#/definitions/SerumOrderType'
-    SerumPostCreateOrdersListRequest:
-      type: array
-      items:
-        $ref: '#/definitions/SerumPostCreateOrdersItemRequest'
+        $ref: '#/definitions/SerumOrderTypeEnum'
+  SerumPostCreateOrdersListRequest:
+    type: array
+    items:
+      $ref: '#/definitions/SerumPostCreateOrdersItemRequest'
   SerumPostCreateOrdersRequest:
     type: 'object'
     required:
@@ -1120,13 +1182,19 @@ definitions:
       - 'id'
       - 'exchangeId'
       - 'marketName'
+      - 'ownerAddress'
       - 'price'
       - 'amount'
       - 'side'
+      - 'status'
+      - 'type'
     properties:
       id:
         type: string
         example: 123456789
+      exchangeId:
+        type: string
+        example: 184467256269654779094895731
       marketName:
         type: string
         example: SOL/USDT
@@ -1140,41 +1208,192 @@ definitions:
         type: number
         example: 0.1
       side:
-        $ref: '#/definitions/SerumOrderSide'
+        $ref: '#/definitions/SerumOrderSideEnum'
       status:
-        $ref: '#/definitions/SerumOrderStatus'
+        $ref: '#/definitions/SerumOrderStatusEnum'
       type:
-        $ref: '#/definitions/SerumOrderType'
-  SerumPostCreateOrdersResponseList:
-    type: array
-    items:
-      $ref: '#/definitions/SerumPostCreateOrdersResponseItem'
+        $ref: '#/definitions/SerumOrderTypeEnum'
   SerumPostCreateOrdersResponse:
     additionalProperties:
-      $ref: '#/definitions/SerumPostCreateOrdersResponseList'
+      $ref: '#/definitions/SerumPostCreateOrdersResponseItem'
   SerumGetOrdersRequest:
     type: 'object'
     required:
-      - ''
+      - 'chain'
+      - 'network'
+      - 'connector'
     properties:
+      chain:
+        type: string
+        example: solana
+      network:
+        type: string
+        example: mainnet-beta
+      connector:
+        type: string
+        example: serum
+      order:
+        type: object
+        required:
+          - 'ownerAddress'
+        properties:
+          id:
+            type: string
+            example: 123456789
+          exchangeId:
+            type: string
+            example: 184467256269654779094895731
+          marketName:
+            type: string
+            example: SOL/USDT
+          ownerAddress:
+            type: string
+            example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      orders:
+        type: array
+        items:
+          type: object
+          required:
+              - 'ownerAddress'
+          properties:
+            ids:
+              type: array
+              items:
+                type: string
+                example:
+                  - 123456789
+                  - 987654321
+            exchangeIds:
+              type: array
+              items:
+                type: string
+                example:
+                  - 184467256269654779094895731
+                  - 284467256269654779094895723
+            marketName:
+              type: string
+              example: SOL/USDT
+            ownerAddress:
+              type: string
+              example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
   SerumGetOrdersResponseItem:
     type: object
     properties:
-  SerumGetOrdersResponseList:
-    type: array
-    items:
-      $ref: '#/definitions/SerumGetOrdersResponseItem'
+      id:
+        type: string
+        example: 123456789
+      exchangeId:
+        type: string
+        example: 184467256269654779094895731
+      marketName:
+        type: string
+        example: SOL/USDT
+      ownerAddress:
+        type: string
+        example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      price:
+        type: number
+        example: 9999.99
+      amount:
+        type: number
+        example: 0.1
+      side:
+        $ref: '#/definitions/SerumOrderSideEnum'
+        example: BUY
+      status:
+        $ref: '#/definitions/SerumOrderStatusEnum'
+        example: FILLED
   SerumGetOrdersResponse:
     additionalProperties:
-      $ref: '#/definitions/SerumGetOrdersResponseList'
+      additionalProperties:
+        $ref: '#/definitions/SerumGetOrdersResponseItem'
   SerumDeleteCancelOrdersRequest:
     type: 'object'
     required:
-      - ''
+      - 'chain'
+      - 'network'
+      - 'connector'
     properties:
+      chain:
+        type: string
+        example: solana
+      network:
+        type: string
+        example: mainnet-beta
+      connector:
+        type: string
+        example: serum
+      order:
+        type: object
+        required:
+          - 'ownerAddress'
+        properties:
+          id:
+            type: string
+            example: 123456789
+          exchangeId:
+            type: string
+            example: 184467256269654779094895731
+          marketName:
+            type: string
+            example: SOL/USDT
+          ownerAddress:
+            type: string
+            example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      orders:
+        type: array
+        items:
+          type: object
+          required:
+            - 'ownerAddress'
+          properties:
+            ids:
+              type: array
+              items:
+                type: string
+                example:
+                  - 123456789
+                  - 987654321
+            exchangeIds:
+              type: array
+              items:
+                type: string
+                example:
+                  - 184467256269654779094895731
+                  - 284467256269654779094895723
+            marketName:
+              type: string
+              example: SOL/USDT
+            ownerAddress:
+              type: string
+              example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
   SerumDeleteCancelOrdersResponseItem:
     type: object
     properties:
+      id:
+        type: string
+        example: 123456789
+      exchangeId:
+        type: string
+        example: 184467256269654779094895731
+      marketName:
+        type: string
+        example: SOL/USDT
+      ownerAddress:
+        type: string
+        example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      price:
+        type: number
+        example: 9999.99
+      amount:
+        type: number
+        example: 0.1
+      side:
+        $ref: '#/definitions/SerumOrderSideEnum'
+        example: SELL
+      status:
+        $ref: '#/definitions/SerumOrderStatusEnum'
+        example: CANCELATION_PENDING
   SerumDeleteCancelOrdersResponseList:
     type: array
     items:
@@ -1185,11 +1404,90 @@ definitions:
   SerumGetOpenOrdersRequest:
     type: 'object'
     required:
-      - ''
+      - 'chain'
+      - 'network'
+      - 'connector'
     properties:
+      chain:
+        type: string
+        example: solana
+      network:
+        type: string
+        example: mainnet-beta
+      connector:
+        type: string
+        example: serum
+      order:
+        type: object
+        required:
+          - 'ownerAddress'
+        properties:
+          id:
+            type: string
+            example: 123456789
+          exchangeId:
+            type: string
+            example: 184467256269654779094895731
+          marketName:
+            type: string
+            example: SOL/USDT
+          ownerAddress:
+            type: string
+            example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      orders:
+        type: array
+        items:
+          type: object
+          required:
+            - 'ownerAddress'
+          properties:
+            ids:
+              type: array
+              items:
+                type: string
+                example:
+                  - 123456789
+                  - 987654321
+            exchangeIds:
+              type: array
+              items:
+                type: string
+                example:
+                  - 184467256269654779094895731
+                  - 284467256269654779094895723
+            marketName:
+              type: string
+              example: SOL/USDT
+            ownerAddress:
+              type: string
+              example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
   SerumGetOpenOrdersResponseItem:
     type: object
     properties:
+      id:
+        type: string
+        example: 123456789
+      exchangeId:
+        type: string
+        example: 184467256269654779094895731
+      marketName:
+        type: string
+        example: SOL/USDT
+      ownerAddress:
+        type: string
+        example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      price:
+        type: number
+        example: 9999.99
+      amount:
+        type: number
+        example: 0.1
+      side:
+        $ref: '#/definitions/SerumOrderSideEnum'
+        example: BUY
+      status:
+        $ref: '#/definitions/SerumOrderStatusEnum'
+        example: OPEN
   SerumGetOpenOrdersResponseList:
     type: array
     items:
@@ -1200,11 +1498,90 @@ definitions:
   SerumDeleteCancelOpenOrdersRequest:
     type: 'object'
     required:
-      - ''
+      - 'chain'
+      - 'network'
+      - 'connector'
     properties:
+      chain:
+        type: string
+        example: solana
+      network:
+        type: string
+        example: mainnet-beta
+      connector:
+        type: string
+        example: serum
+      order:
+        type: object
+        required:
+          - 'ownerAddress'
+        properties:
+          id:
+            type: string
+            example: 123456789
+          exchangeId:
+            type: string
+            example: 184467256269654779094895731
+          marketName:
+            type: string
+            example: SOL/USDT
+          ownerAddress:
+            type: string
+            example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      orders:
+        type: array
+        items:
+          type: object
+          required:
+            - 'ownerAddress'
+          properties:
+            ids:
+              type: array
+              items:
+                type: string
+                example:
+                  - 123456789
+                  - 987654321
+            exchangeIds:
+              type: array
+              items:
+                type: string
+                example:
+                  - 184467256269654779094895731
+                  - 284467256269654779094895723
+            marketName:
+              type: string
+              example: SOL/USDT
+            ownerAddress:
+              type: string
+              example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
   SerumDeleteCancelOpenOrdersResponseItem:
     type: object
     properties:
+      id:
+        type: string
+        example: 123456789
+      exchangeId:
+        type: string
+        example: 184467256269654779094895731
+      marketName:
+        type: string
+        example: SOL/USDT
+      ownerAddress:
+        type: string
+        example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      price:
+        type: number
+        example: 9999.99
+      amount:
+        type: number
+        example: 0.1
+      side:
+        $ref: '#/definitions/SerumOrderSideEnum'
+        example: BUY
+      status:
+        $ref: '#/definitions/SerumOrderStatusEnum'
+        example: CANCELED
   SerumDeleteCancelOpenOrdersResponseList:
     type: array
     items:
@@ -1215,11 +1592,94 @@ definitions:
   SerumGetFilledOrdersRequest:
     type: 'object'
     required:
-      - ''
+      - 'chain'
+      - 'network'
+      - 'connector'
     properties:
+      chain:
+        type: string
+        example: solana
+      network:
+        type: string
+        example: mainnet-beta
+      connector:
+        type: string
+        example: serum
+      order:
+        type: object
+        required:
+          - 'ownerAddress'
+        properties:
+          id:
+            type: string
+            example: 123456789
+          exchangeId:
+            type: string
+            example: 184467256269654779094895731
+          marketName:
+            type: string
+            example: SOL/USDT
+          ownerAddress:
+            type: string
+            example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      orders:
+        type: array
+        items:
+          type: object
+          required:
+            - 'ownerAddress'
+          properties:
+            ids:
+              type: array
+              items:
+                type: string
+                example:
+                  - 123456789
+                  - 987654321
+            exchangeIds:
+              type: array
+              items:
+                type: string
+                example:
+                  - 184467256269654779094895731
+                  - 284467256269654779094895723
+            marketName:
+              type: string
+              example: SOL/USDT
+            ownerAddress:
+              type: string
+              example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
   SerumGetFilledOrdersResponseItem:
     type: object
     properties:
+      id:
+        type: string
+        example: 123456789
+      exchangeId:
+        type: string
+        example: 184467256269654779094895731
+      marketName:
+        type: string
+        example: SOL/USDT
+      ownerAddress:
+        type: string
+        example: 2wvayrdTmrJFUAdg0yHoBtPu1eE41t0fxruxTh7ufnJa
+      price:
+        type: number
+        example: 9999.99
+      amount:
+        type: number
+        example: 0.1
+      side:
+        $ref: '#/definitions/SerumOrderSideEnum'
+      status:
+        $ref: '#/definitions/SerumOrderStatusEnum'
+      fee:
+        type: number
+        example: 0.1
+      fillmentTimestamp:
+        type: number
+        example: 1652383641
   SerumGetFilledOrdersResponseList:
     type: array
     items:
@@ -1230,11 +1690,33 @@ definitions:
   SerumPostSettleFundsRequest:
     type: 'object'
     required:
-      - ''
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'ownerAddress'
     properties:
+      chain:
+        type: string
+        example: solana
+      network:
+        type: string
+        example: mainnet-beta
+      connector:
+        type: string
+        example: serum
+      marketName:
+        type: string
+        example: SOL/USDT
+      marketNames:
+        type: array
+        items:
+          type: string
+          example:
+            - SOL/USDT
+            - BTC/USDT
   SerumPostSettleFundsResponseItem:
-    type: object
-    properties:
+    type: string
+    example: 4vAstoT7dgJ3LaexYRQbJ4HwbV8vPaMEUWVP3o89oq4vJcn9E11LJHyEpoc3sZ4dxmAtZGU7YyRS1uR36wuUEQMK
   SerumPostSettleFundsResponseList:
     type: array
     items:
