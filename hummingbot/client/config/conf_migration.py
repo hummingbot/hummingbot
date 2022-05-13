@@ -107,7 +107,7 @@ def _maybe_migrate_encrypted_confs(config_keys: BaseConnectorConfigMap) -> List[
     files_to_remove = []
     missing_fields = []
     for el in cm.traverse():
-        if el.client_field_data is not None and el.client_field_data.is_secure:
+        if el.client_field_data is not None:
             key_path = conf_dir_path / f"{encrypted_conf_prefix}{el.attr}{encrypted_conf_postfix}"
             if key_path.exists():
                 with open(key_path, 'r') as f:
