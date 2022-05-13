@@ -1315,7 +1315,8 @@ export class Serum {
       }
 
       // TODO fix for buy orders!!!
-      const payer = owner.publicKey;
+      const payer = (await this.solana.getAccount(candidate.payerAddress))
+        .publicKey;
 
       const candidateSerumOrder: SerumOrderParams<Account> = {
         side: convertOrderSideToSerumSide(candidate.side),
