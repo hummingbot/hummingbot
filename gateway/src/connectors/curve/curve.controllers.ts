@@ -41,23 +41,12 @@ export async function price(
         UNKNOWN_TOKEN_ERROR_CODE
       );
     } else {
-      let price: string;
-      let expectedAmount: string;
-      if (req.side === 'BUY') {
-        price = await curve.price(quoteToken, baseToken, req.amount);
-        expectedAmount = await curve.expectedAmount(
-          quoteToken,
-          baseToken,
-          req.amount
-        );
-      } else {
-        price = await curve.price(baseToken, quoteToken, req.amount);
-        expectedAmount = await curve.expectedAmount(
-          baseToken,
-          quoteToken,
-          req.amount
-        );
-      }
+      let expectedTrade = await curve.estimateTrade(
+        baseToken,
+        quoteToken,
+        req.amount,
+        req.side
+      );
 
       const gasPrice = ethereumish.gasPrice;
       const gasLimit = curve.gasLimit;
@@ -69,8 +58,8 @@ export async function price(
         base: baseTokenInfo.address,
         quote: quoteTokenInfo.address,
         amount: new Decimal(req.amount).toFixed(baseTokenInfo.decimals),
-        expectedAmount,
-        price,
+        expectedAmount: expectedTrade.expectedAmount,
+        price: expectedTrade.outputAmount,
         gasPrice,
         gasLimit,
         gasCost: gasCostInEthString(gasPrice, gasLimit),

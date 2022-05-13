@@ -12,6 +12,12 @@ import { getEthereumConfig } from '../../chains/ethereum/ethereum.config';
 // with a set of values at a time.
 import curve from '@curvefi/api';
 
+export interface ExpectedTrade {
+  route: any;
+  outputAmount: string;
+  expectedAmount: string;
+}
+
 export class Curve {
   public readonly types: string = 'Curve';
   private static _instances: { [name: string]: Curve };
@@ -93,25 +99,49 @@ export class Curve {
     return this._gasLimit;
   }
 
-  async price(
-    tokenIn: string,
-    tokenOut: string,
-    tokenAmount: string
-  ): Promise<string> {
-    const { output } = await curve.getBestRouteAndOutput(
-      tokenIn,
-      tokenOut,
-      tokenAmount
-    );
-    return output; // price returned as float string
-  }
+  async estimateTrade(
+    baseToken: string,
+    quoteToken: string,
+    tokenAmount: string,
+    side: string
+  ): Promise<ExpectedTrade> {
+    let route;
+    let outputAmount;
+    let expectedAmount;
 
-  async expectedAmount(
-    tokenIn: string,
-    tokenOut: string,
-    tokenAmount: string
-  ): Promise<string> {
-    return curve.routerExchangeExpected(tokenIn, tokenOut, tokenAmount);
+    if (side === 'BUY') {
+      const best = await curve.getBestRouteAndOutput(
+        baseToken,
+        quoteToken,
+        tokenAmount
+      );
+      route = best.route;
+      outputAmount = best.output;
+      expectedAmount = await curve.routerExchangeExpected(
+        baseToken,
+        quoteToken,
+        tokenAmount
+      );
+    } else {
+      const best = await curve.getBestRouteAndOutput(
+        quoteToken,
+        baseToken,
+        tokenAmount
+      );
+      route = best.route;
+      outputAmount = best.output;
+      expectedAmount = await curve.routerExchangeExpected(
+        quoteToken,
+        baseToken,
+        tokenAmount
+      );
+    }
+
+    return {
+      route,
+      outputAmount,
+      expectedAmount,
+    };
   }
 
   async executeTrade(
