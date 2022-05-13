@@ -1,13 +1,8 @@
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_validators import (
-    validate_exchange,
-    validate_market_trading_pair,
-)
-from hummingbot.client.settings import (
-    required_exchanges,
-    AllConnectorSettings,
-)
 from typing import Optional
+
+from hummingbot.client.config.config_validators import validate_exchange, validate_market_trading_pair
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.settings import AllConnectorSettings, required_exchanges
 
 
 def trading_pair_prompt():
@@ -71,7 +66,7 @@ dev_simple_trade_config_map = {
                   type_str="decimal"),
     "cancel_order_wait_time":
         ConfigVar(key="cancel_order_wait_time",
-                  prompt="How long do you want to wait before cancelling your limit order (in seconds). "
+                  prompt="How long do you want to wait before canceling your limit order (in seconds). "
                          "(Default is 60 seconds) ? >>> ",
                   required_if=lambda: dev_simple_trade_config_map.get("order_type").value == "limit",
                   type_str="float",
