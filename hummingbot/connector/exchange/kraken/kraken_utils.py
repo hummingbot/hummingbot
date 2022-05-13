@@ -196,7 +196,7 @@ class KrakenConfigMap(BaseConnectorConfigMap):
         )
     )
     kraken_api_tier: str = Field(
-        default=...,
+        default="Starter",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Kraken API Tier (Starter/Intermediate/Pro)",
             is_connect_key=True,
