@@ -21,7 +21,8 @@ export class Avalanche extends EthereumBase implements Ethereumish {
       config.network.nodeURL,
       config.network.tokenListSource,
       config.network.tokenListType,
-      config.manualGasPrice
+      config.manualGasPrice,
+      config.gasLimit
     );
     this._chain = config.network.name;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
