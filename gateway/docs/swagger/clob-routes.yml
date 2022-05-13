@@ -5,7 +5,7 @@ paths:
         - 'clob'
       summary: 'Verify Clob Routes Status'
       description: 'Verify if the Clob routes are ready to use and show some other useful information. '
-      operationId: 'root'
+      operationId: 'clob.root'
       consumes:
         - 'application/json'
       produces:
@@ -13,22 +13,22 @@ paths:
       parameters:
         - in: 'body'
           name: 'body'
-          description: ''
+          description: 'Request body.'
           required: true
           schema:
-            $ref: '#/definitions/ClobRootRequest'
+            $ref: '#/definitions/SerumRootRequest'
       responses:
         '200':
-          description: ''
+          description: 'Successful response.'
           schema:
-            $ref: '#/definitions/ClobRootResponse'
+            $ref: '#/definitions/SerumRootResponse'
   /clob/markets:
     get:
       tags:
         - 'clob'
-      summary: ''
-      description: ''
-      operationId: 'markets'
+      summary: 'Get One or More Markets'
+      description: 'Get the information of one, several or all available markets.'
+      operationId: 'clob.markets'
       consumes:
         - 'application/json'
       produces:
@@ -36,24 +36,24 @@ paths:
       parameters:
         - in: 'body'
           name: 'body'
-          description: ''
+          description: 'Request body.'
           required: true
           schema:
-            $ref: '#/definitions/ClobGetMarketsRequest'
+            $ref: '#/definitions/SerumGetMarketsRequest'
       responses:
         '200':
-          description: ''
+          description: 'Successful response.'
           schema:
-            $ref: '#/definitions/ClobGetMarketsResponse'
+            $ref: '#/definitions/SerumGetMarketsResponse'
         '404':
-          description: ''
+          description: 'Not found response.'
   /clob/orderBooks:
     get:
       tags:
         - 'clob'
-      summary: ''
-      description: ''
-      operationId: 'orderBooks'
+      summary: 'Get One or More Order Books'
+      description: 'Get the information of one, several or all available order books.'
+      operationId: 'clob.orderBooks'
       consumes:
         - 'application/json'
       produces:
@@ -61,24 +61,24 @@ paths:
       parameters:
         - in: 'body'
           name: 'body'
-          description: ''
+          description: 'Request body.'
           required: true
           schema:
-            $ref: '#/definitions/ClobGetOrderBooksRequest'
+            $ref: '#/definitions/SerumGetOrderBooksRequest'
       responses:
         '200':
-          description: ''
+          description: 'Successful response.'
           schema:
-            $ref: '#/definitions/ClobGetOrderBooksResponse'
+            $ref: '#/definitions/SerumGetOrderBooksResponse'
         '404':
-          description: ''
+          description: 'Not found response.'
   /clob/tickers:
     get:
       tags:
         - 'clob'
-      summary: ''
-      description: ''
-      operationId: 'tickers'
+      summary: 'Get One or More Tickers'
+      description: 'Get the information of one, several or all available tickers.'
+      operationId: 'clob.tickers'
       consumes:
         - 'application/json'
       produces:
@@ -86,24 +86,24 @@ paths:
       parameters:
         - in: 'body'
           name: 'body'
-          description: ''
+          description: 'Request body.'
           required: true
           schema:
-            $ref: '#/definitions/ClobGetTickersRequest'
+            $ref: '#/definitions/SerumGetTickersRequest'
       responses:
         '200':
-          description: ''
+          description: 'Successful response.'
           schema:
-            $ref: '#/definitions/ClobGetTickersResponse'
+            $ref: '#/definitions/SerumGetTickersResponse'
         '404':
-          description: ''
+          description: 'Not found response.'
   /clob/createOrders:
     get:
       tags:
         - 'clob'
-      summary: ''
-      description: ''
-      operationId: 'createOrders'
+      summary: 'Create One Or More Orders'
+      description: 'Create one or more orders.'
+      operationId: 'clob.createOrders'
       consumes:
         - 'application/json'
       produces:
@@ -111,24 +111,24 @@ paths:
       parameters:
         - in: 'body'
           name: 'body'
-          description: ''
+          description: 'Request body.'
           required: true
           schema:
-            $ref: '#/definitions/ClobPostCreateOrdersRequest'
+            $ref: '#/definitions/SerumPostCreateOrdersRequest'
       responses:
         '200':
-          description: ''
+          description: 'Successful response.'
           schema:
-            $ref: '#/definitions/ClobPostCreateOrdersResponse'
-        '404':
-          description: ''\
+            $ref: '#/definitions/SerumPostCreateOrdersResponse'
+        '400':
+          description: 'Bad request response.'
   /clob/getOrders:
     get:
       tags:
         - 'clob'
-      summary: ''
-      description: ''
-      operationId: 'getOrders'
+      summary: 'Get One Or More Orders'
+      description: 'Get the information of one, several or all orders.'
+      operationId: 'clob.getOrders'
       consumes:
         - 'application/json'
       produces:
@@ -136,24 +136,26 @@ paths:
       parameters:
         - in: 'body'
           name: 'body'
-          description: ''
+          description: 'Request body.'
           required: true
           schema:
-            $ref: '#/definitions/ClobGetOrdersRequest'
+            $ref: '#/definitions/SerumGetOrdersRequest'
       responses:
         '200':
-          description: ''
+          description: 'Successful response.'
           schema:
-            $ref: '#/definitions/ClobGetOrdersResponse'
+            $ref: '#/definitions/SerumGetOrdersResponse'
+        '400':
+          description: 'Bad request response.'
         '404':
-          description: ''
+          description: 'Not found response.'
   /clob/cancelOrders:
     get:
       tags:
         - 'clob'
-      summary: ''
-      description: ''
-      operationId: 'cancelOrders'
+      summary: 'Cancel One Or More Orders Open Orders'
+      description: 'Cancel one, several or all open orders.'
+      operationId: 'clob.cancelOrders'
       consumes:
         - 'application/json'
       produces:
@@ -161,24 +163,26 @@ paths:
       parameters:
         - in: 'body'
           name: 'body'
-          description: ''
+          description: 'Request body.'
           required: true
           schema:
-            $ref: '#/definitions/ClobDeleteCancelOrdersRequest'
+            $ref: '#/definitions/SerumDeleteCancelOrdersRequest'
       responses:
         '200':
-          description: ''
+          description: 'Successful response.'
           schema:
-            $ref: '#/definitions/ClobDeleteCancelOrdersResponse'
+            $ref: '#/definitions/SerumDeleteCancelOrdersResponse'
+        '400':
+          description: 'Bad request response.'
         '404':
-          description: ''
+          description: 'Not found response.'
   /clob/getOpenOrders:
     get:
       tags:
         - 'clob'
-      summary: ''
-      description: ''
-      operationId: 'getOpenOrders'
+      summary: 'Get One Or More Open Orders'
+      description: 'Get the information of one, several or all open orders.'
+      operationId: 'clob.getOpenOrders'
       consumes:
         - 'application/json'
       produces:
@@ -186,24 +190,26 @@ paths:
       parameters:
         - in: 'body'
           name: 'body'
-          description: ''
+          description: 'Request body.'
           required: true
           schema:
-            $ref: '#/definitions/ClobGetOpenOrdersRequest'
+            $ref: '#/definitions/SerumGetOpenOrdersRequest'
       responses:
         '200':
-          description: ''
+          description: 'Successful response.'
           schema:
-            $ref: '#/definitions/ClobGetOpenOrdersResponse'
+            $ref: '#/definitions/SerumGetOpenOrdersResponse'
+        '400':
+          description: 'Bad request response.'
         '404':
-          description: ''
+          description: 'Not found response.'
   /clob/cancelOpenOrders:
     get:
       tags:
         - 'clob'
-      summary: ''
-      description: ''
-      operationId: 'cancelOpenOrders'
+      summary: 'Cancel One Or More Open Orders'
+      description: 'Cancel one, several or all open orders.'
+      operationId: 'clob.cancelOpenOrders'
       consumes:
         - 'application/json'
       produces:
@@ -211,24 +217,26 @@ paths:
       parameters:
         - in: 'body'
           name: 'body'
-          description: ''
+          description: 'Request body.'
           required: true
           schema:
-            $ref: '#/definitions/ClobDeleteCancelOpenOrdersRequest'
+            $ref: '#/definitions/SerumDeleteCancelOpenOrdersRequest'
       responses:
         '200':
-          description: ''
+          description: 'Successful response.'
           schema:
-            $ref: '#/definitions/ClobDeleteCancelOpenOrdersResponse'
+            $ref: '#/definitions/SerumDeleteCancelOpenOrdersResponse'
+        '400':
+          description: 'Bad request response.'
         '404':
-          description: ''
+          description: 'Not found response.'
   /clob/getFilledOrders:
     get:
       tags:
         - 'clob'
-      summary: ''
-      description: ''
-      operationId: 'getFilledOrders'
+      summary: 'Get One Or More Filled Orders'
+      description: 'Get the information of one, several or all filled orders.'
+      operationId: 'clob.getFilledOrders'
       consumes:
         - 'application/json'
       produces:
@@ -236,24 +244,26 @@ paths:
       parameters:
         - in: 'body'
           name: 'body'
-          description: ''
+          description: 'Request body.'
           required: true
           schema:
-            $ref: '#/definitions/ClobGetFilledOrdersRequest'
+            $ref: '#/definitions/SerumGetFilledOrdersRequest'
       responses:
         '200':
-          description: ''
+          description: 'Successful response.'
           schema:
-            $ref: '#/definitions/ClobGetFilledOrdersResponse'
+            $ref: '#/definitions/SerumGetFilledOrdersResponse'
+        '400':
+          description: 'Bad request response.'
         '404':
-          description: ''
+          description: 'Not found response.'
   /clob/settleFunds:
     get:
       tags:
         - 'clob'
-      summary: ''
-      description: ''
-      operationId: 'settleFunds'
+      summary: 'Settle Funds of One or More Markets'
+      description: 'Settle funds of one, several or all markets.'
+      operationId: 'clob.settleFunds'
       consumes:
         - 'application/json'
       produces:
@@ -261,14 +271,16 @@ paths:
       parameters:
         - in: 'body'
           name: 'body'
-          description: ''
+          description: 'Request body.'
           required: true
           schema:
-            $ref: '#/definitions/ClobPostSettleFundsRequest'
+            $ref: '#/definitions/SerumPostSettleFundsRequest'
       responses:
         '200':
-          description: ''
+          description: 'Successful response.'
           schema:
-            $ref: '#/definitions/ClobPostSettleFundsResponse'
+            $ref: '#/definitions/SerumPostSettleFundsResponse'
+        '400':
+          description: 'Bad request response.'
         '404':
-          description: ''
+          description: 'Not found response.'
