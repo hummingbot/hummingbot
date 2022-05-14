@@ -309,6 +309,11 @@ class AmmArbStrategy(StrategyPyBase):
 
                 if not self._concurrent_orders_submission:
                     await arb_side.completed_event.wait()
+                    if arb_side.is_failed:
+                        self.log_with_clock(logging.ERROR,
+                                            f"Order {order_id} seems to have failed in this arbitrage opportunity. "
+                                            f"Dropping Arbitrage Proposal. ")
+                        return
 
             await arb_proposal.wait()
 
@@ -444,7 +449,13 @@ class AmmArbStrategy(StrategyPyBase):
     def set_order_completed(self, order_id: str):
         arb_side: Optional[ArbProposalSide] = self._order_id_side_map.get(order_id)
         if arb_side:
-            arb_side.completed_event.set()
+            arb_side.set_completed()
+
+    def set_order_failed(self, order_id: str):
+        arb_side: Optional[ArbProposalSide] = self._order_id_side_map.get(order_id)
+        if arb_side:
+            arb_side.set_failed()
+            arb_side.set_completed()
 
     def did_complete_buy_order(self, order_completed_event: BuyOrderCompletedEvent):
         self.set_order_completed(order_id=order_completed_event.order_id)
@@ -475,7 +486,7 @@ class AmmArbStrategy(StrategyPyBase):
                                           f"on {market_info.market.name}.")
 
     def did_fail_order(self, order_failed_event: MarketOrderFailureEvent):
-        self.set_order_completed(order_id=order_failed_event.order_id)
+        self.set_order_failed(order_id=order_failed_event.order_id)
 
     def did_cancel_order(self, cancelled_event: OrderCancelledEvent):
         self.set_order_completed(order_id=cancelled_event.order_id)
