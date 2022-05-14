@@ -18,22 +18,37 @@ import {
   Fraction as UniswapFraction,
 } from '@uniswap/sdk-core';
 import {
+  Token as TokenDefikingdoms,
+  CurrencyAmount as CurrencyAmountDefikingdoms,
+  Trade as TradeDefikingdoms,
+  Fraction as DefikingdomsFraction,
+} from '@defikingdoms/sdk';
+import {
   Token as TokenPangolin,
   CurrencyAmount as CurrencyAmountPangolin,
   Trade as TradePangolin,
   Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
 
-export type Tokenish = Token | TokenPangolin | UniswapCoreToken;
+export type Tokenish =
+  | Token
+  | TokenPangolin
+  | UniswapCoreToken
+  | TokenDefikingdoms;
 export type UniswapishTrade =
   | Trade
   | TradePangolin
-  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
+  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
+  | TradeDefikingdoms;
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
-  | UniswapCoreCurrencyAmount<Currency>;
-export type Fractionish = UniswapFraction | PangolinFraction;
+  | UniswapCoreCurrencyAmount<Currency>
+  | CurrencyAmountDefikingdoms;
+export type Fractionish =
+  | UniswapFraction
+  | PangolinFraction
+  | DefikingdomsFraction;
 
 export interface ExpectedTrade {
   trade: UniswapishTrade;
