@@ -20,10 +20,10 @@ from hummingbot.connector.exchange.gate_io.gate_io_utils import (
     convert_to_exchange_trading_pair,
     GateIoAPIError,
     GateIORESTRequest,
-    get_new_client_order_id
 )
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -365,7 +365,12 @@ class GateIoExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        order_id: str = get_new_client_order_id(True, trading_pair)
+        order_id = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID,
+            max_id_len=CONSTANTS.MAX_ID_LEN,
+        )
         safe_ensure_future(self._create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -380,7 +385,12 @@ class GateIoExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        order_id: str = get_new_client_order_id(False, trading_pair)
+        order_id = get_new_client_order_id(
+            is_buy=False,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID,
+            max_id_len=CONSTANTS.MAX_ID_LEN,
+        )
         safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -551,7 +561,7 @@ class GateIoExchange(ExchangeBase):
                     self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
                 order_was_cancelled = True
         if order_was_cancelled:
-            self.logger().info(f"Successfully cancelled order {order_id} on {CONSTANTS.EXCHANGE_NAME}.")
+            self.logger().info(f"Successfully canceled order {order_id} on {CONSTANTS.EXCHANGE_NAME}.")
             self.stop_tracking_order(order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, order_id))
@@ -759,7 +769,7 @@ class GateIoExchange(ExchangeBase):
             tracked_order.last_state = order_msg.get("status", order_msg.get("event"))
 
             if tracked_order.is_cancelled:
-                self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+                self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
                 self.stop_tracking_order(tracked_order.client_order_id)
                 self.trigger_event(MarketEvent.OrderCancelled,
                                    OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id))
@@ -835,10 +845,8 @@ class GateIoExchange(ExchangeBase):
                                            tracked_order.client_order_id,
                                            tracked_order.base_asset,
                                            tracked_order.quote_asset,
-                                           tracked_order.fee_asset,
                                            tracked_order.executed_amount_base,
                                            tracked_order.executed_amount_quote,
-                                           tracked_order.fee_paid,
                                            tracked_order.order_type,
                                            tracked_order.exchange_order_id))
             self.stop_tracking_order(tracked_order.client_order_id)
@@ -889,7 +897,7 @@ class GateIoExchange(ExchangeBase):
                 cancellation_results = await safe_gather(*tasks, return_exceptions=False)
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.", exc_info=True,
+                "Unexpected error canceling orders.", exc_info=True,
                 app_warning_msg=(f"Failed to cancel all orders on {CONSTANTS.EXCHANGE_NAME}. "
                                  "Check API key and network connection.")
             )

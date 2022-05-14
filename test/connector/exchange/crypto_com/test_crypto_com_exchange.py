@@ -163,7 +163,6 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
         self.assertEqual("USDT", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
-        self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.event_logger.event_log]))
 
@@ -243,7 +242,7 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
         price = self.connector.quantize_order_price(self.trading_pair, price)
         amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0001"))
         cl_order_id = self._place_order(True, amount, OrderType.LIMIT_MAKER, price, 1, None, None,
-                                        fixture.WS_ORDER_CANCELLED)
+                                        fixture.WS_ORDER_CANCELED)
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
@@ -251,7 +250,7 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
         price = self.connector.quantize_order_price(self.trading_pair, price)
         amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0001"))
         cl_order_id = self._place_order(False, amount, OrderType.LIMIT_MAKER, price, 2, None, None,
-                                        fixture.WS_ORDER_CANCELLED)
+                                        fixture.WS_ORDER_CANCELED)
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 

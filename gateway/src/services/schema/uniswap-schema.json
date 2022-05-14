@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "versions": {
+      "type": "object",
+      "patternProperties": {
+        "^\\w+$": {
+          "type": "object",
+          "properties": {
+            "allowedSlippage": { "type": "string" },
+            "ttl": { "type": "integer" }
+          },
+          "required": ["allowedSlippage", "ttl"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "contractAddresses": {
+      "type": "object",
+      "patternProperties": {
+        "^\\w+$": {
+          "type": "object",
+          "properties": {
+            "uniswapV2RouterAddress": { "type": "string" },
+            "uniswapV3RouterAddress": { "type": "string" },
+            "uniswapV3NftManagerAddress": { "type": "string" }
+          },
+          "required": [
+            "uniswapV2RouterAddress",
+            "uniswapV3RouterAddress",
+            "uniswapV3NftManagerAddress"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "required": ["versions", "contractAddresses"]
+}

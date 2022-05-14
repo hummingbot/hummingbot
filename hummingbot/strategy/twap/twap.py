@@ -59,7 +59,7 @@ class TwapTradeStrategy(StrategyPyBase):
         :param order_price: price to place the order at
         :param order_delay_time: how long to wait between placing trades
         :param execution_state: execution state object with the conditions that should be satisfied to run each tick
-        :param cancel_order_wait_time: how long to wait before cancelling an order
+        :param cancel_order_wait_time: how long to wait before canceling an order
         :param status_report_interval: how often to report network connection related warnings, if any
         """
 
@@ -156,17 +156,28 @@ class TwapTradeStrategy(StrategyPyBase):
             warning_lines.extend(self.network_warning([market_info]))
 
             markets_df = self.market_status_data_frame([market_info])
-            lines.extend(["", "  Markets:"] + ["    " + line for line in str(markets_df).split("\n")])
+            lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string().split("\n")])
 
             assets_df = self.wallet_balance_data_frame([market_info])
-            lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
+            lines.extend(["", "  Assets:"] + ["    " + line for line in assets_df.to_string().split("\n")])
 
             # See if there're any open orders.
             if len(active_orders) > 0:
-                df = LimitOrder.to_pandas(active_orders)
-                df_lines = str(df).split("\n")
-                lines.extend(["", "  Active orders:"] +
-                             ["    " + line for line in df_lines])
+                price_provider = None
+                for market_info in self._market_infos.values():
+                    price_provider = market_info
+                if price_provider is not None:
+                    df = LimitOrder.to_pandas(active_orders, mid_price=price_provider.get_mid_price())
+                    if self._is_buy:
+                        # Descend from the price closest to the mid price
+                        df = df.sort_values(by=['Price'], ascending=False)
+                    else:
+                        # Ascend from the price closest to the mid price
+                        df = df.sort_values(by=['Price'], ascending=True)
+                    df = df.reset_index(drop=True)
+                    df_lines = df.to_string().split("\n")
+                    lines.extend(["", "  Active orders:"] +
+                                 ["    " + line for line in df_lines])
             else:
                 lines.extend(["", "  No active maker orders."])
 
@@ -354,7 +365,7 @@ class TwapTradeStrategy(StrategyPyBase):
         self.logger().debug("Checking to see if the user has enough balance to place orders")
 
         if quantized_amount != 0:
-            if self.has_enough_balance(market_info):
+            if self.has_enough_balance(market_info, quantized_amount):
                 if self._is_buy:
                     order_id = self.buy_with_specific_market(market_info,
                                                              amount=quantized_amount,
@@ -376,19 +387,20 @@ class TwapTradeStrategy(StrategyPyBase):
         else:
             self.logger().warning("Not possible to break the order into the desired number of segments.")
 
-    def has_enough_balance(self, market_info):
+    def has_enough_balance(self, market_info, amount: Decimal):
         """
         Checks to make sure the user has the sufficient balance in order to place the specified order
 
         :param market_info: a market trading pair
+        :param amount: order amount
         :return: True if user has enough balance, False if not
         """
         market: ExchangeBase = market_info.market
         base_asset_balance = market.get_balance(market_info.base_asset)
         quote_asset_balance = market.get_balance(market_info.quote_asset)
         order_book: OrderBook = market_info.order_book
-        price = order_book.get_price_for_volume(True, float(self._quantity_remaining)).result_price
+        price = order_book.get_price_for_volume(True, float(amount)).result_price
 
-        return quote_asset_balance >= (self._quantity_remaining * Decimal(price)) \
+        return quote_asset_balance >= (amount * Decimal(price)) \
             if self._is_buy \
-            else base_asset_balance >= self._quantity_remaining
+            else base_asset_balance >= amount

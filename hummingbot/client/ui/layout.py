@@ -1,28 +1,27 @@
 from os.path import join, realpath, dirname
+from typing import Dict
+
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.completion import Completer
 from prompt_toolkit.layout import Dimension
 from prompt_toolkit.layout.containers import (
+    ConditionalContainer,
     Float,
     FloatContainer,
     HSplit,
     VSplit,
     Window,
     WindowAlign,
-    ConditionalContainer,
 )
-from prompt_toolkit.layout.menus import CompletionsMenu
-from prompt_toolkit.layout.layout import Layout
-from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.completion import Completer
 from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.layout.layout import Layout
+from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.widgets import Box, Button, SearchToolbar
-from typing import Dict
 
-from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea, FormattedTextLexer
+from hummingbot.client.settings import MAXIMUM_LOG_PANE_LINE_COUNT, MAXIMUM_OUTPUT_PANE_LINE_COUNT
 from hummingbot.client.tab.data_types import CommandTab
-from hummingbot.client.settings import (
-    MAXIMUM_OUTPUT_PANE_LINE_COUNT,
-    MAXIMUM_LOG_PANE_LINE_COUNT,
-)
+from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea, FormattedTextLexer
+from hummingbot.core.gateway.status_monitor import Status as GatewayStatus
 
 
 HEADER = """
@@ -202,27 +201,19 @@ def get_active_strategy():
     return [(style, f"Strategy: {hb.strategy_name}")]
 
 
-"""def get_active_markets():
-    from hummingbot.client.hummingbot_application import HummingbotApplication
-    hb = HummingbotApplication.main_application()
-    style = "class:primary"
-    markets = "None" if len(hb.market_trading_pairs_map) == 0 \
-              else eval(str(hb.market_trading_pairs_map))
-    return [(style, f"Market(s): {markets}")]"""
-
-
-"""def get_script_file():
-    from hummingbot.client.config.global_config_map import global_config_map
-    script = global_config_map["script_file_path"].value
-    style = "class:primary"
-    return [(style, f"Script_file: {script}")]"""
-
-
 def get_strategy_file():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
     style = "class:log-field"
     return [(style, f"Strategy File: {hb._strategy_file_name}")]
+
+
+def get_gateway_status():
+    from hummingbot.client.hummingbot_application import HummingbotApplication
+    hb = HummingbotApplication.main_application()
+    gateway_status = "ON" if hb._gateway_monitor.current_status is GatewayStatus.ONLINE else "OFF"
+    style = "class:log-field"
+    return [(style, f"Gateway: {gateway_status}")]
 
 
 def generate_layout(input_field: TextArea,
@@ -241,10 +232,12 @@ def generate_layout(input_field: TextArea,
     components["item_top_version"] = Window(FormattedTextControl(get_version), style="class:header")
     components["item_top_active"] = Window(FormattedTextControl(get_active_strategy), style="class:header")
     components["item_top_file"] = Window(FormattedTextControl(get_strategy_file), style="class:header")
+    components["item_top_gateway"] = Window(FormattedTextControl(get_gateway_status), style="class:header")
     components["item_top_toggle"] = right_pane_toggle
     components["pane_top"] = VSplit([components["item_top_version"],
                                      components["item_top_active"],
                                      components["item_top_file"],
+                                     components["item_top_gateway"],
                                      components["item_top_toggle"]], height=1)
     components["pane_bottom"] = VSplit([trade_monitor,
                                         process_monitor,

@@ -967,7 +967,7 @@ class NdaxExchange(ExchangeBase):
             if was_locally_working and tracked_order.is_working:
                 self.trigger_order_created_event(tracked_order)
             elif tracked_order.is_cancelled:
-                self.logger().info(f"Successfully cancelled order {client_order_id}")
+                self.logger().info(f"Successfully canceled order {client_order_id}")
                 self.trigger_event(MarketEvent.OrderCancelled,
                                    OrderCancelledEvent(
                                        self.current_timestamp,
@@ -1038,10 +1038,8 @@ class NdaxExchange(ExchangeBase):
                                                    tracked_order.client_order_id,
                                                    tracked_order.base_asset,
                                                    tracked_order.quote_asset,
-                                                   tracked_order.fee_asset,
                                                    tracked_order.executed_amount_base,
                                                    tracked_order.executed_amount_quote,
-                                                   tracked_order.fee_paid,
                                                    tracked_order.order_type,
                                                    tracked_order.exchange_order_id))
                     self.stop_tracking_order(tracked_order.client_order_id)

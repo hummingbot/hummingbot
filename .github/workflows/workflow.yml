@@ -4,20 +4,20 @@ on:
   push:
     branches: [master, development, 'refactor/unit_tests**', 'epic/**']
   pull_request:
-    branches: [master, development, 'refactor/unit_tests**', 'epic/**']
+    branches: [master, development, 'refactor/unit_tests**', 'epic/**', 'feat/gateway-v2']
     types: [ready_for_review, opened, synchronize, reopened]
 
 jobs:
   build_hummingbot:
-    name: build + stable tests
-    if: github.event.pull_request.draft == false
+    name: Hummingbot build + stable tests
+    if: github.event.pull_request.draft == false && github.base_ref != 'feat/gateway-v2'
     runs-on: "ubuntu-latest"
 
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
-    
+
       # Use cache's hashFiles function to check for changes in core code
       - name: Check for code changes
         id: program-changes
@@ -28,10 +28,6 @@ jobs:
         with:
           path: README.md # placeholder file
           key: ${{ runner.os }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('hummingbot/*', '**/*.py', '**/*.py*', '**/*.pxd', 'test/*') }}
-      
-      # Remove envs directory if exists to prevent bin/tar restore errors
-      - name: Remove envs directory
-        run: rm -Rf /usr/share/miniconda/envs
 
       # Check for setup/environmnet-linux.yml changes
       - name: Cache conda dependencies
@@ -46,76 +42,47 @@ jobs:
             /usr/share/miniconda/envs
           key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment-linux.yml') }}
 
-      # Install python/conda to check if core code has changed
-      - uses: actions/setup-python@v2
-        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
+      # Install environment and Hummingbot
+      - name: Install environment and Hummingbot
+        uses: ./.github/actions/install_env_and_hb
         with:
-          python-version: 3.x
+          program-cache-hit: ${{steps.program-changes.outputs.cache-hit}}
+          dependencies-cache-hit: ${{steps.conda-dependencies.outputs.cache-hit}}
 
-      - name: Install Miniconda and nose
-        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          MINICONDA_FILENAME=Miniconda3-latest-Linux-x86_64.sh
-          curl -o $MINICONDA_FILENAME "https://repo.continuum.io/miniconda/$MINICONDA_FILENAME"
-          bash ${MINICONDA_FILENAME} -b -f -p $HOME/miniconda3
-          source /usr/share/miniconda/etc/profile.d/conda.sh
-          conda install -c anaconda nose
-
-      # Install pre_commit if code has changed
-      - name: Install pre_commit
-        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          source /usr/share/miniconda/etc/profile.d/conda.sh
-          conda install -c conda-forge pre_commit
-        
-      # Install hummingbot env if environment-linux.yml has changed
-      - name: Install Hummingbot
-        if: steps.conda-dependencies.outputs.cache-hit != 'true'
-        shell: bash -l {0}
-        run: |
-          source /usr/share/miniconda/etc/profile.d/conda.sh
-          ./install
+      # Install gateway
+      - name: Install Gateway Dependencies
+        run: yarn --cwd ./gateway install
 
       # Compile and run tests if code has changed
-      - name: Run Flake8
+      - name: Run pre-commit hooks on diff
         shell: bash
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         run: |
-          source /usr/share/miniconda/etc/profile.d/conda.sh
+          source $CONDA/etc/profile.d/conda.sh
           conda activate hummingbot
-          pre-commit run --all-files 
-      - name: Compile Hummingbot
-        shell: bash
-        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
-        env:
-          WITHOUT_CYTHON_OPTIMIZATIONS: true
-        run: |
-          source /usr/share/miniconda/etc/profile.d/conda.sh
-          conda info --envs
-          conda activate hummingbot
-          conda env export
-          ./compile
+          pre-commit run --files $(git diff --name-only origin/$GITHUB_BASE_REF)
+
       - name: Run stable tests and calculate coverage
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          source /usr/share/miniconda/etc/profile.d/conda.sh
+          source $CONDA/etc/profile.d/conda.sh
           conda activate hummingbot
           make test
+
       - name: Check and report global coverage
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          source /usr/share/miniconda/etc/profile.d/conda.sh
+          source $CONDA/etc/profile.d/conda.sh
           conda activate hummingbot
           make report_coverage
+
       - name: Validate coverage for the changes
         if: github.event_name == 'pull_request' && (steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true')
         shell: bash
         run: |
-          source /usr/share/miniconda/etc/profile.d/conda.sh
+          source $CONDA/etc/profile.d/conda.sh
           conda activate hummingbot
           git fetch --all -q
           git checkout -b $GITHUB_SHA
@@ -125,7 +92,7 @@ jobs:
       # Notify results to discord
       - uses: actions/setup-ruby@v1
       - name: Send Webhook Notification
-        if: always()
+        if: github.event_name != 'pull_request'
         env:
           JOB_STATUS: ${{ job.status }}
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
@@ -135,3 +102,108 @@ jobs:
           git clone --depth 1 https://github.com/DiscordHooks/github-actions-discord-webhook.git webhook
           bash webhook/send.sh $JOB_STATUS $WEBHOOK_URL
         shell: bash
+  build_gateway:
+    name: Gateway build + unit tests
+    if: github.base_ref == 'feat/gateway-v2'
+    runs-on: 'ubuntu-latest'
+
+    steps:
+      - name: Checkout commit
+        uses: actions/checkout@v2
+
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '16.x'
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+
+      - uses: actions/cache@v2
+        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install Dependencies
+        run: yarn --cwd ./gateway install
+
+      - name: Create yml config file
+        env:
+          INFURA_KEY: ${{ secrets.INFURA_KEY }}
+          ETH_GAS_STATION_API_KEY: ${{ secrets.ETH_GAS_STATION_API_KEY }}
+        run: |
+          mkdir -p ./gateway/conf/
+          cat << EOF >> ./gateway/conf/ethereum.yml
+          networks:
+            mainnet:
+              chainID: 1
+              nodeURL: https://mainnet.infura.io/v3/
+              tokenListType: URL
+              tokenListSource: >-
+                https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link
+              nativeCurrencySymbol: ETH
+            kovan:
+              chainID: 42
+              nodeURL: https://kovan.infura.io/v3/
+              tokenListType: FILE
+              tokenListSource: src/chains/ethereum/erc20_tokens_kovan.json
+              nativeCurrencySymbol: ETH
+          nodeAPIKey: "$INFURA_KEY"
+          manualGasPrice: 110
+          EOF
+
+          cat << EOF >> ./gateway/conf/ethereum-gas-station.yml
+          enabled: true
+          gasStationURL: 'https://ethgasstation.info/api/ethgasAPI.json?api-key='
+          APIKey: "$ETH_GAS_STATION_API_KEY"
+          gasLevel: fast
+          EOF
+
+          cat << EOF >> ./gateway/conf/avalanche.yml
+          networks:
+            fuji:
+              chainID: 43113
+              nodeURL: 'https://api.avax-test.network/ext/bc/C/rpc'
+              tokenListType: 'FILE'
+              tokenListSource: 'src/chains/avalanche/avalanche_tokens_fuji.json'
+              nativeCurrencySymbol: 'AVAX'
+            avalanche:
+              chainID: 43114
+              nodeURL: 'https://api.avax.network/ext/bc/C/rpc'
+              tokenListType: 'URL'
+              tokenListSource: 'https://raw.githubusercontent.com/pangolindex/tokenlists/main/top15.tokenlist.json'
+              nativeCurrencySymbol: 'AVAX'
+
+          nodeAPIKey: "$INFURA_KEY"
+          manualGasPrice: 100
+          EOF
+
+      - name: Create yml passphrase file
+        shell: bash
+        env:
+          CERT_PASSPHRASE: ${{ secrets.CERT_PASSPHRASE }}
+        run: |
+          mkdir -p ./gateway/conf/
+          cat << EOF >> ./gateway/conf/gateway-passphrase.yml
+          CERT_PASSPHRASE: "$CERT_PASSPHRASE"
+          EOF
+          chmod 0600 ./gateway/conf/gateway-passphrase.yml
+
+      - name: Build project
+        run: yarn --cwd ./gateway build
+
+      - name: Run unit test
+        run: yarn --cwd ./gateway test:unit 
+
+      - name: Run unit test coverage
+        if: github.event_name == 'pull_request' && steps.program-changes.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          git fetch --all -q
+          git checkout -b $GITHUB_SHA
+          yarn --cwd ./gateway test:cov 
+          git diff origin/$GITHUB_BASE_REF | $(yarn --cwd ./gateway bin)/diff-test-coverage -c ./gateway/coverage/lcov.info -t lcov -b 65 -l 67

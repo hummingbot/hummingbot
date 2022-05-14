@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
-import path_util        # noqa: F401
 import asyncio
-import errno
-import socket
 from typing import (
     List,
     Coroutine,
@@ -13,37 +10,24 @@ from weakref import (
     ReferenceType,
 )
 
-from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.config.global_config_map import global_config_map
+import path_util  # noqa: F401
+from hummingbot import chdir_to_data_directory, init_logging
 from hummingbot.client.config.config_helpers import (
     create_yml_files,
     read_system_configs_from_yml,
     write_config_to_yml,
 )
-from hummingbot import (
-    init_logging,
-    check_dev_mode,
-    chdir_to_data_directory
-)
-from hummingbot.client.ui import login_prompt
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.core.event.events import HummingbotUIEvent
+from hummingbot.client.ui import login_prompt
 from hummingbot.core.event.event_listener import EventListener
+from hummingbot.core.event.events import HummingbotUIEvent
+from hummingbot.core.gateway import start_existing_gateway_container
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils import detect_available_port
 
-
-def detect_available_port(starting_port: int) -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        current_port: int = starting_port
-        while current_port < 65535:
-            try:
-                s.bind(("127.0.0.1", current_port))
-                break
-            except OSError as e:
-                if e.errno == errno.EADDRINUSE:
-                    current_port += 1
-                    continue
-        return current_port
+from bin.docker_connection import fork_and_start
 
 
 class UIStartListener(EventListener):
@@ -59,18 +43,14 @@ class UIStartListener(EventListener):
         return self._hb_ref()
 
     async def ui_start_handler(self):
-        dev_mode: bool = check_dev_mode()
         hb: HummingbotApplication = self.hummingbot_app
-
-        if dev_mode:
-            hb.app.log("Running from dev branches. Full remote logging will be enabled.")
 
         if hb.strategy_file_name is not None and hb.strategy_name is not None:
             await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
             hb.start(global_config_map.get("log_level").value)
 
 
-async def main():
+async def main_async():
     await create_yml_files()
 
     # This init_logging() call is important, to skip over the missing config warnings.
@@ -87,7 +67,7 @@ async def main():
     start_listener: UIStartListener = UIStartListener(hb)
     hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
-    tasks: List[Coroutine] = [hb.run()]
+    tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container()]
     if global_config_map.get("debug_console").value:
         if not hasattr(__builtins__, "help"):
             import _sitebuiltins
@@ -99,8 +79,12 @@ async def main():
     await safe_gather(*tasks)
 
 
-if __name__ == "__main__":
+def main():
     chdir_to_data_directory()
     if login_prompt():
         ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        ev_loop.run_until_complete(main())
+        ev_loop.run_until_complete(main_async())
+
+
+if __name__ == "__main__":
+    fork_and_start(main)
