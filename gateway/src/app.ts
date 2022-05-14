@@ -21,6 +21,7 @@ import { PangolinConfig } from './connectors/pangolin/pangolin.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
 import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
+import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.config';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -54,6 +55,7 @@ gatewayApp.get('/', (_req: Request, res: Response) => {
 interface ConnectorsResponse {
   uniswap: Array<AvailableNetworks>;
   pangolin: Array<AvailableNetworks>;
+  defikingdoms: Array<AvailableNetworks>;
 }
 
 gatewayApp.get(
@@ -62,6 +64,7 @@ gatewayApp.get(
     res.status(200).json({
       uniswap: UniswapConfig.config.availableNetworks,
       pangolin: PangolinConfig.config.availableNetworks,
+      defikingdoms: DefikingdomsConfig.config.availableNetworks,
     });
   })
 );
