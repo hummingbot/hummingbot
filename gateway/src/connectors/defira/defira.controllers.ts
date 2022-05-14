@@ -42,7 +42,7 @@ export interface TradeInfo {
 
 export async function getTradeInfo(
   ethereumish: Ethereumish,
-  uniswapish: uniswapish,
+  uniswapish: Uniswapish,
   baseAsset: string,
   quoteAsset: string,
   baseAmount: Decimal,
@@ -351,7 +351,7 @@ export function getFullTokenFromSymbol(
 
 export async function estimateGas(
   ethereumish: Ethereumish,
-  uniswapish: uniswapish
+  uniswapish: Uniswapish
 ): Promise<EstimateGasResponse> {
   const gasPrice: number = ethereumish.gasPrice;
   const gasLimit: number = uniswapish.gasLimit;
