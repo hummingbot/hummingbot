@@ -28,7 +28,6 @@ omit =
         hummingbot/connector/exchange/k2*
         hummingbot/connector/exchange/liquid*
         hummingbot/connector/exchange/loopring*
-        hummingbot/connector/exchange/okex*
         hummingbot/connector/exchange/paper_trade*
         hummingbot/connector/exchange/probit*
         hummingbot/connector/exchange/wazirx*
@@ -38,7 +37,6 @@ omit =
         hummingbot/core/utils/wallet_setup.py
         hummingbot/connector/mock*
         hummingbot/strategy/aroon_oscillator*
-        hummingbot/strategy/*/start.py
         hummingbot/strategy/dev*
         hummingbot/strategy/hedge*
 dynamic_context = test_function

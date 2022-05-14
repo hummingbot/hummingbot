@@ -1,6 +1,8 @@
 import asyncio
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.binance import (
@@ -13,7 +15,7 @@ from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source i
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import TradeFillOrderDetails
+from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -89,8 +91,20 @@ class BinanceExchange(ExchangePyBase):
         return CONSTANTS.EXCHANGE_INFO_PATH_URL
 
     @property
+    def trading_pairs_request_path(self):
+        return CONSTANTS.EXCHANGE_INFO_PATH_URL
+
+    @property
     def check_network_request_path(self):
         return CONSTANTS.PING_PATH_URL
+
+    @property
+    def trading_pairs(self):
+        return self._trading_pairs
+
+    @property
+    def is_cancel_request_in_exchange_synchronous(self) -> bool:
+        return True
 
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
@@ -113,10 +127,9 @@ class BinanceExchange(ExchangePyBase):
         return BinanceAPIUserStreamDataSource(
             auth=self._auth,
             trading_pairs=self._trading_pairs,
-            domain=self.domain,
+            connector=self,
             api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
+            domain=self.domain,
         )
 
     def _get_fee(self,
@@ -136,7 +149,7 @@ class BinanceExchange(ExchangePyBase):
                            amount: Decimal,
                            trade_type: TradeType,
                            order_type: OrderType,
-                           price: Decimal) -> (str, float):
+                           price: Decimal) -> Tuple[str, float]:
         order_result = None
         amount_str = f"{amount:f}"
         price_str = f"{price:f}"
@@ -325,7 +338,7 @@ class BinanceExchange(ExchangePyBase):
                 order_by_exchange_id_map[order.exchange_order_id] = order
 
             tasks = []
-            trading_pairs = self.order_book_tracker._trading_pairs
+            trading_pairs = self.trading_pairs
             for trading_pair in trading_pairs:
                 params = {
                     "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
@@ -467,6 +480,13 @@ class BinanceExchange(ExchangePyBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        mapping = bidict()
+        for symbol_data in filter(binance_utils.is_exchange_information_valid, exchange_info["symbols"]):
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseAsset"],
+                                                                        quote=symbol_data["quoteAsset"])
+        self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {

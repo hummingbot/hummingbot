@@ -44,7 +44,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             domain=self.domain)
         self.data_source = BinanceAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
                                                          connector=self.connector,
-                                                         api_factory=self.connector._api_factory,
+                                                         api_factory=self.connector._web_assistants_factory,
                                                          domain=self.domain)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)

@@ -7,13 +7,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aiohttp import WSMessage, WSMsgType
 
-from hummingbot.connector.exchange.okex import constants as CONSTANTS, okex_web_utils
-from hummingbot.connector.exchange.okex.okex_api_user_stream_data_source import OkexAPIUserStreamDataSource
-from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
+from hummingbot.connector.exchange.okx import okx_constants as CONSTANTS
+from hummingbot.connector.exchange.okx.okx_api_user_stream_data_source import OkxAPIUserStreamDataSource
+from hummingbot.connector.exchange.okx.okx_auth import OkxAuth
+from hummingbot.connector.exchange.okx.okx_exchange import OkxExchange
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
-class OkexUserStreamDataSourceUnitTests(unittest.TestCase):
+class OkxUserStreamDataSourceUnitTests(unittest.TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
@@ -42,20 +43,25 @@ class OkexUserStreamDataSourceUnitTests(unittest.TestCase):
         self.time_synchronizer = MagicMock()
         self.time_synchronizer.time.return_value = 1640001112.223
 
-        self.auth = OKExAuth(
+        self.auth = OkxAuth(
             api_key="TEST_API_KEY",
             secret_key="TEST_SECRET",
             passphrase="TEST_PASSPHRASE",
             time_provider=self.time_synchronizer)
 
-        self.api_factory = okex_web_utils.build_api_factory(
-            throttler=self.throttler,
-            time_synchronizer=self.time_synchronizer,
-            auth=self.auth)
+        self.connector = OkxExchange(
+            okx_api_key="",
+            okx_secret_key="",
+            okx_passphrase="",
+            trading_pairs=[self.trading_pair],
+            trading_required=False,
+        )
+        self.connector._web_assistants_factory._auth = self.auth
 
-        self.data_source = OkexAPIUserStreamDataSource(
+        self.data_source = OkxAPIUserStreamDataSource(
             auth=self.auth,
-            api_factory=self.api_factory
+            connector=self.connector,
+            api_factory=self.connector._web_assistants_factory
         )
 
         self.data_source.logger().setLevel(1)
@@ -88,14 +94,6 @@ class OkexUserStreamDataSourceUnitTests(unittest.TestCase):
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
-
-    def test_last_recv_time(self):
-        # Initial last_recv_time
-        self.assertEqual(0, self.data_source.last_recv_time)
-
-        ws_assistant = self.async_run_with_timeout(self.data_source._get_ws_assistant())
-        ws_assistant._connection._last_recv_time = 1000
-        self.assertEqual(1000, self.data_source.last_recv_time)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, ws_connect_mock):

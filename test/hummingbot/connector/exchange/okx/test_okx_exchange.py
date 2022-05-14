@@ -8,8 +8,8 @@ from unittest.mock import patch
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-from hummingbot.connector.exchange.okex import constants as CONSTANTS, okex_web_utils as web_utils
-from hummingbot.connector.exchange.okex.okex_exchange import OkexExchange
+from hummingbot.connector.exchange.okx import okx_constants as CONSTANTS, okx_web_utils as web_utils
+from hummingbot.connector.exchange.okx.okx_exchange import OkxExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
@@ -28,20 +28,20 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @property
     def all_symbols_url(self):
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_INSTRUMENTS_PATH)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.OKX_INSTRUMENTS_PATH)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
     @property
     def latest_prices_url(self):
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_TICKER_PATH)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.OKX_TICKER_PATH)
         url = f"{url}?instId={self.base_asset}-{self.quote_asset}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         return regex_url
 
     @property
     def network_status_url(self):
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_SERVER_TIME_PATH)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.OKX_SERVER_TIME_PATH)
         return url
 
     @property
@@ -50,12 +50,12 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @property
     def order_creation_url(self):
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_PLACE_ORDER_PATH)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_PLACE_ORDER_PATH)
         return url
 
     @property
     def balance_url(self):
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_BALANCE_PATH)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_BALANCE_PATH)
         return url
 
     @property
@@ -452,7 +452,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return f"{base_token}-{quote_token}"
 
     def create_exchange_instance(self):
-        return OkexExchange(
+        return OkxExchange(
             self.api_key,
             self.api_secret_key,
             self.api_passphrase,
@@ -503,7 +503,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_ORDER_CANCEL_PATH)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_CANCEL_PATH)
         response = self._order_cancelation_request_successful_mock_response(order=order)
         mock_api.post(url, body=json.dumps(response), callback=callback)
         return url
@@ -513,7 +513,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_ORDER_CANCEL_PATH)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_CANCEL_PATH)
         response = {
             "code": "1",
             "msg": "Error",
@@ -549,7 +549,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_ORDER_DETAILS_PATH)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_DETAILS_PATH)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -560,7 +560,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_ORDER_DETAILS_PATH)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_DETAILS_PATH)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_canceled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -571,7 +571,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_ORDER_DETAILS_PATH)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_DETAILS_PATH)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_open_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -582,7 +582,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_ORDER_DETAILS_PATH)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_DETAILS_PATH)
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=404, callback=callback)
         return url
@@ -592,7 +592,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_ORDER_DETAILS_PATH)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_DETAILS_PATH)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_partially_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -603,7 +603,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_TRADE_FILLS_PATH)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_TRADE_FILLS_PATH)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_partial_fill_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -614,7 +614,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_TRADE_FILLS_PATH)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_TRADE_FILLS_PATH)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_full_fill_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)

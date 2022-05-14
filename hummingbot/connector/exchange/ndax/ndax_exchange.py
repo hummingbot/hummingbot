@@ -513,7 +513,7 @@ class NdaxExchange(ExchangeBase):
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
-        To determine if an order is successfully cancelled, we either call the
+        To determine if an order is successfully canceled, we either call the
         GetOrderStatus/GetOpenOrders endpoint or wait for a OrderStateEvent/OrderTradeEvent from the WS.
         :param trading_pair: The market (e.g. BTC-CAD) the order is in.
         :param order_id: The client_order_id of the order to be cancelled.
