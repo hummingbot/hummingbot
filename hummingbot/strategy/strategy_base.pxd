@@ -19,8 +19,11 @@ cdef class StrategyBase(TimeIterator):
         EventListener _sb_complete_funding_payment_listener
         EventListener _sb_position_mode_change_success_listener
         EventListener _sb_position_mode_change_failure_listener
-        EventListener _sb_create_range_position_order_listener
-        EventListener _sb_remove_range_position_order_listener
+        EventListener _sb_range_position_liquidity_added_listener
+        EventListener _sb_range_position_liquidity_removed_listener
+        EventListener _sb_range_position_update_listener
+        EventListener _sb_range_position_update_failure_listener
+        EventListener _sb_range_position_fee_collected_listener
         bint _sb_delegate_lock
         public OrderTracker _sb_order_tracker
 
@@ -37,8 +40,11 @@ cdef class StrategyBase(TimeIterator):
     cdef c_did_complete_funding_payment(self, object funding_payment_completed_event)
     cdef c_did_change_position_mode_succeed(self, object position_mode_changed_event)
     cdef c_did_change_position_mode_fail(self, object position_mode_changed_event)
-    cdef c_did_create_range_position_order(self, object order_created_event)
-    cdef c_did_remove_range_position_order(self, object order_completed_event)
+    cdef c_did_add_liquidity(self, object add_liquidity_event)
+    cdef c_did_remove_liquidity(self, object remove_liquidity_event)
+    cdef c_did_update_lp_order(self, object update_lp_event)
+    cdef c_did_fail_lp_update(self, object fail_lp_update_event)
+    cdef c_did_collect_fee(self, object collect_fee_event)
 
     cdef c_did_fail_order_tracker(self, object order_failed_event)
     cdef c_did_cancel_order_tracker(self, object order_cancelled_event)
