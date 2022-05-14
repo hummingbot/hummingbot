@@ -23,10 +23,10 @@ from hummingbot.core.event.events import (
     OrderExpiredEvent,
     OrderFilledEvent,
     PositionAction,
-    RangePositionInitiatedEvent,
-    RangePositionUpdatedEvent,
     SellOrderCompletedEvent,
-    SellOrderCreatedEvent
+    SellOrderCreatedEvent,
+    RangePositionLiquidityAddedEvent,
+    RangePositionLiquidityRemovedEvent
 )
 from hummingbot.model.funding_payment import FundingPayment
 from hummingbot.model.market_state import MarketState
@@ -75,10 +75,10 @@ class MarketsRecorder:
         self._expire_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_expire_order)
         self._funding_payment_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
             self._did_complete_funding_payment)
-        self._intiate_range_position_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
-            self._did_initiate_range_position)
-        self._update_range_position_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
-            self._did_update_range_position)
+        self._add_range_liquidity_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
+            self._did_add_range_liquidity)
+        self._remove_range_liquidity_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
+            self._did_remove_range_liquidity)
 
         self._event_pairs: List[Tuple[MarketEvent, SourceInfoEventForwarder]] = [
             (MarketEvent.BuyOrderCreated, self._create_order_forwarder),
@@ -90,8 +90,8 @@ class MarketsRecorder:
             (MarketEvent.SellOrderCompleted, self._complete_order_forwarder),
             (MarketEvent.OrderExpired, self._expire_order_forwarder),
             (MarketEvent.FundingPaymentCompleted, self._funding_payment_forwarder),
-            (MarketEvent.RangePositionInitiated, self._intiate_range_position_forwarder),
-            (MarketEvent.RangePositionUpdated, self._update_range_position_forwarder),
+            (MarketEvent.RangePositionLiquidityAdded, self._add_range_liquidity_forwarder),
+            (MarketEvent.RangePositionLiquidityRemoved, self._remove_range_liquidity_forwarder),
         ]
 
     @property
@@ -378,41 +378,41 @@ class MarketsRecorder:
                           evt: OrderExpiredEvent):
         self._update_order_status(event_tag, market, evt)
 
-    def _did_initiate_range_position(self,
+    def _did_add_range_liquidity(self,
                                      event_tag: int,
                                      connector: ConnectorBase,
-                                     evt: RangePositionInitiatedEvent):
+                                     evt: RangePositionLiquidityAddedEvent):
         if threading.current_thread() != threading.main_thread():
-            self._ev_loop.call_soon_threadsafe(self._did_initiate_range_position, event_tag, connector, evt)
+            self._ev_loop.call_soon_threadsafe(self._did_add_range_liquidity, event_tag, connector, evt)
             return
 
         timestamp: int = self.db_timestamp
 
         with self._sql_manager.get_new_session() as session:
             with session.begin():
-                r_pos: RangePosition = RangePosition(hb_id=evt.hb_id,
+                r_pos: RangePosition = RangePosition(hb_id=evt.order_id,
                                                      config_file_path=self._config_file_path,
                                                      strategy=self._strategy_name,
-                                                     tx_hash=evt.tx_hash,
+                                                     tx_hash=evt.exchange_order_id,
                                                      connector=connector.display_name,
                                                      trading_pair=evt.trading_pair,
                                                      fee_tier=str(evt.fee_tier),
                                                      lower_price=float(evt.lower_price),
                                                      upper_price=float(evt.upper_price),
-                                                     base_amount=float(evt.base_amount),
-                                                     quote_amount=float(evt.quote_amount),
-                                                     status=evt.status,
+                                                     base_amount=float(evt.amount),
+                                                     quote_amount=float(0),
+                                                     status=evt.token_id,
                                                      creation_timestamp=timestamp,
                                                      last_update_timestamp=timestamp)
                 session.add(r_pos)
                 self.save_market_states(self._config_file_path, connector, session=session)
 
-    def _did_update_range_position(self,
+    def _did_remove_range_liquidity(self,
                                    event_tag: int,
                                    connector: ConnectorBase,
-                                   evt: RangePositionUpdatedEvent):
+                                   evt: RangePositionLiquidityRemovedEvent):
         if threading.current_thread() != threading.main_thread():
-            self._ev_loop.call_soon_threadsafe(self._did_update_range_position, event_tag, connector, evt)
+            self._ev_loop.call_soon_threadsafe(self._did_remove_range_liquidity, event_tag, connector, evt)
             return
 
         timestamp: int = self.db_timestamp
@@ -422,13 +422,13 @@ class MarketsRecorder:
                 rp_record: Optional[RangePosition] = session.query(RangePosition).filter(
                     RangePosition.hb_id == evt.hb_id).one_or_none()
                 if rp_record is not None:
-                    rp_update: RangePositionUpdate = RangePositionUpdate(hb_id=evt.hb_id,
+                    rp_update: RangePositionUpdate = RangePositionUpdate(hb_id=evt.order_id,
                                                                          timestamp=timestamp,
-                                                                         tx_hash=evt.tx_hash,
+                                                                         tx_hash=evt.exchange_order_id,
                                                                          token_id=evt.token_id,
-                                                                         base_amount=float(evt.base_amount),
-                                                                         quote_amount=float(evt.quote_amount),
-                                                                         status=evt.status,
+                                                                         base_amount=float(0),
+                                                                         quote_amount=float(0),
+                                                                         status="",
                                                                          )
                     session.add(rp_update)
                     self.save_market_states(self._config_file_path, connector, session=session)
