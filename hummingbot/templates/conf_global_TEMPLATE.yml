@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 35
+template_version: 36
 
 # Exchange configs
 
@@ -95,9 +95,9 @@ gate_io_secret_key: null
 bitfinex_api_key: null
 bitfinex_secret_key: null
 
-okex_api_key: null
-okex_secret_key: null
-okex_passphrase: null
+okx_api_key: null
+okx_secret_key: null
+okx_passphrase: null
 
 ascend_ex_api_key: null
 ascend_ex_secret_key: null

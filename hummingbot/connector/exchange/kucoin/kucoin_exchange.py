@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -17,7 +17,7 @@ from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -79,8 +79,20 @@ class KucoinExchange(ExchangePyBase):
         return CONSTANTS.SYMBOLS_PATH_URL
 
     @property
+    def trading_pairs_request_path(self):
+        return CONSTANTS.SYMBOLS_PATH_URL
+
+    @property
     def check_network_request_path(self):
         return CONSTANTS.SERVER_TIME_PATH_URL
+
+    @property
+    def trading_pairs(self):
+        return self._trading_pairs
+
+    @property
+    def is_cancel_request_in_exchange_synchronous(self) -> bool:
+        return True
 
     def supported_order_types(self):
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
@@ -95,19 +107,18 @@ class KucoinExchange(ExchangePyBase):
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return KucoinAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
-            domain=self.domain,
+            connector=self,
             api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
+            domain=self.domain,
         )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return KucoinAPIUserStreamDataSource(
             auth=self._auth,
             trading_pairs=self._trading_pairs,
-            domain=self.domain,
+            connector=self,
             api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
+            domain=self.domain,
         )
 
     def _get_fee(self,
@@ -138,15 +149,6 @@ class KucoinExchange(ExchangePyBase):
             )
         return fee
 
-    async def _initialize_trading_pair_symbol_map(self):
-        try:
-            exchange_info = await self._api_request(
-                method=RESTMethod.GET,
-                path_url=CONSTANTS.SYMBOLS_PATH_URL)
-            self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
-        except Exception:
-            self.logger().exception("There was an error requesting exchange info.")
-
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
         for symbol_data in filter(utils.is_pair_information_valid, exchange_info.get("data", [])):
@@ -160,7 +162,7 @@ class KucoinExchange(ExchangePyBase):
                            amount: Decimal,
                            trade_type: TradeType,
                            order_type: OrderType,
-                           price: Decimal) -> (str, float):
+                           price: Decimal) -> Tuple[str, float]:
         path_url = CONSTANTS.ORDERS_PATH_URL
         side = trade_type.name.lower()
         order_type_str = "market" if order_type == OrderType.MARKET else "limit"
@@ -184,8 +186,9 @@ class KucoinExchange(ExchangePyBase):
         )
         return str(exchange_order_id["data"]["orderId"]), self.current_timestamp
 
-    async def _place_cancel(self, order_id, tracked_order):
-        """ This implementation specific function is called by _cancel, and returns True if successful
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        """
+        This implementation specific function is called by _cancel, and returns True if successful
         """
         exchange_order_id = await tracked_order.get_exchange_order_id()
         cancel_result = await self._api_delete(

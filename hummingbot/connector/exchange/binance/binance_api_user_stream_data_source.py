@@ -1,6 +1,6 @@
 import asyncio
 import time
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
@@ -10,6 +10,9 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 
 
 class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -22,6 +25,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def __init__(self,
                  auth: BinanceAuth,
                  trading_pairs: List[str],
+                 connector: 'BinanceExchange',
                  api_factory: WebAssistantsFactory,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__()

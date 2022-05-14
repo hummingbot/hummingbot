@@ -22,8 +22,8 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self,
             trading_pairs: List[str],
             connector: 'KucoinExchange',
+            api_factory: WebAssistantsFactory,
             domain: str = CONSTANTS.DEFAULT_DOMAIN,
-            api_factory: Optional[WebAssistantsFactory] = None
     ):
         super().__init__(trading_pairs)
         self._connector = connector
@@ -68,7 +68,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         rest_assistant = await self._api_factory.get_rest_assistant()
         data = await rest_assistant.execute_request(
-            url=web_utils.rest_url(path_url=CONSTANTS.SNAPSHOT_NO_AUTH_PATH_URL),
+            url=web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_NO_AUTH_PATH_URL),
             params=params,
             method=RESTMethod.GET,
             throttler_limit_id=CONSTANTS.SNAPSHOT_NO_AUTH_PATH_URL,
@@ -180,7 +180,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _connected_websocket_assistant(self) -> WSAssistant:
         rest_assistant = await self._api_factory.get_rest_assistant()
         connection_info = await rest_assistant.execute_request(
-            url=web_utils.rest_url(path_url=CONSTANTS.PUBLIC_WS_DATA_PATH_URL, domain=self._domain),
+            url=web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_WS_DATA_PATH_URL, domain=self._domain),
             method=RESTMethod.POST,
             throttler_limit_id=CONSTANTS.PUBLIC_WS_DATA_PATH_URL,
         )

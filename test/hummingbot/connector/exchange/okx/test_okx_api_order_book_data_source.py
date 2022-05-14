@@ -9,17 +9,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses.core import aioresponses
 from bidict import bidict
 
-import hummingbot.connector.exchange.okex.constants as CONSTANTS
-import hummingbot.connector.exchange.okex.okex_web_utils as web_utils
-from hummingbot.connector.exchange.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
-from hummingbot.connector.exchange.okex.okex_exchange import OkexExchange
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+import hummingbot.connector.exchange.okx.okx_constants as CONSTANTS
+import hummingbot.connector.exchange.okx.okx_web_utils as web_utils
+from hummingbot.connector.exchange.okx.okx_api_order_book_data_source import OkxAPIOrderBookDataSource
+from hummingbot.connector.exchange.okx.okx_exchange import OkxExchange
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
-class OkexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
+class OkxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
@@ -37,25 +35,19 @@ class OkexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.log_records = []
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant()
-        self.time_synchronizer = TimeSynchronizer()
-        self.time_synchronizer.add_time_offset_ms_sample(1000)
 
-        self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
-        self.api_factory = web_utils.build_api_factory(
-            throttler=self.throttler,
-            time_synchronizer=self.time_synchronizer,
-        )
-        self.connector = OkexExchange(
-            okex_api_key="",
-            okex_secret_key="",
-            okex_passphrase="",
+        self.connector = OkxExchange(
+            okx_api_key="",
+            okx_secret_key="",
+            okx_passphrase="",
             trading_pairs=[self.trading_pair],
             trading_required=False,
 
         )
-        self.data_source = OkexAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
-                                                      connector=self.connector,
-                                                      api_factory=self.api_factory)
+        self.data_source = OkxAPIOrderBookDataSource(
+            trading_pairs=[self.trading_pair],
+            connector=self.connector,
+            api_factory=self.connector._web_assistants_factory)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
@@ -66,7 +58,7 @@ class OkexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
-        OkexAPIOrderBookDataSource._trading_pair_symbol_map = {}
+        OkxAPIOrderBookDataSource._trading_pair_symbol_map = {}
         super().tearDown()
 
     def handle(self, record):
@@ -86,7 +78,7 @@ class OkexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_new_order_book_successful(self, mock_api):
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_ORDER_BOOK_PATH)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.OKX_ORDER_BOOK_PATH)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         resp = {
@@ -137,7 +129,7 @@ class OkexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_new_order_book_raises_exception(self, mock_api):
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_ORDER_BOOK_PATH)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.OKX_ORDER_BOOK_PATH)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=400)
@@ -439,7 +431,7 @@ class OkexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_ORDER_BOOK_PATH)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.OKX_ORDER_BOOK_PATH)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=asyncio.CancelledError)
@@ -450,13 +442,13 @@ class OkexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             )
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.okex.okex_api_order_book_data_source"
-           ".OkexAPIOrderBookDataSource._sleep")
+    @patch("hummingbot.connector.exchange.okx.okx_api_order_book_data_source"
+           ".OkxAPIOrderBookDataSource._sleep")
     def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
 
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_ORDER_BOOK_PATH)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.OKX_ORDER_BOOK_PATH)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=Exception)
@@ -472,7 +464,7 @@ class OkexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     @aioresponses()
     def test_listen_for_order_book_snapshots_successful(self, mock_api, ):
         msg_queue: asyncio.Queue = asyncio.Queue()
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_ORDER_BOOK_PATH)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.OKX_ORDER_BOOK_PATH)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         resp = {

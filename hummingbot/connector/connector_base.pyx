@@ -230,7 +230,7 @@ cdef class ConnectorBase(NetworkIterator):
         Cancels all in-flight orders and waits for cancellation results.
         Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
         :param timeout_seconds: The timeout at which the operation will be canceled.
-        :returns List of CancellationResult which indicates whether each order is successfully cancelled.
+        :returns List of CancellationResult which indicates whether each order is successfully canceled.
         """
         raise NotImplementedError
 

@@ -11,7 +11,7 @@ from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
 
-class OKExAuth(AuthBase):
+class OkxAuth(AuthBase):
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str, time_provider: TimeSynchronizer):
         self.api_key: str = api_key

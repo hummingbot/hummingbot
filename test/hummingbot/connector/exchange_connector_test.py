@@ -408,7 +408,7 @@ class AbstractExchangeConnectorTests:
                 amount=Decimal("1000.0"),
                 price=Decimal("1.0"),
                 creation_timestamp=1640001112.223,
-                initial_state=OrderState.CANCELLED
+                initial_state=OrderState.CANCELED
             ))
             orders.append(InFlightOrder(
                 client_order_id="OID3",
@@ -829,7 +829,7 @@ class AbstractExchangeConnectorTests:
                 request_call=cancel_request)
 
             self.assertEquals(0, len(self.order_cancelled_logger.event_log))
-            self.assertTrue(any(log.msg.startswith(f"Failed to cancel order {order.client_order_id}:")
+            self.assertTrue(any(log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
                                 for log in self.log_records))
 
         @aioresponses()
@@ -1033,7 +1033,7 @@ class AbstractExchangeConnectorTests:
             self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
             self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
             self.assertTrue(
-                self.is_logged("INFO", f"Successfully cancelled order {order.client_order_id}.")
+                self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
             )
 
         @aioresponses()

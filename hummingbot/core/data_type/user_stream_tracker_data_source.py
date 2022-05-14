@@ -18,7 +18,7 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
     @classmethod
     def logger(cls) -> HummingbotLogger:
         if cls._logger is None:
-            cls._logger = logging.getLogger(__name__)
+            cls._logger = logging.getLogger(HummingbotLogger.logger_name_for_class(cls))
         return cls._logger
 
     @property
