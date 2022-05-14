@@ -45,9 +45,9 @@ export class defira implements Uniswapish {
     const config = DefiraConfig.config;
     this.harmony = Harmony.getInstance(network);
     this.chainId = this.harmony.chainId;
-    this._ttl = DefiraConfig.config.ttl(2);
+    this._ttl = DefiraConfig.config.ttl();
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = DefiraConfig.config.gasLimit(2);
+    this._gasLimit = DefiraConfig.config.gasLimit();
     this._router = config.uniswapV2RouterAddress(network);
   }
 
@@ -134,7 +134,7 @@ export class defira implements Uniswapish {
       return new Percent(fractionSplit[0], fractionSplit[1]);
     }
 
-    const allowedSlippage = DefiraConfig.config.allowedSlippage(2);
+    const allowedSlippage = DefiraConfig.config.allowedSlippage();
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(
