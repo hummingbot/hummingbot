@@ -52,7 +52,7 @@ export class DefiraV3 extends DefiraV3Helper implements Uniswapish {
   }
 
   public async init() {
-    if (this._chain == 'ethereum' && !this.ethereum.ready())
+    if (this._chain == 'harmony' && !this.harmony.ready())
       throw new InitializationError(
         SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
         SERVICE_UNITIALIZED_ERROR_CODE
