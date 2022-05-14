@@ -3,7 +3,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, NamedTuple, Optional
 
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType, LPType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
@@ -235,6 +235,7 @@ class RangePositionLiquidityAddedEvent:
     lower_price: Decimal
     upper_price: Decimal
     amount: Decimal
+    fee_tier: str
     creation_timestamp: float
     trade_fee: TradeFeeBase
     token_id: Optional[int] = 0
@@ -248,6 +249,7 @@ class RangePositionLiquidityRemovedEvent:
     trading_pair: str
     token_id: str
     trade_fee: TradeFeeBase
+    creation_timestamp: float
 
 
 @dataclass
@@ -255,7 +257,7 @@ class RangePositionUpdateEvent:
     timestamp: float
     order_id: str
     exchange_order_id: str
-    order_action: LPType,
+    order_action: LPType
     trading_pair: Optional[str]
     fee_tier: Optional[str]
     lower_price: Optional[Decimal]
@@ -278,8 +280,9 @@ class RangePositionFeeCollectedEvent:
     oder_id: str
     exchange_order_id: str
     trading_pair: str
-    token_id: int = None
     trade_fee: TradeFeeBase
+    creation_timestamp: float
+    token_id: int = None
 
 
 class LimitOrderStatus(Enum):
