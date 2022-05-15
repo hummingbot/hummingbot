@@ -22,6 +22,7 @@ import { default as config } from '../../test/connectors/serum/fixtures/serumCon
 import { unpatch } from '../../test/services/patch';
 
 let app: Express;
+let solana: Solana;
 let serum: Serum;
 
 jest.setTimeout(1000000);
@@ -35,6 +36,9 @@ beforeAll(async () => {
   serum = await Serum.getInstance(config.serum.chain, config.serum.network);
 
   app.use('/clob', ClobRoutes.router);
+
+  await solana.init();
+  await serum.init();
 });
 
 afterEach(() => {

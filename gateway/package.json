@@ -102,6 +102,7 @@
     "node-ts-cache": "4.4.0",
     "node-ts-cache-storage-memory": "4.4.0",
     "node-ts-cache-storage-node-fs": "4.4.0",
-    "@xmldom/xmldom": "^0.8.2"
+    "@xmldom/xmldom": "^0.8.2",
+    "class-transformer": "^0.5.1"
   }
 }

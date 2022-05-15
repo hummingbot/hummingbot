@@ -60,6 +60,7 @@ import {
 } from './serum.validators';
 import './extensions/cycle';
 import './extensions/json';
+import './extensions/solana-web3';
 
 /**
  * Get the all or the informed markets and their configurations.

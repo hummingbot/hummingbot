@@ -1,10 +1,26 @@
 import { MARKETS } from '@project-serum/serum';
-import { Account, AccountInfo, Connection, PublicKey, Transaction, TransactionSignature, } from '@solana/web3.js';
+import {
+  Account,
+  AccountInfo,
+  Connection,
+  PublicKey,
+  Transaction,
+  TransactionSignature,
+} from '@solana/web3.js';
 import axios from 'axios';
 import BN from 'bn.js';
 import { Cache, CacheContainer } from 'node-ts-cache';
 import { MemoryStorage } from 'node-ts-cache-storage-memory';
+// TODO remove!!!
+// eslint-disable-next-line
+// @ts-ignore
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { NodeFsStorage } from 'node-ts-cache-storage-node-fs';
+// TODO remove!!!
+// eslint-disable-next-line
+// @ts-ignore
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import * as transformer from 'class-transformer';
 import { Solana } from '../../chains/solana/solana';
 import { getSerumConfig, SerumConfig } from './serum.config';
 import { default as constants } from './serum.constants';
@@ -17,7 +33,11 @@ import {
   convertSerumOrderToOrder,
   convertToTicker,
 } from './serum.convertors';
-import { getNotNullOrThrowError, getRandonBN, promiseAllInBatches, } from './serum.helpers';
+import {
+  getNotNullOrThrowError,
+  getRandonBN,
+  promiseAllInBatches,
+} from './serum.helpers';
 import {
   BasicSerumMarket,
   CancelOrderRequest,
@@ -55,50 +75,50 @@ const caches = {
   serumFindQuoteTokenAccountsForOwner: new CacheContainer(new MemoryStorage()),
   serumFindBaseTokenAccountsForOwner: new CacheContainer(new MemoryStorage()),
 
-  filesystem: {
-    serumGetMarketsInformation: new CacheContainer(
-      new NodeFsStorage('/tmp/serumGetMarketsInformation.json')
-    ),
-    serumLoadMarket: new CacheContainer(
-      new NodeFsStorage('/tmp/serumLoadMarket.json')
-    ),
-    serumMarketLoadBids: new CacheContainer(
-      new NodeFsStorage('/tmp/serumMarketLoadBids.json')
-    ),
-    serumMarketLoadAsks: new CacheContainer(
-      new NodeFsStorage('/tmp/serumMarketLoadAsks.json')
-    ),
-    serumMarketLoadFills: new CacheContainer(
-      new NodeFsStorage('/tmp/serumMarketLoadFills.json')
-    ),
-    serumMarketLoadOrdersForOwner: new CacheContainer(
-      new NodeFsStorage('/tmp/serumMarketLoadOrdersForOwner.json')
-    ),
-    serumMarketPlaceOrders: new CacheContainer(
-      new NodeFsStorage('/tmp/serumMarketPlaceOrders.json')
-    ),
-    serumMarketCancelOrdersAndSettleFunds: new CacheContainer(
-      new NodeFsStorage('/tmp/serumMarketCancelOrdersAndSettleFunds.json')
-    ),
-    serumFindOpenOrdersAccountsForOwner: new CacheContainer(
-      new NodeFsStorage('/tmp/serumFindOpenOrdersAccountsForOwner.json')
-    ),
-    serumFindBaseTokenAccountsForOwner: new CacheContainer(
-      new NodeFsStorage('/tmp/serumFindBaseTokenAccountsForOwner.json')
-    ),
-    serumFindQuoteTokenAccountsForOwner: new CacheContainer(
-      new NodeFsStorage('/tmp/serumFindQuoteTokenAccountsForOwner.json')
-    ),
-    serumSettleFunds: new CacheContainer(
-      new NodeFsStorage('/tmp/serumSettleFunds.json')
-    ),
-    serumSettleSeveralFunds: new CacheContainer(
-      new NodeFsStorage('/tmp/serumSettleSeveralFunds.json')
-    ),
-    getSolanaAccount: new CacheContainer(
-      new NodeFsStorage('/tmp/getSolanaAccount.json')
-    ),
-  },
+  // filesystem: {
+  //   serumGetMarketsInformation: new CacheContainer(
+  //     new NodeFsStorage('/tmp/serumGetMarketsInformation.json')
+  //   ),
+  //   serumLoadMarket: new CacheContainer(
+  //     new NodeFsStorage('/tmp/serumLoadMarket.json')
+  //   ),
+  //   serumMarketLoadBids: new CacheContainer(
+  //     new NodeFsStorage('/tmp/serumMarketLoadBids.json')
+  //   ),
+  //   serumMarketLoadAsks: new CacheContainer(
+  //     new NodeFsStorage('/tmp/serumMarketLoadAsks.json')
+  //   ),
+  //   serumMarketLoadFills: new CacheContainer(
+  //     new NodeFsStorage('/tmp/serumMarketLoadFills.json')
+  //   ),
+  //   serumMarketLoadOrdersForOwner: new CacheContainer(
+  //     new NodeFsStorage('/tmp/serumMarketLoadOrdersForOwner.json')
+  //   ),
+  //   serumMarketPlaceOrders: new CacheContainer(
+  //     new NodeFsStorage('/tmp/serumMarketPlaceOrders.json')
+  //   ),
+  //   serumMarketCancelOrdersAndSettleFunds: new CacheContainer(
+  //     new NodeFsStorage('/tmp/serumMarketCancelOrdersAndSettleFunds.json')
+  //   ),
+  //   serumFindOpenOrdersAccountsForOwner: new CacheContainer(
+  //     new NodeFsStorage('/tmp/serumFindOpenOrdersAccountsForOwner.json')
+  //   ),
+  //   serumFindBaseTokenAccountsForOwner: new CacheContainer(
+  //     new NodeFsStorage('/tmp/serumFindBaseTokenAccountsForOwner.json')
+  //   ),
+  //   serumFindQuoteTokenAccountsForOwner: new CacheContainer(
+  //     new NodeFsStorage('/tmp/serumFindQuoteTokenAccountsForOwner.json')
+  //   ),
+  //   serumSettleFunds: new CacheContainer(
+  //     new NodeFsStorage('/tmp/serumSettleFunds.json')
+  //   ),
+  //   serumSettleSeveralFunds: new CacheContainer(
+  //     new NodeFsStorage('/tmp/serumSettleSeveralFunds.json')
+  //   ),
+  //   getSolanaAccount: new CacheContainer(
+  //     new NodeFsStorage('/tmp/getSolanaAccount.json')
+  //   ),
+  // },
 };
 
 export type Serumish = Serum;
@@ -136,9 +156,9 @@ export class Serum {
     this.connection = new Connection(this.config.network.rpcURL);
   }
 
-  @Cache(caches.filesystem.serumGetMarketsInformation, {
-    isCachedForever: true,
-  })
+  // @Cache(caches.filesystem.serumGetMarketsInformation, {
+  //   isCachedForever: true,
+  // })
   private async serumGetMarketsInformation(): Promise<BasicSerumMarket[]> {
     const marketsURL =
       this.config.markets.url ||
@@ -151,6 +171,12 @@ export class Serum {
     } catch (e) {
       marketsInformation = MARKETS;
     }
+
+    // TODO remove!!!
+    console.log(
+      'serumGetMarketsInformation:\n',
+      JSON.stringify(marketsInformation, null, 2)
+    );
 
     return marketsInformation;
   }
@@ -175,13 +201,22 @@ export class Serum {
     programId: PublicKey,
     layoutOverride?: any
   ): Promise<SerumMarket> {
-    return await SerumMarket.load(
+    const result = await SerumMarket.load(
       connection,
       address,
       <SerumMarketOptions>options,
       programId,
       layoutOverride
     );
+
+    // TODO remove!!!
+    // eslint-disable-next-line prettier/prettier
+    console.log(
+      'serumLoadMarket:\n',
+      JSON.stringify(result, null, 2)
+    );
+
+    return result;
   }
 
   /**
@@ -191,14 +226,23 @@ export class Serum {
    * @param connection
    * @private
    */
-  @Cache(caches.filesystem.serumMarketLoadBids, {
-    isCachedForever: true,
-  })
+  // @Cache(caches.filesystem.serumMarketLoadBids, {
+  //   isCachedForever: true,
+  // })
   private async serumMarketLoadBids(
     market: SerumMarket,
     connection: Connection
   ): Promise<SerumOrderBook> {
-    return await market.loadBids(connection);
+    const result = await market.loadBids(connection);
+
+    // TODO remove!!!
+    // eslint-disable-next-line prettier/prettier
+    console.log(
+      'serumMarketLoadBids:\n',
+      JSON.stringify(result, null, 2)
+    );
+
+    return result;
   }
 
   /**
@@ -208,14 +252,23 @@ export class Serum {
    * @param connection
    * @private
    */
-  @Cache(caches.filesystem.serumMarketLoadAsks, {
-    isCachedForever: true,
-  })
+  // @Cache(caches.filesystem.serumMarketLoadAsks, {
+  //   isCachedForever: true,
+  // })
   private async serumMarketLoadAsks(
     market: SerumMarket,
     connection: Connection
   ): Promise<SerumOrderBook> {
-    return await market.loadAsks(connection);
+    const result = await market.loadAsks(connection);
+
+    // TODO remove!!!
+    // eslint-disable-next-line prettier/prettier
+    console.log(
+      'serumMarketLoadAsks:\n',
+      JSON.stringify(result, null, 2)
+    );
+
+    return result;
   }
 
   /**
@@ -226,15 +279,24 @@ export class Serum {
    * @param limit
    * @private
    */
-  @Cache(caches.filesystem.serumMarketLoadFills, {
-    isCachedForever: true,
-  })
+  // @Cache(caches.filesystem.serumMarketLoadFills, {
+  //   isCachedForever: true,
+  // })
   private async serumMarketLoadFills(
     market: SerumMarket,
     connection: Connection,
     limit?: number
   ): Promise<any[]> {
-    return await market.loadFills(connection, limit);
+    const result = await market.loadFills(connection, limit);
+
+    // TODO remove!!!
+    // eslint-disable-next-line prettier/prettier
+    console.log(
+      'serumMarketLoadFills:\n',
+      JSON.stringify(result, null, 2)
+    );
+
+    return result;
   }
 
   /**
@@ -246,20 +308,29 @@ export class Serum {
    * @param cacheDurationMs
    * @private
    */
-  @Cache(caches.filesystem.serumMarketLoadOrdersForOwner, {
-    isCachedForever: true,
-  })
+  // @Cache(caches.filesystem.serumMarketLoadOrdersForOwner, {
+  //   isCachedForever: true,
+  // })
   private async serumMarketLoadOrdersForOwner(
     market: SerumMarket,
     connection: Connection,
     ownerAddress: PublicKey,
     cacheDurationMs?: number
   ): Promise<SerumOrder[]> {
-    return await market.loadOrdersForOwner(
+    const result = await market.loadOrdersForOwner(
       connection,
       ownerAddress,
       cacheDurationMs
     );
+
+    // TODO remove!!!
+    // eslint-disable-next-line prettier/prettier
+    console.log(
+      'serumMarketLoadOrdersForOwner:\n',
+      JSON.stringify(result, null, 2)
+    );
+
+    return result;
   }
 
   // /**
@@ -324,15 +395,24 @@ export class Serum {
    * @param orders
    * @private
    */
-  @Cache(caches.filesystem.serumMarketPlaceOrders, {
-    isCachedForever: true,
-  })
+  // @Cache(caches.filesystem.serumMarketPlaceOrders, {
+  //   isCachedForever: true,
+  // })
   private async serumMarketPlaceOrders(
     market: SerumMarket,
     connection: Connection,
     orders: SerumOrderParams<Account>[]
   ): Promise<TransactionSignature[]> {
-    return await market.placeOrders(connection, orders);
+    const result = await market.placeOrders(connection, orders);
+
+    // TODO remove!!!
+    // eslint-disable-next-line prettier/prettier
+    console.log(
+      'serumMarketPlaceOrders:\n',
+      JSON.stringify(result, null, 2)
+    );
+
+    return result;
   }
 
   // /**
@@ -358,16 +438,27 @@ export class Serum {
    * @param orders
    * @private
    */
-  @Cache(caches.filesystem.serumMarketCancelOrdersAndSettleFunds, {
-    isCachedForever: true,
-  })
+  // @Cache(caches.filesystem.serumMarketCancelOrdersAndSettleFunds, {
+  //   isCachedForever: true,
+  // })
   private async serumMarketCancelOrdersAndSettleFunds(
     market: SerumMarket,
     connection: Connection,
     owner: Account,
     orders: SerumOrder[]
   ): Promise<TransactionSignature> {
-    return await market.cancelOrders(connection, owner, orders);
+    const ordersCancelation = await market.cancelOrders(
+      connection,
+      owner,
+      orders
+    );
+
+    // TODO remove!!!
+    // eslint-disable-next-line prettier/prettier
+    console.log(
+      'serumMarketCancelOrdersAndSettleFunds.ordersCancelation:\n',
+      JSON.stringify(ordersCancelation, null, 2)
+    );
 
     const fundsSettlements: {
       owner: Account;
@@ -413,7 +504,7 @@ export class Serum {
     }
 
     try {
-      return (
+      const result = (
         await this.serumSettleSeveralFunds(
           market,
           connection,
@@ -421,6 +512,15 @@ export class Serum {
           new Transaction() // There's only one owner.
         )
       )[0]; // There's only one owner.
+
+      // TODO remove!!!
+      // eslint-disable-next-line prettier/prettier
+      console.log(
+        'serumMarketCancelOrdersAndSettleFunds.result:\n',
+        JSON.stringify(ordersCancelation, null, 2)
+      );
+
+      return result;
     } catch (exception: any) {
       if (
         exception.message.includes('It is unknown if it succeeded or failed.')
@@ -443,20 +543,29 @@ export class Serum {
    * @param cacheDurationMs
    * @private
    */
-  @Cache(caches.filesystem.serumFindOpenOrdersAccountsForOwner, {
-    isCachedForever: true,
-  })
+  // @Cache(caches.filesystem.serumFindOpenOrdersAccountsForOwner, {
+  //   isCachedForever: true,
+  // })
   private async serumFindOpenOrdersAccountsForOwner(
     market: SerumMarket,
     connection: Connection,
     ownerAddress: PublicKey,
     cacheDurationMs?: number
   ): Promise<SerumOpenOrders[]> {
-    return await market.findOpenOrdersAccountsForOwner(
+    const result = await market.findOpenOrdersAccountsForOwner(
       connection,
       ownerAddress,
       cacheDurationMs
     );
+
+    // TODO remove!!!
+    // eslint-disable-next-line prettier/prettier
+    console.log(
+      'serumFindOpenOrdersAccountsForOwner:\n',
+      JSON.stringify(result, null, 2)
+    );
+
+    return result;
   }
 
   /**
@@ -469,20 +578,29 @@ export class Serum {
    * @private
    */
   // @Cache(caches.serumFindBaseTokenAccountsForOwner, { isCachedForever: true })
-  @Cache(caches.filesystem.serumFindBaseTokenAccountsForOwner, {
-    isCachedForever: true,
-  })
+  // @Cache(caches.filesystem.serumFindBaseTokenAccountsForOwner, {
+  //   isCachedForever: true,
+  // })
   private async serumFindBaseTokenAccountsForOwner(
     market: SerumMarket,
     connection: Connection,
     ownerAddress: PublicKey,
     includeUnwrappedSol?: boolean
   ): Promise<Array<{ pubkey: PublicKey; account: AccountInfo<Buffer> }>> {
-    return await market.findBaseTokenAccountsForOwner(
+    const result = await market.findBaseTokenAccountsForOwner(
       connection,
       ownerAddress,
       includeUnwrappedSol
     );
+
+    // TODO remove!!!
+    // eslint-disable-next-line prettier/prettier
+    console.log(
+      'serumFindBaseTokenAccountsForOwner:\n',
+      JSON.stringify(result, null, 2)
+    );
+
+    return result;
   }
 
   /**
@@ -495,20 +613,29 @@ export class Serum {
    * @private
    */
   // @Cache(caches.serumFindQuoteTokenAccountsForOwner, { isCachedForever: true })
-  @Cache(caches.filesystem.serumFindQuoteTokenAccountsForOwner, {
-    isCachedForever: true,
-  })
+  // @Cache(caches.filesystem.serumFindQuoteTokenAccountsForOwner, {
+  //   isCachedForever: true,
+  // })
   private async serumFindQuoteTokenAccountsForOwner(
     market: SerumMarket,
     connection: Connection,
     ownerAddress: PublicKey,
     includeUnwrappedSol?: boolean
   ): Promise<Array<{ pubkey: PublicKey; account: AccountInfo<Buffer> }>> {
-    return await market.findQuoteTokenAccountsForOwner(
+    const result = await market.findQuoteTokenAccountsForOwner(
       connection,
       ownerAddress,
       includeUnwrappedSol
     );
+
+    // TODO remove!!!
+    // eslint-disable-next-line prettier/prettier
+    console.log(
+      'serumFindQuoteTokenAccountsForOwner:\n',
+      JSON.stringify(result, null, 2)
+    );
+
+    return result;
   }
 
   /**
@@ -523,9 +650,9 @@ export class Serum {
    * @param referrerQuoteWallet
    * @private
    */
-  @Cache(caches.filesystem.serumSettleFunds, {
-    isCachedForever: true,
-  })
+  // @Cache(caches.filesystem.serumSettleFunds, {
+  //   isCachedForever: true,
+  // })
   private async serumSettleFunds(
     market: SerumMarket,
     connection: Connection,
@@ -535,7 +662,7 @@ export class Serum {
     quoteWallet: PublicKey,
     referrerQuoteWallet?: PublicKey | null
   ): Promise<TransactionSignature> {
-    return await market.settleFunds(
+    const result = await market.settleFunds(
       connection,
       owner,
       openOrders,
@@ -543,6 +670,15 @@ export class Serum {
       quoteWallet,
       referrerQuoteWallet
     );
+
+    // TODO remove!!!
+    // eslint-disable-next-line prettier/prettier
+    console.log(
+      'serumSettleFunds:\n',
+      JSON.stringify(result, null, 2)
+    );
+
+    return result;
   }
 
   /**
@@ -554,9 +690,9 @@ export class Serum {
    * @param settlements
    * @private
    */
-  @Cache(caches.filesystem.serumSettleSeveralFunds, {
-    isCachedForever: true,
-  })
+  // @Cache(caches.filesystem.serumSettleSeveralFunds, {
+  //   isCachedForever: true,
+  // })
   private async serumSettleSeveralFunds(
     market: SerumMarket,
     connection: Connection,
@@ -569,18 +705,36 @@ export class Serum {
     }[],
     transaction: Transaction = new Transaction()
   ): Promise<TransactionSignature[]> {
-    return await market.settleSeveralFunds(
+    const result = await market.settleSeveralFunds(
       connection,
       settlements,
       transaction
     );
+
+    // TODO remove!!!
+    // eslint-disable-next-line prettier/prettier
+    console.log(
+      'serumSettleFunds:\n',
+      JSON.stringify(result, null, 2)
+    );
+
+    return result;
   }
 
-  @Cache(caches.filesystem.getSolanaAccount, {
-    isCachedForever: true,
-  })
+  // @Cache(caches.filesystem.getSolanaAccount, {
+  //   isCachedForever: true,
+  // })
   private async getSolanaAccount(address: string): Promise<Account> {
-    return await this.solana.getAccount(address);
+    const result = await this.solana.getAccount(address);
+
+    // TODO remove!!!
+    // eslint-disable-next-line prettier/prettier
+    console.log(
+      'getSolanaAccount:\n',
+      JSON.stringify(result, null, 2)
+    );
+
+    return result;
   }
 
   /**
@@ -594,11 +748,7 @@ export class Serum {
    */
   @Cache(caches.instances, { isCachedForever: true })
   static async getInstance(chain: string, network: string): Promise<Serum> {
-    const instance = new Serum(chain, network);
-
-    await instance.init();
-
-    return instance;
+    return new Serum(chain, network);
   }
 
   /**
@@ -790,6 +940,9 @@ export class Serum {
         const result: { price: any; last_updated_at: any } = (
           await axios.get(url)
         ).data.items[0];
+
+        // TODO remove!!!
+        console.log('getTicker:\n', JSON.stringify(result, null, 2));
 
         return convertToTicker(result);
       }
