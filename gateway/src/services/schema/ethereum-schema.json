@@ -28,7 +28,8 @@
       "additionalProperties": false
     },
     "nodeAPIKey": { "type": "string" },
-    "manualGasPrice": { "type": "integer" }
+    "manualGasPrice": { "type": "integer" },
+    "gasLimit": { "type": "integer" }
   },
   "additionalProperties": false
 }
