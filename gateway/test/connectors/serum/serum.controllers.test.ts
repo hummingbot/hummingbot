@@ -16,21 +16,30 @@ import {
 import { default as config } from '../../connectors/serum/fixtures/serumConfig';
 import { unpatch } from '../../services/patch';
 import { getNewOrderTemplate } from './fixtures/dummy';
-import { default as patchesInitializer } from './fixtures/patches';
+import { default as patchesCreator } from './fixtures/patches/patches';
 
 jest.setTimeout(1000000);
 
 let solana: Solana;
 let serum: Serum;
 
-let patches: any;
+let patches: Map<string, any>;
 
 beforeAll(async () => {
   solana = await Solana.getInstance(config.serum.network);
 
   serum = await Serum.getInstance(config.serum.chain, config.serum.network);
 
-  patches = patchesInitializer(solana, serum);
+  patches = patchesCreator(solana, serum);
+
+  patches.get('solana.init')();
+  patches.get('serum.init')();
+
+  patches.get('solana.ready')();
+  patches.get('serum.ready')();
+
+  await solana.init();
+  await serum.init();
 });
 
 afterEach(() => {
@@ -89,6 +98,9 @@ describe('Full Flow', () => {
   let response: any;
 
   it('getMarket ["SOL/USDT"]', async () => {
+    patches.get('serum.serumGetMarketsInformation')();
+    patches.get('serum.serumLoadMarket')('SOL/USDT');
+
     request = {
       ...commonParameters,
       name: marketName,
@@ -97,6 +109,9 @@ describe('Full Flow', () => {
   });
 
   it('getMarkets ["SOL/USDT", "SOL/USDC"]', async () => {
+    patches.get('serum.serumGetMarketsInformation')();
+    patches.get('serum.serumLoadMarket')('SOL/USDC');
+
     request = {
       ...commonParameters,
       names: marketNames,
@@ -105,6 +120,11 @@ describe('Full Flow', () => {
   });
 
   it('getMarkets (all)', async () => {
+    patches.get('serum.serumGetMarketsInformation')();
+    patches.get('serum.serumLoadMarket')('SOL/USDT');
+    patches.get('serum.serumLoadMarket')('SOL/USDC');
+    patches.get('serum.serumLoadMarket')('SRM/SOL');
+
     request = {
       ...commonParameters,
     };
@@ -112,6 +132,11 @@ describe('Full Flow', () => {
   });
 
   it('getOrderBook ["SOL/USDT"]', async () => {
+    // patches.get('serum.serumGetMarketsInformation')();
+    // patches.get('serum.serumLoadMarket')('SOL/USDT');
+    // await patches.get('serum.serumMarketLoadAsks')('SOL/USDT');
+    // await patches.get('serum.serumMarketLoadBids')('SOL/USDT');
+
     request = {
       ...commonParameters,
       marketName: marketName,
@@ -183,8 +208,6 @@ describe('Full Flow', () => {
   });
 
   it('createOrder [0]', async () => {
-    patches.solana.getKeypair();
-
     request = {
       ...commonParameters,
       order: (() => {
@@ -197,8 +220,6 @@ describe('Full Flow', () => {
   });
 
   it('createOrders [1, 2, 3, 4, 5, 6, 7]', async () => {
-    patches.solana.getKeypair();
-
     request = {
       ...commonParameters,
       orders: [

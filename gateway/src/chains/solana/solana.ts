@@ -108,11 +108,7 @@ export class Solana implements Solanaish {
 
   @Cache(caches.instances, { isCachedForever: true })
   public static async getInstance(network: string): Promise<Solana> {
-    const instance = new Solana(network);
-
-    await instance.init();
-
-    return instance;
+    return new Solana(network);
   }
 
   public static getConnectedInstances(): { [name: string]: Solana } {
