@@ -10,9 +10,10 @@ import aiohttp
 
 import hummingbot.core.web_assistant.connections.rest_connection
 import hummingbot.logger.logger
-from certs import creds
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger.logger import HummingbotLogger
+
+from certs import creds  # isort: skip <- this module with the dictionary inside has to be created to provide the keys
 
 this_loop = asyncio.get_event_loop()
 
