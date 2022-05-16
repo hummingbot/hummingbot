@@ -1,5 +1,4 @@
 import asyncio
-import warnings
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -19,6 +18,7 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -113,22 +113,27 @@ class OkxExchange(ExchangePyBase):
             connector=self,
             api_factory=self._web_assistants_factory)
 
-    def get_fee(self,
-                base_currency: str,
-                quote_currency: str,
-                order_type: OrderType,
-                order_side: TradeType,
-                amount: Decimal,
-                price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None):
-        warnings.warn(
-            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
-            DeprecationWarning,
-            stacklevel=2,
+    def _get_fee(self,
+                 base_currency: str,
+                 quote_currency: str,
+                 order_type: OrderType,
+                 order_side: TradeType,
+                 amount: Decimal,
+                 price: Decimal = s_decimal_NaN,
+                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+
+        is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
+        fee = build_trade_fee(
+            self.name,
+            is_maker,
+            base_currency=base_currency,
+            quote_currency=quote_currency,
+            order_type=order_type,
+            order_side=order_side,
+            amount=amount,
+            price=price,
         )
-        raise DeprecationWarning(
-            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead."
-        )
+        return fee
 
     async def _initialize_trading_pair_symbol_map(self):
         # This has to be reimplemented because the request requires an extra parameter
@@ -157,8 +162,8 @@ class OkxExchange(ExchangePyBase):
                            price: Decimal) -> Tuple[str, float]:
         data = {
             "clOrdId": order_id,
-            "tdMode": 'cash',
-            "ordType": 'limit',
+            "tdMode": "cash",
+            "ordType": "limit",
             "side": trade_type.name.lower(),
             "instId": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
             "sz": str(amount),
@@ -190,7 +195,7 @@ class OkxExchange(ExchangePyBase):
             data=params,
             is_auth_required=True,
         )
-        if cancel_result["code"] == "0":
+        if cancel_result["data"][0]["sCode"] == "0":
             return True
         else:
             raise IOError(cancel_result["msg"])
@@ -220,8 +225,32 @@ class OkxExchange(ExchangePyBase):
         self._account_balances.clear()
 
         for balance in balances:
-            self._account_balances[balance['ccy']] = Decimal(balance['cashBal'])
-            self._account_available_balances[balance['ccy']] = Decimal(balance['availBal'])
+            self._update_balance_from_details(balance_details=balance)
+
+    def _update_balance_from_details(self, balance_details: Dict[str, Any]):
+        equity_text = balance_details["eq"]
+        available_equity_text = balance_details["availEq"]
+
+        if equity_text and available_equity_text:
+            total = Decimal(equity_text)
+            available = Decimal(available_equity_text)
+        else:
+            available = Decimal(balance_details["availBal"])
+            total = available + Decimal(balance_details["frozenBal"])
+        self._account_balances[balance_details["ccy"]] = total
+        self._account_available_balances[balance_details["ccy"]] = available
+
+    async def _update_trading_rules(self):
+        # This has to be reimplemented because the request requires an extra parameter
+        exchange_info = await self._api_get(
+            path_url=self.trading_rules_request_path,
+            params={"instType": "SPOT"},
+        )
+        trading_rules_list = await self._format_trading_rules(exchange_info)
+        self._trading_rules.clear()
+        for trading_rule in trading_rules_list:
+            self._trading_rules[trading_rule.trading_pair] = trading_rule
+        self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
 
     async def _format_trading_rules(self, raw_trading_pair_info: List[Dict[str, Any]]) -> List[TradingRule]:
         trading_rules = []
@@ -378,15 +407,8 @@ class OkxExchange(ExchangePyBase):
 
                 elif channel == CONSTANTS.OKX_WS_ACCOUNT_CHANNEL:
                     for data in stream_message.get("data", []):
-                        details = data["details"]
-                        if details:
-                            details = details[0]
-                            asset_name = details["ccy"]
-                            balance = details["cashBal"]
-                            available_balance = details["availBal"]
-
-                            self._account_balances.update({asset_name: Decimal(balance)})
-                            self._account_available_balances.update({asset_name: Decimal(available_balance)})
+                        for details in data.get("details", []):
+                            self._update_balance_from_details(balance_details=details)
 
             except asyncio.CancelledError:
                 raise

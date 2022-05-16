@@ -238,14 +238,14 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "details": [
                         {
                             "availBal": "10",
-                            "availEq": "9930359.9998",
-                            "cashBal": "15",
+                            "availEq": "",
+                            "cashBal": "",
                             "ccy": self.base_asset,
                             "crossLiab": "0",
                             "disEq": "9439737.0772999514",
-                            "eq": "9930359.9998",
+                            "eq": "",
                             "eqUsd": "9933041.196999946",
-                            "frozenBal": "0",
+                            "frozenBal": "5",
                             "interest": "0",
                             "isoEq": "0",
                             "isoLiab": "0",
@@ -262,13 +262,13 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                             "stgyEq": "0"
                         },
                         {
-                            "availBal": "2000",
-                            "availEq": "33.6799714158199414",
-                            "cashBal": "2000",
+                            "availBal": "",
+                            "availEq": "2000",
+                            "cashBal": "",
                             "ccy": self.quote_asset,
                             "crossLiab": "0",
                             "disEq": "1239950.9687532129092577",
-                            "eq": "33.771820625136023",
+                            "eq": "2000",
                             "eqUsd": "1239950.9687532129092577",
                             "frozenBal": "0.0918492093160816",
                             "interest": "0",
@@ -296,8 +296,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "totalEq": "11172992.1657531589092577",
                     "uTime": "1623392334718"
                 }
-            ],
-            "msg": ""
+            ]
         }
 
     @property
@@ -310,14 +309,14 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "details": [
                         {
                             "availBal": "10",
-                            "availEq": "9930359.9998",
-                            "cashBal": "15",
+                            "availEq": "",
+                            "cashBal": "",
                             "ccy": self.base_asset,
                             "crossLiab": "0",
                             "disEq": "9439737.0772999514",
-                            "eq": "9930359.9998",
+                            "eq": "",
                             "eqUsd": "9933041.196999946",
-                            "frozenBal": "0",
+                            "frozenBal": "5",
                             "interest": "0",
                             "isoEq": "0",
                             "isoLiab": "0",
@@ -370,12 +369,12 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                             "availBal": "10",
                             "availEq": "",
                             "ccy": self.base_asset,
-                            "cashBal": "15",
+                            "cashBal": "",
                             "uTime": "1617279471503",
                             "disEq": "50559.01",
-                            "eq": "1",
+                            "eq": "",
                             "eqUsd": "45078.3790756226851775",
-                            "frozenBal": "0",
+                            "frozenBal": "5",
                             "interest": "0",
                             "isoEq": "0",
                             "liab": "0",
@@ -515,14 +514,14 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_CANCEL_PATH)
         response = {
-            "code": "1",
-            "msg": "Error",
+            "code": "0",
+            "msg": "",
             "data": [
                 {
                     "clOrdId": order.client_order_id,
                     "ordId": order.exchange_order_id or "dummyExchangeOrderId",
-                    "sCode": "0",
-                    "sMsg": ""
+                    "sCode": "1",
+                    "sMsg": "Error"
                 }
             ]
         }
