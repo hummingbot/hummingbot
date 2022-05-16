@@ -1,6 +1,8 @@
-from abc import ABC, abstractmethod
-import numpy as np
 import logging
+from abc import ABC, abstractmethod
+
+import numpy as np
+
 from ..ring_buffer import RingBuffer
 
 pmm_logger = None

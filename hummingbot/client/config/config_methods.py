@@ -1,7 +1,8 @@
+from typing import Callable
+
 from pydantic.json import pydantic_encoder
 
 from hummingbot.client.config.config_var import ConfigVar
-from typing import Callable
 
 
 def new_fee_config_var(key: str, type_str: str = "decimal"):
