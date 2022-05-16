@@ -1,8 +1,6 @@
 import { getNotNullOrThrowError } from './serum.helpers';
 import {
   BasicSerumMarket,
-  CancelOpenOrderResponse,
-  CancelOpenOrdersResponse,
   CancelOrderResponse,
   CancelOrdersResponse,
   CreateOrderResponse,
@@ -45,7 +43,6 @@ export enum Types {
   GetFilledOrdersResponse = 'GetFilledOrdersResponse',
   CreateOrdersResponse = 'CreateOrdersResponse',
   CancelOrdersResponse = 'CancelOrdersResponse',
-  CancelOpenOrdersResponse = 'CancelOpenOrdersResponse',
   PostSettleFundsResponse = 'PostSettleFundsResponse',
 }
 
@@ -70,7 +67,6 @@ type SingleOutput =
   | CreateOrdersResponse
   | CancelOrdersResponse
   | GetOpenOrdersResponse
-  | CancelOpenOrdersResponse
   | GetFilledOrdersResponse
   | PostSettleFundsResponse;
 
@@ -147,9 +143,6 @@ export const convertSingle = <O extends Output>(
 
   if (type === Types.GetOpenOrdersResponse)
     return convertToGetOpenOrderResponse(input as Order) as O;
-
-  if (type === Types.CancelOpenOrdersResponse)
-    return convertToCancelOpenOrderResponse(input as Order) as O;
 
   if (type === Types.GetFilledOrdersResponse)
     return convertToGetFilledOrderResponse(input as Order) as O;
@@ -348,7 +341,10 @@ export const convertToCancelOrderResponse = (
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: input.ownerAddress,
+    ownerAddress: getNotNullOrThrowError(
+      input.ownerAddress,
+      'Owner address is not defined.'
+    ),
     price: input.price,
     amount: input.amount,
     side: input.side,
@@ -372,23 +368,6 @@ export const convertToGetOpenOrderResponse = (
     type: input.type,
   };
 };
-
-export const convertToCancelOpenOrderResponse = (
-  input: Order
-): CancelOpenOrderResponse => ({
-  id: input.id,
-  exchangeId: input.exchangeId,
-  marketName: input.marketName,
-  ownerAddress: getNotNullOrThrowError(
-    input.ownerAddress,
-    'Owner address is not defined.'
-  ),
-  price: input.price,
-  amount: input.amount,
-  side: input.side,
-  status: input.status,
-  type: input.type,
-});
 
 export const convertToGetFilledOrderResponse = (
   input: Order

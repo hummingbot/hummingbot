@@ -2,11 +2,11 @@ import { StatusCodes } from 'http-status-codes';
 import { Solanaish } from '../../chains/solana/solana';
 import { ResponseWrapper } from '../../services/common-interfaces';
 import { HttpException } from '../../services/error-handler';
+import './extensions/cycle';
+import './extensions/json';
 import { Serumish } from './serum';
 import { convert, convertToJsonIfNeeded, Types } from './serum.convertors';
 import {
-  SerumCancelOpenOrdersRequest,
-  SerumCancelOpenOrdersResponse,
   SerumCancelOrdersRequest,
   SerumCancelOrdersResponse,
   SerumCreateOrdersRequest,
@@ -37,8 +37,6 @@ import {
   Ticker,
 } from './serum.types';
 import {
-  validateCancelOpenOrderRequest,
-  validateCancelOpenOrdersRequest,
   validateCancelOrderRequest,
   validateCancelOrdersRequest,
   validateCreateOrderRequest,
@@ -58,8 +56,6 @@ import {
   validateSettleFundsRequest,
   validateSettleFundsSeveralRequest,
 } from './serum.validators';
-import './extensions/cycle';
-import './extensions/json';
 
 /**
  * Get the all or the informed markets and their configurations.
@@ -445,8 +441,8 @@ export async function cancelOrders(
 
   response.body = convertToJsonIfNeeded(
     convert<IMap<string, Order>, SerumCancelOrdersResponse>(
-      await serum.cancelAllOpenOrders(request.ownerAddress),
-      Types.CancelOpenOrdersResponse
+      await serum.cancelAllOrders(request.ownerAddress),
+      Types.CancelOrdersResponse
     )
   );
 
@@ -519,62 +515,6 @@ export async function getOpenOrders(
     convert<IMap<string, IMap<string, Order>>, SerumGetOpenOrdersResponse>(
       await serum.getAllOpenOrders(request.ownerAddress),
       Types.GetOpenOrdersResponse
-    )
-  );
-
-  response.status = StatusCodes.OK;
-
-  return response;
-}
-
-/**
- * Cancel all open orders for each informed market.
- *
- * @param _solana
- * @param serum
- * @param request
- */
-export async function cancelOpenOrders(
-  _solana: Solanaish,
-  serum: Serumish,
-  request: SerumCancelOpenOrdersRequest
-): Promise<ResponseWrapper<SerumCancelOpenOrdersResponse>> {
-  const response = new ResponseWrapper<SerumCancelOpenOrdersResponse>();
-
-  if ('order' in request) {
-    validateCancelOpenOrderRequest(request.order);
-
-    response.body = convertToJsonIfNeeded(
-      convert<Order, SerumCancelOpenOrdersResponse>(
-        await serum.cancelOrder(request.order),
-        Types.CancelOpenOrdersResponse
-      )
-    );
-
-    response.status = StatusCodes.OK;
-
-    return response;
-  }
-
-  if ('orders' in request) {
-    validateCancelOpenOrdersRequest(request.orders);
-
-    response.body = convertToJsonIfNeeded(
-      convert<IMap<string, Order>, SerumCancelOpenOrdersResponse>(
-        await serum.cancelOrders(request.orders),
-        Types.CancelOpenOrdersResponse
-      )
-    );
-
-    response.status = StatusCodes.OK;
-
-    return response;
-  }
-
-  response.body = convertToJsonIfNeeded(
-    convert<IMap<string, Order>, SerumCancelOpenOrdersResponse>(
-      await serum.cancelAllOpenOrders(request.ownerAddress),
-      Types.CancelOpenOrdersResponse
     )
   );
 

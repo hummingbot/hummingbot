@@ -1745,9 +1745,7 @@ export class Serum {
    *
    * @param ownerAddress
    */
-  async cancelAllOpenOrders(
-    ownerAddress: string
-  ): Promise<IMap<string, Order>> {
+  async cancelAllOrders(ownerAddress: string): Promise<IMap<string, Order>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
 
     const requests: CancelOrdersRequest[] = marketNames.map((marketName) => ({

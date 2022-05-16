@@ -2,7 +2,6 @@ import 'jest-extended';
 import { Solana } from '../../../src/chains/solana/solana';
 import { Serum } from '../../../src/connectors/serum/serum';
 import {
-  cancelOpenOrders,
   cancelOrders,
   createOrders,
   getFilledOrders,
@@ -152,12 +151,12 @@ describe('Full Flow', () => {
     response = await getTickers(solana, serum, request);
   });
 
-  it('cancelOpenOrders (all)', async () => {
+  it('cancelOrders (all)', async () => {
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await cancelOpenOrders(solana, serum, request);
+    response = await cancelOrders(solana, serum, request);
   });
 
   // it('settleFunds (all)', async () => {
@@ -298,7 +297,7 @@ describe('Full Flow', () => {
     response = await getOrders(solana, serum, request);
   });
 
-  it('cancelOpenOrders [0]', async () => {
+  it('cancelOrders [0]', async () => {
     request = {
       ...commonParameters,
       order: {
@@ -307,7 +306,7 @@ describe('Full Flow', () => {
         marketName: marketName,
       },
     };
-    response = await cancelOpenOrders(solana, serum, request);
+    response = await cancelOrders(solana, serum, request);
   });
 
   it('cancelOrders [1]', async () => {
@@ -392,7 +391,7 @@ describe('Full Flow', () => {
     response = await getFilledOrders(solana, serum, request);
   });
 
-  it('cancelOpenOrders [2, 3]', async () => {
+  it('cancelOrders [2, 3]', async () => {
     request = {
       ...commonParameters,
       orders: [
@@ -403,7 +402,7 @@ describe('Full Flow', () => {
         },
       ],
     };
-    response = await cancelOpenOrders(solana, serum, request);
+    response = await cancelOrders(solana, serum, request);
   });
 
   it('cancelOrders [4, 5]', async () => {
@@ -446,12 +445,12 @@ describe('Full Flow', () => {
     response = await getOrders(solana, serum, request);
   });
 
-  it('cancelOpenOrders (all)', async () => {
+  it('cancelOrders (all)', async () => {
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await cancelOpenOrders(solana, serum, request);
+    response = await cancelOrders(solana, serum, request);
   });
 
   it('getOpenOrders (all)', async () => {

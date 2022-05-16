@@ -4,8 +4,6 @@ import * as serumControllers from '../connectors/serum/serum.controllers';
 import { ResponseWrapper } from '../services/common-interfaces';
 import { getChain, getConnector } from '../services/connection-manager';
 import {
-  ClobDeleteOpenOrdersRequest,
-  ClobDeleteOpenOrdersResponse,
   ClobDeleteOrdersRequest,
   ClobDeleteOrdersResponse,
   ClobGetFilledOrdersRequest,
@@ -150,24 +148,6 @@ export async function getOpenOrders(
   );
 
   return serumControllers.getOpenOrders(chain, connector, request);
-}
-
-/**
- * DELETE /clob/openOrders
- *
- * @param request
- */
-export async function cancelOpenOrders(
-  request: ClobDeleteOpenOrdersRequest
-): Promise<ResponseWrapper<ClobDeleteOpenOrdersResponse>> {
-  const chain: Solanaish = await getChain(request.chain, request.network);
-  const connector: Serumish = await getConnector(
-    request.chain,
-    request.network,
-    request.connector
-  );
-
-  return serumControllers.cancelOpenOrders(chain, connector, request);
 }
 
 /**

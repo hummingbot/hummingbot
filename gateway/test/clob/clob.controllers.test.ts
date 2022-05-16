@@ -1,7 +1,7 @@
 import 'jest-extended';
 import { Solana } from '../../src/chains/solana/solana';
 import {
-  cancelOpenOrders,
+  cancelOrders,
   cancelOrders,
   createOrders,
   getFilledOrders,
@@ -152,12 +152,12 @@ describe('Full Flow', () => {
     response = await getTickers(request);
   });
 
-  it('cancelOpenOrders (all)', async () => {
+  it('cancelOrders (all)', async () => {
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await cancelOpenOrders(request);
+    response = await cancelOrders(request);
   });
 
   // it('settleFunds (all)', async () => {
@@ -304,7 +304,7 @@ describe('Full Flow', () => {
     response = await getOrders(request);
   });
 
-  it('cancelOpenOrders [0]', async () => {
+  it('cancelOrders [0]', async () => {
     request = {
       ...commonParameters,
       order: {
@@ -313,7 +313,7 @@ describe('Full Flow', () => {
         marketName: marketName,
       },
     };
-    response = await cancelOpenOrders(request);
+    response = await cancelOrders(request);
   });
 
   it('cancelOrders [1]', async () => {
@@ -410,7 +410,7 @@ describe('Full Flow', () => {
     response = await getFilledOrders(request);
   });
 
-  it('cancelOpenOrders [2, 3]', async () => {
+  it('cancelOrders [2, 3]', async () => {
     request = {
       ...commonParameters,
       orders: [
@@ -421,7 +421,7 @@ describe('Full Flow', () => {
         },
       ],
     };
-    response = await cancelOpenOrders(request);
+    response = await cancelOrders(request);
   });
 
   it('cancelOrders [4, 5]', async () => {
@@ -464,12 +464,12 @@ describe('Full Flow', () => {
     response = await getOrders(request);
   });
 
-  it('cancelOpenOrders (all)', async () => {
+  it('cancelOrders (all)', async () => {
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
     };
-    response = await cancelOpenOrders(request);
+    response = await cancelOrders(request);
   });
 
   it('getOpenOrders (all)', async () => {
