@@ -49,6 +49,9 @@ class CoinbaseProConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "coinbase_pro"
+
 
 KEYS = CoinbaseProConfigMap.construct()
 

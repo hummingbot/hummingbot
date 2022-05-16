@@ -74,5 +74,8 @@ class CeloConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "celo"
+
 
 KEYS = CeloConfigMap.construct()

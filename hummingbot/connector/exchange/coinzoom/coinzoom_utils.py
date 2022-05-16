@@ -91,5 +91,8 @@ class CoinzoomConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "coinzoom"
+
 
 KEYS = CoinzoomConfigMap.construct()

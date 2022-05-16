@@ -78,6 +78,9 @@ class NdaxConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "ndax"
+
 
 KEYS = NdaxConfigMap.construct()
 
@@ -125,6 +128,9 @@ class NdaxTestnetConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
+
+    class Config:
+        title = "ndax_testnet"
 
 
 OTHER_DOMAINS_KEYS = {"ndax_testnet": NdaxTestnetConfigMap.construct()}

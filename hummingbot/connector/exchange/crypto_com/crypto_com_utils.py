@@ -99,5 +99,8 @@ class CryptoComConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "crypto_com"
+
 
 KEYS = CryptoComConfigMap.construct()

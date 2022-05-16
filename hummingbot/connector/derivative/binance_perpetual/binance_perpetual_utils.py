@@ -96,5 +96,8 @@ class BinancePerpetualTestnetConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "binance_perpetual"
+
 
 OTHER_DOMAINS_KEYS = {"binance_perpetual_testnet": BinancePerpetualTestnetConfigMap.construct()}

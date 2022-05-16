@@ -46,6 +46,9 @@ class OkexConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "okex"
+
 
 KEYS = OkexConfigMap.construct()
 

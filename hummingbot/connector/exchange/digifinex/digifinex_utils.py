@@ -103,5 +103,8 @@ class DigifinexConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "digifinex"
+
 
 KEYS = DigifinexConfigMap.construct()
