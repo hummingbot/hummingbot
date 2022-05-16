@@ -75,5 +75,8 @@ class DydxPerpetualConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "dydx_perpetual"
+
 
 KEYS = DydxPerpetualConfigMap.construct()

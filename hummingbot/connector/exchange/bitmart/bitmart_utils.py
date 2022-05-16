@@ -180,6 +180,9 @@ class BitmartConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "bitmart"
+
 
 KEYS = BitmartConfigMap.construct()
 

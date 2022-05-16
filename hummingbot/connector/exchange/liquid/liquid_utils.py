@@ -30,5 +30,8 @@ class LiquidConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "liquid"
+
 
 KEYS = LiquidConfigMap.construct()

@@ -104,5 +104,8 @@ class K2ConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "k2"
+
 
 KEYS = K2ConfigMap.construct()

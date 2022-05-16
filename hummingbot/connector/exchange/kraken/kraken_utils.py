@@ -204,6 +204,9 @@ class KrakenConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "kraken"
+
 
 KEYS = KrakenConfigMap.construct()
 

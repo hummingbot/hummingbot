@@ -112,8 +112,10 @@ def _maybe_migrate_encrypted_confs(config_keys: BaseConnectorConfigMap) -> List[
             if key_path.exists():
                 with open(key_path, 'r') as f:
                     json_str = f.read()
-                encrypted = binascii.hexlify(json_str.encode()).decode()
-                cm.setattr_no_validation(el.attr, encrypted)
+                value = binascii.hexlify(json_str.encode()).decode()
+                if not el.client_field_data.is_secure:
+                    value = Security.secrets_manager.decrypt_secret_value(el.attr, value)
+                cm.setattr_no_validation(el.attr, value)
                 files_to_remove.append(key_path)
                 found_one = True
             else:

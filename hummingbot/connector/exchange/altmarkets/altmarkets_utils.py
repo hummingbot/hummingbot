@@ -95,5 +95,8 @@ class AltmarketsConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "altmarkets"
+
 
 KEYS = AltmarketsConfigMap.construct()
