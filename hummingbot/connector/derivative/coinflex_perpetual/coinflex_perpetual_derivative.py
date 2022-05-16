@@ -1056,7 +1056,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         if exec_amt_base:
             if not tracked_order:
                 tracked_order = self.in_flight_orders.get(client_order_id)
-            fill_price = decimal_val_or_none(order_data.get("matchPrice"))
+            fill_price = decimal_val_or_none(order_data.get("matchPrice", order_data.get("price")))
             exec_amt_quote = exec_amt_base * fill_price if exec_amt_base and fill_price else None
             fee_asset = order_data.get("feeInstrumentId", tracked_order.quote_asset)
             fee_amount = decimal_val_or_none(order_data.get("fees"))
