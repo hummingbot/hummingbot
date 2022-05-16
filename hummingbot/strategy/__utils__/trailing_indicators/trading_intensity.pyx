@@ -172,3 +172,9 @@ cdef class TradingIntensityIndicator():
     @property
     def sampling_length(self) -> int:
         return self._sampling_length
+
+    @sampling_length.setter
+    def sampling_length(self, value):
+        self._sampling_length = value
+        if self._sampling_length < len(self._trades):
+            self._trades = self._trades[-self._sampling_length:]

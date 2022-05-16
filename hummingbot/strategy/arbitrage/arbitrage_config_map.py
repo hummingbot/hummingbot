@@ -1,16 +1,16 @@
-import hummingbot.client.settings as settings
-
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_validators import (
-    validate_exchange,
-    validate_market_trading_pair,
-    validate_decimal,
-    validate_bool
-)
-from hummingbot.client.config.config_helpers import parse_cvar_value
-from hummingbot.client.settings import AllConnectorSettings, required_exchanges
 from decimal import Decimal
 from typing import Optional
+
+import hummingbot.client.settings as settings
+from hummingbot.client.config.config_helpers import parse_cvar_value
+from hummingbot.client.config.config_validators import (
+    validate_bool,
+    validate_decimal,
+    validate_exchange,
+    validate_market_trading_pair,
+)
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.settings import AllConnectorSettings, required_exchanges
 
 
 def validate_primary_market_trading_pair(value: str) -> Optional[str]:

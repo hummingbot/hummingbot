@@ -94,4 +94,4 @@ class AvellanedaStartTest(unittest.TestCase):
         self.assertEqual(len(self.notifications), 1)
         self.assertEqual(self.notifications[0], "Exception for testing")
         self.assertEqual(len(self.log_records), 1)
-        self.assertEqual(self.log_records[0].message, "Unknown error during initialization.")
+        self.assertEqual(self.log_records[0].getMessage(), "Unknown error during initialization.")

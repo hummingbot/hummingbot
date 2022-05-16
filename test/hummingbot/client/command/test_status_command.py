@@ -1,13 +1,13 @@
 import asyncio
 import unittest
 from copy import deepcopy
+from test.mock.mock_cli import CLIMockingAssistant
 from typing import Awaitable
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from test.mock.mock_cli import CLIMockingAssistant
 
 
 class StatusCommandTest(unittest.TestCase):

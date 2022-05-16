@@ -1,7 +1,8 @@
 from prompt_toolkit.styles import Style
 from prompt_toolkit.utils import is_windows
-from hummingbot.client.config.global_config_map import global_config_map
+
 from hummingbot.client.config.config_helpers import save_to_yml_legacy
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import GLOBAL_CONFIG_PATH
 
 
