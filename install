@@ -39,7 +39,7 @@ else
     ${CONDA_EXE} env create -f $ENV_FILE
 fi
 
-source "${CONDA_BIN}/activate" hummingbot-hs
+source "${CONDA_BIN}/activate" hummingbot
 
 # Add the project directory to module search paths.
 conda develop .
