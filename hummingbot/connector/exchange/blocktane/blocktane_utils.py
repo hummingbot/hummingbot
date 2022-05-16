@@ -34,6 +34,9 @@ class BlocktaneConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "blocktane"
+
 
 KEYS = BlocktaneConfigMap.construct()
 

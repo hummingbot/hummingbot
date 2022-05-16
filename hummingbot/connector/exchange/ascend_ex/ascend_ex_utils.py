@@ -1,21 +1,26 @@
 import random
 import string
 import time
+from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
 
 from pydantic import Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.001"),
+    taker_percent_fee_decimal=Decimal("0.001"),
+)
+
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USDT"
-
-DEFAULT_FEES = [0.1, 0.1]
 
 
 HBOT_BROKER_ID = "HMBot"
@@ -148,6 +153,9 @@ class AscendExConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
+
+    class Config:
+        title = "ascend_ex"
 
 
 KEYS = AscendExConfigMap.construct()

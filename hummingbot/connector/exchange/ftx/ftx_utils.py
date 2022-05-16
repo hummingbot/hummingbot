@@ -64,5 +64,8 @@ class FtxConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "ftx"
+
 
 KEYS = FtxConfigMap.construct()

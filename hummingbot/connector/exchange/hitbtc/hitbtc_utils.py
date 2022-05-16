@@ -158,5 +158,8 @@ class HitbtcConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "hitbtc"
+
 
 KEYS = HitbtcConfigMap.construct()

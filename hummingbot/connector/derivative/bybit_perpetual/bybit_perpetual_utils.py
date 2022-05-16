@@ -123,6 +123,9 @@ class BybitPerpetualConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "bybit_perpetual"
+
 
 KEYS = BybitPerpetualConfigMap.construct()
 
@@ -152,6 +155,9 @@ class BybitPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
+
+    class Config:
+        title = "bybit_perpetual_testnet"
 
 
 OTHER_DOMAINS_KEYS = {

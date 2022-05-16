@@ -87,6 +87,9 @@ class ProbitConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "probit"
+
 
 KEYS = ProbitConfigMap.construct()
 
@@ -116,6 +119,9 @@ class ProbitKrConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
+
+    class Config:
+        title = "probit_kr"
 
 
 OTHER_DOMAINS_KEYS = {"probit_kr": ProbitKrConfigMap.construct()}

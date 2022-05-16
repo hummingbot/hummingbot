@@ -40,6 +40,9 @@ class MexcConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "mexc"
+
 
 KEYS = MexcConfigMap.construct()
 

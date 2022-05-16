@@ -1,16 +1,19 @@
 import zlib
+from decimal import Decimal
 
 from pydantic import Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.0008"),
+    taker_percent_fee_decimal=Decimal("0.0001"),
+)
 
 CENTRALIZED = True
 
-
 EXAMPLE_PAIR = "BTC-USDT"
-
-
-DEFAULT_FEES = [0.1, 0.15]
 
 
 class OkexConfigMap(BaseConnectorConfigMap):
@@ -42,6 +45,9 @@ class OkexConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
+
+    class Config:
+        title = "okex"
 
 
 KEYS = OkexConfigMap.construct()

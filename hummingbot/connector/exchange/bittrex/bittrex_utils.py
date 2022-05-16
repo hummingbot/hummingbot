@@ -36,5 +36,8 @@ class BittrexConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "bitrex"
+
 
 KEYS = BittrexConfigMap.construct()
