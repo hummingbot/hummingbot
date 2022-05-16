@@ -1,19 +1,25 @@
 import os
 import socket
+from decimal import Decimal
 from typing import Any, Dict
 
 from pydantic import Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.0002"),
+    taker_percent_fee_decimal=Decimal("0.0004"),
+    buy_percent_fee_deducted_from_returns=True
+)
+
 
 CENTRALIZED = True
 
 
 EXAMPLE_PAIR = "BTC-USDT"
-
-
-DEFAULT_FEES = [0.02, 0.04]
 
 
 BROKER_ID = "x-3QreWesy"

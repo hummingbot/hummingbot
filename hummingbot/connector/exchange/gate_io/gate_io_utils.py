@@ -2,6 +2,7 @@ import asyncio
 import logging
 import random
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
 
 from pydantic import Field, SecretStr
@@ -10,15 +11,19 @@ from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, C
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.web_assistant.connections.data_types import EndpointRESTRequest, RESTMethod, RESTResponse
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.002"),
+    taker_percent_fee_decimal=Decimal("0.002"),
+)
+
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USDT"
-
-DEFAULT_FEES = [0.2, 0.2]
 
 
 @dataclass

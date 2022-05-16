@@ -1,18 +1,17 @@
-from decimal import Decimal
-
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_validators import (
-    validate_bool,
-    validate_exchange,
-    validate_market_trading_pair, validate_datetime_iso_string, validate_decimal,
-)
-from hummingbot.client.settings import (
-    required_exchanges,
-    AllConnectorSettings,
-)
-from typing import Optional
 import math
 from datetime import datetime
+from decimal import Decimal
+from typing import Optional
+
+from hummingbot.client.config.config_validators import (
+    validate_bool,
+    validate_datetime_iso_string,
+    validate_decimal,
+    validate_exchange,
+    validate_market_trading_pair,
+)
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.settings import AllConnectorSettings, required_exchanges
 
 
 def trading_pair_prompt():
@@ -152,7 +151,7 @@ twap_config_map = {
                   prompt_on_new=True),
     "cancel_order_wait_time":
         ConfigVar(key="cancel_order_wait_time",
-                  prompt="How long do you want to wait before cancelling your limit order (in seconds). "
+                  prompt="How long do you want to wait before canceling your limit order (in seconds). "
                          "(Default is 60 seconds) ? >>> ",
                   type_str="float",
                   default=60,
