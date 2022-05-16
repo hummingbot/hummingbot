@@ -65,16 +65,12 @@ describe('Full Flow', () => {
   get orders [4, 5]
   get all open orders (0, 1, 2, 3, 4, 5, 6, 7)
   get all orders (0, 1, 2, 3, 4, 5, 6, 7)
-  cancel open order [0]
-  cancel order [1]
+  cancel order [0]
   get canceled open order [0]
-  get canceled order [1]
-  get filled order [2]
-  get filled orders [3, 4]
+  get filled order [1]
+  get filled orders [2, 3]
   get all filled orders (),
-  cancel open orders [2, 3]
   cancel orders [4, 5]
-  get canceled open orders [2, 3]
   get canceled orders [4, 5]
   cancel all open orders (6, 7)
   get all open orders ()
@@ -353,21 +349,6 @@ describe('Full Flow', () => {
     response = await cancelOrders(solana, serum, request);
   });
 
-  it('cancelOrders [1]', async () => {
-    patches.get('solana/getKeyPair')();
-    patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
-
-    request = {
-      ...commonParameters,
-      order: {
-        id: orderIds[1],
-        ownerAddress: config.solana.wallet.owner.publicKey,
-        marketName: marketName,
-      },
-    };
-    response = await cancelOrders(solana, serum, request);
-  });
-
   // it('getOpenOrders [0]', async () => {
   //   request = {
   //     ...commonParameters,
@@ -440,23 +421,6 @@ describe('Full Flow', () => {
     response = await getFilledOrders(solana, serum, request);
   });
 
-  it('cancelOrders [2, 3]', async () => {
-    patches.get('solana/getKeyPair')();
-    patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
-
-    request = {
-      ...commonParameters,
-      orders: [
-        {
-          ids: orderIds.slice(2, 4),
-          ownerAddress: config.solana.wallet.owner.publicKey,
-          marketName: marketName,
-        },
-      ],
-    };
-    response = await cancelOrders(solana, serum, request);
-  });
-
   it('cancelOrders [4, 5]', async () => {
     patches.get('solana/getKeyPair')();
     patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
@@ -472,21 +436,6 @@ describe('Full Flow', () => {
       ],
     };
     response = await cancelOrders(solana, serum, request);
-  });
-
-  it('getOpenOrders [2, 3]', async () => {
-    patches.get('solana/getKeyPair')();
-
-    request = {
-      ...commonParameters,
-      orders: [
-        {
-          ids: orderIds.slice(2, 4),
-          ownerAddress: config.solana.wallet.owner.publicKey,
-        },
-      ],
-    };
-    response = await getOpenOrders(solana, serum, request);
   });
 
   it('getOrders [4, 5]', async () => {
