@@ -3,11 +3,7 @@ import math
 import unittest
 from copy import deepcopy
 from decimal import Decimal
-from typing import (
-    Dict,
-    List,
-    Tuple
-)
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -21,26 +17,19 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSchema
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    MarketEvent,
-    OrderFilledEvent,
-    SellOrderCompletedEvent
-)
+from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketEvent, OrderFilledEvent, SellOrderCompletedEvent
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
     AvellanedaMarketMakingConfigMap,
     DailyBetweenTimesModel,
-    FromDateToDateModel,
     InfiniteModel,
     MultiOrderLevelModel,
-    TrackHangingOrdersModel
+    TrackHangingOrdersModel,
 )
 from hummingbot.strategy.data_types import PriceSize, Proposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-
 
 s_decimal_zero = Decimal(0)
 s_decimal_one = Decimal(1)
@@ -647,7 +636,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         }
 
         # Re-configure strategy with order_ride configurations
-        self.config_map.order_override =  order_override
+        self.config_map.order_override = order_override
 
         expected_proposal = (list(), list())
         for order in order_override.values():
@@ -831,7 +820,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         }
 
         # Re-configure strategy with order_ride configurations
-        self.config_map.order_override =  order_override
+        self.config_map.order_override = order_override
 
         expected_buys = []
         expected_sells = []
@@ -852,7 +841,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(str(expected_proposal), str(self.strategy.create_base_proposal()))
 
         # Reset order_override configuration
-        self.config_map.order_override =  {}
+        self.config_map.order_override = {}
 
         # (3) With order_levels
         order_levels_mode = MultiOrderLevelModel()
@@ -972,7 +961,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # <<<<< Test Preparation End
 
         # (1) Default: order_optimization = True, add_transaction_costs_to_orders = False
-        #self.strategy.add_transaction_costs_to_orders = True
+        # self.strategy.add_transaction_costs_to_orders = True
 
         #   Intentionally make top_bid/ask_price lower/higher respectively & set TradeFees
         ob_bids: List[OrderBookRow] = [OrderBookRow(bid_price * Decimal("0.5"), self.order_amount, 2)]
@@ -1080,7 +1069,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         bid_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_bid)
         ask_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_ask)
 
-        initial_proposal: Proposal = Proposal([PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)])
+        initial_proposal: Proposal = Proposal(
+            [PriceSize(bid_price, order_amount)],
+            [PriceSize(ask_price, order_amount)]
+        )
 
         # Test (1) Check proposal when order_override is NOT None
         proposal: Proposal = deepcopy(initial_proposal)
@@ -1091,7 +1083,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         }
 
         # Re-configure strategy with order_ride configurations
-        self.config_map.order_override =  order_override
+        self.config_map.order_override = order_override
 
         self.strategy.apply_order_amount_eta_transformation(proposal)
 
@@ -1100,7 +1092,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Test (2) Check proposal when order_override is None
 
         # Re-configure strategy with order_ride configurations
-        self.config_map.order_override =  None
+        self.config_map.order_override = None
 
         proposal: Proposal = deepcopy(initial_proposal)
 
