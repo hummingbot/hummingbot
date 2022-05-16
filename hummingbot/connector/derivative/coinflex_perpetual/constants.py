@@ -52,6 +52,7 @@ WS_CHANNELS = {
 # Order States
 ORDER_CANCELLED_STATES = [
     "OrderClosed",
+    "cancelOrder",
     "CANCELED",
     "CANCELED_BY_USER",
     "CANCELED_BY_MAKER_ONLY",
@@ -63,6 +64,7 @@ ORDER_CANCELLED_STATES = [
 
 ORDER_STATE = {
     "PENDING": OrderState.PENDING_CREATE,
+    "placeOrder": OrderState.OPEN,
     "OrderOpened": OrderState.OPEN,
     "OPEN": OrderState.OPEN,
     "OrderMatched": OrderState.FILLED,
