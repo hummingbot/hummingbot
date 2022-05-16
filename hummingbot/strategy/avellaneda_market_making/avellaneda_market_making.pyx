@@ -894,12 +894,12 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             list buys = []
             list sells = []
         price = market.c_quantize_order_price(self.trading_pair, Decimal(str(self._optimal_bid)))
-        size = market.c_quantize_order_amount(self.trading_pair,  self._config_map.order_amount)
+        size = market.c_quantize_order_amount(self.trading_pair, self._config_map.order_amount)
         if size > 0:
             buys.append(PriceSize(price, size))
 
         price = market.c_quantize_order_price(self.trading_pair, Decimal(str(self._optimal_ask)))
-        size = market.c_quantize_order_amount(self.trading_pair,  self._config_map.order_amount)
+        size = market.c_quantize_order_amount(self.trading_pair, self._config_map.order_amount)
         if size > 0:
             sells.append(PriceSize(price, size))
         return buys, sells
