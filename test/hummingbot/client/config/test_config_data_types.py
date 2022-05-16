@@ -16,9 +16,7 @@ from hummingbot.client.config.config_data_types import (
     ClientConfigEnum,
     ClientFieldData,
 )
-from hummingbot.client.config.config_helpers import (
-    ClientConfigAdapter, ConfigTraversalItem, ConfigValidationError
-)
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, ConfigTraversalItem, ConfigValidationError
 
 
 class BaseClientModelTest(unittest.TestCase):

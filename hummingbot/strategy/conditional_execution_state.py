@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
-from datetime import time
+from datetime import datetime, time
 from typing import Union
 
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -15,6 +14,9 @@ class ConditionalExecutionState(ABC):
 
     _closing_time: int = None
     _time_left: int = None
+
+    def __eq__(self, other):
+        return type(self) == type(other)
 
     @property
     def time_left(self):
@@ -74,6 +76,11 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
         if type(self._start_timestamp) is time:
             if self._end_timestamp is not None:
                 return f"run daily between {self._start_timestamp} and {self._end_timestamp}"
+
+    def __eq__(self, other):
+        return type(self) == type(other) and \
+            self._start_timestamp == other._start_timestamp and \
+            self._end_timestamp == other._end_timestamp
 
     def process_tick(self, timestamp: float, strategy: StrategyBase):
         if isinstance(self._start_timestamp, datetime):
