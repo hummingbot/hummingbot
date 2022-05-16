@@ -1,6 +1,7 @@
 import asyncio
 import unittest
 from decimal import Decimal
+from test.mock.mock_perp_connector import MockPerpConnector
 
 import pandas as pd
 
@@ -11,18 +12,13 @@ from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, PositionMode, PositionSide
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    MarketEvent,
-    SellOrderCompletedEvent,
-)
+from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketEvent, SellOrderCompletedEvent
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.spot_perpetual_arbitrage.arb_proposal import ArbProposal, ArbProposalSide
 from hummingbot.strategy.spot_perpetual_arbitrage.spot_perpetual_arbitrage import (
     SpotPerpetualArbitrageStrategy,
     StrategyState,
 )
-from test.mock.mock_perp_connector import MockPerpConnector
 
 trading_pair = "HBOT-USDT"
 base_asset = trading_pair.split("-")[0]
