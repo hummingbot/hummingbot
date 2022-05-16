@@ -236,7 +236,8 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(get_new_client_order_id(True,
                                                  self.trading_pair,
                                                  max_id_len=CONSTANTS.ORDER_ID_LEN,
-                                                 hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID),new_order_id)
+                                                 hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID),
+                                                 new_order_id)
         self.assertEqual("Buy", result["side"])
         self.assertEqual(self.ex_trading_pair, result["symbol"])
         self.assertEqual("Limit", result["order_type"])
