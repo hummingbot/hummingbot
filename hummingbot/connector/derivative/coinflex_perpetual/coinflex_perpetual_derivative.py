@@ -1198,7 +1198,6 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 f"Buy order amount {amount} is lower than the minimum order size " f"{trading_rule.min_order_size}"
             )
 
-        order_result = None
         symbol = await CoinflexPerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(
             hb_trading_pair=trading_pair,
             domain=self._domain,
@@ -1231,7 +1230,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         )
 
         try:
-            order_result = await self._api_request(
+            create_result = await self._api_request(
                 path=CONSTANTS.ORDER_CREATE_URL,
                 data=api_params,
                 method=RESTMethod.POST,
@@ -1239,14 +1238,14 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 disable_retries=True
             )
             # DEBUG - MUST BE REMOVED
-            self.logger().debug(f"DEBUG:: Order create result: \n{order_result}")
+            self.logger().debug(f"DEBUG:: Order create result: \n{create_result}")
 
-            order_result = order_result["data"][0]
+            order_result = create_result["data"][0]
 
             order_update: OrderUpdate = OrderUpdate(
                 trading_pair=trading_pair,
                 update_timestamp=int(order_result["timestamp"]) * 1e-3,
-                new_state=CONSTANTS.ORDER_STATE[order_result["status"]],
+                new_state=CONSTANTS.ORDER_STATE[order_result.get("status", create_result.get("event"))],
                 client_order_id=order_id,
                 exchange_order_id=str(order_result["orderId"]),
             )
@@ -1322,7 +1321,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     self.logger().error(f"Unhandled error canceling order: {client_order_id}. Error: {e.error_payload}", exc_info=True)
             # DEBUG - MUST BE REMOVED
             self.logger().debug(f"Order cancel result: \n{result}")
-            if cancel_result.get("status") in CONSTANTS.ORDER_CANCELLED_STATES:
+            if cancel_result.get("status", result.get("event")) in CONSTANTS.ORDER_CANCELLED_STATES:
                 cancelled_timestamp = cancel_result.get("timestamp", result.get("timestamp"))
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=client_order_id,
