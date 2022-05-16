@@ -52,7 +52,9 @@ def create_throttler() -> AsyncThrottler:
     return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
 
-async def get_current_server_time(throttler: Optional[AsyncThrottler] = None) -> float:
+async def get_current_server_time(
+        throttler: Optional[AsyncThrottler] = None,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN) -> float:
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
     response = await rest_assistant.execute_request(
@@ -60,6 +62,6 @@ async def get_current_server_time(throttler: Optional[AsyncThrottler] = None) ->
         method=RESTMethod.GET,
         throttler_limit_id=CONSTANTS.OKX_SERVER_TIME_PATH,
     )
-    server_time = float(response["data"][0]["ts"])
+    server_time = int(response["data"][0]["ts"])
 
     return server_time
