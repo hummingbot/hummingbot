@@ -32,11 +32,13 @@ beforeAll(async () => {
 
   patches = patchesCreator(solana, serum);
 
-  patches.get('solana.init')();
-  patches.get('serum.init')();
+  patches.get('solana/init')();
+  patches.get('serum/init')();
 
-  patches.get('solana.ready')();
-  patches.get('serum.ready')();
+  patches.get('solana/ready')();
+  patches.get('serum/ready')();
+
+  patches.get('serum/serumGetMarketsInformation')();
 
   await solana.init();
   await serum.init();
@@ -98,9 +100,6 @@ describe('Full Flow', () => {
   let response: any;
 
   it('getMarket ["SOL/USDT"]', async () => {
-    patches.get('serum.serumGetMarketsInformation')();
-    patches.get('serum.serumLoadMarket')('SOL/USDT');
-
     request = {
       ...commonParameters,
       name: marketName,
@@ -109,9 +108,6 @@ describe('Full Flow', () => {
   });
 
   it('getMarkets ["SOL/USDT", "SOL/USDC"]', async () => {
-    patches.get('serum.serumGetMarketsInformation')();
-    patches.get('serum.serumLoadMarket')('SOL/USDC');
-
     request = {
       ...commonParameters,
       names: marketNames,
@@ -120,11 +116,6 @@ describe('Full Flow', () => {
   });
 
   it('getMarkets (all)', async () => {
-    patches.get('serum.serumGetMarketsInformation')();
-    patches.get('serum.serumLoadMarket')('SOL/USDT');
-    patches.get('serum.serumLoadMarket')('SOL/USDC');
-    patches.get('serum.serumLoadMarket')('SRM/SOL');
-
     request = {
       ...commonParameters,
     };
@@ -132,11 +123,6 @@ describe('Full Flow', () => {
   });
 
   it('getOrderBook ["SOL/USDT"]', async () => {
-    // patches.get('serum.serumGetMarketsInformation')();
-    // patches.get('serum.serumLoadMarket')('SOL/USDT');
-    // await patches.get('serum.serumMarketLoadAsks')('SOL/USDT');
-    // await patches.get('serum.serumMarketLoadBids')('SOL/USDT');
-
     request = {
       ...commonParameters,
       marketName: marketName,
@@ -160,6 +146,8 @@ describe('Full Flow', () => {
   });
 
   it('getTicker ["SOL/USDT"]', async () => {
+    patches.get('serum/getTicker')('SOL/USDT');
+
     request = {
       ...commonParameters,
       marketName: marketName,
@@ -183,6 +171,9 @@ describe('Full Flow', () => {
   });
 
   it('cancelOpenOrders (all)', async () => {
+    patches.get('solana/getKeyPair')();
+    patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
+
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
@@ -200,6 +191,8 @@ describe('Full Flow', () => {
   // });
 
   it('getOpenOrders (all)', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
@@ -208,6 +201,9 @@ describe('Full Flow', () => {
   });
 
   it('createOrder [0]', async () => {
+    // patches.get('solana/getKeyPair')();
+    // patches.get('serum/serumMarketPlaceOrders')();
+
     request = {
       ...commonParameters,
       order: (() => {
@@ -220,6 +216,9 @@ describe('Full Flow', () => {
   });
 
   it('createOrders [1, 2, 3, 4, 5, 6, 7]', async () => {
+    // patches.get('solana/getKeyPair')();
+    // patches.get('serum/serumMarketPlaceOrders')();
+
     request = {
       ...commonParameters,
       orders: [
@@ -265,6 +264,8 @@ describe('Full Flow', () => {
   });
 
   it('getOpenOrder [0]', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       order: {
@@ -276,6 +277,8 @@ describe('Full Flow', () => {
   });
 
   it('getOrder [1]', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       order: {
@@ -287,6 +290,8 @@ describe('Full Flow', () => {
   });
 
   it('getOpenOrders [2, 3]', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       orders: [
@@ -300,6 +305,8 @@ describe('Full Flow', () => {
   });
 
   it('getOrders [3, 4]', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       orders: [
@@ -313,6 +320,8 @@ describe('Full Flow', () => {
   });
 
   it('getOpenOrders (all)', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
@@ -321,6 +330,8 @@ describe('Full Flow', () => {
   });
 
   it('getOrders (all)', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
@@ -329,6 +340,9 @@ describe('Full Flow', () => {
   });
 
   it('cancelOpenOrders [0]', async () => {
+    patches.get('solana/getKeyPair')();
+    patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
+
     request = {
       ...commonParameters,
       order: {
@@ -341,6 +355,9 @@ describe('Full Flow', () => {
   });
 
   it('cancelOrders [1]', async () => {
+    patches.get('solana/getKeyPair')();
+    patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
+
     request = {
       ...commonParameters,
       order: {
@@ -415,6 +432,8 @@ describe('Full Flow', () => {
   // });
 
   it('getFilledOrders (all)', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
@@ -423,6 +442,9 @@ describe('Full Flow', () => {
   });
 
   it('cancelOpenOrders [2, 3]', async () => {
+    patches.get('solana/getKeyPair')();
+    patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
+
     request = {
       ...commonParameters,
       orders: [
@@ -437,6 +459,9 @@ describe('Full Flow', () => {
   });
 
   it('cancelOrders [4, 5]', async () => {
+    patches.get('solana/getKeyPair')();
+    patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
+
     request = {
       ...commonParameters,
       orders: [
@@ -451,6 +476,8 @@ describe('Full Flow', () => {
   });
 
   it('getOpenOrders [2, 3]', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       orders: [
@@ -464,6 +491,8 @@ describe('Full Flow', () => {
   });
 
   it('getOrders [4, 5]', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       orders: [
@@ -477,6 +506,9 @@ describe('Full Flow', () => {
   });
 
   it('cancelOpenOrders (all)', async () => {
+    patches.get('solana/getKeyPair')();
+    patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
+
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
@@ -485,6 +517,8 @@ describe('Full Flow', () => {
   });
 
   it('getOpenOrders (all)', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
@@ -493,6 +527,8 @@ describe('Full Flow', () => {
   });
 
   it('getOrders (all)', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
@@ -501,6 +537,8 @@ describe('Full Flow', () => {
   });
 
   it('createOrders [8, 9]', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       orders: [
@@ -520,6 +558,8 @@ describe('Full Flow', () => {
   });
 
   it('getOpenOrders (all)', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
@@ -528,6 +568,8 @@ describe('Full Flow', () => {
   });
 
   it('getOrders (all)', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
@@ -536,6 +578,9 @@ describe('Full Flow', () => {
   });
 
   it('cancelOrders (all)', async () => {
+    patches.get('solana/getKeyPair')();
+    patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
+
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
@@ -544,6 +589,8 @@ describe('Full Flow', () => {
   });
 
   it('getOpenOrders (all)', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
@@ -552,6 +599,8 @@ describe('Full Flow', () => {
   });
 
   it('getOrders (all)', async () => {
+    patches.get('solana/getKeyPair')();
+
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,
@@ -560,6 +609,9 @@ describe('Full Flow', () => {
   });
 
   it('settleFunds ["SOL/USDT"]', async () => {
+    patches.get('solana/getKeyPair')();
+    patches.get('serum/serumSettleSeveralFunds')();
+
     request = {
       ...commonParameters,
       marketName: marketName,
@@ -569,6 +621,9 @@ describe('Full Flow', () => {
   });
 
   it('settleFunds ["SOL/USDT", "SOL/USDC"]', async () => {
+    patches.get('solana/getKeyPair')();
+    patches.get('serum/serumSettleSeveralFunds')();
+
     request = {
       ...commonParameters,
       marketNames: marketNames,
@@ -578,6 +633,9 @@ describe('Full Flow', () => {
   });
 
   it('settleFunds (all)', async () => {
+    patches.get('solana/getKeyPair')();
+    patches.get('serum/serumSettleSeveralFunds')();
+
     request = {
       ...commonParameters,
       ownerAddress: config.solana.wallet.owner.publicKey,

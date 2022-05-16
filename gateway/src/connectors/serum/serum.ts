@@ -9,18 +9,16 @@ import {
 } from '@solana/web3.js';
 import axios from 'axios';
 import BN from 'bn.js';
+// TODO remove!!!
+// eslint-disable-next-line
+// @ts-ignore
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Cache, CacheContainer } from 'node-ts-cache';
 import { MemoryStorage } from 'node-ts-cache-storage-memory';
 // TODO remove!!!
 // eslint-disable-next-line
 // @ts-ignore
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { NodeFsStorage } from 'node-ts-cache-storage-node-fs';
-// TODO remove!!!
-// eslint-disable-next-line
-// @ts-ignore
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import * as transformer from 'class-transformer';
 import { Solana } from '../../chains/solana/solana';
 import { getSerumConfig, SerumConfig } from './serum.config';
 import { default as constants } from './serum.constants';
@@ -172,11 +170,11 @@ export class Serum {
       marketsInformation = MARKETS;
     }
 
-    // TODO remove!!!
-    console.log(
-      'serumGetMarketsInformation:\n',
-      JSON.stringify(marketsInformation, null, 2)
-    );
+    // // TODO remove!!!
+    // console.log(
+    //   'serumGetMarketsInformation:\n',
+    //   JSON.stringify(marketsInformation, null, 2)
+    // );
 
     return marketsInformation;
   }
@@ -209,12 +207,12 @@ export class Serum {
       layoutOverride
     );
 
-    // TODO remove!!!
-    // eslint-disable-next-line prettier/prettier
-    console.log(
-      'serumLoadMarket:\n',
-      JSON.stringify(result, null, 2)
-    );
+    // // TODO remove!!!
+    // // eslint-disable-next-line prettier/prettier
+    // console.log(
+    //   'serumLoadMarket:\n',
+    //   JSON.stringify(result, null, 2)
+    // );
 
     return result;
   }
@@ -235,12 +233,12 @@ export class Serum {
   ): Promise<SerumOrderBook> {
     const result = await market.loadBids(connection);
 
-    // TODO remove!!!
-    // eslint-disable-next-line prettier/prettier
-    console.log(
-      'serumMarketLoadBids:\n',
-      JSON.stringify(result, null, 2)
-    );
+    // // TODO remove!!!
+    // // eslint-disable-next-line prettier/prettier
+    // console.log(
+    //   'serumMarketLoadBids:\n',
+    //   JSON.stringify(result, null, 2)
+    // );
 
     return result;
   }
@@ -261,12 +259,12 @@ export class Serum {
   ): Promise<SerumOrderBook> {
     const result = await market.loadAsks(connection);
 
-    // TODO remove!!!
-    // eslint-disable-next-line prettier/prettier
-    console.log(
-      'serumMarketLoadAsks:\n',
-      JSON.stringify(result, null, 2)
-    );
+    // // TODO remove!!!
+    // // eslint-disable-next-line prettier/prettier
+    // console.log(
+    //   'serumMarketLoadAsks:\n',
+    //   JSON.stringify(result, null, 2)
+    // );
 
     return result;
   }
@@ -446,8 +444,8 @@ export class Serum {
     connection: Connection,
     owner: Account,
     orders: SerumOrder[]
-  ): Promise<TransactionSignature> {
-    const ordersCancelation = await market.cancelOrders(
+  ): Promise<{ cancelation: string; fundsSettlement: string }> {
+    const cancelationSignature = await market.cancelOrders(
       connection,
       owner,
       orders
@@ -457,7 +455,7 @@ export class Serum {
     // eslint-disable-next-line prettier/prettier
     console.log(
       'serumMarketCancelOrdersAndSettleFunds.ordersCancelation:\n',
-      JSON.stringify(ordersCancelation, null, 2)
+      JSON.stringify(cancelationSignature, null, 2)
     );
 
     const fundsSettlements: {
@@ -504,7 +502,7 @@ export class Serum {
     }
 
     try {
-      const result = (
+      const fundsSettlementSignature = (
         await this.serumSettleSeveralFunds(
           market,
           connection,
@@ -517,10 +515,13 @@ export class Serum {
       // eslint-disable-next-line prettier/prettier
       console.log(
         'serumMarketCancelOrdersAndSettleFunds.result:\n',
-        JSON.stringify(ordersCancelation, null, 2)
+        JSON.stringify(fundsSettlementSignature, null, 2)
       );
 
-      return result;
+      return {
+        cancelation: cancelationSignature,
+        fundsSettlement: fundsSettlementSignature,
+      };
     } catch (exception: any) {
       if (
         exception.message.includes('It is unknown if it succeeded or failed.')
@@ -727,12 +728,12 @@ export class Serum {
   private async getSolanaAccount(address: string): Promise<Account> {
     const result = await this.solana.getAccount(address);
 
-    // TODO remove!!!
-    // eslint-disable-next-line prettier/prettier
-    console.log(
-      'getSolanaAccount:\n',
-      JSON.stringify(result, null, 2)
-    );
+    // // TODO remove!!!
+    // // eslint-disable-next-line prettier/prettier
+    // console.log(
+    //   'getSolanaAccount:\n',
+    //   JSON.stringify(result, null, 2)
+    // );
 
     return result;
   }
@@ -941,8 +942,8 @@ export class Serum {
           await axios.get(url)
         ).data.items[0];
 
-        // TODO remove!!!
-        console.log('getTicker:\n', JSON.stringify(result, null, 2));
+        // // TODO remove!!!
+        // console.log('getTicker:\n', JSON.stringify(result, null, 2));
 
         return convertToTicker(result);
       }
@@ -1552,8 +1553,7 @@ export class Serum {
         marketMap?.set(owner, ownerOrders);
       }
 
-      const payer = (await this.solana.getAccount(candidate.payerAddress))
-        .publicKey;
+      const payer = new PublicKey(candidate.payerAddress);
 
       const candidateSerumOrder: SerumOrderParams<Account> = {
         side: convertOrderSideToSerumSide(candidate.side),
@@ -1630,12 +1630,14 @@ export class Serum {
     const order = await this.getOpenOrder({ ...target });
 
     try {
-      order.signature = await this.serumMarketCancelOrdersAndSettleFunds(
-        market.market,
-        this.connection,
-        owner,
-        [order.order!]
-      );
+      order.signature = (
+        await this.serumMarketCancelOrdersAndSettleFunds(
+          market.market,
+          this.connection,
+          owner,
+          [order.order!]
+        )
+      ).cancelation;
 
       order.status = OrderStatus.CANCELED;
 
@@ -1696,12 +1698,14 @@ export class Serum {
         let status: OrderStatus;
         let signature: TransactionSignature;
         try {
-          signature = await this.serumMarketCancelOrdersAndSettleFunds(
-            market.market,
-            this.connection,
-            owner,
-            serumOrders
-          );
+          signature = (
+            await this.serumMarketCancelOrdersAndSettleFunds(
+              market.market,
+              this.connection,
+              owner,
+              serumOrders
+            )
+          ).cancelation;
 
           status = OrderStatus.CANCELED;
         } catch (exception: any) {
