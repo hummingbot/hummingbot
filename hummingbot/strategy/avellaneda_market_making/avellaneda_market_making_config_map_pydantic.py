@@ -2,13 +2,9 @@ from datetime import datetime, time
 from decimal import Decimal
 from typing import Dict, Optional, Union
 
-from pydantic import Field, validator, root_validator
+from pydantic import Field, root_validator, validator
 
-from hummingbot.client.config.config_data_types import (
-    BaseClientModel,
-    BaseTradingStrategyConfigMap,
-    ClientFieldData,
-)
+from hummingbot.client.config.config_data_types import BaseClientModel, BaseTradingStrategyConfigMap, ClientFieldData
 from hummingbot.client.config.config_validators import (
     validate_bool,
     validate_datetime_iso_string,

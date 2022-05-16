@@ -100,3 +100,19 @@ cdef class RingBuffer:
     @property
     def variance(self):
         return self.c_variance()
+
+    @property
+    def length(self) -> int:
+        return self._length
+
+    @length.setter
+    def length(self, value):
+        data = self.get_as_numpy_array()
+
+        self._length = value
+        self._buffer = np.zeros(value, dtype=np.float64)
+        self._delimiter = 0
+        self._is_full = False
+
+        for val in data[-value:]:
+            self.add_value(val)

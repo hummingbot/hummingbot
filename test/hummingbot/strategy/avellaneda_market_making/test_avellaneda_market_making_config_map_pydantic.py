@@ -19,7 +19,7 @@ from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_confi
     InfiniteModel,
     MultiOrderLevelModel,
     SingleOrderLevelModel,
-    TrackHangingOrdersModel
+    TrackHangingOrdersModel,
 )
 
 
