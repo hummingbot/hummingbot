@@ -7,7 +7,6 @@ import { asyncHandler } from '../../services/error-handler';
 import { Serum } from './serum';
 import { verifySerumIsAvailable } from './serum-middlewares';
 import {
-  cancelOpenOrders,
   cancelOrders,
   createOrders,
   getFilledOrders,
@@ -19,8 +18,6 @@ import {
   settleFunds,
 } from './serum.controllers';
 import {
-  SerumCancelOpenOrdersRequest,
-  SerumCancelOpenOrdersResponse,
   SerumCancelOrdersRequest,
   SerumCancelOrdersResponse,
   SerumCreateOrdersRequest,
@@ -196,25 +193,6 @@ export namespace SerumRoutes {
         validatePublicKey(request.body);
 
         const result = await getOpenOrders(solana, serum, request.body);
-
-        response.status(result.status).json(result.body);
-      }
-    )
-  );
-
-  router.delete(
-    '/openOrders',
-    asyncHandler(
-      async (
-        request: Request<any, any, SerumCancelOpenOrdersRequest>,
-        response: Response<SerumCancelOpenOrdersResponse, any>
-      ) => {
-        const solana = await getSolana(request);
-        const serum = await getSerum(request);
-
-        validatePublicKey(request.body);
-
-        const result = await cancelOpenOrders(solana, serum, request.body);
 
         response.status(result.status).json(result.body);
       }

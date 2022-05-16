@@ -1,6 +1,4 @@
 import {
-  SerumCancelOpenOrdersRequest,
-  SerumCancelOpenOrdersResponse,
   SerumCancelOrdersRequest,
   SerumCancelOrdersResponse,
   SerumCreateOrdersRequest,
@@ -21,8 +19,6 @@ import {
   SerumPostSettleFundsResponse,
 } from '../connectors/serum/serum.requests';
 
-export type ClobDeleteOpenOrdersRequest = SerumCancelOpenOrdersRequest;
-export type ClobDeleteOpenOrdersResponse = SerumCancelOpenOrdersResponse;
 export type ClobDeleteOrdersRequest = SerumCancelOrdersRequest;
 export type ClobDeleteOrdersResponse = SerumCancelOrdersResponse;
 export type ClobGetFilledOrdersRequest = SerumGetFilledOrdersRequest;

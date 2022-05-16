@@ -252,7 +252,7 @@ export interface CancelOrderResponse {
   id?: string;
   exchangeId?: string;
   marketName: string;
-  ownerAddress?: string;
+  ownerAddress: string;
   price: number;
   amount: number;
   side: OrderSide;
@@ -296,38 +296,6 @@ export type GetOpenOrdersResponse =
   | IMap<string, IMap<string, GetOpenOrderResponse>>
   | IMap<string, GetOpenOrderResponse>
   | GetOpenOrderResponse;
-
-export interface CancelOpenOrderRequest {
-  id?: string;
-  exchangeId?: string;
-  marketName: string;
-  ownerAddress: string;
-}
-
-export interface CancelOpenOrdersRequest {
-  ids?: string[];
-  exchangeIds?: string[];
-  marketName: string;
-  ownerAddress: string;
-}
-
-export interface CancelOpenOrderResponse {
-  id?: string;
-  exchangeId?: string;
-  marketName: string;
-  ownerAddress: string;
-  price: number;
-  amount: number;
-  side: OrderSide;
-  status?: OrderStatus;
-  type?: OrderType;
-  fee?: number;
-}
-
-export type CancelOpenOrdersResponse =
-  | IMap<string, IMap<string, CancelOpenOrderResponse>>
-  | IMap<string, CancelOpenOrderResponse>
-  | CancelOpenOrderResponse;
 
 export interface GetFilledOrderRequest {
   id?: string;

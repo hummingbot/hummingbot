@@ -203,33 +203,6 @@ paths:
           description: 'Bad request response.'
         '404':
           description: 'Not found response.'
-  /clob/cancelOpenOrders:
-    get:
-      tags:
-        - 'clob'
-      summary: 'Cancel One Or More Open Orders'
-      description: 'Cancel one, several or all open orders.'
-      operationId: 'clob.cancelOpenOrders'
-      consumes:
-        - 'application/json'
-      produces:
-        - 'application/json'
-      parameters:
-        - in: 'body'
-          name: 'body'
-          description: 'Request body.'
-          required: true
-          schema:
-            $ref: '#/definitions/SerumDeleteCancelOpenOrdersRequest'
-      responses:
-        '200':
-          description: 'Successful response.'
-          schema:
-            $ref: '#/definitions/SerumDeleteCancelOpenOrdersResponse'
-        '400':
-          description: 'Bad request response.'
-        '404':
-          description: 'Not found response.'
   /clob/getFilledOrders:
     get:
       tags:

@@ -1,8 +1,5 @@
 import { NetworkSelectionRequest } from '../../services/common-interfaces';
 import {
-  CancelOpenOrderRequest,
-  CancelOpenOrdersRequest,
-  CancelOpenOrdersResponse,
   CancelOrderRequest,
   CancelOrdersRequest,
   CancelOrdersResponse,
@@ -112,21 +109,6 @@ export type SerumGetOpenOrdersRequest = NetworkSelectionRequest &
   );
 
 export type SerumGetOpenOrdersResponse = GetOpenOrdersResponse;
-
-//
-// DELETE /serum/openOrders
-//
-
-export type SerumCancelOpenOrdersRequest = NetworkSelectionRequest &
-  (
-    | { ownerAddress: string }
-    | { order: CancelOpenOrderRequest }
-    | {
-        orders: CancelOpenOrdersRequest[];
-      }
-  );
-
-export type SerumCancelOpenOrdersResponse = CancelOpenOrdersResponse;
 
 //
 // GET /serum/filledOrders

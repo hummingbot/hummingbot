@@ -342,42 +342,6 @@ export const validateGetOpenOrdersRequest: RequestValidator =
     StatusCodes.BAD_REQUEST
   );
 
-export const validateCancelOpenOrderRequest: RequestValidator =
-  mkRequestValidator(
-    [
-      validateOrderClientId,
-      validateOrderExchangeId,
-      validateOrderMarketName,
-      validateOrderOwnerAddress,
-    ],
-    StatusCodes.BAD_REQUEST,
-    (request) => `Error when trying to cancel open order "${request.id}"`
-  );
-
-export const validateCancelOpenOrdersRequest: RequestValidator =
-  mkRequestValidator(
-    [
-      mkValidator(
-        '',
-        (_request) => `No orders were informed.`,
-        (request) => request && request.length,
-        false,
-        true
-      ),
-      mkBatchValidator(
-        [
-          validateOrderClientIds,
-          validateOrderExchangeIds,
-          validateOrderMarketName,
-          validateOrderOwnerAddress,
-        ],
-        (_item, index) =>
-          `Invalid cancel open orders request at position ${index}:`
-      ),
-    ],
-    StatusCodes.BAD_REQUEST
-  );
-
 export const validateGetFilledOrderRequest: RequestValidator =
   mkRequestValidator(
     [

@@ -4,7 +4,6 @@ import { validatePublicKey } from '../chains/solana/solana.validators';
 import { getConnector } from '../services/connection-manager';
 import { asyncHandler } from '../services/error-handler';
 import {
-  cancelOpenOrders,
   cancelOrders,
   createOrders,
   getFilledOrders,
@@ -16,8 +15,6 @@ import {
   settleFunds,
 } from './clob.controllers';
 import {
-  ClobDeleteOpenOrdersRequest,
-  ClobDeleteOpenOrdersResponse,
   ClobDeleteOrdersRequest,
   ClobDeleteOrdersResponse,
   ClobGetFilledOrdersRequest,
@@ -165,22 +162,6 @@ export namespace ClobRoutes {
         validatePublicKey(request.body);
 
         const result = await getOpenOrders(request.body);
-
-        response.status(result.status).json(result.body);
-      }
-    )
-  );
-
-  router.delete(
-    '/openOrders',
-    asyncHandler(
-      async (
-        request: Request<any, any, ClobDeleteOpenOrdersRequest>,
-        response: Response<ClobDeleteOpenOrdersResponse, any>
-      ) => {
-        validatePublicKey(request.body);
-
-        const result = await cancelOpenOrders(request.body);
 
         response.status(result.status).json(result.body);
       }
