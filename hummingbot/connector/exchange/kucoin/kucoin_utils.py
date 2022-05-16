@@ -57,6 +57,9 @@ class KuCoinConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "kucoin"
+
 
 KEYS = KuCoinConfigMap.construct()
 
@@ -95,6 +98,9 @@ class KuCoinTestnetConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
+
+    class Config:
+        title = "kucoin_testnet"
 
 
 OTHER_DOMAINS_KEYS = {"kucoin_testnet": KuCoinTestnetConfigMap.construct()}

@@ -54,6 +54,9 @@ class LoopringConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "loopring"
+
 
 KEYS = LoopringConfigMap.construct()
 

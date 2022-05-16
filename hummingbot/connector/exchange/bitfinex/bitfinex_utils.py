@@ -39,6 +39,9 @@ class BitfinexConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "bitfinex"
+
 
 KEYS = BitfinexConfigMap.construct()
 

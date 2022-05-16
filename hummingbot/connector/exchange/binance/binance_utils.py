@@ -46,6 +46,9 @@ class BinanceConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "binance"
+
 
 KEYS = BinanceConfigMap.construct()
 
@@ -75,6 +78,9 @@ class BinanceUSConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
+
+    class Config:
+        title = "binance_us"
 
 
 OTHER_DOMAINS_KEYS = {"binance_us": BinanceUSConfigMap.construct()}

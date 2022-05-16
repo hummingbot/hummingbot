@@ -185,5 +185,8 @@ class GateIOConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "gate_io"
+
 
 KEYS = GateIOConfigMap.construct()

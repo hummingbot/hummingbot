@@ -31,5 +31,8 @@ class BeaxyConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "beaxy"
+
 
 KEYS = BeaxyConfigMap.construct()

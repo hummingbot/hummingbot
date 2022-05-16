@@ -57,6 +57,9 @@ class CoinflexConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "coinflex"
+
 
 KEYS = CoinflexConfigMap.construct()
 
@@ -86,6 +89,9 @@ class CoinflexTestConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
+
+    class Config:
+        title = "coinflex_test"
 
 
 OTHER_DOMAINS_KEYS = {"coinflex_test": CoinflexTestConfigMap.construct()}

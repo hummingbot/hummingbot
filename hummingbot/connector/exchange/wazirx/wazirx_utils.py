@@ -118,5 +118,8 @@ class WazirxConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "wazirx"
+
 
 KEYS = WazirxConfigMap.construct()

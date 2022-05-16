@@ -154,6 +154,9 @@ class AscendExConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "ascend_ex"
+
 
 KEYS = AscendExConfigMap.construct()
 

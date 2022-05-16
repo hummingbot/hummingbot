@@ -78,5 +78,8 @@ class HuobiConfigMap(BaseConnectorConfigMap):
         )
     )
 
+    class Config:
+        title = "huobi"
+
 
 KEYS = HuobiConfigMap.construct()
