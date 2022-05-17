@@ -8,6 +8,7 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from test.mock.mock_cli import CLIMockingAssistant
 
+
 class PreviousCommandUnitTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
