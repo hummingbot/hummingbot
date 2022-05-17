@@ -17,11 +17,11 @@ from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import get_new_client_order_id, combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
@@ -812,14 +812,18 @@ class KucoinExchange(ExchangePyBase):
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer) for trading_pair in self._trading_pairs]
 
-        params = {"symbols": ",".join(trading_symbols)}
-
-        resp = await self._api_request(
-            path_url=CONSTANTS.FEE_PATH_URL,
-            params=params,
-            method=RESTMethod.GET,
-            is_auth_required=True,
-        )
+        # It appears that the SIGN is incorrect when more than 1 pais is passed
+        # This is likely not the correct fix due to the multiplicity of PAI calls
+        resp = {'data': []}
+        for pair in trading_symbols:
+            params = {"symbols": pair}
+            r = await self._api_request(
+                path_url=CONSTANTS.FEE_PATH_URL,
+                params=params,
+                method=RESTMethod.GET,
+                is_auth_required=True,
+            )
+            resp['data'] += r['data']
 
         fees_json = resp["data"]
         for fee_json in fees_json:
