@@ -26,6 +26,7 @@ POSITION_INFORMATION_URL = "/position"
 # Private API v1 Endpoints
 ORDER_URL = "/order"
 ACCOUNT_INFO_URL = "/user/wallet"
+TOKEN_INFO_URL = "/wallet/assets"
 
 # Rate Limit Type
 REQUEST_WEIGHT = "REQUEST_WEIGHT"
@@ -59,6 +60,8 @@ RATE_LIMITS = [
     RateLimit(limit_id=TICKER_PRICE_CHANGE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=EXCHANGE_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=40)]),
+    RateLimit(limit_id=TOKEN_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=40)]),
     RateLimit(limit_id=RECENT_TRADES_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),

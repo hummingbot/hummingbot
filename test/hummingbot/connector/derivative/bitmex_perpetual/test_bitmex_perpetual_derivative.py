@@ -1043,19 +1043,35 @@ class BitmexPerpetualDerivativeUnitTest(unittest.TestCase):
         response = [
             {
                 "currency": "USDT",
-                "amount": 100,
-                "pendingCredit": 2,
+                "amount": 100000000,
+                "pendingCredit": 2000000,
                 "pendingDebit": 0
             },
             {
                 "currency": "XBT",
-                "amount": 10,
-                "pendingCredit": 0.2,
+                "amount": 1000000000,
+                "pendingCredit": 20000000,
                 "pendingDebit": 0
             }
         ]
 
         mock_api.get(regex_url, body=json.dumps(response))
+
+        url_2 = web_utils.rest_url(CONSTANTS.TOKEN_INFO_URL, domain=self.domain)
+        regex_url_2 = re.compile(f"^{url_2}".replace(".", r"\.").replace("?", r"\?"))
+
+        response_2 = [
+            {
+                "asset": "USDT",
+                "scale": 6
+            },
+            {
+                "asset": "XBT",
+                "scale": 8,
+            }
+        ]
+
+        mock_api.get(regex_url_2, body=json.dumps(response_2))
         self.async_run_with_timeout(self.exchange._update_balances())
 
         available_balances = self.exchange.available_balances
