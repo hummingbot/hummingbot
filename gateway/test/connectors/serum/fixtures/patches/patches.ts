@@ -13,7 +13,7 @@ import { patch } from '../../../../services/patch';
 import { default as config } from '../serumConfig';
 import data from './data';
 
-const disablePatches = false;
+const disablePatches = true;
 
 const patches = (solana: Solana, serum: Serum) => {
   const patches = new Map();

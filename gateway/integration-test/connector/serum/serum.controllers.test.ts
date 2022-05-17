@@ -13,7 +13,7 @@ import {
   settleFunds,
 } from '../../../src/connectors/serum/serum.controllers';
 import { getNewOrderTemplate } from '../../../test/connectors/serum/fixtures/dummy';
-import { default as config } from './../../../test/connectors/serum/fixtures/serumConfig';
+import { default as config } from './../../../test/connectors/serum/fixtures/serum-config';
 import { unpatch } from '../../../test/services/patch';
 
 jest.setTimeout(1000000);
