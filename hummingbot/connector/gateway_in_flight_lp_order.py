@@ -1,16 +1,13 @@
-from async_timeout import timeout
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    Optional,
-)
+from typing import Any, Dict, Optional
 
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.core.data_type.common import OrderType, TradeType, LPType    
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.core.data_type.common import LPType, OrderType, TradeType
 
 s_decimal_0 = Decimal("0")
+
+
 class GatewayInFlightLPOrder(GatewayInFlightOrder):
     def __init__(self,
                  client_order_id: str,
@@ -54,7 +51,7 @@ class GatewayInFlightLPOrder(GatewayInFlightOrder):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"CREATED", "COMPLETED", "CANCELED", "REJECTED", "EXPIRED"}
+        return self.last_state in {"COMPLETED", "CANCELED", "REJECTED", "EXPIRED"}
 
     @property
     def is_nft(self) -> bool:
@@ -110,4 +107,3 @@ class GatewayInFlightLPOrder(GatewayInFlightOrder):
         if len(self.client_order_id.split("-")) > 3:
             timestamp = float(self.client_order_id[-1])
         return timestamp
-

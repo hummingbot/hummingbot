@@ -3,9 +3,11 @@ from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, NamedTuple, Optional
 
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType, LPType
+from hummingbot.core.data_type.common import LPType, OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+
+s_decimal_0 = Decimal("0")
 
 
 class MarketEvent(Enum):
@@ -258,12 +260,12 @@ class RangePositionUpdateEvent:
     order_id: str
     exchange_order_id: str
     order_action: LPType
-    trading_pair: Optional[str]
-    fee_tier: Optional[str]
-    lower_price: Optional[Decimal]
-    upper_price: Optional[Decimal]
-    amount: Optional[Decimal]
-    creation_timestamp: float
+    trading_pair: Optional[str] = ""
+    fee_tier: Optional[str] = ""
+    lower_price: Optional[Decimal] = s_decimal_0
+    upper_price: Optional[Decimal] = s_decimal_0
+    amount: Optional[Decimal] = s_decimal_0
+    creation_timestamp: float = 0
     token_id: Optional[int] = 0
 
 
@@ -277,7 +279,7 @@ class RangePositionUpdateFailureEvent:
 @dataclass
 class RangePositionFeeCollectedEvent:
     timestamp: float
-    oder_id: str
+    order_id: str
     exchange_order_id: str
     trading_pair: str
     trade_fee: TradeFeeBase
