@@ -1,15 +1,15 @@
-from decimal import Decimal
-import logging
 import asyncio
+import logging
+from decimal import Decimal
+
 import pandas as pd
-import numpy as np
-from hummingbot.core.clock import Clock
-from hummingbot.logger import HummingbotLogger
+
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.connector.gateway_in_flight_lp_order import GatewayInFlightLPOrder
-from hummingbot.strategy.strategy_py_base import StrategyPyBase
+from hummingbot.core.clock import Clock
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.strategy_py_base import StrategyPyBase
 
 ulp_logger = None
 s_decimal_0 = Decimal("0")
@@ -164,7 +164,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         :return: True/False
         """
         for position in self.active_positions:
-            if current_price >=  position.lower_price and current_price <= position.upper_price:
+            if current_price >= position.lower_price and current_price <= position.upper_price:
                 return True
         return False
 
@@ -182,6 +182,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
             half_spread = self._price_spread / Decimal("2")
             lower_price = (current_price * (Decimal("1") - half_spread))
             upper_price = (current_price * (Decimal("1") + half_spread))
+        lower_price = max(s_decimal_0, lower_price)
         return lower_price, upper_price
 
     def execute_proposal(self, lower_price: Decimal, upper_price: Decimal):
@@ -194,7 +195,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         quote_balance = self._market_info.market.get_available_balance(self.quote_asset)
         if base_balance + quote_balance == s_decimal_0:
             self.log_with_clock(logging.INFO,
-                                f"Both balances exhausted. Add more assets.")
+                                "Both balances exhausted. Add more assets.")
         else:
             self.log_with_clock(logging.INFO, f"Creating new position over {lower_price} to {upper_price} price range.")
             self._market_info.market.add_liquidity(self.trading_pair,
@@ -209,13 +210,12 @@ class UniswapV3LpStrategy(StrategyPyBase):
         This closes out-of-range positions that have more than the min profitability.
         """
         for position in self.active_positions:
-            if current_price <=  position.lower_price or current_price >= position.upper_price:  # out-of-range
-                if position.unclaimed_fee_0 + (position.unclaimed_fee_1 / self._last_price) > self.min_profitability:  # matured
+            if self._last_price <= position.lower_price or self._last_price >= position.upper_price:  # out-of-range
+                if position.unclaimed_fee_0 + (position.unclaimed_fee_1 / self._last_price) > self._min_profitability:  # matured
                     self.log_with_clock(logging.INFO,
                                         f"Closing position with Id {position.token_id}."
                                         f"Unclaimed base fee: {position.unclaimed_fee_0}, unclaimed quote fee: {position.unclaimed_fee_1}")
                     self._market_info.market.remove_liquidity(self.trading_pair, position.token_id)
-                
 
     def stop(self, clock: Clock):
         if self._main_task is not None:
