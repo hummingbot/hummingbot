@@ -1,28 +1,17 @@
 import { Level } from 'level';
+import { ReferenceCountingCloseable } from './refcounting-closeable';
 
-export class LocalStorage {
-  private static _instances: { [name: string]: LocalStorage };
-
+export class LocalStorage extends ReferenceCountingCloseable {
   readonly #dbPath: string;
   #db: Level<string, any>;
 
-  private constructor(dbPath: string) {
+  protected constructor(dbPath: string) {
+    super(dbPath);
     this.#dbPath = dbPath;
     this.#db = new Level(dbPath, {
       createIfMissing: true,
       valueEncoding: 'json',
     });
-  }
-
-  public static getInstance(dbPath: string): LocalStorage {
-    if (LocalStorage._instances === undefined) {
-      LocalStorage._instances = {};
-    }
-    if (!(dbPath in LocalStorage._instances)) {
-      LocalStorage._instances[dbPath] = new LocalStorage(dbPath);
-    }
-
-    return LocalStorage._instances[dbPath];
   }
 
   public async init(): Promise<void> {
@@ -87,7 +76,12 @@ export class LocalStorage {
     return results;
   }
 
-  public async close(): Promise<void> {
-    await this.#db.close();
+  public async close(handle: string): Promise<void> {
+    await super.close(handle);
+    if (this.refCount < 1) {
+      // XXX(martin_kou): `await #db.close()` would freeze. So this is used
+      // instead.
+      this.#db.close((_) => true);
+    }
   }
 }

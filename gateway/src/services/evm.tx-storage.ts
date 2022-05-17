@@ -1,26 +1,15 @@
 import { LocalStorage } from './local-storage';
+import { ReferenceCountingCloseable } from './refcounting-closeable';
 
 // store the timestamp for when a transaction was initiated
 // this will be used to calculate a heuristic of the likelihood
 // a mempool transaction will be included in a future block
-export class EvmTxStorage {
-  private static _instances: { [name: string]: EvmTxStorage };
-
+export class EvmTxStorage extends ReferenceCountingCloseable {
   readonly localStorage: LocalStorage;
 
-  private constructor(dbPath: string) {
-    this.localStorage = LocalStorage.getInstance(dbPath);
-  }
-
-  public static getInstance(dbPath: string): EvmTxStorage {
-    if (EvmTxStorage._instances === undefined) {
-      EvmTxStorage._instances = {};
-    }
-    if (!(dbPath in EvmTxStorage._instances)) {
-      EvmTxStorage._instances[dbPath] = new EvmTxStorage(dbPath);
-    }
-
-    return EvmTxStorage._instances[dbPath];
+  protected constructor(dbPath: string) {
+    super(dbPath);
+    this.localStorage = LocalStorage.getInstance(dbPath, this.handle);
   }
 
   // pass in a date, then store it as a POSIX timestamp
@@ -68,7 +57,10 @@ export class EvmTxStorage {
     });
   }
 
-  async close(): Promise<void> {
-    await this.localStorage.close();
+  public async close(handle: string): Promise<void> {
+    await super.close(handle);
+    if (this.refCount < 1) {
+      await this.localStorage.close(this.handle);
+    }
   }
 }

@@ -27,12 +27,12 @@ beforeAll(async () => {
   await overrideConfigs.updateConfigs();
 
   eth = Ethereum.getInstance('kovan');
-  patchEVMNonceManager(eth._nonceManager);
+  patchEVMNonceManager(eth.nonceManager);
   await eth.init();
 });
 
 beforeEach(() => {
-  patchEVMNonceManager(eth._nonceManager);
+  patchEVMNonceManager(eth.nonceManager);
 });
 
 afterEach(() => {
@@ -40,9 +40,7 @@ afterEach(() => {
 });
 
 afterAll(async () => {
-  // await eth.nonceManager.close();
-  // await eth.txStorage.close();
-
+  await eth.close();
   await overrideConfigs.resetConfigs();
 });
 
