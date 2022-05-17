@@ -15,8 +15,8 @@
     "dev:debug": "nodemon --inspect src/index.ts",
     "start": "nodemon dist/src/index.js",
     "copy-files": "copyfiles -a 'src/**/schema/*.json' 'src/templates/*.yml' 'test/services/data/**/*.*' dist",
-    "test:unit": "jest --runInBand --verbose --forceExit ./test/",
-    "test:cov": "jest --runInBand --coverage --forceExit ./test/",
+    "test:unit": "jest --verbose --forceExit ./test/",
+    "test:cov": "jest --coverage --forceExit ./test/",
     "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts"
   },
   "dependencies": {
@@ -32,6 +32,7 @@
     "@types/lodash": "^4.14.178",
     "@types/minimist": "^1.2.2",
     "@types/morgan": "^1.9.3",
+    "@types/uuid": "^8.3.4",
     "@uniswap/sdk": "^3.0.3",
     "@uniswap/sdk-core": "^3.0.0",
     "@uniswap/v3-core": "^1.0.0",
@@ -60,6 +61,7 @@
     "morgan": "^1.10.0",
     "swagger-ui-express": "^4.1.6",
     "tslib": "^2.3.1",
+    "uuid": "^8.3.2",
     "winston": "^3.3.3",
     "winston-daily-rotate-file": "^4.5.5",
     "yarn": "^1.22.17"

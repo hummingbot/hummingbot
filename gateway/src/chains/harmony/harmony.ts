@@ -156,4 +156,11 @@ export class Harmony extends EthereumBase implements Ethereumish {
     );
     return this.cancelTxWithGasPrice(wallet, nonce, this._gasPrice * 2);
   }
+
+  async close() {
+    await super.close();
+    if (this._chain in Harmony._instances) {
+      delete Harmony._instances[this._chain];
+    }
+  }
 }

@@ -82,4 +82,11 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     );
     return super.cancelTxWithGasPrice(wallet, nonce, this._gasPrice * 2);
   }
+
+  async close() {
+    await super.close();
+    if (this._chain in Avalanche._instances) {
+      delete Avalanche._instances[this._chain];
+    }
+  }
 }

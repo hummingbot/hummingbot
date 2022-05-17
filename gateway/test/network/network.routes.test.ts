@@ -17,11 +17,11 @@ beforeAll(async () => {
   await overrideConfigs.updateConfigs();
 
   eth = Ethereum.getInstance('kovan');
-  patchEVMNonceManager(eth._nonceManager);
+  patchEVMNonceManager(eth.nonceManager);
   await eth.init();
 
   avalanche = Avalanche.getInstance('fuji');
-  patchEVMNonceManager(avalanche._nonceManager);
+  patchEVMNonceManager(avalanche.nonceManager);
   await avalanche.init();
 
   harmony = Harmony.getInstance('testnet');
@@ -29,8 +29,8 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  patchEVMNonceManager(eth._nonceManager);
-  patchEVMNonceManager(avalanche._nonceManager);
+  patchEVMNonceManager(eth.nonceManager);
+  patchEVMNonceManager(avalanche.nonceManager);
 });
 
 afterEach(async () => {
@@ -38,11 +38,9 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  // await eth.nonceManager.close();
-  // await eth.txStorage.close();
-  // await avalanche.nonceManager.close();
-  // await avalanche.txStorage.close();
-
+  await eth.close();
+  await avalanche.close();
+  await harmony.close();
   await overrideConfigs.resetConfigs();
 });
 
