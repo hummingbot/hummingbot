@@ -4,7 +4,7 @@ import {
   OrderSide,
   OrderType,
 } from '../../../../src/connectors/serum/serum.types';
-import { default as config } from './serumConfig';
+import { default as config } from './serum-config';
 
 const marketNames = ['SOL/USDT', 'SOL/USDC'];
 
@@ -26,9 +26,19 @@ export const getNewOrderTemplate = (configuration?: {
   if (!configuration.ownerAddress)
     configuration.ownerAddress = config.solana.wallet.owner.publicKey;
   if (!configuration.payerAddress)
-    configuration.side == OrderSide.BUY
-      ? (configuration.payerAddress = config.solana.wallet.payer.publicKey)
-      : (configuration.payerAddress = config.solana.wallet.owner.publicKey);
+    if (configuration.side == OrderSide.SELL) {
+      configuration.payerAddress = config.solana.wallet.owner.publicKey;
+    } else {
+      if (configuration.marketName == 'SOL/USDT') {
+        configuration.payerAddress =
+          config.solana.wallet.payer['SOL/USDT'].publicKey;
+      } else if (configuration.marketName == 'SOL/USDC') {
+        configuration.payerAddress =
+          config.solana.wallet.payer['SOL/USDC'].publicKey;
+      } else {
+        throw new Error('Unrecognized market name.');
+      }
+    }
   if (!configuration.side)
     configuration.side = getRandomChoice(Object.values(OrderSide));
   if (!configuration.type)

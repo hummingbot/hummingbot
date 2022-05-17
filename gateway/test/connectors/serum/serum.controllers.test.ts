@@ -16,7 +16,7 @@ import {
   OrderSide,
   OrderType,
 } from '../../../src/connectors/serum/serum.types';
-import { default as config } from '../../connectors/serum/fixtures/serumConfig';
+import { default as config } from '../../connectors/serum/fixtures/serum-config';
 import { unpatch } from '../../services/patch';
 import { getNewOrderTemplate } from './fixtures/dummy';
 import { default as patchesCreator } from './fixtures/patches/patches';

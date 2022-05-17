@@ -7,7 +7,12 @@ export default {
           '3mFmUEqdf86r7VEs8gCAHaEZ2gBmXzpgVPPjQ71fbMDYejso3Qqd18AgnkUbyqFyHrCDC7BUJLSXRqZuLK7Bd9yP',
       },
       payer: {
-        publicKey: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        'SOL/USDT': {
+          publicKey: '',
+        },
+        'SOL/USDC': {
+          publicKey: '',
+        },
       },
     },
   },
