@@ -208,7 +208,7 @@ class AllConnectorSettings:
         Iterate over files in specific Python directories to create a dictionary of exchange names to ConnectorSetting.
         """
         cls.all_connector_settings = {}  # reset
-        connector_exceptions = ["paper_trade"]
+        connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade"]
 
         type_dirs: List[DirEntry] = [
             cast(DirEntry, f) for f in scandir(f"{root_path() / 'hummingbot' / 'connector'}")
