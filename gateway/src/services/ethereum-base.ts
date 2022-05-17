@@ -43,6 +43,7 @@ export class EthereumBase {
   public chainId;
   public rpcUrl;
   public gasPriceConstant;
+  private _gasLimit;
   public tokenListSource: string;
   public tokenListType: TokenListType;
   public cache: NodeCache;
@@ -56,6 +57,7 @@ export class EthereumBase {
     tokenListSource: string,
     tokenListType: TokenListType,
     gasPriceConstant: number,
+    gasLimit: number,
     nonceDbPath: string,
     transactionDbPath: string
   ) {
@@ -69,6 +71,7 @@ export class EthereumBase {
     this._nonceManager = new EVMNonceManager(chainName, chainId, nonceDbPath);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
     this._txStorage = EvmTxStorage.getInstance(transactionDbPath);
+    this._gasLimit = gasLimit;
   }
 
   ready(): boolean {
@@ -77,6 +80,10 @@ export class EthereumBase {
 
   public get provider() {
     return this._provider;
+  }
+
+  public get gasLimit() {
+    return this._gasLimit;
   }
 
   public events() {
