@@ -14,17 +14,18 @@ from async_timeout import timeout
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
-    BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import (
+    BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource,
+)
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker import (
-    BybitPerpetualOrderBookTracker
+    BybitPerpetualOrderBookTracker,
 )
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_user_stream_tracker import (
-    BybitPerpetualUserStreamTracker
+    BybitPerpetualUserStreamTracker,
 )
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import (
-    BybitPerpetualWebSocketAdaptor
+    BybitPerpetualWebSocketAdaptor,
 )
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
@@ -607,7 +608,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         :param price: The price in which the order is to be placed at
         :returns: A new client order id
         """
-        order_id = get_new_client_order_id(is_buy=True, trading_pair=trading_pair, max_id_len=CONSTANTS.ORDER_ID_LEN)
+        order_id = get_new_client_order_id(is_buy=True,
+                                           trading_pair=trading_pair,
+                                           max_id_len=CONSTANTS.ORDER_ID_LEN,
+                                           hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID)
         safe_ensure_future(self._create_order(trade_type=TradeType.BUY,
                                               trading_pair=trading_pair,
                                               order_id=order_id,
@@ -632,7 +636,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         :param price: The price in which the order is to be placed at
         :returns: A new client order id
         """
-        order_id = get_new_client_order_id(is_buy=False, trading_pair=trading_pair, max_id_len=CONSTANTS.ORDER_ID_LEN)
+        order_id = get_new_client_order_id(is_buy=False,
+                                           trading_pair=trading_pair,
+                                           max_id_len=CONSTANTS.ORDER_ID_LEN,
+                                           hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID)
         safe_ensure_future(self._create_order(trade_type=TradeType.SELL,
                                               trading_pair=trading_pair,
                                               order_id=order_id,
