@@ -36,7 +36,6 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_query_result import ClientOrderBookQueryResult
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.event_listener import EventListener
 from hummingbot.core.event.events import (
