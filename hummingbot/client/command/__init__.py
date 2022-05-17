@@ -17,6 +17,7 @@ from .start_command import StartCommand
 from .status_command import StatusCommand
 from .stop_command import StopCommand
 from .ticker_command import TickerCommand
+from .previous_strategy_command import PreviousCommand
 
 __all__ = [
     ConfigCommand,
