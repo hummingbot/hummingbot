@@ -1,50 +1,41 @@
 import asyncio
 import copy
-from decimal import Decimal
 import itertools as it
-from async_timeout import timeout
 import logging
 import re
 import time
-from typing import (
-    Dict,
-    List,
-    Set,
-    Optional,
-    Any,
-    Type,
-    Union,
-    cast,
-)
+from decimal import Decimal
+from typing import Any, Dict, List, Optional, Set, Type, Union, cast
+
+from async_timeout import timeout
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway_in_flight_lp_order import GatewayInFlightLPOrder
-from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.gateway import check_transaction_exceptions
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
+    LPType,
     MarketEvent,
-    TokenApprovalEvent,
+    OrderCancelledEvent,
+    RangePositionFeeCollectedEvent,
     RangePositionLiquidityAddedEvent,
     RangePositionLiquidityRemovedEvent,
     RangePositionUpdateEvent,
     RangePositionUpdateFailureEvent,
-    RangePositionFeeCollectedEvent,
-    OrderCancelledEvent,
-    TokenApprovalSuccessEvent,
-    TokenApprovalFailureEvent,
     TokenApprovalCancelledEvent,
-    OrderType,
-    LPType,
+    TokenApprovalEvent,
+    TokenApprovalFailureEvent,
+    TokenApprovalSuccessEvent,
 )
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
-from .gateway_price_shim import GatewayPriceShim
+
+# from .gateway_price_shim import GatewayPriceShim
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -605,18 +596,18 @@ class GatewayEVMAMMLP(ConnectorBase):
                                RangePositionUpdateFailureEvent(self.current_timestamp, order_id, lp_type))
             self.stop_tracking_order(order_id)
 
-    def collet_fees(self, trading_pair: str, token_id: int, **request_args) -> str:
+    def collect_fees(self, trading_pair: str, token_id: int, **request_args) -> str:
         """
         Collect earned fees.
         :param trading_pair: The market trading pair
         :param token_id: The market trading pair
         :return: A newly created order id (internal).
         """
-        order_id: str = self.create_lp_order_id(LPType.REMOVE, trading_pair)
-        safe_ensure_future(self._remove_liquidity(order_id, trading_pair, token_id, **request_args))
+        order_id: str = self.create_lp_order_id(LPType.COLLECT, trading_pair)
+        safe_ensure_future(self._collect_fees(order_id, trading_pair, token_id, **request_args))
         return order_id
 
-    async def _collet_fees(
+    async def _collect_fees(
             self,
             order_id: str,
             trading_pair: str,
@@ -847,9 +838,10 @@ class GatewayEVMAMMLP(ConnectorBase):
         if len(tracked_orders) < 1:
             return
 
-        # split canceled and non-canceled orders
+        # filter non nft orders
+        non_nft_orders = [new_order for new_order in tracked_orders if not new_order.is_nft]
         tx_hash_list: List[str] = await safe_gather(
-            *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders if not tracked_order.is_nft]
+            *[tracked_order.get_exchange_order_id() for tracked_order in non_nft_orders]
         )
         self.logger().debug(
             "Polling for order status updates of %d orders.",
@@ -864,7 +856,7 @@ class GatewayEVMAMMLP(ConnectorBase):
             )
             for tx_hash in tx_hash_list
         ], return_exceptions=True)
-        for tracked_order, update_result in zip(tracked_orders, update_results):
+        for tracked_order, update_result in zip(non_nft_orders, update_results):
             if isinstance(update_result, Exception):
                 raise update_result
             if "txHash" not in update_result:
@@ -876,7 +868,7 @@ class GatewayEVMAMMLP(ConnectorBase):
                     gas_used: int = update_result["txReceipt"]["gasUsed"]
                     gas_price: Decimal = tracked_order.gas_price
                     fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
-                    if tracked_order.lp_type is LPType.ADD:
+                    if tracked_order.lp_type == LPType.ADD:
                         token_id = int(list(filter(lambda evt: evt["name"] == "tokenId", list(filter(lambda log: log["name"] == "IncreaseLiquidity", update_result["txReceipt"]["logs"]))[0]["events"]))[0]["value"])
                         self.logger().info(f"Liquidity added for position with ID {token_id}.")
                         self.trigger_event(
@@ -903,7 +895,7 @@ class GatewayEVMAMMLP(ConnectorBase):
                             tracked_order.last_state = "CREATED"
                             continue
                     else:
-                        reduce_evt = list(filter(lambda evt: evt["name"] == "tokenId", list(filter(lambda log: log["name"] == "DecreaseLiquidity", update_result["txReceipt"]["logs"]))[0]["events"]))
+                        reduce_evt = list(filter(lambda evt: evt["name"] == "tokenId", list(filter(lambda log: log["name"] == "DecreaseLiquidity", update_result["txReceipt"]["logs"]))[0]["events"])) if tracked_order.lp_type == LPType.REMOVE else []
                         collect_evt = list(filter(lambda evt: evt["name"] == "tokenId", list(filter(lambda log: log["name"] == "Collect", update_result["txReceipt"]["logs"]))[0]["events"]))
                         if len(reduce_evt) > 0:
                             token_id = int(reduce_evt[0]["value"])
@@ -917,7 +909,6 @@ class GatewayEVMAMMLP(ConnectorBase):
                                     exchange_order_id=tracked_order.exchange_order_id,
                                     trading_pair=tracked_order.trading_pair,
                                     creation_timestamp=tracked_order.creation_timestamp,
-                                    fee_tier=tracked_order.fee_tier,
                                     token_id=token_id,
                                     trade_fee=AddedToCostTradeFee(
                                         flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
@@ -953,7 +944,7 @@ class GatewayEVMAMMLP(ConnectorBase):
                                            tracked_order.lp_type
                                        ))
                 self.stop_tracking_order(tracked_order.client_order_id)
-        
+
     async def update_nft(self, tracked_orders: List[GatewayInFlightLPOrder]):
         """
         Calls REST API to get status update for each created in-flight tokens.
@@ -991,7 +982,7 @@ class GatewayEVMAMMLP(ConnectorBase):
             if amount_0 + amount_1 + unclaimed_fee_0 + unclaimed_fee_1 == s_decimal_0:  # position closed, stop tracking
                 self.logger().info(f"Position with ID {nft_order.token_id} closed. About to stop tracking...")
                 nft_order.last_state = "COMPLETED"
-                self.stop_tracking_order(nft_order.client_order_id)     
+                self.stop_tracking_order(nft_order.client_order_id)
             else:
                 nft_order.adjusted_lower_price = lower_price
                 nft_order.adjusted_upper_price = upper_price
@@ -1010,7 +1001,7 @@ class GatewayEVMAMMLP(ConnectorBase):
         """
         Checks if there are existing tracked inflight orders with same token id created earlier.
         """
-        token_id_list = [order.token_id for order in self.amm_lp_orders if order.lp_type is LPType.ADD and order.is_nft]
+        token_id_list = [order.token_id for order in self.amm_lp_orders if order.lp_type == LPType.ADD and order.is_nft]
         return len(token_id_list) > 0
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
