@@ -721,10 +721,12 @@ class BitmexExchange(ExchangeBase):
             "symbol": symbol,
             "side": order_side,
             "orderQty": str(float(amount)),
-            "price": str(float(price)),
             "clOrdID": client_order_id,
             "ordType": bitmex_order_type
         }
+
+        if bitmex_order_type == "Limit":
+            params['price'] = str(float(price))
 
         return await self._api_request(
             path=CONSTANTS.ORDER_URL,

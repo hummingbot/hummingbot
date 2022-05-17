@@ -36,6 +36,7 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_query_result import ClientOrderBookQueryResult
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.event_listener import EventListener
 from hummingbot.core.event.events import (
@@ -189,6 +190,7 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._client_order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
         self._trading_pair_to_size_type = {}
         self._trading_pair_price_estimate_for_quantize = {}
+        self._token_multiplier = {}
 
     @property
     def name(self) -> str:
@@ -517,7 +519,7 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     await self.update_position_from_exchange_data(position)
         elif topic == "wallet":
             for currency_info in data:
-                self.set_balance(currency_info)
+                await self.set_balance(currency_info)
         elif topic == "order":
             for order in data:
                 client_order_id = order.get("clOrdID")
@@ -525,6 +527,24 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     tracked_order = self._in_flight_orders.get(client_order_id)
                     if tracked_order is not None:
                         self._update_inflight_order(tracked_order, order)
+
+    async def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+        size_currency_type = self._trading_pair_to_size_type[trading_pair]
+        if size_currency_type.is_base:
+            return await ExchangeBase.get_order_price(self, trading_pair, is_buy, amount)
+        else:
+            order_book: OrderBook = self.get_order_book(trading_pair)
+            result = order_book.get_price_for_volume(is_buy, float(amount))
+            return Decimal(str(result.result_price))
+
+    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+        size_currency_type = self._trading_pair_to_size_type[trading_pair]
+        if size_currency_type.is_base:
+            return await ExchangeBase.get_quote_price(self, trading_pair, is_buy, amount)
+        else:
+            order_book: OrderBook = self.get_order_book(trading_pair)
+            result = order_book.get_vwap_for_volume(is_buy, float(amount))
+            return Decimal(str(result.result_price))
 
     async def _update_trading_rules(self):
         """
@@ -824,10 +844,12 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             "symbol": symbol,
             "side": order_side,
             "orderQty": str(float(amount)),
-            "price": str(float(price)),
             "clOrdID": client_order_id,
             "ordType": bitmex_order_type
         }
+
+        if bitmex_order_type == "Limit":
+            params['price'] = str(float(price))
 
         return await self._api_request(
             path=CONSTANTS.ORDER_URL,
@@ -1096,6 +1118,17 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
     def cancel(self, trading_pair: str, client_order_id: str):
         return safe_ensure_future(self.cancel_order(client_order_id))
 
+    async def _initialize_token_decimals(self):
+        token_info = await self._api_request(
+            path=CONSTANTS.TOKEN_INFO_URL
+        )
+        for asset in token_info:
+            zeros = asset['scale']
+            currency = asset['asset']
+            self._token_multiplier[currency] = Decimal(f"1e{zeros}")
+            if currency == "USDT":
+                self._token_multiplier['USD'] = Decimal(f"1e{zeros}")
+
     async def _update_balances(self):
         account_info = await self._api_request(
             path=CONSTANTS.ACCOUNT_INFO_URL,
@@ -1103,19 +1136,23 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             params={"currency": "all"}
         )
         for currency_info in account_info:
-            self.set_balance(currency_info)
+            await self.set_balance(currency_info)
 
-    def set_balance(self, data: Dict[str, Any]):
+    async def set_balance(self, data: Dict[str, Any]):
+        if not (len(self._token_multiplier) > 0):
+            await self._initialize_token_decimals()
         asset_name = data['currency'].upper()
         total_balance = Decimal(str(data['amount']))
         pending_credit = Decimal(str(data['pendingCredit']))
         pending_debit = Decimal(str(data['pendingDebit']))
         available_balance = total_balance - pending_credit + pending_debit
-        self._account_balances[asset_name] = Decimal(total_balance)
-        self._account_available_balances[asset_name] = Decimal(available_balance)
+
+        multiplier: Decimal = self._token_multiplier[asset_name]
+        self._account_balances[asset_name] = Decimal(total_balance) / multiplier
+        self._account_available_balances[asset_name] = Decimal(available_balance) / multiplier
         if asset_name == "XBT":
-            self._account_balances["USD"] = Decimal('1000') * Decimal(total_balance)
-            self._account_available_balances["USD"] = Decimal('1000') * Decimal(available_balance)
+            self._account_balances["USD"] = Decimal('1000') * Decimal(total_balance) / multiplier
+            self._account_available_balances["USD"] = Decimal('1000') * Decimal(available_balance) / multiplier
 
     async def _api_request(self,
                            path: str,
