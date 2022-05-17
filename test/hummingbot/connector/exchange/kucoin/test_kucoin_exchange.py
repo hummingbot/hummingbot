@@ -11,10 +11,7 @@ from aioresponses import aioresponses
 from bidict import bidict
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange.kucoin import (
-    kucoin_constants as CONSTANTS,
-    kucoin_web_utils as web_utils,
-)
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS, kucoin_web_utils as web_utils
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 from hummingbot.connector.trading_rule import TradingRule
@@ -46,6 +43,7 @@ class TestKucoinExchange(unittest.TestCase):
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.trading_multipair = (f"{cls.base_asset}-{cls.quote_asset}", f"{cls.base_asset}-{cls.quote_asset}")
         cls.exchange_trading_pair = cls.trading_pair
         cls.api_key = "someKey"
         cls.api_passphrase = "somePassPhrase"
@@ -240,6 +238,43 @@ class TestKucoinExchange(unittest.TestCase):
         regex_url = re.compile(f"^{url}")
         resp = {"data": [
             {"symbol": self.trading_pair,
+             "makerFeeRate": "0.002",
+             "takerFeeRate": "0.002"}]}
+        mocked_api.get(regex_url, body=json.dumps(resp))
+
+        self.async_run_with_timeout(self.exchange._update_trading_fees())
+
+        fee = self.exchange.get_fee(
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("10"),
+            price=Decimal("20"),
+        )
+
+        self.assertEqual(Decimal("0.002"), fee.percent)
+
+        fee = self.exchange.get_fee(
+            base_currency="SOME",
+            quote_currency="OTHER",
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("10"),
+            price=Decimal("20"),
+        )
+
+        self.assertEqual(Decimal("0.001"), fee.percent)  # default fee
+
+    @aioresponses()
+    def test_get_multipair_fee_returns_fee_from_exchange_if_available_and_default_if_not(self, mocked_api):
+        url = web_utils.rest_url(CONSTANTS.FEE_PATH_URL)
+        regex_url = re.compile(f"^{url}")
+        resp = {"data": [
+            {"symbol": self.trading_multipair[0],
+             "makerFeeRate": "0.002",
+             "takerFeeRate": "0.002"},
+            {"symbol": self.trading_multipair[1],
              "makerFeeRate": "0.002",
              "takerFeeRate": "0.002"}]}
         mocked_api.get(regex_url, body=json.dumps(resp))
