@@ -81,7 +81,7 @@ cdef class FtxExchange(ExchangeBase):
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
-    REFERRAL_PROGRAM = 'hummingbot1'
+    REFERRAL_PROGRAM = "hummingbot1"
 
     FTX_API_ENDPOINT = "https://ftx.com/api"
 
