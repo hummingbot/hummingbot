@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Optional
 
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
-from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange.mock_paper_exchange import MockPaperExchange
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSchema
@@ -28,7 +28,7 @@ class MockPerpConnector(MockPaperExchange, PerpetualTrading):
 
     @property
     def name(self):
-        return "MockPerpConnector"
+        return "mock_perp_connector"
 
     @property
     def budget_checker(self) -> PerpetualBudgetChecker:
