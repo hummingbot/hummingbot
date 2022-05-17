@@ -12,6 +12,10 @@ import {
   getTickers,
   settleFunds,
 } from '../../../src/connectors/serum/serum.controllers';
+import {
+  OrderSide,
+  OrderType,
+} from '../../../src/connectors/serum/serum.types';
 import { default as config } from '../../connectors/serum/fixtures/serumConfig';
 import { unpatch } from '../../services/patch';
 import { getNewOrderTemplate } from './fixtures/dummy';
@@ -201,11 +205,7 @@ describe('Full Flow', () => {
 
     request = {
       ...commonParameters,
-      order: (() => {
-        const order = getNewOrderTemplate();
-        order.id = orderIds[0];
-        return order;
-      })(),
+      order: getNewOrderTemplate({ id: orderIds[0] }),
     };
     response = await createOrders(solana, serum, request);
   });
@@ -217,42 +217,41 @@ describe('Full Flow', () => {
     request = {
       ...commonParameters,
       orders: [
-        (() => {
-          const order = getNewOrderTemplate();
-          order.id = orderIds[1];
-          return order;
-        })(),
-        (() => {
-          const order = getNewOrderTemplate();
-          order.id = orderIds[2];
-          return order;
-        })(),
-        (() => {
-          const order = getNewOrderTemplate();
-          order.id = orderIds[3];
-          return order;
-        })(),
-        (() => {
-          const order = getNewOrderTemplate();
-          order.id = orderIds[4];
-          return order;
-        })(),
-        (() => {
-          const order = getNewOrderTemplate();
-          order.id = orderIds[5];
-          return order;
-        })(),
-        (() => {
-          const order = getNewOrderTemplate();
-          order.id = orderIds[6];
-          return order;
-        })(),
-        (() => {
-          const order = getNewOrderTemplate();
-          order.id = orderIds[7];
-          return order;
-        })(),
-        // (() => { const order = getNewOrderTemplate(); order.id = orderIds[8]; return order; })(),
+        getNewOrderTemplate({
+          id: orderIds[1],
+          side: OrderSide.BUY,
+          type: OrderType.LIMIT,
+        }),
+        getNewOrderTemplate({
+          id: orderIds[2],
+          side: OrderSide.BUY,
+          type: OrderType.LIMIT,
+        }),
+        getNewOrderTemplate({
+          id: orderIds[3],
+          side: OrderSide.BUY,
+          type: OrderType.LIMIT,
+        }),
+        getNewOrderTemplate({
+          id: orderIds[4],
+          side: OrderSide.BUY,
+          type: OrderType.LIMIT,
+        }),
+        getNewOrderTemplate({
+          id: orderIds[5],
+          side: OrderSide.BUY,
+          type: OrderType.LIMIT,
+        }),
+        getNewOrderTemplate({
+          id: orderIds[6],
+          side: OrderSide.BUY,
+          type: OrderType.LIMIT,
+        }),
+        getNewOrderTemplate({
+          id: orderIds[7],
+          side: OrderSide.BUY,
+          type: OrderType.LIMIT,
+        }),
       ],
     };
     response = await createOrders(solana, serum, request);
