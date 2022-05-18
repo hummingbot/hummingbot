@@ -54,6 +54,7 @@ from hummingbot.logger import HummingbotLogger
 
 bpm_logger = None
 NaN = float("nan")
+s_decimal_0 = Decimal("0")
 
 
 class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
@@ -806,7 +807,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     throttler=self._throttler,
                     api_factory=self._api_factory
                 )
-                if payment != Decimal("0"):
+                if payment != s_decimal_0:
                     funding_info = self.get_funding_info(trading_pair)
                     if funding_info is not None:
                         self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
@@ -916,11 +917,11 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def _process_position_message(self, position_list):
         for position_data in position_list.get("data", []):
             trading_pair = position_data.get("instrumentId")
-            side = PositionSide.SHORT if position_data.get("quantity").startswith("-") else PositionSide.LONG
+            amount = Decimal(position_data.get("quantity"))
+            side = PositionSide.SHORT if amount < s_decimal_0 else PositionSide.LONG
             position = self.get_position(trading_pair, side)
             if position is not None:
-                amount = Decimal(position_data.get("quantity").replace("-", ""))
-                if amount == Decimal("0"):
+                if amount == s_decimal_0:
                     pos_key = self.position_key(trading_pair, side)
                     del self._account_positions[pos_key]
                 else:
@@ -939,10 +940,10 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             return
         for position in positions['data']:
             trading_pair = position.get("instrumentId")
-            position_side = PositionSide.SHORT if position.get("quantity").startswith("-") else PositionSide.LONG
+            amount = Decimal(position.get("quantity"))
+            position_side = PositionSide.SHORT if amount < s_decimal_0 else PositionSide.LONG
             unrealized_pnl = Decimal(position.get("positionPnl"))
             entry_price = Decimal(position.get("entryPrice"))
-            amount = Decimal(position.get("quantity").replace("-", ""))
             leverage = Decimal('1')
             pos_key = self.position_key(trading_pair, position_side)
             if amount != 0:
@@ -1065,7 +1066,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                if (tracked_order.trade_type is TradeType.BUY and position_side == "BUY"
                                    or tracked_order.trade_type is TradeType.SELL and position_side == "SELL")
                                else PositionAction.CLOSE)
-            flat_fees = [] if not fee_amount or fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
+            flat_fees = [] if not fee_amount or fee_amount == s_decimal_0 else [TokenAmount(amount=fee_amount, token=fee_asset)]
 
             fee = TradeFeeBase.new_perpetual_fee(
                 fee_schema=self.trade_fee_schema(),
@@ -1111,7 +1112,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                    if (tracked_order.trade_type is TradeType.BUY and position_side == "BUY"
                                        or tracked_order.trade_type is TradeType.SELL and position_side == "SELL")
                                    else PositionAction.CLOSE)
-                flat_fees = [] if not fee_amount or fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
+                flat_fees = [] if not fee_amount or fee_amount == s_decimal_0 else [TokenAmount(amount=fee_amount, token=fee_asset)]
 
                 fee = TradeFeeBase.new_perpetual_fee(
                     fee_schema=self.trade_fee_schema(),
