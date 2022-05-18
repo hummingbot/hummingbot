@@ -31,7 +31,7 @@
       "symbol": "1DAI",
       "decimals": 18,
       "chainId": 1666600000,
-      "logoURI": ""
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/icons/master/token/dai.jpg"
     },
     {
       "name": "Tether USDT",
@@ -39,7 +39,7 @@
       "symbol": "1USDT",
       "decimals": 6,
       "chainId": 1666600000,
-      "logoURI": ""
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/icons/master/token/usdt.jpg"
     },
     {
       "name": "1ETH",
@@ -47,7 +47,7 @@
       "symbol": "1ETH",
       "decimals": 18,
       "chainId": 1666600000,
-      "logoURI": ""
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/icons/master/token/eth.jpg"
     },
     {
       "name": "Wrapped BTC",
@@ -71,7 +71,7 @@
       "symbol": "BUSD",
       "name": "Binance USD",
       "decimals": 18,
-      "logoURI": ""
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/icons/master/token/busd.jpg"
     },
     {
       "chainId": 1666600000,
@@ -79,7 +79,7 @@
       "symbol": "FIRA",
       "name": "Fira",
       "decimals": 18,
-      "logoURI": ""
+      "logoURI": "https://d2w69usg89gc0q.cloudfront.net/tokens/FIRA.png"
     },
     {
       "chainId": 1666600000,
@@ -87,7 +87,7 @@
       "symbol": "TRANQ",
       "name": "Tranquil",
       "decimals": 18,
-      "logoURI": ""
+      "logoURI": "https://d2w69usg89gc0q.cloudfront.net/tokens/TRANQ.png"
     }
   ]
 }
