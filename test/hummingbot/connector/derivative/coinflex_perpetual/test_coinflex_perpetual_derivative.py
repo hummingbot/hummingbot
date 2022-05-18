@@ -1052,7 +1052,7 @@ class CoinflexPerpetualDerivativeUnitTest(unittest.TestCase):
 
         order_status = {"data": [{
             "success": "false",
-            "message": CONSTANTS.ORDER_NOT_FOUND_ERROR
+            "message": CONSTANTS.ORDER_NOT_FOUND_ERRORS[0]
         }]}
 
         for i in range(2 * self.exchange.MAX_ORDER_UPDATE_RETRIEVAL_RETRIES_WITH_FAILURES):
@@ -1068,7 +1068,7 @@ class CoinflexPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
         expected_error = {
             **order_status,
-            "errors": CONSTANTS.ORDER_NOT_FOUND_ERROR
+            "errors": CONSTANTS.ORDER_NOT_FOUND_ERRORS[0]
         }
         self.assertTrue(
             self._is_logged(
