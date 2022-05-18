@@ -9,10 +9,13 @@ import aiohttp
 import pandas as pd
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
-from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, bybit_perpetual_utils
+from hummingbot.connector.derivative.bybit_perpetual import (
+    bybit_perpetual_constants as CONSTANTS,
+    bybit_perpetual_utils,
+)
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import (
-    BybitPerpetualWebSocketAdaptor
+    BybitPerpetualWebSocketAdaptor,
 )
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.funding_info import FundingInfo

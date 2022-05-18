@@ -16,12 +16,7 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSchema
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    MarketEvent,
-    OrderFilledEvent,
-    SellOrderCompletedEvent
-)
+from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketEvent, OrderFilledEvent, SellOrderCompletedEvent
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy

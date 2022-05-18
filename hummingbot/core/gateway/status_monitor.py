@@ -1,8 +1,7 @@
 import asyncio
 import logging
-
 from enum import Enum
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.client.settings import GATEWAY_CONNECTORS
 from hummingbot.client.ui.completer import load_completer

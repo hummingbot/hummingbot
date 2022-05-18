@@ -1,6 +1,7 @@
 import logging
 import unittest
 from decimal import Decimal
+from test.connector.fixture_celo import TEST_ADDRESS, TEST_PASSWORD, outputs as celo_outputs
 
 import mock
 import pandas as pd
@@ -14,7 +15,6 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.strategy.celo_arb.celo_arb import CeloArbStrategy, get_trade_profits
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from test.connector.fixture_celo import outputs as celo_outputs, TEST_ADDRESS, TEST_PASSWORD
 
 logging.basicConfig(level=logging.ERROR)
 

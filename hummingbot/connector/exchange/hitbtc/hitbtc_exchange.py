@@ -3,13 +3,7 @@ import logging
 import math
 import time
 from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 from async_timeout import timeout
@@ -21,9 +15,9 @@ from hummingbot.connector.exchange.hitbtc.hitbtc_in_flight_order import HitbtcIn
 from hummingbot.connector.exchange.hitbtc.hitbtc_order_book_tracker import HitbtcOrderBookTracker
 from hummingbot.connector.exchange.hitbtc.hitbtc_user_stream_tracker import HitbtcUserStreamTracker
 from hummingbot.connector.exchange.hitbtc.hitbtc_utils import (
+    HitbtcAPIError,
     aiohttp_response_with_errors,
     get_new_client_order_id,
-    HitbtcAPIError,
     retry_sleep_time,
     str_date_to_ts,
     translate_asset,
@@ -32,8 +26,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount

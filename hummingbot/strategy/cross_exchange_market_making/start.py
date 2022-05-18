@@ -1,14 +1,15 @@
-from typing import (
-    List,
-    Tuple
-)
 from decimal import Decimal
+from typing import List, Tuple
+
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import (
+    CrossExchangeMarketMakingStrategy,
+)
+from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import (
+    cross_exchange_market_making_config_map as xemm_map,
+)
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
-from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
-from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import \
-    cross_exchange_market_making_config_map as xemm_map
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 def start(self):

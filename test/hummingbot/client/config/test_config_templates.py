@@ -1,17 +1,11 @@
-from os.path import (
-    isdir,
-    join,
-    exists,
-)
-from os import listdir
 import unittest
+from os import listdir
+from os.path import exists, isdir, join
+
 import ruamel.yaml
 
 from hummingbot import root_path
-from hummingbot.client.config.config_helpers import (
-    get_strategy_template_path,
-    get_strategy_config_map,
-)
+from hummingbot.client.config.config_helpers import get_strategy_config_map, get_strategy_template_path
 from hummingbot.client.config.global_config_map import global_config_map
 
 yaml_parser = ruamel.yaml.YAML()

@@ -1,16 +1,9 @@
 from datetime import datetime
-from typing import (
-    List,
-    Tuple,
-)
+from typing import List, Tuple
 
-from hummingbot.strategy.conditional_execution_state import (
-    RunAlwaysExecutionState,
-    RunInTimeConditionalExecutionState)
+from hummingbot.strategy.conditional_execution_state import RunAlwaysExecutionState, RunInTimeConditionalExecutionState
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.twap import (
-    TwapTradeStrategy
-)
+from hummingbot.strategy.twap import TwapTradeStrategy
 from hummingbot.strategy.twap.twap_config_map import twap_config_map
 
 

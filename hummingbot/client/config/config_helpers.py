@@ -1,39 +1,28 @@
-import logging
-from decimal import Decimal
-import ruamel.yaml
-from os import (
-    unlink
-)
-from os.path import (
-    join,
-    isfile
-)
-from collections import OrderedDict, defaultdict
 import json
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-)
-from os import listdir
+import logging
 import shutil
+from collections import OrderedDict, defaultdict
+from decimal import Decimal
+from os import listdir, unlink
+from os.path import isfile, join
+from typing import Any, Callable, Dict, List, Optional
 
+import ruamel.yaml
+
+from hummingbot import get_strategy_list
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map, init_fee_overrides_config
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
 from hummingbot.client.settings import (
-    GLOBAL_CONFIG_PATH,
-    TRADE_FEES_CONFIG_PATH,
-    TEMPLATE_PATH,
     CONF_FILE_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
+    GLOBAL_CONFIG_PATH,
+    TEMPLATE_PATH,
+    TRADE_FEES_CONFIG_PATH,
     AllConnectorSettings,
 )
-from hummingbot.client.config.security import Security
-from hummingbot import get_strategy_list
 
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml_parser = ruamel.yaml.YAML()

@@ -1,11 +1,8 @@
-from typing import (
-    List,
-    Tuple,
-)
+from typing import List, Tuple
 
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.dev_5_vwap import Dev5TwapTradeStrategy
 from hummingbot.strategy.dev_5_vwap.dev_5_vwap_config_map import dev_5_vwap_config_map
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 def start(self):

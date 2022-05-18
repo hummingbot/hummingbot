@@ -1,20 +1,17 @@
 from decimal import Decimal
+from typing import Optional
 
-from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
-    validate_exchange,
-    validate_market_trading_pair,
-    validate_int,
     validate_bool,
-    validate_decimal,
     validate_datetime_iso_string,
+    validate_decimal,
+    validate_exchange,
+    validate_int,
+    validate_market_trading_pair,
     validate_time_iso_string,
 )
-from hummingbot.client.settings import (
-    required_exchanges,
-    AllConnectorSettings,
-)
-from typing import Optional
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.settings import AllConnectorSettings, required_exchanges
 
 
 def maker_trading_pair_prompt():

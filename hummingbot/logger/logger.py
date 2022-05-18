@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
 import io
-from logging import Logger as PythonLogger
 import os
-import time
 import sys
+import time
 import traceback
+from logging import Logger as PythonLogger
 from typing import Optional
+
 import pandas as pd
 
 from .application_warning import ApplicationWarning
@@ -47,6 +48,7 @@ class HummingbotLogger(PythonLogger):
 
     def network(self, log_msg: str, app_warning_msg: Optional[str] = None, *args, **kwargs):
         from hummingbot.client.hummingbot_application import HummingbotApplication
+
         from . import NETWORK
 
         self.log(NETWORK, log_msg, *args, **kwargs)

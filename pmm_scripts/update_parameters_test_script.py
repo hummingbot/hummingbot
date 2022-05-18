@@ -1,4 +1,5 @@
 from decimal import Decimal
+
 from hummingbot.pmm_script.pmm_script_base import PMMScriptBase
 
 

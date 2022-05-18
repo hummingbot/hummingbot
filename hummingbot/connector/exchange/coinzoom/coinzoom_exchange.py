@@ -4,13 +4,7 @@ import logging
 import math
 import time
 from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 from async_timeout import timeout

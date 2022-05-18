@@ -4,20 +4,15 @@
 Functions for storing encrypted wallets and decrypting stored wallets.
 """
 
-from eth_account import Account
-from hummingbot.client.settings import (
-    KEYFILE_PREFIX,
-    KEYFILE_POSTFIX,
-    DEFAULT_KEY_FILE_PATH,
-)
-from hummingbot.client.config.global_config_map import global_config_map
 import json
 from os import listdir
-from os.path import (
-    join,
-    isfile
-)
+from os.path import isfile, join
 from typing import Dict, List
+
+from eth_account import Account
+
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.settings import DEFAULT_KEY_FILE_PATH, KEYFILE_POSTFIX, KEYFILE_PREFIX
 
 
 def get_key_file_path() -> str:

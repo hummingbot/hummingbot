@@ -3,17 +3,17 @@ from os import listdir
 from os.path import exists, isfile, join
 from typing import List
 
-from prompt_toolkit.completion import Completer, CompleteEvent, WordCompleter
+from prompt_toolkit.completion import CompleteEvent, Completer, WordCompleter
 from prompt_toolkit.document import Document
 
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 from hummingbot.client.settings import (
-    AllConnectorSettings,
     CONF_FILE_PATH,
     GATEWAY_CONNECTORS,
     PMM_SCRIPTS_PATH,
     SCRIPT_STRATEGIES_PATH,
     STRATEGIES,
+    AllConnectorSettings,
 )
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.rate_oracle.rate_oracle import RateOracleSource

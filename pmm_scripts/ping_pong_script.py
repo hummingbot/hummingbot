@@ -1,7 +1,4 @@
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent
-)
+from hummingbot.core.event.events import BuyOrderCompletedEvent, SellOrderCompletedEvent
 from hummingbot.pmm_script.pmm_script_base import PMMScriptBase
 
 

@@ -1,5 +1,6 @@
 from copy import deepcopy
-from typing import List, Dict, Any, Optional, Iterable
+from typing import Any, Dict, Iterable, List, Optional
+
 import pandas as pd
 
 native_tokens = {"ethereum": "ETH", "avalanche": "AVAX", "solana": "SOL"}

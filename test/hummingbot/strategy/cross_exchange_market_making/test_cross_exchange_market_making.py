@@ -21,8 +21,8 @@ from hummingbot.core.event.events import (
     MarketEvent,
     OrderBookTradeEvent,
     OrderFilledEvent,
-    SellOrderCreatedEvent,
     SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
 )
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-from hummingbot.strategy.dev_0_hello_world.dev_0_hello_world_config_map import dev_0_hello_world_config_map
 from hummingbot.strategy.dev_0_hello_world import HelloWorldStrategy
+from hummingbot.strategy.dev_0_hello_world.dev_0_hello_world_config_map import dev_0_hello_world_config_map
 
 
 def start(self):

@@ -1,8 +1,8 @@
 import asyncio
 import unittest
+from typing import Any, Awaitable, Dict
 
-from mock import patch, MagicMock
-from typing import Awaitable, Dict, Any
+from mock import MagicMock, patch
 
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 

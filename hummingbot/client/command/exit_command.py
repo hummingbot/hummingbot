@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 import asyncio
+from typing import TYPE_CHECKING
+
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 

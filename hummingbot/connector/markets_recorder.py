@@ -26,7 +26,7 @@ from hummingbot.core.event.events import (
     RangePositionInitiatedEvent,
     RangePositionUpdatedEvent,
     SellOrderCompletedEvent,
-    SellOrderCreatedEvent
+    SellOrderCreatedEvent,
 )
 from hummingbot.model.funding_payment import FundingPayment
 from hummingbot.model.market_state import MarketState

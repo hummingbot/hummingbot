@@ -2,8 +2,8 @@ import asyncio
 import importlib
 import inspect
 import os
-
 from multiprocessing import Queue
+
 from hummingbot.pmm_script.pmm_script_base import PMMScriptBase
 from hummingbot.pmm_script.pmm_script_interface import CallNotify, set_child_queue
 

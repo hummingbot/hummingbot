@@ -1,5 +1,5 @@
-from typing import Dict
 from decimal import Decimal
+from typing import Dict
 
 from hummingbot.core.gateway.utils import unwrap_token_symbol
 

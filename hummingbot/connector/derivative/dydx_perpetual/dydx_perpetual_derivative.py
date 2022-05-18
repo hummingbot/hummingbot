@@ -14,11 +14,13 @@ from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import D
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper import DydxPerpetualClientWrapper
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_in_flight_order import DydxPerpetualInFlightOrder
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tracker import \
-    DydxPerpetualOrderBookTracker
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tracker import (
+    DydxPerpetualOrderBookTracker,
+)
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import \
-    DydxPerpetualUserStreamTracker
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import (
+    DydxPerpetualUserStreamTracker,
+)
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_utils import build_api_factory
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.exchange_base import ExchangeBase
@@ -26,13 +28,7 @@ from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import (
-    OrderType,
-    PositionAction,
-    PositionMode,
-    PositionSide,
-    TradeType
-)
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount

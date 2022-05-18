@@ -16,7 +16,7 @@ from hummingbot.connector.exchange.mexc.mexc_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     num_to_increment,
-    ws_order_status_convert_to_str
+    ws_order_status_convert_to_str,
 )
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.trading_rule import TradingRule

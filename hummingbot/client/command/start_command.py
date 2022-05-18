@@ -3,8 +3,7 @@ import platform
 import threading
 import time
 from os.path import dirname, exists, join
-from typing import Any, Callable, Dict, List, Optional
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import pandas as pd
 
