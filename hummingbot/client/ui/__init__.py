@@ -6,13 +6,14 @@ from typing import Optional, Type
 from prompt_toolkit.shortcuts import input_dialog, message_dialog
 from prompt_toolkit.styles import Style
 
+from hummingbot import root_path
 from hummingbot.client.config.conf_migration import migrate_configs, migrate_strategies_only
 from hummingbot.client.config.config_crypt import BaseSecretsManager, store_password_verification
 from hummingbot.client.config.global_config_map import color_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import CONF_DIR_PATH
 
-sys.path.insert(0, realpath(join(__file__, "../../../")))
+sys.path.insert(0, str(root_path()))
 
 
 with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
