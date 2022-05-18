@@ -78,7 +78,10 @@ ORDER_STATE = {
 for state in ORDER_CANCELLED_STATES:
     ORDER_STATE[state] = OrderState.CANCELED
 
-ORDER_NOT_FOUND_ERROR = "Open order not found with clientOrderId or orderId"
+ORDER_NOT_FOUND_ERRORS = [
+    "Open order not found with clientOrderId or orderId",
+    "Order request was rejected with status REJECT_CANCEL_ORDER_ID_NOT_FOUND"
+]
 
 # Rate Limit Type
 REQUEST_WEIGHT = "REQUEST_WEIGHT"
