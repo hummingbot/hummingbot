@@ -32,6 +32,8 @@ if TYPE_CHECKING:
 
 
 class StartCommand(GatewayChainApiManager):
+    _in_start_check: bool = False
+
     async def _run_clock(self):
         with self.clock as clock:
             await clock.run()
@@ -58,15 +60,18 @@ class StartCommand(GatewayChainApiManager):
                           log_level: Optional[str] = None,
                           restore: Optional[bool] = False,
                           strategy_file_name: Optional[str] = None):
-        if self.strategy_task is not None and not self.strategy_task.done():
+        if self._in_start_check or (self.strategy_task is not None and not self.strategy_task.done()):
             self.notify('The bot is already running - please run "stop" first')
             return
+
+        self._in_start_check = True
 
         if settings.required_rate_oracle:
             # If the strategy to run requires using the rate oracle to find FX rates, validate there is a rate for
             # each configured token pair
             if not (await self.confirm_oracle_conversion_rate()):
                 self.notify("The strategy failed to start.")
+                self._in_start_check = False
                 return
 
         if strategy_file_name:
@@ -75,6 +80,7 @@ class StartCommand(GatewayChainApiManager):
             self.strategy_name = file_name
         elif not await self.status_check_all(notify_success=False):
             self.notify("Status checks failed. Start aborted.")
+            self._in_start_check = False
             return
         if self._last_started_strategy_file != self.strategy_file_name:
             init_logging("hummingbot_logs.yml",
@@ -91,6 +97,7 @@ class StartCommand(GatewayChainApiManager):
         try:
             self._initialize_strategy(self.strategy_name)
         except NotImplementedError:
+            self._in_start_check = False
             self.strategy_name = None
             self.strategy_file_name = None
             self.notify("Invalid strategy. Start aborted.")
@@ -145,10 +152,12 @@ class StartCommand(GatewayChainApiManager):
                     self.app.change_prompt(prompt=">>> ")
 
                     if use_configuration in ["N", "n", "No", "no"]:
+                        self._in_start_check = False
                         return
 
                     if use_configuration not in ["Y", "y", "Yes", "yes"]:
                         self.notify("Invalid input. Please execute the `start` command again.")
+                        self._in_start_check = False
                         return
 
             # Display custom warning message for specific connectors
@@ -163,6 +172,9 @@ class StartCommand(GatewayChainApiManager):
 
         self.notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         await self.start_market_making(restore)
+
+        self._in_start_check = False
+
         # We always start the RateOracle. It is required for PNL calculation.
         RateOracle.get_instance().start()
 
