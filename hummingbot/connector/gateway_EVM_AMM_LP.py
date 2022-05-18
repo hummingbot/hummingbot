@@ -57,6 +57,7 @@ class GatewayEVMAMMLP(ConnectorBase):
     _chain: str
     _network: str
     _trading_pairs: List[str]
+    _all_spenders: List[str]
     _tokens: Set[str]
     _wallet_address: str
     _trading_required: bool
@@ -80,6 +81,7 @@ class GatewayEVMAMMLP(ConnectorBase):
                  network: str,
                  wallet_address: str,
                  trading_pairs: List[str] = [],
+                 additional_spenders: List[str] = [],
                  trading_required: bool = True
                  ):
         """
@@ -96,6 +98,8 @@ class GatewayEVMAMMLP(ConnectorBase):
         self._chain = chain
         self._network = network
         self._trading_pairs = trading_pairs
+        self._all_spenders = additional_spenders
+        self._all_spenders.append(self._connector_name)
         self._tokens = set()
         [self._tokens.update(set(trading_pair.split("-"))) for trading_pair in trading_pairs]
         self._wallet_address = wallet_address
@@ -205,25 +209,25 @@ class GatewayEVMAMMLP(ConnectorBase):
     def network_transaction_fee(self, new_fee: TokenAmount):
         self._network_transaction_fee = new_fee
 
-    def create_approval_order_id(self, token_symbol: str) -> str:
-        return f"approve-{self.connector_name}-{token_symbol}"
+    def create_approval_order_id(self, spender: str, token_symbol: str) -> str:
+        return f"approve-{spender}-{token_symbol}"
 
     def get_token_symbol_from_approval_order_id(self, approval_order_id: str) -> Optional[str]:
         match = self.APPROVAL_ORDER_ID_PATTERN.search(approval_order_id)
         if match:
-            return match.group(2)
+            return f"{match.group(1)}_{match.group(2)}"
         return None
 
     @staticmethod
     def create_lp_order_id(action: LPType, trading_pair: str) -> str:
         return f"{action.name.lower()}-{trading_pair}-{get_tracking_nonce()}"
 
-    def is_pending_approval(self, token: str) -> bool:
+    def is_pending_approval(self, spender_token: str) -> bool:
         pending_approval_tokens: List[Optional[str]] = [
             self.get_token_symbol_from_approval_order_id(order_id)
             for order_id in self._in_flight_orders.keys()
         ]
-        return True if token in pending_approval_tokens else False
+        return True if spender_token in pending_approval_tokens else False
 
     async def get_chain_info(self):
         """
@@ -270,22 +274,24 @@ class GatewayEVMAMMLP(ConnectorBase):
         It first checks if there are any already approved amount (allowance)
         """
         await self.update_allowances()
-        for token, amount in self._allowances.items():
-            if amount <= s_decimal_0 and not self.is_pending_approval(token):
-                await self.approve_token(token)
+        for spender_token, amount in self._allowances.items():
+            if amount <= s_decimal_0 and not self.is_pending_approval(spender_token):
+                spender, token = spender_token.split("_")
+                await self.approve_token(spender, token)
 
-    async def approve_token(self, token_symbol: str, **request_args) -> Optional[GatewayInFlightLPOrder]:
+    async def approve_token(self, spender: str, token_symbol: str, **request_args) -> Optional[GatewayInFlightLPOrder]:
         """
         Approves contract as a spender for a token.
+        :param spender: contract to approve for.
         :param token_symbol: token to approve.
         """
-        order_id: str = self.create_approval_order_id(token_symbol)
+        order_id: str = self.create_approval_order_id(spender, token_symbol)
         resp: Dict[str, Any] = await GatewayHttpClient.get_instance().approve_token(
             self.chain,
             self.network,
             self.address,
             token_symbol,
-            self.connector_name,
+            spender,
             **request_args
         )
         self.start_tracking_order(order_id, None, token_symbol)
@@ -298,12 +304,12 @@ class GatewayEVMAMMLP(ConnectorBase):
             tracked_order.update_exchange_order_id(hash)
             tracked_order.nonce = nonce
             self.logger().info(
-                f"Maximum {token_symbol} approval for {self.connector_name} contract sent, hash: {hash}."
+                f"Maximum {token_symbol} approval for {spender} contract sent, hash: {hash}."
             )
             return tracked_order
         else:
             self.logger().info(f"Missing data from approval result. Incomplete return result for ({resp.keys()})")
-            self.logger().info(f"Approval for {token_symbol} on {self.connector_name} failed.")
+            self.logger().info(f"Approval for {token_symbol} on {spender} failed.")
             return None
 
     async def update_allowances(self):
@@ -315,11 +321,15 @@ class GatewayEVMAMMLP(ConnectorBase):
         :return: A dictionary of token and its allowance.
         """
         ret_val = {}
-        resp: Dict[str, Any] = await GatewayHttpClient.get_instance().get_allowances(
-            self.chain, self.network, self.address, list(self._tokens), self.connector_name
-        )
-        for token, amount in resp["approvals"].items():
-            ret_val[token] = Decimal(str(amount))
+        approval_lists: List[str] = await safe_gather(*[
+            GatewayHttpClient.get_instance().get_allowances(
+                self.chain, self.network, self.address, list(self._tokens), spender
+            ) for spender in self._all_spenders
+        ])
+
+        for spender, approval_list in zip(self._all_spenders, approval_lists):
+            for token, amount in approval_list["approvals"].items():
+                ret_val[f"{spender}_{token}"] = Decimal(str(amount))
         return ret_val
 
     @async_ttl_cache(ttl=5, maxsize=10)
@@ -1018,7 +1028,7 @@ class GatewayEVMAMMLP(ConnectorBase):
         """
         Checks if all tokens have allowance (an amount approved)
         """
-        return ((len(self._allowances.values()) == len(self._tokens)) and
+        return ((len(self._allowances.values()) == len(self._tokens) * len(self._all_spenders)) and
                 (all(amount > s_decimal_0 for amount in self._allowances.values())))
 
     @property

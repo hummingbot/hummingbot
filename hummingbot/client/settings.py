@@ -7,8 +7,8 @@ import importlib
 import json
 from decimal import Decimal
 from enum import Enum
-from os import scandir, DirEntry
-from os.path import join, realpath, exists
+from os import DirEntry, scandir
+from os.path import exists, join, realpath
 from typing import Any, Dict, List, NamedTuple, Optional, Set, Union, cast
 
 from hummingbot import get_strategy_list, root_path
@@ -93,13 +93,14 @@ class GatewayConnectionSetting:
         return matched_specs[0]
 
     @staticmethod
-    def upsert_connector_spec(connector_name: str, chain: str, network: str, trading_type: str, wallet_address: str):
+    def upsert_connector_spec(connector_name: str, chain: str, network: str, trading_type: str, wallet_address: str, additional_spenders: List[str]):
         new_connector_spec: Dict[str, str] = {
             "connector": connector_name,
             "chain": chain,
             "network": network,
             "trading_type": trading_type,
             "wallet_address": wallet_address,
+            "additional_spenders": additional_spenders,
         }
         updated: bool = False
         connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
@@ -163,7 +164,8 @@ class ConnectorSetting(NamedTuple):
                 connector_name=connector_spec["connector"],
                 chain=connector_spec["chain"],
                 network=connector_spec["network"],
-                wallet_address=connector_spec["wallet_address"]
+                wallet_address=connector_spec["wallet_address"],
+                additional_spenders=connector_spec["additional_spenders"],
             )
             return params
 
