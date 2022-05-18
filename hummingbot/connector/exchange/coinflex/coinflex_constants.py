@@ -64,6 +64,7 @@ MAX_REQUEST = 5000
 # Order States
 ORDER_CANCELED_STATES = [
     "OrderClosed",
+    "cancelOrder",
     "CANCELED",
     "CANCELED_BY_USER",
     "CANCELED_BY_MAKER_ONLY",
@@ -75,6 +76,7 @@ ORDER_CANCELED_STATES = [
 
 ORDER_STATE = {
     "PENDING": OrderState.PENDING_CREATE,
+    "placeOrder": OrderState.OPEN,
     "OrderOpened": OrderState.OPEN,
     "OPEN": OrderState.OPEN,
     "OrderMatched": OrderState.FILLED,
@@ -88,7 +90,10 @@ ORDER_STATE = {
 for state in ORDER_CANCELED_STATES:
     ORDER_STATE[state] = OrderState.CANCELED
 
-ORDER_NOT_FOUND_ERROR = "Open order not found with clientOrderId or orderId"
+ORDER_NOT_FOUND_ERRORS = [
+    "Open order not found with clientOrderId or orderId",
+    "Order request was rejected with status REJECT_CANCEL_ORDER_ID_NOT_FOUND"
+]
 
 # Websocket event types
 DIFF_EVENT_TYPE = "depth"
