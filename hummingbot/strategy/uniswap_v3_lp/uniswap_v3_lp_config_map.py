@@ -1,21 +1,24 @@
+from decimal import Decimal
+
+from hummingbot.client.config.config_validators import validate_decimal, validate_market_trading_pair
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_validators import (
-    validate_connector,
-    validate_market_trading_pair,
-    validate_decimal,
-    validate_int,
-    validate_bool
-)
 from hummingbot.client.settings import (
+    AllConnectorSettings,
+    ConnectorType,
     required_exchanges,
     requried_connector_trading_pairs,
-    AllConnectorSettings,
 )
-from decimal import Decimal
 
 
 def exchange_on_validated(value: str):
     required_exchanges.append(value)
+
+
+def validate_connector(value: str):
+    connector = AllConnectorSettings.get_connector_settings().get(value, None)
+    if not connector or connector.type != ConnectorType.EVM_AMM_LP:
+        return "Only EVM_AMM_LP connectors allowed."
+
 
 def market_validator(value: str) -> None:
     connector = uniswap_v3_lp_config_map.get("connector").value
