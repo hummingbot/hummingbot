@@ -69,8 +69,8 @@ class BaseStrategyConfigMap(BaseClientModel):
         return v
 
 
-class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
-    exchange: ClientConfigEnum(
+class BaseTradingStrategyMakerConfigMap(BaseStrategyConfigMap):
+    market: ClientConfigEnum(
         value="Exchanges",  # noqa: F821
         names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
         type=str,
@@ -82,17 +82,17 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
             prompt_on_new=True,
         ),
     )
-    market: str = Field(
+    trading_pair: str = Field(
         default=...,
         description="The trading pair.",
         client_data=ClientFieldData(
-            prompt=lambda mi: BaseTradingStrategyConfigMap.maker_trading_pair_prompt(mi),
+            prompt=lambda mi: BaseTradingStrategyMakerConfigMap.trading_pair_prompt(mi),
             prompt_on_new=True,
         ),
     )
 
     @classmethod
-    def maker_trading_pair_prompt(cls, model_instance: 'BaseTradingStrategyConfigMap') -> str:
+    def trading_pair_prompt(cls, model_instance: 'BaseTradingStrategyMakerConfigMap') -> str:
         exchange = model_instance.exchange
         example = AllConnectorSettings.get_example_pairs().get(exchange)
         return (
@@ -100,7 +100,7 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
             f" {exchange}{f' (e.g. {example})' if example else ''}"
         )
 
-    @validator("exchange", pre=True)
+    @validator("market", pre=True)
     def validate_exchange(cls, v: str):
         """Used for client-friendly error output."""
         ret = validate_exchange(v)
@@ -113,10 +113,100 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
         )
         return v
 
-    @validator("market", pre=True)
+    @validator("trading_pair", pre=True)
     def validate_exchange_trading_pair(cls, v: str, values: Dict):
         exchange = values.get("exchange")
         ret = validate_market_trading_pair(exchange, v)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+
+class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
+    market_maker: str = Field(
+        default=...,
+        description="",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter your maker spot connector",
+            prompt_on_new=True,
+        ),
+    )
+    market_taker: str = Field(
+        default=...,
+        description="",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter your taker spot connector",
+            prompt_on_new=True,
+        ),
+    )
+    trading_pair_maker: str = Field(
+        default=...,
+        description="",
+        client_data=ClientFieldData(
+            prompt=lambda mi: BaseTradingStrategyMakerTakerConfigMap.trading_pair_prompt(mi, True),
+            prompt_on_new=True,
+        ),
+    )
+    trading_pair_taker: str = Field(
+        default=...,
+        description="",
+        client_data=ClientFieldData(
+            prompt=lambda mi: BaseTradingStrategyMakerTakerConfigMap.trading_pair_prompt(mi, False),
+            prompt_on_new=True,
+        ),
+    )
+
+    @classmethod
+    def trading_pair_prompt(cls, model_instance: 'BaseTradingStrategyMakerTakerConfigMap', is_maker: bool) -> str:
+        if is_maker:
+            exchange = model_instance.market_maker
+            example = AllConnectorSettings.get_example_pairs().get(exchange)
+            market_type = "maker"
+        else:
+            exchange = model_instance.market_taker
+            example = AllConnectorSettings.get_example_pairs().get(exchange)
+            market_type = "taker"
+        return (
+            f"Enter the token trading pair you would like to trade on {market_type} market:"
+            f" {exchange}{f' (e.g. {example})' if example else ''}"
+        )
+
+    @validator(
+        "market_maker",
+        "market_taker",
+        pre=True
+    )
+    def validate_exchange(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
+        """Used for client-friendly error output."""
+        ret = validate_exchange(v)
+        if ret is not None:
+            raise ValueError(ret)
+        if field.name == "trading_pair_maker":
+            cls.__fields__["market_maker"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
+                value="Exchanges",  # noqa: F821
+                names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
+                type=str,
+            )
+        if field.name == "trading_pair_taker":
+            cls.__fields__["market_taker"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
+                value="Exchanges",  # noqa: F821
+                names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
+                type=str,
+            )
+        return v
+
+    @validator(
+        "trading_pair_maker",
+        "trading_pair_taker",
+        pre=True,
+    )
+    def validate_exchange_trading_pair(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
+        if field.name == "trading_pair_maker":
+            exchange = values.get("market_maker")
+            ret = validate_market_trading_pair(exchange, v)
+        if field.name == "trading_pair_taker":
+            exchange = values.get("market_taker")
+            ret = validate_market_trading_pair(exchange, v)
         if ret is not None:
             raise ValueError(ret)
         return v

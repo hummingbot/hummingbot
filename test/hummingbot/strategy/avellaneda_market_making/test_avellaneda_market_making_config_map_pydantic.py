@@ -12,7 +12,7 @@ from pydantic import validate_model
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, ConfigValidationError
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
-    AvellanedaMarketMakingConfigMap,
+    AvellanedaMarketMakingMakerConfigMap,
     DailyBetweenTimesModel,
     FromDateToDateModel,
     IgnoreHangingOrdersModel,
@@ -28,7 +28,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
-        cls.exchange = "binance"
+        cls.market = "binance"
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
@@ -36,7 +36,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         config_settings = self.get_default_map()
-        self.config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
+        self.config_map = ClientConfigAdapter(AvellanedaMarketMakingMakerConfigMap(**config_settings))
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -44,8 +44,8 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
 
     def get_default_map(self) -> Dict[str, str]:
         config_settings = {
-            "exchange": self.exchange,
-            "market": self.trading_pair,
+            "market": self.market,
+            "trading_pair": self.trading_pair,
             "execution_timeframe_mode": {
                 "start_time": "09:30:00",
                 "end_time": "16:00:00",
@@ -59,7 +59,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         return config_settings
 
     def test_initial_sequential_build(self):
-        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap.construct())
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingMakerConfigMap.construct())
         config_settings = self.get_default_map()
 
         def build_config_map(cm: ClientConfigAdapter, cs: Dict):
@@ -205,7 +205,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         with open(f_path, "r") as file:
             data = yaml.safe_load(file)
 
-        loaded_config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**data))
+        loaded_config_map = ClientConfigAdapter(AvellanedaMarketMakingMakerConfigMap(**data))
 
         self.assertEqual(self.config_map, loaded_config_map)
 

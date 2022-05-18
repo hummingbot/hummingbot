@@ -1,12 +1,13 @@
-from decimal import Decimal
 import unittest.mock
+from decimal import Decimal
+
 import hummingbot.strategy.cross_exchange_market_making.start as strategy_start
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import (
-    cross_exchange_market_making_config_map as strategy_cmap
-)
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.global_config_map import global_config_map
-from test.hummingbot.strategy import assign_config_default
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map_pydantic import (
+    CrossExchangeMarketMakingConfigMap,
+)
 
 
 class XEMMStartTest(unittest.TestCase):
@@ -17,15 +18,20 @@ class XEMMStartTest(unittest.TestCase):
         self.markets = {"binance": ExchangeBase(), "kucoin": ExchangeBase()}
         self.notifications = []
         self.log_errors = []
-        assign_config_default(strategy_cmap)
-        strategy_cmap.get("maker_market").value = "binance"
-        strategy_cmap.get("taker_market").value = "kucoin"
-        strategy_cmap.get("maker_market_trading_pair").value = "ETH-USDT"
-        strategy_cmap.get("taker_market_trading_pair").value = "ETH-USDT"
-        strategy_cmap.get("order_amount").value = Decimal("1")
-        strategy_cmap.get("min_profitability").value = Decimal("2")
+
+        self.strategy_config_map = ClientConfigAdapter(
+            CrossExchangeMarketMakingConfigMap(
+                market_maker="binance",
+                market_taker="kucoin",
+                trading_pair_maker="ETH-USDT",
+                trading_pair_taker="ETH-USDT",
+                order_amount=1.0,
+                min_profitability=2.0,
+                use_oracle_conversion_rate=False,
+            )
+        )
+
         global_config_map.get("strategy_report_interval").value = 60.
-        strategy_cmap.get("use_oracle_conversion_rate").value = False
 
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
