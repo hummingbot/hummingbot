@@ -89,7 +89,7 @@ class BinancePerpetualTestnetConfigMap(BaseConnectorConfigMap):
     binance_perpetual_testnet_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Binance    Perpetual testnet API secret",
+            prompt=lambda cm: "Enter your Binance Perpetual testnet API secret",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
