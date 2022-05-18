@@ -29,6 +29,7 @@ class MarketEvent(Enum):
     RangePositionUpdate = 302
     RangePositionUpdateFailure = 303
     RangePositionFeeCollected = 304
+    RangePositionClosed = 305
 
 
 class OrderBookEvent(int, Enum):
@@ -274,6 +275,16 @@ class RangePositionUpdateFailureEvent:
     timestamp: float
     order_id: str
     order_action: LPType
+
+
+@dataclass
+class RangePositionClosedEvent:
+    timestamp: float
+    token_id: int
+    token_0: str
+    token_1: str
+    claimed_fee_0: Decimal = s_decimal_0
+    claimed_fee_1: Decimal = s_decimal_0
 
 
 @dataclass
