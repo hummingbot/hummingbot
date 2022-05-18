@@ -1009,7 +1009,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     continue
 
                 if isinstance(order_result, Exception) or not order_result.get("data"):
-                    if not isinstance(order_result, web_utils.CoinflexPerpetualAPIError) or order_result.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
+                    if not isinstance(order_result, web_utils.CoinflexPerpetualAPIError) or order_result.error_payload.get("errors") in CONSTANTS.ORDER_NOT_FOUND_ERRORS:
                         self.logger().network(
                             f"Error fetching status update for the order {client_order_id}, marking as not found: {order_result}.",
                             app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
@@ -1187,9 +1187,6 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         if position_action not in [PositionAction.OPEN, PositionAction.CLOSE]:
             raise ValueError("Specify either OPEN_POSITION or CLOSE_POSITION position_action.")
 
-        if self.current_timestamp == NaN:
-            raise ValueError("Cannot create orders while connector is starting/stopping.")
-
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
 
@@ -1203,6 +1200,9 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             domain=self._domain,
             throttler=self._throttler,
             api_factory=self._api_factory)
+
+        if self.current_timestamp == NaN:
+            raise ValueError("Cannot create orders while connector is starting/stopping.")
 
         api_params = {"responseType": "FULL"}
         order_params = {"marketCode": symbol,
@@ -1315,8 +1315,11 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             except web_utils.CoinflexPerpetualAPIError as e:
                 # Catch order not found as cancelled.
                 cancel_result = {}
-                if e.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
+                if e.error_payload.get("errors") in CONSTANTS.ORDER_NOT_FOUND_ERRORS:
                     cancel_result = e.error_payload["data"][0]
+                    # If tracked order was filled while being cancelled, ignore the request.
+                    if tracked_order.is_done:
+                        return
                 else:
                     self.logger().error(f"Unhandled error canceling order: {client_order_id}. Error: {e.error_payload}", exc_info=True)
             # DEBUG - MUST BE REMOVED
