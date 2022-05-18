@@ -6,7 +6,7 @@ import pandas as pd
 from nose.plugins.attrib import attr
 
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.event.event_logger import EventLogger
