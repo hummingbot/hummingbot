@@ -53,7 +53,7 @@ def backup_existing_dir() -> List[str]:
             errors = [
                 (
                     f"\nBackup path {backup_path} already exists."
-                    f"\nThe migration script cannot backup you exiting"
+                    f"\nThe migration script cannot backup you existing"
                     f"\nconf files without overwriting that directory."
                     f"\nPlease remove it and run the script again."
                 )
