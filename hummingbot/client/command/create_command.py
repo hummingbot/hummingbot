@@ -2,25 +2,25 @@ import asyncio
 import copy
 import os
 import shutil
+from typing import TYPE_CHECKING, Dict, Optional
 
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.config_helpers import (
-    get_strategy_config_map,
-    parse_cvar_value,
     default_strategy_file_path,
-    save_to_yml,
-    get_strategy_template_path,
     format_config_file_name,
+    get_strategy_config_map,
+    get_strategy_template_path,
     parse_config_default_to_text,
-    save_previous_strategy_value
+    parse_cvar_value,
+    save_previous_strategy_value,
+    save_to_yml,
 )
-from hummingbot.client.settings import CONF_FILE_PATH, required_exchanges
+from hummingbot.client.config.config_validators import validate_strategy
+from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from hummingbot.client.config.config_validators import validate_strategy
+from hummingbot.client.settings import CONF_FILE_PATH, required_exchanges
 from hummingbot.client.ui.completer import load_completer
-from typing import TYPE_CHECKING, Dict, Optional
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
