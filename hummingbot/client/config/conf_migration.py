@@ -4,7 +4,7 @@ import logging
 import shutil
 from os import DirEntry, scandir
 from os.path import exists, join
-from typing import List, cast
+from typing import Dict, List, cast
 
 import yaml
 
@@ -28,6 +28,17 @@ def migrate_configs(secrets_manager: BaseSecretsManager) -> List[str]:
         migrate_strategy_confs_paths()
         errors.extend(migrate_connector_confs(secrets_manager))
         store_password_verification(secrets_manager)
+        logging.getLogger().info("\nConf migration done.")
+    else:
+        logging.getLogger().error("\nConf migration failed.")
+    return errors
+
+
+def migrate_strategies_only() -> List[str]:
+    logging.getLogger().info("Starting strategies conf migration.")
+    errors = backup_existing_dir()
+    if len(errors) == 0:
+        migrate_strategy_confs_paths()
         logging.getLogger().info("\nConf migration done.")
     else:
         logging.getLogger().error("\nConf migration failed.")
@@ -59,10 +70,24 @@ def migrate_strategy_confs_paths():
         if child.is_file() and child.name.endswith(".yml"):
             with open(str(child), "r") as f:
                 conf = yaml.safe_load(f)
-            if "strategy" in conf and "exchange" in conf:
+            if "strategy" in conf and _has_connector_field(conf):
                 new_path = strategies_conf_dir_path / child.name
                 child.rename(new_path)
                 logging.getLogger().info(f"Migrated conf for {conf['strategy']}")
+
+
+def _has_connector_field(conf: Dict) -> bool:
+    return (
+        "exchange" in conf
+        or "connector_1" in conf  # amm arb
+        or "primary_market" in conf  # arbitrage
+        or "secondary_exchange" in conf  # celo arb
+        or "maker_market" in conf  # XEMM
+        or "market" in conf  # dev simple trade
+        or "maker_exchange" in conf  # hedge
+        or "spot_connector" in conf  # spot-perp arb
+        or "connector" in conf  # twap
+    )
 
 
 def migrate_connector_confs(secrets_manager: BaseSecretsManager):
