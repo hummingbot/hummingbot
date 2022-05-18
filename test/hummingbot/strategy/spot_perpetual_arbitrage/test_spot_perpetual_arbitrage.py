@@ -1,28 +1,24 @@
 import asyncio
 import unittest
 from decimal import Decimal
+from test.mock.mock_perp_connector import MockPerpConnector
 
 import pandas as pd
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, PositionMode, PositionSide
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    MarketEvent,
-    SellOrderCompletedEvent,
-)
+from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketEvent, SellOrderCompletedEvent
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.spot_perpetual_arbitrage.arb_proposal import ArbProposal, ArbProposalSide
 from hummingbot.strategy.spot_perpetual_arbitrage.spot_perpetual_arbitrage import (
     SpotPerpetualArbitrageStrategy,
     StrategyState,
 )
-from test.mock.mock_perp_connector import MockPerpConnector
 
 trading_pair = "HBOT-USDT"
 base_asset = trading_pair.split("-")[0]
@@ -293,8 +289,8 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         # asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.01))
         self.assertTrue(self._is_logged("INFO", "Arbitrage position opening opportunity found."))
         self.assertTrue(self._is_logged("INFO", "Profitability (8.96%) is now above min_opening_arbitrage_pct."))
-        self.assertTrue(self._is_logged("INFO", "Placing BUY order for 1 HBOT at MockPaperExchange at 100.500 price"))
-        self.assertTrue(self._is_logged("INFO", "Placing SELL order for 1 HBOT at MockPerpConnector at 109.500 price "
+        self.assertTrue(self._is_logged("INFO", "Placing BUY order for 1 HBOT at mock_paper_exchange at 100.500 price"))
+        self.assertTrue(self._is_logged("INFO", "Placing SELL order for 1 HBOT at mock_perp_connector at 109.500 price "
                                                 "to OPEN position."))
         placed_orders = self.strategy.tracked_market_orders
         self.assertEqual(2, len(placed_orders))
@@ -320,24 +316,24 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         status = asyncio.get_event_loop().run_until_complete(self.strategy.format_status())
         expected_status = ("""
   Markets:
-             Exchange    Market  Sell Price  Buy Price  Mid Price
-    MockPaperExchange HBOT-USDT        99.5      100.5        100
-    MockPerpConnector HBOT-USDT       109.5      110.5        110
+               Exchange    Market  Sell Price  Buy Price  Mid Price
+    mock_paper_exchange HBOT-USDT        99.5      100.5        100
+    mock_perp_connector HBOT-USDT       109.5      110.5        110
 
   Positions:
        Symbol  Type Entry Price Amount  Leverage Unrealized PnL
     HBOT-USDT SHORT       109.5     -1         5              0
 
   Assets:
-                Exchange Asset  Total Balance  Available Balance
-    0  MockPaperExchange  HBOT              5                  5
-    1  MockPaperExchange  USDT            500                500
-    2  MockPerpConnector  HBOT              5                  5
-    3  MockPerpConnector  USDT            500                500
+                  Exchange Asset  Total Balance  Available Balance
+    0  mock_paper_exchange  HBOT              5                  5
+    1  mock_paper_exchange  USDT            500                500
+    2  mock_perp_connector  HBOT              5                  5
+    3  mock_perp_connector  USDT            500                500
 
   Opportunity:
-    buy at MockPaperExchange, sell at MockPerpConnector: 8.96%
-    sell at MockPaperExchange, buy at MockPerpConnector: -9.95%""")
+    buy at mock_paper_exchange, sell at mock_perp_connector: 8.96%
+    sell at mock_paper_exchange, buy at mock_perp_connector: -9.95%""")
 
         self.assertEqual(expected_status, status)
 
@@ -391,8 +387,8 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         # asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.01))
         self.assertTrue(self._is_logged("INFO", "Arbitrage position opening opportunity found."))
         self.assertTrue(self._is_logged("INFO", "Profitability (9.94%) is now above min_opening_arbitrage_pct."))
-        self.assertTrue(self._is_logged("INFO", "Placing SELL order for 1 HBOT at MockPaperExchange at 99.5000 price"))
-        self.assertTrue(self._is_logged("INFO", "Placing BUY order for 1 HBOT at MockPerpConnector at 90.5000 price to "
+        self.assertTrue(self._is_logged("INFO", "Placing SELL order for 1 HBOT at mock_paper_exchange at 99.5000 price"))
+        self.assertTrue(self._is_logged("INFO", "Placing BUY order for 1 HBOT at mock_perp_connector at 90.5000 price to "
                                                 "OPEN position."))
         placed_orders = self.strategy.tracked_market_orders
         self.assertEqual(2, len(placed_orders))

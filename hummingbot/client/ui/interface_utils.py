@@ -1,12 +1,7 @@
 import asyncio
 import datetime
 from decimal import Decimal
-from typing import (
-    List,
-    Optional,
-    Set,
-    Tuple,
-)
+from typing import List, Optional, Set, Tuple
 
 import pandas as pd
 import psutil

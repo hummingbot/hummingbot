@@ -6,20 +6,12 @@ from hummingbot.strategy.strategy_base cimport StrategyBase
 
 cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     cdef:
+        object _config_map
         object _market_info
         object _minimum_spread
-        object _order_amount
-        double _order_refresh_time
-        double _max_order_age
-        object _order_refresh_tolerance_pct
-        double _filled_order_delay
-        int _order_levels
-        object _level_distances
-        object _order_override
         bint _hanging_orders_enabled
+        object _hanging_orders_cancel_pct
         object _hanging_orders_tracker
-        object _inventory_target_base_pct
-        bint _order_optimization_enabled
         bint _add_transaction_costs_to_orders
         bint _hb_app_notification
         bint _is_debug
@@ -37,11 +29,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         int _volatility_sampling_period
         double _last_sampling_timestamp
         bint _parameters_based_on_spread
+        int _volatility_buffer_size
+        int _trading_intensity_buffer_size
         int _ticks_to_be_ready
         object _alpha
         object _kappa
         object _gamma
         object _eta
+        str _execution_mode
         str _execution_timeframe
         object _execution_state
         object _start_time

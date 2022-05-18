@@ -5,16 +5,10 @@ The configuration parameters for a user made liquidity_mining strategy.
 import re
 from decimal import Decimal
 from typing import Optional
+
+from hummingbot.client.config.config_validators import validate_bool, validate_decimal, validate_exchange, validate_int
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_validators import (
-    validate_exchange,
-    validate_decimal,
-    validate_int,
-    validate_bool
-)
-from hummingbot.client.settings import (
-    required_exchanges,
-)
+from hummingbot.client.settings import required_exchanges
 
 
 def exchange_on_validated(value: str) -> None:
