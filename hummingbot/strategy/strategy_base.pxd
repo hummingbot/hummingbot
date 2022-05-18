@@ -45,6 +45,7 @@ cdef class StrategyBase(TimeIterator):
     cdef c_did_update_lp_order(self, object update_lp_event)
     cdef c_did_fail_lp_update(self, object fail_lp_update_event)
     cdef c_did_collect_fee(self, object collect_fee_event)
+    cdef c_did_close_position(self, object closed_event)
 
     cdef c_did_fail_order_tracker(self, object order_failed_event)
     cdef c_did_cancel_order_tracker(self, object order_cancelled_event)
