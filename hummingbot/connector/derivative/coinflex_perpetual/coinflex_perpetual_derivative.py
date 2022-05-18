@@ -1054,38 +1054,39 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         client_order_id = order_data.get("clientOrderId")
         exec_amt_base = decimal_val_or_none(order_data.get("matchQuantity"))
-        if exec_amt_base:
-            if not tracked_order:
-                tracked_order = self.in_flight_orders.get(client_order_id)
-            fill_price = decimal_val_or_none(order_data.get("matchPrice", order_data.get("price")))
-            exec_amt_quote = exec_amt_base * fill_price if exec_amt_base and fill_price else None
-            fee_asset = order_data.get("feeInstrumentId", tracked_order.quote_asset)
-            fee_amount = decimal_val_or_none(order_data.get("fees"))
-            position_side = order_data.get("side", "BUY")
-            position_action = (PositionAction.OPEN
-                               if (tracked_order.trade_type is TradeType.BUY and position_side == "BUY"
-                                   or tracked_order.trade_type is TradeType.SELL and position_side == "SELL")
-                               else PositionAction.CLOSE)
-            flat_fees = [] if not fee_amount or fee_amount == s_decimal_0 else [TokenAmount(amount=fee_amount, token=fee_asset)]
+        if not exec_amt_base:
+            return
+        if not tracked_order:
+            tracked_order = self.in_flight_orders.get(client_order_id)
+        fill_price = decimal_val_or_none(order_data.get("matchPrice", order_data.get("price")))
+        exec_amt_quote = exec_amt_base * fill_price if exec_amt_base and fill_price else None
+        fee_asset = order_data.get("feeInstrumentId", tracked_order.quote_asset)
+        fee_amount = decimal_val_or_none(order_data.get("fees"))
+        position_side = order_data.get("side", "BUY")
+        position_action = (PositionAction.OPEN
+                           if (tracked_order.trade_type is TradeType.BUY and position_side == "BUY"
+                               or tracked_order.trade_type is TradeType.SELL and position_side == "SELL")
+                           else PositionAction.CLOSE)
+        flat_fees = [] if not fee_amount or fee_amount == s_decimal_0 else [TokenAmount(amount=fee_amount, token=fee_asset)]
 
-            fee = TradeFeeBase.new_perpetual_fee(
-                fee_schema=self.trade_fee_schema(),
-                position_action=position_action,
-                percent_token=fee_asset,
-                flat_fees=flat_fees,
-            )
-            trade_update = TradeUpdate(
-                trading_pair=tracked_order.trading_pair,
-                trade_id=int(order_data["matchId"]),
-                client_order_id=client_order_id,
-                exchange_order_id=str(order_data["orderId"]),
-                fill_timestamp=int(order_data["timestamp"]) * 1e-3,
-                fill_price=fill_price,
-                fill_base_amount=exec_amt_base,
-                fill_quote_amount=exec_amt_quote,
-                fee=fee,
-            )
-            self._client_order_tracker.process_trade_update(trade_update=trade_update)
+        fee = TradeFeeBase.new_perpetual_fee(
+            fee_schema=self.trade_fee_schema(),
+            position_action=position_action,
+            percent_token=fee_asset,
+            flat_fees=flat_fees,
+        )
+        trade_update = TradeUpdate(
+            trading_pair=tracked_order.trading_pair,
+            trade_id=int(order_data["matchId"]),
+            client_order_id=client_order_id,
+            exchange_order_id=str(order_data["orderId"]),
+            fill_timestamp=int(order_data["timestamp"]) * 1e-3,
+            fill_price=fill_price,
+            fill_base_amount=exec_amt_base,
+            fill_quote_amount=exec_amt_quote,
+            fee=fee,
+        )
+        self._client_order_tracker.process_trade_update(trade_update=trade_update)
 
     async def _update_order_fills_from_trades(self, tracked_order, order_update):
         """
@@ -1305,7 +1306,6 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "responseType": "FULL",
                 "orders": [cancel_params],
             }
-            result = None
             try:
                 result = await self._api_request(
                     method=RESTMethod.DELETE,
@@ -1315,6 +1315,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 cancel_result = result["data"][0]
             except web_utils.CoinflexPerpetualAPIError as e:
                 # Catch order not found as cancelled.
+                result = {}
                 cancel_result = {}
                 if e.error_payload.get("errors") in CONSTANTS.ORDER_NOT_FOUND_ERRORS:
                     cancel_result = e.error_payload["data"][0]
