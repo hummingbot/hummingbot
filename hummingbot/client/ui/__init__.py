@@ -6,7 +6,7 @@ from typing import Optional, Type
 from prompt_toolkit.shortcuts import input_dialog, message_dialog
 from prompt_toolkit.styles import Style
 
-from hummingbot.client.config.conf_migration import migrate_configs
+from hummingbot.client.config.conf_migration import migrate_configs, migrate_strategies_only
 from hummingbot.client.config.config_crypt import BaseSecretsManager, store_password_verification
 from hummingbot.client.config.global_config_map import color_config_map
 from hummingbot.client.config.security import Security
@@ -59,6 +59,7 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Optional[Base
         else:
             secrets_manager = secrets_manager_cls(password)
             store_password_verification(secrets_manager)
+        migrate_strategies_only_prompt()
     else:
         password = input_dialog(
             title="Welcome back to Hummingbot",
@@ -115,18 +116,7 @@ def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Bas
     secrets_manager = secrets_manager_cls(password)
     errors = migrate_configs(secrets_manager)
     if len(errors) != 0:
-        errors_str = "\n                    ".join(errors)
-        message_dialog(
-            title='Configs Migration Errors',
-            text=f"""
-
-
-                    CONFIGS MIGRATION ERRORS:
-
-                    {errors_str}
-
-                        """,
-            style=dialog_style).run()
+        _migration_errors_dialog(errors)
     else:
         message_dialog(
             title='Configs Migration Success',
@@ -140,6 +130,52 @@ def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Bas
                                 """,
             style=dialog_style).run()
     return secrets_manager
+
+
+def migrate_strategies_only_prompt():
+    message_dialog(
+        title='Strategies Configs Migration',
+        text="""
+
+
+                STRATEGIES CONFIGS MIGRATION:
+
+                We have recently refactored the way hummingbot handles configurations.
+                We will now attempt to migrate any legacy strategy config files
+                to the new format.
+
+                    """,
+        style=dialog_style).run()
+    errors = migrate_strategies_only()
+    if len(errors) != 0:
+        _migration_errors_dialog(errors)
+    else:
+        message_dialog(
+            title='Strategies Configs Migration Success',
+            text="""
+
+
+                            STRATEGIES CONFIGS MIGRATION SUCCESS:
+
+                            The migration process was completed successfully.
+
+                                """,
+            style=dialog_style).run()
+
+
+def _migration_errors_dialog(errors):
+    errors_str = "\n                    ".join(errors)
+    message_dialog(
+        title='Configs Migration Errors',
+        text=f"""
+
+
+                CONFIGS MIGRATION ERRORS:
+
+                {errors_str}
+
+                    """,
+        style=dialog_style).run()
 
 
 def show_welcome():
