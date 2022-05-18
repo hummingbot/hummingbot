@@ -3,6 +3,7 @@ import json
 import re
 import time
 from decimal import Decimal
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Dict
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
@@ -12,8 +13,9 @@ from aioresponses import aioresponses
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
-    BybitPerpetualAPIOrderBookDataSource
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import (
+    BybitPerpetualAPIOrderBookDataSource,
+)
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_derivative import BybitPerpetualDerivative
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
 from hummingbot.connector.trading_rule import TradingRule
@@ -23,7 +25,6 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import FundingInfo, MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BybitPerpetualDerivativeTests(TestCase):

@@ -69,8 +69,8 @@ class BaseStrategyConfigMap(BaseClientModel):
         return v
 
 
-class BaseTradingStrategyMakerConfigMap(BaseStrategyConfigMap):
-    market: ClientConfigEnum(
+class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
+    exchange: ClientConfigEnum(
         value="Exchanges",  # noqa: F821
         names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
         type=str,
@@ -82,17 +82,17 @@ class BaseTradingStrategyMakerConfigMap(BaseStrategyConfigMap):
             prompt_on_new=True,
         ),
     )
-    trading_pair: str = Field(
+    market: str = Field(
         default=...,
         description="The trading pair.",
         client_data=ClientFieldData(
-            prompt=lambda mi: BaseTradingStrategyMakerConfigMap.trading_pair_prompt(mi),
+            prompt=lambda mi: BaseTradingStrategyConfigMap.trading_pair_prompt(mi),
             prompt_on_new=True,
         ),
     )
 
     @classmethod
-    def trading_pair_prompt(cls, model_instance: 'BaseTradingStrategyMakerConfigMap') -> str:
+    def trading_pair_prompt(cls, model_instance: 'BaseTradingStrategyConfigMap') -> str:
         exchange = model_instance.exchange
         example = AllConnectorSettings.get_example_pairs().get(exchange)
         return (
@@ -100,7 +100,7 @@ class BaseTradingStrategyMakerConfigMap(BaseStrategyConfigMap):
             f" {exchange}{f' (e.g. {example})' if example else ''}"
         )
 
-    @validator("market", pre=True)
+    @validator("exchange", pre=True)
     def validate_exchange(cls, v: str):
         """Used for client-friendly error output."""
         ret = validate_exchange(v)
@@ -113,7 +113,7 @@ class BaseTradingStrategyMakerConfigMap(BaseStrategyConfigMap):
         )
         return v
 
-    @validator("trading_pair", pre=True)
+    @validator("market", pre=True)
     def validate_exchange_trading_pair(cls, v: str, values: Dict):
         exchange = values.get("exchange")
         ret = validate_market_trading_pair(exchange, v)
