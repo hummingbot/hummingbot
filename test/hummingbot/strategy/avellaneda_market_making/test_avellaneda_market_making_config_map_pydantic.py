@@ -28,7 +28,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
-        cls.market = "binance"
+        cls.exchange = "binance"
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
@@ -44,8 +44,8 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
 
     def get_default_map(self) -> Dict[str, str]:
         config_settings = {
-            "market": self.market,
-            "trading_pair": self.trading_pair,
+            "exchange": self.exchange,
+            "market": self.trading_pair,
             "execution_timeframe_mode": {
                 "start_time": "09:30:00",
                 "end_time": "16:00:00",
@@ -91,7 +91,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         exchange = self.config_map.exchange
         example = AllConnectorSettings.get_example_pairs().get(exchange)
 
-        prompt = self.async_run_with_timeout(self.config_map.get_client_prompt("market"))
+        prompt = self.async_run_with_timeout(self.config_map.get_client_prompt("exchange"))
         expected = f"Enter the token trading pair you would like to trade on {exchange} (e.g. {example})"
 
         self.assertEqual(expected, prompt)
