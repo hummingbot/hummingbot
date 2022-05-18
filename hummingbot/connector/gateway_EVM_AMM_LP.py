@@ -18,6 +18,7 @@ from hummingbot.core.event.events import (
     LPType,
     MarketEvent,
     OrderCancelledEvent,
+    RangePositionClosedEvent,
     RangePositionFeeCollectedEvent,
     RangePositionLiquidityAddedEvent,
     RangePositionLiquidityRemovedEvent,
@@ -993,6 +994,17 @@ class GatewayEVMAMMLP(ConnectorBase):
                 self.logger().info(f"Position with ID {nft_order.token_id} closed. About to stop tracking...")
                 nft_order.last_state = "COMPLETED"
                 self.stop_tracking_order(nft_order.client_order_id)
+                self.trigger_event(
+                    MarketEvent.RangePositionClosed,
+                    RangePositionClosedEvent(
+                        timestamp=self.current_timestamp,
+                        token_id=nft_order.token_id,
+                        token_0=nft_update_result["token0"],
+                        token_1=nft_update_result["token1"],
+                        claimed_fee_0=unclaimed_fee_0,
+                        claimed_fee_1=unclaimed_fee_1,
+                    )
+                )
             else:
                 nft_order.adjusted_lower_price = lower_price
                 nft_order.adjusted_upper_price = upper_price
@@ -1240,3 +1252,18 @@ class GatewayEVMAMMLP(ConnectorBase):
     @property
     def in_flight_orders(self) -> Dict[str, GatewayInFlightLPOrder]:
         return self._in_flight_orders
+
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
+        """
+        *required
+        Updates inflight order statuses from API results
+        This is used by the MarketsRecorder class to orchestrate market classes at a higher level.
+        """
+        self._in_flight_orders.update({
+            key: GatewayInFlightLPOrder.from_json(value)
+            for key, value in saved_states.items()
+        })
+
+    @property
+    def tracking_states(self) -> Dict[str, any]:
+        return {key: value.to_json() for key, value in self._in_flight_orders.items()}

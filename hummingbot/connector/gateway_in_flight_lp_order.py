@@ -85,12 +85,14 @@ class GatewayInFlightLPOrder(GatewayInFlightOrder):
             client_order_id=data["client_order_id"],
             exchange_order_id=data["exchange_order_id"],
             trading_pair=data["trading_pair"],
-            lp_type=getattr(OrderType, data["lp_type"]),
+            lp_type=getattr(LPType, data["lp_type"]),
             lower_price=Decimal(data["lower_price"]),
-            upper_rice=Decimal(data["upper_price"]),
+            upper_price=Decimal(data["upper_price"]),
             amount_0=Decimal(data["amount_0"]),
             amount_1=Decimal(data["amount_1"]),
             token_id=data["token_id"],
+            creation_timestamp=data["creation_timestamp"],
+            gas_price=data["fee_paid"],
             initial_state=data["last_state"]
         )
         retval.adjusted_lower_price = data["adjusted_lower_price"]
