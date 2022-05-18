@@ -4,8 +4,11 @@ from sqlalchemy import Column, Float, Index, Integer, Text
 from . import HummingbotBase
 
 
-class RangePositionFees(HummingbotBase):
-    __tablename__ = "RangePositionFees"
+class RangePositionCollectedFees(HummingbotBase):
+    """
+    Table schema used when LP feesmare claimed.
+    """
+    __tablename__ = "RangePositionCollectedFees"
     __table_args__ = (Index("rpf_id_index",
                             "token_id", "config_file_path"),
                       )
@@ -19,6 +22,6 @@ class RangePositionFees(HummingbotBase):
     claimed_fee_1 = Column(Float, nullable=False)
 
     def __repr__(self) -> str:
-        return f"RangePositionFees(id={self.id}, config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
+        return f"RangePositionCollectedFees(id={self.id}, config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
                f"token_id={self.token_id}, token_0='{self.token_0}', token_1='{self.token_1}', " \
                f"claimed_fee_0={self.claimed_fee_0}, claimed_fee_1={self.claimed_fee_1})"

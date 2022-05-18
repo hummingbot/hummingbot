@@ -5,6 +5,9 @@ from . import HummingbotBase
 
 
 class RangePositionUpdate(HummingbotBase):
+    """
+    Table schema used when an event to update LP position(Add/Remove/Collect) is triggered.
+    """
     __tablename__ = "RangePositionUpdate"
     __table_args__ = (Index("rpu_timestamp_index",
                             "hb_id", "timestamp"),

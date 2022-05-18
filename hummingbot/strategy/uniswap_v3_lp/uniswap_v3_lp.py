@@ -177,11 +177,12 @@ class UniswapV3LpStrategy(StrategyPyBase):
         upper_price = s_decimal_0
         current_price = await self.get_pool_price()
 
-        if self._last_price != current_price and current_price != s_decimal_0 and not self.any_active_position(current_price):  # know if pool price has changed
+        if current_price != s_decimal_0:
             self._last_price = current_price
-            half_spread = self._price_spread / Decimal("2")
-            lower_price = (current_price * (Decimal("1") - half_spread))
-            upper_price = (current_price * (Decimal("1") + half_spread))
+            if not self.any_active_position(current_price):  # only set prices if there's no active position
+                half_spread = self._price_spread / Decimal("2")
+                lower_price = (current_price * (Decimal("1") - half_spread))
+                upper_price = (current_price * (Decimal("1") + half_spread))
         lower_price = max(s_decimal_0, lower_price)
         return lower_price, upper_price
 

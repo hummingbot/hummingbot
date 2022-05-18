@@ -34,7 +34,7 @@ from hummingbot.model.funding_payment import FundingPayment
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
-from hummingbot.model.range_position_fees import RangePositionFees
+from hummingbot.model.range_position_collected_fees import RangePositionCollectedFees
 from hummingbot.model.range_position_update import RangePositionUpdate
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
@@ -412,12 +412,12 @@ class MarketsRecorder:
 
         with self._sql_manager.get_new_session() as session:
             with session.begin():
-                rp_fees: RangePositionFees = RangePositionFees(config_file_path=self._config_file_path,
-                                                               strategy=self._strategy_name,
-                                                               token_id=evt.token_id,
-                                                               token_0=evt.token_0,
-                                                               token_1=evt.token_1,
-                                                               claimed_fee_0=Decimal(evt.claimed_fee_0),
-                                                               claimed_fee_1=Decimal(evt.claimed_fee_1))
+                rp_fees: RangePositionCollectedFees = RangePositionCollectedFees(config_file_path=self._config_file_path,
+                                                                                 strategy=self._strategy_name,
+                                                                                 token_id=evt.token_id,
+                                                                                 token_0=evt.token_0,
+                                                                                 token_1=evt.token_1,
+                                                                                 claimed_fee_0=Decimal(evt.claimed_fee_0),
+                                                                                 claimed_fee_1=Decimal(evt.claimed_fee_1))
                 session.add(rp_fees)
                 self.save_market_states(self._config_file_path, connector, session=session)
