@@ -22,6 +22,7 @@ export namespace ConnectorsRoutes {
             name: 'uniswapLP',
             trading_type: UniswapConfig.config.tradingTypes('LP'),
             available_networks: UniswapConfig.config.availableNetworks,
+            additional_spenders: ['uniswap'],
           },
           {
             name: 'pangolin',
