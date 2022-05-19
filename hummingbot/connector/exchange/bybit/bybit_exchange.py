@@ -570,7 +570,7 @@ class BybitExchange(ExchangeBase):
                     params=api_params,
                     is_auth_required=True)
 
-                if cancel_result["result"].get("status") == "CANCELED":
+                if cancel_result["result"].get("status") in ["CANCELED", "NEW"]:
                     order_update: OrderUpdate = OrderUpdate(
                         client_order_id=client_order_id,
                         trading_pair=tracked_order.trading_pair,
