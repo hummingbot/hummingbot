@@ -916,7 +916,6 @@ class GatewayEVMAMM(ConnectorBase):
             other_tokens.update(self._tokens)
             other_tokens.update([self._native_currency])
             tokens_to_query: List[str] = list(other_tokens)
-            print(f"{self._name}: to_query {tokens_to_query}")
 
             resp_json: Dict[str, Any] = await GatewayHttpClient.get_instance().get_balances(
                 self.chain, self.network, self.address, tokens_to_query
