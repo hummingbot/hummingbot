@@ -53,7 +53,7 @@ gatewayApp.get('/', (_req: Request, res: Response) => {
 interface ConnectorsResponse {
   uniswap: Array<AvailableNetworks>;
   pangolin: Array<AvailableNetworks>;
-  sushiswap:Array<AvailableNetworks>
+  sushiswap: Array<AvailableNetworks>;
 }
 
 gatewayApp.get(
@@ -62,8 +62,7 @@ gatewayApp.get(
     res.status(200).json({
       uniswap: UniswapConfig.config.availableNetworks,
       pangolin: PangolinConfig.config.availableNetworks,
-      sushiswap:SushiswapConfig.config.availableNetworks
-      
+      sushiswap: SushiswapConfig.config.availableNetworks,
     });
   })
 );

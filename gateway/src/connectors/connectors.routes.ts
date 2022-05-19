@@ -4,7 +4,6 @@ import { PangolinConfig } from './pangolin/pangolin.config';
 import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
 
-
 export namespace ConnectorsRoutes {
   export const router = Router();
 
