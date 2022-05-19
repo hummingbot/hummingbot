@@ -66,7 +66,7 @@ class RESTAssistant:
         async with self._throttler.execute_task(limit_id=throttler_limit_id):
             response = await self.call(request=request, timeout=timeout)
 
-            if response.status != 200:
+            if 400 <= response.status:
                 if return_err:
                     error_response = await response.json()
                     return error_response
