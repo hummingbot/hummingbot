@@ -10,6 +10,7 @@ import pandas as pd
 import hummingbot.client.config.global_config_map as global_config
 import hummingbot.client.settings as settings
 from hummingbot import init_logging
+from hummingbot.client.command.gateway_api_manager import Chain, GatewayChainApiManager
 from hummingbot.client.command.rate_command import RateCommand
 from hummingbot.client.config.config_helpers import get_strategy_starter_file
 from hummingbot.client.config.config_validators import validate_bool
@@ -17,6 +18,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.connector_status import get_connector_status, warning_messages
 from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.gateway.status_monitor import Status
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.kill_switch import KillSwitch
@@ -29,7 +31,7 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-class StartCommand:
+class StartCommand(GatewayChainApiManager):
     _in_start_check: bool = False
 
     async def _run_clock(self):
@@ -119,6 +121,19 @@ class StartCommand:
                         ["network", connector_details['network']],
                         ["wallet_address", connector_details['wallet_address']]
                     ]
+
+                    # check for API keys
+                    chain: Chain = Chain.from_str(connector_details['chain'])
+                    api_key: Optional[str] = await self._get_api_key_from_gateway_config(chain)
+                    if api_key is None:
+                        api_key = await self._get_api_key(chain, required=True)
+                        await self._update_gateway_api_key(chain, api_key)
+                        self.notify("Please wait for gateway to restart.")
+                        # wait for gateway to restart, config update causes gateway to restart
+                        await self._gateway_monitor.wait_for_online_status()
+                        if self._gateway_monitor.current_status == Status.OFFLINE:
+                            raise Exception("Lost contact with gateway after updating the config.")
+
                     await UserBalances.instance().update_exchange_balance(connector)
                     balances: List[str] = [
                         f"{str(PerformanceMetrics.smart_round(v, 8))} {k}"
