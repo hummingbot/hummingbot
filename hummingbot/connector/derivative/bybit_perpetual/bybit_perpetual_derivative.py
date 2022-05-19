@@ -608,7 +608,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         :param price: The price in which the order is to be placed at
         :returns: A new client order id
         """
-        order_id = get_new_client_order_id(is_buy=True, trading_pair=trading_pair, max_id_len=CONSTANTS.ORDER_ID_LEN)
+        order_id = get_new_client_order_id(is_buy=True,
+                                           trading_pair=trading_pair,
+                                           max_id_len=CONSTANTS.ORDER_ID_LEN,
+                                           hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID)
         safe_ensure_future(self._create_order(trade_type=TradeType.BUY,
                                               trading_pair=trading_pair,
                                               order_id=order_id,
@@ -633,7 +636,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         :param price: The price in which the order is to be placed at
         :returns: A new client order id
         """
-        order_id = get_new_client_order_id(is_buy=False, trading_pair=trading_pair, max_id_len=CONSTANTS.ORDER_ID_LEN)
+        order_id = get_new_client_order_id(is_buy=False,
+                                           trading_pair=trading_pair,
+                                           max_id_len=CONSTANTS.ORDER_ID_LEN,
+                                           hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID)
         safe_ensure_future(self._create_order(trade_type=TradeType.SELL,
                                               trading_pair=trading_pair,
                                               order_id=order_id,
