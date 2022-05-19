@@ -1,18 +1,14 @@
-from typing import (
-    List,
-    Tuple,
-)
+import os.path
+from decimal import Decimal
+from typing import List, Tuple
+
+import pandas as pd
 
 from hummingbot import data_path
-import os.path
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.aroon_oscillator import (
-    AroonOscillatorStrategy,
-)
+from hummingbot.strategy.aroon_oscillator import AroonOscillatorStrategy
 from hummingbot.strategy.aroon_oscillator.aroon_oscillator_config_map import aroon_oscillator_config_map as c_map
-from decimal import Decimal
-import pandas as pd
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 def start(self):

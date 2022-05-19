@@ -1,22 +1,24 @@
-from eth_account import Account
-from hummingbot.core.utils.wallet_setup import get_key_file_path
 import json
 import os
+
+from eth_account import Account
 from eth_keyfile.keyfile import (
-    Random,
-    get_default_work_factor_for_kdf,
-    _pbkdf2_hash,
     DKLEN,
-    encode_hex_no_prefix,
-    _scrypt_hash,
-    SCRYPT_R,
     SCRYPT_P,
+    SCRYPT_R,
+    Random,
+    _pbkdf2_hash,
+    _scrypt_hash,
     big_endian_to_int,
+    encode_hex_no_prefix,
     encrypt_aes_ctr,
+    get_default_work_factor_for_kdf,
+    int_to_big_endian,
     keccak,
-    int_to_big_endian
 )
-from hummingbot.client.settings import ENCYPTED_CONF_PREFIX, ENCYPTED_CONF_POSTFIX
+
+from hummingbot.client.settings import ENCYPTED_CONF_POSTFIX, ENCYPTED_CONF_PREFIX
+from hummingbot.core.utils.wallet_setup import get_key_file_path
 
 
 def list_encrypted_file_paths():

@@ -1,20 +1,11 @@
 import logging
-
 from enum import Enum
 from os.path import join
 from typing import Optional
 
-from sqlalchemy import (
-    create_engine,
-    inspect,
-    MetaData,
-)
+from sqlalchemy import MetaData, create_engine, inspect
 from sqlalchemy.engine.base import Engine
-from sqlalchemy.orm import (
-    Query,
-    Session,
-    sessionmaker,
-)
+from sqlalchemy.orm import Query, Session, sessionmaker
 from sqlalchemy.schema import DropConstraint, ForeignKeyConstraint, Table
 
 from hummingbot import data_path

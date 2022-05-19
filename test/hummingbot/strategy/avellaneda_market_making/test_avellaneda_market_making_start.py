@@ -1,12 +1,13 @@
 import datetime
-from decimal import Decimal
 import unittest.mock
+from decimal import Decimal
+from test.hummingbot.strategy import assign_config_default
+
 import hummingbot.strategy.avellaneda_market_making.start as strategy_start
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map import (
-    avellaneda_market_making_config_map as strategy_cmap
+    avellaneda_market_making_config_map as strategy_cmap,
 )
-from test.hummingbot.strategy import assign_config_default
 
 
 class AvellanedaStartTest(unittest.TestCase):

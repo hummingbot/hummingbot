@@ -10,8 +10,7 @@ from unittest.mock import AsyncMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.connector.exchange.bybit import bybit_constants as CONSTANTS
-from hummingbot.connector.exchange.bybit import bybit_web_utils as web_utils
+from hummingbot.connector.exchange.bybit import bybit_constants as CONSTANTS, bybit_web_utils as web_utils
 from hummingbot.connector.exchange.bybit.bybit_api_order_book_data_source import BybitAPIOrderBookDataSource
 from hummingbot.connector.exchange.bybit.bybit_exchange import BybitExchange
 from hummingbot.connector.trading_rule import TradingRule

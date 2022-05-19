@@ -2,7 +2,10 @@ from unittest import TestCase
 
 import pandas as pd
 
-from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, bybit_perpetual_utils as utils
+from hummingbot.connector.derivative.bybit_perpetual import (
+    bybit_perpetual_constants as CONSTANTS,
+    bybit_perpetual_utils as utils,
+)
 
 
 class BybitPerpetualUtilsTests(TestCase):

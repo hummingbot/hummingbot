@@ -1,4 +1,5 @@
 from unittest import TestCase
+
 from hummingbot.connector.exchange.bybit import bybit_constants as CONSTANTS, bybit_web_utils as web_utils
 
 

@@ -7,16 +7,16 @@ This is included for record purpose only. If you need to collect another batch o
 the ETH address and nonce numbers.
 """
 
-from bin import path_util           # noqa: F401
 import asyncio
 from decimal import Decimal
 from os.path import join, realpath
+from test.mock.http_recorder import HttpRecorder
 
+from bin import path_util  # noqa: F401
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.gateway import GatewayHttpClient
-from test.mock.http_recorder import HttpRecorder
 
 
 async def main():

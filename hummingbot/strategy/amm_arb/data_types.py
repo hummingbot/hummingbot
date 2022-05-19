@@ -1,11 +1,10 @@
 import asyncio
 import logging
-
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Optional, List
+from typing import List, Optional
 
-from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_gather

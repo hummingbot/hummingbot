@@ -1,4 +1,5 @@
 from decimal import Decimal
+from test.mock.mock_perp_connector import MockPerpConnector
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -20,11 +21,10 @@ from hummingbot.core.event.events import (
     PositionModeChangeEvent,
     SellOrderCompletedEvent,
 )
-from hummingbot.strategy.data_types import Proposal, PriceSize
+from hummingbot.strategy.data_types import PriceSize, Proposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.perpetual_market_making import PerpetualMarketMakingStrategy
 from hummingbot.strategy.strategy_base import StrategyBase
-from test.mock.mock_perp_connector import MockPerpConnector
 
 
 class PerpetualMarketMakingTests(TestCase):

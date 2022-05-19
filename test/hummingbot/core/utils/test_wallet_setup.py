@@ -2,13 +2,15 @@
 Unit tests for hummingbot.core.utils.wallet_setup
 """
 
-from eth_account import Account
-from hummingbot.client.settings import DEFAULT_KEY_FILE_PATH, KEYFILE_PREFIX, KEYFILE_POSTFIX
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.core.utils.wallet_setup import get_key_file_path, list_wallets, import_and_save_wallet, save_wallet
 import os
 import tempfile
 import unittest.mock
+
+from eth_account import Account
+
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.settings import DEFAULT_KEY_FILE_PATH, KEYFILE_POSTFIX, KEYFILE_PREFIX
+from hummingbot.core.utils.wallet_setup import get_key_file_path, import_and_save_wallet, list_wallets, save_wallet
 
 
 class WalletSetupTest(unittest.TestCase):

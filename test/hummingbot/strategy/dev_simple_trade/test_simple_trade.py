@@ -16,7 +16,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    SellOrderCompletedEvent
+    SellOrderCompletedEvent,
 )
 from hummingbot.strategy.dev_simple_trade.dev_simple_trade import SimpleTradeStrategy
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple

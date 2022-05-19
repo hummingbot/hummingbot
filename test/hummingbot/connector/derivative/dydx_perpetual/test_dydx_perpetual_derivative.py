@@ -5,7 +5,7 @@ from collections import Awaitable
 from datetime import datetime
 from decimal import Decimal
 from typing import Dict, Optional
-from unittest.mock import AsyncMock, patch, PropertyMock
+from unittest.mock import AsyncMock, PropertyMock, patch
 
 import pandas as pd
 from dydx3 import DydxApiError
@@ -15,10 +15,8 @@ from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative im
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import (
-    PositionSide,
-    TradeType
-)
+from hummingbot.core.data_type.common import PositionSide, TradeType
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     FundingInfo,
@@ -27,7 +25,6 @@ from hummingbot.core.event.events import (
     PositionAction,
     SellOrderCreatedEvent,
 )
-from hummingbot.core.event.event_logger import EventLogger
 
 
 class DydxPerpetualDerivativeTest(unittest.TestCase):

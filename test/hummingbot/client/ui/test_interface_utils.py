@@ -1,15 +1,20 @@
+import asyncio
 import unittest
 from copy import deepcopy
 from decimal import Decimal
-import asyncio
 from typing import Awaitable
-from unittest.mock import patch, MagicMock, AsyncMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pandas as pd
 
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.ui.interface_utils import start_trade_monitor, \
-    format_bytes, start_timer, start_process_monitor, format_df_for_printout
+from hummingbot.client.ui.interface_utils import (
+    format_bytes,
+    format_df_for_printout,
+    start_process_monitor,
+    start_timer,
+    start_trade_monitor,
+)
 
 
 class ExpectedException(Exception):

@@ -1,6 +1,6 @@
-from decimal import Decimal
 import os
 import socket
+from decimal import Decimal
 from typing import Any, Dict
 
 from hummingbot.client.config.config_methods import using_exchange

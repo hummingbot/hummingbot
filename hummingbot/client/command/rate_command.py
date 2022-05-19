@@ -1,10 +1,9 @@
-from decimal import Decimal
 import threading
-from typing import (
-    TYPE_CHECKING,
-)
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from decimal import Decimal
+from typing import TYPE_CHECKING
+
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import OracleRateUnavailable
 
 s_float_0 = float(0)

@@ -7,33 +7,28 @@ import time
 import unittest
 from decimal import Decimal
 from os.path import join, realpath
-from typing import (
-    List,
-    Optional,
-)
+from test.connector.exchange.okex.fixture_okex import FixtureOKEx
+from typing import List, Optional
 from unittest import mock
 
 import conf
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.connector.exchange.okex.constants import (
-    OKEX_BASE_URL,
-    OKEX_SERVER_TIME,
-    OKEX_INSTRUMENTS_URL,
-    OKEX_PLACE_ORDER,
-    OKEX_ORDER_DETAILS_URL,
-    OKEX_ORDER_CANCEL,
-    OKEX_BATCH_ORDER_CANCEL,
     OKEX_BALANCE_URL,
-    OKEX_PRICE_URL,
+    OKEX_BASE_URL,
+    OKEX_BATCH_ORDER_CANCEL,
     OKEX_DEPTH_URL,
+    OKEX_INSTRUMENTS_URL,
+    OKEX_ORDER_CANCEL,
+    OKEX_ORDER_DETAILS_URL,
+    OKEX_PLACE_ORDER,
+    OKEX_PRICE_URL,
+    OKEX_SERVER_TIME,
     OKEX_TICKERS_URL,
 )
 from hummingbot.connector.exchange.okex.okex_exchange import OkexExchange
 from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode,
-)
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
@@ -48,19 +43,12 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
-from hummingbot.model.sql_connection_manager import (
-    SQLConnectionManager,
-    SQLConnectionType
-)
+from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
-from test.connector.exchange.okex.fixture_okex import FixtureOKEx
 
 MOCK_API_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 # MOCK_API_ENABLED = True

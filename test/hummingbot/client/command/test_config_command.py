@@ -2,7 +2,7 @@ import asyncio
 import unittest
 from collections import Awaitable
 from copy import deepcopy
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from hummingbot.client.command.config_command import color_settings_to_display, global_configs_to_display
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml

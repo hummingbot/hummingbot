@@ -17,10 +17,11 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator import (
-    calculate_bid_ask_ratios_from_base_asset_ratio
+    calculate_bid_ask_ratios_from_base_asset_ratio,
 )
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.strategy.utils import order_age
+
 from .data_types import PriceSize, Proposal
 
 NaN = float("nan")

@@ -1,7 +1,7 @@
-from decimal import Decimal
 import random
 import string
 import time
+from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
 
 from hummingbot.client.config.config_methods import using_exchange

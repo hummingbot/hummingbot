@@ -2,9 +2,9 @@
 Unit tests for test_check_transaction_exceptions
 """
 
-from decimal import Decimal
-from typing import Dict, Any
 import unittest.mock
+from decimal import Decimal
+from typing import Any, Dict
 
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.gateway import check_transaction_exceptions
