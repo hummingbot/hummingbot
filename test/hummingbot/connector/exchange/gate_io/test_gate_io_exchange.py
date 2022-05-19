@@ -435,7 +435,7 @@ class TestGateIoExchange(unittest.TestCase):
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_CREATE_PATH_URL}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         resp = self.get_order_create_response_mock()
-        mock_api.post(regex_url, body=json.dumps(resp))
+        mock_api.post(regex_url, body=json.dumps(resp), status=201)
 
         order_id = "someId"
         self.async_run_with_timeout(
