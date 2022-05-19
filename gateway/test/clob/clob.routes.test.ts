@@ -18,7 +18,7 @@ import {
   Ticker,
 } from '../../src/connectors/serum/serum.types';
 import { getNewOrderTemplate } from '../connectors/serum/fixtures/dummy';
-import { default as config } from '../connectors/serum/fixtures/serum-config';
+import { default as config } from '../connectors/serum/fixtures/serum.config';
 import { unpatch } from '../services/patch';
 
 let app: Express;

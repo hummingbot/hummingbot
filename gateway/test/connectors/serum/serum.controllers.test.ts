@@ -29,12 +29,15 @@ import {
   OrderStatus,
   OrderType,
 } from '../../../src/connectors/serum/serum.types';
-import { default as config } from '../../connectors/serum/fixtures/serum-config';
 import { unpatch } from '../../services/patch';
-import { getNewOrdersTemplates, getNewOrderTemplate } from './fixtures/dummy';
+import {
+  convertToSerumOpenOrder,
+  getNewOrdersTemplates,
+} from './fixtures/dummy';
 import { default as patchesCreator } from './fixtures/patches/patches';
+import { default as config } from './fixtures/serum.config';
 
-jest.setTimeout(1000000);
+jest.setTimeout(100000);
 
 let solana: Solana;
 let serum: Serum;
@@ -70,8 +73,8 @@ const commonParameters = {
   network: config.serum.network,
   connector: config.serum.connector,
 };
-const allowedMarkets = ['SOL/USDT', 'SOL/USDC', 'SRM/SOL'];
-const marketNames = allowedMarkets.slice(0, 2);
+const allowedMarketsNames = ['SOL/USDT', 'SOL/USDC', 'SRM/SOL'];
+const marketNames = allowedMarketsNames.slice(0, 2);
 
 describe('Full Flow', () => {
   /*
@@ -106,11 +109,13 @@ describe('Full Flow', () => {
 
   // All markets intersection with the whitelisted ones excepted the blacklisted ones.
   // This is defined in the 'gateway/conf/serum.yml' file.
-  const numberOfAllowedMarkets = allowedMarkets.length;
+  const numberOfAllowedMarkets = allowedMarketsNames.length;
 
   const marketName = marketNames[0];
 
   const orderIds = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+  const candidateOrders = getNewOrdersTemplates(10, 0);
 
   let request: any;
 
@@ -425,7 +430,7 @@ describe('Full Flow', () => {
 
   it('getTickers (all)', async () => {
     patches.get('serum/connection/getAccountInfo')();
-    allowedMarkets.map((marketName) =>
+    allowedMarketsNames.map((marketName) =>
       patches.get('serum/getTicker')(marketName)
     );
 
@@ -464,7 +469,7 @@ describe('Full Flow', () => {
     patches.get('solana/getKeyPair')();
     patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
     await Promise.all(
-      allowedMarkets.map(
+      allowedMarketsNames.map(
         async (marketName) =>
           await patches.get('serum/market/findOpenOrdersAccountsForOwner')(
             marketName,
@@ -492,8 +497,16 @@ describe('Full Flow', () => {
 
   it('getOpenOrders (all)', async () => {
     patches.get('serum/connection/getAccountInfo')();
-    // patches.get('solana/getKeyPair')();
-    patches.get('serum/connection/_rpcRequest/getProgramAccounts')();
+    patches.get('solana/getKeyPair')();
+    await Promise.all(
+      allowedMarketsNames.map(
+        async (marketName) =>
+          await patches.get('serum/market/findOpenOrdersAccountsForOwner')(
+            marketName,
+            []
+          )
+      )
+    );
 
     request = {
       ...commonParameters,
@@ -513,8 +526,11 @@ describe('Full Flow', () => {
     expect(openOrdersMapMap).toBeDefined();
     expect(openOrdersMapMap.size).toBe(numberOfAllowedMarkets);
 
-    for (const [marketName, openOrdersMap] of openOrdersMapMap) {
-      expect(marketNames).toContain(marketName);
+    for (const [marketName, openOrdersMapObject] of openOrdersMapMap) {
+      const openOrdersMap = new Map<string, GetOpenOrderResponse>(
+        Object.entries(openOrdersMapObject)
+      );
+      expect(allowedMarketsNames).toContain(marketName);
       expect(openOrdersMap).toBeDefined();
       expect(openOrdersMap.size).toBe(0);
     }
@@ -527,9 +543,7 @@ describe('Full Flow', () => {
 
     request = {
       ...commonParameters,
-      order: getNewOrderTemplate({
-        id: orderIds[0],
-      }),
+      order: candidateOrders[0],
     };
     response = await createOrders(solana, serum, request);
 
@@ -558,7 +572,7 @@ describe('Full Flow', () => {
 
     request = {
       ...commonParameters,
-      orders: getNewOrdersTemplates(8, 0), // TODO return correct value!!!
+      orders: candidateOrders.slice(1, 8),
     };
     response = await createOrders(solana, serum, request);
 
@@ -593,9 +607,22 @@ describe('Full Flow', () => {
   it('getOpenOrder [0]', async () => {
     patches.get('serum/connection/getAccountInfo')();
     patches.get('solana/getKeyPair')();
-    patches.get('serum/connection/_rpcRequest/getProgramAccounts')({
-      result: [],
-    });
+    await Promise.all(
+      allowedMarketsNames.map(
+        async (marketName) =>
+          await patches.get('serum/market/findOpenOrdersAccountsForOwner')(
+            marketName,
+            marketName === candidateOrders[0].marketName
+              ? [
+                  convertToSerumOpenOrder(
+                    candidateOrders[0],
+                    await serum.getOrderBook(marketName)
+                  ),
+                ]
+              : []
+          )
+      )
+    );
 
     request = {
       ...commonParameters,
@@ -620,11 +647,28 @@ describe('Full Flow', () => {
     expect(openOrder.amount).toBeGreaterThan(0);
     expect(Object.keys(OrderSide)).toContain(openOrder.side);
     expect(openOrder.status).toBe(OrderStatus.OPEN);
-    expect(Object.keys(OrderType)).toContain(openOrder.type);
+    // expect(Object.keys(OrderType)).toContain(openOrder.type);
   });
 
   it('getOrder [1]', async () => {
+    patches.get('serum/connection/getAccountInfo')();
     patches.get('solana/getKeyPair')();
+    await Promise.all(
+      allowedMarketsNames.map(
+        async (marketName) =>
+          await patches.get('serum/market/findOpenOrdersAccountsForOwner')(
+            marketName,
+            marketName === candidateOrders[1].marketName
+              ? [
+                  convertToSerumOpenOrder(
+                    candidateOrders[1 ],
+                    await serum.getOrderBook(marketName)
+                  ),
+                ]
+              : []
+          )
+      )
+    );
 
     request = {
       ...commonParameters,
@@ -648,7 +692,7 @@ describe('Full Flow', () => {
     expect(openOrder.amount).toBeGreaterThan(0);
     expect(Object.keys(OrderSide)).toContain(openOrder.side);
     expect(openOrder.status).toBe(OrderStatus.OPEN);
-    expect(Object.keys(OrderType)).toContain(openOrder.type);
+    // expect(Object.keys(OrderType)).toContain(openOrder.type);
   });
 
   it('getOpenOrders [2, 3]', async () => {
@@ -746,7 +790,10 @@ describe('Full Flow', () => {
     expect(openOrdersMapMap).toBeDefined();
     expect(openOrdersMapMap.size).toBe(numberOfAllowedMarkets);
 
-    for (const [marketName, openOrdersMap] of openOrdersMapMap) {
+    for (const [marketName, openOrdersMapObject] of openOrdersMapMap) {
+      const openOrdersMap = new Map<string, GetOpenOrderResponse>(
+        Object.entries(openOrdersMapObject)
+      );
       expect(openOrdersMap).toBeDefined();
 
       for (const [id, openOrder] of openOrdersMap) {
@@ -786,7 +833,10 @@ describe('Full Flow', () => {
     expect(ordersMapMap).toBeDefined();
     expect(ordersMapMap.size).toBe(numberOfAllowedMarkets);
 
-    for (const [marketName, ordersMap] of ordersMapMap) {
+    for (const [marketName, ordersMapObject] of ordersMapMap) {
+      const ordersMap = new Map<string, GetOrderResponse>(
+        Object.entries(ordersMapObject)
+      );
       expect(ordersMap).toBeDefined();
 
       for (const [id, order] of ordersMap) {
@@ -904,7 +954,7 @@ describe('Full Flow', () => {
     for (const [marketName, ordersMap] of filledOrdersMapMap) {
       expect(ordersMap).toBeDefined();
       expect(ordersMap.size).toBe(0);
-      expect(marketNames).toContain(marketName);
+      expect(allowedMarketsNames).toContain(marketName);
     }
   });
 
@@ -1027,8 +1077,11 @@ describe('Full Flow', () => {
     expect(openOrdersMapMap).toBeDefined();
     expect(openOrdersMapMap.size).toBe(numberOfAllowedMarkets);
 
-    for (const [marketName, openOrdersMap] of openOrdersMapMap) {
-      expect(marketNames).toContain(marketName);
+    for (const [marketName, openOrdersMapObject] of openOrdersMapMap) {
+      const openOrdersMap = new Map<string, GetOpenOrderResponse>(
+        Object.entries(openOrdersMapObject)
+      );
+      expect(allowedMarketsNames).toContain(marketName);
       expect(openOrdersMap).toBeDefined();
       expect(openOrdersMap.size).toBe(0);
     }
@@ -1053,8 +1106,11 @@ describe('Full Flow', () => {
     expect(ordersMapMap).toBeDefined();
     expect(ordersMapMap.size).toBe(numberOfAllowedMarkets);
 
-    for (const [marketName, ordersMap] of ordersMapMap) {
-      expect(marketNames).toContain(marketName);
+    for (const [marketName, ordersMapObject] of ordersMapMap) {
+      const ordersMap = new Map<string, GetOrderResponse>(
+        Object.entries(ordersMapObject)
+      );
+      expect(allowedMarketsNames).toContain(marketName);
       expect(ordersMap).toBeDefined();
       expect(ordersMap.size).toBe(0);
     }
@@ -1065,10 +1121,7 @@ describe('Full Flow', () => {
 
     request = {
       ...commonParameters,
-      orders: [
-        getNewOrderTemplate({ id: orderIds[8] }),
-        getNewOrderTemplate({ id: orderIds[9] }),
-      ],
+      orders: candidateOrders.slice(8, 10),
     };
     response = await createOrders(solana, serum, request);
 
@@ -1121,7 +1174,10 @@ describe('Full Flow', () => {
     expect(openOrdersMapMap).toBeDefined();
     expect(openOrdersMapMap.size).toBe(numberOfAllowedMarkets);
 
-    for (const [marketName, openOrdersMap] of openOrdersMapMap) {
+    for (const [marketName, openOrdersMapObject] of openOrdersMapMap) {
+      const openOrdersMap = new Map<string, GetOpenOrderResponse>(
+        Object.entries(openOrdersMapObject)
+      );
       expect(openOrdersMap).toBeDefined();
 
       for (const [id, openOrder] of openOrdersMap) {
@@ -1161,8 +1217,11 @@ describe('Full Flow', () => {
     expect(ordersMapMap).toBeDefined();
     expect(ordersMapMap.size).toBe(numberOfAllowedMarkets);
 
-    for (const [marketName, ordersMap] of ordersMapMap) {
-      expect(marketNames).toContain(marketName);
+    for (const [marketName, ordersMapObject] of ordersMapMap) {
+      const ordersMap = new Map<string, GetOrderResponse>(
+        Object.entries(ordersMapObject)
+      );
+      expect(allowedMarketsNames).toContain(marketName);
       expect(ordersMap).toBeDefined();
       expect(ordersMap.size).toBe(0);
     }
@@ -1223,8 +1282,11 @@ describe('Full Flow', () => {
     expect(ordersMapMap).toBeDefined();
     expect(ordersMapMap.size).toBe(numberOfAllowedMarkets);
 
-    for (const [marketName, ordersMap] of ordersMapMap) {
-      expect(marketNames).toContain(marketName);
+    for (const [marketName, ordersMapObject] of ordersMapMap) {
+      const ordersMap = new Map<string, GetOrderResponse>(
+        Object.entries(ordersMapObject)
+      );
+      expect(allowedMarketsNames).toContain(marketName);
       expect(ordersMap).toBeDefined();
       expect(ordersMap.size).toBe(0);
     }

@@ -14,7 +14,7 @@ import {
 import { Serum } from '../../src/connectors/serum/serum';
 import { unpatch } from '../services/patch';
 import { getNewOrderTemplate } from '../connectors/serum/fixtures/dummy';
-import { default as config } from '../connectors/serum/fixtures/serum-config';
+import { default as config } from '../connectors/serum/fixtures/serum.config';
 
 jest.setTimeout(1000000);
 

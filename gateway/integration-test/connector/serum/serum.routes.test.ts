@@ -19,7 +19,7 @@ import {
 } from '../../../src/connectors/serum/serum.types';
 import { unpatch } from '../../../test/services/patch';
 import { getNewOrderTemplate } from '../../../test/connectors/serum/fixtures/dummy';
-import { default as config } from '../../../test/connectors/serum/fixtures/serum-config';
+import { default as config } from '../../../test/connectors/serum/fixtures/serum.config';
 
 let app: Express;
 let serum: Serum;

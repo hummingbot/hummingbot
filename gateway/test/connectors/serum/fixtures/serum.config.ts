@@ -8,10 +8,10 @@ export default {
       },
       payer: {
         'SOL/USDT': {
-          publicKey: '',
+          publicKey: 'AMosjpvtAxwL6GFDSL31o9pU5somKjifbkt32bEgLddf',
         },
         'SOL/USDC': {
-          publicKey: '',
+          publicKey: 'BMosjpvtAxwL6GFDSL31o9pU5somKjifbkt32bEgLddf',
         },
       },
     },

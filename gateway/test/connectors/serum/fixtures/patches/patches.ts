@@ -12,7 +12,7 @@ import {
   SerumOrderParams
 } from '../../../../../src/connectors/serum/serum.types';
 import { patch } from '../../../../services/patch';
-import { default as config } from '../serum-config';
+import { default as config } from '../serum.config';
 import data from './data';
 
 const disablePatches = false;

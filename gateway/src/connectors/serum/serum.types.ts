@@ -26,6 +26,7 @@ export const SerumOrderBook = SOrderBook;
 export type SerumOrderParams<T> = SOrderParams<T>;
 export type SerumMarketOptions = SMarketOptions;
 export type SerumOpenOrders = SOpenOrders;
+export const SerumOpenOrders = SOpenOrders;
 
 export type OriginalSerumMarket = SMarket;
 
