@@ -200,7 +200,8 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
         "taker_market_trading_pair",
         pre=True,
     )
-    def validate_exchange_trading_pair(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
+    def validate_exchange_trading_pair(cls, v: str, values: Dict, field: Field):
+        ret = None
         if field.name == "maker_market_trading_pair":
             exchange = values.get("maker_market")
             ret = validate_market_trading_pair(exchange, v)
