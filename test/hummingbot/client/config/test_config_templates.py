@@ -36,7 +36,6 @@ class ConfigTemplatesUnitTest(unittest.TestCase):
             "arbitrage",
             "aroon_oscillator",
             "celo_arb",
-            "cross_exchange_market_making",
             "dev_0_hello_world",
             "dev_1_get_order_book",
             "dev_2_perform_trade",
