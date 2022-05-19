@@ -771,7 +771,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             ExchangeBase maker_market = market_pair.maker.market
             str trading_pair = market_pair.maker.trading_pair
-        if self.order_amount and self.order_amount > 0:
+        if self.order_amount > 0:
             base_order_size = self.order_amount
             return maker_market.c_quantize_order_amount(trading_pair, Decimal(base_order_size))
         else:

@@ -176,7 +176,7 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
         "taker_market",
         pre=True
     )
-    def validate_exchange(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
+    def validate_exchange(cls, v: str, field: Field):
         """Used for client-friendly error output."""
         ret = validate_exchange(v)
         if ret is not None:
@@ -200,7 +200,8 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
         "taker_market_trading_pair",
         pre=True,
     )
-    def validate_exchange_trading_pair(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
+    def validate_exchange_trading_pair(cls, v: str, values: Dict, field: Field):
+        ret = None
         if field.name == "maker_market_trading_pair":
             exchange = values.get("maker_market")
             ret = validate_market_trading_pair(exchange, v)
