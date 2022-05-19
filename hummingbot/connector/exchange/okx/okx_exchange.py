@@ -196,9 +196,14 @@ class OkxExchange(ExchangePyBase):
             is_auth_required=True,
         )
         if cancel_result["data"][0]["sCode"] == "0":
-            return True
+            final_result = True
+        elif cancel_result["data"][0]["sCode"] == "5140":
+            # Cancelation failed because the order does not exist anymore
+            final_result = True
         else:
             raise IOError(cancel_result["msg"])
+
+        return final_result
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {"instId": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
@@ -303,76 +308,92 @@ class OkxExchange(ExchangePyBase):
         if tracked_orders:
             # OKX was failing randomly to do the order update because the connector was creating a rejected signature.
             # To avoid the issue we need to make sure the time synchronizer is updated before doing the requests.
-            try:
-                await self._update_time_synchronizer()
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                pass
 
-        for order in tracked_orders:
-            order_tasks.append(asyncio.create_task(self._request_order_update(order=order)))
-            order_fills_tasks.append(asyncio.create_task(self._request_order_fills(order=order)))
-        self.logger().debug(f"Polling for order status updates of {len(order_tasks)} orders.")
+            # Also we add a retry logic in case there are problems with the signature
 
-        order_updates = await safe_gather(*order_tasks, return_exceptions=True)
-        order_fills = await safe_gather(*order_fills_tasks, return_exceptions=True)
-        for order_update, order_fill, tracked_order in zip(order_updates, order_fills, tracked_orders):
-            client_order_id = tracked_order.client_order_id
+            for retry_count in range(3):
+                invalid_signature_happened = False
+                try:
+                    await self._update_time_synchronizer()
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    pass
 
-            # If the order has already been cancelled or has failed do nothing
-            if client_order_id not in self.in_flight_orders:
-                continue
+                for order in tracked_orders:
+                    order_tasks.append(asyncio.create_task(self._request_order_update(order=order)))
+                    order_fills_tasks.append(asyncio.create_task(self._request_order_fills(order=order)))
+                self.logger().debug(f"Polling for order status updates of {len(order_tasks)} orders.")
 
-            if isinstance(order_fill, Exception):
-                self.logger().network(
-                    f"Error fetching order fills for the order {client_order_id}: {order_fill}.",
-                    app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
-                )
+                order_updates = await safe_gather(*order_tasks, return_exceptions=True)
+                order_fills = await safe_gather(*order_fills_tasks, return_exceptions=True)
+                for order_update, order_fill, tracked_order in zip(order_updates, order_fills, tracked_orders):
+                    client_order_id = tracked_order.client_order_id
 
-            else:
-                fills_data = order_fill["data"]
+                    # If the order has already been cancelled or has failed do nothing
+                    if client_order_id not in self.in_flight_orders:
+                        continue
 
-                for fill_data in fills_data:
-                    fee = TradeFeeBase.new_spot_fee(
-                        fee_schema=self.trade_fee_schema(),
-                        trade_type=tracked_order.trade_type,
-                        percent_token=fill_data["feeCcy"],
-                        flat_fees=[TokenAmount(amount=Decimal(fill_data["fee"]), token=fill_data["feeCcy"])]
-                    )
-                    trade_update = TradeUpdate(
-                        trade_id=str(fill_data["tradeId"]),
-                        client_order_id=client_order_id,
-                        exchange_order_id=str(fill_data["ordId"]),
-                        trading_pair=tracked_order.trading_pair,
-                        fee=fee,
-                        fill_base_amount=Decimal(fill_data["fillSz"]),
-                        fill_quote_amount=Decimal(fill_data["fillSz"]) * Decimal(fill_data["fillPx"]),
-                        fill_price=Decimal(fill_data["fillPx"]),
-                        fill_timestamp=int(fill_data["ts"]) * 1e-3,
-                    )
-                    self._order_tracker.process_trade_update(trade_update)
+                    if isinstance(order_fill, Exception):
+                        if '"code":"50113"' in str(order_fill):
+                            invalid_signature_happened = True
+                        else:
+                            self.logger().network(
+                                f"Error fetching order fills for the order {client_order_id}: {order_fill}.",
+                                app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
+                            )
 
-            if isinstance(order_update, Exception):
-                self.logger().network(
-                    f"Error fetching status update for the order {client_order_id}: {order_update}.",
-                    app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
-                )
-                await self._order_tracker.process_order_not_found(client_order_id)
+                    else:
+                        fills_data = order_fill["data"]
 
-            else:
-                # Update order execution status
-                order_data = order_update["data"][0]
-                new_state = CONSTANTS.ORDER_STATE[order_data["state"]]
+                        for fill_data in fills_data:
+                            fee = TradeFeeBase.new_spot_fee(
+                                fee_schema=self.trade_fee_schema(),
+                                trade_type=tracked_order.trade_type,
+                                percent_token=fill_data["feeCcy"],
+                                flat_fees=[TokenAmount(amount=Decimal(fill_data["fee"]), token=fill_data["feeCcy"])]
+                            )
+                            trade_update = TradeUpdate(
+                                trade_id=str(fill_data["tradeId"]),
+                                client_order_id=client_order_id,
+                                exchange_order_id=str(fill_data["ordId"]),
+                                trading_pair=tracked_order.trading_pair,
+                                fee=fee,
+                                fill_base_amount=Decimal(fill_data["fillSz"]),
+                                fill_quote_amount=Decimal(fill_data["fillSz"]) * Decimal(fill_data["fillPx"]),
+                                fill_price=Decimal(fill_data["fillPx"]),
+                                fill_timestamp=int(fill_data["ts"]) * 1e-3,
+                            )
+                            self._order_tracker.process_trade_update(trade_update)
 
-                update = OrderUpdate(
-                    client_order_id=client_order_id,
-                    exchange_order_id=str(order_data["ordId"]),
-                    trading_pair=tracked_order.trading_pair,
-                    update_timestamp=int(order_data["uTime"]) * 1e-3,
-                    new_state=new_state,
-                )
-                self._order_tracker.process_order_update(update)
+                    if isinstance(order_update, Exception):
+                        if '"code":"50113"' in str(order_fill):
+                            invalid_signature_happened = True
+                        else:
+                            self.logger().network(
+                                f"Error fetching status update for the order {client_order_id}: {order_update}.",
+                                app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
+                            )
+                            await self._order_tracker.process_order_not_found(client_order_id)
+
+                    else:
+                        # Update order execution status
+                        order_data = order_update["data"][0]
+                        new_state = CONSTANTS.ORDER_STATE[order_data["state"]]
+
+                        update = OrderUpdate(
+                            client_order_id=client_order_id,
+                            exchange_order_id=str(order_data["ordId"]),
+                            trading_pair=tracked_order.trading_pair,
+                            update_timestamp=int(order_data["uTime"]) * 1e-3,
+                            new_state=new_state,
+                        )
+                        self._order_tracker.process_order_update(update)
+
+                if invalid_signature_happened:
+                    self._time_synchronizer.clear_time_offset_ms_samples()
+                else:
+                    return  # Stop retries if there were no errors
 
     async def _user_stream_event_listener(self):
         async for stream_message in self._iter_user_event_queue():

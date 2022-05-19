@@ -799,6 +799,7 @@ class ExchangePyBase(ExchangeBase, ABC):
                            params: Optional[Dict[str, Any]] = None,
                            data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
+                           return_err: bool = False,
                            limit_id: Optional[str] = None) -> Dict[str, Any]:
 
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
@@ -813,6 +814,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             data=data,
             method=method,
             is_auth_required=is_auth_required,
+            return_err=return_err,
             throttler_limit_id=limit_id if limit_id else path_url,
         )
 
