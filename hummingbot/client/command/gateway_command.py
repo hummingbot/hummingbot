@@ -539,7 +539,7 @@ class GatewayCommand:
 
                         self.placeholder_mode = True
                         new_tokens: str = await self.app.prompt(
-                            prompt=f"Enter {connector_chain_network} tokens whose balances you want to monitor in hummingbot for wallet {selected_connection['wallet_address']} (eg. DAI,MKR,USDC) >>> "
+                            prompt=f"Enter {connector_chain_network} tokens whose balances you want to monitor in hummingbot for wallet {selected_connection['wallet_address']} (eg. DAI,USDC,WETH) >>> "
                         )
                         self.app.clear_input()
 
