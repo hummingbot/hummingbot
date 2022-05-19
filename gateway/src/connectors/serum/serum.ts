@@ -401,6 +401,8 @@ export class Serum {
     connection: Connection,
     orders: SerumOrderParams<Account>[]
   ): Promise<TransactionSignature[]> {
+    throw new Error('Do not use for now.'); // TODO remove!!!
+
     const result = await market.placeOrders(connection, orders);
 
     // TODO remove!!!
@@ -445,6 +447,8 @@ export class Serum {
     owner: Account,
     orders: SerumOrder[]
   ): Promise<{ cancelation: string; fundsSettlement: string }> {
+    throw new Error('Do not use for now.'); // TODO remove!!!
+
     const cancelationSignature = await market.cancelOrders(
       connection,
       owner,

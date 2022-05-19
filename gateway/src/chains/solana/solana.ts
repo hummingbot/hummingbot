@@ -185,7 +185,6 @@ export class Solana implements Solanaish {
     return Keypair.fromSecretKey(decoded);
   }
 
-  // TODO Mock for unit tests!!!
   async getAccount(address: string): Promise<Account> {
     const keypair = await this.getKeypair(address);
 

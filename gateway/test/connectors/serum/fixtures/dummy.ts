@@ -42,7 +42,7 @@ export const getNewOrderTemplate = (configuration?: {
   if (!configuration.side)
     configuration.side = getRandomChoice(Object.values(OrderSide));
   if (!configuration.type)
-    configuration.type = getRandomChoice(Object.values(OrderType));
+    configuration.type = getRandomChoice([OrderType.LIMIT]);
 
   const price = configuration.side == OrderSide.BUY ? 0.1 : 9999.99;
   const amount = configuration.side == OrderSide.BUY ? 0.1 : 0.1;
@@ -65,26 +65,29 @@ export const getNewOrderTemplate = (configuration?: {
  * @param quantity
  */
 export const getNewOrdersTemplates = (
-  quantity: number
+  quantity: number,
+  initialId: number = 1
 ): CreateOrdersRequest[] => {
-  let count = 1;
+  let count = initialId;
   const result: CreateOrdersRequest[] = [];
 
-  for (const marketName of marketNames) {
-    for (const side of Object.values(OrderSide)) {
-      for (const type of Object.values(OrderType)) {
-        result.push(
-          getNewOrderTemplate({
-            id: count.toString(),
-            marketName: marketName,
-            side: side,
-            type: type,
-          })
-        );
+  while (count <= quantity) {
+    for (const marketName of marketNames) {
+      for (const side of Object.values(OrderSide)) {
+        for (const type of [OrderType.LIMIT]) {
+          result.push(
+            getNewOrderTemplate({
+              id: count.toString(),
+              marketName,
+              side,
+              type,
+            })
+          );
 
-        count += 1;
+          count = count + 1;
 
-        if (count > quantity) return result;
+          if (count > quantity) return result;
+        }
       }
     }
   }
