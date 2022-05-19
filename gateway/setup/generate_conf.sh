@@ -10,9 +10,11 @@ echo
 
 HOST_CONF_PATH="${1:=(pwd -P)/conf}"
 INFURA_API_KEY="${2:=null}"
+ETH_GAS_STATION_KEY="${3:=null}"
 
 echo "HOST_CONF_PATH=$HOST_CONF_PATH"
 echo "INFURA_API_KEY=$INFURA_API_KEY"
+echo "ETH_GAS_STATION_KEY=$ETH_GAS_STATION_KEY"
 
 mkdir -p $HOST_CONF_PATH
 
@@ -28,6 +30,7 @@ echo "created $HOST_CONF_PATH/ssl.yml"
 
 # generate ethereum-gas-station file
 cp "$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../src/templates/ethereum-gas-station.yml" "$HOST_CONF_PATH/ethereum-gas-station.yml"
+sed -i'.bak' -e "/APIKey:/ s/[^ ][^ ]*$/$ETH_GAS_STATION_KEY/" "$HOST_CONF_PATH/ethereum-gas-station.yml"
 echo "created $HOST_CONF_PATH/ethereum-gas-station.yml"
 
 # copy the following files
