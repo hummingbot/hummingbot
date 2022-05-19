@@ -125,7 +125,7 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
 class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
     maker_market: str = Field(
         default=...,
-        description="",
+        description="The name of the maker exchange connector.",
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter your maker spot connector",
             prompt_on_new=True,
@@ -133,7 +133,7 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
     )
     taker_market: str = Field(
         default=...,
-        description="",
+        description="The name of the taker exchange connector.",
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter your taker spot connector",
             prompt_on_new=True,
@@ -141,7 +141,7 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
     )
     maker_market_trading_pair: str = Field(
         default=...,
-        description="",
+        description="The name of the maker trading pair.",
         client_data=ClientFieldData(
             prompt=lambda mi: BaseTradingStrategyMakerTakerConfigMap.trading_pair_prompt(mi, True),
             prompt_on_new=True,
@@ -149,7 +149,7 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
     )
     taker_market_trading_pair: str = Field(
         default=...,
-        description="",
+        description="The name of the taker trading pair.",
         client_data=ClientFieldData(
             prompt=lambda mi: BaseTradingStrategyMakerTakerConfigMap.trading_pair_prompt(mi, False),
             prompt_on_new=True,

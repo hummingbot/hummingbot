@@ -13,7 +13,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
 
     min_profitability: Decimal = Field(
         default=...,
-        description="",
+        description="The minimum estimated profitability required to open a position.",
         ge=-100.0,
         le=100.0,
         client_data=ClientFieldData(
@@ -32,21 +32,21 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     )
     adjust_order_enabled: bool = Field(
         default=True,
-        description="",
+        description="Adjust order price to be one tick above the top bid or below the top ask.",
         client_data=ClientFieldData(
             prompt=lambda mi: "Do you want to enable adjust order? (Yes/No)"
         ),
     )
     active_order_canceling: bool = Field(
         default=True,
-        description="",
+        description="An option to refresh orders by cancellation instead of letting them expire.",
         client_data=ClientFieldData(
             prompt=lambda mi: "Do you want to enable active order canceling? (Yes/No)"
         ),
     )
     cancel_order_threshold: Decimal = Field(
         default=Decimal("5.0"),
-        description="",
+        description="Profitability threshold to cancel a trade.",
         gt=-100.0,
         lt=100.0,
         client_data=ClientFieldData(
@@ -55,7 +55,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     )
     limit_order_min_expiration: float = Field(
         default=130.0,
-        description="",
+        description="Limit order expiration time limit.",
         gt=0.0,
         client_data=ClientFieldData(
             prompt=lambda mi: "How often do you want limit orders to expire (in seconds)?",
@@ -63,7 +63,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     )
     top_depth_tolerance: Decimal = Field(
         default=Decimal("0.0"),
-        description="",
+        description="Volume requirement for determning a possible top bid or ask price from the order book.",
         ge=0.0,
         client_data=ClientFieldData(
             prompt=lambda mi: CrossExchangeMarketMakingConfigMap.top_depth_tolerance_prompt(mi),
@@ -71,7 +71,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     )
     anti_hysteresis_duration: float = Field(
         default=60.0,
-        description="",
+        description="Minimum time limit between two subsequent order adjustments.",
         gt=0.0,
         client_data=ClientFieldData(
             prompt=lambda mi: "What is the minimum time interval you want limit orders to be adjusted? (in seconds)",
@@ -79,7 +79,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     )
     order_size_taker_volume_factor: Decimal = Field(
         default=Decimal("25.0"),
-        description="",
+        description="Taker order size as a percentage of volume.",
         ge=0.0,
         le=100.0,
         client_data=ClientFieldData(
@@ -91,7 +91,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     )
     order_size_taker_balance_factor: Decimal = Field(
         default=Decimal("99.5"),
-        description="",
+        description="Taker order size as a percentage of the available balance.",
         ge=0.0,
         le=100.0,
         client_data=ClientFieldData(
@@ -103,7 +103,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     )
     order_size_portfolio_ratio_limit: Decimal = Field(
         default=Decimal("16.67"),
-        description="",
+        description="Order size as a maker and taker account balance ratio.",
         ge=0.0,
         le=100.0,
         client_data=ClientFieldData(
@@ -115,7 +115,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     )
     use_oracle_conversion_rate: bool = Field(
         default=True,
-        description="",
+        description="Use rate oracle to determine a conversion rate between two different trading pairs.",
         client_data=ClientFieldData(
             prompt=lambda mi: "Do you want to use rate oracle on unmatched trading pairs? (Yes/No)",
             prompt_on_new=True,
@@ -123,7 +123,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     )
     taker_to_maker_base_conversion_rate: Decimal = Field(
         default=Decimal("1.0"),
-        description="",
+        description="A fixed conversion rate between the maker and taker tradin pairs based on the maker base asset.",
         gt=0.0,
         client_data=ClientFieldData(
             prompt=lambda mi: (
@@ -135,7 +135,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     )
     taker_to_maker_quote_conversion_rate: Decimal = Field(
         default=Decimal("1.0"),
-        description="",
+        description="A fixed conversion rate between the maker and taker tradin pairs based on the maker quote asset.",
         gt=0.0,
         client_data=ClientFieldData(
             prompt=lambda mi: (
@@ -147,7 +147,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     )
     slippage_buffer: Decimal = Field(
         default=Decimal("5.0"),
-        description="",
+        description="Allowed slippage to fill ensure taker orders are filled.",
         ge=0.0,
         le=100.0,
         client_data=ClientFieldData(
