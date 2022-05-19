@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { asyncHandler } from '../services/error-handler';
 import { PangolinConfig } from './pangolin/pangolin.config';
+import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
+
 
 export namespace ConnectorsRoutes {
   export const router = Router();
@@ -23,8 +25,8 @@ export namespace ConnectorsRoutes {
           },
           {
             name: 'sushiswap',
-            trading_type: UniswapConfig.config.tradingTypes('v2'),
-            available_networks: UniswapConfig.config.availableNetworks,
+            trading_type: SushiswapConfig.config.tradingTypes,
+            available_networks: SushiswapConfig.config.availableNetworks,
           },
         ],
       });

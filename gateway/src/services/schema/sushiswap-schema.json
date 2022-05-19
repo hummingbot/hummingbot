@@ -1,41 +1,25 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "type": "object",
-    "properties": {
-      "versions": {
-        "type": "object",
-        "patternProperties": {
-          "^\\w+$": {
-            "type": "object",
-            "properties": {
-              "allowedSlippage": { "type": "string" },
-              "gasLimit": { "type": "integer" },
-              "ttl": { "type": "integer" }
-            },
-            "required": ["allowedSlippage", "gasLimit", "ttl"],
-            "additionalProperties": false
-          }
-        },
-        "additionalProperties": false
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "allowedSlippage": { "type": "string" },
+    "gasLimit": { "type": "integer" },
+    "ttl": { "type": "integer" },
+    "contractAddresses": {
+      "type": "object",
+      "patternProperties": {
+        "^\\w+$": {
+          "type": "object",
+          "properties": {
+            "sushiswapRouterAddress": { "type": "string" }
+          },
+          "required": ["sushiswapRouterAddress"],
+          "additionalProperties": false
+        }
       },
-      "contractAddresses": {
-        "type": "object",
-        "patternProperties": {
-          "^\\w+$": {
-            "type": "object",
-            "properties": {
-              "sushiswapV2RouterAddress": { "type": "string" }
-            },
-            "required": [
-              "sushiswapV2RouterAddress"
-            ],
-            "additionalProperties": false
-          }
-        },
-        "additionalProperties": false
-      }
-    },
-    "additionalProperties": false,
-    "required": ["versions", "contractAddresses"]
-  }
-  
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "required": ["allowedSlippage", "gasLimit", "ttl", "contractAddresses"]
+}

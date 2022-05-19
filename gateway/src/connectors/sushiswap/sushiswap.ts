@@ -47,10 +47,10 @@ export class Sushiswap implements Uniswapish {
         const config = SushiswapConfig.config;
         this.ethereum = Ethereum.getInstance(network);
         this.chainId = this.ethereum.chainId;
-        this._ttl = SushiswapConfig.config.ttl(2);
+        this._ttl = SushiswapConfig.config.ttl;
         this._routerAbi = routerAbi.abi;
-        this._gasLimit = SushiswapConfig.config.gasLimit(2);
-        this._router = config.sushiswapV2RouterAddress(network);
+        this._gasLimit = SushiswapConfig.config.gasLimit;
+        this._router = config.sushiswapRouterAddress(network);
     }
 
     public static getInstance(chain: string, network: string): Sushiswap {
@@ -130,7 +130,7 @@ export class Sushiswap implements Uniswapish {
      * Gets the allowed slippage percent from configuration.
      */
     getSlippagePercentage(): Percent {
-        const allowedSlippage = SushiswapConfig.config.allowedSlippage(2);
+        const allowedSlippage = SushiswapConfig.config.allowedSlippage;
         const nd = allowedSlippage.match(percentRegexp);
         if (nd) return new Percent(nd[1], nd[2]);
         throw new Error(
