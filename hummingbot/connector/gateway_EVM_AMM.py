@@ -920,6 +920,7 @@ class GatewayEVMAMM(ConnectorBase):
             resp_json: Dict[str, Any] = await GatewayHttpClient.get_instance().get_balances(
                 self.chain, self.network, self.address, tokens_to_query
             )
+
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))
