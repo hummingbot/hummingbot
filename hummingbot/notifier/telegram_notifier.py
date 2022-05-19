@@ -1,38 +1,23 @@
 #!/usr/bin/env python
 
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
-
 import asyncio
 import logging
-from typing import (
-    Any,
-    List,
-    Callable,
-    Optional,
-)
+from typing import Any, Callable, List, Optional
+
+import pandas as pd
 from telegram.bot import Bot
+from telegram.error import NetworkError, TelegramError
+from telegram.ext import Filters, MessageHandler, Updater
 from telegram.parsemode import ParseMode
 from telegram.replykeyboardmarkup import ReplyKeyboardMarkup
 from telegram.update import Update
-from telegram.error import (
-    NetworkError,
-    TelegramError,
-)
-from telegram.ext import (
-    MessageHandler,
-    Filters,
-    Updater,
-)
 
 import hummingbot
-import pandas as pd
-from hummingbot.logger import HummingbotLogger
-from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_ensure_future
-
+from hummingbot.logger import HummingbotLogger
+from hummingbot.notifier.notifier_base import NotifierBase
 
 DISABLED_COMMANDS = {
     "connect",             # disabled because telegram can't display secondary prompt
