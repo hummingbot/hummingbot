@@ -163,13 +163,13 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
 
     @classmethod
     def top_depth_tolerance_prompt(cls, model_instance: 'CrossExchangeMarketMakingConfigMap') -> str:
-        market_maker = model_instance.trading_pair_maker
-        base_asset, quote_asset = market_maker.split("-")
+        maker_market = model_instance.maker_market_trading_pair
+        base_asset, quote_asset = maker_market.split("-")
         return f"What is your top depth tolerance? (in {base_asset})"
 
     @classmethod
     def order_amount_prompt(cls, model_instance: 'CrossExchangeMarketMakingConfigMap') -> str:
-        trading_pair = model_instance.trading_pair_maker
+        trading_pair = model_instance.maker_market_trading_pair
         base_asset, quote_asset = trading_pair.split("-")
         return f"What is the amount of {base_asset} per order?"
 
@@ -252,20 +252,20 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
 
     @classmethod
     def exchange_post_validation(cls, values: Dict):
-        if "market_maker" in values.keys():
-            settings.required_exchanges.add(values["market_maker"])
-        if "market_taker" in values.keys():
-            settings.required_exchanges.add(values["market_taker"])
+        if "maker_market" in values.keys():
+            settings.required_exchanges.add(values["maker_market"])
+        if "taker_market" in values.keys():
+            settings.required_exchanges.add(values["taker_market"])
 
     @classmethod
     def update_oracle_settings(cls, values: str):
         if not ("use_oracle_conversion_rate" in values.keys() and
-                "trading_pair_maker" in values.keys() and
-                "trading_pair_taker" in values.keys()):
+                "maker_market_trading_pair" in values.keys() and
+                "taker_market_trading_pair" in values.keys()):
             return
         use_oracle = values["use_oracle_conversion_rate"]
-        first_base, first_quote = values["trading_pair_maker"].split("-")
-        second_base, second_quote = values["trading_pair_taker"].split("-")
+        first_base, first_quote = values["maker_market_trading_pair"].split("-")
+        second_base, second_quote = values["taker_market_trading_pair"].split("-")
         if use_oracle and (first_base != second_base or first_quote != second_quote):
             settings.required_rate_oracle = True
             settings.rate_oracle_pairs = []

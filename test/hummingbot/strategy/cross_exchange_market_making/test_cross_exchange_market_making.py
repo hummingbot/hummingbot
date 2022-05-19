@@ -66,10 +66,10 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         )
 
         self.config_map_raw = CrossExchangeMarketMakingConfigMap(
-            market_maker=self.exchange_name_maker,
-            market_taker=self.exchange_name_taker,
-            trading_pair_maker=self.trading_pairs_maker[0],
-            trading_pair_taker=self.trading_pairs_taker[0],
+            maker_market=self.exchange_name_maker,
+            taker_market=self.exchange_name_taker,
+            maker_market_trading_pair=self.trading_pairs_maker[0],
+            taker_market_trading_pair=self.trading_pairs_taker[0],
             min_profitability=Decimal(self.min_profitability),
             slippage_buffer=Decimal("0"),
             order_amount=Decimal("0"),
@@ -655,10 +655,10 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         config_map_with_slippage_buffer = ClientConfigAdapter(
             CrossExchangeMarketMakingConfigMap(
-                market_maker=self.exchange_name_maker,
-                market_taker=self.exchange_name_taker,
-                trading_pair_maker=self.trading_pairs_maker[0],
-                trading_pair_taker=self.trading_pairs_taker[0],
+                maker_market=self.exchange_name_maker,
+                taker_market=self.exchange_name_taker,
+                maker_market_trading_pair=self.trading_pairs_maker[0],
+                taker_market_trading_pair=self.trading_pairs_taker[0],
                 order_amount=Decimal("4"),
                 min_profitability=Decimal("25"),
                 order_size_taker_volume_factor=Decimal("100"),
