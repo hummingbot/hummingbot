@@ -1,50 +1,44 @@
 import asyncio
 import copy
-from decimal import Decimal
 import itertools as it
-from async_timeout import timeout
 import logging
 import re
 import time
-from typing import (
-    Dict,
-    List,
-    Set,
-    Optional,
-    Any,
-    Type,
-    Union,
-    cast,
-)
+from decimal import Decimal
+from typing import Any, Dict, List, Optional, Set, Type, Union, cast
 
+from async_timeout import timeout
+
+from hummingbot.client.settings import GatewayConnectionSetting
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.gateway import check_transaction_exceptions
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
-    MarketEvent,
-    TokenApprovalEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    TokenApprovalSuccessEvent,
-    TokenApprovalFailureEvent,
-    TokenApprovalCancelledEvent,
     OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TokenApprovalCancelledEvent,
+    TokenApprovalEvent,
+    TokenApprovalFailureEvent,
+    TokenApprovalSuccessEvent,
     TradeType,
 )
+from hummingbot.core.gateway import check_transaction_exceptions
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
+
 from .gateway_price_shim import GatewayPriceShim
 
 s_logger = None
@@ -911,8 +905,21 @@ class GatewayEVMAMM(ConnectorBase):
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
+
+            # get
+            config: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(self._name)
+            other_tokens: Set[str] = set()
+            if config is not None:
+                other_tokens: Set[str] = set(config.get("tokens", "").split(","))
+                other_tokens.discard("")
+
+            other_tokens.update(self._tokens)
+            other_tokens.update([self._native_currency])
+            tokens_to_query: List[str] = list(other_tokens)
+            print(f"{self._name}: to_query {tokens_to_query}")
+
             resp_json: Dict[str, Any] = await GatewayHttpClient.get_instance().get_balances(
-                self.chain, self.network, self.address, list(self._tokens) + [self._native_currency]
+                self.chain, self.network, self.address, tokens_to_query
             )
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
