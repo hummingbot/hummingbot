@@ -36,10 +36,10 @@ JSON.parse = (
       text.startsWith('<html>') &&
       text.includes('<head><title>504 Gateway Time-out</title></head>')
     ) {
-      console.log('text:\n', text, '\nexception:\n', exception);
-
       throw new HttpException(504, 'Gateway Timeout');
     }
+
+    console.log('text:\n', text, '\nexception:\n', exception);
 
     throw exception;
   }

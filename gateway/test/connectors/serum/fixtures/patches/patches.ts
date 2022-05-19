@@ -1,4 +1,6 @@
 /* eslint-disable */
+import { OpenOrders } from '@project-serum/serum/lib/market';
+import { sleep } from '../../../../../src/connectors/serum/serum.helpers';
 import { Account, AccountInfo, Commitment, Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { Solana } from '../../../../../src/chains/solana/solana';
@@ -10,28 +12,20 @@ import {
   SerumOrderParams
 } from '../../../../../src/connectors/serum/serum.types';
 import { patch } from '../../../../services/patch';
-import { default as config } from '../serumConfig';
+import { default as config } from '../serum-config';
 import data from './data';
 
-const disablePatches = true;
+const disablePatches = false;
+
+const delayInMilliseconds = 10 * 1000;
 
 const patches = (solana: Solana, serum: Serum) => {
   const patches = new Map();
 
-  patches.set('solana/init', () => {
+  patches.set('solana/loadTokens', () => {
     if (disablePatches) return;
 
-    patch(solana, 'init', () => {
-      patch(solana, 'loadTokens', () => {
-      });
-    });
-  });
-
-  patches.set('solana/ready', () => {
-    if (disablePatches) return;
-
-    patch(solana, 'ready', () => {
-      return true;
+    patch(solana, 'loadTokens', () => {
     });
   });
 
@@ -44,29 +38,22 @@ const patches = (solana: Solana, serum: Serum) => {
           bs58.decode(config.solana.wallet.owner.privateKey)
         );
 
-      return null;
+      throw new Error(`Cannot mock unrecognized address "${address}".`);
     });
   });
 
-  patches.set('serum/ready', () => {
-    if (disablePatches) return;
-
-    patch(serum, 'ready', () => {
-      return true;
-    });
-  });
-
-  patches.set('serum/init', () => {
+  patches.set('serum/connection/getAccountInfo', () => {
     if (disablePatches) return;
 
     const connection = serum.getConnection();
+
     // eslint-disable-next-line
-      // @ts-ignore
-    connection.originalGetAccountInfo = connection.getAccountInfo;
+    // @ts-ignore
+    connection.originalGetAccountInfo = (<any>connection).getAccountInfo;
 
     patch(connection, 'getAccountInfo', async (
       publicKey: PublicKey,
-      commitment?: Commitment,
+      commitment: Commitment,
     ): Promise<AccountInfo<Buffer> | null> => {
       const key = `@solana/web3.js/Connection/getAccountInfo/${publicKey.toString()}`;
 
@@ -82,28 +69,125 @@ const patches = (solana: Solana, serum: Serum) => {
         } as AccountInfo<Buffer>;
       }
 
-      // eslint-disable-next-line
-      // @ts-ignore
-      const result = await connection.originalGetAccountInfo(publicKey, commitment);
+      let result: any;
 
-      const raw = {
-        executable: result.executable,
-        owner: result.owner.toString(),
-        lamports: result.lamports,
-        data: Object.values(result.data),
-        rentEpoch: result.rentEpoch,
-      };
+      let attempts = 1;
+      let error = false;
+      do {
+        try {
+          // eslint-disable-next-line
+          // @ts-ignore
+          const result = await connection.originalGetAccountInfo(publicKey, commitment);
 
-      const fs = require('fs');
-      fs.writeFileSync(
-        '/Volumes/Data/important/work/robotter.ai/hummingbot/gateway/test/connectors/serum/fixtures/patches/raw.ts',
-        `data.set('${key}', ${JSON.stringify(raw)});`, {
-        flag: 'a',
-      });
+          const raw = {
+            executable: result.executable,
+            owner: result.owner.toString(),
+            lamports: result.lamports,
+            data: Object.values(result.data),
+            rentEpoch: result.rentEpoch,
+          };
+
+          // TODO remove!!!
+          const fs = require('fs');
+          fs.appendFileSync(
+            '/Volumes/Data/important/work/robotter.ai/hummingbot/gateway/test/connectors/serum/fixtures/patches/raw.ts',
+            `data.set('${key}', ${JSON.stringify(raw)});\n`, {
+          });
+
+          error = false;
+        } catch (exception) {
+          error = false;
+          console.log(`${key}, attempt ${attempts}:`, exception);
+          attempts++;
+          if (attempts > 3) break;
+          await sleep(delayInMilliseconds);
+        }
+      } while (error);
 
       return result;
     });
   });
+
+  patches.set('serum/market/findOpenOrdersAccountsForOwner', async (marketName: string, returnValue?: OpenOrders[]) => {
+    if (disablePatches) return;
+
+    const market = (await serum.getMarket(marketName)).market;
+
+    patch(market, 'findOpenOrdersAccountsForOwner', (
+      _connection: Connection,
+      ownerAddress: PublicKey,
+      _cacheDurationMs = 0
+    ) => {
+      if (returnValue !== undefined && returnValue != null) return returnValue;
+
+      throw new Error(`Cannot mock, unrecognized address "${ownerAddress.toString()}".`);
+    });
+  });
+
+  // // TODO remove!!!
+  // patches.set('serum/connection/_rpcRequest/getProgramAccounts', (returnValue?: any) => {
+  //   if (disablePatches) return;
+  //
+  //   const connection = serum.getConnection();
+  //
+  //   // eslint-disable-next-line
+  //   // @ts-ignore
+  //   connection.originalRpcRequest = (<any>connection)._rpcRequest;
+  //
+  //   patch(connection, '_rpcRequest', async (methodName: string, args: Array<any>): Promise<any> => {
+  //     if (returnValue) return returnValue;
+  //
+  //     const key = `@solana/web3.js/Connection/_rpcRequest/${methodName}/${JSON.stringify(args)}`;
+  //
+  //     if (methodName == 'getProgramAccounts') {
+  //       if (data.has(key)) {
+  //         return data.get(key);
+  //       }
+  //
+  //       let attempts = 1;
+  //       let error = false;
+  //       do {
+  //         try {
+  //           // eslint-disable-next-line
+  //           // @ts-ignore
+  //           const result = await connection.originalRpcRequest(methodName, args);
+  //
+  //           const raw = {
+  //             result: result.result,
+  //           };
+  //
+  //           // TODO remove!!!
+  //           const fs = require('fs');
+  //           fs.appendFileSync(
+  //             '/Volumes/Data/important/work/robotter.ai/hummingbot/gateway/test/connectors/serum/fixtures/patches/raw.ts',
+  //             `data.set('${key}', ${JSON.stringify(raw)});\n`, {
+  //           });
+  //
+  //           error = false;
+  //
+  //           return result;
+  //         } catch (exception) {
+  //           error = false;
+  //           console.log(`${key}, attempt ${attempts}:`, exception);
+  //           attempts++;
+  //           if (attempts > 3) break;
+  //           await sleep(delayInMilliseconds);
+  //         }
+  //       } while (error);
+  //     }
+  //   });
+  // });
+
+  // patches.set('serum/connection/_wsOnError', () => {
+  //   if (disablePatches) return;
+  //
+  //   const connection = serum.getConnection();
+  //   (<any>connection)._wsOnError = (err: Error) => {
+  //     if (err.message.startsWith('getaddrinfo ENOTFOUND')) return;
+  //
+  //     console.error('ws error:', err.message);
+  //   };
+  // });
 
   patches.set('serum/serumGetMarketsInformation', () => {
     if (disablePatches) return;
@@ -119,7 +203,12 @@ const patches = (solana: Solana, serum: Serum) => {
     patch(serum, 'getTicker', async () => {
       const market = await serum.getMarket(marketName);
 
-      return data.get(`serum/getTicker/${market.address.toString()}`);
+      const raw = data.get(`serum/getTicker/${market.address.toString()}`);
+
+      return {
+        price: parseFloat(raw.price),
+        timestamp: new Date(raw.last_updated).getTime()
+      }
     });
   });
 
@@ -193,13 +282,6 @@ const patches = (solana: Solana, serum: Serum) => {
       return shuffle(example).repeat(settlements.length);
     });
   });
-
-  // patches.set('', () => {
-  //   if (disablePatches) return;
-  //
-  //   return patch(, '', () => {
-  //   });
-  // });
 
   return patches;
 };
