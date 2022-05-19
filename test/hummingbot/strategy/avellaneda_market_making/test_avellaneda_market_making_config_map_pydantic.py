@@ -91,7 +91,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         exchange = self.config_map.exchange
         example = AllConnectorSettings.get_example_pairs().get(exchange)
 
-        prompt = self.async_run_with_timeout(self.config_map.get_client_prompt("exchange"))
+        prompt = self.async_run_with_timeout(self.config_map.get_client_prompt("market"))
         expected = f"Enter the token trading pair you would like to trade on {exchange} (e.g. {example})"
 
         self.assertEqual(expected, prompt)
