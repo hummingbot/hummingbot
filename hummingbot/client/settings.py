@@ -201,7 +201,7 @@ class ConnectorSetting(NamedTuple):
                 chain=connector_spec["chain"],
                 network=connector_spec["network"],
                 wallet_address=connector_spec["wallet_address"],
-                additional_spenders=connector_spec["additional_spenders"],
+                additional_spenders=connector_spec.get("additional_spenders", []),
             )
             return params
 
