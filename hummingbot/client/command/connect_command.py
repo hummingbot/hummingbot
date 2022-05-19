@@ -50,6 +50,8 @@ class ConnectCommand:
             connector_config = ClientConfigAdapter(CELO_KEYS)
         else:
             connector_config = ClientConfigAdapter(AllConnectorSettings.get_connector_config_keys(connector_name))
+        to_connect = True
+        previous_keys = None
         if Security.connector_config_file_exists(connector_name):
             await Security.wait_til_decryption_done()
             api_key_config = [
@@ -66,27 +68,30 @@ class ConnectCommand:
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
-            if answer.lower() in ("yes", "y"):
+            if answer.lower() not in ("yes", "y"):
+                to_connect = False
+            else:
                 previous_keys = Security.api_keys(connector_name)
-                await self.prompt_for_model_config(connector_config)
-                self.app.change_prompt(prompt=">>> ")
-                if self.app.to_stop_config:
-                    self.app.to_stop_config = False
-                    return
-                Security.update_secure_config(connector_config)
-                if connector_name == "celo":
-                    err_msg = await self.validate_n_connect_celo(to_reconnect=True)
+        if to_connect:
+            await self.prompt_for_model_config(connector_config)
+            self.app.change_prompt(prompt=">>> ")
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
+            Security.update_secure_config(connector_config)
+            if connector_name == "celo":
+                err_msg = await self.validate_n_connect_celo(to_reconnect=True)
+            else:
+                err_msg = await self.validate_n_connect_connector(connector_name)
+            if err_msg is None:
+                self.notify(f"\nYou are now connected to {connector_name}.")
+            else:
+                self.notify(f"\nError: {err_msg}")
+                if previous_keys is not None:
+                    previous_config = ClientConfigAdapter(connector_config.hb_config.__class__(**previous_keys))
+                    Security.update_secure_config(previous_config)
                 else:
-                    err_msg = await self.validate_n_connect_connector(connector_name)
-                if err_msg is None:
-                    self.notify(f"\nYou are now connected to {connector_name}.")
-                else:
-                    self.notify(f"\nError: {err_msg}")
-                    if previous_keys is not None:
-                        previous_config = ClientConfigAdapter(connector_config.hb_config.__class__(**previous_keys))
-                        Security.update_secure_config(previous_config)
-                    else:
-                        Security.remove_secure_config(connector_name)
+                    Security.remove_secure_config(connector_name)
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
