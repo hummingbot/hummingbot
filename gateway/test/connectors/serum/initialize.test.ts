@@ -4,7 +4,7 @@ import BN from 'bn.js';
 import 'jest-extended';
 import { Solana } from '../../../src/chains/solana/solana';
 import { Serum } from '../../../src/connectors/serum/serum';
-import { default as config } from '../../connectors/serum/fixtures/serum-config';
+import { default as config } from './fixtures/serum.config';
 import { unpatch } from '../../services/patch';
 import { getNewOrdersTemplates } from './fixtures/dummy';
 

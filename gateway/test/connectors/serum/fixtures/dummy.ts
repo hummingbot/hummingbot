@@ -1,10 +1,14 @@
+import BN from 'bn.js';
 import { getNotNullOrThrowError } from '../../../../src/connectors/serum/serum.helpers';
 import {
   CreateOrdersRequest,
+  OrderBook,
   OrderSide,
   OrderType,
+  SerumOpenOrders,
+  SerumOrder,
 } from '../../../../src/connectors/serum/serum.types';
-import { default as config } from './serum-config';
+import { default as config } from './serum.config';
 
 const marketNames = ['SOL/USDT', 'SOL/USDC'];
 
@@ -93,4 +97,26 @@ export const getNewOrdersTemplates = (
   }
 
   return result;
+};
+
+export const convertToSerumOpenOrder = (
+  candidateOrder: CreateOrdersRequest,
+  orderBook: OrderBook
+): SerumOpenOrders => {
+  const orderBookOrder: SerumOrder = orderBook.orderBook.asks
+    .items()
+    .next().value;
+
+  const serumOpenOrder = new SerumOpenOrders(
+    orderBookOrder.openOrdersAddress,
+    undefined,
+    orderBook.market.programId
+  );
+
+  serumOpenOrder.clientIds = [
+    new BN(getNotNullOrThrowError(candidateOrder.id)),
+  ];
+  serumOpenOrder
+
+  return serumOpenOrder;
 };
