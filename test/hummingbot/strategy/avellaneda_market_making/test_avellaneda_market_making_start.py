@@ -29,8 +29,8 @@ class AvellanedaStartTest(unittest.TestCase):
         self.quote = "BTC"
         self.strategy_config_map = ClientConfigAdapter(
             AvellanedaMarketMakingConfigMap(
-                market="binance",
-                trading_pair=combine_to_hb_trading_pair(self.base, self.quote),
+                exchange="binance",
+                market=combine_to_hb_trading_pair(self.base, self.quote),
                 execution_timeframe_mode=FromDateToDateModel(
                     start_datetime="2021-11-18 15:00:00",
                     end_datetime="2021-11-18 16:00:00",
