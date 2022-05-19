@@ -96,7 +96,7 @@ class GatewayConnectionSetting:
     @staticmethod
     def get_connector_spec_from_market_name(market_name: str) -> Optional[Dict[str, str]]:
         vals = market_name.split("_")
-        if vals.length == 3:
+        if len(vals) == 3:
             return GatewayConnectionSetting.get_connector_spec(vals[0], vals[1], vals[2])
         else:
             return None

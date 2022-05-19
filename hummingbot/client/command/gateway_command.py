@@ -3,7 +3,7 @@ import asyncio
 import itertools
 import json
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Array, Dict, Generator, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional
 
 import aiohttp
 import pandas as pd
@@ -37,6 +37,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display,
     build_connector_display,
+    build_connector_tokens_display,
     build_wallet_display,
     native_tokens,
     search_configs,
@@ -77,8 +78,8 @@ class GatewayCommand:
     def gateway_stop(self):
         safe_ensure_future(stop_gateway(), loop=self.ev_loop)
 
-    def gateway_tokens(self, connector_chain_network: str):
-        safe_ensure_future(self._gateway_tokens(connector_chain_network), loop=self.ev_loop)
+    def gateway_connector_tokens(self, connector_chain_network: str):
+        safe_ensure_future(self._gateway_connector_tokens(connector_chain_network), loop=self.ev_loop)
 
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
@@ -318,7 +319,7 @@ class GatewayCommand:
         host = global_config_map['gateway_api_host'].value
         port = global_config_map['gateway_api_port'].value
         try:
-            config_dict: Dict[str, Any] = await self._gateway_monitor._fetch_gateway_configs()
+            config_dict: Dict[str, str] = await self._gateway_monitor._fetch_gateway_configs()
             if key is not None:
                 config_dict = search_configs(config_dict, key)
             self.notify(f"\nGateway Configurations ({host}:{port}):")
@@ -492,44 +493,59 @@ class GatewayCommand:
                 # Reload completer here to include newly added gateway connectors
                 self.app.input_field.completer = load_completer(self)
 
-    async def _gateway_tokens(
+    async def _gateway_connector_tokens(
             self,           # type: HummingbotApplication
-            connector_chain_network: str
+            connector_chain_network: str = None
     ):
+        """
+        Allow the user to input tokens whose balances they want to monitor are.
+        This are not tied to a strategy, rather to the connector-chain-network
+        tuple. This has no influence on what tokens the user can use with a
+        connector-chain-network and a particular strategy. This is only for
+        report balances.
+        """
         with begin_placeholder_mode(self):
             gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
-            vals = connector_chain_network.split('_')  # uniswap_ethereum_kovan
-            if vals.length == 3:
-                connector: str = vals[0]
-                chain: str = vals[1]
-                network: str = vals[2]
-
-                selected_connection: Optional[Dict[str, str]] = None
-
-                for connection in gateway_connections_conf:
-                    if connection['connector'] == connector \
-                       and connection['chain'] == chain \
-                       and connection['network'] == network:
-                        selected_connection = connection
-                        break
-
-                if selected_connection is None:
-                    self.notify(f"No available blockchain networks available for the connector '{connector_chain_network}'.")
+            if connector_chain_network is None:
+                if len(gateway_connections_conf) < 1:
+                    self.notify("No existing connection.\n")
                 else:
-
-                    current_tokens: Array[str] = selected_connection.get('tokens', [])
-
-                    print(current_tokens)
-                    print(selected_connection)
-
-                    self.app.clear_input()
-                    self.placeholder_mode = True
-                    new_tokens = await self.app.prompt(
-                        prompt=f"Enter {connector}_{chain}_{network} tokens whose balances you want to monitor in hummingbot for wallet {selected_connection['wallet_address']} >>> "
-                    )
-                    self.app.clear_input()
-
-                    print(new_tokens)
+                    connector_df: pd.DataFrame = build_connector_tokens_display(gateway_connections_conf)
+                    self.notify(connector_df.to_string(index=False))
 
             else:
-                self.notify(f"No available blockchain networks available for the connector '{connector_chain_network}'.")
+                vals: List[str] = connector_chain_network.split('_')  # uniswap_ethereum_kovan
+                if len(vals) == 3:
+                    connector_name: str = vals[0]
+                    chain: str = vals[1]
+                    network: str = vals[2]
+
+                    selected_connection: Optional[Dict[str, str]] = None
+
+                    for connection in gateway_connections_conf:
+                        if connection['connector'] == connector_name \
+                           and connection['chain'] == chain \
+                           and connection['network'] == network:
+                            selected_connection = connection
+                            break
+
+                    if selected_connection is None:
+                        self.notify(f"'{connector_chain_network}' is not available. You can add and review available "
+                                    f"gateway connectors with the command 'gateway connect'.")
+                    else:
+                        current_tokens: str = selected_connection.get('tokens', '')
+                        if current_tokens.strip() != '':
+                            self.notify(f"The 'balance' command for '{connector_chain_network}' currently reports token balances for {current_tokens}.")
+
+                        self.placeholder_mode = True
+                        new_tokens: str = await self.app.prompt(
+                            prompt=f"Enter {connector_chain_network} tokens whose balances you want to monitor in hummingbot for wallet {selected_connection['wallet_address']} (eg. DAI,MKR,USDC) >>> "
+                        )
+                        self.app.clear_input()
+
+                        GatewayConnectionSetting.upsert_connector_spec_tokens(connector_name, chain, network, new_tokens)
+
+                        self.notify(f"The 'balance' command for '{connector_chain_network}' will now report token balances for {new_tokens}.")
+
+                else:
+                    self.notify(f"No available blockchain networks available for the connector '{connector_chain_network}'.")
