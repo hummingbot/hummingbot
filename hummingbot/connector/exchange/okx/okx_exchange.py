@@ -296,10 +296,20 @@ class OkxExchange(ExchangePyBase):
             is_auth_required=True)
 
     async def _update_order_status(self):
-
         tracked_orders = list(self.in_flight_orders.values())
         order_tasks = []
         order_fills_tasks = []
+
+        if tracked_orders:
+            # OKX was failing randomly to do the order update because the connector was creating a rejected signature.
+            # To avoid the issue we need to make sure the time synchronizer is updated before doing the requests.
+            try:
+                await self._update_time_synchronizer()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
+
         for order in tracked_orders:
             order_tasks.append(asyncio.create_task(self._request_order_update(order=order)))
             order_fills_tasks.append(asyncio.create_task(self._request_order_fills(order=order)))
