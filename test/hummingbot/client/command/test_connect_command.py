@@ -112,7 +112,7 @@ class ConnectCommandTest(unittest.TestCase):
         celo_cli_mock.validate_node_synced.return_value = None
         celo_cli_mock.unlock_account.return_value = None
 
-        self.async_run_with_timeout(self.app.connect_exchange(exchange), 1000)
+        self.async_run_with_timeout(self.app.connect_exchange(exchange))
         self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg="\nYou are now connected to celo."))
         self.assertFalse(self.app.placeholder_mode)
         self.assertFalse(self.app.app.hide_input)
@@ -140,7 +140,7 @@ class ConnectCommandTest(unittest.TestCase):
         self.cli_mock_assistant.queue_prompt_reply(api_secret)  # binance API secret
 
         with self.assertRaises(asyncio.TimeoutError):
-            self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.connect_exchange("binance"), timeout=1000000)
+            self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.connect_exchange("binance"))
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with(
                 msg="\nA network error prevented the connection to complete. See logs for more details."
@@ -156,7 +156,7 @@ class ConnectCommandTest(unittest.TestCase):
         global_config_map["other_commands_timeout"].value = 0.01
 
         with self.assertRaises(asyncio.TimeoutError):
-            self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.connection_df(), 10000)
+            self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.connection_df())
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with(
                 msg="\nA network error prevented the connection table to populate. See logs for more details."
