@@ -1048,6 +1048,19 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 if len(order_update.get("matchIds", [])):
                     await self._update_order_fills_from_trades(tracked_order, order_update)
 
+    async def _create_order_update_matched(self, trading_pair, client_order_id, new_state, order_result):
+        # Process immediately matched orders
+        if new_state != OrderState.OPEN:
+            order_update: OrderUpdate = OrderUpdate(
+                trading_pair=trading_pair,
+                update_timestamp=int(order_result["timestamp"]) * 1e-3,
+                new_state=new_state,
+                client_order_id=client_order_id,
+                exchange_order_id=str(order_result["orderId"]),
+            )
+            self._client_order_tracker.process_order_update(order_update)
+            await self._update_order_fills_from_event_or_create(None, order_result)
+
     async def _update_order_fills_from_event_or_create(self, tracked_order, order_data):
         """
         Used to update fills from user stream events or order creation.
@@ -1244,10 +1257,12 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             order_result = create_result["data"][0]
 
+            order_state = CONSTANTS.ORDER_STATE[order_result.get("status", create_result.get("event"))]
+
             order_update: OrderUpdate = OrderUpdate(
                 trading_pair=trading_pair,
                 update_timestamp=int(order_result["timestamp"]) * 1e-3,
-                new_state=CONSTANTS.ORDER_STATE[order_result.get("status", create_result.get("event"))],
+                new_state=OrderState.OPEN,
                 client_order_id=order_id,
                 exchange_order_id=str(order_result["orderId"]),
             )
@@ -1255,7 +1270,8 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             # last_state of tracked order.
             self._client_order_tracker.process_order_update(order_update)
 
-            await self._update_order_fills_from_event_or_create(None, order_result)
+            # Process immediately matched orders
+            safe_ensure_future(self._create_order_update_matched(trading_pair, order_id, order_state, order_result))
 
         except asyncio.CancelledError:
             raise
