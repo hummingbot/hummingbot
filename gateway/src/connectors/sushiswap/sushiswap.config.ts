@@ -1,39 +1,29 @@
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
 import { AvailableNetworks } from '../../services/config-manager-types';
+
 export namespace SushiswapConfig {
   export interface NetworkConfig {
-    allowedSlippage: (version: number) => string;
-    gasLimit: (version: number) => number;
-    ttl: (version: number) => number;
-    sushiswapV2RouterAddress: (network: string) => string;
-    tradingTypes: (network: string) => Array<string>;
+    allowedSlippage: string;
+    gasLimit: number;
+    ttl: number;
+    sushiswapRouterAddress: (network: string) => string;
+    tradingTypes: Array<string>;
     availableNetworks: Array<AvailableNetworks>;
   }
 
   export const config: NetworkConfig = {
-    allowedSlippage: (version: number) =>
+    allowedSlippage: ConfigManagerV2.getInstance().get(
+      'sushiswap.allowedSlippage'
+    ),
+    gasLimit: ConfigManagerV2.getInstance().get('sushiswap.gasLimit'),
+    ttl: ConfigManagerV2.getInstance().get('sushiswap.ttl'),
+    sushiswapRouterAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(
-        `sushiswap.versions.v${version}.allowedSlippage`
+        'sushiswap.contractAddresses.' + network + '.sushiswapRouterAddress'
       ),
-    gasLimit: (version: number) =>
-      ConfigManagerV2.getInstance().get(
-        `sushiswap.versions.v${version}.gasLimit`
-      ),
-    ttl: (version: number) =>
-      ConfigManagerV2.getInstance().get(`sushiswap.versions.v${version}.ttl`),
-      sushiswapV2RouterAddress: (network: string) =>
-      ConfigManagerV2.getInstance().get(
-        `sushiswap.contractAddresses.${network}.sushiswapV2RouterAddress`
-      ),
-    tradingTypes: (network: string) =>
-      network === 'v2' ? ['EVM_AMM'] : ['EVM_Range_AMM'],
+    tradingTypes: ['EVM_AMM'],
     availableNetworks: [
-      {
-        chain: 'ethereum',
-        networks: Object.keys(
-          ConfigManagerV2.getInstance().get('sushiswap.contractAddresses')
-        ),
-      },
+      { chain: 'ethereum', networks: ['mainnet', 'kovan','ropsten'] },
     ],
   };
 }
