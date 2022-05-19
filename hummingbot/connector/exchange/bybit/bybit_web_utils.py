@@ -89,19 +89,20 @@ async def api_request(path: str,
 
     async with throttler.execute_task(limit_id=limit_id if limit_id else path):
         response = await rest_assistant.call(request=request, timeout=timeout)
-        message = await response.json()
-        if message["ret_code"] != 0:
+        if response.status != 200:
             if return_err:
                 error_response = await response.json()
                 return error_response
             else:
-                if message is not None and "ret_msg" in message and "ret_code" in message:
-                    raise IOError(f"The request to Bybit failed. Error: {message['ret_msg']}. Error code: {message['ret_code']}")
+                error_response = await response.text()
+                if error_response is not None and "ret_code" in error_response and "ret_msg" in error_response:
+                    raise IOError(f"The request to Bybit failed. Error: {error_response}. Request: {request}")
                 else:
                     raise IOError(f"Error executing request {method.name} {path}. "
                                   f"HTTP status is {response.status}. "
-                                  f"Error: {message['ret_msg']}")
-        return message
+                                  f"Error: {error_response}")
+
+        return await response.json()
 
 
 async def get_current_server_time(

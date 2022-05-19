@@ -570,15 +570,14 @@ class BybitExchange(ExchangeBase):
                     params=api_params,
                     is_auth_required=True)
 
-                if cancel_result["result"].get("status") in ["CANCELED", "NEW"]:
-                    order_update: OrderUpdate = OrderUpdate(
-                        client_order_id=client_order_id,
-                        trading_pair=tracked_order.trading_pair,
-                        update_timestamp=self.current_timestamp,
-                        new_state=OrderState.CANCELED,
-                    )
-                    self._order_tracker.process_order_update(order_update)
-                    return cancel_result
+                order_update: OrderUpdate = OrderUpdate(
+                    client_order_id=client_order_id,
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=OrderState.CANCELED,
+                )
+                self._order_tracker.process_order_update(order_update)
+                return cancel_result
 
             except asyncio.CancelledError:
                 raise
@@ -864,8 +863,7 @@ class BybitExchange(ExchangeBase):
                            params: Optional[Dict[str, Any]] = None,
                            data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
-
-        return await web_utils.api_request(
+        response = await web_utils.api_request(
             path=path_url,
             api_factory=self._api_factory,
             throttler=self._throttler,
@@ -876,6 +874,9 @@ class BybitExchange(ExchangeBase):
             method=method,
             is_auth_required=is_auth_required,
         )
+        if response["ret_code"] != 0:
+            raise IOError(f"The request to Bybit failed. Error: {response['ret_msg']}. Error code: {response['ret_code']}")
+        return response
 
     async def _get_rest_assistant(self) -> RESTAssistant:
         if self._rest_assistant is None:
