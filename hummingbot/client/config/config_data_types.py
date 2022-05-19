@@ -123,7 +123,7 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
 
 
 class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
-    market_maker: str = Field(
+    maker_market: str = Field(
         default=...,
         description="",
         client_data=ClientFieldData(
@@ -131,7 +131,7 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
             prompt_on_new=True,
         ),
     )
-    market_taker: str = Field(
+    taker_market: str = Field(
         default=...,
         description="",
         client_data=ClientFieldData(
@@ -139,7 +139,7 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
             prompt_on_new=True,
         ),
     )
-    trading_pair_maker: str = Field(
+    maker_market_trading_pair: str = Field(
         default=...,
         description="",
         client_data=ClientFieldData(
@@ -147,7 +147,7 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
             prompt_on_new=True,
         ),
     )
-    trading_pair_taker: str = Field(
+    taker_market_trading_pair: str = Field(
         default=...,
         description="",
         client_data=ClientFieldData(
@@ -159,11 +159,11 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
     @classmethod
     def trading_pair_prompt(cls, model_instance: 'BaseTradingStrategyMakerTakerConfigMap', is_maker: bool) -> str:
         if is_maker:
-            exchange = model_instance.market_maker
+            exchange = model_instance.maker_market
             example = AllConnectorSettings.get_example_pairs().get(exchange)
             market_type = "maker"
         else:
-            exchange = model_instance.market_taker
+            exchange = model_instance.taker_market
             example = AllConnectorSettings.get_example_pairs().get(exchange)
             market_type = "taker"
         return (
@@ -172,8 +172,8 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
         )
 
     @validator(
-        "market_maker",
-        "market_taker",
+        "maker_market",
+        "taker_market",
         pre=True
     )
     def validate_exchange(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
@@ -181,14 +181,14 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
         ret = validate_exchange(v)
         if ret is not None:
             raise ValueError(ret)
-        if field.name == "trading_pair_maker":
-            cls.__fields__["market_maker"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
+        if field.name == "maker_market_trading_pair":
+            cls.__fields__["maker_market"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
                 value="Exchanges",  # noqa: F821
                 names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
                 type=str,
             )
-        if field.name == "trading_pair_taker":
-            cls.__fields__["market_taker"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
+        if field.name == "taker_market_trading_pair":
+            cls.__fields__["taker_market"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
                 value="Exchanges",  # noqa: F821
                 names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
                 type=str,
@@ -196,16 +196,16 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
         return v
 
     @validator(
-        "trading_pair_maker",
-        "trading_pair_taker",
+        "maker_market_trading_pair",
+        "taker_market_trading_pair",
         pre=True,
     )
     def validate_exchange_trading_pair(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
-        if field.name == "trading_pair_maker":
-            exchange = values.get("market_maker")
+        if field.name == "maker_market_trading_pair":
+            exchange = values.get("maker_market")
             ret = validate_market_trading_pair(exchange, v)
-        if field.name == "trading_pair_taker":
-            exchange = values.get("market_taker")
+        if field.name == "taker_market_trading_pair":
+            exchange = values.get("taker_market")
             ret = validate_market_trading_pair(exchange, v)
         if ret is not None:
             raise ValueError(ret)

@@ -21,10 +21,10 @@ class XEMMStartTest(unittest.TestCase):
 
         self.strategy_config_map = ClientConfigAdapter(
             CrossExchangeMarketMakingConfigMap(
-                market_maker="binance",
-                market_taker="kucoin",
-                trading_pair_maker="ETH-USDT",
-                trading_pair_taker="ETH-USDT",
+                maker_market="binance",
+                taker_market="kucoin",
+                maker_market_trading_pair="ETH-USDT",
+                taker_market_trading_pair="ETH-USDT",
                 order_amount=1.0,
                 min_profitability=2.0,
                 use_oracle_conversion_rate=False,
