@@ -123,8 +123,8 @@ class GatewayConnectionSetting:
         GatewayConnectionSetting.save(connectors_conf)
 
     @staticmethod
-    def upsert_connector_spec_tokens(connector_name: str, chain: str, network: str, tokens: str):
-        updated_connector: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec(connector_name, chain, network)
+    def upsert_connector_spec_tokens(connector_chain_network: str, tokens: str):
+        updated_connector: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
         updated_connector['tokens'] = tokens
 
         connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
