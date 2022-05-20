@@ -57,7 +57,7 @@ class ScriptStrategyBase(StrategyPyBase):
         script_module = importlib.import_module(f".{script_name}", package=SCRIPT_STRATEGIES_MODULE)
         try:
             script_class = next((member for member_name, member in inspect.getmembers(script_module)
-                                 if inspect.isclass(member) and issubclass(member, cls)))
+                                 if inspect.isclass(member) and issubclass(member, cls) and member_name != cls.__name__))
         except StopIteration:
             raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of ScriptStrategyBase")
         return script_class
