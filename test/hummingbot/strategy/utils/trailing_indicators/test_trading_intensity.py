@@ -1,16 +1,16 @@
-from decimal import Decimal
 import math
+import unittest
+from decimal import Decimal
+
 import numpy as np
 import pandas as pd
-import unittest
+
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
-from hummingbot.core.event.events import (
-    OrderBookTradeEvent,
-)
+from hummingbot.core.event.events import OrderBookTradeEvent
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
@@ -226,7 +226,7 @@ class TradingIntensityTest(unittest.TestCase):
 
     def test_calculate_trading_intensity_deterministic(self):
         def curve_fn(t_, a_, b_):  # see curve fit in `TradingIntensityIndicator.c_estimate_intensity`
-            return a_*np.exp(-b_*t_)
+            return a_ * np.exp(-b_ * t_)
 
         last_price = 1
         trade_price_levels = [2, 3, 4, 5]

@@ -14,17 +14,18 @@ from async_timeout import timeout
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
-    BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import (
+    BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource,
+)
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker import (
-    BybitPerpetualOrderBookTracker
+    BybitPerpetualOrderBookTracker,
 )
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_user_stream_tracker import (
-    BybitPerpetualUserStreamTracker
+    BybitPerpetualUserStreamTracker,
 )
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import (
-    BybitPerpetualWebSocketAdaptor
+    BybitPerpetualWebSocketAdaptor,
 )
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
