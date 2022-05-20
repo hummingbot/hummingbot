@@ -1,6 +1,5 @@
 import asyncio
 from decimal import Decimal
-from os.path import join
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
 
 import pandas as pd
@@ -17,7 +16,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import CONF_FILE_PATH, GLOBAL_CONFIG_PATH
+from hummingbot.client.settings import GLOBAL_CONFIG_PATH, STRATEGIES_CONF_DIR_PATH
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.client.ui.style import load_style
 from hummingbot.connector.utils import split_hb_trading_pair
@@ -167,7 +166,7 @@ class ConfigCommand:
     async def check_password(self,  # type: HummingbotApplication
                              ):
         password = await self.app.prompt(prompt="Enter your password >>> ", is_password=True)
-        if password != Security.password:
+        if password != Security.secrets_manager.password.get_secret_value():
             self.notify("Invalid password, please try again.")
             return False
         else:
@@ -206,7 +205,7 @@ class ConfigCommand:
                 await self._config_single_key_legacy(key, input_value)
             else:
                 config_map = self.strategy_config_map
-                file_path = join(CONF_FILE_PATH, self.strategy_file_name)
+                file_path = STRATEGIES_CONF_DIR_PATH / self.strategy_file_name
                 if input_value is None:
                     self.notify("Please follow the prompt to complete configurations: ")
                 if key == "inventory_target_base_pct":
@@ -242,7 +241,7 @@ class ConfigCommand:
             file_path = GLOBAL_CONFIG_PATH
         elif self.strategy_config_map is not None and key in self.strategy_config_map:
             config_map = self.strategy_config_map
-            file_path = join(CONF_FILE_PATH, self.strategy_file_name)
+            file_path = STRATEGIES_CONF_DIR_PATH / self.strategy_file_name
         config_var = config_map[key]
         if input_value is None:
             self.notify("Please follow the prompt to complete configurations: ")
@@ -255,12 +254,11 @@ class ConfigCommand:
         if self.app.to_stop_config:
             self.app.to_stop_config = False
             return
-        await self.update_all_secure_configs_legacy()
         missings = missing_required_configs_legacy(config_map)
         if missings:
             self.notify("\nThere are other configuration required, please follow the prompt to complete them.")
         missings = await self._prompt_missing_configs(config_map)
-        save_to_yml_legacy(file_path, config_map)
+        save_to_yml_legacy(str(file_path), config_map)
         self.notify("\nNew configuration saved:")
         self.notify(f"{key}: {str(config_var.value)}")
         self.app.app.style = load_style()

@@ -98,7 +98,6 @@ class StatusCommand:
             if err_msg is not None:
                 invalid_conns["celo"] = err_msg
         if not any([str(exchange).endswith("paper_trade") for exchange in required_exchanges]):
-            await self.update_all_secure_configs_legacy()
             connections = await UserBalances.instance().update_exchanges(exchanges=required_exchanges)
             invalid_conns.update({ex: err_msg for ex, err_msg in connections.items()
                                   if ex in required_exchanges and err_msg is not None})
@@ -115,7 +114,9 @@ class StatusCommand:
         config_map = self.strategy_config_map
         missing_configs = []
         if not isinstance(config_map, ClientConfigAdapter):
-            missing_configs = missing_required_configs_legacy(get_strategy_config_map(self.strategy_name))
+            missing_configs = missing_required_configs_legacy(
+                get_strategy_config_map(self.strategy_name)
+            )
         return missing_globals + missing_configs
 
     def validate_configs(

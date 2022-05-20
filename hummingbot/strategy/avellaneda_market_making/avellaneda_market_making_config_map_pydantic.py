@@ -467,7 +467,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
 
     # === post-validations ===
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def post_validations(cls, values: Dict):
         cls.exchange_post_validation(values)
         return values

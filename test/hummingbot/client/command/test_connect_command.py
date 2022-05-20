@@ -1,8 +1,9 @@
 import asyncio
 import unittest
 from copy import deepcopy
+from test.mock.mock_cli import CLIMockingAssistant
 from typing import Awaitable
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 
@@ -10,7 +11,6 @@ from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from test.mock.mock_cli import CLIMockingAssistant
 
 
 class ConnectCommandTest(unittest.TestCase):
@@ -63,15 +63,17 @@ class ConnectCommandTest(unittest.TestCase):
         except asyncio.TimeoutError:  # the coroutine did not finish on time
             raise RuntimeError
 
+    @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
     @patch("hummingbot.client.config.security.Security.update_secure_config")
-    @patch("hummingbot.client.config.security.Security.encrypted_file_exists")
+    @patch("hummingbot.client.config.security.Security.connector_config_file_exists")
     @patch("hummingbot.client.config.security.Security.api_keys")
     @patch("hummingbot.user.user_balances.UserBalances.add_exchange")
     def test_connect_exchange_success(
         self,
         add_exchange_mock: AsyncMock,
         api_keys_mock: AsyncMock,
-        encrypted_file_exists_mock: MagicMock,
+        connector_config_file_exists_mock: MagicMock,
+        update_secure_config_mock: MagicMock,
         _: MagicMock,
     ):
         add_exchange_mock.return_value = None
@@ -79,7 +81,7 @@ class ConnectCommandTest(unittest.TestCase):
         api_key = "someKey"
         api_secret = "someSecret"
         api_keys_mock.return_value = {"binance_api_key": api_key, "binance_api_secret": api_secret}
-        encrypted_file_exists_mock.return_value = False
+        connector_config_file_exists_mock.return_value = False
         global_config_map["other_commands_timeout"].value = 30
         self.cli_mock_assistant.queue_prompt_reply(api_key)  # binance API key
         self.cli_mock_assistant.queue_prompt_reply(api_secret)  # binance API secret
@@ -88,24 +90,52 @@ class ConnectCommandTest(unittest.TestCase):
         self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg=f"\nYou are now connected to {exchange}."))
         self.assertFalse(self.app.placeholder_mode)
         self.assertFalse(self.app.app.hide_input)
+        self.assertEqual(update_secure_config_mock.call_count, 1)
 
+    @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
+    @patch("hummingbot.client.config.security.save_to_yml")
+    @patch("hummingbot.client.command.connect_command.CeloCLI")
+    @patch("hummingbot.client.config.security.Security.connector_config_file_exists")
+    def test_connect_celo_success(
+        self,
+        connector_config_file_exists_mock: MagicMock,
+        celo_cli_mock: MagicMock,
+        _: MagicMock,
+        __: AsyncMock,
+    ):
+        connector_config_file_exists_mock.return_value = False
+        exchange = "celo"
+        celo_address = "someAddress"
+        celo_password = "somePassword"
+        self.cli_mock_assistant.queue_prompt_reply(celo_address)
+        self.cli_mock_assistant.queue_prompt_reply(celo_password)
+        celo_cli_mock.validate_node_synced.return_value = None
+        celo_cli_mock.unlock_account.return_value = None
+
+        self.async_run_with_timeout(self.app.connect_exchange(exchange))
+        self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg="\nYou are now connected to celo."))
+        self.assertFalse(self.app.placeholder_mode)
+        self.assertFalse(self.app.app.hide_input)
+
+    @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
     @patch("hummingbot.client.config.security.Security.update_secure_config")
-    @patch("hummingbot.client.config.security.Security.encrypted_file_exists")
+    @patch("hummingbot.client.config.security.Security.connector_config_file_exists")
     @patch("hummingbot.client.config.security.Security.api_keys")
     @patch("hummingbot.user.user_balances.UserBalances.add_exchange")
     def test_connect_exchange_handles_network_timeouts(
         self,
         add_exchange_mock: AsyncMock,
         api_keys_mock: AsyncMock,
-        encrypted_file_exists_mock: MagicMock,
+        connector_config_file_exists_mock: MagicMock,
         _: MagicMock,
+        __: MagicMock,
     ):
         add_exchange_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
         global_config_map["other_commands_timeout"].value = 0.01
         api_key = "someKey"
         api_secret = "someSecret"
         api_keys_mock.return_value = {"binance_api_key": api_key, "binance_api_secret": api_secret}
-        encrypted_file_exists_mock.return_value = False
+        connector_config_file_exists_mock.return_value = False
         self.cli_mock_assistant.queue_prompt_reply(api_key)  # binance API key
         self.cli_mock_assistant.queue_prompt_reply(api_secret)  # binance API secret
 
@@ -120,7 +150,8 @@ class ConnectCommandTest(unittest.TestCase):
         self.assertFalse(self.app.app.hide_input)
 
     @patch("hummingbot.user.user_balances.UserBalances.update_exchanges")
-    def test_connection_df_handles_network_timeouts(self, update_exchanges_mock: AsyncMock):
+    @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
+    def test_connection_df_handles_network_timeouts(self, _: AsyncMock, update_exchanges_mock: AsyncMock):
         update_exchanges_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
         global_config_map["other_commands_timeout"].value = 0.01
 
@@ -133,7 +164,8 @@ class ConnectCommandTest(unittest.TestCase):
         )
 
     @patch("hummingbot.user.user_balances.UserBalances.update_exchanges")
-    def test_connection_df_handles_network_timeouts_logs_hidden(self, update_exchanges_mock: AsyncMock):
+    @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
+    def test_connection_df_handles_network_timeouts_logs_hidden(self, _: AsyncMock, update_exchanges_mock: AsyncMock):
         self.cli_mock_assistant.toggle_logs()
 
         update_exchanges_mock.side_effect = self.get_async_sleep_fn(delay=0.02)

@@ -4,7 +4,8 @@ import re
 import time
 import unittest
 from decimal import Decimal
-from typing import Any, Awaitable, List, Dict
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from typing import Any, Awaitable, Dict, List
 from unittest.mock import patch
 
 from aioresponses import aioresponses
@@ -12,12 +13,12 @@ from aioresponses import aioresponses
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
 from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIoInFlightOrder
+from hummingbot.connector.exchange.gate_io.gate_io_utils import GateIoAPIError
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class TestGateIoExchange(unittest.TestCase):
@@ -620,3 +621,13 @@ class TestGateIoExchange(unittest.TestCase):
         )
 
         self.assertEqual(result, expected_client_order_id)
+
+    @aioresponses()
+    def test_update_balances_raises_on_error(self, mock_api):
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.USER_BALANCES_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = {"label": "INVALID_KEY", "message": "Invalid key provided"}
+        mock_api.get(regex_url, body=json.dumps(resp))
+
+        with self.assertRaises(GateIoAPIError):
+            self.async_run_with_timeout(coroutine=self.exchange._update_balances())

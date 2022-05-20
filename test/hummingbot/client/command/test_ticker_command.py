@@ -2,12 +2,12 @@ import asyncio
 import unittest
 from collections import Awaitable
 from copy import deepcopy
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange.mock_paper_exchange import MockPaperExchange
 
 
 class TickerCommandTest(unittest.TestCase):
@@ -58,7 +58,7 @@ class TickerCommandTest(unittest.TestCase):
         self.assertEqual(1, len(captures))
 
         df_str_expected = (
-            "   Market: MockPaperExchange"
+            "   Market: mock_paper_exchange"
             "\n+------------+------------+-------------+--------------+"
             "\n|   Best Bid |   Best Ask |   Mid Price |   Last Trade |"
             "\n|------------+------------+-------------+--------------|"
