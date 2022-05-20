@@ -98,7 +98,7 @@ class CreateCommand:
             client_data = config_map.get_client_data(key)
             if (
                 client_data is not None
-                and (client_data.prompt_on_new and config_map.is_required(key))
+                and (client_data.prompt_on_new or config_map.is_required(key))
             ):
                 await self.prompt_a_config(config_map, key)
                 if self.app.to_stop_config:
