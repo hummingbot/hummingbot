@@ -7,6 +7,7 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map_pydantic import (
     CrossExchangeMarketMakingConfigMap,
+    TakerToMakerConversionRateMode,
 )
 
 
@@ -19,17 +20,20 @@ class XEMMStartTest(unittest.TestCase):
         self.notifications = []
         self.log_errors = []
 
-        self.strategy_config_map = ClientConfigAdapter(
-            CrossExchangeMarketMakingConfigMap(
-                maker_market="binance",
-                taker_market="kucoin",
-                maker_market_trading_pair="ETH-USDT",
-                taker_market_trading_pair="ETH-USDT",
-                order_amount=1.0,
-                min_profitability=2.0,
-                use_oracle_conversion_rate=False,
-            )
+        config_map_raw = CrossExchangeMarketMakingConfigMap(
+            maker_market="binance",
+            taker_market="kucoin",
+            maker_market_trading_pair="ETH-USDT",
+            taker_market_trading_pair="ETH-USDT",
+            order_amount=1.0,
+            min_profitability=2.0,
+            conversion_rate_mode=TakerToMakerConversionRateMode(),
         )
+
+        config_map_raw.conversion_rate_mode.taker_to_maker_base_conversion_rate = Decimal("1.0")
+        config_map_raw.conversion_rate_mode.taker_to_maker_quote_conversion_rate = Decimal("1.0")
+
+        self.strategy_config_map = ClientConfigAdapter(config_map_raw)
 
         global_config_map.get("strategy_report_interval").value = 60.
 

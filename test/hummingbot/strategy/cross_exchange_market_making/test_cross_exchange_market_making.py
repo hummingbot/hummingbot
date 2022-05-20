@@ -28,7 +28,9 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map_pydantic import (
+    ActiveOrderRefreshMode,
     CrossExchangeMarketMakingConfigMap,
+    TakerToMakerConversionRateMode,
 )
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -77,16 +79,15 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             order_size_taker_volume_factor=Decimal("25"),
             order_size_taker_balance_factor=Decimal("99.5"),
             order_size_portfolio_ratio_limit=Decimal("30"),
-            limit_order_min_expiration=130.0,
             adjust_order_enabled=True,
             anti_hysteresis_duration=60.0,
-            active_order_canceling=True,
-            cancel_order_threshold=Decimal("5"),
+            order_refresh_mode=ActiveOrderRefreshMode(),
             top_depth_tolerance=Decimal(0),
-            use_oracle_conversion_rate=False,
-            taker_to_maker_base_conversion_rate=Decimal("1"),
-            taker_to_maker_quote_conversion_rate=Decimal("1")
+            conversion_rate_mode=TakerToMakerConversionRateMode(),
         )
+
+        self.config_map_raw.conversion_rate_mode.taker_to_maker_base_conversion_rate = Decimal("1.0")
+        self.config_map_raw.conversion_rate_mode.taker_to_maker_quote_conversion_rate = Decimal("1.0")
 
         self.config_map = ClientConfigAdapter(self.config_map_raw)
         config_map_with_top_depth_tolerance_raw = deepcopy(self.config_map_raw)
@@ -491,7 +492,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         config_map_raw = deepcopy(self.config_map_raw)
         config_map_raw.min_profitability = Decimal("1")
         config_map_raw.order_size_portfolio_ratio_limit = Decimal("30")
-        config_map_raw.taker_to_maker_base_conversion_rate = Decimal("0.95")
+        config_map_raw.conversion_rate_mode.taker_to_maker_base_conversion_rate = Decimal("0.95")
         config_map = ClientConfigAdapter(
             config_map_raw
         )

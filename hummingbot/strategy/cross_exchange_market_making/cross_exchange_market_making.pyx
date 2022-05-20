@@ -30,6 +30,7 @@ from .order_id_market_pair_tracker import OrderIDMarketPairTracker
 
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map_pydantic import (
     CrossExchangeMarketMakingConfigMap,
+    PassiveOrderRefreshMode
 )
 
 NaN = float("nan")
@@ -127,14 +128,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         return self._config_map.top_depth_tolerance
 
     @property
-    def cancel_order_threshold(self):
-        return self._config_map.cancel_order_threshold / Decimal("100")
-
-    @property
-    def active_order_canceling(self):
-        return self._config_map.active_order_canceling
-
-    @property
     def anti_hysteresis_duration(self):
         return self._config_map.anti_hysteresis_duration
 
@@ -191,36 +184,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     def logging_options(self, int64_t logging_options):
         self._logging_options = logging_options
 
-    def get_taker_to_maker_conversion_rate(self) -> Tuple[str, Decimal, str, Decimal]:
-        """
-        Find conversion rates from taker market to maker market
-        :return: A tuple of quote pair symbol, quote conversion rate source, quote conversion rate,
-        base pair symbol, base conversion rate source, base conversion rate
-        """
-        quote_rate = Decimal("1")
-        market_pairs = list(self._market_pairs.values())[0]
-        quote_pair = f"{market_pairs.taker.quote_asset}-{market_pairs.maker.quote_asset}"
-        quote_rate_source = "fixed"
-        if self.use_oracle_conversion_rate:
-            if market_pairs.taker.quote_asset != market_pairs.maker.quote_asset:
-                quote_rate_source = RateOracle.source.name
-                quote_rate = RateOracle.get_instance().rate(quote_pair)
-        else:
-            quote_rate = self.taker_to_maker_quote_conversion_rate
-        base_rate = Decimal("1")
-        base_pair = f"{market_pairs.taker.base_asset}-{market_pairs.maker.base_asset}"
-        base_rate_source = "fixed"
-        if self.use_oracle_conversion_rate:
-            if market_pairs.taker.base_asset != market_pairs.maker.base_asset:
-                base_rate_source = RateOracle.source.name
-                base_rate = RateOracle.get_instance().rate(base_pair)
-        else:
-            base_rate = self.taker_to_maker_base_conversion_rate
-        return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate
-
     def log_conversion_rates(self):
+        market_pair = list(self._market_pairs.values())[0]
         quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate = \
-            self.get_taker_to_maker_conversion_rate()
+            self._config_map.conversion_rate_mode.get_taker_to_maker_conversion_rate(market_pair)
         if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
             self.logger().info(f"{quote_pair} ({quote_rate_source}) conversion rate: {PerformanceMetrics.smart_round(quote_rate)}")
         if base_pair.split("-")[0] != base_pair.split("-")[1]:
@@ -229,8 +196,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     def oracle_status_df(self):
         columns = ["Source", "Pair", "Rate"]
         data = []
+        market_pair = list(self._market_pairs.values())[0]
         quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate = \
-            self.get_taker_to_maker_conversion_rate()
+            self._config_map.conversion_rate_mode.get_taker_to_maker_conversion_rate(market_pair)
         if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
             data.extend([
                 [quote_rate_source, quote_pair, PerformanceMetrics.smart_round(quote_rate)],
@@ -455,7 +423,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             if not self.c_check_if_still_profitable(market_pair, active_order, current_hedging_price):
                 continue
 
-            if not self.active_order_canceling:
+            if isinstance(self._config_map.order_refresh_mode, PassiveOrderRefreshMode):
                 continue
 
             # See if I still have enough balance on my wallet to fill the order on maker market, and to hedge the
@@ -1109,9 +1077,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             object order_price = active_order.price
             object cancel_order_threshold
 
-        if not self.active_order_canceling:
-            cancel_order_threshold = self.cancel_order_threshold
-        else:
+        cancel_order_threshold = self._config_map.order_refresh_mode.get_cancel_order_threshold()
+        if cancel_order_threshold.is_nan():
             cancel_order_threshold = self.min_profitability
 
         if current_hedging_price is None:
@@ -1160,8 +1127,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             object order_size_limit
             str taker_trading_pair = market_pair.taker.trading_pair
 
+        market_pair = list(self._market_pairs.values())[0]
         quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate = \
-            self.get_taker_to_maker_conversion_rate()
+            self._config_map.conversion_rate_mode.get_taker_to_maker_conversion_rate(market_pair)
 
         if is_buy:
             quote_asset_amount = maker_market.c_get_balance(market_pair.maker.quote_asset)
@@ -1195,7 +1163,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         """
         Return price conversion rate for a taker market (to convert it into maker base asset value)
         """
-        _, _, quote_rate, _, _, base_rate = self.get_taker_to_maker_conversion_rate()
+        market_pair = list(self._market_pairs.values())[0]
+        _, _, quote_rate, _, _, base_rate = self._config_map.conversion_rate_mode.get_taker_to_maker_conversion_rate(market_pair)
         return quote_rate / base_rate
         # else:
         #     market_pairs = list(self._market_pairs.values())[0]
@@ -1311,8 +1280,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_info.market.get_taker_order_type()
         if order_type is OrderType.MARKET:
             price = s_decimal_nan
-        if not self.active_order_canceling:
-            expiration_seconds = self.limit_order_min_expiration
+        expiration_seconds = self._config_map.order_refresh_mode.get_expiration_seconds()
         if is_buy:
             order_id = StrategyBase.c_buy_with_specific_market(self, market_info, amount,
                                                                order_type=order_type, price=price,
