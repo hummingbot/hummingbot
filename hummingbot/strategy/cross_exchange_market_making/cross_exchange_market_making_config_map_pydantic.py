@@ -1,11 +1,193 @@
+from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Dict
+from typing import Dict, Tuple, Union
 
 from pydantic import BaseModel, Field, root_validator, validator
 
 import hummingbot.client.settings as settings
-from hummingbot.client.config.config_data_types import BaseTradingStrategyMakerTakerConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import (
+    BaseClientModel,
+    BaseTradingStrategyMakerTakerConfigMap,
+    ClientFieldData,
+)
 from hummingbot.client.config.config_validators import validate_bool, validate_decimal
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+
+from .cross_exchange_market_pair import CrossExchangeMarketPair
+
+
+class ConversionRateModel(BaseClientModel, ABC):
+    @abstractmethod
+    def get_taker_to_maker_conversion_rate(
+        self, market_pair: CrossExchangeMarketPair
+    ) -> Tuple[str, str, Decimal, str, str, Decimal]:
+        pass
+
+
+class OracleConversionRateMode(ConversionRateModel):
+    class Config:
+        title = "rate_oracle_conversion_rate"
+
+    def get_taker_to_maker_conversion_rate(
+        self, market_pair: CrossExchangeMarketPair
+    ) -> Tuple[str, str, Decimal, str, str, Decimal]:
+        """
+        Find conversion rates from taker market to maker market
+        :param market_pair: maker and taker trading pairs for which to do conversion
+        :return: A tuple of quote pair symbol, quote conversion rate source, quote conversion rate,
+        base pair symbol, base conversion rate source, base conversion rate
+        """
+        quote_pair = f"{market_pair.taker.quote_asset}-{market_pair.maker.quote_asset}"
+        if market_pair.taker.quote_asset != market_pair.maker.quote_asset:
+            quote_rate_source = RateOracle.source.name
+            quote_rate = RateOracle.get_instance().rate(quote_pair)
+        else:
+            quote_rate_source = "fixed"
+            quote_rate = Decimal("1")
+
+        base_pair = f"{market_pair.taker.base_asset}-{market_pair.maker.base_asset}"
+        if market_pair.taker.base_asset != market_pair.maker.base_asset:
+            base_rate_source = RateOracle.source.name
+            base_rate = RateOracle.get_instance().rate(base_pair)
+        else:
+            base_rate_source = "fixed"
+            base_rate = Decimal("1")
+
+        return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate
+
+
+class TakerToMakerConversionRateMode(ConversionRateModel):
+    taker_to_maker_base_conversion_rate: Decimal = Field(
+        default=Decimal("1.0"),
+        description="A fixed conversion rate between the maker and taker tradin pairs based on the maker base asset.",
+        gt=0.0,
+        client_data=ClientFieldData(
+            prompt=lambda mi: (
+                "Enter conversion rate for taker base asset value to maker base asset value, e.g. "
+                "if maker base asset is USD and the taker is DAI, 1 DAI is valued at 1.25 USD, "
+                "the conversion rate is 1.25"
+            ),
+            prompt_on_new=True,
+        ),
+    )
+    taker_to_maker_quote_conversion_rate: Decimal = Field(
+        default=Decimal("1.0"),
+        description="A fixed conversion rate between the maker and taker tradin pairs based on the maker quote asset.",
+        gt=0.0,
+        client_data=ClientFieldData(
+            prompt=lambda mi: (
+                "Enter conversion rate for taker quote asset value to maker quote asset value, e.g. "
+                "if maker quote asset is USD and the taker is DAI, 1 DAI is valued at 1.25 USD, "
+                "the conversion rate is 1.25"
+            ),
+            prompt_on_new=True,
+        ),
+    )
+
+    class Config:
+        title = "fixed_conversion_rate"
+
+    def get_taker_to_maker_conversion_rate(
+        self, market_pair: CrossExchangeMarketPair
+    ) -> Tuple[str, str, Decimal, str, str, Decimal]:
+        """
+        Find conversion rates from taker market to maker market
+        :param market_pair: maker and taker trading pairs for which to do conversion
+        :return: A tuple of quote pair symbol, quote conversion rate source, quote conversion rate,
+        base pair symbol, base conversion rate source, base conversion rate
+        """
+        quote_rate = Decimal("1")
+        quote_pair = f"{market_pair.taker.quote_asset}-{market_pair.maker.quote_asset}"
+        quote_rate_source = "fixed"
+        quote_rate = self.taker_to_maker_quote_conversion_rate
+
+        base_rate = Decimal("1")
+        base_pair = f"{market_pair.taker.base_asset}-{market_pair.maker.base_asset}"
+        base_rate_source = "fixed"
+        base_rate = self.taker_to_maker_base_conversion_rate
+
+        return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate
+
+    @validator(
+        "taker_to_maker_base_conversion_rate",
+        "taker_to_maker_quote_conversion_rate",
+        pre=True,
+    )
+    def validate_decimal(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
+        return CrossExchangeMarketMakingConfigMap.validate_decimal(v=v, field=field)
+
+
+CONVERSION_RATE_MODELS = {
+    OracleConversionRateMode.Config.title: OracleConversionRateMode,
+    TakerToMakerConversionRateMode.Config.title: TakerToMakerConversionRateMode,
+}
+
+
+class OrderRefreshMode(BaseClientModel, ABC):
+    @abstractmethod
+    def get_cancel_order_threshold(self) -> Decimal:
+        pass
+
+    @abstractmethod
+    def get_expiration_seconds(self) -> Decimal:
+        pass
+
+
+class PassiveOrderRefreshMode(OrderRefreshMode):
+    cancel_order_threshold: Decimal = Field(
+        default=Decimal("5.0"),
+        description="Profitability threshold to cancel a trade.",
+        gt=-100.0,
+        lt=100.0,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "What is the threshold of profitability to cancel a trade? (Enter 1 to indicate 1%)",
+            prompt_on_new=True,
+        ),
+    )
+
+    limit_order_min_expiration: float = Field(
+        default=130.0,
+        description="Limit order expiration time limit.",
+        gt=0.0,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "How often do you want limit orders to expire (in seconds)?",
+            prompt_on_new=True,
+        ),
+    )
+
+    class Config:
+        title = "passive_order_refresh"
+
+    def get_cancel_order_threshold(self) -> Decimal:
+        return self.cancel_order_threshold / Decimal("100")
+
+    def get_expiration_seconds(self) -> Decimal:
+        return self.limit_order_min_expiration
+
+    @validator(
+        "cancel_order_threshold",
+        "limit_order_min_expiration",
+        pre=True,
+    )
+    def validate_decimal(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
+        return CrossExchangeMarketMakingConfigMap.validate_decimal(v=v, field=field)
+
+
+class ActiveOrderRefreshMode(OrderRefreshMode):
+    class Config:
+        title = "active_order_refresh"
+
+    def get_cancel_order_threshold(self) -> Decimal:
+        return Decimal('nan')
+
+    def get_expiration_seconds(self) -> Decimal:
+        return Decimal('nan')
+
+
+ORDER_REFRESH_MODELS = {
+    PassiveOrderRefreshMode.Config.title: PassiveOrderRefreshMode,
+    ActiveOrderRefreshMode.Config.title: ActiveOrderRefreshMode,
+}
 
 
 class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap):
@@ -37,28 +219,12 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             prompt=lambda mi: "Do you want to enable adjust order? (Yes/No)"
         ),
     )
-    active_order_canceling: bool = Field(
-        default=True,
-        description="An option to refresh orders by cancellation instead of letting them expire.",
+    order_refresh_mode: Union[PassiveOrderRefreshMode, ActiveOrderRefreshMode] = Field(
+        default=ActiveOrderRefreshMode.construct(),
+        description="Refresh orders by cancellation or by letting them expire.",
         client_data=ClientFieldData(
-            prompt=lambda mi: "Do you want to enable active order canceling? (Yes/No)"
-        ),
-    )
-    cancel_order_threshold: Decimal = Field(
-        default=Decimal("5.0"),
-        description="Profitability threshold to cancel a trade.",
-        gt=-100.0,
-        lt=100.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "What is the threshold of profitability to cancel a trade? (Enter 1 to indicate 1%)",
-        ),
-    )
-    limit_order_min_expiration: float = Field(
-        default=130.0,
-        description="Limit order expiration time limit.",
-        gt=0.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "How often do you want limit orders to expire (in seconds)?",
+            prompt=lambda mi: f"Select the order refresh mode ({'/'.join(list(ORDER_REFRESH_MODELS.keys()))})",
+            prompt_on_new=True,
         ),
     )
     top_depth_tolerance: Decimal = Field(
@@ -113,36 +279,12 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             ),
         ),
     )
-    use_oracle_conversion_rate: bool = Field(
-        default=True,
-        description="Use rate oracle to determine a conversion rate between two different trading pairs.",
+    conversion_rate_mode: Union[OracleConversionRateMode, TakerToMakerConversionRateMode] = Field(
+        default=OracleConversionRateMode.construct(),
+        description="Convert between different trading pairs using fixed conversion rates or using the rate oracle.",
         client_data=ClientFieldData(
-            prompt=lambda mi: "Do you want to use rate oracle on unmatched trading pairs? (Yes/No)",
+            prompt=lambda mi: f"Select the conversion rate mode ({'/'.join(list(CONVERSION_RATE_MODELS.keys()))})",
             prompt_on_new=True,
-        ),
-    )
-    taker_to_maker_base_conversion_rate: Decimal = Field(
-        default=Decimal("1.0"),
-        description="A fixed conversion rate between the maker and taker tradin pairs based on the maker base asset.",
-        gt=0.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                "Enter conversion rate for taker base asset value to maker base asset value, e.g. "
-                "if maker base asset is USD and the taker is DAI, 1 DAI is valued at 1.25 USD, "
-                "the conversion rate is 1.25"
-            ),
-        ),
-    )
-    taker_to_maker_quote_conversion_rate: Decimal = Field(
-        default=Decimal("1.0"),
-        description="A fixed conversion rate between the maker and taker tradin pairs based on the maker quote asset.",
-        gt=0.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                "Enter conversion rate for taker quote asset value to maker quote asset value, e.g. "
-                "if maker quote asset is USD and the taker is DAI, 1 DAI is valued at 1.25 USD, "
-                "the conversion rate is 1.25"
-            ),
         ),
     )
     slippage_buffer: Decimal = Field(
@@ -173,12 +315,35 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         base_asset, quote_asset = trading_pair.split("-")
         return f"What is the amount of {base_asset} per order?"
 
+    # === specific validations ===
+    @validator("order_refresh_mode", pre=True)
+    def validate_order_refresh_mode(cls, v: Union[str, ActiveOrderRefreshMode, PassiveOrderRefreshMode]):
+        if isinstance(v, (ActiveOrderRefreshMode, PassiveOrderRefreshMode, Dict)):
+            sub_model = v
+        elif v not in ORDER_REFRESH_MODELS:
+            raise ValueError(
+                f"Invalid order refresh mode, please choose value from {list(ORDER_REFRESH_MODELS.keys())}."
+            )
+        else:
+            sub_model = ORDER_REFRESH_MODELS[v].construct()
+        return sub_model
+
+    @validator("conversion_rate_mode", pre=True)
+    def validate_conversion_rate_mode(cls, v: Union[str, OracleConversionRateMode, TakerToMakerConversionRateMode]):
+        if isinstance(v, (OracleConversionRateMode, TakerToMakerConversionRateMode, Dict)):
+            sub_model = v
+        elif v not in CONVERSION_RATE_MODELS:
+            raise ValueError(
+                f"Invalid conversion rate mode, please choose value from {list(CONVERSION_RATE_MODELS.keys())}."
+            )
+        else:
+            sub_model = CONVERSION_RATE_MODELS[v].construct()
+        return sub_model
+
     # === generic validations ===
 
     @validator(
         "adjust_order_enabled",
-        "active_order_canceling",
-        "use_oracle_conversion_rate",
         pre=True,
     )
     def validate_bool(cls, v: str):
@@ -192,19 +357,15 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     @validator(
         "min_profitability",
         "order_amount",
-        "cancel_order_threshold",
-        "limit_order_min_expiration",
         "top_depth_tolerance",
         "anti_hysteresis_duration",
         "order_size_taker_volume_factor",
         "order_size_taker_balance_factor",
         "order_size_portfolio_ratio_limit",
-        "taker_to_maker_base_conversion_rate",
-        "taker_to_maker_quote_conversion_rate",
         "slippage_buffer",
         pre=True,
     )
-    def validate_decimal(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
+    def validate_decimal(cls, v: str, field: Field):
         """Used for client-friendly error output."""
         range_min = None
         range_max = None
