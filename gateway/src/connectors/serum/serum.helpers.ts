@@ -9,7 +9,7 @@ export const getNotNullOrThrowError = <R>(
   value?: any,
   errorMessage: string = 'Value is null or undefined'
 ): R => {
-  if (!value) throw new Error(errorMessage);
+  if (value === undefined || value === null) throw new Error(errorMessage);
 
   return value as R;
 };

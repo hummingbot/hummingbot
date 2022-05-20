@@ -1,4 +1,5 @@
 import { MARKETS } from '@project-serum/serum';
+import BN from 'bn.js';
 import express from 'express';
 import { Express } from 'express-serve-static-core';
 import { StatusCodes } from 'http-status-codes';
@@ -7,6 +8,7 @@ import request from 'supertest';
 import { Solana } from '../../../src/chains/solana/solana';
 import { Serum } from '../../../src/connectors/serum/serum';
 import { convertToGetOrderResponse } from '../../../src/connectors/serum/serum.convertors';
+import { getNotNullOrThrowError } from '../../../src/connectors/serum/serum.helpers';
 import { SerumRoutes } from '../../../src/connectors/serum/serum.routes';
 import {
   CreateOrdersRequest,
@@ -18,8 +20,8 @@ import {
   Ticker,
 } from '../../../src/connectors/serum/serum.types';
 import { unpatch } from '../../services/patch';
-import { getNewOrderTemplate } from './fixtures/dummy';
-import { default as config } from './fixtures/serum.config';
+import { default as config } from './fixtures/config';
+import { getNewCandidateOrdersTemplates, getNewCandidateOrderTemplate } from './fixtures/helpers';
 
 let app: Express;
 let serum: Serum;
@@ -41,13 +43,23 @@ afterEach(() => {
   unpatch();
 });
 
-const routePrefix = '/serum';
+// All markets intersection with the whitelisted ones excepted the blacklisted ones.
+// This is defined in the 'gateway/conf/serum.yml' file.
+const numberOfAllowedMarkets = config.solana.allowedMarkets.length;
 
-describe(`${routePrefix}`, () => {
-  describe(`GET ${routePrefix}`, () => {
+const marketNames = config.solana.allowedMarkets.slice(0, 2);
+
+const marketName = marketNames[0];
+
+const orderIds = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+const candidateOrders = getNewCandidateOrdersTemplates(10, 0);
+
+describe(`/serum`, () => {
+  describe(`GET /serum`, () => {
     it('Get the API status', async () => {
       await request(app)
-        .get(`${routePrefix}`)
+        .get(`/serum`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -66,13 +78,11 @@ describe(`${routePrefix}`, () => {
   });
 });
 
-describe(`${routePrefix}/markets`, () => {
-  describe(`GET ${routePrefix}/markets`, () => {
+describe(`/serum/markets`, () => {
+  describe(`GET /serum/markets`, () => {
     it('Get a specific market by its name', async () => {
-      const marketName = 'BTC/USDT';
-
       await request(app)
-        .get(`${routePrefix}/markets`)
+        .get(`/serum/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -82,28 +92,32 @@ describe(`${routePrefix}/markets`, () => {
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
         .then((response) => {
+          const market: GetMarketResponse = response.body as GetMarketResponse;
+          expect(market).toBeDefined();
+
           const targetMarket = MARKETS.find(
-            (market) => market.name === marketName
-          )!;
+            (market) => market.name === marketName && !market.deprecated
+          );
+          expect(targetMarket).toBeDefined();
 
-          const market: GetMarketResponse = response.body;
-
-          expect(market.name).toBe(targetMarket.name);
-          expect(market.address).toBe(targetMarket.address.toString());
-          expect(market.programId).toBe(targetMarket.programId.toString());
-          expect(market.deprecated).toBe(targetMarket.deprecated);
-          expect(market.minimumOrderSize).toBe(-1);
-          expect(market.tickSize).toBe(-1);
-          expect(market.minimumBaseIncrement).toBe(-1);
-          expect(market.fees).toBe(-1);
+          expect(market.name).toBe(targetMarket?.name);
+          expect(market.address.toString()).toBe(targetMarket?.address.toString());
+          expect(market.programId.toString()).toBe(
+            targetMarket?.programId.toString()
+          );
+          expect(market.deprecated).toBe(targetMarket?.deprecated);
+          expect(market.minimumOrderSize).toBeGreaterThan(0);
+          expect(market.tickSize).toBeGreaterThan(0);
+          expect(market.minimumBaseIncrement).toBeDefined();
+          expect(
+            new BN(getNotNullOrThrowError(market.minimumBaseIncrement)).gt(new BN(0))
+          );
         });
     });
 
     it('Get a map of markets by their names', async () => {
-      const marketNames = ['BTC/USDT', 'ETH/USDT'];
-
       await request(app)
-        .get(`${routePrefix}/markets`)
+        .get(`/serum/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -114,21 +128,40 @@ describe(`${routePrefix}/markets`, () => {
         .expect(StatusCodes.OK)
         .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const marketsMap = new Map<string, GetMarketResponse>(
-            Object.entries(response.body)
-          );
-
+          const marketsMap: Map<string, GetMarketResponse> = new Map<
+            string,
+            GetMarketResponse
+          >(Object.entries(response.body));
+          expect(marketsMap).toBeDefined();
           expect(marketsMap.size).toBe(marketNames.length);
+
           for (const [marketName, market] of marketsMap) {
-            expect(marketNames.includes(marketName)).toBe(true);
-            expect(market.name).toBe(marketName);
+            const targetMarket = MARKETS.find(
+              (market) => market.name === marketName && !market.deprecated
+            );
+            expect(targetMarket).toBeDefined();
+
+            expect(market.name).toBe(targetMarket?.name);
+            expect(market.address.toString()).toBe(targetMarket?.address.toString());
+            expect(market.programId.toString()).toBe(
+              targetMarket?.programId.toString()
+            );
+            expect(market.deprecated).toBe(targetMarket?.deprecated);
+            expect(market.minimumOrderSize).toBeGreaterThan(0);
+            expect(market.tickSize).toBeGreaterThan(0);
+            expect(market.minimumBaseIncrement).toBeDefined();
+            expect(
+              new BN(getNotNullOrThrowError(market.minimumBaseIncrement)).gt(
+                new BN(0)
+              )
+            );
           }
         });
     });
 
     it('Get a map with all markets', async () => {
       await request(app)
-        .get(`${routePrefix}/markets`)
+        .get(`/serum/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -138,13 +171,33 @@ describe(`${routePrefix}/markets`, () => {
         .expect(StatusCodes.OK)
         .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const marketsMap = new Map<string, GetMarketResponse>(
-            Object.entries(response.body)
-          );
+          const marketsMap: Map<string, GetMarketResponse> = new Map<
+            string,
+            GetMarketResponse
+          >(Object.entries(response.body));
+          expect(marketsMap).toBeDefined();
+          expect(marketsMap.size).toBe(numberOfAllowedMarkets);
 
-          expect(marketsMap.size).toBe(MARKETS.length);
           for (const [marketName, market] of marketsMap) {
-            expect(market.name).toBe(marketName);
+            const targetMarket = MARKETS.find(
+              (market) => market.name === marketName && !market.deprecated
+            );
+            expect(targetMarket).toBeDefined();
+
+            expect(market.name).toBe(targetMarket?.name);
+            expect(market.address.toString()).toBe(targetMarket?.address.toString());
+            expect(market.programId.toString()).toBe(
+              targetMarket?.programId.toString()
+            );
+            expect(market.deprecated).toBe(targetMarket?.deprecated);
+            expect(market.minimumOrderSize).toBeGreaterThan(0);
+            expect(market.tickSize).toBeGreaterThan(0);
+            expect(market.minimumBaseIncrement).toBeDefined();
+            expect(
+              new BN(getNotNullOrThrowError(market.minimumBaseIncrement)).gt(
+                new BN(0)
+              )
+            );
           }
         });
     });
@@ -153,7 +206,7 @@ describe(`${routePrefix}/markets`, () => {
       const marketName = '';
 
       await request(app)
-        .get(`${routePrefix}/markets`)
+        .get(`/serum/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -177,7 +230,7 @@ describe(`${routePrefix}/markets`, () => {
       const marketName = 'ABC/XYZ';
 
       await request(app)
-        .get(`${routePrefix}/markets`)
+        .get(`/serum/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -200,7 +253,7 @@ describe(`${routePrefix}/markets`, () => {
       const marketNames: string[] = [];
 
       await request(app)
-        .get(`${routePrefix}/markets`)
+        .get(`/serum/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -223,7 +276,7 @@ describe(`${routePrefix}/markets`, () => {
       const marketNames = ['BTC/USDT', 'ABC/XYZ', 'ETH/USDT'];
 
       await request(app)
-        .get(`${routePrefix}/markets`)
+        .get(`/serum/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -244,13 +297,11 @@ describe(`${routePrefix}/markets`, () => {
   });
 });
 
-describe(`${routePrefix}/orderBooks`, () => {
-  describe(`GET ${routePrefix}/orderBooks`, () => {
+describe(`/serum/orderBooks`, () => {
+  describe(`GET /serum/orderBooks`, () => {
     it('Get a specific order book by its market name', async () => {
-      const marketName = 'BTC/USDT';
-
       await request(app)
-        .get(`${routePrefix}/orderBooks`)
+        .get(`/serum/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -260,34 +311,39 @@ describe(`${routePrefix}/orderBooks`, () => {
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
         .then((response) => {
+          const orderBook: GetOrderBookResponse =
+            response.body as GetOrderBookResponse;
+          expect(orderBook).toBeDefined();
+          expect(orderBook.market).toBeDefined();
+
+          const market = orderBook.market;
+
           const targetMarket = MARKETS.find(
-            (market) => market.name === marketName
-          )!;
-
-          const orderBook: GetOrderBookResponse = response.body;
-
-          expect(orderBook.market.name).toBe(targetMarket.name);
-          expect(orderBook.market.address).toBe(
-            targetMarket.address.toString()
+            (market) => market.name === marketName && !market.deprecated
           );
-          expect(orderBook.market.programId).toBe(
-            targetMarket.programId.toString()
+          expect(targetMarket).toBeDefined();
+
+          expect(market.name).toBe(targetMarket?.name);
+          expect(market.address.toString()).toBe(targetMarket?.address.toString());
+          expect(market.programId.toString()).toBe(
+            targetMarket?.programId.toString()
           );
-          expect(orderBook.market.deprecated).toBe(targetMarket.deprecated);
-          expect(orderBook.market.minimumOrderSize).toBe(-1);
-          expect(orderBook.market.tickSize).toBe(-1);
-          expect(orderBook.market.minimumBaseIncrement).toBe(-1);
-          expect(orderBook.market.fees).toBe(-1);
-          expect(orderBook.bids).toBe(-1);
-          expect(orderBook.asks).toBe(-1);
+          expect(market.deprecated).toBe(targetMarket?.deprecated);
+          expect(market.minimumOrderSize).toBeGreaterThan(0);
+          expect(market.tickSize).toBeGreaterThan(0);
+          expect(market.minimumBaseIncrement).toBeDefined();
+          expect(
+            new BN(getNotNullOrThrowError(market.minimumBaseIncrement)).gt(new BN(0))
+          );
+
+          expect(Object.entries(orderBook.bids).length).toBeGreaterThan(0);
+          expect(Object.entries(orderBook.bids).length).toBeGreaterThan(0);
         });
     });
 
     it('Get a map of order books by their market names', async () => {
-      const marketNames = ['BTC/USDT', 'ETH/USDT'];
-
       await request(app)
-        .get(`${routePrefix}/orderBooks`)
+        .get(`/serum/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -298,21 +354,45 @@ describe(`${routePrefix}/orderBooks`, () => {
         .expect(StatusCodes.OK)
         .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const orderBooksMap = new Map<string, GetOrderBookResponse>(
-            Object.entries(response.body)
-          );
-
+          const orderBooksMap: Map<string, GetOrderBookResponse> = new Map<
+            string,
+            GetOrderBookResponse
+          >(Object.entries(response.body));
+          expect(orderBooksMap).toBeDefined();
           expect(orderBooksMap.size).toBe(marketNames.length);
+
           for (const [marketName, orderBook] of orderBooksMap) {
-            expect(marketNames.includes(marketName)).toBe(true);
-            expect(orderBook.market.name).toBe(marketName);
+            expect(orderBook).toBeDefined();
+            expect(orderBook.market).toBeDefined();
+
+            const market = orderBook.market;
+
+            const targetMarket = MARKETS.find(
+              (market) => market.name === marketName && !market.deprecated
+            );
+            expect(targetMarket).toBeDefined();
+
+            expect(market.name).toBe(targetMarket?.name);
+            expect(market.address.toString()).toBe(targetMarket?.address.toString());
+            expect(market.programId.toString()).toBe(
+              targetMarket?.programId.toString()
+            );
+            expect(market.deprecated).toBe(targetMarket?.deprecated);
+            expect(market.minimumOrderSize).toBeGreaterThan(0);
+            expect(market.tickSize).toBeGreaterThan(0);
+            expect(market.minimumBaseIncrement).toBeDefined();
+            expect(
+              new BN(getNotNullOrThrowError(market.minimumBaseIncrement)).gt(
+                new BN(0)
+              )
+            );
           }
         });
     });
 
     it('Get a map with all order books', async () => {
       await request(app)
-        .get(`${routePrefix}/orderBooks`)
+        .get(`/serum/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -322,13 +402,38 @@ describe(`${routePrefix}/orderBooks`, () => {
         .expect(StatusCodes.OK)
         .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const marketsMap = new Map<string, GetOrderBookResponse>(
-            Object.entries(response.body)
-          );
+          const orderBooksMap: Map<string, GetOrderBookResponse> = new Map<
+            string,
+            GetOrderBookResponse
+          >(Object.entries(response.body));
+          expect(orderBooksMap).toBeDefined();
+          expect(orderBooksMap.size).toBe(numberOfAllowedMarkets);
 
-          expect(marketsMap.size).toBe(MARKETS.length);
-          for (const [marketName, orderBook] of marketsMap) {
-            expect(orderBook.market.name).toBe(marketName);
+          for (const [marketName, orderBook] of orderBooksMap) {
+            expect(orderBook).toBeDefined();
+            expect(orderBook.market).toBeDefined();
+
+            const market = orderBook.market;
+
+            const targetMarket = MARKETS.find(
+              (market) => market.name === marketName && !market.deprecated
+            );
+            expect(targetMarket).toBeDefined();
+
+            expect(market.name).toBe(targetMarket?.name);
+            expect(market.address.toString()).toBe(targetMarket?.address.toString());
+            expect(market.programId.toString()).toBe(
+              targetMarket?.programId.toString()
+            );
+            expect(market.deprecated).toBe(targetMarket?.deprecated);
+            expect(market.minimumOrderSize).toBeGreaterThan(0);
+            expect(market.tickSize).toBeGreaterThan(0);
+            expect(market.minimumBaseIncrement).toBeDefined();
+            expect(
+              new BN(getNotNullOrThrowError(market.minimumBaseIncrement)).gt(
+                new BN(0)
+              )
+            );
           }
         });
     });
@@ -337,7 +442,7 @@ describe(`${routePrefix}/orderBooks`, () => {
       const marketName = '';
 
       await request(app)
-        .get(`${routePrefix}/orderBooks`)
+        .get(`/serum/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -361,7 +466,7 @@ describe(`${routePrefix}/orderBooks`, () => {
       const marketName = 'ABC/XYZ';
 
       await request(app)
-        .get(`${routePrefix}/orderBooks`)
+        .get(`/serum/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -384,7 +489,7 @@ describe(`${routePrefix}/orderBooks`, () => {
       const marketNames: string[] = [];
 
       await request(app)
-        .get(`${routePrefix}/orderBooks`)
+        .get(`/serum/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -407,7 +512,7 @@ describe(`${routePrefix}/orderBooks`, () => {
       const marketNames = ['BTC/USDT', 'ABC/XYZ', 'ETH/USDT'];
 
       await request(app)
-        .get(`${routePrefix}/orderBooks`)
+        .get(`/serum/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -428,13 +533,11 @@ describe(`${routePrefix}/orderBooks`, () => {
   });
 });
 
-describe(`${routePrefix}/tickers`, () => {
-  describe(`GET ${routePrefix}/tickers`, () => {
+describe(`/serum/tickers`, () => {
+  describe(`GET /serum/tickers`, () => {
     it('Get a specific ticker by its market name', async () => {
-      const marketName = 'BTC/USDT';
-
       await request(app)
-        .get(`${routePrefix}/tickers`)
+        .get(`/serum/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -444,18 +547,25 @@ describe(`${routePrefix}/tickers`, () => {
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
         .then((response) => {
-          const ticker = response.body as Ticker;
+          const ticker: GetTickerResponse = response.body as GetTickerResponse;
+          expect(ticker).toBeDefined();
+
+          const targetMarket = MARKETS.find(
+            (market) => market.name === marketName && !market.deprecated
+          );
+          expect(targetMarket).toBeDefined();
 
           expect(ticker.price).toBeGreaterThan(0);
-          expect(new Date(ticker.timestamp)).toBeValidDate();
+          expect(ticker.timestamp).toBeGreaterThan(0);
+          expect(new Date(ticker.timestamp).getTime()).toBeLessThanOrEqual(
+            Date.now()
+          );
         });
     });
 
     it('Get a map of tickers by their market names', async () => {
-      const marketNames = ['BTC/USDT', 'ETH/USDT'];
-
       await request(app)
-        .get(`${routePrefix}/tickers`)
+        .get(`/serum/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -466,22 +576,33 @@ describe(`${routePrefix}/tickers`, () => {
         .expect(StatusCodes.OK)
         .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const tickersMap = new Map<string, GetTickerResponse>(
-            Object.entries(response.body)
-          );
-
+          const tickersMap: Map<string, GetTickerResponse> = new Map<
+            string,
+            GetTickerResponse
+          >(Object.entries(response.body));
+          expect(tickersMap).toBeDefined();
           expect(tickersMap.size).toBe(marketNames.length);
+
           for (const [marketName, ticker] of tickersMap) {
-            expect(marketNames.includes(marketName)).toBe(true);
+            expect(ticker).toBeDefined();
+
+            const targetMarket = MARKETS.find(
+              (market) => market.name === marketName && !market.deprecated
+            );
+            expect(targetMarket).toBeDefined();
+
             expect(ticker.price).toBeGreaterThan(0);
-            expect(new Date(ticker.timestamp)).toBeValidDate();
+            expect(ticker.timestamp).toBeGreaterThan(0);
+            expect(new Date(ticker.timestamp).getTime()).toBeLessThanOrEqual(
+              Date.now()
+            );
           }
         });
     });
 
     it('Get a map with all tickers', async () => {
       await request(app)
-        .get(`${routePrefix}/tickers`)
+        .get(`/serum/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -491,13 +612,26 @@ describe(`${routePrefix}/tickers`, () => {
         .expect(StatusCodes.OK)
         .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const tickersMap = new Map<string, GetTickerResponse>(
-            Object.entries(response.body)
-          );
+          const tickersMap: Map<string, GetTickerResponse> = new Map<
+            string,
+            GetTickerResponse
+          >(Object.entries(response.body));
+          expect(tickersMap).toBeDefined();
+          expect(tickersMap.size).toBe(numberOfAllowedMarkets);
 
-          expect(tickersMap.size).toBe(MARKETS.length);
-          for (const ticker of tickersMap.values()) {
+          for (const [marketName, ticker] of tickersMap) {
+            expect(ticker).toBeDefined();
+
+            const targetMarket = MARKETS.find(
+              (market) => market.name === marketName && !market.deprecated
+            );
+            expect(targetMarket).toBeDefined();
+
             expect(ticker.price).toBeGreaterThan(0);
+            expect(ticker.timestamp).toBeGreaterThan(0);
+            expect(new Date(ticker.timestamp).getTime()).toBeLessThanOrEqual(
+              Date.now()
+            );
           }
         });
     });
@@ -506,7 +640,7 @@ describe(`${routePrefix}/tickers`, () => {
       const marketName = '';
 
       await request(app)
-        .get(`${routePrefix}/tickers`)
+        .get(`/serum/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -530,7 +664,7 @@ describe(`${routePrefix}/tickers`, () => {
       const marketName = 'ABC/XYZ';
 
       await request(app)
-        .get(`${routePrefix}/tickers`)
+        .get(`/serum/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -553,7 +687,7 @@ describe(`${routePrefix}/tickers`, () => {
       const marketNames: string[] = [];
 
       await request(app)
-        .get(`${routePrefix}/tickers`)
+        .get(`/serum/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -576,7 +710,7 @@ describe(`${routePrefix}/tickers`, () => {
       const marketNames = ['BTC/USDT', 'ABC/XYZ', 'ETH/USDT'];
 
       await request(app)
-        .get(`${routePrefix}/tickers`)
+        .get(`/serum/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -597,11 +731,11 @@ describe(`${routePrefix}/tickers`, () => {
   });
 });
 
-describe(`${routePrefix}/orders`, () => {
-  describe(`GET ${routePrefix}/orders`, () => {
+describe(`/serum/orders`, () => {
+  describe(`GET /serum/orders`, () => {
     it('Fail when trying to get one or more orders without informing any parameters', async () => {
       await request(app)
-        .get(`${routePrefix}/orders`)
+        .get(`/serum/orders`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -631,7 +765,7 @@ describe(`${routePrefix}/orders`, () => {
         const ownerAddress = target.order.ownerAddress;
 
         await request(app)
-          .get(`${routePrefix}/orders`)
+          .get(`/serum/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -656,7 +790,7 @@ describe(`${routePrefix}/orders`, () => {
         const ownerAddress = target.order.ownerAddress;
 
         await request(app)
-          .get(`${routePrefix}/orders`)
+          .get(`/serum/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -681,7 +815,7 @@ describe(`${routePrefix}/orders`, () => {
         const ownerAddress = target.order.ownerAddress;
 
         await request(app)
-          .get(`${routePrefix}/orders`)
+          .get(`/serum/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -706,7 +840,7 @@ describe(`${routePrefix}/orders`, () => {
         const ownerAddress = target.order.ownerAddress;
 
         await request(app)
-          .get(`${routePrefix}/orders`)
+          .get(`/serum/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -731,7 +865,7 @@ describe(`${routePrefix}/orders`, () => {
         const marketName = target.order.marketName;
 
         await request(app)
-          .get(`${routePrefix}/orders`)
+          .get(`/serum/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -758,7 +892,7 @@ describe(`${routePrefix}/orders`, () => {
         const ownerAddress = target.order.ownerAddress;
 
         await request(app)
-          .get(`${routePrefix}/orders`)
+          .get(`/serum/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -785,7 +919,7 @@ describe(`${routePrefix}/orders`, () => {
         const ownerAddress = target.order.ownerAddress;
 
         await request(app)
-          .get(`${routePrefix}/orders`)
+          .get(`/serum/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -817,7 +951,7 @@ describe(`${routePrefix}/orders`, () => {
 
       it('Get a map of orders by their ids and owner addresses', async () => {
         await request(app)
-          .get(`${routePrefix}/orders`)
+          .get(`/serum/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -854,7 +988,7 @@ describe(`${routePrefix}/orders`, () => {
 
       it('Get a map of orders by their ids, owner addresses and market names', async () => {
         await request(app)
-          .get(`${routePrefix}/orders`)
+          .get(`/serum/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -892,7 +1026,7 @@ describe(`${routePrefix}/orders`, () => {
 
       it('Get a map of orders by their exchange ids and owner addresses', async () => {
         await request(app)
-          .get(`${routePrefix}/orders`)
+          .get(`/serum/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -929,7 +1063,7 @@ describe(`${routePrefix}/orders`, () => {
 
       it('Get a map of orders by their exchange ids, owner addresses and market names', async () => {
         await request(app)
-          .get(`${routePrefix}/orders`)
+          .get(`/serum/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -967,7 +1101,7 @@ describe(`${routePrefix}/orders`, () => {
 
       it('Fail when trying to get a map of orders without informing their owner addresses', async () => {
         await request(app)
-          .get(`${routePrefix}/orders`)
+          .get(`/serum/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -1003,7 +1137,7 @@ describe(`${routePrefix}/orders`, () => {
     });
   });
 
-  describe(`POST ${routePrefix}/orders`, () => {
+  describe(`POST /serum/orders`, () => {
     describe('Single order', () => {
       it('Create an order and receive a response with the new information', async () => {
         const candidateOrder = {
@@ -1017,7 +1151,7 @@ describe(`${routePrefix}/orders`, () => {
         } as CreateOrdersRequest;
 
         await request(app)
-          .post(`${routePrefix}/orders`)
+          .post(`/serum/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -1065,7 +1199,7 @@ describe(`${routePrefix}/orders`, () => {
     });
   });
 
-  describe(`DELETE ${routePrefix}/orders`, () => {
+  describe(`DELETE /serum/orders`, () => {
     describe('Single order', () => {
       it('Cancel a specific order by its id and owner address', async () => {
         console.log('');
@@ -1140,8 +1274,8 @@ describe(`${routePrefix}/orders`, () => {
   });
 });
 
-describe(`${routePrefix}/openOrders`, () => {
-  describe(`GET ${routePrefix}/openOrders`, () => {
+describe(`/serum/openOrders`, () => {
+  describe(`GET /serum/openOrders`, () => {
     describe('Single order', () => {
       it('Get a specific open order by its id and owner address', async () => {
         console.log('');
@@ -1219,7 +1353,7 @@ describe(`${routePrefix}/openOrders`, () => {
     });
   });
 
-  describe(`DELETE ${routePrefix}/openOrders`, () => {
+  describe(`DELETE /serum/openOrders`, () => {
     describe('Single open order', () => {
       it('Cancel a specific open order by its id and owner address', async () => {
         console.log('');
@@ -1298,8 +1432,8 @@ describe(`${routePrefix}/openOrders`, () => {
   });
 });
 
-describe(`${routePrefix}/filledOrders`, () => {
-  describe(`GET ${routePrefix}/filledOrders`, () => {
+describe(`/serum/filledOrders`, () => {
+  describe(`GET /serum/filledOrders`, () => {
     describe('Single order', () => {
       it('Get a specific filled order by its id and owner address', async () => {
         console.log('');
@@ -1376,7 +1510,7 @@ interface OrderPair {
 }
 
 const createNewOrder = async (): Promise<OrderPair> => {
-  const candidate = getNewOrderTemplate();
+  const candidate = getNewCandidateOrderTemplate();
 
   return {
     candidate: candidate,

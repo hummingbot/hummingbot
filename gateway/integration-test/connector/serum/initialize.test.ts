@@ -1,14 +1,16 @@
-import { sleep } from '../../../src/connectors/serum/serum.helpers';
 import { Account, PublicKey } from '@solana/web3.js';
+// @ts-ignore
 import BN from 'bn.js';
 import 'jest-extended';
 import { Solana } from '../../../src/chains/solana/solana';
 import { Serum } from '../../../src/connectors/serum/serum';
-import { default as config } from './fixtures/serum.config';
-import { unpatch } from '../../services/patch';
-import { getNewOrdersTemplates } from './fixtures/dummy';
+import { sleep } from '../../../src/connectors/serum/serum.helpers';
+import { IMap, Market } from '../../../src/connectors/serum/serum.types';
+import { default as config } from '../../../test/connectors/serum/fixtures/config';
+import { getNewCandidateOrdersTemplates } from '../../../test/connectors/serum/fixtures/helpers';
+import { unpatch } from '../../../test/services/patch';
 
-jest.setTimeout(10000000);
+jest.setTimeout(5 * 60 * 1000);
 
 let solana: Solana;
 let serum: Serum;
@@ -44,7 +46,7 @@ describe('Reset and Recreate Dummy Orders', () => {
     do {
       try {
         const connection = serum.getConnection();
-        const markets = await (
+        const markets: IMap<string, Market> = await (
           await Serum.getInstance(
             commonParameters.chain,
             commonParameters.network
@@ -55,7 +57,7 @@ describe('Reset and Recreate Dummy Orders', () => {
         );
         const owner = new Account(ownerKeyPair.secretKey);
 
-        for (const market of markets.values()) {
+        for (const market of Array.from(markets.values())) {
           console.log(`Resetting market ${market.name}:`);
 
           const serumMarket = market.market;
@@ -168,7 +170,7 @@ describe('Reset and Recreate Dummy Orders', () => {
     );
     const owner = new Account(ownerKeyPair.secretKey);
 
-    const candidateOrders = getNewOrdersTemplates(8, 0);
+    const candidateOrders = getNewCandidateOrdersTemplates(8, 0);
 
     for (const candidateOrder of candidateOrders) {
       const market = (await serum.getMarket(candidateOrder.marketName))
@@ -225,7 +227,7 @@ describe('Reset and Recreate Dummy Orders', () => {
     );
     const owner = new Account(ownerKeyPair.secretKey);
 
-    for (const market of markets.values()) {
+    for (const market of Array.from(markets.values())) {
       let attempts = 1;
       let error = false;
 

@@ -5,7 +5,7 @@ import { verifySolanaIsAvailable } from '../../chains/solana/solana-middlewares'
 import { validatePublicKey } from '../../chains/solana/solana.validators';
 import { asyncHandler } from '../../services/error-handler';
 import { Serum } from './serum';
-import { verifySerumIsAvailable } from './serum-middlewares';
+import { verifySerumIsAvailable } from './serum.middlewares';
 import {
   cancelOrders,
   createOrders,
