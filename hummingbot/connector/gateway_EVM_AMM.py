@@ -906,7 +906,14 @@ class GatewayEVMAMM(ConnectorBase):
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
 
-            # get
+            # TODO (james-hummingbot): this behavior is so that UserBalances can
+            # retrieve all the balances that the user needs for the 'balance'
+            # command, however, not all of the balances are used by
+            # GatewayEVMAMM. This will be a problem when there are multiple
+            # Gateway classes on the hummingbot side as it would require
+            # duplication. 2 suggested approaches: make a base class for the
+            # Gateway classes that implements this behavior. Or refactor
+            # UserBalances to do this (however it would also require some refactoring).
             config: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(self._name)
             other_tokens: Set[str] = set()
             if config is not None:
