@@ -1,5 +1,5 @@
 import asyncio
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
 import pandas as pd
 
@@ -50,8 +50,6 @@ class ConnectCommand:
             connector_config = ClientConfigAdapter(CELO_KEYS)
         else:
             connector_config = ClientConfigAdapter(AllConnectorSettings.get_connector_config_keys(connector_name))
-        to_connect = True
-        previous_keys = None
         if Security.connector_config_file_exists(connector_name):
             await Security.wait_til_decryption_done()
             api_key_config = [
@@ -68,30 +66,11 @@ class ConnectCommand:
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
-            if answer.lower() not in ("yes", "y"):
-                to_connect = False
-            else:
+            if answer.lower() in ("yes", "y"):
                 previous_keys = Security.api_keys(connector_name)
-        if to_connect:
-            await self.prompt_for_model_config(connector_config)
-            self.app.change_prompt(prompt=">>> ")
-            if self.app.to_stop_config:
-                self.app.to_stop_config = False
-                return
-            Security.update_secure_config(connector_config)
-            if connector_name == "celo":
-                err_msg = await self.validate_n_connect_celo(to_reconnect=True)
-            else:
-                err_msg = await self.validate_n_connect_connector(connector_name)
-            if err_msg is None:
-                self.notify(f"\nYou are now connected to {connector_name}.")
-            else:
-                self.notify(f"\nError: {err_msg}")
-                if previous_keys is not None:
-                    previous_config = ClientConfigAdapter(connector_config.hb_config.__class__(**previous_keys))
-                    Security.update_secure_config(previous_config)
-                else:
-                    Security.remove_secure_config(connector_name)
+                await self._perform_connect(connector_config, previous_keys)
+        else:
+            await self._perform_connect(connector_config)
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
@@ -182,3 +161,25 @@ class ConnectCommand:
             self.app.change_prompt(prompt=">>> ")
             raise
         return err_msg
+
+    async def _perform_connect(self, connector_config: ClientConfigAdapter, previous_keys: Optional[Dict] = None):
+        connector_name = connector_config.connector
+        await self.prompt_for_model_config(connector_config)
+        self.app.change_prompt(prompt=">>> ")
+        if self.app.to_stop_config:
+            self.app.to_stop_config = False
+            return
+        Security.update_secure_config(connector_config)
+        if connector_name == "celo":
+            err_msg = await self.validate_n_connect_celo(to_reconnect=True)
+        else:
+            err_msg = await self.validate_n_connect_connector(connector_name)
+        if err_msg is None:
+            self.notify(f"\nYou are now connected to {connector_name}.")
+        else:
+            self.notify(f"\nError: {err_msg}")
+            if previous_keys is not None:
+                previous_config = ClientConfigAdapter(connector_config.hb_config.__class__(**previous_keys))
+                Security.update_secure_config(previous_config)
+            else:
+                Security.remove_secure_config(connector_name)
