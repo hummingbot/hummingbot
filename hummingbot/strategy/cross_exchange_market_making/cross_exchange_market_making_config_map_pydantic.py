@@ -10,7 +10,7 @@ from hummingbot.client.config.config_data_types import (
     BaseTradingStrategyMakerTakerConfigMap,
     ClientFieldData,
 )
-from hummingbot.client.config.config_validators import validate_bool, validate_decimal
+from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 from .cross_exchange_market_pair import CrossExchangeMarketPair
@@ -367,41 +367,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     )
     def validate_decimal(cls, v: str, field: Field):
         """Used for client-friendly error output."""
-        range_min = None
-        range_max = None
-        range_inclusive = None
-
-        field = field.field_info
-
-        if field.gt is not None:
-            range_min = field.gt
-            range_inclusive = False
-        elif field.ge is not None:
-            range_min = field.ge
-            range_inclusive = True
-        if field.lt is not None:
-            range_max = field.lt
-            range_inclusive = False
-        elif field.le is not None:
-            range_max = field.le
-            range_inclusive = True
-
-        if range_min is not None and range_max is not None:
-            ret = validate_decimal(v,
-                                   min_value=Decimal(str(range_min)),
-                                   max_value=Decimal(str(range_max)),
-                                   inclusive=str(range_inclusive))
-        elif range_min is not None:
-            ret = validate_decimal(v,
-                                   min_value=Decimal(str(range_min)),
-                                   inclusive=str(range_inclusive))
-        elif range_max is not None:
-            ret = validate_decimal(v,
-                                   max_value=Decimal(str(range_max)),
-                                   inclusive=str(range_inclusive))
-        if ret is not None:
-            raise ValueError(ret)
-        return v
+        return super().validate_decimal(v, field)
 
     # === post-validations ===
 
