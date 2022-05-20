@@ -3,7 +3,7 @@ import asyncio
 import itertools
 import json
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Dict, Generator, List
+from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional
 
 import aiohttp
 import pandas as pd
@@ -84,7 +84,7 @@ class GatewayCommand:
         safe_ensure_future(self._test_connection(), loop=self.ev_loop)
 
     def gateway_config(self,
-                       key: str = None,
+                       key: Optional[str] = None,
                        value: str = None):
         if value:
             safe_ensure_future(self._update_gateway_configuration(key, value), loop=self.ev_loop)
@@ -311,7 +311,7 @@ class GatewayCommand:
         except Exception:
             self.notify("\nError: Gateway configuration update failed. See log file for more details.")
 
-    async def _show_gateway_configuration(self, key: str = None):
+    async def _show_gateway_configuration(self, key: Optional[str] = None):
         host = global_config_map['gateway_api_host'].value
         port = global_config_map['gateway_api_port'].value
         try:
