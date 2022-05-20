@@ -1,5 +1,7 @@
+import { PublicKey } from '@solana/web3.js';
 import BN from 'bn.js';
-import { getNotNullOrThrowError } from '../../../../src/connectors/serum/serum.helpers';
+import { convertOrderSideToSerumSide } from '../../../../src/connectors/serum/serum.convertors';
+import { getNotNullOrThrowError, getRandonBN } from '../../../../src/connectors/serum/serum.helpers';
 import {
   CreateOrdersRequest,
   OrderBook,
@@ -8,14 +10,14 @@ import {
   SerumOpenOrders,
   SerumOrder,
 } from '../../../../src/connectors/serum/serum.types';
-import { default as config } from './serum.config';
+import { default as config } from './config';
 
 const marketNames = ['SOL/USDT', 'SOL/USDC'];
 
 const getRandomChoice = (array: any[]) =>
   array[Math.floor(Math.random() * array.length)];
 
-export const getNewOrderTemplate = (configuration?: {
+export const getNewCandidateOrderTemplate = (configuration?: {
   id?: string;
   marketName?: string;
   ownerAddress?: string;
@@ -68,7 +70,7 @@ export const getNewOrderTemplate = (configuration?: {
  *
  * @param quantity
  */
-export const getNewOrdersTemplates = (
+export const getNewCandidateOrdersTemplates = (
   quantity: number,
   initialId: number = 1
 ): CreateOrdersRequest[] => {
@@ -80,7 +82,7 @@ export const getNewOrdersTemplates = (
       for (const side of Object.values(OrderSide)) {
         for (const type of [OrderType.LIMIT]) {
           result.push(
-            getNewOrderTemplate({
+            getNewCandidateOrderTemplate({
               id: count.toString(),
               marketName,
               side,
@@ -99,13 +101,37 @@ export const getNewOrdersTemplates = (
   return result;
 };
 
-export const convertToSerumOpenOrder = (
-  candidateOrder: CreateOrdersRequest,
-  orderBook: OrderBook
+export const getNewSerumOrders = (
+  candidateOrders: CreateOrdersRequest[]
+): SerumOrder[] => {
+  const result = [];
+
+  for (const candidateOrder of candidateOrders) {
+    result.push(
+      {
+        orderId: getRandonBN(),
+        openOrdersAddress: new PublicKey('DaosjpvtAxwL6GFDSL31o9pU5somKjifbkt32bEgLddf'),
+        openOrdersSlot: Math.random(),
+        price: candidateOrder.price,
+        priceLots: getRandonBN(),
+        size: candidateOrder.amount,
+        feeTier: Math.random(),
+        sizeLots: getRandonBN(),
+        side: convertOrderSideToSerumSide(candidateOrder.side),
+        clientId: new BN(getNotNullOrThrowError(candidateOrder.id)),
+      } as SerumOrder
+    );
+  }
+
+  return result;
+}
+
+export const changeAndConvertToSerumOpenOrder = (
+  index: number,
+  orderBook: OrderBook,
+  candidateOrder: CreateOrdersRequest
 ): SerumOpenOrders => {
-  const orderBookOrder: SerumOrder = orderBook.orderBook.asks
-    .items()
-    .next().value;
+  const orderBookOrder: SerumOrder = Array.from(orderBook.orderBook.asks)[index];
 
   const serumOpenOrder = new SerumOpenOrders(
     orderBookOrder.openOrdersAddress,
@@ -116,7 +142,25 @@ export const convertToSerumOpenOrder = (
   serumOpenOrder.clientIds = [
     new BN(getNotNullOrThrowError(candidateOrder.id)),
   ];
-  serumOpenOrder
+
+  orderBookOrder.clientId = new BN(getNotNullOrThrowError(candidateOrder.id));
 
   return serumOpenOrder;
+};
+
+export const convertToSerumOpenOrders = (
+  startIndex: number,
+  orderBook: OrderBook,
+  candidateOrders: CreateOrdersRequest[]
+): SerumOpenOrders[] => {
+  const result = [];
+
+  let count = startIndex;
+  for (const candidateOrder of candidateOrders) {
+    result.push(changeAndConvertToSerumOpenOrder(count, orderBook, candidateOrder));
+
+    count++;
+  }
+
+  return result;
 };

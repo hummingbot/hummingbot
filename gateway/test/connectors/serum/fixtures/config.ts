@@ -15,6 +15,7 @@ export default {
         },
       },
     },
+    allowedMarkets: ['SOL/USDT', 'SOL/USDC', 'SRM/SOL'],
   },
   serum: {
     chain: 'solana',

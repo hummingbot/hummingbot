@@ -1,23 +1,24 @@
 /* eslint-disable */
-import { OpenOrders } from '@project-serum/serum/lib/market';
-import { sleep } from '../../../../../src/connectors/serum/serum.helpers';
 import { Account, AccountInfo, Commitment, Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { Solana } from '../../../../../src/chains/solana/solana';
 import { Serum } from '../../../../../src/connectors/serum/serum';
+import { getNotNullOrThrowError } from '../../../../../src/connectors/serum/serum.helpers';
 import {
+  CreateOrdersRequest,
+  IMap,
+  OrderBook,
   SerumMarket,
   SerumOpenOrders,
   SerumOrder,
   SerumOrderParams
 } from '../../../../../src/connectors/serum/serum.types';
 import { patch } from '../../../../services/patch';
-import { default as config } from '../serum.config';
+import { convertToSerumOpenOrders, getNewSerumOrders } from '../helpers';
+import { default as config } from '../config';
 import data from './data';
 
 const disablePatches = false;
-
-const delayInMilliseconds = 10 * 1000;
 
 const patches = (solana: Solana, serum: Serum) => {
   const patches = new Map();
@@ -49,134 +50,66 @@ const patches = (solana: Solana, serum: Serum) => {
 
     // eslint-disable-next-line
     // @ts-ignore
-    connection.originalGetAccountInfo = (<any>connection).getAccountInfo;
+    connection.originalGetAccountInfo = connection.getAccountInfo;
 
     patch(connection, 'getAccountInfo', async (
       publicKey: PublicKey,
-      commitment: Commitment,
+      _commitment: Commitment,
     ): Promise<AccountInfo<Buffer> | null> => {
       const key = `@solana/web3.js/Connection/getAccountInfo/${publicKey.toString()}`;
 
-      if (data.has(key)) {
-        const raw = data.get(key);
+      if (data.has(key)) return data.get(key) as AccountInfo<Buffer>;
 
-        return {
-          executable: raw.executable,
-          owner: new PublicKey(raw.owner),
-          lamports: raw.lamports,
-          data: Buffer.from(raw.data),
-          rentEpoch: raw.rentEpoch,
-        } as AccountInfo<Buffer>;
-      }
-
-      let result: any;
-
-      let attempts = 1;
-      let error = false;
-      do {
-        try {
-          // eslint-disable-next-line
-          // @ts-ignore
-          const result = await connection.originalGetAccountInfo(publicKey, commitment);
-
-          const raw = {
-            executable: result.executable,
-            owner: result.owner.toString(),
-            lamports: result.lamports,
-            data: Object.values(result.data),
-            rentEpoch: result.rentEpoch,
-          };
-
-          // TODO remove!!!
-          const fs = require('fs');
-          fs.appendFileSync(
-            '/Volumes/Data/important/work/robotter.ai/hummingbot/gateway/test/connectors/serum/fixtures/patches/raw.ts',
-            `data.set('${key}', ${JSON.stringify(raw)});\n`, {
-          });
-
-          error = false;
-        } catch (exception) {
-          error = false;
-          console.log(`${key}, attempt ${attempts}:`, exception);
-          attempts++;
-          if (attempts > 3) break;
-          await sleep(delayInMilliseconds);
-        }
-      } while (error);
-
-      return result;
+      throw new Error(`The getAccountInfo key ${key} was not found and cannot be mocked.`)
     });
   });
 
-  patches.set('serum/market/findOpenOrdersAccountsForOwner', async (marketName: string, returnValue?: OpenOrders[]) => {
+  patches.set('serum/market/loadOrdersForOwner', async (candidateOrders?: CreateOrdersRequest[]) => {
     if (disablePatches) return;
 
-    const market = (await serum.getMarket(marketName)).market;
+    for (const marketName of config.solana.allowedMarkets) {
+      const serumMarket = (await serum.getMarket(marketName)).market;
 
-    patch(market, 'findOpenOrdersAccountsForOwner', (
-      _connection: Connection,
-      ownerAddress: PublicKey,
-      _cacheDurationMs = 0
-    ) => {
-      if (returnValue !== undefined && returnValue != null) return returnValue;
+      patch(serumMarket, 'loadOrdersForOwner', (
+        _connection: Connection,
+        _ownerAddress: PublicKey,
+        _cacheDurationMs = 0
+      ) => {
+        if (!candidateOrders) return [];
 
-      throw new Error(`Cannot mock, unrecognized address "${ownerAddress.toString()}".`);
-    });
+        return getNewSerumOrders(candidateOrders.filter(item => item.marketName === marketName));
+      });
+    }
   });
 
-  // // TODO remove!!!
-  // patches.set('serum/connection/_rpcRequest/getProgramAccounts', (returnValue?: any) => {
-  //   if (disablePatches) return;
-  //
-  //   const connection = serum.getConnection();
-  //
-  //   // eslint-disable-next-line
-  //   // @ts-ignore
-  //   connection.originalRpcRequest = (<any>connection)._rpcRequest;
-  //
-  //   patch(connection, '_rpcRequest', async (methodName: string, args: Array<any>): Promise<any> => {
-  //     if (returnValue) return returnValue;
-  //
-  //     const key = `@solana/web3.js/Connection/_rpcRequest/${methodName}/${JSON.stringify(args)}`;
-  //
-  //     if (methodName == 'getProgramAccounts') {
-  //       if (data.has(key)) {
-  //         return data.get(key);
-  //       }
-  //
-  //       let attempts = 1;
-  //       let error = false;
-  //       do {
-  //         try {
-  //           // eslint-disable-next-line
-  //           // @ts-ignore
-  //           const result = await connection.originalRpcRequest(methodName, args);
-  //
-  //           const raw = {
-  //             result: result.result,
-  //           };
-  //
-  //           // TODO remove!!!
-  //           const fs = require('fs');
-  //           fs.appendFileSync(
-  //             '/Volumes/Data/important/work/robotter.ai/hummingbot/gateway/test/connectors/serum/fixtures/patches/raw.ts',
-  //             `data.set('${key}', ${JSON.stringify(raw)});\n`, {
-  //           });
-  //
-  //           error = false;
-  //
-  //           return result;
-  //         } catch (exception) {
-  //           error = false;
-  //           console.log(`${key}, attempt ${attempts}:`, exception);
-  //           attempts++;
-  //           if (attempts > 3) break;
-  //           await sleep(delayInMilliseconds);
-  //         }
-  //       } while (error);
-  //     }
-  //   });
-  // });
+  patches.set('serum/market/findOpenOrdersAccountsForOwner', async (startIndex: number, orderBooksMap: IMap<string, OrderBook>, candidateOrders?: CreateOrdersRequest[]) => {
+    if (disablePatches) return;
+
+    const candidateOrdersMap: IMap<string, CreateOrdersRequest[]> = IMap<string, CreateOrdersRequest[]>().asMutable();
+
+    candidateOrders?.map((item) => {
+      if (!candidateOrdersMap.has(item.marketName)) candidateOrdersMap.set(item.marketName, []);
+
+      candidateOrdersMap.get(item.marketName)?.push(item);
+    })
+
+    for (const marketName of config.solana.allowedMarkets) {
+      const orderBook = orderBooksMap.get(marketName);
+      const serumMarket = getNotNullOrThrowError<OrderBook>(orderBook).market.market;
+      let serumOpenOrders: SerumOpenOrders[] = [];
+
+      const candidateOrders = candidateOrdersMap.get(marketName) || [];
+      serumOpenOrders = convertToSerumOpenOrders(startIndex, getNotNullOrThrowError<OrderBook>(orderBook), candidateOrders);
+
+      patch(serumMarket, 'findOpenOrdersAccountsForOwner', (
+        _connection: Connection,
+        _ownerAddress: PublicKey,
+        _cacheDurationMs = 0
+      ) => {
+        return serumOpenOrders;
+      });
+    }
+  });
 
   // patches.set('serum/connection/_wsOnError', () => {
   //   if (disablePatches) return;
