@@ -9,11 +9,13 @@ from decimal import Decimal
 from enum import Enum
 from os import DirEntry, scandir
 from os.path import exists, join, realpath
-from typing import Any, Dict, List, NamedTuple, Optional, Set, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Set, Union, cast
 
 from hummingbot import get_strategy_list, root_path
-from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 
 # Global variables
 required_exchanges: Set[str] = set()
@@ -24,27 +26,34 @@ rate_oracle_pairs: List[str] = []
 
 # Global static values
 KEYFILE_PREFIX = "key_file_"
-KEYFILE_POSTFIX = ".json"
-ENCYPTED_CONF_PREFIX = "encrypted_"
+KEYFILE_POSTFIX = ".yml"
 ENCYPTED_CONF_POSTFIX = ".json"
-GLOBAL_CONFIG_PATH = "conf/conf_global.yml"
-TRADE_FEES_CONFIG_PATH = "conf/conf_fee_overrides.yml"
-DEFAULT_KEY_FILE_PATH = "conf/"
-DEFAULT_LOG_FILE_PATH = "logs/"
+GLOBAL_CONFIG_PATH = str(root_path() / "conf" / "conf_global.yml")
+TRADE_FEES_CONFIG_PATH = root_path() / "conf" / "conf_fee_overrides.yml"
+DEFAULT_LOG_FILE_PATH = root_path() / "logs"
 DEFAULT_ETHEREUM_RPC_URL = "https://mainnet.coinalpha.com/hummingbot-test-node"
-TEMPLATE_PATH = realpath(join(__file__, "../../templates/"))
-CONF_FILE_PATH = "conf/"
+TEMPLATE_PATH = root_path() / "hummingbot" / "templates"
+CONF_DIR_PATH = root_path() / "conf"
+STRATEGIES_CONF_DIR_PATH = CONF_DIR_PATH / "strategies"
+CONNECTORS_CONF_DIR_PATH = CONF_DIR_PATH / "connectors"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
-PMM_SCRIPTS_PATH = realpath(join(__file__, "../../../pmm_scripts/"))
+PMM_SCRIPTS_PATH = root_path() / "pmm_scripts"
 SCRIPT_STRATEGIES_MODULE = "scripts"
-SCRIPT_STRATEGIES_PATH = realpath(join(__file__, f"../../../{SCRIPT_STRATEGIES_MODULE}/"))
-CERTS_PATH = "certs/"
+SCRIPT_STRATEGIES_PATH = root_path() / SCRIPT_STRATEGIES_MODULE
+CERTS_PATH = root_path() / "certs"
 
 # Certificates for securely communicating with the gateway api
-GATEAWAY_CA_CERT_PATH = realpath(join(__file__, join(f"../../../{CERTS_PATH}/ca_cert.pem")))
-GATEAWAY_CLIENT_CERT_PATH = realpath(join(__file__, join(f"../../../{CERTS_PATH}/client_cert.pem")))
-GATEAWAY_CLIENT_KEY_PATH = realpath(join(__file__, join(f"../../../{CERTS_PATH}/client_key.pem")))
+GATEAWAY_CA_CERT_PATH = CERTS_PATH / "ca_cert.pem"
+GATEAWAY_CLIENT_CERT_PATH = CERTS_PATH / "client_cert.pem"
+GATEAWAY_CLIENT_KEY_PATH = CERTS_PATH / "client_key.pem"
+
+PAPER_TRADE_EXCHANGES = [  # todo: fix after global config map refactor
+    "binance_paper_trade",
+    "kucoin_paper_trade",
+    "ascend_ex_paper_trade",
+    "gate_io_paper_trade",
+]
 
 
 class ConnectorType(Enum):
@@ -61,7 +70,7 @@ class ConnectorType(Enum):
 class GatewayConnectionSetting:
     @staticmethod
     def conf_path() -> str:
-        return realpath(join(CONF_FILE_PATH, "gateway_connections.json"))
+        return realpath(join(CONF_DIR_PATH, "gateway_connections.json"))
 
     @staticmethod
     def load() -> List[Dict[str, str]]:
@@ -120,7 +129,7 @@ class ConnectorSetting(NamedTuple):
     centralised: bool
     use_ethereum_wallet: bool
     trade_fee_schema: TradeFeeSchema
-    config_keys: Dict[str, ConfigVar]
+    config_keys: Optional["BaseConnectorConfigMap"]
     is_sub_domain: bool
     parent_name: Optional[str]
     domain_parameter: Optional[str]
@@ -154,9 +163,12 @@ class ConnectorSetting(NamedTuple):
             return "".join(splited_name)
         return "".join([o.capitalize() for o in self.module_name().split("_")])
 
-    def conn_init_parameters(self, api_keys: Dict[str, Any] = {}) -> Dict[str, Any]:
+    def conn_init_parameters(self, api_keys: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        api_keys = api_keys or {}
         if self.uses_gateway_generic_connector():  # init parameters for gateway connectors
-            params: Dict[str, Any] = {k: v.value for k, v in self.config_keys.items()}
+            params = {}
+            if self.config_keys is not None:
+                params: Dict[str, Any] = {k: v.value for k, v in self.config_keys.items()}
             connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(self.name)
             params.update(
                 connector_name=connector_spec["connector"],
@@ -196,10 +208,10 @@ class AllConnectorSettings:
         Iterate over files in specific Python directories to create a dictionary of exchange names to ConnectorSetting.
         """
         cls.all_connector_settings = {}  # reset
-        connector_exceptions = ["paper_trade"]
+        connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade"]
 
         type_dirs: List[DirEntry] = [
-            cast(DirEntry, f) for f in scandir(f"{root_path()}/hummingbot/connector")
+            cast(DirEntry, f) for f in scandir(f"{root_path() / 'hummingbot' / 'connector'}")
             if f.is_dir()
         ]
         for type_dir in type_dirs:
@@ -229,7 +241,7 @@ class AllConnectorSettings:
                     example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
                     use_ethereum_wallet=getattr(util_module, "USE_ETHEREUM_WALLET", False),
                     trade_fee_schema=trade_fee_schema,
-                    config_keys=getattr(util_module, "KEYS", {}),
+                    config_keys=getattr(util_module, "KEYS", None),
                     is_sub_domain=False,
                     parent_name=None,
                     domain_parameter=None,
@@ -269,7 +281,7 @@ class AllConnectorSettings:
                 example_pair="WETH-USDC",
                 use_ethereum_wallet=False,
                 trade_fee_schema=trade_fee_schema,
-                config_keys={},
+                config_keys=None,
                 is_sub_domain=False,
                 parent_name=None,
                 domain_parameter=None,
@@ -299,10 +311,50 @@ class AllConnectorSettings:
                 cls.all_connector_settings.update({f"{e}_paper_trade": paper_trade_settings})
 
     @classmethod
+    def get_all_connectors(cls) -> List[str]:
+        """Avoids circular import problems introduced by `create_connector_settings`."""
+        connector_names = PAPER_TRADE_EXCHANGES
+        type_dirs: List[DirEntry] = [
+            cast(DirEntry, f) for f in
+            scandir(f"{root_path() / 'hummingbot' / 'connector'}")
+            if f.is_dir()
+        ]
+        for type_dir in type_dirs:
+            connector_dirs: List[DirEntry] = [
+                cast(DirEntry, f) for f in scandir(type_dir.path)
+                if f.is_dir() and exists(join(f.path, "__init__.py"))
+            ]
+            connector_names.extend(
+                [connector_dir.name for connector_dir in connector_dirs])
+        return connector_names
+
+    @classmethod
     def get_connector_settings(cls) -> Dict[str, ConnectorSetting]:
         if len(cls.all_connector_settings) == 0:
             cls.all_connector_settings = cls.create_connector_settings()
         return cls.all_connector_settings
+
+    @classmethod
+    def get_connector_config_keys(cls, connector: str) -> Optional["BaseConnectorConfigMap"]:
+        return cls.get_connector_settings()[connector].config_keys
+
+    @classmethod
+    def reset_connector_config_keys(cls, connector: str):
+        current_settings = cls.get_connector_settings()[connector]
+        current_keys = current_settings.config_keys
+        new_keys = (
+            current_keys if current_keys is None else current_keys.__class__.construct()
+        )
+        cls.update_connector_config_keys(new_keys)
+
+    @classmethod
+    def update_connector_config_keys(cls, new_config_keys: "BaseConnectorConfigMap"):
+        current_settings = cls.get_connector_settings()[new_config_keys.connector]
+        new_keys_settings_dict = current_settings._asdict()
+        new_keys_settings_dict.update({"config_keys": new_config_keys})
+        cls.get_connector_settings()[new_config_keys.connector] = ConnectorSetting(
+            **new_keys_settings_dict
+        )
 
     @classmethod
     def get_exchange_names(cls) -> Set[str]:

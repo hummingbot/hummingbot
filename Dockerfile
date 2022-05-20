@@ -114,6 +114,8 @@ VOLUME /conf /logs /data /pmm_scripts /scripts \
 COPY --chown=hummingbot:hummingbot pmm_scripts/ pmm_scripts/
 # Pre-populate scripts/ volume with default scripts
 COPY --chown=hummingbot:hummingbot scripts/ scripts/
+# Copy the conf folder structure
+COPY --chown=hummingbot:hummingbot conf/ conf/
 
 # Install packages required in runtime
 RUN apt-get update && \

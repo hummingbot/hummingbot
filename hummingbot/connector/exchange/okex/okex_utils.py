@@ -1,8 +1,9 @@
-from decimal import Decimal
 import zlib
+from decimal import Decimal
 
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 DEFAULT_FEES = TradeFeeSchema(
@@ -14,26 +15,42 @@ CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USDT"
 
-KEYS = {
-    "okex_api_key":
-        ConfigVar(key="okex_api_key",
-                  prompt="Enter your OKEx API key >>> ",
-                  required_if=using_exchange("okex"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "okex_secret_key":
-        ConfigVar(key="okex_secret_key",
-                  prompt="Enter your OKEx secret key >>> ",
-                  required_if=using_exchange("okex"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "okex_passphrase":
-        ConfigVar(key="okex_passphrase",
-                  prompt="Enter your OKEx passphrase key >>> ",
-                  required_if=using_exchange("okex"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+
+class OkexConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="okex", client_data=None)
+    okex_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your OKEx API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    okex_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your OKEx secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    okex_passphrase: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your OKEx passphrase key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "okex"
+
+
+KEYS = OkexConfigMap.construct()
 
 
 def inflate(data):

@@ -14,12 +14,12 @@ from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIo
 from hummingbot.connector.exchange.gate_io.gate_io_order_book_tracker import GateIoOrderBookTracker
 from hummingbot.connector.exchange.gate_io.gate_io_user_stream_tracker import GateIoUserStreamTracker
 from hummingbot.connector.exchange.gate_io.gate_io_utils import (
+    GateIoAPIError,
+    GateIORESTRequest,
     api_call_with_retries,
     build_gate_io_api_factory,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
-    GateIoAPIError,
-    GateIORESTRequest,
 )
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
@@ -27,9 +27,10 @@ from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -40,8 +41,6 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -643,6 +642,7 @@ class GateIoExchange(ExchangeBase):
             warn_msg = (f"Could not fetch balance update from {CONSTANTS.EXCHANGE_NAME}")
             self.logger().network(f"Unexpected error while fetching balance update - {str(e)}", exc_info=True,
                                   app_warning_msg=warn_msg)
+            raise
 
     def stop_tracking_order_exceed_not_found_limit(self, tracked_order: GateIoInFlightOrder):
         """

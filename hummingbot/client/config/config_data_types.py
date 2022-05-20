@@ -8,6 +8,7 @@ from pydantic.schema import default_ref_template
 
 from hummingbot.client.config.config_methods import strategy_config_schema_encoder
 from hummingbot.client.config.config_validators import (
+    validate_connector,
     validate_exchange,
     validate_market_trading_pair,
     validate_strategy,
@@ -25,6 +26,7 @@ class ClientFieldData:
     prompt: Optional[Callable[['BaseClientModel'], str]] = None
     prompt_on_new: bool = False
     is_secure: bool = False
+    is_connect_key: bool = False
 
 
 class BaseClientModel(BaseModel):
@@ -70,9 +72,9 @@ class BaseStrategyConfigMap(BaseClientModel):
 
 
 class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
-    exchange: ClientConfigEnum(
+    exchange: ClientConfigEnum(  # rebuild the exchanges enum
         value="Exchanges",  # noqa: F821
-        names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
+        names={e: e for e in AllConnectorSettings.get_all_connectors()},
         type=str,
     ) = Field(
         default=...,
@@ -108,7 +110,7 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
             raise ValueError(ret)
         cls.__fields__["exchange"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
             value="Exchanges",  # noqa: F821
-            names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
+            names={e: e for e in AllConnectorSettings.get_all_connectors()},
             type=str,
         )
         return v
@@ -208,6 +210,23 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
         if field.name == "taker_market_trading_pair":
             exchange = values.get("taker_market")
             ret = validate_market_trading_pair(exchange, v)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+
+class BaseConnectorConfigMap(BaseClientModel):
+    connector: str = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "What is your connector?",
+            prompt_on_new=True,
+        ),
+    )
+
+    @validator("connector", pre=True)
+    def validate_connector(cls, v: str):
+        ret = validate_connector(v)
         if ret is not None:
             raise ValueError(ret)
         return v
