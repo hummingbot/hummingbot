@@ -67,6 +67,11 @@ class ScriptStrategyBaseTest(unittest.TestCase):
         self.assertEqual({"binance_paper_trade": {"BTC-USDT"}}, loaded_class.markets)
         self.assertEqual(Decimal("100"), loaded_class.buy_quote_amount)
 
+        loaded_class = ScriptStrategyBase.load_script_class("test_dca_example")
+
+        self.assertEqual({"binance_paper_trade": {"BTC-USDT"}}, loaded_class.markets)
+        self.assertEqual(Decimal("100"), loaded_class.buy_quote_amount)
+
     def test_load_script_class_raises_exception_for_non_existing_script(self):
         self.assertRaises(ImportError, ScriptStrategyBase.load_script_class, "non_existing_script")
 
