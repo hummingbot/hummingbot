@@ -1,17 +1,15 @@
 import os
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 import pandas as pd
-from sqlalchemy.orm import (
-    Session,
-    Query
-)
+from sqlalchemy.orm import Query, Session
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import DEFAULT_LOG_FILE_PATH
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.model.trade_fill import TradeFill
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -29,24 +27,20 @@ class ExportCommand:
 
     async def export_keys(self,  # type: HummingbotApplication
                           ):
-        if not Security.any_encryped_files() and not Security.any_wallets():
+        await Security.wait_til_decryption_done()
+        if not Security.any_secure_configs():
             self.notify("There are no keys to export.")
             return
-        await Security.wait_til_decryption_done()
         self.placeholder_mode = True
         self.app.hide_input = True
         if await self.check_password():
-            await Security.wait_til_decryption_done()
             self.notify("\nWarning: Never disclose API keys or private keys. Anyone with your keys can steal any "
                         "assets held in your account.")
-            if Security.all_decrypted_values():
-                self.notify("\nAPI keys:")
-            for key, value in Security.all_decrypted_values().items():
-                self.notify(f"{key}: {value}")
-            if Security.private_keys():
-                self.notify("\nEthereum wallets:")
-            for key, value in Security.private_keys().items():
-                self.notify(f"Public address: {key}\nPrivate Key: {value.hex()}")
+            self.notify("\nAPI keys:")
+            for key, cm in Security.all_decrypted_values().items():
+                for el in cm.traverse(secure=False):
+                    if el.client_field_data is not None and el.client_field_data.is_secure:
+                        self.notify(f"{el.attr}: {el.printable_value}")
         self.app.change_prompt(prompt=">>> ")
         self.app.hide_input = False
         self.placeholder_mode = False
@@ -79,7 +73,7 @@ class ExportCommand:
             self.app.hide_input = True
             path = global_config_map["log_file_path"].value
             if path is None:
-                path = DEFAULT_LOG_FILE_PATH
+                path = str(DEFAULT_LOG_FILE_PATH)
             file_name = await self.prompt_new_export_file_name(path)
             file_path = os.path.join(path, file_name)
             try:

@@ -8,6 +8,7 @@ import path_util  # noqa: F401
 
 from bin.docker_connection import fork_and_start
 from hummingbot import chdir_to_data_directory, init_logging
+from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
 from hummingbot.client.config.config_helpers import (
     create_yml_files_legacy,
     read_system_configs_from_yml,
@@ -38,9 +39,8 @@ class UIStartListener(EventListener):
 
     async def ui_start_handler(self):
         hb: HummingbotApplication = self.hummingbot_app
-
-        if hb.strategy_file_name is not None and hb.strategy_name is not None:
-            await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
+        if hb.strategy_config_map is not None:
+            write_config_to_yml(hb.strategy_config_map, hb.strategy_file_name)
             hb.start(global_config_map.get("log_level").value)
 
 
@@ -75,7 +75,8 @@ async def main_async():
 
 def main():
     chdir_to_data_directory()
-    if login_prompt():
+    secrets_manager_cls = ETHKeyFileSecretManger
+    if login_prompt(secrets_manager_cls):
         ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         ev_loop.run_until_complete(main_async())
 
