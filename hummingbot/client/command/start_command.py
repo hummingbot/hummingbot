@@ -179,6 +179,10 @@ class StartCommand(GatewayChainApiManager):
         RateOracle.get_instance().start()
 
     def start_script_strategy(self):
+        if self._in_start_check or (self.strategy_task is not None and not self.strategy_task.done()):
+            self.notify('The bot is already running - please run "stop" first')
+            return
+
         script_strategy = ScriptStrategyBase.load_script_class(self.strategy_file_name)
         markets_list = []
         for conn, pairs in script_strategy.markets.items():
