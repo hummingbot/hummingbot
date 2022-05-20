@@ -1,15 +1,11 @@
 #!/usr/bin/env python
 import asyncio
 import itertools
-import json
-from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-import aiohttp
 import pandas as pd
 
 import docker
-
 from hummingbot.client.command.gateway_api_manager import Chain, GatewayChainApiManager, begin_placeholder_mode
 from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml
 from hummingbot.client.config.global_config_map import global_config_map
