@@ -237,7 +237,7 @@ class ConfigCommandTest(unittest.TestCase):
 
         save_to_yml_mock.reset_mock()
         self.cli_mock_assistant.queue_prompt_reply("another value")
-        self.async_run_with_timeout(self.app._config_single_key(key="nested_model.nested_attr", input_value=None), 10000)
+        self.async_run_with_timeout(self.app._config_single_key(key="nested_model.nested_attr", input_value=None))
 
         self.assertEqual("another value", config_map.nested_model.nested_attr)
         save_to_yml_mock.assert_called_once()

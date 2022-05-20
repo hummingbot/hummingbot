@@ -2,19 +2,16 @@ import asyncio
 import time
 import unittest
 from decimal import Decimal
-from typing import (
-    List,
-    Union,
-)
+from typing import List, Union
 
 import pandas as pd
 
+from hummingbot.connector.mock.mock_paper_exchange.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker import OrderTracker
-from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 
 
 class OrderTrackerUnitTests(unittest.TestCase):

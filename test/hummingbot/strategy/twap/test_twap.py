@@ -7,7 +7,7 @@ from typing import List
 import pandas as pd
 
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -387,14 +387,14 @@ class TWAPUnitTest(unittest.TestCase):
                                "    Order size: 1 COINALPHA\n"
                                "    Execution type: run continuously\n\n"
                                "  Markets:\n"
-                               "                Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
-                               "    0  MockPaperExchange  COINALPHA-WETH            99.5           100.5        100\n\n"
+                               "                  Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
+                               "    0  mock_paper_exchange  COINALPHA-WETH            99.5           100.5        100\n\n"
                                "  Assets:\n"
-                               "                Exchange      Asset  Total Balance  Available Balance\n"
-                               "    0  MockPaperExchange  COINALPHA         "
+                               "                  Exchange      Asset  Total Balance  Available Balance\n"
+                               "    0  mock_paper_exchange  COINALPHA         "
                                f"{base_balance:.2f}             "
                                f"{available_base_balance:.2f}\n"
-                               "    1  MockPaperExchange       WETH       "
+                               "    1  mock_paper_exchange       WETH       "
                                f"{quote_balance:.2f}           "
                                f"{available_quote_balance:.2f}\n\n"
                                "  No active maker orders.\n\n"
@@ -408,14 +408,14 @@ class TWAPUnitTest(unittest.TestCase):
                                "    Order size: 1.67 COINALPHA\n"
                                "    Execution type: run continuously\n\n"
                                "  Markets:\n"
-                               "                Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
-                               "    0  MockPaperExchange  COINALPHA-WETH            99.5           100.5        100\n\n"
+                               "                  Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
+                               "    0  mock_paper_exchange  COINALPHA-WETH            99.5           100.5        100\n\n"
                                "  Assets:\n"
-                               "                Exchange      Asset  Total Balance  Available Balance\n"
-                               "    0  MockPaperExchange  COINALPHA         "
+                               "                  Exchange      Asset  Total Balance  Available Balance\n"
+                               "    0  mock_paper_exchange  COINALPHA         "
                                f"{base_balance:.2f}             "
                                f"{available_base_balance:.2f}\n"
-                               "    1  MockPaperExchange       WETH       "
+                               "    1  mock_paper_exchange       WETH       "
                                f"{quote_balance:.2f}           "
                                f"{available_quote_balance:.2f}\n\n"
                                "  Active orders:\n"

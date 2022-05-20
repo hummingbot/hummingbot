@@ -2,7 +2,7 @@ import asyncio
 import platform
 import threading
 import time
-from os.path import dirname, exists, join
+from os.path import dirname
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import pandas as pd
@@ -160,8 +160,8 @@ class StartCommand:
         self.strategy = script_strategy(self.markets)
 
     def is_current_strategy_script_strategy(self) -> bool:
-        script_file_name = join(settings.SCRIPT_STRATEGIES_PATH, f"{self.strategy_file_name}.py")
-        return exists(script_file_name)
+        script_file_name = settings.SCRIPT_STRATEGIES_PATH / f"{self.strategy_file_name}.py"
+        return script_file_name.exists()
 
     async def start_market_making(self,  # type: HummingbotApplication
                                   restore: Optional[bool] = False):
@@ -184,7 +184,7 @@ class StartCommand:
                 pmm_script_file = global_config.global_config_map[global_config.PMM_SCRIPT_FILE_PATH_KEY].value
                 folder = dirname(pmm_script_file)
                 if folder == "":
-                    pmm_script_file = join(settings.PMM_SCRIPTS_PATH, pmm_script_file)
+                    pmm_script_file = settings.PMM_SCRIPTS_PATH / pmm_script_file
                 if self.strategy_name != "pure_market_making":
                     self.notify("Error: PMM script feature is only available for pure_market_making strategy.")
                 else:
