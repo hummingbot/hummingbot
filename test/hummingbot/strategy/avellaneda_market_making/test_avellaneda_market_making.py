@@ -21,7 +21,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     OrderBookTradeEvent,
     OrderFilledEvent,
-    SellOrderCompletedEvent
+    SellOrderCompletedEvent,
 )
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
