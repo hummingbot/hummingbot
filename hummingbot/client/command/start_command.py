@@ -3,14 +3,14 @@ import platform
 import threading
 import time
 from os.path import dirname, exists, join
-from typing import Any, Callable, Dict, List, Optional
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import pandas as pd
 
 import hummingbot.client.config.global_config_map as global_config
 import hummingbot.client.settings as settings
 from hummingbot import init_logging
+from hummingbot.client.command.gateway_api_manager import Chain, GatewayChainApiManager
 from hummingbot.client.command.rate_command import RateCommand
 from hummingbot.client.config.config_helpers import get_strategy_starter_file
 from hummingbot.client.config.config_validators import validate_bool
@@ -18,6 +18,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.connector_status import get_connector_status, warning_messages
 from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.gateway.status_monitor import Status
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.kill_switch import KillSwitch
@@ -30,7 +31,9 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-class StartCommand:
+class StartCommand(GatewayChainApiManager):
+    _in_start_check: bool = False
+
     async def _run_clock(self):
         with self.clock as clock:
             await clock.run()
@@ -57,15 +60,18 @@ class StartCommand:
                           log_level: Optional[str] = None,
                           restore: Optional[bool] = False,
                           strategy_file_name: Optional[str] = None):
-        if self.strategy_task is not None and not self.strategy_task.done():
+        if self._in_start_check or (self.strategy_task is not None and not self.strategy_task.done()):
             self.notify('The bot is already running - please run "stop" first')
             return
+
+        self._in_start_check = True
 
         if settings.required_rate_oracle:
             # If the strategy to run requires using the rate oracle to find FX rates, validate there is a rate for
             # each configured token pair
             if not (await self.confirm_oracle_conversion_rate()):
                 self.notify("The strategy failed to start.")
+                self._in_start_check = False
                 return
 
         if strategy_file_name:
@@ -74,6 +80,7 @@ class StartCommand:
             self.strategy_name = file_name
         elif not await self.status_check_all(notify_success=False):
             self.notify("Status checks failed. Start aborted.")
+            self._in_start_check = False
             return
         if self._last_started_strategy_file != self.strategy_file_name:
             init_logging("hummingbot_logs.yml",
@@ -90,6 +97,7 @@ class StartCommand:
         try:
             self._initialize_strategy(self.strategy_name)
         except NotImplementedError:
+            self._in_start_check = False
             self.strategy_name = None
             self.strategy_file_name = None
             self.notify("Invalid strategy. Start aborted.")
@@ -113,6 +121,19 @@ class StartCommand:
                         ["network", connector_details['network']],
                         ["wallet_address", connector_details['wallet_address']]
                     ]
+
+                    # check for API keys
+                    chain: Chain = Chain.from_str(connector_details['chain'])
+                    api_key: Optional[str] = await self._get_api_key_from_gateway_config(chain)
+                    if api_key is None:
+                        api_key = await self._get_api_key(chain, required=True)
+                        await self._update_gateway_api_key(chain, api_key)
+                        self.notify("Please wait for gateway to restart.")
+                        # wait for gateway to restart, config update causes gateway to restart
+                        await self._gateway_monitor.wait_for_online_status()
+                        if self._gateway_monitor.current_status == Status.OFFLINE:
+                            raise Exception("Lost contact with gateway after updating the config.")
+
                     await UserBalances.instance().update_exchange_balance(connector)
                     balances: List[str] = [
                         f"{str(PerformanceMetrics.smart_round(v, 8))} {k}"
@@ -131,10 +152,12 @@ class StartCommand:
                     self.app.change_prompt(prompt=">>> ")
 
                     if use_configuration in ["N", "n", "No", "no"]:
+                        self._in_start_check = False
                         return
 
                     if use_configuration not in ["Y", "y", "Yes", "yes"]:
                         self.notify("Invalid input. Please execute the `start` command again.")
+                        self._in_start_check = False
                         return
 
             # Display custom warning message for specific connectors
@@ -149,6 +172,9 @@ class StartCommand:
 
         self.notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         await self.start_market_making(restore)
+
+        self._in_start_check = False
+
         # We always start the RateOracle. It is required for PNL calculation.
         RateOracle.get_instance().start()
 
@@ -175,7 +201,7 @@ class StartCommand:
                     self.markets_recorder.restore_market_states(self.strategy_file_name, market)
                     if len(market.limit_orders) > 0:
                         if restore is False:
-                            self._notify(f"Canceling dangling limit orders on {market.name}...")
+                            self.notify(f"Canceling dangling limit orders on {market.name}...")
                             await market.cancel_all(5.0)
                         else:
                             self.notify(f"Restored {len(market.limit_orders)} limit orders on {market.name}...")
