@@ -812,14 +812,16 @@ class KucoinExchange(ExchangePyBase):
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer) for trading_pair in self._trading_pairs]
 
-        params = {"symbols": ",".join(trading_symbols)}
-
-        resp = await self._api_request(
-            path_url=CONSTANTS.FEE_PATH_URL,
-            params=params,
-            method=RESTMethod.GET,
-            is_auth_required=True,
-        )
+        resp = {"data": []}
+        for pair in trading_symbols:
+            params = {"symbols": pair}
+            r = await self._api_request(
+                path_url=CONSTANTS.FEE_PATH_URL,
+                params=params,
+                method=RESTMethod.GET,
+                is_auth_required=True,
+            )
+            resp["data"] += r["data"]
 
         fees_json = resp["data"]
         for fee_json in fees_json:
