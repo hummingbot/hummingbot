@@ -1,6 +1,7 @@
 import unittest
 from decimal import Decimal
 from typing import List
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -61,6 +62,7 @@ class ScriptStrategyBaseTest(unittest.TestCase):
         self.strategy.logger().setLevel(1)
         self.strategy.logger().addHandler(self)
 
+    @patch(f"{ScriptStrategyBase.load_script_class.__module__}.SCRIPT_STRATEGIES_MODULE", 'test.scripts')
     def test_load_valid_script_class(self):
         loaded_class = ScriptStrategyBase.load_script_class("dca_example")
 
@@ -69,8 +71,8 @@ class ScriptStrategyBaseTest(unittest.TestCase):
 
         loaded_class = ScriptStrategyBase.load_script_class("test_dca_example")
 
-        self.assertEqual({"binance_paper_trade": {"BTC-USDT"}}, loaded_class.markets)
-        self.assertEqual(Decimal("100"), loaded_class.buy_quote_amount)
+        self.assertEqual({"binance_paper_trade": {"ETH-USDT"}}, loaded_class.markets)
+        self.assertEqual(Decimal("500"), loaded_class.buy_quote_amount)
 
     def test_load_script_class_raises_exception_for_non_existing_script(self):
         self.assertRaises(ImportError, ScriptStrategyBase.load_script_class, "non_existing_script")
