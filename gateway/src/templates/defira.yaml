@@ -12,6 +12,6 @@ ttl: 600
 
 contractAddresses:
   mainnet: 
-    routerAddress: 'one18j9l0cj7h740hp3j26jrsz52jdysmqr94gx3nn'
+    routerAddress: '0x3C8BF7e25EbfAaFb863256A4380A8a93490d8065'
   testnet:
-    routerAddress: 'abc123'
+    routerAddress: '0x3C8BF7e25EbfAaFb863256A4380A8a93490d8065'
