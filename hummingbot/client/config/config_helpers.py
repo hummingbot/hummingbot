@@ -290,6 +290,15 @@ async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str,
             shutil.copy(template_file_path, yml_path)
             # save the old variables into the new config file
             save_to_yml(yml_path, cm)
+
+    except AttributeError as e:
+        logging.getLogger().error("Error loading configs. The configuration map file is None %s" % (e,),
+                                  exc_info=True)
+
+    except FileNotFoundError as e:
+        logging.getLogger().error("Error loading configs. The template file was not found. %s" % (e,),
+                                  exc_info=True)
+
     except Exception as e:
         logging.getLogger().error("Error loading configs. Your config file may be corrupt. %s" % (e,),
                                   exc_info=True)

@@ -1,0 +1,16 @@
+########################################
+###   Fee overrides configurations   ###
+########################################
+
+# For more detailed information: https://docs.hummingbot.io
+template_version: 11
+
+binance_percent_fee_token: BNB
+binance_maker_percent_fee: 0.75
+binance_taker_percent_fee: 0.75
+binance_buy_percent_fee_deducted_from_returns: true
+
+kucoin_percent_fee_token: KCS
+kucoin_maker_percent_fee: 0.01
+kucoin_taker_percent_fee: 0.01
+kucoin_buy_percent_fee_deducted_from_returns:

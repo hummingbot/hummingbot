@@ -1,17 +1,12 @@
-from os.path import (
-    isdir,
-    join,
-    exists,
-)
-from os import listdir
 import unittest
+from os import listdir
+from os.path import exists, isdir, join
+
 import ruamel.yaml
 
 from hummingbot import root_path
-from hummingbot.client.config.config_helpers import (
-    get_strategy_template_path,
-    get_strategy_config_map,
-)
+from hummingbot.client.config.config_helpers import get_strategy_config_map, get_strategy_template_path
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.client.config.global_config_map import global_config_map
 
 yaml_parser = ruamel.yaml.YAML()
@@ -33,6 +28,21 @@ class ConfigTemplatesUnitTest(unittest.TestCase):
 
             for key in global_config_map:
                 self.assertTrue(key in template_data, f"{key} not in {global_config_template_path}")
+
+    def test_fee_overrides_config_template_complete(self):
+        fee_overrides_config_template_path: str = join(root_path(), "hummingbot/templates/conf_fee_overrides_TEMPLATE.yml")
+
+        with open(fee_overrides_config_template_path, "r") as template_fd:
+            template_data = yaml_parser.load(template_fd)
+            template_version = template_data.get("template_version", 0)
+            self.assertGreaterEqual(template_version, 1)
+            for key in template_data:
+                if key == "template_version":
+                    continue
+                self.assertTrue(key in fee_overrides_config_map, f"{key} not in fee_overrides_config_map")
+
+            for key in fee_overrides_config_map:
+                self.assertTrue(key in template_data, f"{key} not in {fee_overrides_config_template_path}")
 
     def test_strategy_config_template_complete(self):
         folder: str = join(root_path(), "hummingbot/strategy")

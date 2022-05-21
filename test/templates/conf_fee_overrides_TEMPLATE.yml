@@ -1,0 +1,36 @@
+########################################
+###   Fee overrides configurations   ###
+########################################
+
+# For more detailed information: https://docs.hummingbot.io
+template_version: 11
+
+# Example of the fields that can be specified to override the `TradeFeeFactory` default settings.
+# If the field is missing or the value is left blank, the default value will be used.
+# The percentage values are specified as 0.1 for 0.1%.
+#
+# [exchange name]_percent_fee_token:
+# [exchange name]_maker_percent_fee:
+# [exchange name]_taker_percent_fee:
+# [exchange name]_buy_percent_fee_deducted_from_returns:  # if False, the buy fee is added to the order costs
+# [exchange name]_maker_fixed_fees:  # a list of lists of token-fee pairs (e.g. [["ETH", 1]])
+# [exchange name]_taker_fixed_fees:  # a list of lists of token-fee pairs (e.g. [["ETH", 1]])
+
+binance_percent_fee_token:  # BNB
+binance_maker_percent_fee:  # 0.75
+binance_taker_percent_fee:  # 0.75
+binance_buy_percent_fee_deducted_from_returns:  # True
+
+# List of supported Exchanges for which the user's conf/conf_fee_override.yml
+# will work. This file currently needs to be in sync with hummingbot list of
+# supported exchanges
+altmarkets_buy_percent_fee_deducted_from_returns:
+altmarkets_maker_fixed_fees:
+altmarkets_maker_percent_fee:
+altmarkets_percent_fee_token:
+altmarkets_taker_fixed_fees:
+altmarkets_taker_percent_fee:
+kucoin_percent_fee_token:
+kucoin_maker_percent_fee:
+kucoin_taker_percent_fee:
+kucoin_buy_percent_fee_deducted_from_returns:
