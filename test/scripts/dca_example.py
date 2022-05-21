@@ -12,7 +12,7 @@ from hummingbot.core.event.events import (
 from hummingbot.strategy.script_strategy_base import Decimal, OrderType, ScriptStrategyBase
 
 
-class TestDCAExample(ScriptStrategyBase):
+class DCAExample(ScriptStrategyBase):
     """
     This example shows how to set up a simple strategy to buy a token on fixed (dollar) amount on a regular basis
     """
