@@ -402,4 +402,5 @@ class AmmArbUnitTest(unittest.TestCase):
     @unittest.mock.patch("hummingbot.strategy.amm_arb.amm_arb.AmmArbStrategy.all_markets_ready", return_value=False)
     async def test_market_ready(self, patched_func: unittest.mock.AsyncMock):
         self.strategy.tick(10)
+       await asyncio.sleep(2)
         self.assertFalse(self.strategy._all_markets_ready)
