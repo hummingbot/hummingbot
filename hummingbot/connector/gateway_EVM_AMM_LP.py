@@ -500,7 +500,7 @@ class GatewayEVMAMMLP(ConnectorBase):
                     creation_timestamp=tracked_order.creation_timestamp,
                 ))
             else:
-                self.trigger_event(MarketEvent.RangePositionUpdateFailureEvent,
+                self.trigger_event(MarketEvent.RangePositionUpdateFailure,
                                    RangePositionUpdateFailureEvent(self.current_timestamp, order_id, lp_type))
                 self.stop_tracking_order(order_id)
         except asyncio.CancelledError:
@@ -512,7 +512,7 @@ class GatewayEVMAMMLP(ConnectorBase):
                 f"{trading_pair} ",
                 exc_info=True
             )
-            self.trigger_event(MarketEvent.RangePositionUpdateFailureEvent,
+            self.trigger_event(MarketEvent.RangePositionUpdateFailure,
                                RangePositionUpdateFailureEvent(self.current_timestamp, order_id, lp_type))
             self.stop_tracking_order(order_id)
 
@@ -1023,7 +1023,7 @@ class GatewayEVMAMMLP(ConnectorBase):
         """
         Checks if there are existing tracked inflight orders with same token id created earlier.
         """
-        token_id_list = [order.token_id for order in self.amm_lp_orders if order.lp_type == LPType.ADD and order.is_nft]
+        token_id_list = [order for order in self.amm_lp_orders if order.token_id == token_id and order.is_nft]
         return len(token_id_list) > 0
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
