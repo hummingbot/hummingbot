@@ -95,10 +95,10 @@ class GatewayInFlightLPOrder(GatewayInFlightOrder):
             gas_price=data["fee_paid"],
             initial_state=data["last_state"]
         )
-        retval.adjusted_lower_price = data["adjusted_lower_price"]
-        retval.adjusted_upper_price = data["adjusted_upper_price"]
-        retval.unclaimed_fee_0 = data["unclaimed_fee_0"]
-        retval.unclaimed_fee_1 = data["unclaimed_fee_1"]
+        retval.adjusted_lower_price = Decimal(data["adjusted_lower_price"])
+        retval.adjusted_upper_price = Decimal(data["adjusted_upper_price"])
+        retval.unclaimed_fee_0 = Decimal(data["unclaimed_fee_0"])
+        retval.unclaimed_fee_1 = Decimal(data["unclaimed_fee_1"])
         retval.fee_tier = data["fee_tier"]
         retval.fee_asset = data["fee_asset"]
         retval.fee_paid = Decimal(data["fee_paid"])
