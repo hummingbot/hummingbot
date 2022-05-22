@@ -10,6 +10,7 @@ import { Transaction, Wallet } from 'ethers';
 import BigNumber from 'bignumber.js';
 import { getEthereumConfig } from '../../chains/ethereum/ethereum.config';
 import { TokenInfo } from '../../services/ethereum-base';
+import { CurveConfig } from './curve.config';
 
 // curve is exposed as a singleton so we can only have one instance of curve
 // with a set of values at a time.
@@ -224,8 +225,7 @@ export class Curve {
       return parseInt(fractionSplit[0]) / parseInt(fractionSplit[1]);
     }
 
-    // const allowedSlippage = UniswapConfig.config.allowedSlippage(2);
-    const allowedSlippage = '1/100';
+    const allowedSlippage = CurveConfig.config.allowedSlippage;
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return parseInt(nd[1]) / parseInt(nd[2]);
     throw new Error(
