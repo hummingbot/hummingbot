@@ -3404,7 +3404,7 @@ export const routerExchangeEstimateGas = async (inputCoin: string, outputCoin: s
     return gas
 }
 
-export const routerExchange = async (inputCoin: string, outputCoin: string, amount: string, maxSlippage = 0.01): Promise<Transaction> => {
+export const routerExchange = async (inputCoin: string, outputCoin: string, amount: string, nonce: number, gasLimit: number, maxSlippage = 0.01): Promise<Transaction> => {
     const [inputCoinAddress, outputCoinAddress] = _getCoinAddresses(inputCoin, outputCoin);
     const [inputCoinDecimals, outputCoinDecimals] = _getCoinDecimals(inputCoinAddress, outputCoinAddress);
 
@@ -3424,13 +3424,6 @@ export const routerExchange = async (inputCoin: string, outputCoin: string, amou
     const value = isEth(inputCoinAddress) ? _amount : ethers.BigNumber.from(0);
 
     await curve.updateFeeData();
-    const gasLimit = (await contract.estimateGas.exchange_multiple(
-        _route,
-        _swapParams,
-        _amount,
-        _minRecvAmount,
-        _factorySwapAddresses,
-        { ...curve.constantOptions, value }
-    )).mul(curve.chainId === 1 ? 130 : 160).div(100);
-    return (await contract.exchange_multiple(_route, _swapParams, _amount, _minRecvAmount, _factorySwapAddresses, { ...curve.options, value, gasLimit }))
+
+    return (await contract.exchange_multiple(_route, _swapParams, _amount, _minRecvAmount, _factorySwapAddresses, { ...curve.options, nonce, value, gasLimit }))
 }

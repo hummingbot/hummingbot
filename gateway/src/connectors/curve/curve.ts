@@ -80,7 +80,18 @@ export class Curve {
     this._ready = true;
   }
 
-  async prepWallet(wallet: Wallet): Promise<void> {
+  async prepWallet(
+    wallet: Wallet,
+    gasPrice?: number,
+    maxFeePerGas?: BigNumber,
+    maxPriorityFeePerGas?: BigNumber
+  ): Promise<void> {
+    let options: Record<string, any> = {};
+    if (gasPrice !== null) options['gasPrice'] = gasPrice;
+    if (maxFeePerGas !== null) options['maxFeePerGas'] = maxFeePerGas;
+    if (maxPriorityFeePerGas !== null)
+      options['maxPriorityFeePerGas'] = maxPriorityFeePerGas;
+
     await curve.init(
       'JsonRpc',
       {
@@ -89,7 +100,7 @@ export class Curve {
           getEthereumConfig(this._chain, this._network).nodeAPIKey,
         privateKey: wallet.privateKey,
       },
-      { chainId: this._chainId }
+      { ...options, chainId: this._chainId }
     );
   }
 
@@ -161,93 +172,78 @@ export class Curve {
    * @param allowedSlippage
    */
 
-// export const routerExchange = async (
-//   inputCoin: string,
-//   outputCoin: string,
-//   amount: string,
-//   nonce: number,
-//   gasLimit: BigNumber,
-//   gasPrice: BigNumber,
-//   maxSlippage = 0.01
-// ): Promise<ethers.Transaction> => {
+  // export const routerExchange = async (
+  //   inputCoin: string,
+  //   outputCoin: string,
+  //   amount: string,
+  //   nonce: number,
+  //   gasLimit: BigNumber,
+  //   gasPrice: BigNumber,
+  //   maxSlippage = 0.01
+  // ): Promise<ethers.Transaction> => {
 
+  // await curve.init('JsonRpc', {}, { gasPrice: 0, maxFeePerGas: 0, maxPriorityFeePerGas: 0, chainId: 1 });
+  //gasPrice: 0, maxFeePerGas: 0, maxPriorityFeePerGas: 0, chainId: 1
+  // export interface ICurve {
+  //   provider: ethers.providers.Web3Provider | ethers.providers.JsonRpcProvider;
+  //   multicallProvider: MulticallProvider;
+  //   signer: ethers.Signer | null;
+  //   signerAddress: string;
+  //   chainId: number;
+  //   contracts: {
+  //     [index: string]: {
+  //       contract: Contract;
+  //       multicallContract: MulticallContract;
+  //     };
+  //   };
+  //   feeData: {
+  //     gasPrice?: number;
+  //     maxFeePerGas?: number;
+  //     maxPriorityFeePerGas?: number;
+  //   };
+  //   constantOptions: { gasLimit: number };
+  //   options: {
+  //     gasPrice?: number | ethers.BigNumber;
+  //     maxFeePerGas?: number | ethers.BigNumber;
+  //     maxPriorityFeePerGas?: number | ethers.BigNumber;
+  //   };
+  //   constants: DictInterface<any>;
+  // }
 
-// await curve.init('JsonRpc', {}, { gasPrice: 0, maxFeePerGas: 0, maxPriorityFeePerGas: 0, chainId: 1 });    
-    //gasPrice: 0, maxFeePerGas: 0, maxPriorityFeePerGas: 0, chainId: 1
-// export interface ICurve {
-//   provider: ethers.providers.Web3Provider | ethers.providers.JsonRpcProvider;
-//   multicallProvider: MulticallProvider;
-//   signer: ethers.Signer | null;
-//   signerAddress: string;
-//   chainId: number;
-//   contracts: {
-//     [index: string]: {
-//       contract: Contract;
-//       multicallContract: MulticallContract;
-//     };
-//   };
-//   feeData: {
-//     gasPrice?: number;
-//     maxFeePerGas?: number;
-//     maxPriorityFeePerGas?: number;
-//   };
-//   constantOptions: { gasLimit: number };
-//   options: {
-//     gasPrice?: number | ethers.BigNumber;
-//     maxFeePerGas?: number | ethers.BigNumber;
-//     maxPriorityFeePerGas?: number | ethers.BigNumber;
-//   };
-//   constants: DictInterface<any>;
-// }
-    
-    
   async executeTrade(
     wallet: Wallet,
-    _gasPrice: number,
+    gasPrice: number,
     baseToken: TokenInfo,
     quoteToken: TokenInfo,
     tokenAmount: string,
     side: string,
-    _nonce: number,
-    maxFeePerGas?: number,
+    gasLimit: number,
+    nonce: number,
+    maxFeePerGas?: BigNumber,
     maxPriorityFeePerGas?: BigNumber
     // allowedSlippage?: string
   ): Promise<Transaction> {
-    await this.prepWallet(wallet);
+    await this.prepWallet(wallet, gasPrice, maxFeePerGas, maxPriorityFeePerGas);
+
+    if (nonce === undefined) {
+      nonce = await this._ethereum.nonceManager.getNonce(wallet.address);
+    }
 
     if (side === 'BUY') {
-      if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
-        return await curve.routerExchange(
-          baseToken.address,
-          quoteToken.address,
-          tokenAmount,
-          // nonce,
-          // new BigNumber(this.gasLimit),
-          // new BigNumber(gasPrice),
-          // maxFeePerGas
-          //          maxPriorityFeePerGas
-        );
-      } else {
-          return await curve.routerExchange(
-              baseToken.address,
-          quoteToken.address,
-          
-          tokenAmount,
-          // nonce,
-          // new BigNumber(this.gasLimit),
-          // new BigNumber(gasPrice)
-          // maxFeePerGas,
-          // maxPriorityFeePerGas
-        );
-      }
+      return await curve.routerExchange(
+        baseToken.address,
+        quoteToken.address,
+        tokenAmount,
+        nonce,
+        gasLimit
+      );
     } else {
       return await curve.routerExchange(
         quoteToken.address,
         baseToken.address,
         tokenAmount,
-        // nonce,
-        // new BigNumber(this.gasLimit),
-        // new BigNumber(gasPrice)
+        nonce,
+        gasLimit
       );
     }
   }
