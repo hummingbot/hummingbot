@@ -4,6 +4,8 @@ import {
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from '../../services/error-handler';
 import { Ethereum } from '../../chains/ethereum/ethereum';
+import { isFractionString } from '../../services/validators';
+import { percentRegexp } from '../../services/config-manager-v2';
 import { Transaction, Wallet } from 'ethers';
 import BigNumber from 'bignumber.js';
 import { getEthereumConfig } from '../../chains/ethereum/ethereum.config';
@@ -210,6 +212,27 @@ export class Curve {
   //   constants: DictInterface<any>;
   // }
 
+  /**
+   * Gets the allowed slippage percent from the optional parameter or the value
+   * in the configuration.
+   *
+   * @param allowedSlippageStr (Optional) should be of the form '1/10'.
+   */
+  public getAllowedSlippage(allowedSlippageStr?: string): number | undefined {
+    if (allowedSlippageStr != null && isFractionString(allowedSlippageStr)) {
+      const fractionSplit = allowedSlippageStr.split('/');
+      return parseInt(fractionSplit[0]) / parseInt(fractionSplit[1]);
+    }
+
+    // const allowedSlippage = UniswapConfig.config.allowedSlippage(2);
+    const allowedSlippage = '1/100';
+    const nd = allowedSlippage.match(percentRegexp);
+    if (nd) return parseInt(nd[1]) / parseInt(nd[2]);
+    throw new Error(
+      'Encountered a malformed percent string in the config for ALLOWED_SLIPPAGE.'
+    );
+  }
+
   async executeTrade(
     wallet: Wallet,
     gasPrice: number,
@@ -220,8 +243,8 @@ export class Curve {
     gasLimit: number,
     nonce: number,
     maxFeePerGas?: BigNumber,
-    maxPriorityFeePerGas?: BigNumber
-    // allowedSlippage?: string
+    maxPriorityFeePerGas?: BigNumber,
+    allowedSlippage?: string
   ): Promise<Transaction> {
     await this.prepWallet(wallet, gasPrice, maxFeePerGas, maxPriorityFeePerGas);
 
@@ -235,7 +258,8 @@ export class Curve {
         quoteToken.address,
         tokenAmount,
         nonce,
-        gasLimit
+        gasLimit,
+        this.getAllowedSlippage(allowedSlippage)
       );
     } else {
       return await curve.routerExchange(
@@ -243,7 +267,8 @@ export class Curve {
         baseToken.address,
         tokenAmount,
         nonce,
-        gasLimit
+        gasLimit,
+        this.getAllowedSlippage(allowedSlippage)
       );
     }
   }
