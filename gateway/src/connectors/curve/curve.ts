@@ -22,6 +22,16 @@ export interface ExpectedTrade {
   expectedAmount: string;
 }
 
+// track previous curve init params. If they differ from the current ones,
+// reinit curve. This is necessary because the curve object from curve-js is a
+// global singleton
+export interface PreviousCurveInitParams {
+  wallet: Wallet;
+  gasPrice?: number;
+  maxFeePerGas?: BigNumber;
+  maxPriorityFeePerGas?: BigNumber;
+}
+
 export class Curve {
   public readonly types: string = 'Curve';
   private static _instances: { [name: string]: Curve };
@@ -30,6 +40,7 @@ export class Curve {
   private _ethereum: Ethereum;
   private _network: string;
   private _gasLimit: number;
+  private _previousCurveInitParams: PreviousCurveInitParams | null = null;
 
   private _ready: boolean = false;
 
@@ -63,22 +74,11 @@ export class Curve {
     await curve.init(
       'Infura',
       {
-        network: this._network,
+        network: getEthereumConfig(this._chain, this._network).network.nodeURL,
         apiKey: getEthereumConfig(this._chain, this._network).nodeAPIKey,
       },
       { chainId: this._chainId }
     );
-
-    // await curve.init(
-    //   'JsonRpc',
-    //   {
-    //     url:
-    //       getEthereumConfig(this._chain, this._network).network.nodeURL +
-    //       getEthereumConfig(this._chain, this._network).nodeAPIKey,
-    //     // privateKey: wallet.privateKey,
-    //   },
-    //   { chainId: this._chainId }
-    // );
 
     this._ready = true;
   }
@@ -89,22 +89,34 @@ export class Curve {
     maxFeePerGas?: BigNumber,
     maxPriorityFeePerGas?: BigNumber
   ): Promise<void> {
-    let options: Record<string, any> = {};
-    if (gasPrice !== null) options['gasPrice'] = gasPrice;
-    if (maxFeePerGas !== null) options['maxFeePerGas'] = maxFeePerGas;
-    if (maxPriorityFeePerGas !== null)
-      options['maxPriorityFeePerGas'] = maxPriorityFeePerGas;
+    if (
+      this._previousCurveInitParams !==
+      { wallet, gasPrice, maxFeePerGas, maxPriorityFeePerGas }
+    ) {
+      let options: Record<string, any> = {};
+      if (gasPrice !== null) options['gasPrice'] = gasPrice;
+      if (maxFeePerGas !== null) options['maxFeePerGas'] = maxFeePerGas;
+      if (maxPriorityFeePerGas !== null)
+        options['maxPriorityFeePerGas'] = maxPriorityFeePerGas;
 
-    await curve.init(
-      'JsonRpc',
-      {
-        url:
-          getEthereumConfig(this._chain, this._network).network.nodeURL +
-          getEthereumConfig(this._chain, this._network).nodeAPIKey,
-        privateKey: wallet.privateKey,
-      },
-      { ...options, chainId: this._chainId }
-    );
+      await curve.init(
+        'Infura',
+        {
+          network: getEthereumConfig(this._chain, this._network).network
+            .nodeURL,
+          apiKey: getEthereumConfig(this._chain, this._network).nodeAPIKey,
+          privateKey_: wallet.privateKey,
+        },
+        { ...options, chainId: this._chainId }
+      );
+
+      this._previousCurveInitParams = {
+        wallet,
+        gasPrice,
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+      };
+    }
   }
 
   public get ready(): boolean {
@@ -161,59 +173,6 @@ export class Curve {
   }
 
   /**
-   * Given a wallet and a Uniswap trade, try to execute it on blockchain.
-   *
-   * @param wallet Wallet
-   * @param gasPrice Base gas price, for pre-EIP1559 transactions
-   * @param baseToken
-   * @param quoteToken
-   * @param tokenAmount
-   * @param side
-   * @param nonce (Optional) EVM transaction nonce
-   * @param maxFeePerGas (Optional) Maximum total fee per gas you want to pay
-   * @param maxPriorityFeePerGas (Optional) Maximum tip per gas you want to pay
-   * @param allowedSlippage
-   */
-
-  // export const routerExchange = async (
-  //   inputCoin: string,
-  //   outputCoin: string,
-  //   amount: string,
-  //   nonce: number,
-  //   gasLimit: BigNumber,
-  //   gasPrice: BigNumber,
-  //   maxSlippage = 0.01
-  // ): Promise<ethers.Transaction> => {
-
-  // await curve.init('JsonRpc', {}, { gasPrice: 0, maxFeePerGas: 0, maxPriorityFeePerGas: 0, chainId: 1 });
-  //gasPrice: 0, maxFeePerGas: 0, maxPriorityFeePerGas: 0, chainId: 1
-  // export interface ICurve {
-  //   provider: ethers.providers.Web3Provider | ethers.providers.JsonRpcProvider;
-  //   multicallProvider: MulticallProvider;
-  //   signer: ethers.Signer | null;
-  //   signerAddress: string;
-  //   chainId: number;
-  //   contracts: {
-  //     [index: string]: {
-  //       contract: Contract;
-  //       multicallContract: MulticallContract;
-  //     };
-  //   };
-  //   feeData: {
-  //     gasPrice?: number;
-  //     maxFeePerGas?: number;
-  //     maxPriorityFeePerGas?: number;
-  //   };
-  //   constantOptions: { gasLimit: number };
-  //   options: {
-  //     gasPrice?: number | ethers.BigNumber;
-  //     maxFeePerGas?: number | ethers.BigNumber;
-  //     maxPriorityFeePerGas?: number | ethers.BigNumber;
-  //   };
-  //   constants: DictInterface<any>;
-  // }
-
-  /**
    * Gets the allowed slippage percent from the optional parameter or the value
    * in the configuration.
    *
@@ -233,6 +192,20 @@ export class Curve {
     );
   }
 
+  /**
+   * Execute a curve trade on the blockchain.
+   *
+   * @param wallet Wallet
+   * @param gasPrice Base gas price, for pre-EIP1559 transactions
+   * @param baseToken
+   * @param quoteToken
+   * @param tokenAmount
+   * @param side
+   * @param gasLimit Gas limit
+   * @param nonce (Optional) EVM transaction nonce
+   * @param maxFeePerGas (Optional) Maximum total fee per gas you want to pay
+   * @param maxPriorityFeePerGas (Optional) Maximum tip per gas you want to pay
+   */
   async executeTrade(
     wallet: Wallet,
     gasPrice: number,

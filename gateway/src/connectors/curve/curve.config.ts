@@ -5,7 +5,7 @@ export namespace CurveConfig {
   export interface NetworkConfig {
     allowedSlippage: string;
     tradingTypes: Array<string>;
-    availableNetworks: Array<AvailableNetworks>;      
+    availableNetworks: Array<AvailableNetworks>;
   }
 
   export const config: NetworkConfig = {

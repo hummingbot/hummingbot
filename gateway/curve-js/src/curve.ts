@@ -121,7 +121,7 @@ class Curve implements ICurve {
 
     async init(
         providerType: 'JsonRpc' | 'Web3' | 'Infura' | 'Alchemy',
-        providerSettings: { url?: string, privateKey?: string } | { externalProvider: ethers.providers.ExternalProvider } | { network?: Networkish, apiKey?: string },
+        providerSettings: { url?: string, privateKey?: string } | { externalProvider: ethers.providers.ExternalProvider } | { network: Networkish, apiKey: string, privateKey_?: string },
         options: { gasPrice?: number, maxFeePerGas?: number, maxPriorityFeePerGas?: number, chainId?: number } = {} // gasPrice in Gwei
     ): Promise<void> {
         this.contracts = {};
@@ -148,13 +148,19 @@ class Curve implements ICurve {
             this.signer = this.provider.getSigner();
         // Infura provider
         } else if (providerType.toLowerCase() === 'Infura'.toLowerCase()) {
-            providerSettings = providerSettings as { network?: Networkish, apiKey?: string };
-            this.provider = new ethers.providers.InfuraProvider(providerSettings.network, providerSettings.apiKey);
-            this.signer = null;
+            providerSettings = providerSettings as { network: Networkish, apiKey: string, privateKey_?: string };
+            this.provider = new ethers.providers.StaticJsonRpcProvider(providerSettings.network + providerSettings.apiKey);
+            if (providerSettings.privateKey_) {
+                this.signer = new ethers.Wallet(providerSettings.privateKey_, this.provider);
+            } else {
+                this.signer = null;
+            }            
+
         // Alchemy provider
         } else if (providerType.toLowerCase() === 'Alchemy'.toLowerCase()) {
-            providerSettings = providerSettings as { network?: Networkish, apiKey?: string };
+            providerSettings = providerSettings as { network: Networkish, apiKey: string, privateKey_?: string };
             this.provider = new ethers.providers.AlchemyProvider(providerSettings.network, providerSettings.apiKey);
+
             this.signer = null;
         } else {
             throw Error('Wrong providerType');
