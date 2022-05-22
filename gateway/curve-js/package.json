@@ -1,0 +1,41 @@
+{
+  "name": "@curvefi/api",
+  "version": "1.25.1",
+  "description": "JavaScript library for curve.fi",
+  "main": "lib/index.js",
+  "author": "Macket",
+  "license": "MIT",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/curvefi/curve-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/curvefi/curve-js/issues"
+  },
+  "scripts": {
+    "build": "rm -rf lib && tsc -p tsconfig.build.json"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.2.18",
+    "@types/memoizee": "^0.4.7",
+    "@types/mocha": "^8.2.2",
+    "@types/node": "^14.14.37",
+    "@typescript-eslint/eslint-plugin": "^4.33.0",
+    "@typescript-eslint/parser": "^4.20.0",
+    "babel-eslint": "^10.1.0",
+    "chai": "^4.3.4",
+    "eslint": "^7.32.0",
+    "mocha": "^8.4.0",
+    "typescript": "^4.5.2",
+    "vue-eslint-parser": "^7.6.0"
+  },
+  "dependencies": {
+    "@ethersproject/networks": "^5.5.0",
+    "axios": "^0.21.1",
+    "bignumber.js": "^9.0.1",
+    "ethcall": "^4.2.5",
+    "ethers": "^5.4.6",
+    "memoizee": "^0.4.15"
+  }
+}

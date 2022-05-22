@@ -1,0 +1,40 @@
+{
+  "env": {
+    "browser": true,
+    "es6": true
+  },
+  "extends": "eslint:recommended",
+  "parser": "vue-eslint-parser",
+  "parserOptions": {
+    "parser": "babel-eslint",
+    "sourceType": "module",
+    "allowImportExportEverywhere": false
+  },
+  "rules": {
+    "func-names": 0,
+    "no-nested-ternary": 0,
+    "max-len": 0,
+    "arrow-parens": ["error", "always"],
+    "no-underscore-dangle": 0,
+    "comma-dangle": ["error", {
+      "arrays": "always-multiline",
+      "objects": "always-multiline",
+      "imports": "always-multiline",
+      "exports": "always-multiline",
+      "functions": "never"
+    }],
+    "no-use-before-define": ["error", "nofunc"],
+    "no-empty": ["error", { "allowEmptyCatch": true }],
+    "no-mixed-operators": ["error", { "allowSamePrecedence": true }],
+    "indent": ["error", 4, { "flatTernaryExpressions": true, "SwitchCase": 1 }]
+  },
+  "overrides": [{
+    "files": ["**/*.ts"],
+    "parser": "@typescript-eslint/parser",
+    "plugins": ["@typescript-eslint"],
+    "extends": ["plugin:@typescript-eslint/eslint-recommended", "plugin:@typescript-eslint/recommended"],
+    "rules": {
+      "@typescript-eslint/ban-ts-comment": "off"
+    }
+  }]
+}

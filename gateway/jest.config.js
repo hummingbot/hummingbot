@@ -3,6 +3,7 @@ module.exports = {
   testEnvironment: 'node',
   forceExit: true,
   coveragePathIgnorePatterns: [
+    'curve-js',
     'src/app.ts',
     'src/https.ts',
     'src/paths.ts',

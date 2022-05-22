@@ -146,14 +146,69 @@ export class Curve {
     };
   }
 
+  /**
+   * Given a wallet and a Uniswap trade, try to execute it on blockchain.
+   *
+   * @param wallet Wallet
+   * @param gasPrice Base gas price, for pre-EIP1559 transactions
+   * @param baseToken
+   * @param quoteToken
+   * @param tokenAmount
+   * @param side
+   * @param nonce (Optional) EVM transaction nonce
+   * @param maxFeePerGas (Optional) Maximum total fee per gas you want to pay
+   * @param maxPriorityFeePerGas (Optional) Maximum tip per gas you want to pay
+   * @param allowedSlippage
+   */
+
+// export const routerExchange = async (
+//   inputCoin: string,
+//   outputCoin: string,
+//   amount: string,
+//   nonce: number,
+//   gasLimit: BigNumber,
+//   gasPrice: BigNumber,
+//   maxSlippage = 0.01
+// ): Promise<ethers.Transaction> => {
+
+
+// await curve.init('JsonRpc', {}, { gasPrice: 0, maxFeePerGas: 0, maxPriorityFeePerGas: 0, chainId: 1 });    
+    //gasPrice: 0, maxFeePerGas: 0, maxPriorityFeePerGas: 0, chainId: 1
+// export interface ICurve {
+//   provider: ethers.providers.Web3Provider | ethers.providers.JsonRpcProvider;
+//   multicallProvider: MulticallProvider;
+//   signer: ethers.Signer | null;
+//   signerAddress: string;
+//   chainId: number;
+//   contracts: {
+//     [index: string]: {
+//       contract: Contract;
+//       multicallContract: MulticallContract;
+//     };
+//   };
+//   feeData: {
+//     gasPrice?: number;
+//     maxFeePerGas?: number;
+//     maxPriorityFeePerGas?: number;
+//   };
+//   constantOptions: { gasLimit: number };
+//   options: {
+//     gasPrice?: number | ethers.BigNumber;
+//     maxFeePerGas?: number | ethers.BigNumber;
+//     maxPriorityFeePerGas?: number | ethers.BigNumber;
+//   };
+//   constants: DictInterface<any>;
+// }
+    
+    
   async executeTrade(
     wallet: Wallet,
-    gasPrice: number,
+    _gasPrice: number,
     baseToken: TokenInfo,
     quoteToken: TokenInfo,
     tokenAmount: string,
     side: string,
-    nonce: number,
+    _nonce: number,
     maxFeePerGas?: number,
     maxPriorityFeePerGas?: BigNumber
     // allowedSlippage?: string
@@ -166,20 +221,21 @@ export class Curve {
           baseToken.address,
           quoteToken.address,
           tokenAmount,
-          nonce,
-          new BigNumber(this.gasLimit),
-          new BigNumber(gasPrice),
-          maxFeePerGas
+          // nonce,
+          // new BigNumber(this.gasLimit),
+          // new BigNumber(gasPrice),
+          // maxFeePerGas
           //          maxPriorityFeePerGas
         );
       } else {
-        return await curve.routerExchange(
+          return await curve.routerExchange(
+              baseToken.address,
           quoteToken.address,
-          baseToken.address,
+          
           tokenAmount,
-          nonce,
-          new BigNumber(this.gasLimit),
-          new BigNumber(gasPrice)
+          // nonce,
+          // new BigNumber(this.gasLimit),
+          // new BigNumber(gasPrice)
           // maxFeePerGas,
           // maxPriorityFeePerGas
         );
@@ -189,9 +245,9 @@ export class Curve {
         quoteToken.address,
         baseToken.address,
         tokenAmount,
-        nonce,
-        new BigNumber(this.gasLimit),
-        new BigNumber(gasPrice)
+        // nonce,
+        // new BigNumber(this.gasLimit),
+        // new BigNumber(gasPrice)
       );
     }
   }

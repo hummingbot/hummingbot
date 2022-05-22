@@ -1,0 +1,164 @@
+[
+  {
+    "outputs": [],
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "name": "add_liquidity",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      {
+        "type": "address",
+        "name": "_pool"
+      },
+      {
+        "type": "uint256[4]",
+        "name": "_deposit_amounts"
+      },
+      {
+        "type": "uint256",
+        "name": "_min_mint_amount"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "name": "remove_liquidity",
+    "outputs": [
+      {
+        "type": "uint256[4]",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      {
+        "type": "address",
+        "name": "_pool"
+      },
+      {
+        "type": "uint256",
+        "name": "_burn_amount"
+      },
+      {
+        "type": "uint256[4]",
+        "name": "_min_amounts"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "name": "remove_liquidity_one_coin",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      {
+        "type": "address",
+        "name": "_pool"
+      },
+      {
+        "type": "uint256",
+        "name": "_burn_amount"
+      },
+      {
+        "type": "int128",
+        "name": "i"
+      },
+      {
+        "type": "uint256",
+        "name": "_min_amount"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "name": "remove_liquidity_imbalance",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      {
+        "type": "address",
+        "name": "_pool"
+      },
+      {
+        "type": "uint256[4]",
+        "name": "_amounts"
+      },
+      {
+        "type": "uint256",
+        "name": "_max_burn_amount"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "name": "calc_withdraw_one_coin",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      {
+        "type": "address",
+        "name": "_pool"
+      },
+      {
+        "type": "uint256",
+        "name": "_token_amount"
+      },
+      {
+        "type": "int128",
+        "name": "i"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function",
+    "gas": "1650"
+  },
+  {
+    "name": "calc_token_amount",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      {
+        "type": "address",
+        "name": "_pool"
+      },
+      {
+        "type": "uint256[4]",
+        "name": "_amounts"
+      },
+      {
+        "type": "bool",
+        "name": "_is_deposit"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function",
+    "gas": "2717"
+  }
+]

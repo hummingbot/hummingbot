@@ -1,0 +1,257 @@
+[
+  {
+    "stateMutability": "nonpayable",
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "_pool",
+        "type": "address"
+      },
+      {
+        "name": "_base_pool",
+        "type": "address"
+      }
+    ],
+    "outputs": [],
+    "name": "constructor"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "price_oracle",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "gas": "4244"
+  },
+  {
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "name": "add_liquidity",
+    "inputs": [
+      {
+        "name": "_amounts",
+        "type": "uint256[4]"
+      },
+      {
+        "name": "_min_mint_amount",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [],
+    "gas": "26265"
+  },
+  {
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "name": "exchange_underlying",
+    "inputs": [
+      {
+        "name": "i",
+        "type": "uint256"
+      },
+      {
+        "name": "j",
+        "type": "uint256"
+      },
+      {
+        "name": "_dx",
+        "type": "uint256"
+      },
+      {
+        "name": "_min_dy",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "gas": "20845"
+  },
+  {
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "name": "remove_liquidity",
+    "inputs": [
+      {
+        "name": "_amount",
+        "type": "uint256"
+      },
+      {
+        "name": "_min_amounts",
+        "type": "uint256[4]"
+      }
+    ],
+    "outputs": [],
+    "gas": "37086"
+  },
+  {
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "name": "remove_liquidity_one_coin",
+    "inputs": [
+      {
+        "name": "_token_amount",
+        "type": "uint256"
+      },
+      {
+        "name": "i",
+        "type": "uint256"
+      },
+      {
+        "name": "_min_amount",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [],
+    "gas": "13300"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "get_dy_underlying",
+    "inputs": [
+      {
+        "name": "i",
+        "type": "uint256"
+      },
+      {
+        "name": "j",
+        "type": "uint256"
+      },
+      {
+        "name": "_dx",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "gas": "9447"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "calc_token_amount",
+    "inputs": [
+      {
+        "name": "_amounts",
+        "type": "uint256[4]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "gas": "4967"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "calc_withdraw_one_coin",
+    "inputs": [
+      {
+        "name": "token_amount",
+        "type": "uint256"
+      },
+      {
+        "name": "i",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "gas": "6555"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "coins",
+    "inputs": [
+      {
+        "name": "arg0",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "gas": "1505"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "underlying_coins",
+    "inputs": [
+      {
+        "name": "arg0",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "gas": "1541"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "pool",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "gas": "1526"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "base_pool",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "gas": "1556"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "token",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "gas": "1586"
+  }
+]

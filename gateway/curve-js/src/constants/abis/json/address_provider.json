@@ -1,0 +1,309 @@
+[
+  {
+    "name": "NewAddressIdentifier",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "id",
+        "indexed": true
+      },
+      {
+        "type": "address",
+        "name": "addr",
+        "indexed": false
+      },
+      {
+        "type": "string",
+        "name": "description",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "AddressModified",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "id",
+        "indexed": true
+      },
+      {
+        "type": "address",
+        "name": "new_address",
+        "indexed": false
+      },
+      {
+        "type": "uint256",
+        "name": "version",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "CommitNewAdmin",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "deadline",
+        "indexed": true
+      },
+      {
+        "type": "address",
+        "name": "admin",
+        "indexed": true
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "NewAdmin",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "admin",
+        "indexed": true
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "outputs": [],
+    "inputs": [
+      {
+        "type": "address",
+        "name": "_admin"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "name": "get_registry",
+    "outputs": [
+      {
+        "type": "address",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "stateMutability": "view",
+    "type": "function",
+    "gas": "1061"
+  },
+  {
+    "name": "max_id",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "stateMutability": "view",
+    "type": "function",
+    "gas": "1258"
+  },
+  {
+    "name": "get_address",
+    "outputs": [
+      {
+        "type": "address",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "_id"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function",
+    "gas": "1308"
+  },
+  {
+    "name": "add_new_id",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      {
+        "type": "address",
+        "name": "_address"
+      },
+      {
+        "type": "string",
+        "name": "_description"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "gas": "291275"
+  },
+  {
+    "name": "set_address",
+    "outputs": [
+      {
+        "type": "bool",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "_id"
+      },
+      {
+        "type": "address",
+        "name": "_address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "gas": "182430"
+  },
+  {
+    "name": "unset_address",
+    "outputs": [
+      {
+        "type": "bool",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "_id"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "gas": "101348"
+  },
+  {
+    "name": "commit_transfer_ownership",
+    "outputs": [
+      {
+        "type": "bool",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      {
+        "type": "address",
+        "name": "_new_admin"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "gas": "74048"
+  },
+  {
+    "name": "apply_transfer_ownership",
+    "outputs": [
+      {
+        "type": "bool",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "gas": "60125"
+  },
+  {
+    "name": "revert_transfer_ownership",
+    "outputs": [
+      {
+        "type": "bool",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "gas": "21400"
+  },
+  {
+    "name": "admin",
+    "outputs": [
+      {
+        "type": "address",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "stateMutability": "view",
+    "type": "function",
+    "gas": "1331"
+  },
+  {
+    "name": "transfer_ownership_deadline",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "stateMutability": "view",
+    "type": "function",
+    "gas": "1361"
+  },
+  {
+    "name": "future_admin",
+    "outputs": [
+      {
+        "type": "address",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "stateMutability": "view",
+    "type": "function",
+    "gas": "1391"
+  },
+  {
+    "name": "get_id_info",
+    "outputs": [
+      {
+        "type": "address",
+        "name": "addr"
+      },
+      {
+        "type": "bool",
+        "name": "is_active"
+      },
+      {
+        "type": "uint256",
+        "name": "version"
+      },
+      {
+        "type": "uint256",
+        "name": "last_modified"
+      },
+      {
+        "type": "string",
+        "name": "description"
+      }
+    ],
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "arg0"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function",
+    "gas": "12168"
+  }
+]

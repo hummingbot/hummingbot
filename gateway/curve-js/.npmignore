@@ -1,0 +1,9 @@
+.idea
+node_modules
+src
+test
+dist
+.github
+.eslintrc.json
+package-lock.json
+tsconfig*

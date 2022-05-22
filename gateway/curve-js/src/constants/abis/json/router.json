@@ -1,0 +1,265 @@
+[
+  {
+    "name": "CommitOwnership",
+    "inputs": [
+      {
+        "name": "admin",
+        "type": "address",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "ApplyOwnership",
+    "inputs": [
+      {
+        "name": "admin",
+        "type": "address",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "TrustedForwardershipTransferred",
+    "inputs": [
+      {
+        "name": "previous_forwarder",
+        "type": "address",
+        "indexed": false
+      },
+      {
+        "name": "new_forwarder",
+        "type": "address",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "stateMutability": "nonpayable",
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "_swap",
+        "type": "address"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "stateMutability": "payable",
+    "type": "fallback"
+  },
+  {
+    "stateMutability": "payable",
+    "type": "function",
+    "name": "exchange",
+    "inputs": [
+      {
+        "name": "_amount",
+        "type": "uint256"
+      },
+      {
+        "name": "_route",
+        "type": "address[6]"
+      },
+      {
+        "name": "_indices",
+        "type": "uint256[8]"
+      },
+      {
+        "name": "_min_received",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "get_exchange_routing",
+    "inputs": [
+      {
+        "name": "_initial",
+        "type": "address"
+      },
+      {
+        "name": "_target",
+        "type": "address"
+      },
+      {
+        "name": "_amount",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address[6]"
+      },
+      {
+        "name": "",
+        "type": "uint256[8]"
+      },
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "gas": "58134"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "can_route",
+    "inputs": [
+      {
+        "name": "_initial",
+        "type": "address"
+      },
+      {
+        "name": "_target",
+        "type": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "gas": "26895"
+  },
+  {
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "name": "commit_transfer_ownership",
+    "inputs": [
+      {
+        "name": "addr",
+        "type": "address"
+      }
+    ],
+    "outputs": [],
+    "gas": "39075"
+  },
+  {
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "name": "accept_transfer_ownership",
+    "inputs": [],
+    "outputs": [],
+    "gas": "39020"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "isTrustedForwarder",
+    "inputs": [
+      {
+        "name": "_forwarder",
+        "type": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "gas": "2737"
+  },
+  {
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "name": "set_trusted_forwarder",
+    "inputs": [
+      {
+        "name": "_forwarder",
+        "type": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "gas": "41913"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "swap",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "gas": "2688"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "crypto_coins",
+    "inputs": [
+      {
+        "name": "arg0",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "gas": "2827"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "gas": "2748"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "trusted_forwarder",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "gas": "2778"
+  },
+  {
+    "stateMutability": "view",
+    "type": "function",
+    "name": "future_owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "gas": "2808"
+  }
+]

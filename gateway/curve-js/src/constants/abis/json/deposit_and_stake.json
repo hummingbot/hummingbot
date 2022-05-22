@@ -1,0 +1,51 @@
+[
+  {
+    "stateMutability": "payable",
+    "type": "function",
+    "name": "deposit_and_stake",
+    "inputs": [
+      {
+        "name": "deposit",
+        "type": "address"
+      },
+      {
+        "name": "lp_token",
+        "type": "address"
+      },
+      {
+        "name": "gauge",
+        "type": "address"
+      },
+      {
+        "name": "n_coins",
+        "type": "uint256"
+      },
+      {
+        "name": "coins",
+        "type": "address[5]"
+      },
+      {
+        "name": "amounts",
+        "type": "uint256[5]"
+      },
+      {
+        "name": "min_mint_amount",
+        "type": "uint256"
+      },
+      {
+        "name": "use_underlying",
+        "type": "bool"
+      },
+      {
+        "name": "pool",
+        "type": "address"
+      }
+    ],
+    "outputs": [],
+    "gas": "409532"
+  },
+  {
+    "stateMutability": "payable",
+    "type": "fallback"
+  }
+]
