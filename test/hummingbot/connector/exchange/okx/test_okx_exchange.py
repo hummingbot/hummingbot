@@ -619,6 +619,136 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
+    def configure_erroneous_http_fill_trade_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_TRADE_FILLS_PATH)
+        regex_url = re.compile(url + r"\?.*")
+        mock_api.get(regex_url, status=400, callback=callback)
+        return url
+
+    def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
+        return {
+            "arg": {
+                "channel": "orders",
+                "uid": "77982378738415879",
+                "instType": "SPOT",
+                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
+            },
+            "data": [
+                {
+                    "instType": "SPOT",
+                    "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                    "ccy": "BTC",
+                    "ordId": order.exchange_order_id or "EOID1",
+                    "clOrdId": order.client_order_id,
+                    "tag": "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "notionalUsd": "",
+                    "ordType": "limit",
+                    "side": order.trade_type.name.lower(),
+                    "posSide": "long",
+                    "tdMode": "cross",
+                    "tgtCcy": "",
+                    "fillSz": "0",
+                    "fillPx": "0",
+                    "tradeId": "0",
+                    "accFillSz": "323",
+                    "fillNotionalUsd": "",
+                    "fillTime": "0",
+                    "fillFee": "0",
+                    "fillFeeCcy": "",
+                    "execType": "T",
+                    "state": "live",
+                    "avgPx": "0",
+                    "lever": "20",
+                    "tpTriggerPx": "0",
+                    "tpTriggerPxType": "last",
+                    "tpOrdPx": "20",
+                    "slTriggerPx": "0",
+                    "slTriggerPxType": "last",
+                    "slOrdPx": "20",
+                    "feeCcy": "",
+                    "fee": "",
+                    "rebateCcy": "",
+                    "rebate": "",
+                    "tgtCcy": "",
+                    "source": "",
+                    "pnl": "",
+                    "category": "",
+                    "uTime": "1597026383085",
+                    "cTime": "1597026383085",
+                    "reqId": "",
+                    "amendResult": "",
+                    "code": "0",
+                    "msg": ""
+                }
+            ]
+        }
+
+    def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
+        return {
+            "arg": {
+                "channel": "orders",
+                "uid": "77982378738415879",
+                "instType": "SPOT",
+                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
+            },
+            "data": [
+                {
+                    "instType": "SPOT",
+                    "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                    "ccy": "BTC",
+                    "ordId": order.exchange_order_id or "EOID1",
+                    "clOrdId": order.client_order_id,
+                    "tag": "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "notionalUsd": "",
+                    "ordType": "limit",
+                    "side": order.trade_type.name.lower(),
+                    "posSide": "long",
+                    "tdMode": "cross",
+                    "tgtCcy": "",
+                    "fillSz": "0",
+                    "fillPx": "0",
+                    "tradeId": "0",
+                    "accFillSz": "323",
+                    "fillNotionalUsd": "",
+                    "fillTime": "0",
+                    "fillFee": "0",
+                    "fillFeeCcy": "",
+                    "execType": "T",
+                    "state": "canceled",
+                    "avgPx": "0",
+                    "lever": "20",
+                    "tpTriggerPx": "0",
+                    "tpTriggerPxType": "last",
+                    "tpOrdPx": "20",
+                    "slTriggerPx": "0",
+                    "slTriggerPxType": "last",
+                    "slOrdPx": "20",
+                    "feeCcy": "",
+                    "fee": "",
+                    "rebateCcy": "",
+                    "rebate": "",
+                    "tgtCcy": "",
+                    "source": "",
+                    "pnl": "",
+                    "category": "",
+                    "uTime": "1597026383085",
+                    "cTime": "1597026383085",
+                    "reqId": "",
+                    "amendResult": "",
+                    "code": "0",
+                    "msg": ""
+                }
+            ]
+        }
+
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
             "arg": {
