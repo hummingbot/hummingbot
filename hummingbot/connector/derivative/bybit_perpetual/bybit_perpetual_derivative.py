@@ -1048,6 +1048,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             if pos_key in self._account_positions:
                 del self._account_positions[pos_key]
 
+        # Trigger balance update because Bybit doesn't have balance updates through the websocket
+        safe_ensure_future(self._update_balances())
+
     def _process_order_event_message(self, order_msg: Dict[str, Any]):
         """
         Updates in-flight order and triggers cancellation or failure event if needed.
