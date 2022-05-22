@@ -74,8 +74,8 @@ class RESTAssistant:
                     error_response = await response.text()
                     raise IOError(f"Error executing request {method.name} {url}. HTTP status is {response.status}. "
                                   f"Error: {error_response}")
-
-            return await response.json()
+            result = await response.json()
+            return result
 
     async def call(self, request: RESTRequest, timeout: Optional[float] = None) -> RESTResponse:
         request = deepcopy(request)

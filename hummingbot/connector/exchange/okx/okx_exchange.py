@@ -24,9 +24,6 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 
 class OkxExchange(ExchangePyBase):
-    UPDATE_ORDERS_INTERVAL = 10.0
-    SHORT_POLL_INTERVAL = 5.0
-    LONG_POLL_INTERVAL = 120.0
 
     web_utils = web_utils
 

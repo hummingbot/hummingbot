@@ -313,7 +313,7 @@ class BinanceExchange(ExchangePyBase):
                 raise
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)
 
     async def _update_order_fills_from_trades(self):
         """
