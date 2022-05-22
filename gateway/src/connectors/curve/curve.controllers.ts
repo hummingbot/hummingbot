@@ -16,7 +16,6 @@ export async function price(
   req: PriceRequest
 ): Promise<PriceResponse> {
   const initTime = Date.now();
-  // curve-js takes the tokens as symbols, not addresses
   const baseToken = req.base;
 
   const baseTokenInfo: TokenInfo | undefined =
@@ -42,8 +41,8 @@ export async function price(
       );
     } else {
       let expectedTrade = await curve.estimateTrade(
-        baseToken,
-        quoteToken,
+        baseTokenInfo,
+        quoteTokenInfo,
         req.amount,
         req.side
       );
@@ -64,7 +63,7 @@ export async function price(
         gasLimit,
         gasCost: gasCostInEthString(gasPrice, gasLimit),
         rawAmount: req.amount,
-        gasPriceToken: 'ETH',
+        gasPriceToken: ethereumish.nativeTokenSymbol,
       };
     }
   }

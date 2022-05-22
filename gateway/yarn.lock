@@ -301,9 +301,9 @@
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
 "@blockworks-foundation/mango-client@^3.2.14":
-  version "3.4.5"
-  resolved "https://registry.yarnpkg.com/@blockworks-foundation/mango-client/-/mango-client-3.4.5.tgz#9ba8e8450e7a834c4067885eef2c21dc1a7d4fb7"
-  integrity sha512-RQ8WAcUMKtV72TGZ3qLFqcZW17WbDyDMcnCZrzSHp0rWpuThXcKb17/YBJY7TugVRvc6JnV1aJtlibI/oF15Gw==
+  version "3.4.6"
+  resolved "https://registry.yarnpkg.com/@blockworks-foundation/mango-client/-/mango-client-3.4.6.tgz#014ee406a46b49f387593d9556482ae6b854f273"
+  integrity sha512-NbfUccJRFgmufIF54KEfZRLhHlcLMNXi9OQX3nyyZiHNsDbBqnKkBX2sT6ofH8UJnQnb8tuufU3LHueZ3z/gng==
   dependencies:
     "@project-serum/anchor" "^0.21.0"
     "@project-serum/serum" "0.13.55"
@@ -372,10 +372,8 @@
   dependencies:
     "@cspotcode/source-map-consumer" "0.8.0"
 
-"@curvefi/api@^1.25.0":
+"@curvefi/api@file:../../curve-js":
   version "1.25.0"
-  resolved "https://registry.yarnpkg.com/@curvefi/api/-/api-1.25.0.tgz#40b8c3fc6cf131c2a342ec78dd95d8e979893a24"
-  integrity sha512-7IYyCQxImLHlMvkvzRx73X7iVb94VeBnfXJWwpZaSVAyj2twof9Xylcm7CqhtpXxTem4N0bsJMuzDl4nfSWDNg==
   dependencies:
     "@ethersproject/networks" "^5.5.0"
     axios "^0.21.1"
@@ -383,6 +381,7 @@
     ethcall "^4.2.5"
     ethers "^5.4.6"
     memoizee "^0.4.15"
+    prettier "^2.3.0"
 
 "@cvrg-report/clover-json@^0.1.0":
   version "0.1.1"
@@ -1341,9 +1340,9 @@
     buffer "~6.0.3"
 
 "@solana/spl-token-registry@^0.2.700":
-  version "0.2.3919"
-  resolved "https://registry.yarnpkg.com/@solana/spl-token-registry/-/spl-token-registry-0.2.3919.tgz#b612ac7696e884dd3d4a4f234d6a1e3bfc378071"
-  integrity sha512-tiZO5Vge9gPDSzvLlDno8i4dNVNiMeEKhXU5zZk/e5F13+d+ocqQ27jzrJ8GHVrnckOcUlTSDq5ONZ8uzAXWaA==
+  version "0.2.3930"
+  resolved "https://registry.yarnpkg.com/@solana/spl-token-registry/-/spl-token-registry-0.2.3930.tgz#7b599550e4e0867e56eb44ebe94933bf4c5c6bbc"
+  integrity sha512-rMJdTDKiY6PY+RATzHFX9FkauDz935/FtPk++/M27uQ3R5SMMYmZ6eQNuqM6G76h8VZ5DCRc8qkra/ISRIulGg==
   dependencies:
     cross-fetch "3.0.6"
 
@@ -1360,9 +1359,9 @@
     dotenv "10.0.0"
 
 "@solana/web3.js@^1.17.0", "@solana/web3.js@^1.21.0", "@solana/web3.js@^1.31.0", "@solana/web3.js@^1.32.0":
-  version "1.41.6"
-  resolved "https://registry.yarnpkg.com/@solana/web3.js/-/web3.js-1.41.6.tgz#120a45b758de5efd3c17d635fdf869a5f2a95c0a"
-  integrity sha512-4uGXNxFMdS/Sk1WRoZ0hbkL1/fo7XoaYlBZEFHawQwTGsM5FxDuXKqfRzhQCiMzOPf2DBKgM67sdpzDuHk4uKw==
+  version "1.41.9"
+  resolved "https://registry.yarnpkg.com/@solana/web3.js/-/web3.js-1.41.9.tgz#166973ed0cd600997c0976f717c66b95094fa438"
+  integrity sha512-tW6tT07+DyTb8jOT+3zdhdsdUbzRib+bhf1KXR6x9A7AnXZB9o+jBf+4IZRC17SuOeRKInIwsN4dKATXkqSulQ==
   dependencies:
     "@babel/runtime" "^7.12.5"
     "@ethersproject/sha2" "^5.5.0"
@@ -7824,17 +7823,17 @@ supports-preserve-symlinks-flag@^1.0.0:
   resolved "https://registry.yarnpkg.com/supports-preserve-symlinks-flag/-/supports-preserve-symlinks-flag-1.0.0.tgz#6eda4bd344a3c94aea376d4cc31bc77311039e09"
   integrity sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==
 
-swagger-ui-dist@>=4.1.3:
+swagger-ui-dist@>=4.11.0:
   version "4.11.0"
   resolved "https://registry.yarnpkg.com/swagger-ui-dist/-/swagger-ui-dist-4.11.0.tgz#6a34dbcb892b30a82a1918e1b7814818a8b9955f"
   integrity sha512-Jo4oq4Nc7LaTYuvyo1VY3z3OWmGZCzZon8s92auKqpIuVCJo3t1Qih+S+Ph8lS5+ZbvF2ugqWvXk83boXQux1w==
 
 swagger-ui-express@^4.1.6:
-  version "4.3.0"
-  resolved "https://registry.yarnpkg.com/swagger-ui-express/-/swagger-ui-express-4.3.0.tgz#226238ab231f7718f9109d63a66efc3a795618dd"
-  integrity sha512-jN46SEEe9EoXa3ZgZoKgnSF6z0w3tnM1yqhO4Y+Q4iZVc8JOQB960EZpIAz6rNROrDApVDwcMHR0mhlnc/5Omw==
+  version "4.4.0"
+  resolved "https://registry.yarnpkg.com/swagger-ui-express/-/swagger-ui-express-4.4.0.tgz#4c50c51a092075588f173b2c3a5c830f07b6b44e"
+  integrity sha512-1CzRkHG386VQMVZK406jcpgnW2a9A5A/NiAjKhsFTQqUBWRF+uGbXTU/mA7WSV3mTzyOQDvjBdWP/c2qd5lqKw==
   dependencies:
-    swagger-ui-dist ">=4.1.3"
+    swagger-ui-dist ">=4.11.0"
 
 symbol-tree@^3.2.4:
   version "3.2.4"

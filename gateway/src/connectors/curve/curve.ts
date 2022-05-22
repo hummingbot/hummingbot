@@ -4,9 +4,10 @@ import {
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from '../../services/error-handler';
 import { Ethereum } from '../../chains/ethereum/ethereum';
-import { Wallet } from 'ethers';
+import { Transaction, Wallet } from 'ethers';
+import BigNumber from 'bignumber.js';
 import { getEthereumConfig } from '../../chains/ethereum/ethereum.config';
-// import {curve as _curve} from '@curvefi/api/lib/curve'
+import { TokenInfo } from '../../services/ethereum-base';
 
 // curve is exposed as a singleton so we can only have one instance of curve
 // with a set of values at a time.
@@ -48,17 +49,6 @@ export class Curve {
     return Curve._instances[chain + network];
   }
 
-  // // 1. Dev
-  // await curve.init('JsonRpc', {url: 'http://localhost:8545/', privateKey: ''}, { gasPrice: 0, maxFeePerGas: 0, maxPriorityFeePerGas: 0, chainId: 1 });
-  // // OR
-  // await curve.init('JsonRpc', {}, { chainId: 1 }); // In this case fee data will be specified automatically
-
-  // // 2. Infura
-  // curve.init("Infura", { network: "homestead", apiKey: <INFURA_KEY> }, { chainId: 1 });
-
-  // // 3. Web3 provider
-  // curve.init('Web3', { externalProvider: <WEB3_PROVIDER> }, { chainId: 1 });
-
   public async init() {
     await this._ethereum.init();
     if (this._chain == 'ethereum' && !this._ethereum.ready())
@@ -76,15 +66,27 @@ export class Curve {
       { chainId: this._chainId }
     );
 
+    // await curve.init(
+    //   'JsonRpc',
+    //   {
+    //     url:
+    //       getEthereumConfig(this._chain, this._network).network.nodeURL +
+    //       getEthereumConfig(this._chain, this._network).nodeAPIKey,
+    //     // privateKey: wallet.privateKey,
+    //   },
+    //   { chainId: this._chainId }
+    // );
+
     this._ready = true;
   }
 
-  async initCurve(wallet: Wallet): Promise<void> {
-    const config = getEthereumConfig('ethereum', this._network);
+  async prepWallet(wallet: Wallet): Promise<void> {
     await curve.init(
       'JsonRpc',
       {
-        url: config.network.nodeURL + config.nodeAPIKey,
+        url:
+          getEthereumConfig(this._chain, this._network).network.nodeURL +
+          getEthereumConfig(this._chain, this._network).nodeAPIKey,
         privateKey: wallet.privateKey,
       },
       { chainId: this._chainId }
@@ -100,8 +102,8 @@ export class Curve {
   }
 
   async estimateTrade(
-    baseToken: string,
-    quoteToken: string,
+    baseToken: TokenInfo,
+    quoteToken: TokenInfo,
     tokenAmount: string,
     side: string
   ): Promise<ExpectedTrade> {
@@ -111,28 +113,28 @@ export class Curve {
 
     if (side === 'BUY') {
       const best = await curve.getBestRouteAndOutput(
-        baseToken,
-        quoteToken,
+        baseToken.address,
+        quoteToken.address,
         tokenAmount
       );
       route = best.route;
       outputAmount = best.output;
       expectedAmount = await curve.routerExchangeExpected(
-        baseToken,
-        quoteToken,
+        baseToken.address,
+        quoteToken.address,
         tokenAmount
       );
     } else {
       const best = await curve.getBestRouteAndOutput(
-        quoteToken,
-        baseToken,
+        quoteToken.address,
+        baseToken.address,
         tokenAmount
       );
       route = best.route;
       outputAmount = best.output;
       expectedAmount = await curve.routerExchangeExpected(
-        quoteToken,
-        baseToken,
+        quoteToken.address,
+        baseToken.address,
         tokenAmount
       );
     }
@@ -145,10 +147,52 @@ export class Curve {
   }
 
   async executeTrade(
-    tokenIn: string,
-    tokenOut: string,
-    tokenAmount: string
-  ): Promise<any> {
-    await curve.routerExchange(tokenIn, tokenOut, tokenAmount); // returns transaction hash
+    wallet: Wallet,
+    gasPrice: number,
+    baseToken: TokenInfo,
+    quoteToken: TokenInfo,
+    tokenAmount: string,
+    side: string,
+    nonce: number,
+    maxFeePerGas?: number,
+    maxPriorityFeePerGas?: BigNumber
+    // allowedSlippage?: string
+  ): Promise<Transaction> {
+    await this.prepWallet(wallet);
+
+    if (side === 'BUY') {
+      if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
+        return await curve.routerExchange(
+          baseToken.address,
+          quoteToken.address,
+          tokenAmount,
+          nonce,
+          new BigNumber(this.gasLimit),
+          new BigNumber(gasPrice),
+          maxFeePerGas
+          //          maxPriorityFeePerGas
+        );
+      } else {
+        return await curve.routerExchange(
+          quoteToken.address,
+          baseToken.address,
+          tokenAmount,
+          nonce,
+          new BigNumber(this.gasLimit),
+          new BigNumber(gasPrice)
+          // maxFeePerGas,
+          // maxPriorityFeePerGas
+        );
+      }
+    } else {
+      return await curve.routerExchange(
+        quoteToken.address,
+        baseToken.address,
+        tokenAmount,
+        nonce,
+        new BigNumber(this.gasLimit),
+        new BigNumber(gasPrice)
+      );
+    }
   }
 }
