@@ -12,7 +12,10 @@ import {
 } from '../connectors/uniswap/uniswap.controllers';
 import { Curve } from '../connectors/curve/curve';
 import { Uniswapish } from '../services/common-interfaces';
-import { price as curvePrice } from '../connectors/curve/curve.controllers';
+import {
+  price as curvePrice,
+  trade as curveTrade,
+} from '../connectors/curve/curve.controllers';
 import { getChain, getConnector } from '../services/connection-manager';
 import { NetworkSelectionRequest } from '../services/common-interfaces';
 
@@ -39,6 +42,8 @@ export async function trade(req: TradeRequest): Promise<TradeResponse> {
     (<any>connector).types === 'Pangolin'
   ) {
     return uniswapTrade(chain, <Uniswapish>connector, req);
+  } else if ((<any>connector).types === 'Curve') {
+    return curveTrade(chain, <Curve>connector, req);
   } else {
     throw new Error('');
   }

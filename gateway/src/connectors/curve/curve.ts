@@ -241,7 +241,7 @@ export class Curve {
     tokenAmount: string,
     side: string,
     gasLimit: number,
-    nonce: number,
+    nonce?: number,
     maxFeePerGas?: BigNumber,
     maxPriorityFeePerGas?: BigNumber,
     allowedSlippage?: string
