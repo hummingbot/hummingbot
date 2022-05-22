@@ -13,6 +13,7 @@ import {
 import { Curve } from '../connectors/curve/curve';
 import { Uniswapish } from '../services/common-interfaces';
 import {
+  estimateGas as curveEstimateGas,
   price as curvePrice,
   trade as curveTrade,
 } from '../connectors/curve/curve.controllers';
@@ -59,6 +60,8 @@ export async function estimateGas(
     (<any>connector).types === 'Pangolin'
   ) {
     return uniswapEstimateGas(chain, <Uniswapish>connector);
+  } else if ((<any>connector).types === 'Curve') {
+    return curveEstimateGas(chain, <Curve>connector);
   } else {
     throw new Error('');
   }

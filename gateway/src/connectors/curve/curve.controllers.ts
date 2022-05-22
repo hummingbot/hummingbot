@@ -16,6 +16,7 @@ import { Ethereumish } from '../../services/common-interfaces';
 import { Curve } from './curve';
 import { Wallet } from 'ethers';
 import {
+  EstimateGasResponse,
   PriceRequest,
   PriceResponse,
   TradeRequest,
@@ -210,4 +211,20 @@ export async function trade(
       };
     }
   }
+}
+
+export async function estimateGas(
+  ethereumish: Ethereumish,
+  curve: Curve
+): Promise<EstimateGasResponse> {
+  const gasPrice: number = ethereumish.gasPrice;
+  const gasLimit: number = curve.gasLimit;
+  return {
+    network: ethereumish.chain,
+    timestamp: Date.now(),
+    gasPrice,
+    gasPriceToken: ethereumish.nativeTokenSymbol,
+    gasLimit,
+    gasCost: gasCostInEthString(gasPrice, gasLimit),
+  };
 }
