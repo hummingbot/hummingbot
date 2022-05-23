@@ -12,8 +12,12 @@ import { getEthereumConfig } from '../../chains/ethereum/ethereum.config';
 import { TokenInfo } from '../../services/ethereum-base';
 import { CurveConfig } from './curve.config';
 
-// curve is exposed as a singleton so we can only have one instance of curve
-// with a set of values at a time.
+// TODO: (james-hummingbot) rewrite curve-js to not use a global object. Instead
+// expose a class that can create multiple new Curve objects and have their own
+// settings independently. Also change functions like 'routerExchange' to
+// optionally take parameters like gasPrice instead of hard coding that value at
+// the init of the object. This is a large task but necessary if we want a
+// strategy that uses two different curve connectors (like Ethereum and Polygon).
 import curve from '@curvefi/api';
 
 export interface ExpectedTrade {
@@ -22,9 +26,9 @@ export interface ExpectedTrade {
   expectedAmount: string;
 }
 
-// track previous curve init params. If they differ from the current ones,
-// reinit curve. This is necessary because the curve object from curve-js is a
-// global singleton
+// OBS: This is to track the 'curve' global object init params. curve-js exposes
+// a single global object for interacting with curve. Some values can only be
+// changed by reinitiating the global object. 
 export interface PreviousCurveInitParams {
   wallet: Wallet;
   gasPrice?: number;
@@ -36,7 +40,7 @@ export class Curve {
   public readonly types: string = 'Curve';
   private static _instances: { [name: string]: Curve };
   private _chain: string;
-  private _chainId;
+  private _chainId; // OBS: curve-js only supports 1 (Ethereum Mainnet) and 137 (Polygon Mainnet)
   private _ethereum: Ethereum;
   private _network: string;
   private _gasLimit: number;
@@ -49,7 +53,7 @@ export class Curve {
     this._chain = chain;
     this._chainId = this._ethereum.chainId;
     this._network = network;
-    this._gasLimit = 200000;
+    this._gasLimit = this._ethereum.gasLimit;
   }
 
   public static getInstance(chain: string, network: string): Curve {
@@ -99,6 +103,7 @@ export class Curve {
       if (maxPriorityFeePerGas !== null)
         options['maxPriorityFeePerGas'] = maxPriorityFeePerGas;
 
+      // OBS: this behavior is from our forked version of curve-js.
       await curve.init(
         'Infura',
         {
@@ -119,14 +124,28 @@ export class Curve {
     }
   }
 
+  /**
+   * Return true if init has run succesfully.
+   */        
   public get ready(): boolean {
     return this._ready;
   }
 
+  /**
+   * Default gas limit for swap transactions.
+   */    
   public get gasLimit(): number {
     return this._gasLimit;
   }
 
+  /**
+   * Calculate values for BUY or SELL
+   * 
+   * @param quoteToken Token input for the transaction
+   * @param baseToken Token output from the transaction
+   * @param tokenAmount Amount of baseToken desired from BUY or amount of baseToken put into SELL transaction
+   * @param side BUY or SELL
+   */
   async estimateTrade(
     baseToken: TokenInfo,
     quoteToken: TokenInfo,
@@ -197,10 +216,10 @@ export class Curve {
    *
    * @param wallet Wallet
    * @param gasPrice Base gas price, for pre-EIP1559 transactions
-   * @param baseToken
-   * @param quoteToken
-   * @param tokenAmount
-   * @param side
+   * @param baseToken Token input for the transaction
+   * @param quoteToken Token output from the transaction
+   * @param tokenAmount Amount of baseToken desired from BUY or amount of baseToken put into SELL transaction
+   * @param side BUY or SELL
    * @param gasLimit Gas limit
    * @param nonce (Optional) EVM transaction nonce
    * @param maxFeePerGas (Optional) Maximum total fee per gas you want to pay
