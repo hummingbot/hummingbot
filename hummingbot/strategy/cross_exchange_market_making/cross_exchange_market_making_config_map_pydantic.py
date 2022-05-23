@@ -100,7 +100,6 @@ class TakerToMakerConversionRateMode(ConversionRateModel):
         quote_rate_source = "fixed"
         quote_rate = self.taker_to_maker_quote_conversion_rate
 
-        base_rate = Decimal("1")
         base_pair = f"{market_pair.taker.base_asset}-{market_pair.maker.base_asset}"
         base_rate_source = "fixed"
         base_rate = self.taker_to_maker_base_conversion_rate
