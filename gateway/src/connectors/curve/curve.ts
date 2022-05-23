@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   InitializationError,
   SERVICE_UNITIALIZED_ERROR_CODE,
