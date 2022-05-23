@@ -1,0 +1,15 @@
+{
+  "name": "mumbai",
+  "tokens": [
+    {
+      "symbol": "WMATIC",
+      "address": "0x9c3c9283d3e44854697cd22d3faa240cfb032889",
+      "decimals": 18
+    },
+    {
+      "symbol": "WETH",
+      "address": "0xa6fa4fb5f76172d178d61b04b0ecd319c5d1c0aa",
+      "decimals": 18
+    }
+  ]
+}
