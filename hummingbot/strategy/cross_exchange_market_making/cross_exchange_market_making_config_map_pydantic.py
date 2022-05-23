@@ -143,7 +143,7 @@ class PassiveOrderRefreshMode(OrderRefreshMode):
         ),
     )
 
-    limit_order_min_expiration: float = Field(
+    limit_order_min_expiration: Decimal = Field(
         default=130.0,
         description="Limit order expiration time limit.",
         gt=0.0,
