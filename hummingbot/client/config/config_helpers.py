@@ -9,7 +9,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from os import listdir, scandir, unlink
 from os.path import isfile, join
-from pathlib import Path
+from pathlib import Path, PosixPath
 from typing import Any, Callable, Dict, Generator, List, Optional, Type, Union
 
 import ruamel.yaml
@@ -61,6 +61,10 @@ def datetime_representer(dumper: SafeDumper, data: datetime):
     return dumper.represent_datetime(data)
 
 
+def path_representer(dumper: SafeDumper, data: Path):
+    return dumper.represent_str(str(data))
+
+
 yaml.add_representer(
     data_type=Decimal, representer=decimal_representer, Dumper=SafeDumper
 )
@@ -75,6 +79,12 @@ yaml.add_representer(
 )
 yaml.add_representer(
     data_type=datetime, representer=datetime_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=Path, representer=path_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=PosixPath, representer=path_representer, Dumper=SafeDumper
 )
 
 

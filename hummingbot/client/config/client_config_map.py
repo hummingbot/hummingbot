@@ -611,7 +611,7 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: f"Select the desired PMM script mode ({'/'.join(list(PMM_SCRIPT_MODES.keys()))})",
         ),
     )
-    balance_asset_limit: Dict[str, Dict[str, Decimal]] = Field(
+    balance_asset_limit: Dict[str, Dict[str, Decimal]] = Field(  # todo: validator that can handle inputs
         default=json.dumps({exchange: None for exchange in AllConnectorSettings.get_exchange_names()}),
         client_data=ClientFieldData(
             prompt=lambda cm: (
@@ -633,7 +633,7 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: f"Select the desired metrics mode ({'/'.join(list(METRICS_MODES.keys()))})",
         ),
     )
-    command_shortcuts: List[CommandShortcutModel] = Field(  # todo: test it
+    command_shortcuts: List[CommandShortcutModel] = Field(  # todo: test it — does it load properly?
         default=[
             CommandShortcutModel(
                 command="spreads",
