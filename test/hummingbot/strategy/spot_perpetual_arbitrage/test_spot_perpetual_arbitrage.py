@@ -1,19 +1,22 @@
 import asyncio
-import logging
 import unittest
 from decimal import Decimal
+from test.mock.mock_perp_connector import MockPerpConnector
+from unittest.mock import patch
 
 import pandas as pd
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, PositionMode, PositionSide
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
+    PositionModeChangeEvent,
     SellOrderCompletedEvent,
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -22,11 +25,6 @@ from hummingbot.strategy.spot_perpetual_arbitrage.spot_perpetual_arbitrage impor
     SpotPerpetualArbitrageStrategy,
     StrategyState,
 )
-from test.mock.mock_paper_exchange import MockPaperExchange
-from test.mock.mock_perp_connector import MockPerpConnector
-
-logging.basicConfig(level=logging.ERROR)
-
 
 trading_pair = "HBOT-USDT"
 base_asset = trading_pair.split("-")[0]
@@ -110,19 +108,23 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.strategy.logger().addHandler(self)
         self._last_tick = 0
 
-    def test_strategy_starts_with_unsupported_position_mode(self):
+    def test_strategy_fails_to_initialize_position_mode(self):
         self.clock.add_iterator(self.strategy)
-        self.perp_connector.set_position_mode(PositionMode.HEDGE)
         self.clock.backtest_til(self.start_timestamp + 1)
+        self.strategy._strategy_initialized = True
+        self.strategy._position_mode_ready = True
+        # Setting ONEWAY in initial settings failed
+        self.perp_connector.set_position_mode(PositionMode.HEDGE)
+        self.clock.backtest_til(self.start_timestamp + 2)
         self.assertTrue(self._is_logged("INFO", "Markets are ready."))
         self.assertTrue(self._is_logged("INFO", "Trading started."))
-        self.assertTrue(self._is_logged("INFO", "This strategy supports only Oneway position mode. Please update your "
-                                                "position mode before starting this strategy."))
+        self.assertTrue(self._is_logged("INFO", "This strategy supports only Oneway position mode. Attempting to switch ..."))
         # assert the strategy stopped here
         # self.assertIsNone(self.strategy.clock)
 
     def test_strategy_starts_with_multiple_active_position(self):
         # arbitrary adding multiple actuve positions here, which should never happen in real trading on oneway mode
+        self.strategy._position_mode_ready = True
         self.perp_connector._account_positions[trading_pair + "SHORT"] = Position(
             trading_pair,
             PositionSide.SHORT,
@@ -140,11 +142,9 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             self.perp_connector.get_leverage(trading_pair)
         )
         self.clock.add_iterator(self.strategy)
-        self.clock.backtest_til(self.start_timestamp + 1)
+        self.clock.backtest_til(self.start_timestamp + 2)
         self.assertTrue(self._is_logged("INFO", "Markets are ready."))
         self.assertTrue(self._is_logged("INFO", "Trading started."))
-        self.assertTrue(self._is_logged("INFO", "This strategy supports only Oneway position mode. Please update your "
-                                                "position mode before starting this strategy."))
         # self.assertIsNone(self.strategy.clock)
 
     def test_strategy_starts_with_existing_position(self):
@@ -152,6 +152,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         Tests if the strategy can start
         """
 
+        self.strategy._position_mode_ready = True
         self.clock.add_iterator(self.strategy)
         self.perp_connector._account_positions[trading_pair] = Position(
             trading_pair,
@@ -161,7 +162,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             Decimal("-1"),
             self.perp_connector.get_leverage(trading_pair)
         )
-        self.clock.backtest_til(self.start_timestamp + 1)
+        self.clock.backtest_til(self.start_timestamp + 2)
         self.assertTrue(self._is_logged("INFO", "Markets are ready."))
         self.assertTrue(self._is_logged("INFO", "Trading started."))
         self.assertTrue(self._is_logged("INFO", f"There is an existing {trading_pair} "
@@ -175,6 +176,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         Tests if the strategy start then stop when there is an existing position where position amount doesn't match
         strategy order amount
         """
+        self.strategy._position_mode_ready = True
         self.clock.add_iterator(self.strategy)
         self.perp_connector._account_positions[trading_pair] = Position(
             trading_pair,
@@ -184,7 +186,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             Decimal("-10"),
             self.perp_connector.get_leverage(trading_pair)
         )
-        self.clock.backtest_til(self.start_timestamp + 1)
+        self.clock.backtest_til(self.start_timestamp + 2)
         self.assertTrue(self._is_logged("INFO", "Markets are ready."))
         self.assertTrue(self._is_logged("INFO", "Trading started."))
         self.assertTrue(self._is_logged("INFO", f"There is an existing {trading_pair} "
@@ -290,9 +292,10 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.assertTrue(len(taker_orders) == 0)
 
     def test_arbitrage_buy_spot_sell_perp(self):
+        self.strategy._position_mode_ready = True
         self.clock.add_iterator(self.strategy)
         self.assertEqual(StrategyState.Closed, self.strategy.strategy_state)
-        self.turn_clock(1)
+        self.turn_clock(2)
         # self.clock.backtest_til(self.start_timestamp + 1)
         # asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.01))
         self.assertTrue(self._is_logged("INFO", "Arbitrage position opening opportunity found."))
@@ -382,6 +385,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.assertEqual(6, len(self.strategy.tracked_market_orders))
 
     def test_arbitrage_sell_spot_buy_perp_opening(self):
+        self.strategy._position_mode_ready = True
         self.perp_connector.set_balanced_order_book(trading_pair=trading_pair,
                                                     mid_price=90,
                                                     min_price=1,
@@ -390,7 +394,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
                                                     volume_step_size=10)
         self.clock.add_iterator(self.strategy)
         self.assertEqual(StrategyState.Closed, self.strategy.strategy_state)
-        self.turn_clock(1)
+        self.turn_clock(2)
         # self.clock.backtest_til(self.start_timestamp + 1)
         # asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.01))
         self.assertTrue(self._is_logged("INFO", "Arbitrage position opening opportunity found."))
@@ -424,3 +428,48 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         connector.trigger_event(event_tag,
                                 event_class(connector.current_timestamp, order_id, base_asset, quote_asset,
                                             amount, amount * price, OrderType.LIMIT))
+
+    @patch("hummingbot.connector.perpetual_trading.PerpetualTrading.set_position_mode")
+    def test_position_mode_change_success(self, set_position_mode_mock):
+        self.strategy._position_mode_ready = False
+
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        self.strategy.did_change_position_mode_succeed(
+            PositionModeChangeEvent(
+                timestamp=self.start_timestamp + 11,
+                trading_pair=trading_pair,
+                position_mode=PositionMode.ONEWAY,
+            )
+        )
+
+        self.assertTrue(self.strategy._position_mode_ready)
+
+    @patch("hummingbot.connector.perpetual_trading.PerpetualTrading.set_position_mode")
+    def test_position_mode_change_failure(self, set_position_mode_mock):
+        self.strategy._position_mode_ready = False
+
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        self.strategy.did_change_position_mode_fail(
+            PositionModeChangeEvent(
+                timestamp=self.start_timestamp + 11,
+                trading_pair=trading_pair,
+                position_mode=PositionMode.ONEWAY,
+                message="Error message",
+            )
+        )
+
+        self.assertFalse(self.strategy._position_mode_ready)
