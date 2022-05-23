@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional, Set, Type, Union, cast
 
 from async_timeout import timeout
 
-from hummingbot.client.settings import GatewayConnectionSetting
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -905,29 +904,9 @@ class GatewayEVMAMM(ConnectorBase):
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
-
-            # TODO (james-hummingbot): this behavior is so that UserBalances can
-            # retrieve all the balances that the user needs for the 'balance'
-            # command, however, not all of the balances are used by
-            # GatewayEVMAMM. This will be a problem when there are multiple
-            # Gateway classes on the hummingbot side as it would require
-            # duplication. 2 suggested approaches: make a base class for the
-            # Gateway classes that implements this behavior. Or refactor
-            # UserBalances to do this (however it would also require some refactoring).
-            config: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(self._name)
-            other_tokens: Set[str] = set()
-            if config is not None:
-                other_tokens: Set[str] = set(config.get("tokens", "").split(","))
-                other_tokens.discard("")
-
-            other_tokens.update(self._tokens)
-            other_tokens.update([self._native_currency])
-            tokens_to_query: List[str] = list(other_tokens)
-
             resp_json: Dict[str, Any] = await GatewayHttpClient.get_instance().get_balances(
-                self.chain, self.network, self.address, tokens_to_query
+                self.chain, self.network, self.address, list(self._tokens) + [self._native_currency]
             )
-
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))
