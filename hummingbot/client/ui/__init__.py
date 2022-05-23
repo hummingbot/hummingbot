@@ -63,7 +63,7 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Optional[Base
         else:
             secrets_manager = secrets_manager_cls(password)
             store_password_verification(secrets_manager)
-        migrate_non_secure_only_prompt()
+            migrate_non_secure_only_prompt()
     else:
         password = input_dialog(
             title="Welcome back to Hummingbot",
@@ -167,7 +167,8 @@ def migrate_non_secure_only_prompt():
 
 
 def _migration_errors_dialog(errors):
-    errors_str = "\n                    ".join(errors)
+    padding = "\n                    "
+    errors_str = padding + padding.join(errors)
     message_dialog(
         title='Configs Migration Errors',
         text=f"""

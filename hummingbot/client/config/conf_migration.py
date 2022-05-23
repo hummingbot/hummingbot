@@ -4,7 +4,7 @@ import logging
 import shutil
 from os import DirEntry, scandir
 from os.path import exists, join
-from typing import Dict, List, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
 import yaml
 
@@ -25,9 +25,9 @@ from hummingbot.client.config.client_config_map import (
 )
 from hummingbot.client.config.config_crypt import BaseSecretsManager, store_password_verification
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, save_to_yml
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import CONF_DIR_PATH, STRATEGIES_CONF_DIR_PATH
+from hummingbot.client.settings import CLIENT_CONFIG_PATH, CONF_DIR_PATH, STRATEGIES_CONF_DIR_PATH
 
 encrypted_conf_prefix = "encrypted_"
 encrypted_conf_postfix = ".json"
@@ -83,6 +83,7 @@ def backup_existing_dir() -> List[str]:
 
 
 def migrate_global_config() -> List[str]:
+    logging.getLogger().info("\nMigrating the global config...")
     global_config_path = CONF_DIR_PATH / "conf_global.yml"
     errors = []
     if global_config_path.exists():
@@ -91,14 +92,24 @@ def migrate_global_config() -> List[str]:
         del data["template_version"]
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         migrate_global_config_modes(client_config_map, data)
-        for key, value in data.items():
+        keys = list(data.keys())
+        for key in keys:
             if key not in client_config_map.keys():
                 errors.append(
                     f"Could not match the attribute {key} from the legacy config file to the new config map."
                 )
-                continue
-            if value is not None:
-                client_config_map.setattr_no_validation(key, value)
+            else:
+                migrate_global_config_field(client_config_map, data, key)
+        for key in data:
+            errors.append(f"ConfigVar {key} was not migrated.")
+        errors.extend(client_config_map.validate_model())
+        if len(errors) == 0:
+            save_to_yml(CLIENT_CONFIG_PATH, client_config_map)
+            global_config_path.unlink()
+            logging.getLogger().info("\nSuccessfully migrated the global config.")
+        else:
+            errors = [f"client_config_map - {e}" for e in errors]
+            logging.getLogger().error(f"The migration of the global config map failed with errors: {errors}")
     return errors
 
 
@@ -112,8 +123,12 @@ def migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: Di
     else:
         client_config_map.kill_switch_mode = KillSwitchDisabledMode()
 
-    client_config_map.paper_trade.paper_trade_exchanges = data.pop("paper_trade_exchanges")
-    client_config_map.paper_trade.paper_trade_account_balance = data.pop("paper_trade_account_balance")
+    migrate_global_config_field(
+        client_config_map.paper_trade, data, "paper_trade_exchanges"
+    )
+    migrate_global_config_field(
+        client_config_map.paper_trade, data, "paper_trade_account_balance"
+    )
 
     telegram_enabled = data.pop("telegram_enabled")
     telegram_token = data.pop("telegram_token")
@@ -151,8 +166,12 @@ def migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: Di
     else:
         client_config_map.pmm_script_mode = PMMScriptDisabledMode()
 
-    client_config_map.gateway.gateway_api_host = data.pop("gateway_api_host")
-    client_config_map.gateway.gateway_api_port = data.pop("gateway_api_port")
+    migrate_global_config_field(
+        client_config_map.gateway, data, "gateway_api_host"
+    )
+    migrate_global_config_field(
+        client_config_map.gateway, data, "gateway_api_port"
+    )
 
     anonymized_metrics_enabled = data.pop("anonymized_metrics_enabled")
     anonymized_metrics_interval_min = data.pop("anonymized_metrics_interval_min")
@@ -163,25 +182,55 @@ def migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: Di
     else:
         client_config_map.anonymized_metrics_mode = AnonymizedMetricsDisabledMode()
 
-    client_config_map.global_token.global_token_name = data.pop("global_token")
-    client_config_map.global_token.global_token_symbol = data.pop("global_token_symbol")
+    migrate_global_config_field(
+        client_config_map.global_token, data, "global_token", "global_token_name"
+    )
+    migrate_global_config_field(
+        client_config_map.global_token, data, "global_token_symbol"
+    )
 
-    client_config_map.commands_timeout.create_command_timeout = data.pop("create_command_timeout")
-    client_config_map.commands_timeout.other_commands_timeout = data.pop("other_commands_timeout")
+    migrate_global_config_field(
+        client_config_map.commands_timeout, data, "create_command_timeout"
+    )
+    migrate_global_config_field(
+        client_config_map.commands_timeout, data, "other_commands_timeout"
+    )
 
-    color_map: ColorConfigMap = client_config_map.color
-    color_map.top_pane = data.pop("top-pane")
-    color_map.bottom_pane = data.pop("bottom-pane")
-    color_map.output_pane = data.pop("output-pane")
-    color_map.input_pane = data.pop("input-pane")
-    color_map.logs_pane = data.pop("logs-pane")
-    color_map.terminal_primary = data.pop("terminal-primary")
-    color_map.primary_label = data.pop("primary-label")
-    color_map.secondary_label = data.pop("secondary-label")
-    color_map.success_label = data.pop("success-label")
-    color_map.warning_label = data.pop("warning-label")
-    color_map.info_label = data.pop("info-label")
-    color_map.error_label = data.pop("error-label")
+    color_map: Union[ClientConfigAdapter, ColorConfigMap] = client_config_map.color
+    migrate_global_config_field(color_map, data, "top-pane", "top_pane")
+    migrate_global_config_field(color_map, data, "bottom-pane", "bottom_pane")
+    migrate_global_config_field(color_map, data, "output-pane", "output_pane")
+    migrate_global_config_field(color_map, data, "input-pane", "input_pane")
+    migrate_global_config_field(color_map, data, "logs-pane", "logs_pane")
+    migrate_global_config_field(color_map, data, "terminal-primary", "terminal_primary")
+    migrate_global_config_field(color_map, data, "primary-label", "primary_label")
+    migrate_global_config_field(color_map, data, "secondary-label", "secondary_label")
+    migrate_global_config_field(color_map, data, "success-label", "success_label")
+    migrate_global_config_field(color_map, data, "warning-label", "warning_label")
+    migrate_global_config_field(color_map, data, "info-label", "info_label")
+    migrate_global_config_field(color_map, data, "error-label", "error_label")
+
+    balance_asset_limit = data.pop("balance_asset_limit")
+    if balance_asset_limit is not None:
+        exchanges = list(balance_asset_limit.keys())
+        for e in exchanges:
+            if balance_asset_limit[e] is None:
+                balance_asset_limit.pop(e)
+            else:
+                assets = balance_asset_limit[e].keys()
+                for a in assets:
+                    if balance_asset_limit[e][a] is None:
+                        balance_asset_limit[e].pop(a)
+        client_config_map.balance_asset_limit = balance_asset_limit
+
+
+def migrate_global_config_field(
+    cm: ClientConfigAdapter, global_config_data: Dict[str, Any], attr: str, cm_attr: Optional[str] = None
+):
+    value = global_config_data.pop(attr)
+    cm_attr = cm_attr if cm_attr is not None else attr
+    if value is not None:
+        cm.setattr_no_validation(cm_attr, value)
 
 
 def migrate_strategy_confs_paths():
@@ -191,6 +240,7 @@ def migrate_strategy_confs_paths():
             with open(str(child), "r") as f:
                 conf = yaml.safe_load(f)
             if "strategy" in conf and _has_connector_field(conf):
+
                 new_path = strategies_conf_dir_path / child.name
                 child.rename(new_path)
                 logging.getLogger().info(f"Migrated conf for {conf['strategy']}")
