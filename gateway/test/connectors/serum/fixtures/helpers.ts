@@ -1,7 +1,10 @@
 import { PublicKey } from '@solana/web3.js';
 import BN from 'bn.js';
 import { convertOrderSideToSerumSide } from '../../../../src/connectors/serum/serum.convertors';
-import { getNotNullOrThrowError, getRandonBN } from '../../../../src/connectors/serum/serum.helpers';
+import {
+  getNotNullOrThrowError,
+  getRandonBN,
+} from '../../../../src/connectors/serum/serum.helpers';
 import {
   CreateOrdersRequest,
   OrderBook,
@@ -107,31 +110,33 @@ export const getNewSerumOrders = (
   const result = [];
 
   for (const candidateOrder of candidateOrders) {
-    result.push(
-      {
-        orderId: getRandonBN(),
-        openOrdersAddress: new PublicKey('DaosjpvtAxwL6GFDSL31o9pU5somKjifbkt32bEgLddf'),
-        openOrdersSlot: Math.random(),
-        price: candidateOrder.price,
-        priceLots: getRandonBN(),
-        size: candidateOrder.amount,
-        feeTier: Math.random(),
-        sizeLots: getRandonBN(),
-        side: convertOrderSideToSerumSide(candidateOrder.side),
-        clientId: new BN(getNotNullOrThrowError(candidateOrder.id)),
-      } as SerumOrder
-    );
+    result.push({
+      orderId: getRandonBN(),
+      openOrdersAddress: new PublicKey(
+        'DaosjpvtAxwL6GFDSL31o9pU5somKjifbkt32bEgLddf'
+      ),
+      openOrdersSlot: Math.random(),
+      price: candidateOrder.price,
+      priceLots: getRandonBN(),
+      size: candidateOrder.amount,
+      feeTier: Math.random(),
+      sizeLots: getRandonBN(),
+      side: convertOrderSideToSerumSide(candidateOrder.side),
+      clientId: new BN(getNotNullOrThrowError(candidateOrder.id)),
+    } as SerumOrder);
   }
 
   return result;
-}
+};
 
 export const changeAndConvertToSerumOpenOrder = (
   index: number,
   orderBook: OrderBook,
   candidateOrder: CreateOrdersRequest
 ): SerumOpenOrders => {
-  const orderBookOrder: SerumOrder = Array.from(orderBook.orderBook.asks)[index];
+  const orderBookOrder: SerumOrder = Array.from(orderBook.orderBook.asks)[
+    index
+  ];
 
   const serumOpenOrder = new SerumOpenOrders(
     orderBookOrder.openOrdersAddress,
@@ -157,7 +162,9 @@ export const convertToSerumOpenOrders = (
 
   let count = startIndex;
   for (const candidateOrder of candidateOrders) {
-    result.push(changeAndConvertToSerumOpenOrder(count, orderBook, candidateOrder));
+    result.push(
+      changeAndConvertToSerumOpenOrder(count, orderBook, candidateOrder)
+    );
 
     count++;
   }

@@ -202,7 +202,7 @@ export const convertArrayOfSerumOrdersToMapOfOrders = (
 
   for (const order of orders) {
     result.set(
-      order.orderId,
+      order.clientId,
       convertSerumOrderToOrder(
         market,
         order,

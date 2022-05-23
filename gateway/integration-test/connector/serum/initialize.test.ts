@@ -1,4 +1,5 @@
 import { Account, PublicKey } from '@solana/web3.js';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import BN from 'bn.js';
 import 'jest-extended';
@@ -173,8 +174,7 @@ describe('Reset and Recreate Dummy Orders', () => {
     const candidateOrders = getNewCandidateOrdersTemplates(8, 0);
 
     for (const candidateOrder of candidateOrders) {
-      const market = (await serum.getMarket(candidateOrder.marketName))
-        .market;
+      const market = (await serum.getMarket(candidateOrder.marketName)).market;
 
       const payer = new PublicKey(candidateOrder.payerAddress);
 
@@ -197,7 +197,12 @@ describe('Reset and Recreate Dummy Orders', () => {
 
           error = false;
         } catch (exception: any) {
-          if (exception.message.includes('It is unknown if it succeeded or failed.')) break;
+          if (
+            exception.message.includes(
+              'It is unknown if it succeeded or failed.'
+            )
+          )
+            break;
 
           console.log(
             `Place dummy order ${candidateOrder.id}, attempt ${attempts} with error: `,
@@ -217,10 +222,7 @@ describe('Reset and Recreate Dummy Orders', () => {
   it('List open orders', async () => {
     const connection = serum.getConnection();
     const markets = await (
-      await Serum.getInstance(
-        commonParameters.chain,
-        commonParameters.network
-      )
+      await Serum.getInstance(commonParameters.chain, commonParameters.network)
     ).getMarkets(marketNames);
     const ownerKeyPair = await solana.getKeypair(
       config.solana.wallet.owner.publicKey

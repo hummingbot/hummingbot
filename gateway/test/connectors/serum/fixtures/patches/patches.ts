@@ -145,6 +145,18 @@ const patches = (solana: Solana, serum: Serum) => {
     });
   });
 
+  patches.set('serum/serumMarketLoadFills', () => {
+    if (disablePatches) return;
+
+    return patch(serum, 'serumMarketLoadFills', (
+      _market: SerumMarket,
+      _connection: Connection,
+      _limit?: number
+    ) => {
+      return [];
+    });
+  });
+
   patches.set('serum/serumMarketPlaceOrders', () => {
     if (disablePatches) return;
 
@@ -213,6 +225,21 @@ const patches = (solana: Solana, serum: Serum) => {
       const example = 'AyZgLRoT78G3KUxPiMTWF84MTQam1eL3bwuWBguufqSBU1JKVcrmGJe6XztLKJ4DfzQ8k1NQsLQnxFT4mB5F9yE0';
 
       return shuffle(example).repeat(settlements.length);
+    });
+  });
+
+  patches.set('serum/settleFundsForMarket', (
+    _marketName: string,
+    _ownerAddress: string
+  ) => {
+    if (disablePatches) return;
+
+    return patch(serum, 'settleFundsForMarket', () => {
+      const shuffle = (target: string) => [...target].sort(()=>Math.random()-.5).join('');
+
+      const example = 'AyZgLRoT78G3KUxPiMTWF84MTQam1eL3bwuWBguufqSBU1JKVcrmGJe6XztLKJ4DfzQ8k1NQsLQnxFT4mB5F9yE0';
+
+      return shuffle(example).repeat(1);
     });
   });
 
