@@ -1164,7 +1164,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         Return price conversion rate for a taker market (to convert it into maker base asset value)
         """
         market_pair = list(self._market_pairs.values())[0]
-        _, _, quote_rate, _, _, base_rate = self._config_map.conversion_rate_mode.get_taker_to_maker_conversion_rate(market_pair)
+        _, _, quote_rate, _, _, base_rate = (
+            self._config_map.conversion_rate_mode.get_taker_to_maker_conversion_rate(market_pair)
+        )
         return quote_rate / base_rate
         # else:
         #     market_pairs = list(self._market_pairs.values())[0]
