@@ -96,7 +96,6 @@ class TakerToMakerConversionRateMode(ConversionRateModel):
         :return: A tuple of quote pair symbol, quote conversion rate source, quote conversion rate,
         base pair symbol, base conversion rate source, base conversion rate
         """
-        quote_rate = Decimal("1")
         quote_pair = f"{market_pair.taker.quote_asset}-{market_pair.maker.quote_asset}"
         quote_rate_source = "fixed"
         quote_rate = self.taker_to_maker_quote_conversion_rate
