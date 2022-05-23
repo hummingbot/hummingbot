@@ -47,7 +47,7 @@ export class Uniswap implements Uniswapish {
     this.chainId = this.ethereum.chainId;
     this._ttl = UniswapConfig.config.ttl(2);
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = UniswapConfig.config.gasLimit(2);
+    this._gasLimit = this.ethereum.gasLimit;
     this._router = config.uniswapV2RouterAddress(network);
   }
 
