@@ -55,6 +55,12 @@ definitions:
       - 'spender'
       - 'tokenSymbols'
     properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
       privateKey:
         type: 'string'
         example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
@@ -65,12 +71,6 @@ definitions:
         type: 'array'
         items: 'string'
         example: ['WETH', 'DAI']
-      chain:
-        type: 'string'
-        example: 'ethereum'
-      network:
-        type: 'string'
-        example: 'kovan'
 
   AllowancesResponse:
     type: 'object'
@@ -110,6 +110,12 @@ definitions:
       - 'privateKey'
       - 'tokenSymbols'
     properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
       privateKey:
         type: 'string'
         example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
@@ -117,12 +123,6 @@ definitions:
         type: 'array'
         items: 'string'
         example: ['WETH', 'DAI']
-      chain:
-        type: 'string'
-        example: 'ethereum'
-      network:
-        type: 'string'
-        example: 'kovan'
 
   BalancesResponse:
     type: 'object'
@@ -159,6 +159,12 @@ definitions:
       - 'spender'
       - 'token'
     properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
       privateKey:
         type: 'string'
         example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
@@ -180,12 +186,6 @@ definitions:
       maxPriorityFeePerGas:
         type: 'string'
         example: '5000000000'
-      chain:
-        type: 'string'
-        example: 'ethereum'
-      network:
-        type: 'string'
-        example: 'kovan'
 
   ApproveResponse:
     type: 'object'
@@ -231,15 +231,15 @@ definitions:
       - 'network'
       - 'txHash'
     properties:
-      txHash:
-        type: 'string'
-        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'  # noqa: documentation
       chain:
         type: 'string'
         example: 'ethereum'
       network:
         type: 'string'
         example: 'kovan'
+      txHash:
+        type: 'string'
+        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'  # noqa: documentation
 
   PollResponse:
     type: 'object'
@@ -308,6 +308,15 @@ definitions:
       - 'amount'
       - 'side'
     properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+      connector:
+        type: 'string'
+        example: 'uniswap'
       quote:
         type: 'string'
         example: 'WETH'
@@ -320,15 +329,6 @@ definitions:
       side:
         type: 'string'
         example: 'BUY'
-      chain:
-        type: 'string'
-        example: 'ethereum'
-      network:
-        type: 'string'
-        example: 'kovan'
-      connector:
-        type: 'string'
-        example: 'uniswap'
 
   PriceResponse:
     type: 'object'
@@ -393,6 +393,15 @@ definitions:
       - 'amount'
       - 'side'
     properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+      connector:
+        type: 'string'
+        example: 'uniswap'
       quote:
         type: 'string'
         example: 'WETH'
@@ -413,15 +422,6 @@ definitions:
         type: number
       maxPriorityFeePerGas:
         type: number
-      chain:
-        type: 'string'
-        example: 'ethereum'
-      network:
-        type: 'string'
-        example: 'kovan'
-      connector:
-        type: 'string'
-        example: 'uniswap'
 
   TradeResponse:
     type: 'object'
@@ -485,18 +485,18 @@ definitions:
       - 'nonce'
       - 'address'
     properties:
-      nonce:
-        type: 'integer'
-        example: 123
-      address:
-        type: 'string'
-        example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
       chain:
         type: 'string'
         example: 'ethereum'
       network:
         type: 'string'
         example: 'kovan'
+      nonce:
+        type: 'integer'
+        example: 123
+      address:
+        type: 'string'
+        example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
   
   CancelResponse:
     type: 'object'
