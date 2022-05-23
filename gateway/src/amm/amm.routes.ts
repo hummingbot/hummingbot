@@ -15,7 +15,7 @@ import {
   validatePriceRequest,
   validateTradeRequest,
 } from './amm.validators';
-import { NetworkSelectionRequest } from '../services/common-interfaces';
+import { ConnectorSelectionRequest } from '../services/common-interfaces';
 
 export namespace AmmRoutes {
   export const router = Router();
@@ -50,7 +50,7 @@ export namespace AmmRoutes {
     '/estimateGas',
     asyncHandler(
       async (
-        req: Request<{}, {}, NetworkSelectionRequest>,
+        req: Request<{}, {}, ConnectorSelectionRequest>,
         res: Response<EstimateGasResponse | string, {}>
       ) => {
         validateEstimateGasRequest(req.body);

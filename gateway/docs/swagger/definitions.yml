@@ -23,19 +23,19 @@ definitions:
   NonceRequest:
     type: 'object'
     required:
-      - 'privateKey'
       - 'chain'
       - 'network'
+      - 'privateKey'
     properties:
-      privateKey:
-        type: 'string'
-        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
       chain:
         type: 'string'
         example: 'ethereum'
       network:
         type: 'string'
         example: 'kovan'
+      privateKey:
+        type: 'string'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
 
   NonceResponse:
     type: 'object'
@@ -49,11 +49,11 @@ definitions:
   AllowancesRequest:
     type: 'object'
     required:
+      - 'chain'
+      - 'network'
       - 'privateKey'
       - 'spender'
       - 'tokenSymbols'
-      - 'chain'
-      - 'network'
     properties:
       privateKey:
         type: 'string'
@@ -105,10 +105,10 @@ definitions:
   BalancesRequest:
     type: 'object'
     required:
-      - 'privateKey'
-      - 'tokenSymbols'
       - 'chain'
       - 'network'
+      - 'privateKey'
+      - 'tokenSymbols'
     properties:
       privateKey:
         type: 'string'
@@ -153,11 +153,11 @@ definitions:
   ApproveRequest:
     type: 'object'
     required:
+      - 'chain'
+      - 'network'
       - 'privateKey'
       - 'spender'
       - 'token'
-      - 'chain'
-      - 'network'
     properties:
       privateKey:
         type: 'string'
@@ -227,9 +227,9 @@ definitions:
   PollRequest:
     type: 'object'
     required:
-      - 'txHash'
       - 'chain'
       - 'network'
+      - 'txHash'
     properties:
       txHash:
         type: 'string'
@@ -300,12 +300,13 @@ definitions:
   PriceRequest:
     type: 'object'
     required:
+      - 'chain'
+      - 'network'
+      - 'connector'
       - 'quote'
       - 'base'
       - 'amount'
       - 'side'
-      - 'chain'
-      - 'network'
     properties:
       quote:
         type: 'string'
@@ -325,6 +326,9 @@ definitions:
       network:
         type: 'string'
         example: 'kovan'
+      connector:
+        type: 'string'
+        example: 'uniswap'
 
   PriceResponse:
     type: 'object'
@@ -381,13 +385,13 @@ definitions:
   TradeRequest:
     type: 'object'
     required:
+      - 'chain'
+      - 'network'
+      - 'connector'
       - 'quote'
       - 'base'
       - 'amount'
       - 'side'
-      - 'chain'
-      - 'network'
-      - 'connector'
     properties:
       quote:
         type: 'string'
@@ -476,10 +480,10 @@ definitions:
   CancelRequest:
     type: 'object'
     required:
-      - 'nonce'
-      - 'address'
       - 'chain'
       - 'network'
+      - 'nonce'
+      - 'address'
     properties:
       nonce:
         type: 'integer'
@@ -517,12 +521,16 @@ definitions:
   AddWalletRequest:
     type: 'object'
     required:
-      - 'chainName'
+      - 'chain'
+      - 'network'
       - 'privateKey'
     properties:
-      chainName:
+      chain:
         type: 'string'
         example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'mainnet'
       privateKey:
         type: 'string'
         example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
@@ -530,10 +538,10 @@ definitions:
   RemoveWalletRequest:
     type: 'object'
     required:
-      - 'chainName'
+      - 'chain'
       - 'address'
     properties:
-      chainName:
+      chain:
         type: 'string'
         example: 'ethereum'
       address:
@@ -548,7 +556,7 @@ definitions:
     properties:
       chain:
         type: 'string'
-      tokenSymbols:
+      walletAddresses:
         type: 'array'
         items: 'string'
         example: ['0xd0A1E359811322d97991E03f863a0C30C2cF029C', '0xd0A1E359811322d97991E03f863a0C30C2XXXXXX']
@@ -587,7 +595,7 @@ definitions:
         type: 'integer'
         example: 1641889489132
 
-  SolanaBalanceRequest:
+  SolanaBalancesRequest:
     type: 'object'
     required:
       - 'address'
@@ -811,7 +819,7 @@ definitions:
           ]
         }'
 
-  NetworkSelectionRequest:
+  ConnectorSelectionRequest:
     type: 'object'
     required:
       - 'chain'

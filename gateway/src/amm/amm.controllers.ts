@@ -11,7 +11,7 @@ import {
   estimateGas as uniswapEstimateGas,
 } from '../connectors/uniswap/uniswap.controllers';
 import { getChain, getConnector } from '../services/connection-manager';
-import { NetworkSelectionRequest } from '../services/common-interfaces';
+import { ConnectorSelectionRequest } from '../services/common-interfaces';
 
 export async function price(req: PriceRequest): Promise<PriceResponse> {
   const chain = await getChain(req.chain, req.network);
@@ -26,7 +26,7 @@ export async function trade(req: TradeRequest): Promise<TradeResponse> {
 }
 
 export async function estimateGas(
-  req: NetworkSelectionRequest
+  req: ConnectorSelectionRequest
 ): Promise<EstimateGasResponse> {
   const chain = await getChain(req.chain, req.network);
   const connector = await getConnector(req.chain, req.network, req.connector);

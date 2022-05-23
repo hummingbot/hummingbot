@@ -1,7 +1,7 @@
-import { NetworkSelectionRequest } from '../services/common-interfaces';
+import { ConnectorSelectionRequest } from '../services/common-interfaces';
 export type Side = 'BUY' | 'SELL';
 
-export interface PriceRequest extends NetworkSelectionRequest {
+export interface PriceRequest extends ConnectorSelectionRequest {
   quote: string;
   base: string;
   amount: string;
@@ -25,7 +25,7 @@ export interface PriceResponse {
   gasCost: string;
 }
 
-export interface TradeRequest extends NetworkSelectionRequest {
+export interface TradeRequest extends ConnectorSelectionRequest {
   quote: string;
   base: string;
   amount: string;
