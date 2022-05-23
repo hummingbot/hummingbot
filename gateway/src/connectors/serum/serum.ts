@@ -287,12 +287,12 @@ export class Serum {
   ): Promise<any[]> {
     const result = await market.loadFills(connection, limit);
 
-    // TODO remove!!!
-    // eslint-disable-next-line prettier/prettier
-    console.log(
-      'serumMarketLoadFills:\n',
-      JSON.stringify(result, null, 2)
-    );
+    // // TODO remove!!!
+    // // eslint-disable-next-line prettier/prettier
+    // console.log(
+    //   'serumMarketLoadFills:\n',
+    //   JSON.stringify(result, null, 2)
+    // );
 
     return result;
   }
@@ -321,12 +321,12 @@ export class Serum {
       cacheDurationMs
     );
 
-    // TODO remove!!!
-    // eslint-disable-next-line prettier/prettier
-    console.log(
-      'serumMarketLoadOrdersForOwner:\n',
-      JSON.stringify(result, null, 2)
-    );
+    // // TODO remove!!!
+    // // eslint-disable-next-line prettier/prettier
+    // console.log(
+    //   'serumMarketLoadOrdersForOwner:\n',
+    //   JSON.stringify(result, null, 2)
+    // );
 
     return result;
   }
@@ -405,12 +405,12 @@ export class Serum {
 
     const result = await market.placeOrders(connection, orders);
 
-    // TODO remove!!!
-    // eslint-disable-next-line prettier/prettier
-    console.log(
-      'serumMarketPlaceOrders:\n',
-      JSON.stringify(result, null, 2)
-    );
+    // // TODO remove!!!
+    // // eslint-disable-next-line prettier/prettier
+    // console.log(
+    //   'serumMarketPlaceOrders:\n',
+    //   JSON.stringify(result, null, 2)
+    // );
 
     return result;
   }
@@ -455,12 +455,12 @@ export class Serum {
       orders
     );
 
-    // TODO remove!!!
-    // eslint-disable-next-line prettier/prettier
-    console.log(
-      'serumMarketCancelOrdersAndSettleFunds.ordersCancelation:\n',
-      JSON.stringify(cancelationSignature, null, 2)
-    );
+    // // TODO remove!!!
+    // // eslint-disable-next-line prettier/prettier
+    // console.log(
+    //   'serumMarketCancelOrdersAndSettleFunds.ordersCancelation:\n',
+    //   JSON.stringify(cancelationSignature, null, 2)
+    // );
 
     const fundsSettlements: {
       owner: Account;
@@ -515,12 +515,12 @@ export class Serum {
         )
       )[0]; // There's only one owner.
 
-      // TODO remove!!!
-      // eslint-disable-next-line prettier/prettier
-      console.log(
-        'serumMarketCancelOrdersAndSettleFunds.result:\n',
-        JSON.stringify(fundsSettlementSignature, null, 2)
-      );
+      // // TODO remove!!!
+      // // eslint-disable-next-line prettier/prettier
+      // console.log(
+      //   'serumMarketCancelOrdersAndSettleFunds.result:\n',
+      //   JSON.stringify(fundsSettlementSignature, null, 2)
+      // );
 
       return {
         cancelation: cancelationSignature,
@@ -563,12 +563,12 @@ export class Serum {
       cacheDurationMs
     );
 
-    // TODO remove!!!
-    // eslint-disable-next-line prettier/prettier
-    console.log(
-      'serumFindOpenOrdersAccountsForOwner:\n',
-      JSON.stringify(result, null, 2)
-    );
+    // // TODO remove!!!
+    // // eslint-disable-next-line prettier/prettier
+    // console.log(
+    //   'serumFindOpenOrdersAccountsForOwner:\n',
+    //   JSON.stringify(result, null, 2)
+    // );
 
     return result;
   }
@@ -598,12 +598,12 @@ export class Serum {
       includeUnwrappedSol
     );
 
-    // TODO remove!!!
-    // eslint-disable-next-line prettier/prettier
-    console.log(
-      'serumFindBaseTokenAccountsForOwner:\n',
-      JSON.stringify(result, null, 2)
-    );
+    // // TODO remove!!!
+    // // eslint-disable-next-line prettier/prettier
+    // console.log(
+    //   'serumFindBaseTokenAccountsForOwner:\n',
+    //   JSON.stringify(result, null, 2)
+    // );
 
     return result;
   }
@@ -633,12 +633,12 @@ export class Serum {
       includeUnwrappedSol
     );
 
-    // TODO remove!!!
-    // eslint-disable-next-line prettier/prettier
-    console.log(
-      'serumFindQuoteTokenAccountsForOwner:\n',
-      JSON.stringify(result, null, 2)
-    );
+    // // TODO remove!!!
+    // // eslint-disable-next-line prettier/prettier
+    // console.log(
+    //   'serumFindQuoteTokenAccountsForOwner:\n',
+    //   JSON.stringify(result, null, 2)
+    // );
 
     return result;
   }
@@ -676,12 +676,12 @@ export class Serum {
       referrerQuoteWallet
     );
 
-    // TODO remove!!!
-    // eslint-disable-next-line prettier/prettier
-    console.log(
-      'serumSettleFunds:\n',
-      JSON.stringify(result, null, 2)
-    );
+    // // TODO remove!!!
+    // // eslint-disable-next-line prettier/prettier
+    // console.log(
+    //   'serumSettleFunds:\n',
+    //   JSON.stringify(result, null, 2)
+    // );
 
     return result;
   }
@@ -716,12 +716,12 @@ export class Serum {
       transaction
     );
 
-    // TODO remove!!!
-    // eslint-disable-next-line prettier/prettier
-    console.log(
-      'serumSettleFunds:\n',
-      JSON.stringify(result, null, 2)
-    );
+    // // TODO remove!!!
+    // // eslint-disable-next-line prettier/prettier
+    // console.log(
+    //   'serumSettleFunds:\n',
+    //   JSON.stringify(result, null, 2)
+    // );
 
     return result;
   }
@@ -1731,8 +1731,8 @@ export class Serum {
             order.signature = signature;
             canceledOrders.set(
               getNotNullOrThrowError(
-                order.order?.orderId.toString(),
-                'Exchange id is not defined.'
+                order.order?.clientId?.toString(),
+                'Client id is not defined.'
               ),
               order
             );
