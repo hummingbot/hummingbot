@@ -28,7 +28,7 @@ export interface ExpectedTrade {
 
 // OBS: This is to track the 'curve' global object init params. curve-js exposes
 // a single global object for interacting with curve. Some values can only be
-// changed by reinitiating the global object. 
+// changed by reinitiating the global object.
 export interface PreviousCurveInitParams {
   wallet: Wallet;
   gasPrice?: number;
@@ -97,7 +97,7 @@ export class Curve {
       this._previousCurveInitParams !==
       { wallet, gasPrice, maxFeePerGas, maxPriorityFeePerGas }
     ) {
-      let options: Record<string, any> = {};
+      const options: Record<string, any> = {};
       if (gasPrice !== null) options['gasPrice'] = gasPrice;
       if (maxFeePerGas !== null) options['maxFeePerGas'] = maxFeePerGas;
       if (maxPriorityFeePerGas !== null)
@@ -126,21 +126,21 @@ export class Curve {
 
   /**
    * Return true if init has run succesfully.
-   */        
+   */
   public get ready(): boolean {
     return this._ready;
   }
 
   /**
    * Default gas limit for swap transactions.
-   */    
+   */
   public get gasLimit(): number {
     return this._gasLimit;
   }
 
   /**
    * Calculate values for BUY or SELL
-   * 
+   *
    * @param quoteToken Token input for the transaction
    * @param baseToken Token output from the transaction
    * @param tokenAmount Amount of baseToken desired from BUY or amount of baseToken put into SELL transaction

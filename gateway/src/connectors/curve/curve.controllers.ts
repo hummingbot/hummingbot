@@ -55,7 +55,7 @@ export async function price(
         UNKNOWN_TOKEN_ERROR_CODE
       );
     } else {
-      let expectedTrade = await curve.estimateTrade(
+      const expectedTrade = await curve.estimateTrade(
         baseTokenInfo,
         quoteTokenInfo,
         req.amount,
@@ -136,7 +136,7 @@ export async function trade(
         );
       }
 
-      let tradeInfo = await curve.estimateTrade(
+      const tradeInfo = await curve.estimateTrade(
         baseTokenInfo,
         quoteTokenInfo,
         req.amount,
