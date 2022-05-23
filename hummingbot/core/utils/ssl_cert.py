@@ -1,17 +1,21 @@
 """
 Functions for generating keys and certificates
 """
+from datetime import datetime, timedelta
+from os import listdir
+from os.path import join
+from typing import TYPE_CHECKING
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
-from datetime import datetime, timedelta
+
 from hummingbot.core.gateway import get_gateway_paths
-from os import listdir
-from os.path import join
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 CERT_SUBJECT = [
     x509.NameAttribute(NameOID.ORGANIZATION_NAME, 'localhost'),
@@ -166,7 +170,7 @@ client_cert_filename = 'client_cert.pem'
 client_csr_filename = 'client_csr.pem'
 
 
-def certs_files_exist() -> bool:
+def certs_files_exist(client_config_map: "ClientConfigAdapter") -> bool:
     """
     Check if the necessary key and certificate files exist
     """
@@ -174,15 +178,15 @@ def certs_files_exist() -> bool:
                       server_key_filename, server_cert_filename,
                       client_key_filename, client_cert_filename]
 
-    file_list = listdir(get_gateway_paths().local_certs_path.as_posix())
+    file_list = listdir(get_gateway_paths(client_config_map).local_certs_path.as_posix())
     return all(elem in file_list for elem in required_certs)
 
 
-def create_self_sign_certs(pass_phase: str):
+def create_self_sign_certs(pass_phase: str, client_config_map: "ClientConfigAdapter"):
     """
     Create self-sign CA Cert
     """
-    cert_directory: str = get_gateway_paths().local_certs_path.as_posix()
+    cert_directory: str = get_gateway_paths(client_config_map).local_certs_path.as_posix()
 
     filepath_list = {
         'ca_key': join(cert_directory, ca_key_filename),

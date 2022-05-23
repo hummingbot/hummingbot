@@ -1,13 +1,13 @@
 import asyncio
 from typing import TYPE_CHECKING
 
+from hummingbot.client.config.client_config_map import AutofillImportEnum
 from hummingbot.client.config.config_helpers import (
     format_config_file_name,
     load_strategy_config_map_from_file,
     short_strategy_name,
     validate_strategy_file,
 )
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import CONF_PREFIX, STRATEGIES_CONF_DIR_PATH, required_exchanges
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
@@ -57,8 +57,8 @@ class ImportCommand:
             raise
         if all_status_go:
             self.notify("\nEnter \"start\" to start market making.")
-            autofill_import = global_config_map.get("autofill_import").value
-            if autofill_import is not None:
+            autofill_import = self.client_config_map.autofill_import
+            if autofill_import != AutofillImportEnum.disabled:
                 self.app.set_text(autofill_import)
 
     async def prompt_a_file_name(self  # type: HummingbotApplication

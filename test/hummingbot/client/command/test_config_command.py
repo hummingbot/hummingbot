@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 from pydantic import Field
 
-from hummingbot.client.command.config_command import color_settings_to_display, global_configs_to_display
+from hummingbot.client.command.config_command import client_configs_to_display, color_settings_to_display
 from hummingbot.client.config.config_data_types import BaseClientModel, BaseStrategyConfigMap, ClientFieldData
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
 from hummingbot.client.config.config_var import ConfigVar
@@ -54,10 +54,10 @@ class ConfigCommandTest(unittest.TestCase):
         global_config_map.clear()
         global_config_map[tables_format_config_var.key] = tables_format_config_var
         tables_format_config_var.value = "psql"
-        global_config_map[global_configs_to_display[0]] = ConfigVar(key=global_configs_to_display[0], prompt="")
-        global_config_map[global_configs_to_display[0]].value = "first"
-        global_config_map[global_configs_to_display[1]] = ConfigVar(key=global_configs_to_display[1], prompt="")
-        global_config_map[global_configs_to_display[1]].value = "second"
+        global_config_map[client_configs_to_display[0]] = ConfigVar(key=client_configs_to_display[0], prompt="")
+        global_config_map[client_configs_to_display[0]].value = "first"
+        global_config_map[client_configs_to_display[1]] = ConfigVar(key=client_configs_to_display[1], prompt="")
+        global_config_map[client_configs_to_display[1]].value = "second"
         global_config_map[color_settings_to_display[0]] = ConfigVar(key=color_settings_to_display[0], prompt="")
         global_config_map[color_settings_to_display[0]].value = "third"
         global_config_map[color_settings_to_display[1]] = ConfigVar(key=color_settings_to_display[1], prompt="")

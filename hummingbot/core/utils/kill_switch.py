@@ -1,13 +1,24 @@
 import asyncio
 import logging
+from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Optional
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.logger import HummingbotLogger
+
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 
 
-class KillSwitch:
+class KillSwitch(ABC):
+    @abstractmethod
+    def start(self):
+        ...
+
+    @abstractmethod
+    def stop(self):
+        ...
+
+
+class ActiveKillSwitch(KillSwitch):
     ks_logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -17,12 +28,11 @@ class KillSwitch:
         return cls.ks_logger
 
     def __init__(self,
+                 kill_switch_rate: Decimal,
                  hummingbot_application: "HummingbotApplication"):  # noqa F821
         self._hummingbot_application = hummingbot_application
 
-        self._kill_switch_enabled: bool = global_config_map.get("kill_switch_enabled").value
-        self._kill_switch_rate: Decimal = Decimal(global_config_map.get("kill_switch_rate").value or "0.0") / \
-            Decimal(100)
+        self._kill_switch_rate: Decimal = kill_switch_rate / Decimal(100)
         self._started = False
         self._update_interval = 10.0
         self._check_profitability_task: Optional[asyncio.Task] = None
@@ -63,3 +73,11 @@ class KillSwitch:
         if self._check_profitability_task and not self._check_profitability_task.done():
             self._check_profitability_task.cancel()
         self._started = False
+
+
+class PassThroughKillSwitch(KillSwitch):
+    def start(self):
+        pass
+
+    def stop(self):
+        pass

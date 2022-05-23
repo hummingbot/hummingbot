@@ -1,14 +1,14 @@
-from typing import (
-    List,
-    Tuple
-)
 from decimal import Decimal
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from typing import List, Tuple
+
+from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import (
+    CrossExchangeMarketMakingStrategy,
+)
+from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import (
+    cross_exchange_market_making_config_map as xemm_map,
+)
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
-from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
-from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import \
-    cross_exchange_market_making_config_map as xemm_map
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 def start(self):
@@ -18,7 +18,7 @@ def start(self):
     raw_taker_trading_pair = xemm_map.get("taker_market_trading_pair").value
     min_profitability = xemm_map.get("min_profitability").value / Decimal("100")
     order_amount = xemm_map.get("order_amount").value
-    strategy_report_interval = global_config_map.get("strategy_report_interval").value
+    strategy_report_interval = self.clientconfig_map.strategy_report_interval
     limit_order_min_expiration = xemm_map.get("limit_order_min_expiration").value
     cancel_order_threshold = xemm_map.get("cancel_order_threshold").value / Decimal("100")
     active_order_canceling = xemm_map.get("active_order_canceling").value

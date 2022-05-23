@@ -5,7 +5,7 @@ import logging
 import time
 import uuid
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import Any, AsyncIterable, Dict, List, Optional, TYPE_CHECKING
 
 import aiohttp
 from libc.stdint cimport int64_t
@@ -52,6 +52,9 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -104,13 +107,14 @@ cdef class BitfinexExchange(ExchangeBase):
         return s_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  bitfinex_api_key: str,
                  bitfinex_secret_key: str,
                  # interval which the class periodically pulls status from the rest API
                  poll_interval: float = 5.0,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
-        super().__init__()
+        super().__init__(client_config_map)
 
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()

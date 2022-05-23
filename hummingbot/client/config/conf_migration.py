@@ -4,11 +4,25 @@ import logging
 import shutil
 from os import DirEntry, scandir
 from os.path import exists, join
-from typing import Dict, List, cast
+from typing import Dict, List, Union, cast
 
 import yaml
 
 from hummingbot import root_path
+from hummingbot.client.config.client_config_map import (
+    AnonymizedMetricsDisabledMode,
+    AnonymizedMetricsEnabledMode,
+    ClientConfigMap,
+    ColorConfigMap,
+    DBOtherMode,
+    DBSqliteMode,
+    KillSwitchDisabledMode,
+    KillSwitchEnabledMode,
+    PMMScriptDisabledMode,
+    PMMScriptEnabledMode,
+    TelegramDisabledMode,
+    TelegramEnabledMode,
+)
 from hummingbot.client.config.config_crypt import BaseSecretsManager, store_password_verification
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -25,21 +39,25 @@ def migrate_configs(secrets_manager: BaseSecretsManager) -> List[str]:
     logging.getLogger().info("Starting conf migration.")
     errors = backup_existing_dir()
     if len(errors) == 0:
-        migrate_strategy_confs_paths()
-        errors.extend(migrate_connector_confs(secrets_manager))
-        store_password_verification(secrets_manager)
-        logging.getLogger().info("\nConf migration done.")
+        errors = migrate_global_config()
+        if len(errors) == 0:
+            migrate_strategy_confs_paths()
+            errors.extend(migrate_connector_confs(secrets_manager))
+            store_password_verification(secrets_manager)
+            logging.getLogger().info("\nConf migration done.")
     else:
         logging.getLogger().error("\nConf migration failed.")
     return errors
 
 
-def migrate_strategies_only() -> List[str]:
+def migrate_non_secure_configs_only() -> List[str]:
     logging.getLogger().info("Starting strategies conf migration.")
     errors = backup_existing_dir()
     if len(errors) == 0:
-        migrate_strategy_confs_paths()
-        logging.getLogger().info("\nConf migration done.")
+        errors = migrate_global_config()
+        if len(errors) == 0:
+            migrate_strategy_confs_paths()
+            logging.getLogger().info("\nConf migration done.")
     else:
         logging.getLogger().error("\nConf migration failed.")
     return errors
@@ -62,6 +80,108 @@ def backup_existing_dir() -> List[str]:
             shutil.copytree(conf_dir_path, backup_path)
             logging.getLogger().info(f"\nCreated a backup of your existing conf directory to {backup_path}")
     return errors
+
+
+def migrate_global_config() -> List[str]:
+    global_config_path = CONF_DIR_PATH / "conf_global.yml"
+    errors = []
+    if global_config_path.exists():
+        with open(str(global_config_path), "r") as f:
+            data = yaml.safe_load(f)
+        del data["template_version"]
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        migrate_global_config_modes(client_config_map, data)
+        for key, value in data.items():
+            if key not in client_config_map.keys():
+                errors.append(
+                    f"Could not match the attribute {key} from the legacy config file to the new config map."
+                )
+                continue
+            if value is not None:
+                client_config_map.setattr_no_validation(key, value)
+    return errors
+
+
+def migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: Dict):
+    client_config_map: Union[ClientConfigAdapter, ClientConfigMap] = client_config_map  # for IDE autocomplete
+
+    kill_switch_enabled = data.pop("kill_switch_enabled")
+    kill_switch_rate = data.pop("kill_switch_rate")
+    if kill_switch_enabled:
+        client_config_map.kill_switch_mode = KillSwitchEnabledMode(kill_switch_rate=kill_switch_rate)
+    else:
+        client_config_map.kill_switch_mode = KillSwitchDisabledMode()
+
+    client_config_map.paper_trade.paper_trade_exchanges = data.pop("paper_trade_exchanges")
+    client_config_map.paper_trade.paper_trade_account_balance = data.pop("paper_trade_account_balance")
+
+    telegram_enabled = data.pop("telegram_enabled")
+    telegram_token = data.pop("telegram_token")
+    telegram_chat_id = data.pop("telegram_chat_id")
+    if telegram_enabled:
+        client_config_map.telegram_mode = TelegramEnabledMode(
+            telegram_token=telegram_token,
+            telegram_chat_id=telegram_chat_id,
+        )
+    else:
+        client_config_map.telegram_mode = TelegramDisabledMode()
+
+    db_engine = data.pop("db_engine")
+    db_host = data.pop("db_host")
+    db_port = data.pop("db_port")
+    db_username = data.pop("db_username")
+    db_password = data.pop("db_password")
+    db_name = data.pop("db_name")
+    if db_engine == "sqlite":
+        client_config_map.db_mode = DBSqliteMode()
+    else:
+        client_config_map.db_mode = DBOtherMode(
+            db_engine=db_engine,
+            db_host=db_host,
+            db_port=db_port,
+            db_username=db_username,
+            db_password=db_password,
+            db_name=db_name,
+        )
+
+    pmm_script_enabled = data.pop("pmm_script_enabled")
+    pmm_script_file_path = data.pop("pmm_script_file_path")
+    if pmm_script_enabled:
+        client_config_map.pmm_script_mode = PMMScriptEnabledMode(pmm_script_file_path=pmm_script_file_path)
+    else:
+        client_config_map.pmm_script_mode = PMMScriptDisabledMode()
+
+    client_config_map.gateway.gateway_api_host = data.pop("gateway_api_host")
+    client_config_map.gateway.gateway_api_port = data.pop("gateway_api_port")
+
+    anonymized_metrics_enabled = data.pop("anonymized_metrics_enabled")
+    anonymized_metrics_interval_min = data.pop("anonymized_metrics_interval_min")
+    if anonymized_metrics_enabled:
+        client_config_map.anonymized_metrics_mode = AnonymizedMetricsEnabledMode(
+            anonymized_metrics_interval_min=anonymized_metrics_interval_min
+        )
+    else:
+        client_config_map.anonymized_metrics_mode = AnonymizedMetricsDisabledMode()
+
+    client_config_map.global_token.global_token_name = data.pop("global_token")
+    client_config_map.global_token.global_token_symbol = data.pop("global_token_symbol")
+
+    client_config_map.commands_timeout.create_command_timeout = data.pop("create_command_timeout")
+    client_config_map.commands_timeout.other_commands_timeout = data.pop("other_commands_timeout")
+
+    color_map: ColorConfigMap = client_config_map.color
+    color_map.top_pane = data.pop("top-pane")
+    color_map.bottom_pane = data.pop("bottom-pane")
+    color_map.output_pane = data.pop("output-pane")
+    color_map.input_pane = data.pop("input-pane")
+    color_map.logs_pane = data.pop("logs-pane")
+    color_map.terminal_primary = data.pop("terminal-primary")
+    color_map.primary_label = data.pop("primary-label")
+    color_map.secondary_label = data.pop("secondary-label")
+    color_map.success_label = data.pop("success-label")
+    color_map.warning_label = data.pop("warning-label")
+    color_map.info_label = data.pop("info-label")
+    color_map.error_label = data.pop("error-label")
 
 
 def migrate_strategy_confs_paths():

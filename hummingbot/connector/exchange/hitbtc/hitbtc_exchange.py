@@ -3,13 +3,7 @@ import logging
 import math
 import time
 from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 from async_timeout import timeout
@@ -21,9 +15,9 @@ from hummingbot.connector.exchange.hitbtc.hitbtc_in_flight_order import HitbtcIn
 from hummingbot.connector.exchange.hitbtc.hitbtc_order_book_tracker import HitbtcOrderBookTracker
 from hummingbot.connector.exchange.hitbtc.hitbtc_user_stream_tracker import HitbtcUserStreamTracker
 from hummingbot.connector.exchange.hitbtc.hitbtc_utils import (
+    HitbtcAPIError,
     aiohttp_response_with_errors,
     get_new_client_order_id,
-    HitbtcAPIError,
     retry_sleep_time,
     str_date_to_ts,
     translate_asset,
@@ -32,8 +26,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -50,6 +43,9 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
@@ -71,6 +67,7 @@ class HitbtcExchange(ExchangeBase):
         return ctce_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  hitbtc_api_key: str,
                  hitbtc_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
@@ -82,7 +79,7 @@ class HitbtcExchange(ExchangeBase):
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
-        super().__init__()
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._hitbtc_auth = HitbtcAuth(hitbtc_api_key, hitbtc_secret_key)

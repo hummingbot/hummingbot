@@ -11,10 +11,9 @@ from hummingbot import chdir_to_data_directory, init_logging
 from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
 from hummingbot.client.config.config_helpers import (
     create_yml_files_legacy,
-    read_system_configs_from_yml,
+    load_client_config_map_from_file,
     write_config_to_yml,
 )
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.client.ui import login_prompt
@@ -40,29 +39,29 @@ class UIStartListener(EventListener):
     async def ui_start_handler(self):
         hb: HummingbotApplication = self.hummingbot_app
         if hb.strategy_config_map is not None:
-            write_config_to_yml(hb.strategy_config_map, hb.strategy_file_name)
-            hb.start(global_config_map.get("log_level").value)
+            write_config_to_yml(hb.strategy_config_map, hb.strategy_file_name, hb.client_config_map)
+            hb.start(self._hb_ref.client_config_map.log_level)
 
 
 async def main_async():
     await create_yml_files_legacy()
 
+    client_config_map = load_client_config_map_from_file()
+
     # This init_logging() call is important, to skip over the missing config warnings.
-    init_logging("hummingbot_logs.yml")
+    init_logging("hummingbot_logs.yml", client_config_map)
 
-    await read_system_configs_from_yml()
+    AllConnectorSettings.initialize_paper_trade_settings(client_config_map.paper_trade.paper_trade_exchanges)
 
-    AllConnectorSettings.initialize_paper_trade_settings(global_config_map.get("paper_trade_exchanges").value)
-
-    hb = HummingbotApplication.main_application()
+    hb = HummingbotApplication.main_application(client_config_map)
 
     # The listener needs to have a named variable for keeping reference, since the event listener system
     # uses weak references to remove unneeded listeners.
     start_listener: UIStartListener = UIStartListener(hb)
     hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
-    tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container()]
-    if global_config_map.get("debug_console").value:
+    tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container(client_config_map)]
+    if client_config_map.debug_console:
         if not hasattr(__builtins__, "help"):
             import _sitebuiltins
             __builtins__.help = _sitebuiltins._Helper()

@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, List, Optional
 import pandas as pd
 from sqlalchemy.orm import Query, Session
 
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import DEFAULT_LOG_FILE_PATH
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -71,7 +70,7 @@ class ExportCommand:
                 return
             self.placeholder_mode = True
             self.app.hide_input = True
-            path = global_config_map["log_file_path"].value
+            path = self.client_config_map.log_file_path
             if path is None:
                 path = str(DEFAULT_LOG_FILE_PATH)
             file_name = await self.prompt_new_export_file_name(path)

@@ -161,7 +161,6 @@ class TrackHangingOrdersModel(BaseClientModel):
 class IgnoreHangingOrdersModel(BaseClientModel):
     class Config:
         title = "ignore_hanging_orders"
-        validate_assignment = True
 
 
 HANGING_ORDER_MODELS = {
@@ -318,7 +317,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
         client_data=None,
     )
     hanging_orders_mode: Union[IgnoreHangingOrdersModel, TrackHangingOrdersModel] = Field(
-        default=IgnoreHangingOrdersModel.construct(),
+        default=IgnoreHangingOrdersModel(),
         description="When tracking hanging orders, the orders on the side opposite to the filled orders remain active.",
         client_data=ClientFieldData(
             prompt=(
