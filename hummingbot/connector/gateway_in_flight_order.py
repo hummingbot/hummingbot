@@ -1,12 +1,11 @@
 import copy
-
-from async_timeout import timeout
 from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
 
+from async_timeout import timeout
+
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
-
 
 GET_GATEWAY_EX_ORDER_ID_TIMEOUT = 30  # seconds
 

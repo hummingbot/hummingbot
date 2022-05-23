@@ -125,3 +125,20 @@ describe('verify Uniswap estimateBuyTrade', () => {
     }).rejects.toThrow(UniswapishPriceError);
   });
 });
+
+describe('getAllowedSlippage', () => {
+  it('return value of string when not null', () => {
+    const allowedSlippage = uniswap.getAllowedSlippage('1/100');
+    expect(allowedSlippage).toEqual(new Percent('1', '100'));
+  });
+
+  it('return value from config when string is null', () => {
+    const allowedSlippage = uniswap.getAllowedSlippage();
+    expect(allowedSlippage).toEqual(new Percent('2', '100'));
+  });
+
+  it('return value from config when string is malformed', () => {
+    const allowedSlippage = uniswap.getAllowedSlippage('yo');
+    expect(allowedSlippage).toEqual(new Percent('2', '100'));
+  });
+});

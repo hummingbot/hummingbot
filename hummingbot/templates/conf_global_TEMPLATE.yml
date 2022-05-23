@@ -191,8 +191,8 @@ db_username: null
 db_password: null
 db_name: null
 
-script_enabled: null
-script_file_path: null
+pmm_script_enabled: null
+pmm_script_file_path: null
 
 # Balance Limit Configurations
 # e.g. Setting USDT and BTC limits on Binance.
@@ -285,3 +285,6 @@ error-label: "#FF0000"
 
 # tabulate table format style (https://github.com/astanin/python-tabulate#table-format)
 tables_format: 'psql'
+
+# previously imported strategy
+previous_strategy:

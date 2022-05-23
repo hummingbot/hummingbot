@@ -4,41 +4,34 @@ import itertools as it
 import logging
 import re
 import time
+from decimal import Decimal
+from typing import Any, Dict, List, Optional, Set, Union, cast
 
 from async_timeout import timeout
-from decimal import Decimal
-from typing import (
-    Dict,
-    List,
-    Set,
-    Optional,
-    Any,
-    Union,
-    cast,
-)
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
-from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.event.events import (
+    OrderType,
+    TokenApprovalCancelledEvent,
+    TokenApprovalEvent,
+    TokenApprovalFailureEvent,
+    TokenApprovalSuccessEvent,
+    TradeType,
+)
 from hummingbot.core.gateway import check_transaction_exceptions
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import (
-    TokenApprovalEvent,
-    TokenApprovalSuccessEvent,
-    TokenApprovalFailureEvent,
-    TokenApprovalCancelledEvent,
-    OrderType,
-    TradeType,
-)
 from hummingbot.logger import HummingbotLogger
+
 from .gateway_price_shim import GatewayPriceShim
 
 s_logger = None
@@ -313,13 +306,14 @@ class GatewayEVMAMM(ConnectorBase):
             **request_args
         )
 
-        if "hash" in resp.get("approval", {}).keys():
-            approval_hash = resp["approval"]["hash"]
+        transaction_hash: Optional[str] = resp.get("approval").get("hash")
+        nonce: Optional[int] = resp.get("nonce")
+        if transaction_hash is not None and nonce is not None:
             tracked_order = self._order_tracker.fetch_order(client_order_id=approval_id)
-            tracked_order.update_exchange_order_id(approval_hash)
-            tracked_order.nonce = resp["nonce"]
+            tracked_order.update_exchange_order_id(transaction_hash)
+            tracked_order.nonce = nonce
             self.logger().info(
-                f"Maximum {token_symbol} approval for {self.connector_name} contract sent, hash: {approval_hash}."
+                f"Maximum {token_symbol} approval for {self.connector_name} contract sent, hash: {transaction_hash}."
             )
             return tracked_order
         else:

@@ -1,4 +1,3 @@
-import logging
 import unittest
 from decimal import Decimal
 from math import ceil, floor
@@ -8,6 +7,7 @@ import pandas as pd
 from nose.plugins.attrib import attr
 
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -21,15 +21,12 @@ from hummingbot.core.event.events import (
     MarketEvent,
     OrderBookTradeEvent,
     OrderFilledEvent,
-    SellOrderCreatedEvent,
     SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
 )
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from test.mock.mock_paper_exchange import MockPaperExchange
-
-logging.basicConfig(level=logging.ERROR)
 
 
 @attr("stable")
@@ -522,7 +519,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
         # place above top bid (at 0.95)
-        self.assertAlmostEqual(Decimal("0.9500"), bid_order.price)
+        self.assertAlmostEqual(Decimal("0.9501"), bid_order.price)
         # place below top ask (at 1.05)
         self.assertAlmostEqual(Decimal("1.049"), ask_order.price)
         self.assertAlmostEqual(Decimal("3"), round(bid_order.quantity, 4))

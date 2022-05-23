@@ -3,7 +3,7 @@
 from hummingbot.core.time_iterator cimport TimeIterator
 
 
-cdef class ScriptIterator(TimeIterator):
+cdef class PMMScriptIterator(TimeIterator):
     cdef:
         str _script_file_path
         object _strategy
