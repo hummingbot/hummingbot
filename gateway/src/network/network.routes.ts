@@ -4,8 +4,8 @@ import { asyncHandler } from '../services/error-handler';
 import { balances, poll } from '../chains/ethereum/ethereum.controllers';
 import { getChain } from '../services/connection-manager';
 import {
-  BalanceRequest,
-  BalanceResponse,
+  BalancesRequest,
+  BalancesResponse,
   PollRequest,
   PollResponse,
   StatusRequest,
@@ -58,8 +58,8 @@ export namespace NetworkRoutes {
     '/balances',
     asyncHandler(
       async (
-        req: Request<{}, {}, BalanceRequest>,
-        res: Response<BalanceResponse | string, {}>,
+        req: Request<{}, {}, BalancesRequest>,
+        res: Response<BalancesResponse | string, {}>,
         _next: NextFunction
       ) => {
         validateBalanceRequest(req.body);

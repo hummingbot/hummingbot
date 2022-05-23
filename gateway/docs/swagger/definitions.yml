@@ -107,7 +107,7 @@ definitions:
     required:
       - 'chain'
       - 'network'
-      - 'privateKey'
+      - 'address'
       - 'tokenSymbols'
     properties:
       chain:
@@ -116,7 +116,7 @@ definitions:
       network:
         type: 'string'
         example: 'kovan'
-      privateKey:
+      address:
         type: 'string'
         example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
       tokenSymbols:

@@ -6,12 +6,12 @@ import {
 
 import { TokenInfo } from '../services/ethereum-base';
 
-export interface BalanceRequest extends NetworkSelectionRequest {
+export interface BalancesRequest extends NetworkSelectionRequest {
   address: string; // the users public Ethereum key
   tokenSymbols: string[]; // a list of token symbol
 }
 
-export interface BalanceResponse {
+export interface BalancesResponse {
   network: string;
   timestamp: number;
   latency: number;

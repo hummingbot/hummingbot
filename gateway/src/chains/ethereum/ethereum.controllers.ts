@@ -37,8 +37,8 @@ import {
   CancelResponse,
 } from '../../evm/evm.requests';
 import {
-  BalanceRequest,
-  BalanceResponse,
+  BalancesRequest,
+  BalancesResponse,
 } from '../../network/network.requests';
 import { logger } from '../../services/logger';
 
@@ -107,8 +107,8 @@ export async function allowances(
 
 export async function balances(
   ethereumish: Ethereumish,
-  req: BalanceRequest
-): Promise<BalanceResponse | string> {
+  req: BalancesRequest
+): Promise<BalancesResponse | string> {
   const initTime = Date.now();
 
   let wallet: Wallet;
