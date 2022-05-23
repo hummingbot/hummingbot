@@ -170,7 +170,7 @@ class PassiveOrderRefreshMode(OrderRefreshMode):
         pre=True,
     )
     def validate_decimal(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
-        return CrossExchangeMarketMakingConfigMap.validate_decimal(v=v, field=field)
+        return super().validate_decimal(v=v, field=field)
 
 
 class ActiveOrderRefreshMode(OrderRefreshMode):
