@@ -13,6 +13,7 @@ from hummingbot.client.config.config_crypt import BaseSecretsManager, store_pass
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.security import Security
+from hummingbot.client.config.xemm_migration import migrate_xemm_confs
 from hummingbot.client.settings import CONF_DIR_PATH, STRATEGIES_CONF_DIR_PATH
 
 encrypted_conf_prefix = "encrypted_"
@@ -28,6 +29,7 @@ def migrate_configs(secrets_manager: BaseSecretsManager) -> List[str]:
         migrate_strategy_confs_paths()
         errors.extend(migrate_connector_confs(secrets_manager))
         store_password_verification(secrets_manager)
+        migrate_xemm_confs()
         logging.getLogger().info("\nConf migration done.")
     else:
         logging.getLogger().error("\nConf migration failed.")

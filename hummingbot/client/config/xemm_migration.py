@@ -5,12 +5,13 @@ from typing import List
 import yaml
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, save_to_yml
-from hummingbot.client.settings import CONF_DIR_PATH
+from hummingbot.client.settings import CONF_DIR_PATH, STRATEGIES_CONF_DIR_PATH
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map_pydantic import (
     CrossExchangeMarketMakingConfigMap,
 )
 
 conf_dir_path = CONF_DIR_PATH
+conf_dir_path_strategy = STRATEGIES_CONF_DIR_PATH
 
 
 def migrate_xemm() -> List[str]:
@@ -46,7 +47,7 @@ def backup_existing_dir() -> List[str]:
 def migrate_xemm_confs():
     errors = []
     logging.getLogger().info("\nMigrating strategies...")
-    for child in conf_dir_path.iterdir():
+    for child in conf_dir_path_strategy.iterdir():
         if child.is_file() and child.name.endswith(".yml"):
             with open(str(child), "r") as f:
                 conf = yaml.safe_load(f)
