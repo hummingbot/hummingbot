@@ -1,2 +1,3 @@
 # turn off specific file for eslint
 /node_modules
+/curve-js
