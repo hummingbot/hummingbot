@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Dict, Optional
 import pandas as pd
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.client.ui.interface_utils import format_df_for_printout
@@ -79,7 +78,7 @@ class ConnectCommand:
                                ):
         self.notify("\nTesting connections, please wait...")
         df, failed_msgs = await self.connection_df()
-        lines = ["    " + line for line in format_df_for_printout(df).split("\n")]
+        lines = ["    " + line for line in format_df_for_printout(df, self.client_config_map.tables_format).split("\n")]
         if failed_msgs:
             lines.append("\nFailed connections:")
             lines.extend(["    " + k + ": " + v for k, v in failed_msgs.items()])
@@ -91,10 +90,10 @@ class ConnectCommand:
         columns = ["Exchange", "  Keys Added", "  Keys Confirmed", "  Status"]
         data = []
         failed_msgs = {}
-        network_timeout = float(global_config_map["other_commands_timeout"].value)
+        network_timeout = self.client_config_map.commands_timeout.other_commands_timeout
         try:
             err_msgs = await asyncio.wait_for(
-                UserBalances.instance().update_exchanges(reconnect=True), network_timeout
+                UserBalances.instance().update_exchanges(self.client_config_map, reconnect=True), network_timeout
             )
         except asyncio.TimeoutError:
             self.notify("\nA network error prevented the connection table to populate. See logs for more details.")
@@ -145,13 +144,17 @@ class ConnectCommand:
         err_msg = CeloCLI.unlock_account(celo_config.celo_address, celo_config.celo_password.get_secret_value())
         return err_msg
 
-    async def validate_n_connect_connector(self, connector_name: str) -> Optional[str]:
+    async def validate_n_connect_connector(
+        self,  # type: HummingbotApplication
+        connector_name: str,
+    ) -> Optional[str]:
         await Security.wait_til_decryption_done()
         api_keys = Security.api_keys(connector_name)
-        network_timeout = float(global_config_map["other_commands_timeout"].value)
+        network_timeout = self.client_config_map.commands_timeout.other_commands_timeout
         try:
             err_msg = await asyncio.wait_for(
-                UserBalances.instance().add_exchange(connector_name, **api_keys), network_timeout
+                UserBalances.instance().add_exchange(connector_name, self.client_config_map, **api_keys),
+                network_timeout,
             )
         except asyncio.TimeoutError:
             self.notify(

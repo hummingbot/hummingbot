@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from pydantic import BaseModel, Extra, Field, validator
 from pydantic.schema import default_ref_template
@@ -9,6 +9,7 @@ from pydantic.schema import default_ref_template
 from hummingbot.client.config.config_methods import strategy_config_schema_encoder
 from hummingbot.client.config.config_validators import (
     validate_connector,
+    validate_decimal,
     validate_exchange,
     validate_market_trading_pair,
     validate_strategy,
@@ -52,6 +53,18 @@ class BaseClientModel(BaseModel):
 
     def is_required(self, attr: str) -> bool:
         return self.__fields__[attr].required
+
+    @staticmethod
+    def validate_decimal(v: str, field: Field):
+        """Used for client-friendly error output."""
+        field_info = field.field_info
+        inclusive = field_info.ge is not None or field_info.le is not None
+        min_value = field_info.gt if field_info.gt is not None else field_info.ge
+        max_value = field_info.lt if field_info.lt is not None else field_info.le
+        ret = validate_decimal(v, min_value, max_value, inclusive)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
 
 
 class BaseStrategyConfigMap(BaseClientModel):
@@ -105,15 +118,19 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
     @validator("exchange", pre=True)
     def validate_exchange(cls, v: str):
         """Used for client-friendly error output."""
-        ret = validate_exchange(v)
-        if ret is not None:
-            raise ValueError(ret)
-        cls.__fields__["exchange"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
-            value="Exchanges",  # noqa: F821
-            names={e: e for e in AllConnectorSettings.get_all_connectors()},
-            type=str,
-        )
-        return v
+        exchanges = v.split(", ")
+        for e in exchanges:
+            ret = validate_exchange(e)
+            if ret is not None:
+                raise ValueError(ret)
+        cls.__fields__["exchange"].type_ = List[
+            ClientConfigEnum(  # rebuild the exchanges enum
+                value="Exchanges",  # noqa: F821
+                names={e: e for e in AllConnectorSettings.get_all_connectors()},
+                type=str,
+            )
+        ]
+        return exchanges
 
     @validator("market", pre=True)
     def validate_exchange_trading_pair(cls, v: str, values: Dict):

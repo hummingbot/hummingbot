@@ -19,7 +19,6 @@ from hummingbot.client.config.config_helpers import (
     save_to_yml_legacy,
 )
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import STRATEGIES_CONF_DIR_PATH, required_exchanges
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -235,7 +234,7 @@ class CreateCommand:
         self  # type: HummingbotApplication
     ):
         try:
-            timeout = float(global_config_map["create_command_timeout"].value)
+            timeout = self.client_config_map.commands_timeout.create_command_timeout
             all_status_go = await asyncio.wait_for(self.status_check_all(), timeout)
         except asyncio.TimeoutError:
             self.notify("\nA network error prevented the connection check to complete. See logs for more details.")

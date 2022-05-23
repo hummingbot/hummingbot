@@ -7,7 +7,7 @@ from typing import (
     AsyncIterable,
     Dict,
     List,
-    Optional
+    Optional, TYPE_CHECKING
 )
 
 import ujson
@@ -54,6 +54,9 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
@@ -102,12 +105,13 @@ cdef class HuobiExchange(ExchangeBase):
         return hm_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  huobi_api_key: str,
                  huobi_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
-        super().__init__()
+        super().__init__(client_config_map)
         self._account_id = ""
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._ev_loop = asyncio.get_event_loop()

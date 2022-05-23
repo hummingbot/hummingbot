@@ -9,12 +9,11 @@ import aiohttp
 import pandas as pd
 
 import docker
-from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml_legacy
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import (
+    CLIENT_CONFIG_PATH,
     GATEWAY_CONNECTORS,
-    GLOBAL_CONFIG_PATH,
     AllConnectorSettings,
     GatewayConnectionSetting,
 )
@@ -68,14 +67,18 @@ class GatewayCommand:
     def gateway_connect(self, connector: str = None):
         safe_ensure_future(self._gateway_connect(connector), loop=self.ev_loop)
 
-    def gateway_start(self):
-        safe_ensure_future(start_gateway(), loop=self.ev_loop)
+    def gateway_start(
+        self  # type: HummingbotApplication
+    ):
+        safe_ensure_future(start_gateway(self.client_config_map), loop=self.ev_loop)
 
     def gateway_status(self):
         safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
 
-    def gateway_stop(self):
-        safe_ensure_future(stop_gateway(), loop=self.ev_loop)
+    def gateway_stop(
+        self  # type: HummingbotApplication
+    ):
+        safe_ensure_future(stop_gateway(self.client_config_map), loop=self.ev_loop)
 
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
@@ -98,7 +101,7 @@ class GatewayCommand:
 
     async def _test_connection(self):
         # test that the gateway is running
-        if await GatewayHttpClient.get_instance().ping_gateway():
+        if await self._get_gateway_instance().ping_gateway():
             self.notify("\nSuccesfully pinged gateway.")
         else:
             self.notify("\nUnable to ping gateway.")
@@ -107,9 +110,9 @@ class GatewayCommand:
             self,       # type: HummingbotApplication
             from_client_password: bool = False
     ):
-        cert_path: str = get_gateway_paths().local_certs_path.as_posix()
+        cert_path: str = get_gateway_paths(self.client_config_map).local_certs_path.as_posix()
         if not from_client_password:
-            if certs_files_exist():
+            if certs_files_exist(self.client_config_map):
                 self.notify(f"Gateway SSL certification files exist in {cert_path}.")
                 self.notify("To create new certification files, please first manually delete those files.")
                 return
@@ -125,9 +128,9 @@ class GatewayCommand:
                     self.notify("Error: Invalid pass phase")
         else:
             pass_phase = Security.secrets_manager.password.get_secret_value()
-        create_self_sign_certs(pass_phase)
+        create_self_sign_certs(pass_phase, self.client_config_map)
         self.notify(f"Gateway SSL certification files are created in {cert_path}.")
-        GatewayHttpClient.get_instance().reload_certs()
+        self._get_gateway_instance().reload_certs()
 
     async def _generate_gateway_confs(
             self,       # type: HummingbotApplication
@@ -175,13 +178,15 @@ class GatewayCommand:
                 except Exception:
                     raise
 
-    async def _create_gateway(self):
-        gateway_paths: GatewayPaths = get_gateway_paths()
-        gateway_container_name: str = get_gateway_container_name()
+    async def _create_gateway(
+        self  # type: HummingbotApplication
+    ):
+        gateway_paths: GatewayPaths = get_gateway_paths(self.client_config_map)
+        gateway_container_name: str = get_gateway_container_name(self.client_config_map)
         gateway_conf_mount_path: str = gateway_paths.mount_conf_path.as_posix()
         certificate_mount_path: str = gateway_paths.mount_certs_path.as_posix()
         logs_mount_path: str = gateway_paths.mount_logs_path.as_posix()
-        gateway_port: int = get_default_gateway_port()
+        gateway_port: int = get_default_gateway_port(self.client_config_map)
 
         # remove existing container(s)
         try:
@@ -251,14 +256,16 @@ class GatewayCommand:
         self.notify(f"New Gateway docker container id is {container_info['Id']}.")
 
         # Save the gateway port number, if it's not already there.
-        if global_config_map.get("gateway_api_port").value != gateway_port:
-            global_config_map["gateway_api_port"].value = gateway_port
-            global_config_map["gateway_api_host"].value = "localhost"
-            save_to_yml_legacy(GLOBAL_CONFIG_PATH, global_config_map)
+        gateway_config_map = self.client_config_map.gateway
+        if gateway_config_map.gateway_api_port != gateway_port:
+            gateway_config_map.gateway_api_port = gateway_port
+            gateway_config_map.gateway_api_host = "localhost"
+            save_to_yml(CLIENT_CONFIG_PATH, self.client_config_map)
 
-        GatewayHttpClient.get_instance().base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
-                                                    f"{global_config_map['gateway_api_port'].value}"
-        await start_gateway()
+        self._get_gateway_instance().base_url = (
+            f"https://{gateway_config_map.gateway_api_host}:{gateway_config_map.gateway_api_port}"
+        )
+        await start_gateway(self.client_config_map)
 
         # create Gateway configs
         await self._generate_gateway_confs(container_id=container_info["Id"])
@@ -296,7 +303,7 @@ class GatewayCommand:
 
         if self._gateway_monitor.current_status == Status.ONLINE:
             try:
-                status = await GatewayHttpClient.get_instance().get_gateway_status()
+                status = await self._get_gateway_instance().get_gateway_status()
                 self.notify(pd.DataFrame(status))
             except Exception:
                 self.notify("\nError: Unable to fetch status of connected Gateway server.")
@@ -305,15 +312,18 @@ class GatewayCommand:
 
     async def _update_gateway_configuration(self, key: str, value: Any):
         try:
-            response = await GatewayHttpClient.get_instance().update_config(key, value)
+            response = await self._get_gateway_instance().update_config(key, value)
             self.notify(response["message"])
             await self._gateway_monitor.update_gateway_config_key_list()
         except Exception:
             self.notify("\nError: Gateway configuration update failed. See log file for more details.")
 
-    async def _show_gateway_configuration(self, key: str):
-        host = global_config_map['gateway_api_host'].value
-        port = global_config_map['gateway_api_port'].value
+    async def _show_gateway_configuration(
+        self,  # type: HummingbotApplication
+        key: str,
+    ):
+        host = self.client_config_map.gateway.gateway_api_host
+        port = self.client_config_map.gateway.gateway_api_port
         try:
             config_dict: Dict[str, Any] = await self._gateway_monitor._fetch_gateway_configs()
             if key is not None:
@@ -343,7 +353,7 @@ class GatewayCommand:
                     self.notify(connector_df.to_string(index=False))
             else:
                 # get available networks
-                connector_configs: Dict[str, Any] = await GatewayHttpClient.get_instance().get_connectors()
+                connector_configs: Dict[str, Any] = await self._get_gateway_instance().get_connectors()
                 connector_config: List[Dict[str, Any]] = [
                     d for d in connector_configs["connectors"] if d["name"] == connector
                 ]
@@ -393,7 +403,7 @@ class GatewayCommand:
                         self.notify("Error: Invalid network")
 
                 # get wallets for the selected chain
-                wallets_response: List[Dict[str, Any]] = await GatewayHttpClient.get_instance().get_wallets()
+                wallets_response: List[Dict[str, Any]] = await self._get_gateway_instance().get_wallets()
                 matching_wallets: List[Dict[str, Any]] = [w for w in wallets_response if w["chain"] == chain]
                 wallets: List[str]
                 if len(matching_wallets) < 1:
@@ -412,7 +422,7 @@ class GatewayCommand:
                     self.app.clear_input()
                     if self.app.to_stop_config:
                         return
-                    response: Dict[str, Any] = await GatewayHttpClient.get_instance().add_wallet(
+                    response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
                         chain, network, wallet_private_key
                     )
                     wallet_address: str = response["address"]
@@ -437,7 +447,7 @@ class GatewayCommand:
                         native_token: str = native_tokens[chain]
                         wallet_table: List[Dict[str, Any]] = []
                         for w in wallets:
-                            balances: Dict[str, Any] = await GatewayHttpClient.get_instance().get_balances(
+                            balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
                                 chain, network, w, [native_token]
                             )
                             wallet_table.append({"balance": balances['balances'][native_token], "address": w})
@@ -467,7 +477,7 @@ class GatewayCommand:
                                 if self.app.to_stop_config:
                                     return
 
-                                response: Dict[str, Any] = await GatewayHttpClient.get_instance().add_wallet(
+                                response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
                                     chain, network, wallet_private_key
                                 )
                                 wallet_address = response["address"]
@@ -483,8 +493,16 @@ class GatewayCommand:
 
                 # update AllConnectorSettings and fee overrides.
                 AllConnectorSettings.create_connector_settings()
-                AllConnectorSettings.initialize_paper_trade_settings(global_config_map.get("paper_trade_exchanges").value)
-                await refresh_trade_fees_config()
+                AllConnectorSettings.initialize_paper_trade_settings(
+                    self.client_config_map.paper_trade.paper_trade_exchanges
+                )
+                await refresh_trade_fees_config(self.client_config_map)
 
                 # Reload completer here to include newly added gateway connectors
                 self.app.input_field.completer = load_completer(self)
+
+    def _get_gateway_instance(
+        self  # type: HummingbotApplication
+    ) -> GatewayHttpClient:
+        gateway_instance = GatewayHttpClient.get_instance(self.client_config_map)
+        return gateway_instance

@@ -10,7 +10,7 @@ from typing import (
     AsyncIterable,
     Dict,
     List,
-    Optional,
+    Optional, TYPE_CHECKING,
 )
 
 import aiohttp
@@ -53,6 +53,9 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_nan = Decimal("nan")
@@ -91,12 +94,13 @@ cdef class LiquidExchange(ExchangeBase):
         return s_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  liquid_api_key: str,
                  liquid_secret_key: str,
                  poll_interval: float = 5.0,    # interval which the class periodically pulls status from the rest API
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
-        super().__init__()
+        super().__init__(client_config_map)
 
         self._trading_required = trading_required
         self._liquid_auth = LiquidAuth(liquid_api_key, liquid_secret_key)

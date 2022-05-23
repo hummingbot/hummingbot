@@ -1,33 +1,32 @@
+from typing import Union
+
 from prompt_toolkit.styles import Style
 from prompt_toolkit.utils import is_windows
 
-from hummingbot.client.config.config_helpers import save_to_yml_legacy
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.settings import GLOBAL_CONFIG_PATH
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, save_to_yml
+from hummingbot.client.settings import CLIENT_CONFIG_PATH
 
 
-def load_style(config_map=global_config_map):
+def load_style(config_map: ClientConfigAdapter):
     """
     Return a dict mapping {ui_style_name -> style_dict}.
     """
-
+    config_map: Union[ClientConfigAdapter, ClientConfigMap] = config_map  # to enable IDE auto-complete
     # Load config
-    color_top_pane = config_map.get("top-pane").value
-    color_bottom_pane = config_map.get("bottom-pane").value
-    color_output_pane = config_map.get("output-pane").value
-    color_input_pane = config_map.get("input-pane").value
-    color_logs_pane = config_map.get("logs-pane").value
-    color_terminal_primary = config_map.get("terminal-primary").value
+    color_top_pane = config_map.color.top_pane
+    color_bottom_pane = config_map.color.bottom_pane
+    color_output_pane = config_map.color.output_pane
+    color_input_pane = config_map.color.input_pane
+    color_logs_pane = config_map.color.logs_pane
+    color_terminal_primary = config_map.color.terminal_primary
 
-    color_primary_label = config_map.get("primary-label").value
-    color_secondary_label = config_map.get("secondary-label").value
-    color_success_label = config_map.get("success-label").value
-    color_warning_label = config_map.get("warning-label").value
-    color_info_label = config_map.get("info-label").value
-    color_error_label = config_map.get("error-label").value
-
-    # Load default style
-    style = default_ui_style
+    color_primary_label = config_map.color.primary_label
+    color_secondary_label = config_map.color.secondary_label
+    color_success_label = config_map.color.success_label
+    color_warning_label = config_map.color.warning_label
+    color_info_label = config_map.color.info_label
+    color_error_label = config_map.color.error_label
 
     if is_windows():
         # Load default style for Windows
@@ -93,26 +92,26 @@ def load_style(config_map=global_config_map):
         return Style.from_dict(style)
 
 
-def reset_style(config_map=global_config_map, save=True):
+def reset_style(config_map: ClientConfigAdapter, save=True):
     # Reset config
-    config_map.get("top-pane").value = config_map.get("top-pane").default
-    config_map.get("bottom-pane").value = config_map.get("bottom-pane").default
-    config_map.get("output-pane").value = config_map.get("output-pane").default
-    config_map.get("input-pane").value = config_map.get("input-pane").default
-    config_map.get("logs-pane").value = config_map.get("logs-pane").default
-    config_map.get("terminal-primary").value = config_map.get("terminal-primary").default
 
-    config_map.get("primary-label").value = config_map.get("primary-label").default
-    config_map.get("secondary-label").value = config_map.get("secondary-label").default
-    config_map.get("success-label").value = config_map.get("success-label").default
-    config_map.get("warning-label").value = config_map.get("warning-label").default
-    config_map.get("info-label").value = config_map.get("info-label").default
-    config_map.get("error-label").value = config_map.get("error-label").default
+    config_map.color.top_pane = config_map.color.get_default("top_pane")
+    config_map.color.bottom_pane = config_map.color.get_default("bottom_pane")
+    config_map.color.output_pane = config_map.color.get_default("output_pane")
+    config_map.color.input_pane = config_map.color.get_default("input_pane")
+    config_map.color.logs_pane = config_map.color.get_default("logs_pane")
+    config_map.color.terminal_primary = config_map.color.get_default("terminal_primary")
+
+    config_map.color.primary_label = config_map.color.get_default("primary_label")
+    config_map.color.secondary_label = config_map.color.get_default("secondary_label")
+    config_map.color.success_label = config_map.color.get_default("success_label")
+    config_map.color.warning_label = config_map.color.get_default("warning_label")
+    config_map.color.info_label = config_map.color.get_default("info_label")
+    config_map.color.error_label = config_map.color.get_default("error_label")
 
     # Save configuration
     if save:
-        file_path = GLOBAL_CONFIG_PATH
-        save_to_yml_legacy(file_path, config_map)
+        save_to_yml(CLIENT_CONFIG_PATH, config_map)
 
     # Apply & return style
     return load_style(config_map)

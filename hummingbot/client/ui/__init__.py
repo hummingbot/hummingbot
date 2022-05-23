@@ -7,9 +7,10 @@ from prompt_toolkit.shortcuts import input_dialog, message_dialog
 from prompt_toolkit.styles import Style
 
 from hummingbot import root_path
-from hummingbot.client.config.conf_migration import migrate_configs, migrate_strategies_only
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.conf_migration import migrate_configs, migrate_non_secure_configs_only
 from hummingbot.client.config.config_crypt import BaseSecretsManager, store_password_verification
-from hummingbot.client.config.global_config_map import color_config_map
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import CONF_DIR_PATH
 
@@ -19,10 +20,12 @@ sys.path.insert(0, str(root_path()))
 with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
     version = version_file.read().strip()
 
+client_config_map = ClientConfigAdapter(ClientConfigMap())
+terminal_primary = client_config_map.color.terminal_primary
 dialog_style = Style.from_dict({
     'dialog': 'bg:#171E2B',
     'dialog frame.label': 'bg:#ffffff #000000',
-    'dialog.body': 'bg:#000000 ' + color_config_map["terminal-primary"].default,
+    'dialog.body': 'bg:#000000 ' + terminal_primary,
     'dialog shadow': 'bg:#171E2B',
     'button': 'bg:#000000',
     'text-area': 'bg:#000000 #ffffff',
@@ -60,7 +63,7 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Optional[Base
         else:
             secrets_manager = secrets_manager_cls(password)
             store_password_verification(secrets_manager)
-        migrate_strategies_only_prompt()
+        migrate_non_secure_only_prompt()
     else:
         password = input_dialog(
             title="Welcome back to Hummingbot",
@@ -133,30 +136,29 @@ def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Bas
     return secrets_manager
 
 
-def migrate_strategies_only_prompt():
+def migrate_non_secure_only_prompt():
     message_dialog(
-        title='Strategies Configs Migration',
+        title='Configs Migration',
         text="""
 
 
-                STRATEGIES CONFIGS MIGRATION:
+                CONFIGS MIGRATION:
 
                 We have recently refactored the way hummingbot handles configurations.
-                We will now attempt to migrate any legacy strategy config files
-                to the new format.
+                We will now attempt to migrate any legacy config files to the new format.
 
                     """,
         style=dialog_style).run()
-    errors = migrate_strategies_only()
+    errors = migrate_non_secure_configs_only()
     if len(errors) != 0:
         _migration_errors_dialog(errors)
     else:
         message_dialog(
-            title='Strategies Configs Migration Success',
+            title='Configs Migration Success',
             text="""
 
 
-                            STRATEGIES CONFIGS MIGRATION SUCCESS:
+                            CONFIGS MIGRATION SUCCESS:
 
                             The migration process was completed successfully.
 

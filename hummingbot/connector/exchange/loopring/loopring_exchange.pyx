@@ -10,7 +10,7 @@ from typing import (
     AsyncIterable,
     Dict,
     List,
-    Optional,
+    Optional, TYPE_CHECKING,
 )
 
 import aiohttp
@@ -47,6 +47,9 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -136,6 +139,7 @@ cdef class LoopringExchange(ExchangeBase):
         return s_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  loopring_accountid: int,
                  loopring_exchangeaddress: str,
                  loopring_private_key: str,
@@ -144,7 +148,7 @@ cdef class LoopringExchange(ExchangeBase):
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
-        super().__init__()
+        super().__init__(client_config_map)
 
         self._real_time_balance_update = True
 

@@ -6,6 +6,8 @@ from typing import List, Optional
 import pandas as pd
 
 from hummingbot.client.command.config_command import ConfigCommand
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.mock.mock_paper_exchange.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
@@ -147,7 +149,7 @@ class PMMUnitTest(unittest.TestCase):
                                                 volume_step_size=10)
         self.order_book_asset_del = OrderBookAssetPriceDelegate(self.ext_market, self.trading_pair)
         trade_fill_sql = SQLConnectionManager(
-            SQLConnectionType.TRADE_FILLS, db_path=""
+            ClientConfigAdapter(ClientConfigMap()), SQLConnectionType.TRADE_FILLS, db_path=""
         )
         self.inventory_cost_price_del = InventoryCostPriceDelegate(trade_fill_sql, self.trading_pair)
 

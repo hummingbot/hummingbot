@@ -1,11 +1,12 @@
 import logging
-from shutil import copyfile, move
 from inspect import getmembers, isabstract, isclass
 from pathlib import Path
+from shutil import copyfile, move
 
 import pandas as pd
 from sqlalchemy.exc import SQLAlchemyError
 
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.model.db_migration.base_transformation import DatabaseTransformation
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 
@@ -22,7 +23,7 @@ class Migrator:
     def __init__(self):
         self.transformations = [t(self) for t in self._get_transformations()]
 
-    def migrate_db_to_version(self, db_handle, from_version, to_version):
+    def migrate_db_to_version(self, client_config_map: ClientConfigAdapter, db_handle, from_version, to_version):
         original_db_path = db_handle.db_path
         original_db_name = Path(original_db_path).stem
         backup_db_path = original_db_path + '.backup_' + pd.Timestamp.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -31,7 +32,9 @@ class Migrator:
         copyfile(original_db_path, backup_db_path)
 
         db_handle.engine.dispose()
-        new_db_handle = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, new_db_path, original_db_name, True)
+        new_db_handle = SQLConnectionManager(
+            client_config_map, SQLConnectionType.TRADE_FILLS, new_db_path, original_db_name, True
+        )
 
         relevant_transformations = [t for t in self.transformations
                                     if t.does_apply_to_version(from_version, to_version)]

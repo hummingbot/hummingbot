@@ -20,16 +20,16 @@ from pydantic.main import ModelMetaclass, validate_model
 from yaml import SafeDumper
 
 from hummingbot import get_strategy_list, root_path
+from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map, init_fee_overrides_config
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import (
+    CLIENT_CONFIG_PATH,
     CONF_DIR_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
     CONNECTORS_CONF_DIR_PATH,
-    GLOBAL_CONFIG_PATH,
     STRATEGIES_CONF_DIR_PATH,
     TEMPLATE_PATH,
     TRADE_FEES_CONFIG_PATH,
@@ -187,6 +187,9 @@ class ClientConfigAdapter:
     def get_description(self, attr_name: str) -> str:
         return self._hb_config.__fields__[attr_name].field_info.description
 
+    def get_default(self, attr_name: str) -> Any:
+        return self._hb_config.__fields__[attr_name].field_info.default
+
     def generate_yml_output_str_with_comments(self) -> str:
         conf_dict = self._dict_in_conf_order()
         self._encrypt_secrets(conf_dict)
@@ -287,6 +290,15 @@ class ClientConfigAdapter:
                 fragments_with_comments.append(f"\n\n{original_fragments[i]}")
             else:
                 fragments_with_comments.append(f"\n{original_fragments[i]}")
+
+
+class ReadOnlyClientConfigAdapter(ClientConfigAdapter):
+    def __setattr__(self, key, value):
+        raise AttributeError("Cannot set an attribute on a read-only client adapter.")
+
+    @classmethod
+    def lock_config(cls, config_map: ClientConfigMap):
+        return cls(config_map._hb_config)
 
 
 def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
@@ -522,6 +534,18 @@ def load_connector_config_map_from_file(yml_path: Path) -> ClientConfigAdapter:
     return config_map
 
 
+def load_client_config_map_from_file() -> ClientConfigAdapter:
+    yml_path = CLIENT_CONFIG_PATH
+    if yml_path.exists():
+        config_data = read_yml_file(yml_path)
+    else:
+        config_data = {}
+    client_config = ClientConfigMap()
+    config_map = ClientConfigAdapter(client_config)
+    _load_yml_data_into_map(config_data, config_map)
+    return config_map
+
+
 def get_connector_hb_config(connector_name: str) -> BaseClientModel:
     if connector_name == "celo":
         hb_config = celo_data_types.KEYS
@@ -658,9 +682,6 @@ async def read_system_configs_from_yml():
     If a yml file is outdated, it gets reformatted with the new template
     """
     await load_yml_into_cm_legacy(
-        GLOBAL_CONFIG_PATH, str(TEMPLATE_PATH / "conf_global_TEMPLATE.yml"), global_config_map
-    )
-    await load_yml_into_cm_legacy(
         str(TRADE_FEES_CONFIG_PATH), str(TEMPLATE_PATH / "conf_fee_overrides_TEMPLATE.yml"), fee_overrides_config_map
     )
     # In case config maps get updated (due to default values)
@@ -668,18 +689,15 @@ async def read_system_configs_from_yml():
 
 
 def save_system_configs_to_yml():
-    save_to_yml_legacy(GLOBAL_CONFIG_PATH, global_config_map)
     save_to_yml_legacy(str(TRADE_FEES_CONFIG_PATH), fee_overrides_config_map)
 
 
-async def refresh_trade_fees_config():
+async def refresh_trade_fees_config(client_config_map: ClientConfigAdapter):
     """
     Refresh the trade fees config, after new connectors have been added (e.g. gateway connectors).
     """
     init_fee_overrides_config()
-    await load_yml_into_cm_legacy(
-        GLOBAL_CONFIG_PATH, str(TEMPLATE_PATH / "conf_global_TEMPLATE.yml"), global_config_map
-    )
+    save_to_yml(CLIENT_CONFIG_PATH, client_config_map)
     save_to_yml_legacy(str(TRADE_FEES_CONFIG_PATH), fee_overrides_config_map)
 
 
@@ -712,14 +730,16 @@ def save_to_yml(yml_path: Path, cm: ClientConfigAdapter):
 
 
 def write_config_to_yml(
-    strategy_config_map: Union[ClientConfigAdapter, Dict], strategy_file_name: str
+    strategy_config_map: Union[ClientConfigAdapter, Dict],
+    strategy_file_name: str,
+    client_config_map: ClientConfigAdapter,
 ):
     strategy_file_path = Path(STRATEGIES_CONF_DIR_PATH) / strategy_file_name
     if isinstance(strategy_config_map, ClientConfigAdapter):
         save_to_yml(strategy_file_path, strategy_config_map)
     else:
         save_to_yml_legacy(strategy_file_path, strategy_config_map)
-    save_to_yml_legacy(GLOBAL_CONFIG_PATH, global_config_map)
+    save_to_yml(CLIENT_CONFIG_PATH, client_config_map)
 
 
 async def create_yml_files_legacy():
@@ -776,13 +796,14 @@ def short_strategy_name(strategy: str) -> str:
         return strategy
 
 
-def all_configs_complete(strategy_config):
+def all_configs_complete(strategy_config: Union[ClientConfigAdapter, Dict], client_config_map: ClientConfigAdapter):
     strategy_valid = (
         config_map_complete_legacy(strategy_config)
         if isinstance(strategy_config, Dict)
         else len(strategy_config.validate_model()) == 0
     )
-    return config_map_complete_legacy(global_config_map) and strategy_valid
+    client_config_valid = len(client_config_map.validate_model()) == 0
+    return client_config_valid and strategy_valid
 
 
 def config_map_complete_legacy(config_map):

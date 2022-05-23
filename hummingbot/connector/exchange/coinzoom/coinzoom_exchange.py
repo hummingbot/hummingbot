@@ -4,13 +4,7 @@ import logging
 import math
 import time
 from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 from async_timeout import timeout
@@ -51,6 +45,9 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
@@ -71,6 +68,7 @@ class CoinzoomExchange(ExchangeBase):
         return ctce_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  coinzoom_api_key: str,
                  coinzoom_secret_key: str,
                  coinzoom_username: str,
@@ -84,7 +82,7 @@ class CoinzoomExchange(ExchangeBase):
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
-        super().__init__()
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._throttler = AsyncThrottler(Constants.RATE_LIMITS)
