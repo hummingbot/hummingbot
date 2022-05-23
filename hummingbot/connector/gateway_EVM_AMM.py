@@ -332,11 +332,18 @@ class GatewayEVMAMM(ConnectorBase):
         :return: A dictionary of token and its allowance.
         """
         ret_val = {}
-        resp: Dict[str, Any] = await GatewayHttpClient.get_instance().get_allowances(
-            self.chain, self.network, self.address, list(self._tokens), self.connector_name
-        )
-        for token, amount in resp["approvals"].items():
-            ret_val[token] = Decimal(str(amount))
+        if self.chain == 'curve':
+            # the curve API as used in gateway handles allowances when trades
+            # are performed so on the gateway side we assume that allowances
+            # are always ready
+            for token in list(self._tokens):
+                ret_val[token] = Decimal('Infinity')
+        else:
+            resp: Dict[str, Any] = await GatewayHttpClient.get_instance().get_allowances(
+                self.chain, self.network, self.address, list(self._tokens), self.connector_name
+            )
+            for token, amount in resp["approvals"].items():
+                ret_val[token] = Decimal(str(amount))
         return ret_val
 
     @async_ttl_cache(ttl=5, maxsize=10)
