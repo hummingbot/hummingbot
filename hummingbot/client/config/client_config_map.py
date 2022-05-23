@@ -8,7 +8,7 @@ from os.path import dirname
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, Json, root_validator, validator
+from pydantic import BaseModel, Field, root_validator, validator
 from tabulate import tabulate_formats
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
@@ -152,7 +152,7 @@ class PaperTradeConfigMap(BaseClientModel):
             GateIOConfigMap.Config.title,
         ],
     )
-    paper_trade_account_balance: Json = Field(
+    paper_trade_account_balance: Dict[str, float] = Field(
         default={
             "BTC": 1,
             "USDT": 1000,
@@ -171,6 +171,12 @@ class PaperTradeConfigMap(BaseClientModel):
             ),
         ),
     )
+
+    @validator("paper_trade_account_balance", pre=True)
+    def validate_paper_trade_account_balance(cls, v: Union[str, Dict[str, float]]):
+        if isinstance(v, str):
+            v = json.loads(v)
+        return v
 
 
 class KillSwitchMode(BaseClientModel, ABC):
@@ -202,7 +208,7 @@ class KillSwitchEnabledMode(KillSwitchMode):
     @validator("kill_switch_rate", pre=True)
     def validate_decimal(cls, v: str, field: Field):
         """Used for client-friendly error output."""
-        super().validate_decimal(v, field)
+        return super().validate_decimal(v, field)
 
 
 class KillSwitchDisabledMode(KillSwitchMode):
@@ -477,7 +483,7 @@ class CommandsTimeoutConfigMap(BaseClientModel):
     )
     def validate_decimals(cls, v: str, field: Field):
         """Used for client-friendly error output."""
-        super().validate_decimal(v, field)
+        return super().validate_decimal(v, field)
 
 
 class AnonymizedMetricsMode(BaseClientModel, ABC):
@@ -537,7 +543,7 @@ class AnonymizedMetricsEnabledMode(AnonymizedMetricsMode):
     @validator("anonymized_metrics_interval_min", pre=True)
     def validate_decimal(cls, v: str, field: Field):
         """Used for client-friendly error output."""
-        super().validate_decimal(v, field)
+        return super().validate_decimal(v, field)
 
 
 METRICS_MODES = {
@@ -605,7 +611,7 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: f"Select the desired PMM script mode ({'/'.join(list(PMM_SCRIPT_MODES.keys()))})",
         ),
     )
-    balance_asset_limit: Json = Field(
+    balance_asset_limit: Dict[str, Dict[str, Decimal]] = Field(
         default=json.dumps({exchange: None for exchange in AllConnectorSettings.get_exchange_names()}),
         client_data=ClientFieldData(
             prompt=lambda cm: (
@@ -674,9 +680,12 @@ class ClientConfigMap(BaseClientModel):
     paper_trade: PaperTradeConfigMap = Field(default=PaperTradeConfigMap())
     color: ColorConfigMap = Field(default=ColorConfigMap())
 
+    class Config:
+        title = "client_config_map"
+
     @validator("kill_switch_mode", pre=True)
-    def validate_kill_switch_mode(cls, v: Union[(str,) + tuple(KILL_SWITCH_MODES.values())]):
-        if isinstance(v, tuple(KILL_SWITCH_MODES.values())):
+    def validate_kill_switch_mode(cls, v: Union[(str, Dict) + tuple(KILL_SWITCH_MODES.values())]):
+        if isinstance(v, tuple(KILL_SWITCH_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in KILL_SWITCH_MODES:
             raise ValueError(
@@ -688,13 +697,13 @@ class ClientConfigMap(BaseClientModel):
 
     @validator("autofill_import", pre=True)
     def validate_autofill_import(cls, v: Union[str, AutofillImportEnum]):
-        if isinstance(v, str) and v not in AutofillImportEnum:
+        if isinstance(v, str) and v not in AutofillImportEnum.__members__:
             raise ValueError(f"The value must be one of {', '.join(list(AutofillImportEnum))}.")
         return v
 
     @validator("telegram_mode", pre=True)
-    def validate_telegram_mode(cls, v: Union[(str,) + tuple(TELEGRAM_MODES.values())]):
-        if isinstance(v, tuple(TELEGRAM_MODES.values())):
+    def validate_telegram_mode(cls, v: Union[(str, Dict) + tuple(TELEGRAM_MODES.values())]):
+        if isinstance(v, tuple(TELEGRAM_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in TELEGRAM_MODES:
             raise ValueError(
@@ -714,8 +723,8 @@ class ClientConfigMap(BaseClientModel):
         return v
 
     @validator("db_mode", pre=True)
-    def validate_db_mode(cls, v: Union[(str,) + tuple(DB_MODES.values())]):
-        if isinstance(v, tuple(DB_MODES.values())):
+    def validate_db_mode(cls, v: Union[(str, Dict) + tuple(DB_MODES.values())]):
+        if isinstance(v, tuple(DB_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in DB_MODES:
             raise ValueError(
@@ -726,8 +735,8 @@ class ClientConfigMap(BaseClientModel):
         return sub_model
 
     @validator("pmm_script_mode", pre=True)
-    def validate_pmm_script_mode(cls, v: Union[(str,) + tuple(PMM_SCRIPT_MODES.values())]):
-        if isinstance(v, tuple(PMM_SCRIPT_MODES.values())):
+    def validate_pmm_script_mode(cls, v: Union[(str, Dict) + tuple(PMM_SCRIPT_MODES.values())]):
+        if isinstance(v, tuple(PMM_SCRIPT_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in PMM_SCRIPT_MODES:
             raise ValueError(
@@ -738,8 +747,8 @@ class ClientConfigMap(BaseClientModel):
         return sub_model
 
     @validator("anonymized_metrics_mode", pre=True)
-    def validate_anonymized_metrics_mode(cls, v: Union[(str,) + tuple(METRICS_MODES.values())]):
-        if isinstance(v, tuple(METRICS_MODES.values())):
+    def validate_anonymized_metrics_mode(cls, v: Union[(str, Dict) + tuple(METRICS_MODES.values())]):
+        if isinstance(v, tuple(METRICS_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in METRICS_MODES:
             raise ValueError(
@@ -771,7 +780,7 @@ class ClientConfigMap(BaseClientModel):
     )
     def validate_decimals(cls, v: str, field: Field):
         """Used for client-friendly error output."""
-        super().validate_decimal(v, field)
+        return super().validate_decimal(v, field)
 
     # === post-validations ===
 
