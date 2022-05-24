@@ -4,20 +4,17 @@
 Functions for storing encrypted wallets and decrypting stored wallets.
 """
 
-from eth_account import Account
-from hummingbot.client.settings import (
-    KEYFILE_PREFIX,
-    KEYFILE_POSTFIX,
-    DEFAULT_KEY_FILE_PATH,
-)
-from hummingbot.client.config.global_config_map import global_config_map
 import json
 from os import listdir
-from os.path import (
-    join,
-    isfile
-)
+from os.path import isfile, join
 from typing import Dict, List
+
+import base58
+from eth_account import Account
+from solana.keypair import Keypair
+
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.settings import DEFAULT_KEY_FILE_PATH, KEYFILE_POSTFIX, KEYFILE_PREFIX
 
 
 def get_key_file_path() -> str:
@@ -44,6 +41,25 @@ def save_wallet(acct: Account, password: str) -> Account:
     """
     encrypted: Dict = Account.encrypt(acct.privateKey, password)
     file_path: str = "%s%s%s%s" % (get_key_file_path(), KEYFILE_PREFIX, acct.address, KEYFILE_POSTFIX)
+    with open(file_path, 'w+') as f:
+        f.write(json.dumps(encrypted))
+    return acct
+
+
+def import_and_save_sol_wallet(password: str, secret_key: str) -> Keypair:
+    """
+    Create an keypair from a 64-byte secret key, then encrypt the private key and store it in the path from get_key_file_path()
+    """
+    acct: Keypair = Keypair.from_secret_key(base58.b58decode(secret_key))
+    return save_sol_wallet(acct, password)
+
+
+def save_sol_wallet(acct: Keypair, password: str) -> Keypair:
+    """
+    For a given account and password, encrypt the account address and store it in the path from get_key_file_path()
+    """
+    encrypted: Dict = Account.encrypt(acct.seed, password)
+    file_path: str = "%s%s%s%s" % (get_key_file_path(), KEYFILE_PREFIX, acct.public_key.to_base58().decode('ascii'), KEYFILE_POSTFIX)
     with open(file_path, 'w+') as f:
         f.write(json.dumps(encrypted))
     return acct
