@@ -14,11 +14,11 @@ from hummingbot.connector.derivative.binance_perpetual import binance_perpetual_
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
     BinancePerpetualAPIOrderBookDataSource,
 )
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):

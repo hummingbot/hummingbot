@@ -2,16 +2,18 @@ import asyncio
 import json
 import time
 import unittest
-from typing import Dict, Awaitable
-from unittest.mock import patch, AsyncMock
+from typing import Awaitable, Dict
+from unittest.mock import AsyncMock, patch
 
 import numpy as np
 
-from hummingbot.connector.exchange.altmarkets.altmarkets_api_user_stream_data_source import AltmarketsAPIUserStreamDataSource
+from hummingbot.connector.exchange.altmarkets.altmarkets_api_user_stream_data_source import (
+    AltmarketsAPIUserStreamDataSource,
+)
 from hummingbot.connector.exchange.altmarkets.altmarkets_auth import AltmarketsAuth
 from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class TestAltmarketsAPIUserStreamDataSource(unittest.TestCase):

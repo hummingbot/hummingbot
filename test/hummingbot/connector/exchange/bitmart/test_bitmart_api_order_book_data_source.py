@@ -3,7 +3,6 @@ import json
 import re
 import unittest
 from collections import deque
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Dict, List
 from unittest.mock import AsyncMock, patch
 
@@ -14,6 +13,7 @@ from aioresponses import aioresponses
 import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
 from hummingbot.connector.exchange.bitmart import bitmart_utils
 from hummingbot.connector.exchange.bitmart.bitmart_api_order_book_data_source import BitmartAPIOrderBookDataSource
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType

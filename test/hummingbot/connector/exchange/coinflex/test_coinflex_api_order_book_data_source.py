@@ -11,10 +11,10 @@ from bidict import bidict
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 import hummingbot.connector.exchange.coinflex.coinflex_web_utils as web_utils
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class CoinflexAPIOrderBookDataSourceUnitTests(unittest.TestCase):

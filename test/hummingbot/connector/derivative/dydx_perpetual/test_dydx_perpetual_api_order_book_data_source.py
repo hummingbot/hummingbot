@@ -1,19 +1,18 @@
 import asyncio
 import re
-import ujson
 import unittest
-
-import hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_constants as CONSTANTS
-
-from aioresponses import aioresponses
 from typing import Awaitable, Optional
 from unittest.mock import AsyncMock, patch
 
+import ujson
+from aioresponses import aioresponses
+
+import hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_api_order_book_data_source import (
     DydxPerpetualAPIOrderBookDataSource,
 )
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.order_book import OrderBook
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class DydxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):

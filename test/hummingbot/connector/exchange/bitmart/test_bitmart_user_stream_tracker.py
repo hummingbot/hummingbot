@@ -1,14 +1,14 @@
 import asyncio
 import json
+from typing import Any, Dict
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
-from typing import Any, Dict
-from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
 import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
+from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
 from hummingbot.connector.exchange.bitmart.bitmart_user_stream_tracker import BitmartUserStreamTracker
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BitmartUserStreamTrackerTests(TestCase):

@@ -1,7 +1,6 @@
 import asyncio
 import json
 import unittest
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -11,6 +10,7 @@ from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source import GateIoAPIUserStreamDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 

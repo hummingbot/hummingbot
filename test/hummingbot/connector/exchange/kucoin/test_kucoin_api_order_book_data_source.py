@@ -2,7 +2,6 @@ import asyncio
 import json
 import re
 import unittest
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -12,6 +11,7 @@ from bidict import bidict
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS, kucoin_web_utils as web_utils
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
 

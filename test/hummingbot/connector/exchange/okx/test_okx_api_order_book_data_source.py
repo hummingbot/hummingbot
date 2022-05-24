@@ -2,7 +2,6 @@ import asyncio
 import json
 import re
 import unittest
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -13,6 +12,7 @@ import hummingbot.connector.exchange.okx.okx_constants as CONSTANTS
 import hummingbot.connector.exchange.okx.okx_web_utils as web_utils
 from hummingbot.connector.exchange.okx.okx_api_order_book_data_source import OkxAPIOrderBookDataSource
 from hummingbot.connector.exchange.okx.okx_exchange import OkxExchange
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 

@@ -3,7 +3,6 @@ import json
 import re
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -13,6 +12,7 @@ from bidict import bidict
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult

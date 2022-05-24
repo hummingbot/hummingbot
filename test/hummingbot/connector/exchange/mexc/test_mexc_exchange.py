@@ -5,7 +5,6 @@ import re
 import time
 from collections import Awaitable
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Callable, Dict, List
 from unittest import TestCase
 from unittest.mock import AsyncMock, PropertyMock, patch
@@ -18,6 +17,7 @@ import hummingbot.connector.exchange.mexc.mexc_constants as CONSTANTS
 from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
 from hummingbot.connector.exchange.mexc.mexc_in_flight_order import MexcInFlightOrder
 from hummingbot.connector.exchange.mexc.mexc_order_book import MexcOrderBook
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.events import OrderCancelledEvent, SellOrderCompletedEvent

@@ -2,7 +2,6 @@ import asyncio
 import json
 import re
 import unittest
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -12,6 +11,7 @@ from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS, 
 from hummingbot.connector.exchange.kucoin.kucoin_api_user_stream_data_source import KucoinAPIUserStreamDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 

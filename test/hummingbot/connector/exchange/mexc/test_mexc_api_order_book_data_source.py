@@ -12,11 +12,11 @@ from aioresponses import aioresponses
 import hummingbot.connector.exchange.mexc.mexc_constants as CONSTANTS
 from hummingbot.connector.exchange.mexc.mexc_api_order_book_data_source import MexcAPIOrderBookDataSource
 from hummingbot.connector.exchange.mexc.mexc_utils import convert_to_exchange_trading_pair
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
