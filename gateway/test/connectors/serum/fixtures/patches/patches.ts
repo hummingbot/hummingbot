@@ -1,4 +1,5 @@
 /* eslint-disable */
+import { OpenOrders } from '@project-serum/serum/lib/market';
 import { Account, AccountInfo, Commitment, Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { Solana } from '../../../../../src/chains/solana/solana';
@@ -225,6 +226,17 @@ const patches = (solana: Solana, serum: Serum) => {
       const example = 'AyZgLRoT78G3KUxPiMTWF84MTQam1eL3bwuWBguufqSBU1JKVcrmGJe6XztLKJ4DfzQ8k1NQsLQnxFT4mB5F9yE0';
 
       return shuffle(example).repeat(settlements.length);
+    });
+  });
+
+  patches.set('serum/market/OpenOrders/findForMarketAndOwner', (
+    _marketName: string,
+    _ownerAddress: string
+  ) => {
+    if (disablePatches) return;
+
+    return patch(OpenOrders, 'findForMarketAndOwner', () => {
+      throw new Error('Not implemented');
     });
   });
 

@@ -857,7 +857,7 @@ definitions:
         type: 'string'
         example: '0.014466048000000000'
 
-    SerumOrderSideEnum:
+  SerumOrderSideEnum:
     type: string
     enum:
       - BUY

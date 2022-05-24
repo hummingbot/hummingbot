@@ -25,7 +25,7 @@ import {
 } from './clob.requests';
 
 /**
- * GET /clob/markets
+ * GET /clob/getMarkets
  *
  * @param request
  */
@@ -43,7 +43,7 @@ export async function getMarkets(
 }
 
 /**
- * GET /clob/orderBooks
+ * GET /clob/getOrderBooks
  *
  * @param request
  */
@@ -61,7 +61,7 @@ export async function getOrderBooks(
 }
 
 /**
- * GET /clob/tickers
+ * GET /clob/getTickers
  *
  * @param request
  */
@@ -79,7 +79,7 @@ export async function getTickers(
 }
 
 /**
- * GET /clob/orders
+ * GET /clob/getOrders
  *
  * @param request
  */
@@ -97,7 +97,7 @@ export async function getOrders(
 }
 
 /**
- * POST /clob/orders
+ * POST /clob/createOrders
  *
  * @param request
  */
@@ -115,7 +115,7 @@ export async function createOrders(
 }
 
 /**
- * DELETE /clob/orders
+ * DELETE /clob/cancelOrders
  *
  * @param request
  */
@@ -133,7 +133,7 @@ export async function cancelOrders(
 }
 
 /**
- * GET /clob/openOrders
+ * GET /clob/getOpenOrders
  *
  * @param request
  */
@@ -151,7 +151,7 @@ export async function getOpenOrders(
 }
 
 /**
- * GET /clob/filledOrders
+ * GET /clob/getFilledOrders
  *
  * @param request
  */
