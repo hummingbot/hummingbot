@@ -2,6 +2,8 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, List, Union
 
+from hummingbot.connector.exchange_base import ExchangeBase
+
 from hummingbot.connector.gateway_base import GatewayBase
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
@@ -12,7 +14,7 @@ s_decimal_NaN = Decimal("nan")
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class SolanaBase(GatewayBase):
+class GatewaySOLCLOB(GatewayBase, ExchangeBase):
     """
     SolanaInFlightOrder connects with solana gateway APIs and provides user account and transactions tracking.
     """
@@ -73,3 +75,35 @@ class SolanaBase(GatewayBase):
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "token_accounts": len(self._account_balances) > 0 if self._trading_required else True
         }
+
+    @property
+    def order_books(self) -> Dict[str, OrderBook]:
+        raise NotImplementedError
+
+    @property
+    def limit_orders(self) -> List[LimitOrder]:
+        raise NotImplementedError
+
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+            price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        raise NotImplementedError
+
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+             price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        raise NotImplementedError
+
+    def cancel(self, trading_pair: str, client_order_id: str):
+        raise NotImplementedError
+
+    def get_order_book(self, trading_pair: str) -> OrderBook:
+        raise NotImplementedError
+
+    def get_fee(self,
+                base_currency: str,
+                quote_currency: str,
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: Decimal,
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        raise NotImplementedError
