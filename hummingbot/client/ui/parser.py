@@ -95,7 +95,7 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     gateway_create_parser.set_defaults(func=hummingbot.create_gateway)
 
     gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")
-    gateway_config_parser.add_argument("key", nargs=1, default=None, help="Name of the parameter you want to view/change")
+    gateway_config_parser.add_argument("key", nargs="?", default=None, help="Name of the parameter you want to view/change")
     gateway_config_parser.add_argument("value", nargs="?", default=None, help="New value for the parameter")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
