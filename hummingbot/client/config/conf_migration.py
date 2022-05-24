@@ -28,7 +28,7 @@ def migrate_configs(secrets_manager: BaseSecretsManager) -> List[str]:
     logging.getLogger().info("Starting conf migration.")
     errors = backup_existing_dir()
     if len(errors) == 0:
-        migrate_strategy_confs_paths()
+        errors.extend(migrate_strategy_confs_paths())
         errors.extend(migrate_connector_confs(secrets_manager))
         store_password_verification(secrets_manager)
         logging.getLogger().info("\nConf migration done.")
