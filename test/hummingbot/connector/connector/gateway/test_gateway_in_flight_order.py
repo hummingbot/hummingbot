@@ -1,6 +1,6 @@
 import asyncio
-from decimal import Decimal
 import unittest
+from decimal import Decimal
 
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.common import OrderType, TradeType
