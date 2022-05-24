@@ -82,7 +82,6 @@ def migrate_strategy_confs_paths():
 
 
 def migrate_xemm_confs():
-    logging.getLogger().info("\nMigrating strategies...")
     for child in strategies_conf_dir_path.iterdir():
         if child.is_file() and child.name.endswith(".yml"):
             with open(str(child), "r") as f:
@@ -120,8 +119,6 @@ def migrate_xemm_confs():
                         config_map = ClientConfigAdapter(CrossExchangeMarketMakingConfigMap(**conf))
 
                         save_to_yml(child.absolute(), config_map)
-
-                        logging.getLogger().info(f"Migrated conf for {conf['strategy']}")
                     except Exception as e:
                         logging.getLogger().error(str(e))
 
