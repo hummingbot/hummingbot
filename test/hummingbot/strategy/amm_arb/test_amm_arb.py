@@ -405,5 +405,5 @@ class AmmArbUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_market_ready(self):
         self.amm_1.ready = False
-        await asyncio.sleep(2)
+        await asyncio.sleep(10)
         self.assertFalse(self.strategy._all_markets_ready)
