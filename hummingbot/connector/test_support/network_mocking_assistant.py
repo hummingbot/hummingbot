@@ -1,8 +1,8 @@
 import asyncio
 import functools
 from collections import defaultdict, deque
+from unittest.mock import AsyncMock, PropertyMock
 
-from unittest.mock import PropertyMock, AsyncMock
 import aiohttp
 
 

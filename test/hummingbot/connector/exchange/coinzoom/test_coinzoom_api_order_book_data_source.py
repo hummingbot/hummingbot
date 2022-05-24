@@ -1,19 +1,19 @@
 import asyncio
 import json
-from dateutil.parser import parse as dateparse
 from decimal import Decimal
 from typing import Awaitable
-from unittest.mock import patch, AsyncMock
+from unittest import TestCase
+from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
-from unittest import TestCase
+from dateutil.parser import parse as dateparse
 
 from hummingbot.connector.exchange.coinzoom.coinzoom_api_order_book_data_source import CoinzoomAPIOrderBookDataSource
 from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
 from hummingbot.connector.exchange.coinzoom.coinzoom_order_book import CoinzoomOrderBook
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class CoinzoomAPIOrderBookDataSourceTests(TestCase):

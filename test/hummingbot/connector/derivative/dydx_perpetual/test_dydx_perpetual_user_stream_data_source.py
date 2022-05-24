@@ -1,6 +1,5 @@
 import asyncio
 import unittest
-
 from typing import Awaitable, Optional
 from unittest.mock import AsyncMock, patch
 
@@ -9,7 +8,7 @@ from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrappe
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source import (
     DydxPerpetualUserStreamDataSource,
 )
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 
 
 class DydxPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):

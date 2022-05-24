@@ -6,11 +6,11 @@ from typing import Dict, List
 from unittest.mock import AsyncMock, patch
 
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_user_stream_data_source import (
-    CoinbaseProAPIUserStreamDataSource
+    CoinbaseProAPIUserStreamDataSource,
 )
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_utils import build_coinbase_pro_web_assistant_factory
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 
 
 class TestCoinbaseProAPIUserStreamDataSource(unittest.TestCase):

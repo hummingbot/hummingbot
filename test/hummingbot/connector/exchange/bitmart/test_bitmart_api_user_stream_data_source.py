@@ -1,16 +1,14 @@
 import asyncio
 import json
 import unittest
+from typing import Any, Awaitable, Dict
+from unittest.mock import AsyncMock, patch
 
 import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
-
-from typing import Awaitable, Any, Dict
-from unittest.mock import patch, AsyncMock
-
 from hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source import BitmartAPIUserStreamDataSource
 from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
