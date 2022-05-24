@@ -643,10 +643,10 @@ it('getOpenOrders [2, 3]', async () => {
   expect(openOrders).toBeDefined();
   expect(openOrders.size).toBe(request.orders[0].ids.length);
 
-  for (const [exchangeId, openOrder] of openOrders) {
+  for (const [id, openOrder] of openOrders) {
     expect(openOrder).toBeDefined();
     expect(request.orders[0].ids).toContain(openOrder.id);
-    expect(openOrder.exchangeId).toBe(exchangeId);
+    expect(openOrder.id).toBe(id);
     expect(marketNames).toContain(openOrder.marketName);
     expect(openOrder.ownerAddress).toBe(config.solana.wallet.owner.publicKey);
     expect(openOrder.price).toBeGreaterThan(0);
@@ -685,10 +685,10 @@ it('getOrders [4, 5]', async () => {
   expect(ordersMap).toBeDefined();
   expect(ordersMap.size).toBe(request.orders[0].ids.length);
 
-  for (const [exchangeId, order] of ordersMap) {
+  for (const [id, order] of ordersMap) {
     expect(order).toBeDefined();
     expect(request.orders[0].ids).toContain(order.id);
-    expect(order.exchangeId).toBe(exchangeId);
+    expect(order.id).toBe(id);
     expect(marketNames).toContain(order.marketName);
     expect(order.ownerAddress).toBe(config.solana.wallet.owner.publicKey);
     expect(order.price).toBeGreaterThan(0);
@@ -843,7 +843,9 @@ it('getOpenOrders [0]', async () => {
     },
   };
 
-  expect(() => getOpenOrders(solana, serum, request)).toThrow(
+  await expect(async () => {
+    await getOpenOrders(solana, serum, request);
+  }).rejects.toThrowError(
     new HttpException(
       StatusCodes.NOT_FOUND,
       'No open order found with id / exchange id "0 / undefined".'
@@ -864,7 +866,9 @@ it('getFilledOrders [1]', async () => {
     },
   };
 
-  expect(() => getFilledOrders(solana, serum, request)).toThrow(
+  await expect(async () => {
+    await getFilledOrders(solana, serum, request);
+  }).rejects.toThrowError(
     new HttpException(
       StatusCodes.NOT_FOUND,
       'No filled order found with id / exchange id "1 / undefined".'
@@ -887,7 +891,9 @@ it('getFilledOrders [2, 3]', async () => {
     ],
   };
 
-  expect(() => getFilledOrders(solana, serum, request)).toThrow(
+  await expect(async () => {
+    await getFilledOrders(solana, serum, request);
+  }).rejects.toThrowError(
     new HttpException(StatusCodes.NOT_FOUND, 'No filled orders found.')
   );
 });
