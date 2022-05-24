@@ -1,13 +1,13 @@
-import aioprocessing
+import os
 from dataclasses import dataclass
 from decimal import Decimal
-import os
 from pathlib import Path
-from typing import Optional, Any, Dict, AsyncIterable, List
+from typing import Any, AsyncIterable, Dict, List, Optional
+
+import aioprocessing
 
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils import detect_available_port
-
 
 _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
@@ -150,6 +150,8 @@ async def detect_existing_gateway_container() -> Optional[Dict[str, Any]]:
 async def start_existing_gateway_container():
     container_info: Optional[Dict[str, Any]] = await detect_existing_gateway_container()
     if container_info is not None and container_info["State"] != "running":
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+        HummingbotApplication.main_application().logger().info("Starting existing Gateway container...")
         await docker_ipc("start", get_gateway_container_name())
 
 
