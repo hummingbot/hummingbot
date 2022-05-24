@@ -41,7 +41,7 @@ def migrate_strategies_only() -> List[str]:
     logging.getLogger().info("Starting strategies conf migration.")
     errors = backup_existing_dir()
     if len(errors) == 0:
-        migrate_strategy_confs_paths()
+        errors.extend(migrate_strategy_confs_paths())
         logging.getLogger().info("\nConf migration done.")
     else:
         logging.getLogger().error("\nConf migration failed.")
@@ -68,6 +68,7 @@ def backup_existing_dir() -> List[str]:
 
 
 def migrate_strategy_confs_paths():
+    errors = []
     logging.getLogger().info("\nMigrating strategies...")
     for child in conf_dir_path.iterdir():
         if child.is_file() and child.name.endswith(".yml"):
@@ -77,50 +78,44 @@ def migrate_strategy_confs_paths():
                 new_path = strategies_conf_dir_path / child.name
                 child.rename(new_path)
                 if conf["strategy"] == "cross_exchange_market_making":
-                    migrate_xemm_confs()
+                    errors.extend(migrate_xemm_confs(conf, new_path))
                 logging.getLogger().info(f"Migrated conf for {conf['strategy']}")
+    return errors
 
 
-def migrate_xemm_confs():
-    for child in strategies_conf_dir_path.iterdir():
-        if child.is_file() and child.name.endswith(".yml"):
-            with open(str(child), "r") as f:
-                conf = yaml.safe_load(f)
-            if "strategy" in conf:
-                if conf["strategy"] == "cross_exchange_market_making":
-                    if "active_order_canceling" in conf:
-                        if conf["active_order_canceling"]:
-                            conf["order_refresh_mode"] = {}
-                        else:
-                            conf["order_refresh_mode"] = {
-                                "cancel_order_threshold": conf["cancel_order_threshold"],
-                                "limit_order_min_expiration": conf["limit_order_min_expiration"]
-                            }
-                        conf.pop("active_order_canceling")
-                        conf.pop("cancel_order_threshold")
-                        conf.pop("limit_order_min_expiration")
-
-                    if "use_oracle_conversion_rate" in conf:
-                        if conf["use_oracle_conversion_rate"]:
-                            conf["conversion_rate_mode"] = {}
-                        else:
-                            conf["conversion_rate_mode"] = {
-                                "taker_to_maker_base_conversion_rate": conf["taker_to_maker_base_conversion_rate"],
-                                "taker_to_maker_quote_conversion_rate": conf["taker_to_maker_quote_conversion_rate"]
-                            }
-                        conf.pop("use_oracle_conversion_rate")
-                        conf.pop("taker_to_maker_base_conversion_rate")
-                        conf.pop("taker_to_maker_quote_conversion_rate")
-
-                    if "template_version" in conf:
-                        conf.pop("template_version")
-
-                    try:
-                        config_map = ClientConfigAdapter(CrossExchangeMarketMakingConfigMap(**conf))
-
-                        save_to_yml(child.absolute(), config_map)
-                    except Exception as e:
-                        logging.getLogger().error(str(e))
+def migrate_xemm_confs(conf, new_path) -> List[str]:
+    if "active_order_canceling" in conf:
+        if conf["active_order_canceling"]:
+            conf["order_refresh_mode"] = {}
+        else:
+            conf["order_refresh_mode"] = {
+                "cancel_order_threshold": conf["cancel_order_threshold"],
+                "limit_order_min_expiration": conf["limit_order_min_expiration"]
+            }
+        conf.pop("active_order_canceling")
+        conf.pop("cancel_order_threshold")
+        conf.pop("limit_order_min_expiration")
+    if "use_oracle_conversion_rate" in conf:
+        if conf["use_oracle_conversion_rate"]:
+            conf["conversion_rate_mode"] = {}
+        else:
+            conf["conversion_rate_mode"] = {
+                "taker_to_maker_base_conversion_rate": conf["taker_to_maker_base_conversion_rate"],
+                "taker_to_maker_quote_conversion_rate": conf["taker_to_maker_quote_conversion_rate"]
+            }
+        conf.pop("use_oracle_conversion_rate")
+        conf.pop("taker_to_maker_base_conversion_rate")
+        conf.pop("taker_to_maker_quote_conversion_rate")
+    if "template_version" in conf:
+        conf.pop("template_version")
+    try:
+        config_map = ClientConfigAdapter(CrossExchangeMarketMakingConfigMap(**conf))
+        save_to_yml(new_path, config_map)
+        errors = []
+    except Exception as e:
+        logging.getLogger().error(str(e))
+        errors = [str(e)]
+    return errors
 
 
 def _has_connector_field(conf: Dict) -> bool:
