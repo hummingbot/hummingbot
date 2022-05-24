@@ -1,9 +1,9 @@
 import unittest
-
-from prompt_toolkit.styles import Style
 from unittest.mock import patch
 
-from hummingbot.client.ui.style import load_style, reset_style, hex_to_ansi
+from prompt_toolkit.styles import Style
+
+from hummingbot.client.ui.style import hex_to_ansi, load_style, reset_style
 
 
 class StyleTest(unittest.TestCase):

@@ -1,7 +1,8 @@
 from prompt_toolkit.styles import Style
 from prompt_toolkit.utils import is_windows
-from hummingbot.client.config.global_config_map import global_config_map
+
 from hummingbot.client.config.config_helpers import save_to_yml
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import GLOBAL_CONFIG_PATH
 
 
@@ -177,12 +178,12 @@ default_ui_style = {
     "error":                      "#F5634A",  # noqa: E241
     "tab_button.focused":         "bg:#1CD085 #171E2B",  # noqa: E241
     "tab_button":                 "bg:#FFFFFF #000000",  # noqa: E241
-    "dialog":                     "bg:#171E2B",
-    "dialog frame.label":         "bg:#FFFFFF #000000",
-    "dialog.body":                "bg:#000000 ",
-    "dialog shadow":              "bg:#171E2B",
-    "button":                     "bg:#000000",
-    "text-area":                  "bg:#000000 #FFFFFF",
+    "dialog": "bg:#171E2B",
+    "dialog frame.label": "bg:#FFFFFF #000000",
+    "dialog.body": "bg:#000000 ",
+    "dialog shadow": "bg:#171E2B",
+    "button": "bg:#000000",
+    "text-area": "bg:#000000 #FFFFFF",
 }
 
 
@@ -201,10 +202,10 @@ win32_code_style = {
     "error":                      "#ansired",  # noqa: E241
     "tab_button.focused":         "bg:#ansigreen #ansiblack",  # noqa: E241
     "tab_button":                 "bg:#ansiwhite #ansiblack",  # noqa: E241
-    "dialog":                     "bg:#ansigreen",
-    "dialog frame.label":         "bg:#ansiwhite #ansiblack",
-    "dialog.body":                "bg:#ansiblack ",
-    "dialog shadow":              "bg:#ansigreen",
-    "button":                     "bg:#ansigreen",
-    "text-area":                  "bg:#ansiblack #ansigreen",
+    "dialog": "bg:#ansigreen",
+    "dialog frame.label": "bg:#ansiwhite #ansiblack",
+    "dialog.body": "bg:#ansiblack ",
+    "dialog shadow": "bg:#ansigreen",
+    "button": "bg:#ansigreen",
+    "text-area": "bg:#ansiblack #ansigreen",
 }
