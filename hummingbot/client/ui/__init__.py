@@ -1,8 +1,7 @@
+from os.path import dirname, join, realpath
+
 from prompt_toolkit.shortcuts import input_dialog, message_dialog
 from prompt_toolkit.styles import Style
-from os.path import join, realpath, dirname
-
-from hummingbot.client.config.global_config_map import color_config_map
 
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
@@ -72,8 +71,9 @@ def show_welcome(style: Style):
 
 
 def login_prompt(style: Style):
-    from hummingbot.client.config.security import Security
     import time
+
+    from hummingbot.client.config.security import Security
 
     err_msg = None
     if Security.new_password_required():
