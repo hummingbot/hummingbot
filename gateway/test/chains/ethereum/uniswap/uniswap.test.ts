@@ -5,6 +5,7 @@ import { UniswapishPriceError } from '../../../../src/services/error-handler';
 import { CurrencyAmount, TradeType, Token } from '@uniswap/sdk-core';
 import { Pair, Route } from '@uniswap/v2-sdk';
 import { Trade } from '@uniswap/router-sdk';
+import { Percent } from '@uniswap/sdk-core';
 import { BigNumber, utils } from 'ethers';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 
