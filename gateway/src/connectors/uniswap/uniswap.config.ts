@@ -16,8 +16,6 @@ export namespace UniswapConfig {
       ConfigManagerV2.getInstance().get(
         `uniswap.versions.v${version}.allowedSlippage`
       ),
-    gasLimit: ConfigManagerV2.getInstance().get(`uniswap.gasLimit`),
-    ttl: ConfigManagerV2.getInstance().get(`uniswap.ttl`),
     maximumHops: ConfigManagerV2.getInstance().get(`uniswap.maximumHops`),
     uniswapV3SmartOrderRouterAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(
@@ -25,14 +23,6 @@ export namespace UniswapConfig {
       ),
     ttl: (version: number) =>
       ConfigManagerV2.getInstance().get(`uniswap.versions.v${version}.ttl`),
-    uniswapV2RouterAddress: (network: string) =>
-      ConfigManagerV2.getInstance().get(
-        `uniswap.contractAddresses.${network}.uniswapV2RouterAddress`
-      ),
-    uniswapV3RouterAddress: (network: string) =>
-      ConfigManagerV2.getInstance().get(
-        `uniswap.contractAddresses.${network}.uniswapV3RouterAddress`
-      ),
     uniswapV3NftManagerAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(
         `uniswap.contractAddresses.${network}.uniswapV3NftManagerAddress`
