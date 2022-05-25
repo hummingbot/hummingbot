@@ -2,3 +2,4 @@ certs
 *.md
 *.yml
 coverage
+dist
