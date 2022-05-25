@@ -86,6 +86,7 @@ export const SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE = 1008;
 export const SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE = 1009;
 export const SERVICE_UNITIALIZED_ERROR_CODE = 1010;
 export const UNKNOWN_CHAIN_ERROR_CODE = 1011;
+export const PRICE_FAILED_ERROR_CODE = 1012;
 export const UNKNOWN_ERROR_ERROR_CODE = 1099;
 
 export const NETWORK_ERROR_MESSAGE =
@@ -113,6 +114,8 @@ export const UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE = (chainName: any) =>
   `Unrecognized chain name ${chainName}.`;
 
 export const UNKNOWN_ERROR_MESSAGE = 'Unknown error.';
+
+export const PRICE_FAILED_ERROR_MESSAGE = 'Price query failed: ';
 
 export interface ErrorResponse {
   stack?: any;
