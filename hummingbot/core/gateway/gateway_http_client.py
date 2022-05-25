@@ -1,10 +1,10 @@
-import aiohttp
 import logging
 import ssl
-
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
+
+import aiohttp
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
@@ -29,6 +29,7 @@ class GatewayError(Enum):
     SwapPriceLowerThanLimitPrice = 1009
     ServiceUnitialized = 1010
     UnknownChainError = 1011
+    PriceFailed = 1012
     UnknownError = 1099
 
 
@@ -113,6 +114,8 @@ class GatewayHttpClient:
                 self.logger().info("Gateway tried to use an unsupported token.")
             elif error_code == GatewayError.TradeFailed.value:
                 self.logger().info("The trade on gateway has failed.")
+            elif error_code == GatewayError.PriceFailed.value:
+                self.logger().info("The price query on gateway has failed.")
             elif error_code == GatewayError.ServiceUnitialized.value:
                 self.logger().info("Some values was uninitialized. Please contact dev@hummingbot.io ")
             elif error_code == GatewayError.SwapPriceExceedsLimitPrice.value:
@@ -163,7 +166,11 @@ class GatewayHttpClient:
                     raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response}")
         except Exception as e:
             if not fail_silently:
-                self.logger().error(e)
+                self.logger().network(
+                    e,
+                    exc_info=True,
+                    app_warning_msg=f"Failed to call {url}."
+                )
                 raise e
 
         return parsed_response
