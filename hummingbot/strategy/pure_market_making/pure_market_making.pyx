@@ -656,6 +656,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return pd.DataFrame(data=markets_data, columns=markets_columns).replace(np.nan, '', regex=True)
 
     def format_status(self) -> str:
+        self.notify_hb_app("dmdv: checking status")
         if not self._all_markets_ready:
             return "Market connectors are not ready."
         cdef:

@@ -195,12 +195,20 @@ class OpenwareAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await ws.subscribe(ws_streams)
 
                 async for response in ws.on_message():
+                    self.logger().info(f"dmdv-websocket-response: {response}")
                     if response is not None:
                         for msg_key in list(response.keys()):
                             # split_key = msg_key.split(Constants.WS_METHODS['TRADES_UPDATE'], 1)
                             if Constants.WS_METHODS['ORDERS_UPDATE'] in msg_key:
+
+                                self.logger().info('ORDERS_UPDATE')
+                                self.logger().info(msg_key)
+
                                 order_book_msg_cls = OpenwareOrderBook.diff_message_from_exchange
                                 split_key = msg_key.split(Constants.WS_METHODS['ORDERS_UPDATE'], 1)
+
+                                self.logger().info(split_key)
+
                             elif Constants.WS_METHODS['ORDERS_SNAPSHOT'] in msg_key:
                                 order_book_msg_cls = OpenwareOrderBook.snapshot_message_from_exchange
                                 split_key = msg_key.split(Constants.WS_METHODS['ORDERS_SNAPSHOT'], 1)
@@ -216,6 +224,9 @@ class OpenwareAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 order_book_data,
                                 timestamp,
                                 metadata={"trading_pair": trading_pair})
+
+                            self.logger().info(f"dmdv-orderbook_msg-push-to-queue: {orderbook_msg}")
+
                             output.put_nowait(orderbook_msg)
 
             except asyncio.CancelledError:

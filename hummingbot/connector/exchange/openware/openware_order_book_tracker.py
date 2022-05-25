@@ -2,19 +2,19 @@
 import asyncio
 import bisect
 import logging
-from hummingbot.connector.exchange.openware.openware_constants import Constants
 import time
-
 from collections import defaultdict, deque
-from typing import Optional, Dict, List, Deque
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.connector.exchange.openware.openware_order_book_message import OpenwareOrderBookMessage
+from typing import Deque, Dict, List, Optional
+
 from hummingbot.connector.exchange.openware.openware_active_order_tracker import OpenwareActiveOrderTracker
 from hummingbot.connector.exchange.openware.openware_api_order_book_data_source import OpenwareAPIOrderBookDataSource
+from hummingbot.connector.exchange.openware.openware_constants import Constants
 from hummingbot.connector.exchange.openware.openware_order_book import OpenwareOrderBook
+from hummingbot.connector.exchange.openware.openware_order_book_message import OpenwareOrderBookMessage
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.logger import HummingbotLogger
 
 
 class OpenwareOrderBookTracker(OrderBookTracker):
@@ -74,6 +74,8 @@ class OpenwareOrderBookTracker(OrderBookTracker):
                     message = saved_messages.popleft()
                 else:
                     message = await message_queue.get()
+
+                self.logger().info(f"dmdv-order-book-message: {message}")
 
                 if message.type is OrderBookMessageType.DIFF:
                     bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)

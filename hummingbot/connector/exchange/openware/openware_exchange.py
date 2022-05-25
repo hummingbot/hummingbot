@@ -105,7 +105,7 @@ class OpenwareExchange(ExchangeBase, ABC):
 
     @property
     def name(self) -> str:
-        return "centralex"
+        return "openware"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -128,8 +128,8 @@ class OpenwareExchange(ExchangeBase, ABC):
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
-            "user_stream_initialized":
-                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
+            # "user_stream_initialized":
+            #     self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
         }
 
     @property
@@ -367,7 +367,13 @@ class OpenwareExchange(ExchangeBase, ABC):
     def get_order_book(self, trading_pair: str) -> OrderBook:
         if trading_pair not in self._order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+
+        od = self._order_book_tracker.order_books[trading_pair]
+        # self.logger().info(f"dmdv-orderbook {od}")
+        #
+        # od.c_get_price()
+
+        return od
 
     def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -430,10 +436,15 @@ class OpenwareExchange(ExchangeBase, ABC):
         try:
             amount = self.quantize_order_amount(trading_pair, amount)
             price = self.quantize_order_price(trading_pair, s_decimal_0 if math.isnan(price) else price)
+
+            self.logger().info(f"dmdv-create-order, pair: {trading_pair}, amount: {amount}, price: {price}")
+
             if amount < trading_rule.min_order_size:
                 raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
+
             order_type_str = order_type.name.lower().split("_")[0]
+
             api_params = {"market": convert_to_exchange_trading_pair(trading_pair),
                           "side": trade_type.name.lower(),
                           "ord_type": order_type_str,
@@ -441,10 +452,13 @@ class OpenwareExchange(ExchangeBase, ABC):
                           "client_id": order_id,
                           "volume": f"{amount:f}",
                           }
+
             if order_type is not OrderType.MARKET:
                 api_params['price'] = f"{price:f}"
+
             # if order_type is OrderType.LIMIT_MAKER:
             #     api_params["postOnly"] = "true"
+
             self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
 
             order_result = await self._api_request("POST",
@@ -454,8 +468,10 @@ class OpenwareExchange(ExchangeBase, ABC):
                                                    limit_id=Constants.RL_ID_ORDER_CREATE,
                                                    disable_retries=True
                                                    )
+
             exchange_order_id = str(order_result["id"])
             tracked_order = self._in_flight_orders.get(order_id)
+
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
                                    f"{amount} {trading_pair}.")
@@ -468,9 +484,13 @@ class OpenwareExchange(ExchangeBase, ABC):
             else:
                 event_tag = MarketEvent.SellOrderCreated
                 event_cls = SellOrderCreatedEvent
-            self.trigger_event(event_tag,
-                               event_cls(self.current_timestamp, order_type, trading_pair, amount, price, order_id,
-                                         exchange_order_id))
+
+            cls = event_cls(self.current_timestamp, order_type, trading_pair, amount, price, order_id,
+                            self.current_timestamp, exchange_order_id)
+
+            self.logger().info(f"dmdv-create-order-trigger-event: {cls}")
+
+            self.trigger_event(event_tag, cls)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -558,6 +578,7 @@ class OpenwareExchange(ExchangeBase, ABC):
                                " The action will be retried later.")
             errors_found = {"message": "Timeout during order cancellation"}
         except OpenwareAPIError as e:
+            self.logger().info(f"dmdv-exception: {e}")
             errors_found = e.error_payload.get('errors', e.error_payload)
             if isinstance(errors_found, dict):
                 order_state = errors_found.get("state", None)
@@ -838,6 +859,7 @@ class OpenwareExchange(ExchangeBase, ABC):
                                            tracked_order.executed_amount_base,
                                            tracked_order.executed_amount_quote,
                                            tracked_order.order_type))
+
             self.stop_tracking_order(tracked_order.client_order_id)
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:

@@ -26,7 +26,7 @@ from hummingbot.core.event.events import (
     RangePositionInitiatedEvent,
     RangePositionUpdatedEvent,
     SellOrderCompletedEvent,
-    SellOrderCreatedEvent
+    SellOrderCreatedEvent,
 )
 from hummingbot.model.funding_payment import FundingPayment
 from hummingbot.model.market_state import MarketState
@@ -189,7 +189,11 @@ class MarketsRecorder:
             return
 
         base_asset, quote_asset = evt.trading_pair.split("-")
-        timestamp = int(evt.creation_timestamp * 1e3)
+
+        print(f"dmdv-did-create-order event: {evt}")
+
+        timestamp = int(float(evt.creation_timestamp) * float(1e3))
+
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
 
         with self._sql_manager.get_new_session() as session:

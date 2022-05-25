@@ -46,8 +46,25 @@ cdef class OpenwareActiveOrderTracker:
 
     def get_rates_and_quantities(self, entry) -> tuple:
         # price, quantity
-        amount = float(Decimal(entry[1])) if len(str(entry[1]).replace('.', '')) > 0 else 0.0
-        return float(Decimal(entry[0])), amount
+
+        if len(entry) == 0:
+            self.logger().warning("entry is empty at get_rates_and_quantities")
+            return 0.0, 0.0
+
+        first = entry[0]
+        if len(entry) > 1:
+            first = entry
+
+        self.logger().info(f"get_rates_and_quantities entry: {entry}")
+        self.logger().info(f"get_rates_and_quantities first: {first}")
+
+        price = float(Decimal(first[0]))
+        amount = float(Decimal(first[1])) if len(str(first[1]).replace('.', '')) > 0 else 0.0
+
+        self.logger().info(f"Price: {price}")
+        self.logger().info(f"Amount: {amount}")
+
+        return price, amount
 
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         cdef:
@@ -62,6 +79,9 @@ cdef class OpenwareActiveOrderTracker:
             dict order_dict
             double timestamp = message.timestamp
             double amount = 0
+
+        self.logger().info("dmdv-c_convert_diff_message_to_np_arrays")
+        self.logger().info(message)
 
         if "bids" in content_keys:
             bid_entry = content["bids"]

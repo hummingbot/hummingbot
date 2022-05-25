@@ -7,10 +7,7 @@ from collections import deque
 from typing import Deque, Dict, List, Optional, Tuple
 
 from hummingbot.client.command import __all__ as commands
-from hummingbot.client.config.config_helpers import (
-    get_connector_class,
-    get_strategy_config_map,
-)
+from hummingbot.client.config.config_helpers import get_connector_class, get_strategy_config_map
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import AllConnectorSettings, ConnectorType
@@ -19,7 +16,7 @@ from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.keybindings import load_key_bindings
-from hummingbot.client.ui.parser import load_parser, ThrowingArgumentParser
+from hummingbot.client.ui.parser import ThrowingArgumentParser, load_parser
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
@@ -253,10 +250,14 @@ class HummingbotApplication(*commands):
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         # aggregate trading_pairs if there are duplicate markets
 
+        self.notify("Loading markets...")
+
         for market_name, trading_pairs in market_names:
+            self.notify("Market name..." + market_name)
             if market_name not in self.market_trading_pairs_map:
                 self.market_trading_pairs_map[market_name] = []
             for hb_trading_pair in trading_pairs:
+                self.notify("Adding trading pair..." + hb_trading_pair)
                 self.market_trading_pairs_map[market_name].append(hb_trading_pair)
 
         for connector_name, trading_pairs in self.market_trading_pairs_map.items():

@@ -1,9 +1,9 @@
-from hummingbot.core.api_throttler.data_types import RateLimit, LinkedLimitWeightPair
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 
 
 # A single source of truth for constant variables related to the exchange
 class Constants:
-    EXCHANGE_NAME = "centralex"
+    EXCHANGE_NAME = "openware"
     REST_URL = "https://exchange.centralex.com/api/v2/peatio"
     WS_PRIVATE_URL = "wss://exchange.centralex.com/api/v2/ranger/private"
     WS_PUBLIC_URL = "wss://exchange.centralex.com/api/v2/ranger/public"
