@@ -68,12 +68,12 @@ class GatewayCommand(GatewayChainApiManager):
         safe_ensure_future(self._test_connection(), loop=self.ev_loop)
 
     def gateway_config(self,
-                       key: List[str],
+                       key: Optional[str] = None,
                        value: str = None):
         if value:
-            safe_ensure_future(self._update_gateway_configuration(key[0], value), loop=self.ev_loop)
+            safe_ensure_future(self._update_gateway_configuration(key, value), loop=self.ev_loop)
         else:
-            safe_ensure_future(self._show_gateway_configuration(key[0]), loop=self.ev_loop)
+            safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
 
     @staticmethod
     async def check_gateway_image(docker_repo: str, docker_tag: str) -> bool:
@@ -276,7 +276,7 @@ class GatewayCommand(GatewayChainApiManager):
         except Exception:
             self.notify("\nError: Gateway configuration update failed. See log file for more details.")
 
-    async def _show_gateway_configuration(self, key: str):
+    async def _show_gateway_configuration(self, key: Optional[str] = None):
         host = global_config_map['gateway_api_host'].value
         port = global_config_map['gateway_api_port'].value
         try:
