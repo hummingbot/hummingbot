@@ -5,6 +5,7 @@ import { Solana } from '../chains/solana/solana';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { Pangolin } from '../connectors/pangolin/pangolin';
 import { Serum } from '../connectors/serum/serum';
+import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 
 export async function getChain(chain: string, network: string) {
   let chainInstance: any;
@@ -13,7 +14,8 @@ export async function getChain(chain: string, network: string) {
   else if (chain === 'avalanche')
     chainInstance = Avalanche.getInstance(network);
   else if (chain === 'harmony') chainInstance = Harmony.getInstance(network);
-  else if (chain === 'solana') chainInstance = await Solana.getInstance(network);
+  else if (chain === 'solana')
+    chainInstance = await Solana.getInstance(network);
   else throw new Error('unsupported chain');
 
   if (!chainInstance.ready()) {
@@ -34,6 +36,8 @@ export async function getConnector(
     connectorInstance = Uniswap.getInstance(chain, network);
   else if (chain === 'avalanche' && connector === 'pangolin')
     connectorInstance = Pangolin.getInstance(chain, network);
+  else if (chain === 'avalanche' && connector === 'traderjoe')
+    connectorInstance = Traderjoe.getInstance(chain, network);
   else if (chain === 'solana' && connector === 'serum')
     connectorInstance = Serum.getInstance(chain, network);
   else throw new Error('unsupported chain or connector');
