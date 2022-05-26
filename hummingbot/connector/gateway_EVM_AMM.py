@@ -682,13 +682,20 @@ class GatewayEVMAMM(ConnectorBase):
                     if tracked_order.current_state == OrderState.PENDING_CANCEL:
                         if not tracked_order.is_approval_request:
                             order_update: OrderUpdate = OrderUpdate(
+                                trading_pair=tracked_order.trading_pair,
                                 client_order_id=tracked_order.client_order_id,
                                 update_timestamp=self.current_timestamp,
-                                new_state=OrderState.CANCELLED
+                                new_state=OrderState.CANCELED
                             )
                             self._order_tracker.process_order_update(order_update)
 
                         elif tracked_order.is_approval_request:
+                            order_update: OrderUpdate = OrderUpdate(
+                                trading_pair=tracked_order.trading_pair,
+                                client_order_id=tracked_order.client_order_id,
+                                update_timestamp=self.current_timestamp,
+                                new_state=OrderState.CANCELED
+                            )
                             token_symbol: str = self.get_token_symbol_from_approval_order_id(
                                 tracked_order.client_order_id
                             )
@@ -957,10 +964,19 @@ class GatewayEVMAMM(ConnectorBase):
         """
         Iterate through all known orders and cancel them if their age is greater than cancel_age.
         """
-        incomplete_orders: List[GatewayInFlightOrder] = [
+        incomplete_orders: List[GatewayInFlightOrder] = []
+
+        # Incomplete Approval Requests
+        incomplete_orders.extend([
+            o for o in self.approval_orders
+            if o.is_pending_approval
+        ])
+        # Incomplete Active Orders
+        incomplete_orders.extend([
             o for o in self.amm_orders
-            if not (o.is_done or o.is_pending_cancel_confirmation)
-        ]
+            if not o.is_done
+        ])
+
         if len(incomplete_orders) < 1:
             return []
 
