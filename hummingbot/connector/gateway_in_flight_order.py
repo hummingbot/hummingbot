@@ -13,17 +13,19 @@ s_decimal_0 = Decimal("0")
 
 
 class GatewayInFlightOrder(InFlightOrder):
-    def __init__(self,
-                 client_order_id: str,
-                 trading_pair: str,
-                 order_type: OrderType,
-                 trade_type: TradeType,
-                 creation_timestamp: float,
-                 price: Decimal = s_decimal_0,
-                 amount: Decimal = s_decimal_0,
-                 exchange_order_id: Optional[str] = None,
-                 gas_price: Optional[Decimal] = s_decimal_0,
-                 initial_state: OrderState = OrderState.PENDING_CREATE):
+    def __init__(
+        self,
+        client_order_id: str,
+        trading_pair: str,
+        order_type: OrderType,
+        trade_type: TradeType,
+        creation_timestamp: float,
+        price: Decimal = s_decimal_0,
+        amount: Decimal = s_decimal_0,
+        exchange_order_id: Optional[str] = None,
+        gas_price: Optional[Decimal] = s_decimal_0,
+        initial_state: OrderState = OrderState.PENDING_CREATE,
+    ):
         super().__init__(
             client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
@@ -33,7 +35,7 @@ class GatewayInFlightOrder(InFlightOrder):
             price=price,
             amount=amount,
             creation_timestamp=creation_timestamp,
-            initial_state=initial_state
+            initial_state=initial_state,
         )
         self._gas_price = gas_price
         self._nonce: int = -1
@@ -97,6 +99,12 @@ class GatewayInFlightOrder(InFlightOrder):
         )
 
     @property
+    def is_done(self) -> bool:
+        if self.is_approval_request:
+            return not self.is_pending_approval
+        return super().is_done
+
+    @property
     def is_pending_approval(self) -> bool:
         return self.current_state in {OrderState.PENDING_APPROVAL}
 
@@ -108,15 +116,19 @@ class GatewayInFlightOrder(InFlightOrder):
         :return: True if this `GatewayInFlightOrder` is in fact a token approval request, otherwise it returns False
         :rtype: bool
         """
-        return self.current_state in {OrderState.PENDING_APPROVAL, OrderState.APPROVED}
+        return "approve" in self.client_order_id or (
+            self.current_state in {OrderState.PENDING_APPROVAL, OrderState.APPROVED}
+        )
 
     def update_with_order_update(self, order_update: OrderUpdate) -> bool:
         """
         Updates the in flight order with an order update
         return: True if the order gets updated otherwise False
         """
-        if (order_update.client_order_id != self.client_order_id
-                and order_update.exchange_order_id != self.exchange_order_id):
+        if (
+            order_update.client_order_id != self.client_order_id
+            and order_update.exchange_order_id != self.exchange_order_id
+        ):
             return False
 
         prev_data = self.attributes
@@ -152,13 +164,13 @@ class GatewayInFlightOrder(InFlightOrder):
             price=Decimal(data["price"]),
             exchange_order_id=data["exchange_order_id"],
             initial_state=OrderState(int(data["last_state"])),
-            creation_timestamp=data.get("creation_timestamp", -1)
+            creation_timestamp=data.get("creation_timestamp", -1),
         )
         order.executed_amount_base = Decimal(data["executed_amount_base"])
         order.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        order.order_fills.update({key: TradeUpdate.from_json(value)
-                                  for key, value
-                                  in data.get("order_fills", {}).items()})
+        order.order_fills.update(
+            {key: TradeUpdate.from_json(value) for key, value in data.get("order_fills", {}).items()}
+        )
         order._nonce = data["nonce"]
         order._cancel_tx_hash = data["cancel_tx_hash"]
         order._gas_price = Decimal(data["gas_price"])
@@ -189,5 +201,5 @@ class GatewayInFlightOrder(InFlightOrder):
             "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()},
             "nonce": self._nonce,
             "cancel_tx_hash": self._cancel_tx_hash,
-            "gas_price": str(self._gas_price)
+            "gas_price": str(self._gas_price),
         }
