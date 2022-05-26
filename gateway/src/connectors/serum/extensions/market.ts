@@ -158,6 +158,7 @@ export class Market {
       getMintDecimals(connection, decoded.baseMint),
       getMintDecimals(connection, decoded.quoteMint),
     ]);
+
     return new Market(
       decoded,
       baseMintDecimals,
