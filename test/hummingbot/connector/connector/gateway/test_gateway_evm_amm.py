@@ -173,7 +173,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
                 price: Decimal,
                 amount: Decimal,
                 gas_price: Decimal) -> GatewayInFlightOrder:
-            return GatewayInFlightOrder(
+            order: GatewayInFlightOrder = GatewayInFlightOrder(
                 client_order_id=self._connector.create_market_order_id(trade_type, trading_pair),
                 exchange_order_id=tx_hash,
                 trading_pair=trading_pair,
@@ -184,6 +184,9 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
                 gas_price=gas_price,
                 creation_timestamp=self._connector.current_timestamp
             )
+            order.fee_asset = self._connector._native_currency
+            self._connector._order_tracker.start_tracking_order(order)
+            return order
         successful_records: List[GatewayInFlightOrder] = [
             create_order_record(
                 "DAI-WETH",
@@ -210,7 +213,9 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
 
         try:
             await self._connector.update_order_status(successful_records + fake_records)
-            self.assertEqual(1, len(event_logger.event_log))
+            async with timeout(10):
+                while len(event_logger.event_log) < 1:
+                    await event_logger.wait_for(OrderFilledEvent)
             filled_event: OrderFilledEvent = event_logger.event_log[0]
             self.assertEqual(
                 "0xc7287236f64484b476cfbec0fd21bc49d85f8850c8885665003928a122041e18",       # noqa: mock
