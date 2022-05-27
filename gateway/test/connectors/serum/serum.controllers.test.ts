@@ -34,7 +34,7 @@ import { default as config } from './fixtures/config';
 import { getNewCandidateOrdersTemplates } from './fixtures/helpers';
 import { default as patchesCreator } from './fixtures/patches/patches';
 
-jest.setTimeout(5 * 60 * 1000);
+jest.setTimeout(30 * 60 * 1000);
 
 let solana: Solana;
 let serum: Serum;
@@ -51,24 +51,15 @@ beforeAll(async () => {
   patches.get('solana/loadTokens')();
 
   patches.get('serum/serumGetMarketsInformation')();
-  patches.get('serum/connection/getAccountInfo')();
+  patches.get('serum/market/load')();
 
   await solana.init();
   await serum.init();
-
-  // patches.get('serum/connection/_wsOnError')();
 });
 
 afterEach(() => {
   unpatch();
 });
-
-const commonParameters = {
-  chain: config.serum.chain,
-  network: config.serum.network,
-  connector: config.serum.connector,
-};
-const marketNames = config.solana.allowedMarkets.slice(0, 2);
 
 /*
 create order [0]
@@ -100,11 +91,23 @@ settle funds for markets [SOL/USDT, SOL/USDC]
 settle all funds (SOL/USDT, SOL/USDC, SRM/SOL)
 */
 
+const commonParameters = {
+  chain: config.serum.chain,
+  network: config.serum.network,
+  connector: config.serum.connector,
+};
+
 // All markets intersection with the whitelisted ones excepted the blacklisted ones.
 // This is defined in the 'gateway/conf/serum.yml' file.
-const numberOfAllowedMarkets = config.solana.allowedMarkets.length;
+const allowedMarkets = Object.values(config.solana.markets).map(
+  (market) => market.name
+);
 
-const marketName = marketNames[0];
+const targetMarkets = allowedMarkets.slice(0, 2);
+
+const numberOfAllowedMarkets = allowedMarkets.length;
+
+const marketName = targetMarkets[0];
 
 const orderIds = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
@@ -146,7 +149,7 @@ it('getMarket ["SOL/USDT"]', async () => {
 it('getMarkets ["SOL/USDT", "SOL/USDC"]', async () => {
   request = {
     ...commonParameters,
-    names: marketNames,
+    names: targetMarkets,
   };
   response = await getMarkets(solana, serum, request);
 
@@ -157,7 +160,7 @@ it('getMarkets ["SOL/USDT", "SOL/USDC"]', async () => {
     GetMarketResponse
   >(Object.entries(response.body));
   expect(marketsMap).toBeDefined();
-  expect(marketsMap.size).toBe(marketNames.length);
+  expect(marketsMap.size).toBe(targetMarkets.length);
 
   for (const [marketName, market] of marketsMap) {
     const targetMarket = MARKETS.find(
@@ -217,7 +220,8 @@ it('getMarkets (all)', async () => {
 });
 
 it('getOrderBook ["SOL/USDT"]', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/loadAsks')('SOL/USDT');
+  await patches.get('serum/market/loadBids')('SOL/USDT');
 
   request = {
     ...commonParameters,
@@ -254,11 +258,16 @@ it('getOrderBook ["SOL/USDT"]', async () => {
 });
 
 it('getOrderBooks ["SOL/USDT", "SOL/USDC"]', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await Promise.all(
+    targetMarkets.flatMap(async (marketName) => {
+      await patches.get('serum/market/loadAsks')(marketName);
+      await patches.get('serum/market/loadBids')(marketName);
+    })
+  );
 
   request = {
     ...commonParameters,
-    marketNames: marketNames,
+    marketNames: targetMarkets,
   };
   response = await getOrderBooks(solana, serum, request);
 
@@ -269,7 +278,7 @@ it('getOrderBooks ["SOL/USDT", "SOL/USDC"]', async () => {
     GetOrderBookResponse
   >(Object.entries(response.body));
   expect(orderBooksMap).toBeDefined();
-  expect(orderBooksMap.size).toBe(marketNames.length);
+  expect(orderBooksMap.size).toBe(targetMarkets.length);
 
   for (const [marketName, orderBook] of orderBooksMap) {
     expect(orderBook).toBeDefined();
@@ -298,7 +307,12 @@ it('getOrderBooks ["SOL/USDT", "SOL/USDC"]', async () => {
 });
 
 it('getOrderBooks (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await Promise.all(
+    allowedMarkets.flatMap(async (marketName) => {
+      await patches.get('serum/market/loadAsks')(marketName);
+      await patches.get('serum/market/loadBids')(marketName);
+    })
+  );
 
   request = {
     ...commonParameters,
@@ -365,11 +379,11 @@ it('getTicker ["SOL/USDT"]', async () => {
 });
 
 it('getTickers ["SOL/USDT", "SOL/USDC"]', async () => {
-  marketNames.map((marketName) => patches.get('serum/getTicker')(marketName));
+  targetMarkets.map((marketName) => patches.get('serum/getTicker')(marketName));
 
   request = {
     ...commonParameters,
-    marketNames: marketNames,
+    marketNames: targetMarkets,
   };
   response = await getTickers(solana, serum, request);
 
@@ -380,7 +394,7 @@ it('getTickers ["SOL/USDT", "SOL/USDC"]', async () => {
     GetTickerResponse
   >(Object.entries(response.body));
   expect(tickersMap).toBeDefined();
-  expect(tickersMap.size).toBe(marketNames.length);
+  expect(tickersMap.size).toBe(targetMarkets.length);
 
   for (const [marketName, ticker] of tickersMap) {
     expect(ticker).toBeDefined();
@@ -399,7 +413,7 @@ it('getTickers ["SOL/USDT", "SOL/USDC"]', async () => {
 });
 
 it('getTickers (all)', async () => {
-  config.solana.allowedMarkets.map((marketName) =>
+  allowedMarkets.map((marketName) =>
     patches.get('serum/getTicker')(marketName)
   );
 
@@ -434,7 +448,7 @@ it('getTickers (all)', async () => {
 });
 
 it('cancelOrders (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
   await patches.get('serum/market/loadOrdersForOwner')([]);
@@ -457,7 +471,7 @@ it('cancelOrders (all)', async () => {
 });
 
 it('getOpenOrders (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')([]);
 
@@ -483,7 +497,7 @@ it('getOpenOrders (all)', async () => {
     const openOrdersMap = new Map<string, GetOpenOrderResponse>(
       Object.entries(openOrdersMapObject)
     );
-    expect(config.solana.allowedMarkets).toContain(marketName);
+    expect(allowedMarkets).toContain(marketName);
     expect(openOrdersMap).toBeDefined();
     expect(openOrdersMap.size).toBe(0);
   }
@@ -556,7 +570,7 @@ it('createOrders [1, 2, 3, 4, 5, 6, 7]', async () => {
 });
 
 it('getOpenOrder [0]', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')([candidateOrders[0]]);
 
@@ -576,7 +590,7 @@ it('getOpenOrder [0]', async () => {
   expect(openOrder).toBeDefined();
   expect(openOrder.id).toBe(orderIds[0]);
   // expect(openOrder.exchangeId).toBeDefined();
-  expect(marketNames).toContain(openOrder.marketName);
+  expect(targetMarkets).toContain(openOrder.marketName);
   expect(openOrder.ownerAddress).toBe(config.solana.wallet.owner.publicKey);
   expect(openOrder.price).toBeGreaterThan(0);
   expect(openOrder.amount).toBeGreaterThan(0);
@@ -586,7 +600,7 @@ it('getOpenOrder [0]', async () => {
 });
 
 it('getOrder [1]', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')([candidateOrders[1]]);
   patches.get('serum/serumMarketLoadFills')();
@@ -607,7 +621,7 @@ it('getOrder [1]', async () => {
   expect(openOrder).toBeDefined();
   expect(openOrder.id).toBe(orderIds[1]);
   // expect(openOrder.exchangeId).toBeDefined();
-  expect(marketNames).toContain(openOrder.marketName);
+  expect(targetMarkets).toContain(openOrder.marketName);
   expect(openOrder.ownerAddress).toBe(config.solana.wallet.owner.publicKey);
   expect(openOrder.price).toBeGreaterThan(0);
   expect(openOrder.amount).toBeGreaterThan(0);
@@ -617,7 +631,7 @@ it('getOrder [1]', async () => {
 });
 
 it('getOpenOrders [2, 3]', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')(
     candidateOrders.slice(2, 4)
@@ -647,7 +661,7 @@ it('getOpenOrders [2, 3]', async () => {
     expect(openOrder).toBeDefined();
     expect(request.orders[0].ids).toContain(openOrder.id);
     expect(openOrder.id).toBe(id);
-    expect(marketNames).toContain(openOrder.marketName);
+    expect(targetMarkets).toContain(openOrder.marketName);
     expect(openOrder.ownerAddress).toBe(config.solana.wallet.owner.publicKey);
     expect(openOrder.price).toBeGreaterThan(0);
     expect(openOrder.amount).toBeGreaterThan(0);
@@ -658,7 +672,7 @@ it('getOpenOrders [2, 3]', async () => {
 });
 
 it('getOrders [4, 5]', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')(
     candidateOrders.slice(4, 6)
@@ -689,7 +703,7 @@ it('getOrders [4, 5]', async () => {
     expect(order).toBeDefined();
     expect(request.orders[0].ids).toContain(order.id);
     expect(order.id).toBe(id);
-    expect(marketNames).toContain(order.marketName);
+    expect(targetMarkets).toContain(order.marketName);
     expect(order.ownerAddress).toBe(config.solana.wallet.owner.publicKey);
     expect(order.price).toBeGreaterThan(0);
     expect(order.amount).toBeGreaterThan(0);
@@ -700,7 +714,7 @@ it('getOrders [4, 5]', async () => {
 });
 
 it('getOpenOrders (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')(
     candidateOrders.slice(0, 8)
@@ -735,7 +749,7 @@ it('getOpenOrders (all)', async () => {
       expect(openOrder.id).toBe(id);
       expect(openOrder.exchangeId).toBeDefined();
       expect(openOrder.marketName).toBe(marketName);
-      expect(marketNames).toContain(openOrder.marketName);
+      expect(targetMarkets).toContain(openOrder.marketName);
       expect(openOrder.ownerAddress).toBe(config.solana.wallet.owner.publicKey);
       expect(openOrder.price).toBeGreaterThan(0);
       expect(openOrder.amount).toBeGreaterThan(0);
@@ -747,7 +761,7 @@ it('getOpenOrders (all)', async () => {
 });
 
 it('getOrders (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')(
     candidateOrders.slice(0, 8)
@@ -781,7 +795,7 @@ it('getOrders (all)', async () => {
       expect(order.id).toBe(id);
       expect(order.exchangeId).toBeDefined();
       expect(order.marketName).toBe(marketName);
-      expect(marketNames).toContain(order.marketName);
+      expect(targetMarkets).toContain(order.marketName);
       expect(order.ownerAddress).toBe(config.solana.wallet.owner.publicKey);
       expect(order.price).toBeGreaterThan(0);
       expect(order.amount).toBeGreaterThan(0);
@@ -793,7 +807,7 @@ it('getOrders (all)', async () => {
 });
 
 it('cancelOrders [0]', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
   await patches.get('serum/market/loadOrdersForOwner')([candidateOrders[0]]);
@@ -831,7 +845,7 @@ it('cancelOrders [0]', async () => {
 });
 
 it('getOpenOrders [0]', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')([]);
 
@@ -854,7 +868,7 @@ it('getOpenOrders [0]', async () => {
 });
 
 it('getFilledOrders [1]', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   patches.get('serum/serumMarketLoadFills')();
 
@@ -877,7 +891,7 @@ it('getFilledOrders [1]', async () => {
 });
 
 it('getFilledOrders [2, 3]', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   patches.get('serum/serumMarketLoadFills')();
 
@@ -899,7 +913,7 @@ it('getFilledOrders [2, 3]', async () => {
 });
 
 it('getFilledOrders (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   patches.get('serum/serumMarketLoadFills')();
 
@@ -924,12 +938,12 @@ it('getFilledOrders (all)', async () => {
   for (const [marketName, ordersMap] of filledOrdersMapMap) {
     expect(ordersMap).toBeDefined();
     expect(ordersMap.size).toBeUndefined();
-    expect(config.solana.allowedMarkets).toContain(marketName);
+    expect(allowedMarkets).toContain(marketName);
   }
 });
 
 it('cancelOrders [4, 5]', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
   await patches.get('serum/market/loadOrdersForOwner')(
@@ -961,7 +975,7 @@ it('cancelOrders [4, 5]', async () => {
     expect(canceledOrder).toBeDefined();
     expect(canceledOrder.id).toBe(id);
     expect(canceledOrder.exchangeId).toBeDefined();
-    expect(marketNames).toContain(canceledOrder.marketName);
+    expect(targetMarkets).toContain(canceledOrder.marketName);
     expect(canceledOrder.ownerAddress).toBe(
       config.solana.wallet.owner.publicKey
     );
@@ -976,7 +990,7 @@ it('cancelOrders [4, 5]', async () => {
 });
 
 it('getOrders [4, 5]', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')([]);
   patches.get('serum/serumMarketLoadFills')();
@@ -996,7 +1010,7 @@ it('getOrders [4, 5]', async () => {
 });
 
 it('cancelOrders (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
 
@@ -1020,7 +1034,7 @@ it('cancelOrders (all)', async () => {
     expect(canceledOrder).toBeDefined();
     expect(canceledOrder.id).toBe(id);
     expect(canceledOrder.exchangeId).toBeDefined();
-    expect(marketNames).toContain(canceledOrder.marketName);
+    expect(targetMarkets).toContain(canceledOrder.marketName);
     expect(canceledOrder.ownerAddress).toBe(
       config.solana.wallet.owner.publicKey
     );
@@ -1035,7 +1049,7 @@ it('cancelOrders (all)', async () => {
 });
 
 it('getOpenOrders (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')([]);
 
@@ -1061,14 +1075,14 @@ it('getOpenOrders (all)', async () => {
     const openOrdersMap = new Map<string, GetOpenOrderResponse>(
       Object.entries(openOrdersMapObject)
     );
-    expect(config.solana.allowedMarkets).toContain(marketName);
+    expect(allowedMarkets).toContain(marketName);
     expect(openOrdersMap).toBeDefined();
     expect(openOrdersMap.size).toBe(0);
   }
 });
 
 it('getOrders (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')([]);
   patches.get('serum/serumMarketLoadFills')();
@@ -1093,7 +1107,7 @@ it('getOrders (all)', async () => {
     const ordersMap = new Map<string, GetOrderResponse>(
       Object.entries(ordersMapObject)
     );
-    expect(config.solana.allowedMarkets).toContain(marketName);
+    expect(allowedMarkets).toContain(marketName);
     expect(ordersMap).toBeDefined();
     expect(ordersMap.size).toBe(0);
   }
@@ -1141,7 +1155,7 @@ it('createOrders [8, 9]', async () => {
 });
 
 it('getOpenOrders (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')(
     candidateOrders.slice(8, 10)
@@ -1176,7 +1190,7 @@ it('getOpenOrders (all)', async () => {
       expect(openOrder.id).toBe(id);
       expect(openOrder.exchangeId).toBeDefined();
       expect(openOrder.marketName).toBe(marketName);
-      expect(marketNames).toContain(openOrder.marketName);
+      expect(targetMarkets).toContain(openOrder.marketName);
       expect(openOrder.ownerAddress).toBe(config.solana.wallet.owner.publicKey);
       expect(openOrder.price).toBeGreaterThan(0);
       expect(openOrder.amount).toBeGreaterThan(0);
@@ -1188,7 +1202,7 @@ it('getOpenOrders (all)', async () => {
 });
 
 it('getOrders (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')(
     candidateOrders.slice(8, 10)
@@ -1222,7 +1236,7 @@ it('getOrders (all)', async () => {
       expect(order.id).toBe(id);
       expect(order.exchangeId).toBeDefined();
       expect(order.marketName).toBe(marketName);
-      expect(marketNames).toContain(order.marketName);
+      expect(targetMarkets).toContain(order.marketName);
       expect(order.ownerAddress).toBe(config.solana.wallet.owner.publicKey);
       expect(order.price).toBeGreaterThan(0);
       expect(order.amount).toBeGreaterThan(0);
@@ -1234,7 +1248,7 @@ it('getOrders (all)', async () => {
 });
 
 it('cancelOrders (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
 
@@ -1258,7 +1272,7 @@ it('cancelOrders (all)', async () => {
     expect(canceledOrder).toBeDefined();
     expect(canceledOrder.id).toBe(id);
     expect(canceledOrder.exchangeId).toBeDefined();
-    expect(marketNames).toContain(canceledOrder.marketName);
+    expect(targetMarkets).toContain(canceledOrder.marketName);
     expect(canceledOrder.ownerAddress).toBe(
       config.solana.wallet.owner.publicKey
     );
@@ -1273,7 +1287,7 @@ it('cancelOrders (all)', async () => {
 });
 
 it('getOpenOrders (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')([]);
 
@@ -1299,14 +1313,14 @@ it('getOpenOrders (all)', async () => {
     const openOrdersMap = new Map<string, GetOpenOrderResponse>(
       Object.entries(openOrdersMapObject)
     );
-    expect(config.solana.allowedMarkets).toContain(marketName);
+    expect(allowedMarkets).toContain(marketName);
     expect(openOrdersMap).toBeDefined();
     expect(openOrdersMap.size).toBe(0);
   }
 });
 
 it('getOrders (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   await patches.get('serum/market/loadOrdersForOwner')([]);
   patches.get('serum/serumMarketLoadFills')();
@@ -1331,14 +1345,14 @@ it('getOrders (all)', async () => {
     const ordersMap = new Map<string, GetOrderResponse>(
       Object.entries(ordersMapObject)
     );
-    expect(config.solana.allowedMarkets).toContain(marketName);
+    expect(allowedMarkets).toContain(marketName);
     expect(ordersMap).toBeDefined();
     expect(ordersMap.size).toBe(0);
   }
 });
 
 it('settleFunds ["SOL/USDT"]', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   patches.get('serum/settleFundsForMarket')();
   patches.get('serum/serumMarketLoadFills')();
@@ -1357,7 +1371,7 @@ it('settleFunds ["SOL/USDT"]', async () => {
 });
 
 it('settleFunds ["SOL/USDT", "SOL/USDC"]', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   patches.get('serum/settleFundsForMarket')();
   patches.get('serum/serumMarketLoadFills')();
@@ -1365,7 +1379,7 @@ it('settleFunds ["SOL/USDT", "SOL/USDC"]', async () => {
 
   request = {
     ...commonParameters,
-    marketNames: marketNames,
+    marketNames: targetMarkets,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
   response = await settleFunds(solana, serum, request);
@@ -1376,7 +1390,7 @@ it('settleFunds ["SOL/USDT", "SOL/USDC"]', async () => {
 });
 
 it('settleFunds (all)', async () => {
-  patches.get('serum/connection/getAccountInfo')();
+  await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   patches.get('serum/settleFundsForMarket')();
   patches.get('serum/serumMarketLoadFills')();

@@ -15,7 +15,20 @@ export default {
         },
       },
     },
-    allowedMarkets: ['SOL/USDT', 'SOL/USDC', 'SRM/SOL'],
+    markets: {
+      'SOL/USDT': {
+        name: 'SOL/USDT',
+        address: 'HWHvQhFmJB3NUcu1aihKmrKegfVxBEHzwVX6yZCKEsi1',
+      },
+      'SOL/USDC': {
+        name: 'SOL/USDC',
+        address: '9wFFyRfZBsuAha4YcuxcXLKwMxJR43S7fPfQLusDBzvT',
+      },
+      'SRM/SOL': {
+        name: 'SRM/SOL',
+        address: 'jyei9Fpj2GtHLDDGgcuhDacxYLLiSyxU4TY7KxB2xai',
+      },
+    },
   },
   serum: {
     chain: 'solana',
