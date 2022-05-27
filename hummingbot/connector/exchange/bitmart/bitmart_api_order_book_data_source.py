@@ -222,7 +222,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for trading_pair in self._trading_pairs:
                     ws_message: WSRequest = WSRequest({
                         "op": "subscribe",
-                        "args": [f"spot/depth400:{convert_to_exchange_trading_pair(trading_pair)}"]
+                        "args": [f"spot/depth50:{convert_to_exchange_trading_pair(trading_pair)}"]
                     })
                     await ws.send(ws_message)
 
