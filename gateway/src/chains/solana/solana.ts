@@ -47,7 +47,7 @@ export class Solana implements Solanaish {
   private _tokenAddressMap: Record<string, TokenInfo> = {};
   private _keypairs: Record<string, Keypair> = {};
 
-  private static _instances: { [name: string]: Solana };
+  private static _instances: Map<string, Solana> = new Map<string, Solana>();
 
   private _requestCount: number;
   private readonly _connection: Connection;
@@ -107,12 +107,16 @@ export class Solana implements Solanaish {
   }
 
   @Cache(caches.instances, { isCachedForever: true })
-  public static async getInstance(network: string): Promise<Solana> {
-    return new Solana(network);
+  public static getInstance(network: string): Solana {
+    const solana = new Solana(network);
+
+    this._instances.set(network, solana);
+
+    return solana;
   }
 
-  public static getConnectedInstances(): { [name: string]: Solana } {
-    return Solana._instances;
+  public static getConnectedInstances(): Map<string, Solana> {
+    return this._instances;
   }
 
   public get connection() {

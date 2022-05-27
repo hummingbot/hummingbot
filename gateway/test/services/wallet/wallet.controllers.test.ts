@@ -76,7 +76,7 @@ describe('addWallet and getWallets', () => {
   it('add an Ethereum wallet', async () => {
     patch(eth, 'getWallet', () => {
       return {
-        publicKey: oneAddress,
+        address: oneAddress,
       };
     });
 
@@ -102,7 +102,7 @@ describe('addWallet and getWallets', () => {
   it('add an Avalanche wallet', async () => {
     patch(avalanche, 'getWallet', () => {
       return {
-        publicKey: oneAddress,
+        address: oneAddress,
       };
     });
 
@@ -128,7 +128,7 @@ describe('addWallet and getWallets', () => {
   it('add an Harmony wallet', async () => {
     patch(harmony, 'getWallet', () => {
       return {
-        publicKey: oneAddress,
+        address: oneAddress,
       };
     });
 
@@ -173,7 +173,7 @@ describe('addWallet and removeWallets', () => {
   it('remove an Ethereum wallet', async () => {
     patch(eth, 'getWallet', () => {
       return {
-        publicKey: oneAddress,
+        address: oneAddress,
       };
     });
 
@@ -201,7 +201,7 @@ describe('addWallet and removeWallets', () => {
   it('remove an Harmony wallet', async () => {
     patch(harmony, 'getWallet', () => {
       return {
-        publicKey: oneAddress,
+        address: oneAddress,
       };
     });
 

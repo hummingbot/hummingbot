@@ -1,9 +1,15 @@
-import {NextFunction, Request, Response, Router} from 'express';
-import {Solana} from './solana';
-import {SolanaConfig} from './solana.config';
-import {verifySolanaIsAvailable} from './solana-middlewares';
-import {asyncHandler} from '../../services/error-handler';
-import {balances, getOrCreateTokenAccount, poll, token,} from './solana.controllers';
+import { NextFunction, Request, Response, Router } from 'express';
+import { ParamsDictionary } from 'express-serve-static-core';
+import { Solana } from './solana';
+import { SolanaConfig } from './solana.config';
+import { verifySolanaIsAvailable } from './solana-middlewares';
+import { asyncHandler } from '../../services/error-handler';
+import {
+  balances,
+  getOrCreateTokenAccount,
+  poll,
+  token,
+} from './solana.controllers';
 import {
   SolanaBalanceRequest,
   SolanaBalanceResponse,
@@ -22,8 +28,12 @@ import {
 export namespace SolanaRoutes {
   export const router = Router();
 
-  export const getSolana = async (request: Request) =>
-    await Solana.getInstance(request.body.chain);
+  export const getSolana = async (request: Request) => {
+    const solana = Solana.getInstance(request.body.chain);
+    await solana.init();
+
+    return solana;
+  };
 
   router.use(asyncHandler(verifySolanaIsAvailable));
 
@@ -48,8 +58,8 @@ export namespace SolanaRoutes {
     '/balances',
     asyncHandler(
       async (
-        request: Request<{}, {}, SolanaBalanceRequest>,
-        response: Response<SolanaBalanceResponse | string, {}>,
+        request: Request<ParamsDictionary, unknown, SolanaBalanceRequest>,
+        response: Response<SolanaBalanceResponse | string>,
         _next: NextFunction
       ) => {
         const solana = await getSolana(request);
@@ -65,8 +75,8 @@ export namespace SolanaRoutes {
     '/token',
     asyncHandler(
       async (
-        request: Request<{}, {}, SolanaTokenRequest>,
-        response: Response<SolanaTokenResponse | string, {}>,
+        request: Request<ParamsDictionary, unknown, SolanaTokenRequest>,
+        response: Response<SolanaTokenResponse | string>,
         _next: NextFunction
       ) => {
         const solana = await getSolana(request);
@@ -82,14 +92,16 @@ export namespace SolanaRoutes {
     '/token',
     asyncHandler(
       async (
-        request: Request<{}, {}, SolanaTokenRequest>,
-        response: Response<SolanaTokenResponse | string, {}>,
+        request: Request<ParamsDictionary, unknown, SolanaTokenRequest>,
+        response: Response<SolanaTokenResponse | string>,
         _next: NextFunction
       ) => {
         const solana = await getSolana(request);
 
         validateSolanaPostTokenRequest(request.body);
-        response.status(200).json(await getOrCreateTokenAccount(solana, request.body));
+        response
+          .status(200)
+          .json(await getOrCreateTokenAccount(solana, request.body));
       }
     )
   );
@@ -99,8 +111,8 @@ export namespace SolanaRoutes {
     '/poll',
     asyncHandler(
       async (
-        request: Request<{}, {}, SolanaPollRequest>,
-        response: Response<SolanaPollResponse, {}>
+        request: Request<ParamsDictionary, unknown, SolanaPollRequest>,
+        response: Response<SolanaPollResponse>
       ) => {
         const solana = await getSolana(request);
 

@@ -55,7 +55,7 @@ describe('nonce', () => {
   it('return a nonce for a wallet', async () => {
     patch(eth, 'getWallet', () => {
       return {
-        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       };
     });
     patch(eth.nonceManager, 'getNonce', () => 2);
@@ -90,7 +90,7 @@ describe('allowances', () => {
   it('return allowances for an owner, spender and tokens', async () => {
     patch(eth, 'getWallet', () => {
       return {
-        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       };
     });
 
@@ -128,14 +128,14 @@ describe('approve', () => {
       return uniswap;
     });
     eth.getContract = jest.fn().mockReturnValue({
-      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
     patch(eth, 'ready', () => true);
 
     patch(eth, 'getWallet', () => {
       return {
-        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       };
     });
 
@@ -194,7 +194,7 @@ describe('approve', () => {
 
     patch(eth, 'getWallet', () => {
       return {
-        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       };
     });
 

@@ -38,7 +38,7 @@ afterEach(unpatch);
 const patchGetWallet = () => {
   patch(avalanche, 'getWallet', () => {
     return {
-      publicKey: publicKey,
+      address,
     };
   });
 };
@@ -51,7 +51,7 @@ const patchGetTokenBySymbol = () => {
   patch(avalanche, 'getTokenBySymbol', () => {
     return {
       chainId: 43114,
-      publicKey: '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7',
+      address: '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7',
       decimals: 18,
       name: 'Wrapped AVAX',
       symbol: 'WAVAX',
@@ -107,7 +107,7 @@ describe('POST /evm/nonce', () => {
       .send({
         chain: 'avalanche',
         network: 'fuji',
-        publicKey: publicKey,
+        address,
       })
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
@@ -121,7 +121,7 @@ describe('POST /evm/nonce', () => {
       .send({
         chain: 'avalanche',
         network: 'fuji',
-        publicKey: 'da857cbda0ba96757fed842617a4',
+        address: 'da857cbda0ba96757fed842617a4',
       })
       .expect(404);
   });
@@ -131,7 +131,7 @@ describe('POST /evm/approve', () => {
   it('should return 200', async () => {
     patchGetWallet();
     avalanche.getContract = jest.fn().mockReturnValue({
-      publicKey: publicKey,
+      address,
     });
     patch(avalanche.nonceManager, 'getNonce', () => 115);
     patchGetTokenBySymbol();
@@ -142,7 +142,7 @@ describe('POST /evm/approve', () => {
       .send({
         chain: 'avalanche',
         network: 'fuji',
-        publicKey: publicKey,
+        address,
         spender: 'pangolin',
         token: 'PNG',
       })
@@ -160,7 +160,7 @@ describe('POST /evm/approve', () => {
       .send({
         chain: 'avalanche',
         network: 'fuji',
-        publicKey: publicKey,
+        address,
         spender: 'pangolin',
         token: 123,
         nonce: '23',
@@ -176,7 +176,7 @@ describe('POST /evm/allowances', () => {
     const spender = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
     avalanche.getSpender = jest.fn().mockReturnValue(spender);
     avalanche.getContract = jest.fn().mockReturnValue({
-      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
     patchGetERC20Allowance();
 
@@ -185,7 +185,7 @@ describe('POST /evm/allowances', () => {
       .send({
         chain: 'avalanche',
         network: 'fuji',
-        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: spender,
         tokenSymbols: ['WETH', 'DAI'],
       })
@@ -205,7 +205,7 @@ describe('POST /network/balances', () => {
     patchGetNativeBalance();
     patchGetERC20Balance();
     avalanche.getContract = jest.fn().mockReturnValue({
-      publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
     await request(gatewayApp)
@@ -213,7 +213,7 @@ describe('POST /network/balances', () => {
       .send({
         chain: 'avalanche',
         network: 'fuji',
-        publicKey: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['WETH', 'DAI'],
       })
       .set('Accept', 'application/json')
@@ -228,7 +228,7 @@ describe('POST /evm/cancel', () => {
   it('should return 200', async () => {
     // override getWallet (network call)
     avalanche.getWallet = jest.fn().mockReturnValue({
-      publicKey: publicKey,
+      address,
     });
 
     avalanche.cancelTx = jest.fn().mockReturnValue({
@@ -240,7 +240,7 @@ describe('POST /evm/cancel', () => {
       .send({
         chain: 'avalanche',
         network: 'fuji',
-        publicKey: publicKey,
+        address,
         nonce: 23,
       })
       .set('Accept', 'application/json')
@@ -259,7 +259,7 @@ describe('POST /evm/cancel', () => {
       .send({
         chain: 'avalanche',
         network: 'fuji',
-        publicKey: '',
+        address: '',
         nonce: '23',
       })
       .expect(404);
