@@ -137,9 +137,10 @@ class GatewayInFlightOrder(InFlightOrder):
             self.update_exchange_order_id(order_update.exchange_order_id)
 
         self.current_state = order_update.new_state
-        self.nonce = order_update.misc_updates.get("nonce", None)
-        self.fee_asset = order_update.misc_updates.get("fee_asset", None)
-        self.gas_price = order_update.misc_updates.get("gas_price", None)
+        if self.current_state not in {OrderState.PENDING_CANCEL, OrderState.CANCELED}:
+            self.nonce = order_update.misc_updates.get("nonce", None)
+            self.fee_asset = order_update.misc_updates.get("fee_asset", None)
+            self.gas_price = order_update.misc_updates.get("gas_price", None)
 
         updated: bool = prev_data != self.attributes
 
