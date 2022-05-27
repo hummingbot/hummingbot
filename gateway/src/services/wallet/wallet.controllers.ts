@@ -47,7 +47,6 @@ export async function addWallet(
     encryptedPrivateKey = await avalanche.encrypt(req.privateKey, passphrase);
   } else if (req.chain === 'solana') {
     const solana = Solana.getInstance(req.network);
-    await solana.init();
     address = solana
       .getKeypairFromPrivateKey(req.privateKey)
       .publicKey.toBase58();
