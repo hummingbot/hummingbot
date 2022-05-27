@@ -1,4 +1,4 @@
-import {StatusCodes} from "http-status-codes";
+import { StatusCodes } from 'http-status-codes';
 import { HttpException } from './error-handler';
 
 export const invalidAmountError: string =
@@ -44,7 +44,12 @@ export const isFractionString = (str: string): boolean => {
 
 // throw an error because the request parameter is malformed, collect all the
 // errors related to the request to give the most information possible
-export const throwIfErrorsExist = (errors: Array<string>, statusCode: number = StatusCodes.NOT_FOUND, req: any, headerMessage?: (req: any) => string): void => {
+export const throwIfErrorsExist = (
+  errors: Array<string>,
+  statusCode: number = StatusCodes.NOT_FOUND,
+  req: any,
+  headerMessage?: (req: any) => string
+): void => {
   if (errors.length > 0) {
     let message = headerMessage ? `${headerMessage(req)}\n` : '';
     message += errors.join('\n');
@@ -93,27 +98,20 @@ export const mkValidator = (
     const errors: Array<string> = [];
 
     let passed: boolean;
-    if (useRequest)
-      passed = condition(target);
-    else
-      if (!target[key] && !optional) {
-        errors.push(missingParameter(key));
+    if (useRequest) passed = condition(target);
+    else if (!target[key] && !optional) {
+      errors.push(missingParameter(key));
 
-        return errors;
-      } else
-        passed = condition(target[key]);
+      return errors;
+    } else passed = condition(target[key]);
 
     let error: string;
     if (!passed) {
-      if (typeof errorMsg === 'string')
-        error = errorMsg;
-      else
-        if (useRequest)
-          error = errorMsg(target, index);
-        else
-          error = errorMsg(target[key], index);
+      if (typeof errorMsg === 'string') error = errorMsg;
+      else if (useRequest) error = errorMsg(target, index);
+      else error = errorMsg(target[key], index);
 
-      errors.push(error)
+      errors.push(error);
     }
 
     return errors;
@@ -125,7 +123,7 @@ export const mkBatchValidator = (
   headerItemMessage?: (item: any, index?: number) => string
 ) => {
   return (items: any[]) => {
-    let errors: string[] = [];
+    const errors: string[] = [];
 
     for (const [index, item] of items.entries()) {
       const itemErrors: string[] = [];
@@ -135,8 +133,7 @@ export const mkBatchValidator = (
       }
 
       if (itemErrors && itemErrors.length > 0) {
-        if (headerItemMessage)
-          errors.push(headerItemMessage(item, index));
+        if (headerItemMessage) errors.push(headerItemMessage(item, index));
 
         errors.push(...itemErrors);
       }
@@ -144,7 +141,7 @@ export const mkBatchValidator = (
 
     return errors;
   };
-}
+};
 
 export const mkRequestValidator = (
   validators: Array<Validator>,

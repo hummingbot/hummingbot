@@ -63,7 +63,7 @@ afterEach(() => {
   unpatch();
 });
 
-it('001', async () => {
+it.skip('001', async () => {
   const connection = new Connection('');
 
   const market: SerumMarket = data.get(
