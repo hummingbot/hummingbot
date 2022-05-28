@@ -1457,7 +1457,7 @@
     bn.js "^5.1.2"
     buffer-layout "^1.2.0"
 
-"@project-serum/serum@^0.13.64":
+"@project-serum/serum@^0.13.65":
   version "0.13.65"
   resolved "https://registry.yarnpkg.com/@project-serum/serum/-/serum-0.13.65.tgz#6d3cf07912f13985765237f053cca716fe84b0b0"
   dependencies:
@@ -1570,8 +1570,8 @@
     buffer "~6.0.3"
 
 "@solana/spl-token-registry@^0.2.700":
-  version "0.2.4169"
-  resolved "https://registry.yarnpkg.com/@solana/spl-token-registry/-/spl-token-registry-0.2.4169.tgz#43349a341472d16b99a85954ac24fc2cae63d27a"
+  version "0.2.4177"
+  resolved "https://registry.yarnpkg.com/@solana/spl-token-registry/-/spl-token-registry-0.2.4177.tgz#faa8ef0d51cd9df20005ee7bce956c8aaf004fb8"
   dependencies:
     cross-fetch "3.0.6"
 
@@ -1888,8 +1888,8 @@
     form-data "^3.0.0"
 
 "@types/node@*", "@types/node@>=12.12.47", "@types/node@>=13.7.0":
-  version "17.0.35"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-17.0.35.tgz#635b7586086d51fb40de0a2ec9d1014a5283ba4a"
+  version "17.0.36"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-17.0.36.tgz#c0d5f2fe76b47b63e0e0efc3d2049a9970d68794"
 
 "@types/node@^10.12.18", "@types/node@^10.3.2":
   version "10.17.60"
@@ -1920,8 +1920,8 @@
   resolved "https://registry.yarnpkg.com/@types/prettier/-/prettier-1.19.1.tgz#33509849f8e679e4add158959fdb086440e9553f"
 
 "@types/prettier@^2.1.5":
-  version "2.6.1"
-  resolved "https://registry.yarnpkg.com/@types/prettier/-/prettier-2.6.1.tgz#76e72d8a775eef7ce649c63c8acae1a0824bbaed"
+  version "2.6.3"
+  resolved "https://registry.yarnpkg.com/@types/prettier/-/prettier-2.6.3.tgz#68ada76827b0010d0db071f739314fa429943d0a"
 
 "@types/qs@*":
   version "6.9.7"
@@ -3046,10 +3046,6 @@ class-is@^1.1.0:
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/class-is/-/class-is-1.1.0.tgz#9d3c0fba0440d211d843cec3dedfa48055005825"
 
-class-transformer@^0.5.1:
-  version "0.5.1"
-  resolved "https://registry.yarnpkg.com/class-transformer/-/class-transformer-0.5.1.tgz#24147d5dffd2a6cea930a3250a677addf96ab336"
-
 class-utils@^0.3.5:
   version "0.3.6"
   resolved "https://registry.yarnpkg.com/class-utils/-/class-utils-0.3.6.tgz#f93369ae8b9a7ce02fd41faad0ca83033190c463"
@@ -3783,8 +3779,8 @@ ee-first@1.1.1:
   resolved "https://registry.yarnpkg.com/ee-first/-/ee-first-1.1.1.tgz#590c61156b0ae2f4f0255732a158b266bc56b21d"
 
 electron-to-chromium@^1.4.118:
-  version "1.4.140"
-  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.140.tgz#1b5836b7244aff341a11c8efd63dfe003dee4a19"
+  version "1.4.141"
+  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.141.tgz#4dd9119e8a99f1c83c51dfcf1bed79ea541f08d6"
 
 elliptic@6.3.3:
   version "6.3.3"
@@ -6994,13 +6990,6 @@ node-releases@^2.0.3:
 node-ts-cache-storage-memory@4.4.0:
   version "4.4.0"
   resolved "https://registry.yarnpkg.com/node-ts-cache-storage-memory/-/node-ts-cache-storage-memory-4.4.0.tgz#d87da36bef0145c4d5a988191ffff6b9789c394e"
-  dependencies:
-    debug "^4.3.2"
-    node-ts-cache "^4.4.0"
-
-node-ts-cache-storage-node-fs@4.4.0:
-  version "4.4.0"
-  resolved "https://registry.yarnpkg.com/node-ts-cache-storage-node-fs/-/node-ts-cache-storage-node-fs-4.4.0.tgz#e283e53b1edeb027602ff77761f75bfbb5cfd31e"
   dependencies:
     debug "^4.3.2"
     node-ts-cache "^4.4.0"
