@@ -21,8 +21,8 @@ import {
   TransactionResponse,
 } from '@solana/web3.js';
 import {
-  AccountInfo as TokenAccount,
-  Token as TokenProgram,
+  getOrCreateAssociatedTokenAccount,
+  Account as TokenAccount,
 } from '@solana/spl-token';
 import { TokenInfo, TokenListProvider } from '@solana/spl-token-registry';
 import { TransactionResponseStatusCode } from './solana.requests';
@@ -450,14 +450,12 @@ export class Solana implements Solanaish {
     wallet: Keypair,
     tokenAddress: PublicKey
   ): Promise<TokenAccount | null> {
-    const tokenProgram = new TokenProgram(
+    return getOrCreateAssociatedTokenAccount(
       this._connection,
+      wallet,
       tokenAddress,
-      this._tokenProgramAddress,
-      wallet
-    );
-    return await tokenProgram.getOrCreateAssociatedAccountInfo(
       wallet.publicKey
+      // this._tokenProgramAddress, // TODO should we include this!!!
     );
   }
 
