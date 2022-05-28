@@ -1,0 +1,82 @@
+paths:
+  /network/config:
+    get:
+      tags:
+        - 'network'
+      summary: 'Get every gateway configuration option'
+      produces:
+        - 'application/json'
+      responses: '200'
+  /network/status:
+    get:
+      tags:
+        - 'network'
+      summary: 'Returns a list of the currently connected networks'
+      produces:
+        - 'application/json'
+      responses: '200'
+  /network/poll:
+    post:
+      tags:
+        - 'network'
+      summary: 'Poll the status of a transaction'
+      operationId: 'poll'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/PollRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PollResponse'
+  /network/balances:
+    post:
+      tags:
+        - 'network'
+      summary: 'Get the balances of a private key'
+      operationId: 'balances'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/BalancesRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/BalancesResponse'
+  /network/tokens:
+    get:
+      tags:
+        - 'network'
+      summary: 'Returns a list of tokens available on the specified network'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'query'
+          name: 'chain'
+          required: true
+          type: 'string'
+          example: 'ethereum'
+        - in: 'query'
+          name: 'network'
+          required: true
+          type: 'string'
+          example: 'kovan'
+        - in: 'query'
+          name: 'tokenSymbols'
+          required: false
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/TokensResponse'

@@ -2,7 +2,7 @@
 ###   AMM Arbitrage strategy config   ###
 ##########################################
 
-template_version: 2
+template_version: 5
 strategy: null
 
 # The following configuations are only required for the AMM arbitrage trading strategy
@@ -33,11 +33,9 @@ market_2_slippage_buffer: null
 # If false, the bot will wait for first exchange order filled before submitting the other order
 concurrent_orders_submission: null
 
-# Whether to use rate oracle on unmatched trading pairs
-# Set this to either True or False
-use_oracle_conversion_rate: null
+# A flag (true/false), if true would enable a price shim feature on the AMM connector to allow developer to simulate
+# different prices on the AMM market. This is used for development and testing purpose only.
+debug_price_shim: false
 
-# The conversion rate for secondary quote asset value to primary quote asset value.
-# e.g. if primary quote asset is USD, secondary is DAI and 1 USD is worth 1.25 DAI, "
-# the conversion rate is 0.8 (1 / 1.25)
-secondary_to_primary_quote_conversion_rate: null
+# After how many seconds should blockchain transactions be cancelled if they are not included in a block?
+gateway_transaction_cancel_interval: 600

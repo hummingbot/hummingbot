@@ -1,0 +1,37 @@
+paths:
+  /:
+    get:
+      tags:
+        - 'system'
+      summary: 'Ping the server to see that it is running'
+      produces:
+        - 'application/json'
+      responses: '200'
+  /restart:
+    post:
+      tags:
+        - 'system'
+      summary: 'Restart gateway. It is recommended to call this route after calling /config/update succesfully'
+      description: 'Restart the gateway server.'
+      operationId: 'restart'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: false      
+      responses: '200'
+  /config/update:
+    post:
+      tags:
+        - 'system'
+      summary: 'Updates Gateway configuration'
+      description: 'Many changes will not have an effect until the gateway server is restarted. Try calling /restart afterwards.'
+      operationId: 'update'
+      consumes:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/ConfigUpdateRequest'
+      responses: '200'

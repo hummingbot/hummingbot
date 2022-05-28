@@ -2,7 +2,7 @@ import asyncio
 import unittest
 
 from mock import patch, MagicMock
-from typing import Awaitable
+from typing import Awaitable, Dict, Any
 
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
@@ -33,18 +33,21 @@ class TestTradingPairFetcher(unittest.TestCase):
             self._parent_name = parent_name
 
         @property
-        def name(self):
+        def name(self) -> str:
             return self._name
 
         @property
-        def parent_name(self):
+        def parent_name(self) -> str:
             return self._parent_name
 
-        def base_name(self):
+        def base_name(self) -> str:
             return self.name
 
-        def add_domain_parameter(*_, **__):
+        def add_domain_parameter(*_, **__) -> Dict[str, Any]:
             return {}
+
+        def uses_gateway_generic_connector(self) -> bool:
+            return False
 
     class MockConnectorDataSource(MagicMock):
         async def fetch_trading_pairs(self, *args, **kwargs):
