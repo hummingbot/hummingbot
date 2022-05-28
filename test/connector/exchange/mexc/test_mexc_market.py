@@ -333,7 +333,7 @@ class MexcExchangeUnitTest(unittest.TestCase):
 
         self.run_parallel(asyncio.sleep(1))
         if MOCK_API_ENABLED:
-            resp = FixtureMEXC.ORDERS_BATCH_CANCELLED.copy()
+            resp = FixtureMEXC.ORDERS_BATCH_CANCELED.copy()
             resp["data"]["success"] = [exch_order_id1, exch_order_id2]
             self.web_app.update_response("delete", API_BASE_URL, "/open/api/v2/order/cancel_by_symbol", resp)
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
@@ -434,7 +434,7 @@ class MexcExchangeUnitTest(unittest.TestCase):
                                              1002, FixtureMEXC.ORDER_GET_LIMIT_BUY_FILLED, self.market_2)
         self.run_parallel(asyncio.sleep(1))
         if MOCK_API_ENABLED:
-            resp = FixtureMEXC.ORDERS_BATCH_CANCELLED.copy()
+            resp = FixtureMEXC.ORDERS_BATCH_CANCELED.copy()
             resp["data"][0]["ordId"] = exch_order_id1
             self.web_app.update_response("delete", API_BASE_URL, '/' + MEXC_BATCH_ORDER_CANCEL, resp)
 

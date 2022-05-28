@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "networks": {
+      "type": "object",
+      "patternProperties": {
+        "^..+$": {
+          "type": "object",
+          "properties": {
+            "rpcURL": { "type": "string" },
+            "nativeCurrencySymbol": { "type": "string" }
+          },
+          "required": ["rpcURL", "nativeCurrencySymbol"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "network": { "type": "string" },
+    "tokenProgram": { "type": "string" },
+    "transactionLamports": { "type": "integer" },
+    "lamportsToSol": { "type": "number" },
+    "timeToLive": { "type": "number" },
+    "customRpcUrl": { "type": ["string", "null"] },
+    "rpcAPIKey": { "type": ["string", "null"] }
+  },
+  "required": [
+    "networks",
+    "network",
+    "tokenProgram",
+    "transactionLamports",
+    "lamportsToSol",
+    "timeToLive"
+  ],
+  "additionalProperties": false
+}

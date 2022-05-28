@@ -240,7 +240,7 @@ class PerformanceMetrics:
             if fee_token == quote:
                 self.fee_in_quote += fee_amount
             else:
-                rate_pair = combine_to_hb_trading_pair(fee_token, quote)
+                rate_pair: str = combine_to_hb_trading_pair(fee_token, quote)
                 last_price = await RateOracle.get_instance().stored_or_live_rate(rate_pair)
                 if last_price is not None:
                     self.fee_in_quote += fee_amount * last_price
