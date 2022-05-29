@@ -409,9 +409,9 @@ class CoinflexExchange(ExchangeBase):
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
-        Cancels all currently active orders. The cancellations are performed in parallel tasks.
+        Cancels all currently active orders. The cancelations are performed in parallel tasks.
         :param timeout_seconds: the maximum time (in seconds) the cancel logic should run
-        :return: a list of CancellationResult instances, one for each of the orders to be cancelled
+        :return: a list of CancellationResult instances, one for each of the orders to be canceled
         """
         incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
         tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
@@ -602,7 +602,7 @@ class CoinflexExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception(f"There was an error when requesting cancellation of order {order_id}")
+                self.logger().exception(f"There was an error when requesting cancelation of order {order_id}")
 
     async def _status_polling_loop(self):
         """
@@ -896,7 +896,7 @@ class CoinflexExchange(ExchangeBase):
             for order_result, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
 
-                # If the order has already been cancelled or has failed do nothing
+                # If the order has already been canceled or has failed do nothing
                 if client_order_id not in self.in_flight_orders:
                     continue
 

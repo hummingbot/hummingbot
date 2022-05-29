@@ -772,7 +772,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                f"There was an error when requesting cancellation of order {order.client_order_id}"
+                f"There was an error when requesting cancelation of order {order.client_order_id}"
             )
         )
         expected_error = {"errors": None, "status": None}
@@ -834,7 +834,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                f"There was an error when requesting cancellation of order {order.client_order_id}"
+                f"There was an error when requesting cancelation of order {order.client_order_id}"
             )
         )
         expected_error = (

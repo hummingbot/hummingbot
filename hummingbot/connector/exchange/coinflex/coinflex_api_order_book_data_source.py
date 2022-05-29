@@ -41,7 +41,6 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._domain = domain
         self._throttler = throttler
         self._api_factory = api_factory or web_utils.build_api_factory()
-        self._order_book_create_function = lambda: OrderBook()
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
     @classmethod
@@ -422,31 +421,6 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 exc_info=True
             )
             raise
-
-    @classmethod
-    async def _get_last_traded_price(cls,
-                                     trading_pair: str,
-                                     domain: str,
-                                     api_factory: WebAssistantsFactory,
-                                     throttler: AsyncThrottler) -> float:
-        symbol = await cls.exchange_symbol_associated_to_pair(
-            trading_pair=trading_pair,
-            domain=domain,
-            throttler=throttler)
-
-        resp = await web_utils.api_request(
-            path=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
-            api_factory=api_factory,
-            throttler=throttler,
-            domain=domain,
-            method=RESTMethod.GET,
-        )
-
-        matched_ticker = [t for t in resp if t.get("marketCode") == symbol]
-        if not (len(matched_ticker) and "last" in matched_ticker[0]):
-            raise IOError(f"Error fetching last traded prices for {trading_pair}. "
-                          f"Response: {resp}.")
-        return float(matched_ticker[0]["last"])
 
     @classmethod
     async def _init_trading_pair_symbols(

@@ -12,11 +12,11 @@ from bidict import bidict
 import hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_utils as utils
 import hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_web_utils as web_utils
 import hummingbot.connector.derivative.coinflex_perpetual.constants as CONSTANTS
-from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_order_book import CoinflexPerpetualOrderBook
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -40,7 +40,6 @@ class CoinflexPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._domain = domain
         self._throttler = throttler
         self._api_factory: WebAssistantsFactory = api_factory or web_utils.build_api_factory()
-        self._order_book_create_function = lambda: OrderBook()
         self._funding_info: Dict[str, FundingInfo] = {}
 
         self._message_queue: Dict[int, asyncio.Queue] = defaultdict(asyncio.Queue)
@@ -98,32 +97,6 @@ class CoinflexPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             results[t_pair] = float(matched_ticker[0]["last"])
 
         return results
-
-    @classmethod
-    async def get_last_traded_price(cls,
-                                    trading_pair: str,
-                                    domain: str = CONSTANTS.DEFAULT_DOMAIN,
-                                    api_factory: Optional[WebAssistantsFactory] = None,
-                                    throttler: Optional[AsyncThrottler] = None) -> float:
-
-        symbol = await cls.convert_to_exchange_trading_pair(
-            hb_trading_pair=trading_pair,
-            domain=domain,
-            throttler=throttler)
-
-        resp = await web_utils.api_request(
-            path=CONSTANTS.TICKER_PRICE_CHANGE_URL,
-            api_factory=api_factory,
-            throttler=throttler,
-            domain=domain,
-            method=RESTMethod.GET,
-        )
-
-        matched_ticker = [t for t in resp if t.get("marketCode") == symbol]
-        if not (len(matched_ticker) and "last" in matched_ticker[0]):
-            raise IOError(f"Error fetching last traded prices for {trading_pair}. "
-                          f"Response: {resp}.")
-        return float(matched_ticker[0]["last"])
 
     @classmethod
     def trading_pair_symbol_map_ready(cls, domain: str = CONSTANTS.DEFAULT_DOMAIN):
@@ -286,7 +259,7 @@ class CoinflexPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, 1000)
         snapshot_timestamp: float = time.time()
-        snapshot_msg: OrderBookMessage = CoinflexPerpetualOrderBook.snapshot_message_from_exchange(
+        snapshot_msg: OrderBookMessage = self.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
             metadata={"trading_pair": trading_pair}
@@ -441,7 +414,7 @@ class CoinflexPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     domain=self._domain,
                     api_factory=self._api_factory,
                     throttler=self._throttler)
-                order_book_message: OrderBookMessage = CoinflexPerpetualOrderBook.diff_message_from_exchange(
+                order_book_message: OrderBookMessage = self.diff_message_from_exchange(
                     json_msg, time.time(), {"trading_pair": trading_pair})
                 output.put_nowait(order_book_message)
             except asyncio.CancelledError:
@@ -471,7 +444,7 @@ class CoinflexPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         domain=self._domain,
                         api_factory=self._api_factory,
                         throttler=self._throttler)
-                    trade_msg: OrderBookMessage = CoinflexPerpetualOrderBook.trade_message_from_exchange(
+                    trade_msg: OrderBookMessage = self.trade_message_from_exchange(
                         json_msg, {"trading_pair": trading_pair})
                     output.put_nowait(trade_msg)
 
@@ -494,7 +467,7 @@ class CoinflexPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     try:
                         snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair=trading_pair)
                         snapshot_timestamp: float = time.time()
-                        snapshot_msg: OrderBookMessage = CoinflexPerpetualOrderBook.snapshot_message_from_exchange(
+                        snapshot_msg: OrderBookMessage = self.snapshot_message_from_exchange(
                             snapshot,
                             snapshot_timestamp,
                             metadata={"trading_pair": trading_pair}
@@ -516,3 +489,64 @@ class CoinflexPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "Unexpected error occurred fetching orderbook snapshots. Retrying in 5 seconds...", exc_info=True
                 )
                 await self._sleep(5.0)
+
+    def snapshot_message_from_exchange(self,
+                                       msg: Dict[str, any],
+                                       timestamp: float,
+                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+        """
+        Creates a snapshot message with the order book snapshot message
+        :param msg: the response from the exchange when requesting the order book snapshot
+        :param timestamp: the snapshot timestamp
+        :param metadata: a dictionary with extra information to add to the snapshot data
+        :return: a snapshot message with the snapshot information received from the exchange
+        """
+        if metadata:
+            msg.update(metadata)
+        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+            "trading_pair": msg["trading_pair"],
+            "update_id": int(msg["timestamp"]),
+            "bids": msg["bids"],
+            "asks": msg["asks"]
+        }, timestamp=timestamp)
+
+    def diff_message_from_exchange(self,
+                                   msg: Dict[str, any],
+                                   timestamp: Optional[float] = None,
+                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+        """
+        Creates a diff message with the changes in the order book received from the exchange
+        :param msg: the changes in the order book
+        :param timestamp: the timestamp of the difference
+        :param metadata: a dictionary with extra information to add to the difference data
+        :return: a diff message with the changes in the order book notified by the exchange
+        """
+        data = msg["data"][0]
+        if metadata:
+            data.update(metadata)
+        return OrderBookMessage(OrderBookMessageType.DIFF, {
+            "trading_pair": data["trading_pair"],
+            "first_update_id": int(data["seqNum"]),
+            "update_id": int(data["timestamp"]),
+            "bids": data["bids"],
+            "asks": data["asks"]
+        }, timestamp=timestamp)
+
+    def trade_message_from_exchange(self, msg: Dict[str, any], metadata: Optional[Dict] = None):
+        """
+        Creates a trade message with the information from the trade event sent by the exchange
+        :param msg: the trade event details sent by the exchange
+        :param metadata: a dictionary with extra information to add to trade message
+        :return: a trade message with the details of the trade as provided by the exchange
+        """
+        if metadata:
+            msg.update(metadata)
+        ts = int(msg["timestamp"])
+        return OrderBookMessage(OrderBookMessageType.TRADE, {
+            "trading_pair": msg["trading_pair"],
+            "trade_type": float(TradeType.SELL.value) if msg["side"] == TradeType.SELL.name.upper() else float(TradeType.BUY.value),
+            "trade_id": msg["tradeId"],
+            "update_id": ts,
+            "price": msg["price"],
+            "amount": msg["quantity"]
+        }, timestamp=ts * 1e-3)
