@@ -14,9 +14,6 @@ from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_api_o
     CoinflexPerpetualAPIOrderBookDataSource,
 )
 from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_auth import CoinflexPerpetualAuth
-from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_order_book_tracker import (
-    CoinflexPerpetualOrderBookTracker,
-)
 from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_user_stream_data_source import (
     CoinflexPerpetualUserStreamDataSource,
 )
@@ -36,6 +33,7 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.event.events import (
@@ -53,7 +51,7 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 bpm_logger = None
-NaN = float("nan")
+s_float_NaN = float("nan")
 s_decimal_0 = Decimal("0")
 
 
@@ -103,11 +101,14 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 domain=self._domain,
                 throttler=self._throttler,
                 api_factory=self._api_factory))
-        self._order_book_tracker = CoinflexPerpetualOrderBookTracker(
-            trading_pairs=trading_pairs,
-            domain=self._domain,
-            throttler=self._throttler,
-            api_factory=self._api_factory)
+        self._order_book_tracker = OrderBookTracker(
+            data_source=CoinflexPerpetualAPIOrderBookDataSource(
+                trading_pairs=self._trading_pairs,
+                domain=self._domain,
+                throttler=self._throttler,
+                api_factory=self._api_factory),
+            trading_pairs=self._trading_pairs,
+            domain=self._domain)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._next_funding_fee_timestamp = self.get_next_funding_timestamp()
@@ -152,7 +153,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "position_mode": self.position_mode,
             "user_stream_initialized": self._user_stream_tracker.data_source.last_recv_time > 0,
-            "funding_info_initialized": self._order_book_tracker.is_funding_info_initialized(),
+            "funding_info_initialized": self._order_book_tracker._data_source.is_funding_info_initialized(),
         }
         return sd
 
@@ -317,13 +318,13 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def cancel_all(self, timeout_seconds: float):
         """
         The function that is primarily triggered by the ExitCommand that cancels all InFlightOrder's
-        being tracked by the Client Order Tracker. It confirms the successful cancellation
+        being tracked by the Client Order Tracker. It confirms the successful cancelation
         of the orders.
 
         Parameters
         ----------
         timeout_seconds:
-            How long to wait before checking whether the orders were cancelled
+            How long to wait before checking whether the orders were canceled
         """
         incomplete_orders = [order for order in self._client_order_tracker.active_orders.values() if not order.is_done]
         tasks = [self._execute_cancel(order.trading_pair, order.client_order_id) for order in incomplete_orders]
@@ -349,29 +350,6 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
         return successful_cancellations + failed_cancellations
 
-    async def cancel_all_account_orders(self, trading_pair: str):
-        try:
-            ex_symbol = await CoinflexPerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(
-                hb_trading_pair=trading_pair,
-                domain=self._domain,
-                throttler=self._throttler,
-                api_factory=self._api_factory
-            )
-            response = await self._api_request(
-                path=CONSTANTS.CANCEL_ALL_OPEN_ORDERS_URL.format(ex_symbol),
-                method=RESTMethod.DELETE,
-                is_auth_required=True,
-                limit_id=CONSTANTS.CANCEL_ALL_OPEN_ORDERS_URL,
-            )
-            if response.get("code") == 200:
-                for order_id in list(self._client_order_tracker.active_orders.keys()):
-                    self.stop_tracking_order(order_id)
-            else:
-                raise IOError(f"Error canceling all account orders. Server Response: {response}")
-        except Exception as e:
-            self.logger().error("Could not cancel all account orders.")
-            raise e
-
     def cancel(self, trading_pair: str, client_order_id: str):
         """
         The function that takes in the trading pair and client order ID
@@ -391,7 +369,6 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
     def quantize_order_amount(self, trading_pair: str, amount: object, price: object = Decimal(0)):
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         # current_price: object = self.get_price(trading_pair, False)
-        notional_size: object
         quantized_amount = ExchangeBase.quantize_order_amount(self, trading_pair, amount)
         if quantized_amount < trading_rule.min_order_size:
             return Decimal(0)
@@ -638,16 +615,6 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             self._funding_fee_polling_task.cancel()
         self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = self._funding_fee_polling_task = None
-
-    async def _get_rest_assistant(self) -> RESTAssistant:
-        if self._rest_assistant is None:
-            self._rest_assistant = await self._api_factory.get_rest_assistant()
-        return self._rest_assistant
-
-    async def _get_ws_assistant(self) -> WSAssistant:
-        if self._ws_assistant is None:
-            self._ws_assistant = await self._api_factory.get_ws_assistant()
-        return self._ws_assistant
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
@@ -1064,6 +1031,9 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def _update_order_fills_from_event_or_create(self, tracked_order, order_data):
         """
         Used to update fills from user stream events or order creation.
+
+        :param tracked_order: The tracked order to be updated.
+        :param order_data: The order update response from the user websocket or order creation.
         """
         client_order_id = order_data.get("clientOrderId")
         exec_amt_base = decimal_val_or_none(order_data.get("matchQuantity"))
@@ -1105,6 +1075,9 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         This is intended to be a backup measure to get filled events from order status
         in case CoinFLEX's user stream events are not working.
+
+        :param tracked_order: The tracked order to be updated.
+        :param order_update: The order update response from the API.
         """
         fee_collected = False
         for match_data in order_update["matchIds"]:
@@ -1160,7 +1133,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=client_order_id,
                 trading_pair=tracked_order.trading_pair,
-                update_timestamp=self.current_timestamp if self.current_timestamp != NaN else int(time.time()),
+                update_timestamp=self.current_timestamp if self.current_timestamp != s_float_NaN else int(time.time()),
                 new_state=OrderState.FAILED,
             )
             self._client_order_tracker.process_order_update(order_update)
@@ -1176,7 +1149,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             amount: Decimal,
             order_type: OrderType,
             position_action: PositionAction,
-            price: Optional[Decimal] = Decimal("NaN"),
+            price: Optional[Decimal] = s_decimal_NaN,
     ):
         """
         This function is responsible for executing the API request to place the order on the exchange.
@@ -1216,7 +1189,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             throttler=self._throttler,
             api_factory=self._api_factory)
 
-        if self.current_timestamp == NaN:
+        if self.current_timestamp == s_float_NaN:
             raise ValueError("Cannot create orders while connector is starting/stopping.")
 
         api_params = {"responseType": "FULL"}
@@ -1360,7 +1333,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().exception(f"There was an error when requesting cancellation of order {client_order_id}")
+            self.logger().exception(f"There was an error when requesting cancelation of order {client_order_id}")
 
     async def _api_request(self,
                            path: str,

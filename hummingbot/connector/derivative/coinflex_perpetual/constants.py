@@ -25,7 +25,6 @@ MARK_PRICE_URL = "delivery/public/funding"
 ORDER_STATUS_URL = "orders"
 ORDER_CREATE_URL = "orders/place"
 ORDER_CANCEL_URL = "orders/cancel"
-CANCEL_ALL_OPEN_ORDERS_URL = "cancel/orders/{}"
 SET_LEVERAGE_URL = "/leverage"
 GET_INCOME_HISTORY_URL = "funding-payments"
 CHANGE_POSITION_MODE_URL = "/positionSide/dual"
@@ -136,8 +135,6 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1),
                              LinkedLimitWeightPair(ORDERS_1MIN, weight=1),
                              LinkedLimitWeightPair(ORDERS_1SEC, weight=1)]),
-    RateLimit(limit_id=CANCEL_ALL_OPEN_ORDERS_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=SET_LEVERAGE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=GET_INCOME_HISTORY_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,

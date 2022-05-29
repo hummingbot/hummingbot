@@ -1210,7 +1210,7 @@ class CoinflexPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                f"There was an error when requesting cancellation of order {order2.client_order_id}"
+                f"There was an error when requesting cancelation of order {order2.client_order_id}"
             )
         )
 
@@ -1253,7 +1253,7 @@ class CoinflexPerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertTrue(self._is_logged(
             "ERROR",
-            "There was an error when requesting cancellation of order OID1"
+            "There was an error when requesting cancelation of order OID1"
         ))
 
         self.assertTrue("OID1" in self.exchange._client_order_tracker._in_flight_orders)
