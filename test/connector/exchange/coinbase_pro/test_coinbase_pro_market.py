@@ -8,20 +8,15 @@ import time
 import unittest
 from decimal import Decimal
 from os.path import join, realpath
-from typing import (
-    List,
-    Optional
-)
+from test.connector.exchange.coinbase_pro.fixture_coinbase_pro import FixtureCoinbasePro
+from typing import List, Optional
 from unittest import mock
 
 import conf
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_exchange import CoinbaseProExchange
 from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
@@ -37,19 +32,12 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
-from hummingbot.model.sql_connection_manager import (
-    SQLConnectionManager,
-    SQLConnectionType
-)
+from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
-from test.connector.exchange.coinbase_pro.fixture_coinbase_pro import FixtureCoinbasePro
 
 # API_SECRET length must be multiple of 4 otherwise base64.b64decode will fail
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']

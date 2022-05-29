@@ -1,8 +1,9 @@
+import asyncio
+import json
+import unittest.mock
+
 import aiohttp
 from aiounittest import async_test
-import asyncio
-import unittest.mock
-import json
 
 from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
 

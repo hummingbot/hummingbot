@@ -1,23 +1,20 @@
 #!/usr/bin/env python
 
 import asyncio
-import aiohttp
 import logging
-from typing import (
-    AsyncIterable,
-    Dict,
-    Optional,
-    Any
-)
 import time
+from typing import Any, AsyncIterable, Dict, Optional
+
+import aiohttp
 import ujson
 import websockets
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
+
 from hummingbot.connector.exchange.loopring.loopring_api_order_book_data_source import LoopringAPIOrderBookDataSource
+from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
 from hummingbot.connector.exchange.loopring.loopring_order_book import LoopringOrderBook
 from hummingbot.connector.exchange.loopring.loopring_utils import get_ws_api_key
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.logger import HummingbotLogger
 
 LOOPRING_WS_URL = "wss://ws.api3.loopring.io/v3/ws"
 

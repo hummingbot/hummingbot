@@ -2,14 +2,10 @@ import asyncio
 import base64
 import json
 import unittest
-
+import zlib
 from unittest.mock import AsyncMock, patch
 
-import zlib
-
-
-from hummingbot.connector.exchange.bittrex.bittrex_api_user_stream_data_source import \
-    BittrexAPIUserStreamDataSource
+from hummingbot.connector.exchange.bittrex.bittrex_api_user_stream_data_source import BittrexAPIUserStreamDataSource
 from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
 
 

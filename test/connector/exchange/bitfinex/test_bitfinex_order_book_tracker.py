@@ -4,7 +4,7 @@ import math
 import sys
 import time
 import unittest
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_tracker import BitfinexOrderBookTracker
 from hummingbot.core.data_type.common import TradeType

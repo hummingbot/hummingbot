@@ -3,18 +3,14 @@ import json
 import re
 import unittest
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
-from typing import (
-    Any,
-    Awaitable,
-    Dict,
-    List,
-)
+from typing import Any, Awaitable, Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
+
+from aioresponses.core import aioresponses
+from bidict import bidict
 
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 import hummingbot.connector.exchange.coinflex.coinflex_web_utils as web_utils
-from aioresponses.core import aioresponses
-from bidict import bidict
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook

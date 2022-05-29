@@ -4,28 +4,19 @@ import math
 import unittest
 from datetime import datetime
 from decimal import Decimal
-from typing import (
-    Dict,
-    Optional,
-    List,
-)
+from typing import Dict, List, Optional
 
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_order_book_data_source import \
-    CoinbaseProAPIOrderBookDataSource
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_order_book_data_source import (
+    CoinbaseProAPIOrderBookDataSource,
+)
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSource
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    OrderBookEvent,
-    OrderBookTradeEvent,
-)
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 
 
 class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):

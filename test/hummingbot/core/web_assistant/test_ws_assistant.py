@@ -1,14 +1,12 @@
 import asyncio
 import unittest
 from typing import Awaitable
-from unittest.mock import patch, PropertyMock
+from unittest.mock import PropertyMock, patch
 
 import aiohttp
 
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import (
-    WSRequest, WSResponse, RESTRequest
-)
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest, WSResponse
 from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.core.web_assistant.ws_post_processors import WSPostProcessorBase

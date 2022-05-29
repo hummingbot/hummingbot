@@ -4,7 +4,7 @@ import re
 import time
 from decimal import Decimal
 from functools import partial
-from typing import Awaitable, List, Dict
+from typing import Awaitable, Dict, List
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 

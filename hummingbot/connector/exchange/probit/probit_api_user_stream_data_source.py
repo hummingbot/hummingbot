@@ -3,21 +3,13 @@
 import asyncio
 import logging
 import time
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 import ujson
 from aiohttp import WSMessage, WSMsgType
 
 import hummingbot.connector.exchange.probit.probit_constants as CONSTANTS
-
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
-
 from hummingbot.connector.exchange.probit.probit_auth import ProbitAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger

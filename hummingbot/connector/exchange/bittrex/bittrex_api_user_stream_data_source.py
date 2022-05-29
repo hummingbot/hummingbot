@@ -4,14 +4,12 @@ import hmac
 import logging
 import time
 import uuid
-
 from base64 import b64decode
 from typing import Any, AsyncIterable, Dict, List, Optional
-from zlib import decompress, MAX_WBITS
+from zlib import MAX_WBITS, decompress
 
 import signalr_aio
 import ujson
-
 from async_timeout import timeout
 
 from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth

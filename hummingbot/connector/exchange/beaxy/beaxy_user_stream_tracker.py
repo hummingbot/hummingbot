@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, List
+from typing import List, Optional
 
 from hummingbot.connector.exchange.beaxy.beaxy_api_user_stream_data_source import BeaxyAPIUserStreamDataSource
 from hummingbot.connector.exchange.beaxy.beaxy_auth import BeaxyAuth

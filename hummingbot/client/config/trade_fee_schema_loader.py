@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.core.data_type.trade_fee import TradeFeeSchema, TokenAmount
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeSchema
 
 
 class TradeFeeSchemaLoader:

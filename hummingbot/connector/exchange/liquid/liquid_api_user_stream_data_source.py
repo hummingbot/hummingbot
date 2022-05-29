@@ -2,23 +2,18 @@
 
 import asyncio
 import logging
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    Optional,
-    List,
-)
 import time
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+
 from hummingbot.connector.exchange.liquid.constants import Constants
 from hummingbot.connector.exchange.liquid.liquid_auth import LiquidAuth
 from hummingbot.connector.exchange.liquid.liquid_order_book import LiquidOrderBook
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.logger import HummingbotLogger
 
 
 class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):

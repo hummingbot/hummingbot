@@ -1,6 +1,5 @@
 import asyncio
 import logging
-
 from typing import List, Optional
 
 from hummingbot.connector.exchange.bitfinex import ContentEventType

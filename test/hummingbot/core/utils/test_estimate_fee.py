@@ -6,6 +6,7 @@ unit tests for hummingbot.core.utils.estimate_fee
 
 import unittest
 from decimal import Decimal
+
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, DeductedFromReturnsTradeFee
 from hummingbot.core.utils.estimate_fee import estimate_fee
 

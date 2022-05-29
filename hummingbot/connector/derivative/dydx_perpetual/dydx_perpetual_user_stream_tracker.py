@@ -3,14 +3,12 @@ import logging
 from typing import Optional
 
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import DydxPerpetualAuth
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source import \
-    DydxPerpetualUserStreamDataSource
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source import (
+    DydxPerpetualUserStreamDataSource,
+)
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 

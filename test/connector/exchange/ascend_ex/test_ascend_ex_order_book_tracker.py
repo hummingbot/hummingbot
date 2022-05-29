@@ -15,7 +15,6 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
-
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 

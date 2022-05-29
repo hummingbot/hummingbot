@@ -1,16 +1,18 @@
 #!/usr/bin/env python
 
-import time
 import asyncio
-import logging
-import aiohttp
 import json
+import logging
+import time
+from typing import Any, AsyncIterable, Dict, Optional
+
+import aiohttp
 
 from hummingbot.connector.exchange.wazirx import wazirx_constants as CONSTANTS
-from typing import Optional, Dict, AsyncIterable, Any
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
+
 from .wazirx_auth import WazirxAuth
 
 

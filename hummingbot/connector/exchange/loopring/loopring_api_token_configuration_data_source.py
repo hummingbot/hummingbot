@@ -1,10 +1,5 @@
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    List,
-    Tuple,
-)
+from typing import Any, Dict, List, Tuple
 
 import aiohttp
 

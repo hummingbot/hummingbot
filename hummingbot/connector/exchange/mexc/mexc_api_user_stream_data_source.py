@@ -2,30 +2,20 @@
 import asyncio
 import hashlib
 import json
+import logging
+import time
+from typing import Any, AsyncIterable, Dict, List, Optional
 from urllib.parse import urlencode
 
 import aiohttp
 import aiohttp.client_ws
-
-import logging
-
-from typing import (
-    Optional,
-    AsyncIterable,
-    List,
-    Dict,
-    Any
-)
+from websockets.exceptions import ConnectionClosed
 
 from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS
+from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
-
-import time
-
-from websockets.exceptions import ConnectionClosed
 
 
 class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):

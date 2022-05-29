@@ -1,25 +1,16 @@
 #!/usr/bin/env python
-import websockets
 import asyncio
 import json
-
 import logging
+import time
+from typing import Any, AsyncIterable, Dict, List, Optional
 
-from typing import (
-    Optional,
-    AsyncIterable,
-    List,
-    Dict,
-    Any
-)
-
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
+import websockets
 
 from hummingbot.connector.exchange.okex.constants import OKEX_WS_URI_PRIVATE
-
-import time
+from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.logger import HummingbotLogger
 
 
 class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):

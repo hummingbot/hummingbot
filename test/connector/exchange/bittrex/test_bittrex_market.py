@@ -1,55 +1,47 @@
 #!/usr/bin/env python
-import logging
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-
 import asyncio
 import contextlib
-from decimal import Decimal
+import json
+import logging
 import os
 import time
-from typing import (
-    List,
-    Optional
-)
 import unittest
+from decimal import Decimal
+from os.path import join, realpath
+from test.connector.exchange.bittrex.fixture_bittrex import FixtureBittrex
+from typing import List, Optional
+from unittest import mock
 
 import conf
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.connector.exchange.bittrex.bittrex_exchange import BittrexExchange
+from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderFilledEvent,
     OrderCancelledEvent,
+    OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.core.data_type.common import TradeType
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.connector.exchange.bittrex.bittrex_exchange import BittrexExchange
-from hummingbot.core.data_type.common import OrderType
-from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.model.market_state import MarketState
-from hummingbot.model.order import Order
-from hummingbot.model.sql_connection_manager import (
-    SQLConnectionManager,
-    SQLConnectionType
-)
-from hummingbot.model.trade_fill import TradeFill
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
-from test.connector.exchange.bittrex.fixture_bittrex import FixtureBittrex
-from unittest import mock
-import json
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+from hummingbot.model.market_state import MarketState
+from hummingbot.model.order import Order
+from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
+from hummingbot.model.trade_fill import TradeFill
+
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
+
+
+
 
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 API_KEY = "XXXX" if API_MOCK_ENABLED else conf.bittrex_api_key

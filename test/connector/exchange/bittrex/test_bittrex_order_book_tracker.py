@@ -3,7 +3,7 @@ import logging
 import math
 import time
 import unittest
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 from hummingbot.connector.exchange.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 from hummingbot.core.data_type.common import TradeType

@@ -15,12 +15,7 @@ from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    BuyOrderCreatedEvent,
-    MarketEvent,
-    OrderCancelledEvent,
-    SellOrderCreatedEvent,
-)
+from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketEvent, OrderCancelledEvent, SellOrderCreatedEvent
 
 
 class LoopringExchangeUnitTest(unittest.TestCase):

@@ -3,8 +3,7 @@ import unittest
 from decimal import Decimal
 from unittest.mock import patch
 
-from hummingbot.connector.exchange.probit.probit_constants import \
-    MAX_ORDER_ID_LEN
+from hummingbot.connector.exchange.probit.probit_constants import MAX_ORDER_ID_LEN
 from hummingbot.connector.exchange.probit.probit_exchange import ProbitExchange
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.event.events import OrderType

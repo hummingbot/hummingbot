@@ -7,8 +7,8 @@ import importlib
 import json
 from decimal import Decimal
 from enum import Enum
-from os import scandir, DirEntry
-from os.path import join, realpath, exists
+from os import DirEntry, scandir
+from os.path import exists, join, realpath
 from typing import Any, Dict, List, NamedTuple, Optional, Set, Union, cast
 
 from hummingbot import get_strategy_list, root_path

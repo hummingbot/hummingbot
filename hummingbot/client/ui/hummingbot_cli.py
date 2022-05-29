@@ -2,7 +2,7 @@ import asyncio
 import logging
 import threading
 from contextlib import ExitStack
-from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.clipboard.pyperclip import PyperclipClipboard

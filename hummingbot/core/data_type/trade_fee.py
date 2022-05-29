@@ -2,13 +2,7 @@ import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    Type
-)
+from typing import Any, Dict, List, Optional, Type
 
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.data_type.common import PositionAction, PriceType, TradeType

@@ -1,6 +1,7 @@
 import asyncio
 import re
 import unittest
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Dict, Optional
 from unittest.mock import AsyncMock, patch
 
@@ -15,7 +16,6 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_st
 )
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):

@@ -1,15 +1,15 @@
-import aiohttp
 import asyncio
 import json
 import re
-from typing import Awaitable, Optional
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from typing import Awaitable, Optional
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
+import aiohttp
+from aioresponses import aioresponses
 from bidict import bidict
 
-from aioresponses import aioresponses
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.connector.utils import build_api_factory

@@ -3,22 +3,13 @@ import threading
 import time
 from datetime import datetime
 from decimal import Decimal
-from typing import (
-    List,
-    Optional,
-    Set,
-    Tuple,
-    TYPE_CHECKING,
-)
+from typing import TYPE_CHECKING, List, Optional, Set, Tuple
 
 import pandas as pd
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.client.settings import (
-    AllConnectorSettings,
-    MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT,
-)
+from hummingbot.client.settings import MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT, AllConnectorSettings
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.model.trade_fill import TradeFill

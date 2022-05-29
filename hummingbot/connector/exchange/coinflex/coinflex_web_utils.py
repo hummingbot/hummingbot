@@ -2,16 +2,12 @@ import asyncio
 import logging
 import random
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Dict,
-    Mapping,
-    Optional,
-)
+from typing import Any, Dict, Mapping, Optional
 from urllib.parse import urlencode
 
-import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 import ujson
+
+import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import EndpointRESTRequest, RESTMethod, RESTResponse

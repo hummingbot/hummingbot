@@ -1,13 +1,9 @@
-from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    Optional,
-    Tuple,
-)
 import asyncio
-from hummingbot.core.data_type.common import OrderType, TradeType
+from decimal import Decimal
+from typing import Any, Dict, Optional, Tuple
+
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class DigifinexInFlightOrder(InFlightOrderBase):

@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_user_stream_data_source import (
-    AscendExAPIUserStreamDataSource
+    AscendExAPIUserStreamDataSource,
 )
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler

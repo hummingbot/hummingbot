@@ -1,9 +1,5 @@
 import logging
-from typing import (
-    Any,
-    Optional,
-    Dict
-)
+from typing import Any, Dict, Optional
 
 from hummingbot.connector.exchange.mexc.mexc_order_book_message import MexcOrderBookMessage
 from hummingbot.core.data_type.common import TradeType

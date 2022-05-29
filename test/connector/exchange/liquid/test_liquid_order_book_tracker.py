@@ -2,25 +2,15 @@ import asyncio
 import logging
 import math
 import unittest
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from typing import Dict, List, Optional
 
 from hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
 from hummingbot.connector.exchange.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    OrderBookEvent,
-    OrderBookTradeEvent,
-)
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 
 
 class LiquidOrderBookTrackerUnitTest(unittest.TestCase):

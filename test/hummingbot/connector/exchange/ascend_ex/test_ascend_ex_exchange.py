@@ -3,6 +3,7 @@ import json
 import re
 import unittest
 from decimal import Decimal
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -23,15 +24,9 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    MarketEvent,
-    MarketOrderFailureEvent,
-    OrderFilledEvent,
-)
+from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketEvent, MarketOrderFailureEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class TestAscendExExchange(unittest.TestCase):

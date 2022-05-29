@@ -1,19 +1,18 @@
 # -*- coding: utf-8 -*-
 
-import logging
 import asyncio
-import time
 import json
+import logging
+import time
+from typing import AsyncIterable, List, Optional
+
 import websockets
-
-from typing import AsyncIterable, Optional, List
 from websockets.exceptions import ConnectionClosed
-
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
 
 from hummingbot.connector.exchange.beaxy.beaxy_auth import BeaxyAuth
 from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_gather
 
 
 class BeaxyAPIUserStreamDataSource(UserStreamTrackerDataSource):

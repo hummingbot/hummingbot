@@ -2,7 +2,7 @@ import asyncio
 import logging
 import sys
 import unittest
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 from hummingbot.connector.exchange.beaxy.beaxy_order_book_tracker import BeaxyOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook

@@ -3,10 +3,7 @@ from decimal import Decimal
 from unittest import TestCase
 
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType,
-)
+from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.model.trade_fill import TradeFill
 
 

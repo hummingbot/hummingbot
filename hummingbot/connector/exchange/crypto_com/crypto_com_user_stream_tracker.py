@@ -3,16 +3,14 @@ from typing import Optional
 
 import aiohttp
 
-from hummingbot.connector.exchange.crypto_com.crypto_com_api_user_stream_data_source import \
-    CryptoComAPIUserStreamDataSource
+from hummingbot.connector.exchange.crypto_com.crypto_com_api_user_stream_data_source import (
+    CryptoComAPIUserStreamDataSource,
+)
 from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
 from hummingbot.connector.exchange.crypto_com.crypto_com_constants import EXCHANGE_NAME
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
 

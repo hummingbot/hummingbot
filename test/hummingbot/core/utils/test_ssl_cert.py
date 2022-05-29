@@ -3,19 +3,19 @@ Unit tests for hummingbot.core.utils.ssl_cert
 """
 
 import os
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from hummingbot.core.gateway import GatewayPaths
 from hummingbot.core.utils.ssl_cert import (
+    certs_files_exist,
+    create_self_sign_certs,
+    generate_csr,
     generate_private_key,
     generate_public_key,
-    generate_csr,
     sign_csr,
-    create_self_sign_certs,
-    certs_files_exist,
 )
 
 

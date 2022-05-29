@@ -11,9 +11,9 @@ import hummingbot.connector.connector_metrics_collector
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.connector_metrics_collector import DummyMetricsCollector, TradeVolumeMetricCollector
-from hummingbot.core.data_type.common import TradeType, OrderType
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.event.events import OrderFilledEvent, MarketEvent
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 

@@ -1,13 +1,13 @@
-import aioprocessing
+import os
 from dataclasses import dataclass
 from decimal import Decimal
-import os
 from pathlib import Path
-from typing import Optional, Any, Dict, AsyncIterable, List
+from typing import Any, AsyncIterable, Dict, List, Optional
+
+import aioprocessing
 
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils import detect_available_port
-
 
 _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None

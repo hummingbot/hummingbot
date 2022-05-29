@@ -1,11 +1,9 @@
-from typing import (
-    List,
-    Tuple,
-)
 from decimal import Decimal
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from typing import List, Tuple
+
 from hummingbot.strategy.celo_arb.celo_arb import CeloArbStrategy
 from hummingbot.strategy.celo_arb.celo_arb_config_map import celo_arb_config_map
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 def start(self):

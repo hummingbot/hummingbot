@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
+import logging as _logging
 import os
+
 from hummingbot.client.config.global_config_map import connector_keys
 
-import logging as _logging
 _logger = _logging.getLogger(__name__)
 
 master_host = "***REMOVED***"

@@ -3,7 +3,7 @@ import logging
 import math
 import time
 import unittest
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 from async_timeout import timeout
 

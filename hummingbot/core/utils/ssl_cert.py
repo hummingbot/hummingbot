@@ -2,16 +2,17 @@
 Functions for generating keys and certificates
 """
 
-from cryptography import x509
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.x509.oid import NameOID
 from datetime import datetime, timedelta
-from hummingbot.core.gateway import get_gateway_paths
 from os import listdir
 from os.path import join
+
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
+
+from hummingbot.core.gateway import get_gateway_paths
 
 CERT_SUBJECT = [
     x509.NameAttribute(NameOID.ORGANIZATION_NAME, 'localhost'),

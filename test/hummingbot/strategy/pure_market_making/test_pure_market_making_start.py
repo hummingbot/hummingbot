@@ -1,13 +1,11 @@
 import unittest.mock
 from decimal import Decimal
+from test.hummingbot.strategy import assign_config_default
 
 import hummingbot.strategy.pure_market_making.start as strategy_start
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.data_type.common import PriceType
-from hummingbot.strategy.pure_market_making.pure_market_making_config_map import (
-    pure_market_making_config_map as c_map
-)
-from test.hummingbot.strategy import assign_config_default
+from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map as c_map
 
 
 class PureMarketMakingStartTest(unittest.TestCase):

@@ -1,17 +1,13 @@
-import aiohttp
 import asyncio
 import logging
 import time
+from typing import Any, Dict, Optional
+
+import aiohttp
 import ujson
 
-from typing import (
-    Any,
-    Dict,
-    Optional,
-)
-
-from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
+from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource

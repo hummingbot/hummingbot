@@ -1,12 +1,10 @@
-from typing import (
-    List,
-    Tuple,
-)
 from decimal import Decimal
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
+from typing import List, Tuple
+
 from hummingbot.strategy.arbitrage.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.arbitrage.arbitrage_config_map import arbitrage_config_map
+from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 def start(self):

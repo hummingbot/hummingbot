@@ -9,8 +9,7 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 import aiohttp
 from async_timeout import timeout
 
-from hummingbot.connector.exchange.wazirx import wazirx_constants as CONSTANTS
-from hummingbot.connector.exchange.wazirx import wazirx_utils
+from hummingbot.connector.exchange.wazirx import wazirx_constants as CONSTANTS, wazirx_utils
 from hummingbot.connector.exchange.wazirx.wazirx_auth import WazirxAuth
 from hummingbot.connector.exchange.wazirx.wazirx_in_flight_order import WazirxInFlightOrder
 from hummingbot.connector.exchange.wazirx.wazirx_order_book_tracker import WazirxOrderBookTracker

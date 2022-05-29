@@ -6,7 +6,7 @@ from typing import Awaitable
 from unittest.mock import MagicMock, patch
 
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.core.data_type.common import PositionAction, OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.trade import Trade
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle

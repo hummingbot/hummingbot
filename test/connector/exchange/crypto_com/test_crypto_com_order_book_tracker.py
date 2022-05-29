@@ -3,10 +3,11 @@ import logging
 import math
 import time
 import unittest
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
-from hummingbot.connector.exchange.crypto_com.crypto_com_api_order_book_data_source import \
-    CryptoComAPIOrderBookDataSource
+from hummingbot.connector.exchange.crypto_com.crypto_com_api_order_book_data_source import (
+    CryptoComAPIOrderBookDataSource,
+)
 from hummingbot.connector.exchange.crypto_com.crypto_com_order_book_tracker import CryptoComOrderBookTracker
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook

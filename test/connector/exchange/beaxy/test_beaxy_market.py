@@ -1,27 +1,23 @@
-import os
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-import logging
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 import asyncio
-import json
 import contextlib
+import json
+import logging
+import os
 import time
 import unittest
-from unittest import mock
-import conf
 from decimal import Decimal
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from os.path import join, realpath
+from test.connector.exchange.beaxy.fixture_beaxy import FixtureBeaxy
+from typing import List
+from unittest import mock
+
+import conf
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-from hummingbot.core.mock_api.mock_web_server import MockWebServer
-from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
+from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
+from hummingbot.connector.exchange.beaxy.beaxy_exchange import BeaxyExchange
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -33,14 +29,12 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.connector.exchange.beaxy.beaxy_exchange import BeaxyExchange
-from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
-from typing import (
-    List,
-)
-from test.connector.exchange.beaxy.fixture_beaxy import FixtureBeaxy
+from hummingbot.core.mock_api.mock_web_server import MockWebServer
+from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']

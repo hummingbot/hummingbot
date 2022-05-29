@@ -5,7 +5,7 @@ import platform
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from os.path import dirname, join, realpath
-from typing import List, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Tuple
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair

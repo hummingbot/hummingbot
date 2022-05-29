@@ -1,6 +1,5 @@
-from unittest import TestCase
+from unittest import TestCase, mock
 from unittest.mock import patch
-from unittest import mock
 
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils as utils
 

@@ -1,19 +1,19 @@
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 import asyncio
-import logging
-from decimal import Decimal
-import unittest
 import contextlib
-import time
-import os
-from typing import List
-import conf
+import logging
 import math
+import os
+import time
+import unittest
+from decimal import Decimal
+from os.path import join, realpath
+from typing import List
 
+import conf
+from hummingbot.connector.exchange.hitbtc.hitbtc_exchange import HitbtcExchange
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.core.utils.async_utils import safe_gather, safe_ensure_future
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -24,16 +24,15 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.core.data_type.common import OrderType
-from hummingbot.model.sql_connection_manager import (
-    SQLConnectionManager,
-    SQLConnectionType
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
+from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.connector.exchange.hitbtc.hitbtc_exchange import HitbtcExchange
+
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
+
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 

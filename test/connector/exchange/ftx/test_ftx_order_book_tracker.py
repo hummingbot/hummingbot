@@ -1,23 +1,21 @@
 #!/usr/bin/env python
-import math
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-
 import asyncio
 import logging
+import math
 import unittest
-from typing import (
-    Dict,
-    Optional,
-    List,
-)
+from os.path import join, realpath
+from typing import Dict, List, Optional
 
-from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.connector.exchange.ftx.ftx_order_book_tracker import FtxOrderBookTracker
-from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
+
+
 
 
 class FtxOrderBookTrackerUnitTest(unittest.TestCase):

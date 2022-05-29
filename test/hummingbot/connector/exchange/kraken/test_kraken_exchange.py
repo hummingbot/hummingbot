@@ -4,6 +4,7 @@ import re
 import unittest
 from decimal import Decimal
 from functools import partial
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Dict
 
 from aioresponses import aioresponses
@@ -22,7 +23,6 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class KrakenExchangeTest(unittest.TestCase):

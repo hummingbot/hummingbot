@@ -6,10 +6,7 @@ from hummingbot.connector.exchange.loopring.loopring_api_user_stream_data_source
 from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
 

@@ -1,18 +1,15 @@
-from typing import (
-    List,
-    Tuple,
-)
+from decimal import Decimal
+from typing import List, Tuple
 
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
-from hummingbot.strategy.api_asset_price_delegate import APIAssetPriceDelegate
-from hummingbot.strategy.perpetual_market_making import (
-    PerpetualMarketMakingStrategy,
-)
-from hummingbot.strategy.perpetual_market_making.perpetual_market_making_config_map import perpetual_market_making_config_map as c_map
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
-from decimal import Decimal
+from hummingbot.strategy.api_asset_price_delegate import APIAssetPriceDelegate
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
+from hummingbot.strategy.perpetual_market_making import PerpetualMarketMakingStrategy
+from hummingbot.strategy.perpetual_market_making.perpetual_market_making_config_map import (
+    perpetual_market_making_config_map as c_map,
+)
 
 
 def start(self):

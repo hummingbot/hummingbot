@@ -2,11 +2,8 @@ from decimal import Decimal
 from typing import List, Optional
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from .data_types import (
-    ArbProposal,
-    ArbProposalSide,
-    TokenAmount,
-)
+
+from .data_types import ArbProposal, ArbProposalSide, TokenAmount
 
 s_decimal_nan = Decimal("NaN")
 

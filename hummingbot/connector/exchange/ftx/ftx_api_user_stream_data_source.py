@@ -1,18 +1,16 @@
 import asyncio
-from decimal import Decimal
+import json
 import logging
 import time
-from typing import (
-    AsyncIterable,
-    Dict,
-    Optional
-)
-import json
+from decimal import Decimal
+from typing import AsyncIterable, Dict, Optional
+
 import simplejson
 import websockets
+
+from hummingbot.connector.exchange.ftx.ftx_auth import FtxAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.ftx.ftx_auth import FtxAuth
 
 FTX_API_ENDPOINT = "wss://ftx.com/ws/"
 FTX_USER_STREAM_ENDPOINT = "userDataStream"

@@ -1,11 +1,9 @@
 import asyncio
 import time
-from typing import (
-    Dict,
-    Optional,
-)
+from typing import Dict, Optional
 
 import aiohttp
+
 from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
 
 

@@ -6,9 +6,10 @@ import unittest
 from typing import Awaitable
 from unittest.mock import patch
 
+from aioresponses.core import aioresponses
+
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 import hummingbot.connector.exchange.coinflex.coinflex_web_utils as web_utils
-from aioresponses.core import aioresponses
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 

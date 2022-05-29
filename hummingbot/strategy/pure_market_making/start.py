@@ -1,22 +1,15 @@
-from typing import (
-    List,
-    Tuple,
-    Optional
-)
+from decimal import Decimal
+from typing import List, Optional, Tuple
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
-from hummingbot.strategy.api_asset_price_delegate import APIAssetPriceDelegate
-from hummingbot.strategy.pure_market_making import (
-    PureMarketMakingStrategy,
-    InventoryCostPriceDelegate,
-)
-from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map as c_map
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
-from decimal import Decimal
+from hummingbot.strategy.api_asset_price_delegate import APIAssetPriceDelegate
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
+from hummingbot.strategy.pure_market_making import InventoryCostPriceDelegate, PureMarketMakingStrategy
 from hummingbot.strategy.pure_market_making.moving_price_band import MovingPriceBand
+from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map as c_map
 
 
 def start(self):

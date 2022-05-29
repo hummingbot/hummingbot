@@ -1,17 +1,15 @@
 import os
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 import pandas as pd
-from sqlalchemy.orm import (
-    Session,
-    Query
-)
+from sqlalchemy.orm import Query, Session
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import DEFAULT_LOG_FILE_PATH
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.model.trade_fill import TradeFill
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 

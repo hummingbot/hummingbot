@@ -1,10 +1,11 @@
 import asyncio
 import logging
 import unittest
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import \
-    BinancePerpetualOrderBookTracker
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import (
+    BinancePerpetualOrderBookTracker,
+)
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.event_logger import EventLogger

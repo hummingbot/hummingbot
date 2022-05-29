@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 
 import asyncio
-from contextlib import ExitStack
 import os
 import tempfile
 import unittest
+from contextlib import ExitStack
 
-from hummingbot.client.config.security import Security
 from hummingbot.client import settings
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_crypt import encrypt_n_save_config_value
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
 
 
 class ConfigSecurityNewPasswordUnitTest(unittest.TestCase):

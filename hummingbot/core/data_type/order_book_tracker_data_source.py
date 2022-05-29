@@ -1,13 +1,7 @@
-from abc import (
-    ABCMeta,
-    abstractmethod
-)
 import asyncio
-from typing import (
-    Callable,
-    Dict,
-    List,
-)
+from abc import ABCMeta, abstractmethod
+from typing import Callable, Dict, List
+
 from hummingbot.core.data_type.order_book import OrderBook
 
 

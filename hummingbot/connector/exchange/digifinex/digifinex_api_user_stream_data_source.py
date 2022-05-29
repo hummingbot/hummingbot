@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 
-import time
 import asyncio
 import logging
-from typing import Optional, List, AsyncIterable, Any
+import time
+from typing import Any, AsyncIterable, List, Optional
+
+from hummingbot.connector.exchange.digifinex import digifinex_utils
 from hummingbot.connector.exchange.digifinex.digifinex_global import DigifinexGlobal
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
+
 # from .digifinex_auth import DigifinexAuth
 from hummingbot.connector.exchange.digifinex.digifinex_websocket import DigifinexWebsocket
-from hummingbot.connector.exchange.digifinex import digifinex_utils
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.logger import HummingbotLogger
 
 
 class DigifinexAPIUserStreamDataSource(UserStreamTrackerDataSource):

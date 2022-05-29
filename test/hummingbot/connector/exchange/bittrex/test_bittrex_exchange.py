@@ -13,10 +13,7 @@ from hummingbot.connector.exchange.bittrex.bittrex_exchange import BittrexExchan
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderFilledEvent,
-)
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 
 
 class BittrexExchangeTest(unittest.TestCase):

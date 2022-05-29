@@ -9,13 +9,13 @@ from typing import Deque, Dict, List, Optional
 
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_order_book_data_source import (
-    CoinbaseProAPIOrderBookDataSource
+    CoinbaseProAPIOrderBookDataSource,
 )
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 

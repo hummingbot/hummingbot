@@ -1,8 +1,8 @@
 import hashlib
 import hmac
-import mock
-
 from unittest import TestCase
+
+import mock
 
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 

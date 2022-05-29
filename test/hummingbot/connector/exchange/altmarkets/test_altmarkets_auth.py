@@ -1,6 +1,5 @@
-from unittest.mock import patch
-
 from unittest import TestCase
+from unittest.mock import patch
 
 from hummingbot.connector.exchange.altmarkets.altmarkets_auth import AltmarketsAuth
 from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants

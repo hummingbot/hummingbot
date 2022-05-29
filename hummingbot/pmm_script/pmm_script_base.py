@@ -6,19 +6,17 @@ from operator import itemgetter
 from statistics import mean, median
 from typing import Any, Callable, Dict, List, Optional
 
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent
-)
+from hummingbot.core.event.events import BuyOrderCompletedEvent, SellOrderCompletedEvent
+
 from .pmm_script_interface import (
     CallLog,
     CallNotify,
     OnCommand,
     OnStatus,
     OnTick,
-    PMMParameters,
     PMMMarketInfo,
-    ScriptError
+    PMMParameters,
+    ScriptError,
 )
 
 

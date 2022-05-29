@@ -1,8 +1,5 @@
 import logging
-from typing import (
-    List,
-    Optional,
-)
+from typing import List, Optional
 
 import aiohttp
 
@@ -11,10 +8,7 @@ from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
 

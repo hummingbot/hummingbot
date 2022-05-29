@@ -1,23 +1,18 @@
 import datetime
-import pandas as pd
+import os.path
 from decimal import Decimal
-from typing import (
-    List,
-    Tuple,
-)
+from typing import List, Tuple
+
+import pandas as pd
 
 from hummingbot import data_path
-import os.path
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.strategy.conditional_execution_state import (
-    RunAlwaysExecutionState,
-    RunInTimeConditionalExecutionState
+from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
+from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map import (
+    avellaneda_market_making_config_map as c_map,
 )
+from hummingbot.strategy.conditional_execution_state import RunAlwaysExecutionState, RunInTimeConditionalExecutionState
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.avellaneda_market_making import (
-    AvellanedaMarketMakingStrategy,
-)
-from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map import avellaneda_market_making_config_map as c_map
 
 
 def start(self):

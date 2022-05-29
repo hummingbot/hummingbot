@@ -5,11 +5,13 @@ from typing import Any, Dict, Optional
 
 import aiohttp
 
-from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
-from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_utils
+from hummingbot.connector.derivative.bybit_perpetual import (
+    bybit_perpetual_constants as CONSTANTS,
+    bybit_perpetual_utils,
+)
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import (
-    BybitPerpetualWebSocketAdaptor
+    BybitPerpetualWebSocketAdaptor,
 )
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger

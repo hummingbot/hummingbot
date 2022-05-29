@@ -1,22 +1,19 @@
+import asyncio
+from os import unlink
+
 from hummingbot.client.config.config_crypt import (
-    list_encrypted_file_paths,
     decrypt_file,
-    secure_config_key,
-    encrypted_file_exists,
     encrypt_n_save_config_value,
-    encrypted_file_path
-)
-from hummingbot.core.utils.wallet_setup import (
-    list_wallets,
-    unlock_wallet,
-    import_and_save_wallet
+    encrypted_file_exists,
+    encrypted_file_path,
+    list_encrypted_file_paths,
+    secure_config_key,
 )
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
-import asyncio
-from os import unlink
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.wallet_setup import import_and_save_wallet, list_wallets, unlock_wallet
 
 
 class Security:

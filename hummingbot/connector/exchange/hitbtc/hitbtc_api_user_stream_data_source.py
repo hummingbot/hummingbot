@@ -1,17 +1,14 @@
 #!/usr/bin/env python
-import time
 import asyncio
 import logging
-from typing import (
-    Any,
-    AsyncIterable,
-    List,
-    Optional,
-)
+import time
+from typing import Any, AsyncIterable, List, Optional
+
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from .hitbtc_constants import Constants
+
 from .hitbtc_auth import HitbtcAuth
+from .hitbtc_constants import Constants
 from .hitbtc_utils import HitbtcAPIError
 from .hitbtc_websocket import HitbtcWebsocket
 

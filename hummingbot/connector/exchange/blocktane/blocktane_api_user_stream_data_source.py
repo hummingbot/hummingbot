@@ -3,14 +3,10 @@
 import asyncio
 import logging
 import time
+from typing import AsyncIterable, Dict, List, Optional
+
 import ujson
 import websockets
-from typing import (
-    AsyncIterable,
-    Dict,
-    Optional,
-    List
-)
 
 from hummingbot.connector.exchange.blocktane.blocktane_auth import BlocktaneAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource

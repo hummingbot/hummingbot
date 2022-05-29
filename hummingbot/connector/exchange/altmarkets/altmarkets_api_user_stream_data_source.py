@@ -1,19 +1,16 @@
 #!/usr/bin/env python
 
-import time
 import asyncio
 import logging
-from typing import (
-    Any,
-    AsyncIterable,
-    List,
-    Optional,
-)
+import time
+from typing import Any, AsyncIterable, List, Optional
+
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from .altmarkets_constants import Constants
+
 from .altmarkets_auth import AltmarketsAuth
+from .altmarkets_constants import Constants
 from .altmarkets_websocket import AltmarketsWebsocket
 
 

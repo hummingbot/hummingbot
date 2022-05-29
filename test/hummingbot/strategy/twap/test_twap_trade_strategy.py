@@ -1,17 +1,13 @@
 import time
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
+from test.hummingbot.strategy.twap.twap_test_support import MockExchange
 from unittest import TestCase
 
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode)
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.strategy.conditional_execution_state import RunInTimeConditionalExecutionState
-
-from hummingbot.strategy.twap import TwapTradeStrategy
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-
-from test.hummingbot.strategy.twap.twap_test_support import MockExchange
+from hummingbot.strategy.twap import TwapTradeStrategy
 
 
 class TwapTradeStrategyTest(TestCase):

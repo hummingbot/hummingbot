@@ -1,28 +1,26 @@
 #!/usr/bin/env python
-import sys
 import asyncio
-import unittest
-import conf
-import os
 import logging
-from async_timeout import timeout
+import os
+import sys
+import unittest
 from os.path import join, realpath
-from typing import Dict, Any
+from typing import Any, Dict
+
+from async_timeout import timeout
+
+import conf
+import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
+from hummingbot.connector.exchange.coinflex import coinflex_utils
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
 from hummingbot.connector.exchange.coinflex.coinflex_web_utils import (
+    CoinflexRESTRequest,
     api_call_with_retries,
     build_api_factory,
-    CoinflexRESTRequest,
 )
-from hummingbot.connector.exchange.coinflex import coinflex_utils
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.web_assistant.connections.data_types import (
-    RESTMethod,
-    RESTResponse,
-    WSRequest,
-)
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTResponse, WSRequest
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)

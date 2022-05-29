@@ -1,7 +1,7 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from hummingbot.core.data_type.common import TradeType, PositionAction
+from hummingbot.core.data_type.common import PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import TradeUpdate
 from hummingbot.core.data_type.trade_fee import (
     AddedToCostTradeFee,

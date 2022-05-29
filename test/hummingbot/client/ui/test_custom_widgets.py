@@ -1,7 +1,7 @@
 import asyncio
 import unittest
-
 from typing import Awaitable
+
 from prompt_toolkit.document import Document
 
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml

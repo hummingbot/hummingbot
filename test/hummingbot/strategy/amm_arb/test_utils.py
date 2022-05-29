@@ -1,9 +1,9 @@
+import asyncio
 import unittest
 from decimal import Decimal
-import asyncio
 
-from hummingbot.strategy.amm_arb import utils
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.strategy.amm_arb import utils
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 trading_pair = "HBOT-USDT"

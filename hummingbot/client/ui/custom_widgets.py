@@ -9,22 +9,18 @@ from prompt_toolkit.auto_suggest import DynamicAutoSuggest
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import DynamicCompleter
 from prompt_toolkit.document import Document
-from prompt_toolkit.filters import (Condition, has_focus, is_done, is_true,
-                                    to_filter)
+from prompt_toolkit.filters import Condition, has_focus, is_done, is_true, to_filter
 from prompt_toolkit.formatted_text.base import StyleAndTextTuples
 from prompt_toolkit.layout.containers import Window, WindowAlign
 from prompt_toolkit.layout.controls import BufferControl
 from prompt_toolkit.layout.margins import NumberedMargin, ScrollbarMargin
-from prompt_toolkit.layout.processors import (AppendAutoSuggestion,
-                                              BeforeInput,
-                                              ConditionalProcessor,
-                                              PasswordProcessor)
+from prompt_toolkit.layout.processors import AppendAutoSuggestion, BeforeInput, ConditionalProcessor, PasswordProcessor
 from prompt_toolkit.lexers import DynamicLexer
 from prompt_toolkit.lexers.base import Lexer
 from prompt_toolkit.widgets.toolbars import SearchToolbar
 
-from hummingbot.client.ui.style import load_style, text_ui_style
 from hummingbot.client.config.global_config_map import color_config_map
+from hummingbot.client.ui.style import load_style, text_ui_style
 
 
 class CustomBuffer(Buffer):

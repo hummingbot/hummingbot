@@ -1,8 +1,9 @@
 import asyncio
 import unittest
 from copy import deepcopy
+from test.mock.mock_cli import CLIMockingAssistant
 from typing import Awaitable
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 
@@ -10,7 +11,6 @@ from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from test.mock.mock_cli import CLIMockingAssistant
 
 
 class ConnectCommandTest(unittest.TestCase):

@@ -1,12 +1,9 @@
 from decimal import Decimal
 from typing import Optional, Union
 
-from hummingbot.connector.derivative.position import Position
-from hummingbot.core.data_type.common import (
-    PositionSide,
-    TradeType
-)
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_in_flight_order import DydxPerpetualInFlightOrder
+from hummingbot.connector.derivative.position import Position
+from hummingbot.core.data_type.common import PositionSide, TradeType
 
 
 class DydxPerpetualPosition(Position):

@@ -3,7 +3,7 @@ import logging
 import math
 import time
 import unittest
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource

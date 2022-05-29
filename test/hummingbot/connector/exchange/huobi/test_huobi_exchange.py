@@ -6,14 +6,11 @@ from unittest.mock import AsyncMock, patch
 
 from hummingbot.connector.exchange.huobi import huobi_constants as CONSTANTS, huobi_utils
 from hummingbot.connector.exchange.huobi.huobi_exchange import HuobiExchange
-from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.connector.utils import get_new_client_order_id
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderFilledEvent,
-)
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 
 
 class HuobiExchangeTests(TestCase):

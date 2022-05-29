@@ -2,19 +2,19 @@
 import asyncio
 import logging
 import time
+from typing import Any, AsyncIterable, Dict, List, Optional
+
 import aiohttp
 import ujson
 import websockets
 
 import hummingbot.connector.exchange.k2.k2_constants as constants
-
-from typing import Optional, List, Dict, AsyncIterable, Any
+from hummingbot.connector.exchange.k2 import k2_utils
+from hummingbot.connector.exchange.k2.k2_order_book import K2OrderBook
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.k2.k2_order_book import K2OrderBook
-from hummingbot.connector.exchange.k2 import k2_utils
 
 
 class K2APIOrderBookDataSource(OrderBookTrackerDataSource):

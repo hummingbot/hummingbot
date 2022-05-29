@@ -1,10 +1,8 @@
 import asyncio
 import logging
-
 from typing import Optional
 
 import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
-
 from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 from hummingbot.connector.exchange.huobi.huobi_utils import build_api_factory
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource

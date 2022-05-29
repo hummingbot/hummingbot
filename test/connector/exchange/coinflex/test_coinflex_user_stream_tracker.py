@@ -1,19 +1,18 @@
 #!/usr/bin/env python
 
-import sys
 import asyncio
 import logging
-import unittest
-import conf
 import os
-
+import sys
+import unittest
 from os.path import join, realpath
-from hummingbot.connector.exchange.coinflex.coinflex_user_stream_tracker import CoinflexUserStreamTracker
+
+import conf
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
+from hummingbot.connector.exchange.coinflex.coinflex_user_stream_tracker import CoinflexUserStreamTracker
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)

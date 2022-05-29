@@ -7,6 +7,7 @@ import time
 import unittest
 from decimal import Decimal
 from os.path import join, realpath
+from test.connector.exchange.digifinex import fixture
 from typing import List
 
 import conf
@@ -24,16 +25,12 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.core.utils.async_utils import safe_gather, safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
-from hummingbot.model.sql_connection_manager import (
-    SQLConnectionManager,
-    SQLConnectionType
-)
+from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
-from test.connector.exchange.digifinex import fixture
 
 # API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 API_MOCK_ENABLED = False

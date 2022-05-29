@@ -2,12 +2,8 @@ import unittest
 
 import pandas as pd
 
-from hummingbot.core.clock import (
-    ClockMode,
-    Clock
-)
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import TradeType
-
 
 # class CompositeOrderBookTestStrategy(UnitTestStrategy):
 #     """

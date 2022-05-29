@@ -1,26 +1,10 @@
 from datetime import datetime
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, Dict, List, Optional
 
 import numpy
 import pandas as pd
-from sqlalchemy import (
-    BigInteger,
-    Column,
-    ForeignKey,
-    Index,
-    Integer,
-    JSON,
-    Text,
-)
-from sqlalchemy.orm import (
-    relationship,
-    Session
-)
+from sqlalchemy import JSON, BigInteger, Column, ForeignKey, Index, Integer, Text
+from sqlalchemy.orm import Session, relationship
 
 from hummingbot.core.event.events import PositionAction
 from hummingbot.model import HummingbotBase

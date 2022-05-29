@@ -3,7 +3,7 @@ import logging
 import math
 import time
 import unittest
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 from hummingbot.connector.exchange.digifinex.digifinex_api_order_book_data_source import DigifinexAPIOrderBookDataSource
 from hummingbot.connector.exchange.digifinex.digifinex_order_book_tracker import DigifinexOrderBookTracker

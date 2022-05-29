@@ -1,7 +1,7 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder, WORKING_LOCAL_STATUS
+from hummingbot.connector.exchange.ndax.ndax_in_flight_order import WORKING_LOCAL_STATUS, NdaxInFlightOrder
 from hummingbot.core.data_type.common import OrderType, TradeType
 
 

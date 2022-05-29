@@ -13,10 +13,7 @@ from hummingbot.client.config.fee_overrides_config_map import fee_overrides_conf
 from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
 from hummingbot.connector.exchange.kraken.kraken_utils import convert_to_exchange_trading_pair
 from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode,
-)
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
@@ -31,10 +28,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
-from hummingbot.model.sql_connection_manager import (
-    SQLConnectionManager,
-    SQLConnectionType
-)
+from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
 
 PAIR = "ETH-USDC"

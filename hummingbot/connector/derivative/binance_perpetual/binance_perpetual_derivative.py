@@ -12,14 +12,15 @@ import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_u
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
-    BinancePerpetualAPIOrderBookDataSource
+    BinancePerpetualAPIOrderBookDataSource,
 )
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import (
-    BinancePerpetualOrderBookTracker
+    BinancePerpetualOrderBookTracker,
 )
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source import \
-    BinancePerpetualUserStreamDataSource
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source import (
+    BinancePerpetualUserStreamDataSource,
+)
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN

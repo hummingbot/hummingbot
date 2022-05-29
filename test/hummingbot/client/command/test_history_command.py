@@ -5,8 +5,9 @@ import unittest
 from copy import deepcopy
 from decimal import Decimal
 from pathlib import Path
+from test.mock.mock_cli import CLIMockingAssistant
 from typing import Awaitable, List
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.config.global_config_map import global_config_map
@@ -16,7 +17,6 @@ from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
-from test.mock.mock_cli import CLIMockingAssistant
 
 
 class HistoryCommandTest(unittest.TestCase):

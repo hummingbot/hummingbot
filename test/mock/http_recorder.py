@@ -1,22 +1,14 @@
-from aiohttp import ClientSession, ClientResponse
+import time
 from contextlib import contextmanager
 from enum import Enum
-from sqlalchemy import (
-    JSON,
-    Text,
-    Column,
-    Integer,
-    BigInteger,
-    Enum as SQLEnum,
-    create_engine,
-    and_,
-)
+from typing import Any, Callable, Dict, Generator, Optional, Type, cast
+from weakref import ReferenceType, ref
+
+from aiohttp import ClientResponse, ClientSession
+from sqlalchemy import JSON, BigInteger, Column, Enum as SQLEnum, Integer, Text, and_, create_engine
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session, Query
-import time
-from typing import Callable, Optional, Any, Generator, Type, Dict, cast
-from weakref import ref, ReferenceType
+from sqlalchemy.orm import Query, Session, sessionmaker
 
 from hummingbot.model.transaction_base import TransactionBase
 

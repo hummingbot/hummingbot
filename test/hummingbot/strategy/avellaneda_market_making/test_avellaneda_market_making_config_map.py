@@ -4,14 +4,14 @@ from copy import deepcopy
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map import (
     avellaneda_market_making_config_map,
-    maker_trading_pair_prompt,
-    order_amount_prompt,
-    execution_time_start_prompt,
     execution_time_end_prompt,
+    execution_time_start_prompt,
+    maker_trading_pair_prompt,
+    on_validated_execution_timeframe,
+    order_amount_prompt,
     validate_exchange_trading_pair,
-    validate_execution_timeframe,
     validate_execution_time,
-    on_validated_execution_timeframe
+    validate_execution_timeframe,
 )
 
 

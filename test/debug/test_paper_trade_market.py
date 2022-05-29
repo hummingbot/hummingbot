@@ -14,10 +14,7 @@ from hummingbot.connector.exchange.binance.binance_api_order_book_data_source im
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import PaperTradeExchange, QueuedOrder
 from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode,
-)
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book_row import OrderBookRow
@@ -27,16 +24,13 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
+    OrderBookTradeEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderBookTradeEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 
 logging.basicConfig(level=logging.INFO)
 sys.path.insert(0, realpath(join(__file__, "../../../")))

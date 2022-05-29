@@ -3,6 +3,7 @@ import json
 import re
 import unittest
 from collections import Awaitable, deque
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Dict
 from unittest.mock import AsyncMock, patch
 
@@ -16,7 +17,6 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):

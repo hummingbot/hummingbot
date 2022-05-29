@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
-from datetime import time
+from datetime import datetime, time
 from typing import Union
 
 from hummingbot.strategy.strategy_base import StrategyBase

@@ -1,18 +1,14 @@
-import time
 import asyncio
 import logging
-from typing import (
-    Any,
-    AsyncIterable,
-    List,
-    Optional,
-)
+import time
+from typing import Any, AsyncIterable, List, Optional
 
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from .coinzoom_constants import Constants
+
 from .coinzoom_auth import CoinzoomAuth
+from .coinzoom_constants import Constants
 from .coinzoom_utils import CoinzoomAPIError
 from .coinzoom_websocket import CoinzoomWebsocket
 

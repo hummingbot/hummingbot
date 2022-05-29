@@ -1,16 +1,9 @@
 import asyncio
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    Optional,
-)
+from typing import Any, Dict, Optional
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.data_type.common import (
-    OrderType,
-    TradeType
-)
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class ProbitInFlightOrder(InFlightOrderBase):

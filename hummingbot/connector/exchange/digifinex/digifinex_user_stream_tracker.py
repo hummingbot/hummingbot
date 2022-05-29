@@ -1,21 +1,14 @@
 import logging
-from typing import (
-    List,
-    Optional,
-)
+from typing import List, Optional
 
-from hummingbot.connector.exchange.digifinex.digifinex_api_user_stream_data_source import \
-    DigifinexAPIUserStreamDataSource
+from hummingbot.connector.exchange.digifinex.digifinex_api_user_stream_data_source import (
+    DigifinexAPIUserStreamDataSource,
+)
 from hummingbot.connector.exchange.digifinex.digifinex_constants import EXCHANGE_NAME
 from hummingbot.connector.exchange.digifinex.digifinex_global import DigifinexGlobal
-from hummingbot.core.data_type.user_stream_tracker import (
-    UserStreamTracker
-)
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
 

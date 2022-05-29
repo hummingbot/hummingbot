@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional
 
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_user_stream_data_source import (
-    CoinbaseProAPIUserStreamDataSource
+    CoinbaseProAPIUserStreamDataSource,
 )
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource

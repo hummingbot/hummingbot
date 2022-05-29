@@ -1,8 +1,5 @@
 import asyncio
-from abc import (
-    ABCMeta,
-    abstractmethod,
-)
+from abc import ABCMeta, abstractmethod
 
 
 class UserStreamTrackerDataSource(metaclass=ABCMeta):

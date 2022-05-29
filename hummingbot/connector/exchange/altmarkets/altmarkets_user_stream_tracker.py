@@ -1,22 +1,15 @@
 import logging
-from typing import (
-    List,
-    Optional,
-)
+from typing import List, Optional
 
-from hummingbot.connector.exchange.altmarkets.altmarkets_api_user_stream_data_source import \
-    AltmarketsAPIUserStreamDataSource
+from hummingbot.connector.exchange.altmarkets.altmarkets_api_user_stream_data_source import (
+    AltmarketsAPIUserStreamDataSource,
+)
 from hummingbot.connector.exchange.altmarkets.altmarkets_auth import AltmarketsAuth
 from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.user_stream_tracker import (
-    UserStreamTracker
-)
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
 

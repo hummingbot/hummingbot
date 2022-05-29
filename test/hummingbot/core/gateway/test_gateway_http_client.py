@@ -1,17 +1,17 @@
-from aiounittest import async_test
-from aiohttp import ClientSession
 import asyncio
+import unittest
 from contextlib import ExitStack
 from decimal import Decimal
 from os.path import join, realpath
-from typing import List, Dict, Any
-import unittest
+from test.mock.http_recorder import HttpPlayer
+from typing import Any, Dict, List
 from unittest.mock import patch
+
+from aiohttp import ClientSession
+from aiounittest import async_test
 
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-
-from test.mock.http_recorder import HttpPlayer
 
 ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
