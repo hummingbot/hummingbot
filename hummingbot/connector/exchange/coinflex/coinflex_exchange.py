@@ -31,7 +31,7 @@ from hummingbot.logger import HummingbotLogger
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
-NaN = float("nan")
+s_float_NaN = float("nan")
 
 
 class CoinflexExchange(ExchangeBase):
@@ -444,7 +444,7 @@ class CoinflexExchange(ExchangeBase):
                             trading_pair: str,
                             amount: Decimal,
                             order_type: OrderType,
-                            price: Optional[Decimal] = Decimal("NaN")):
+                            price: Optional[Decimal] = s_decimal_NaN):
         """
         Creates a an order in the exchange using the parameters to configure it
         :param trade_type: the side of the order (BUY of SELL)
@@ -489,7 +489,7 @@ class CoinflexExchange(ExchangeBase):
             api_factory=self._api_factory,
             throttler=self._throttler)
 
-        if self.current_timestamp == NaN:
+        if self.current_timestamp == s_float_NaN:
             raise ValueError("Cannot create orders while connector is starting/stopping.")
 
         api_params = {"responseType": "FULL"}
@@ -843,7 +843,7 @@ class CoinflexExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=client_order_id,
                 trading_pair=tracked_order.trading_pair,
-                update_timestamp=self.current_timestamp if self.current_timestamp != NaN else int(time.time()),
+                update_timestamp=self.current_timestamp if self.current_timestamp != s_float_NaN else int(time.time()),
                 new_state=OrderState.FAILED,
             )
             self._order_tracker.process_order_update(order_update)
