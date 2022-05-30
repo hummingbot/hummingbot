@@ -10,6 +10,7 @@ import { EthereumBase } from './ethereum-base';
 import { Provider } from '@ethersproject/abstract-provider';
 import { CurrencyAmount, Token } from '@uniswap/sdk';
 import { Trade } from '@uniswap/router-sdk';
+import { Trade as UniswapV3Trade } from '@uniswap/v3-sdk';
 import {
   TradeType,
   Currency,
@@ -23,16 +24,31 @@ import {
   Trade as TradePangolin,
   Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
-
-export type Tokenish = Token | TokenPangolin | UniswapCoreToken;
+import {
+  Token as TokenTraderjoe,
+  CurrencyAmount as CurrencyAmountTraderjoe,
+  Trade as TradeTraderjoe,
+  Fraction as TraderjoeFraction,
+} from '@traderjoe-xyz/sdk';
+export type Tokenish =
+  | Token
+  | TokenPangolin
+  | TokenTraderjoe
+  | UniswapCoreToken;
 export type UniswapishTrade =
+  | Trade<Currency, Currency, TradeType>
   | TradePangolin
-  | Trade<Currency, Currency, TradeType>;
+  | TradeTraderjoe
+  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
+  | CurrencyAmountTraderjoe
   | UniswapCoreCurrencyAmount<Currency>;
-export type Fractionish = UniswapFraction | PangolinFraction;
+export type Fractionish =
+  | UniswapFraction
+  | PangolinFraction
+  | TraderjoeFraction;
 
 export interface ExpectedTrade {
   trade: UniswapishTrade;

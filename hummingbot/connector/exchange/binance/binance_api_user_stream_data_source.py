@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from typing import Optional
+from typing import List, Optional
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
@@ -26,6 +26,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(self,
                  auth: BinanceAuth,
+                 trading_pairs: List[str],
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  api_factory: Optional[WebAssistantsFactory] = None,
                  throttler: Optional[AsyncThrottler] = None,
@@ -34,7 +35,6 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._auth: BinanceAuth = auth
         self._time_synchronizer = time_synchronizer
         self._current_listen_key = None
-        self._last_recv_time: float = 0
         self._domain = domain
         self._throttler = throttler
         self._api_factory = api_factory or web_utils.build_api_factory(
