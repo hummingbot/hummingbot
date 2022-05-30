@@ -658,10 +658,9 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             if not tracked_order:
                 return
             try:
-                async with timeout(self._sleep_time(10)):
-                    await tracked_order.get_exchange_order_id()
+                await tracked_order.get_exchange_order_id()
             except asyncio.TimeoutError:
-                self.logger().error(f"Failed to get exchange order id for order: {tracked_order}")
+                self.logger().error(f"Failed to get exchange order id for order: {tracked_order.__dict__}")
                 raise
             await self._update_order_fills_from_event_or_create(tracked_order, order_data)
             order_update = OrderUpdate(
@@ -946,8 +945,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         # If we get the exchange order id, use that, otherwise use client order id.
         try:
-            async with timeout(self._sleep_time(1)):
-                await tracked_order.get_exchange_order_id()
+            await tracked_order.get_exchange_order_id()
             order_params["orderId"] = tracked_order.exchange_order_id
         except asyncio.TimeoutError:
             order_params["clientOrderId"] = tracked_order.client_order_id

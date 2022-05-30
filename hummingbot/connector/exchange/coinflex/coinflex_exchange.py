@@ -724,8 +724,7 @@ class CoinflexExchange(ExchangeBase):
                     if not tracked_order:
                         return
                     try:
-                        async with timeout(self._sleep_time(10)):
-                            await tracked_order.get_exchange_order_id()
+                        await tracked_order.get_exchange_order_id()
                     except asyncio.TimeoutError:
                         self.logger().error(f"Failed to get exchange order id for order: {tracked_order.client_order_id}")
                         raise
@@ -865,8 +864,7 @@ class CoinflexExchange(ExchangeBase):
 
         # If we get the exchange order id, use that, otherwise use client order id.
         try:
-            async with timeout(self._sleep_time(1)):
-                await tracked_order.get_exchange_order_id()
+            await tracked_order.get_exchange_order_id()
             order_params["orderId"] = tracked_order.exchange_order_id
         except asyncio.TimeoutError:
             order_params["clientOrderId"] = tracked_order.client_order_id

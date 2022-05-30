@@ -214,7 +214,7 @@ class CoinflexPerpetualDerivativeUnitTest(unittest.TestCase):
 
         order_data = {
             "clientOrderId": client_order_id or order.client_order_id,
-            "orderId": int(order.exchange_order_id if order else 1),
+            "orderId": int(order.exchange_order_id if order and order.exchange_order_id else 1),
             "timestamp": 1499405658658,
             "status": status,
             "side": side if not order else order.trade_type.name,
@@ -837,6 +837,51 @@ class CoinflexPerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
         self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.test_task)
+
+    def test_user_stream_event_queue_error_is_logged(self):
+        self.test_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
+
+        dummy_user_stream = AsyncMock()
+        dummy_user_stream.get.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
+            Exception("Dummy test error")
+        )
+        self.exchange._user_stream_tracker._user_stream = dummy_user_stream
+
+        self.async_run_with_timeout(self.resume_test_event.wait())
+        self.resume_test_event.clear()
+
+        self.assertTrue(self._is_logged("NETWORK", "Unknown error. Retrying after 1 seconds."))
+
+    @patch("hummingbot.core.data_type.in_flight_order.GET_EX_ORDER_ID_TIMEOUT", 0.0)
+    def test_user_stream_event_order_not_created_error(self):
+        self.test_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position=PositionAction.OPEN,
+        )
+
+        order = self.exchange.in_flight_orders.get("OID1")
+
+        partial_fill = self._get_mock_user_stream_order_data(order=order)
+
+        dummy_user_stream = AsyncMock()
+        dummy_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                              lambda: partial_fill)
+
+        self.exchange._user_stream_tracker._user_stream = dummy_user_stream
+
+        self.async_run_with_timeout(self.resume_test_event.wait())
+        self.resume_test_event.clear()
+
+        self.assertTrue(self._is_logged("ERROR", f"Failed to get exchange order id for order: {order.__dict__}"))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error in user stream listener loop: "))
 
     @aioresponses()
     @patch("hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_derivative."
