@@ -69,8 +69,8 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/celo-logo.jpg" alt="Celo" width="90" /> | celo | [Celo](https://celo.org/) | * | [SDK](https://celo.org/developers) | :warning: |
 | <img src="assets/perpetual_protocol-logo.jpg" alt="Perpetual Protocol" width="90" /> | perpetual_finance | [Perpetual Protocol](https://perp.fi/) | * | [SDK](https://docs.perp.fi/) | :warning: |
 | <img src="assets/terra-logo.jpg" alt="Terra" width="90" /> | terra | [Terra](https://terra.money/) | * | [SDK](https://docs.terra.money/) | :warning: |
-| <img src="assets/uniswap-logo.jpg" alt="Uniswap" width="90" /> | uniswap | [Uniswap](https://uniswap.org/) | 2 | [SDK](https://uniswap.org/docs/v2/) | :warning: |
-| <img src="assets/uniswap_v3-logo.jpg" alt="Uniswap v3" width="90" /> | uniswap v3 | [Uniswap v3](https://uniswap.org/) | 3 | [SDK](https://uniswap.org/blog/uniswap-v3/) | :warning: |
+| <img src="assets/uniswap-logo.jpg" alt="Uniswap" width="90" /> | uniswap | [Uniswap](https://uniswap.org/) | 2 | [SDK](https://docs.uniswap.org/sdk/2.0.0/) | :warning: |
+| <img src="assets/uniswap_v3-logo.jpg" alt="Uniswap v3" width="90" /> | uniswap v3 | [Uniswap v3](https://uniswap.org/) | 3 | [SDK](https://docs.uniswap.org/sdk/introduction) | :warning: |
 
 
 
