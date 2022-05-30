@@ -62,7 +62,7 @@ class BybitAuth(AuthBase):
         Generates the authentication message to start receiving messages from
         the 3 private ws channels
         """
-        expires = int((self.time_provider.time() + 10) * 1000)
+        expires = int((self.time_provider.time() + 10) * 1e3)
         _val = f'GET/realtime{expires}'
         signature = hmac.new(self.secret_key.encode("utf8"),
                              _val.encode("utf8"), hashlib.sha256).hexdigest()

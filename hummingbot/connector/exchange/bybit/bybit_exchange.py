@@ -518,7 +518,7 @@ class BybitExchange(ExchangeBase):
             order_result = await self._api_request(
                 method=RESTMethod.POST,
                 path_url=CONSTANTS.ORDER_PATH_URL,
-                data=api_params,
+                params=api_params,
                 is_auth_required=True)
 
             exchange_order_id = str(order_result["result"]["orderId"])
@@ -564,7 +564,7 @@ class BybitExchange(ExchangeBase):
                 cancel_result = await self._api_request(
                     method=RESTMethod.DELETE,
                     path_url=CONSTANTS.ORDER_PATH_URL,
-                    data=api_params,
+                    params=api_params,
                     is_auth_required=True)
 
                 order_update: OrderUpdate = OrderUpdate(
