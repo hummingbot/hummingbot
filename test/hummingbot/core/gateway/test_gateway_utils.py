@@ -9,5 +9,6 @@ class GatewayUtilsTest(unittest.TestCase):
         self.assertEqual("ETH", unwrap_token_symbol("WETH.e"))
         self.assertEqual("AVAX", unwrap_token_symbol("WAVAX"))
         self.assertEqual("DAI", unwrap_token_symbol("DAI.e"))
+        self.assertEqual("DAI", unwrap_token_symbol("DAI.E"))
         self.assertEqual("WAVE", unwrap_token_symbol("WAVE"))
         self.assertEqual("stETH", unwrap_token_symbol("wstETH"))
