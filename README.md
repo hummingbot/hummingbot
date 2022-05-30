@@ -99,9 +99,9 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 ## Contributions
 
 We welcome contributions from the community:
-- Code and documentation contributions via [pull requests](https://github.com/CoinAlpha/hummingbot/pulls)
-- Bug reports and feature requests through [Github issues](https://github.com/CoinAlpha/hummingbot/issues)
-- When contributing, please review the [contributing guidelines](CONTRIBUTING.md)
+- Code and documentation contributions via [pull requests](../../pulls)
+- Bug reports and feature requests through [GitHub issues](../../issues)
+- When contributing, please review the [contributing guidelines](./CONTRIBUTING.md)
 
 ## About us
 
@@ -113,4 +113,4 @@ Hummingbot was created and is maintained by CoinAlpha, Inc. We are [a global tea
 ## Legal
 
 - **License**: Hummingbot is licensed under [Apache 2.0](./LICENSE).
-- **Data collection**: read important information regarding [Hummingbot Data Collection](DATA_COLLECTION.md).
+- **Data collection**: read important information regarding [Hummingbot Data Collection](./DATA_COLLECTION.md).
