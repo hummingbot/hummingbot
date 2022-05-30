@@ -1,5 +1,5 @@
 {
   "privateKey": "$AVALANCHE_PRIVATE_KEY",
   "chain": "avalanche",
-  "network": "fuji"
+  "network": "avalanche"
 }
