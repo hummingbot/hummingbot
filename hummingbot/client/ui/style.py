@@ -1,7 +1,8 @@
 from prompt_toolkit.styles import Style
 from prompt_toolkit.utils import is_windows
-from hummingbot.client.config.global_config_map import global_config_map
+
 from hummingbot.client.config.config_helpers import save_to_yml
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import GLOBAL_CONFIG_PATH
 
 
@@ -56,6 +57,9 @@ def load_style(config_map=global_config_map):
         style["header"] = "bg:" + color_top_pane + " " + style["header"].split(' ')[-1]
         style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(' ')[-1]
         style["primary"] = color_terminal_primary
+        style["dialog.body"] = style["dialog.body"].split(' ')[0] + " " + color_terminal_primary
+        style["dialog frame.label"] = "bg:" + color_terminal_primary + " " + style["dialog frame.label"].split(' ')[-1]
+        style["text-area"] = style["text-area"].split(' ')[0] + " " + color_terminal_primary
         style["search"] = color_terminal_primary
         style["search.current"] = color_terminal_primary
 
@@ -79,6 +83,9 @@ def load_style(config_map=global_config_map):
         style["header"] = "bg:" + color_top_pane + " " + style["header"].split(' ')[-1]
         style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(' ')[-1]
         style["primary"] = color_terminal_primary
+        style["dialog.body"] = style["dialog.body"].split(' ')[0] + " " + color_terminal_primary
+        style["dialog frame.label"] = "bg:" + color_terminal_primary + " " + style["dialog frame.label"].split(' ')[-1]
+        style["text-area"] = style["text-area"].split(' ')[0] + " " + color_terminal_primary
         style["tab_button.focused"] = "bg:" + color_terminal_primary + " " + color_logs_pane
         style["tab_button"] = style["tab_button"].split(' ')[0] + " " + color_logs_pane
 
@@ -171,6 +178,12 @@ default_ui_style = {
     "error":                      "#F5634A",  # noqa: E241
     "tab_button.focused":         "bg:#1CD085 #171E2B",  # noqa: E241
     "tab_button":                 "bg:#FFFFFF #000000",  # noqa: E241
+    "dialog": "bg:#171E2B",
+    "dialog frame.label": "bg:#FFFFFF #000000",
+    "dialog.body": "bg:#000000 ",
+    "dialog shadow": "bg:#171E2B",
+    "button": "bg:#000000",
+    "text-area": "bg:#000000 #FFFFFF",
 }
 
 
@@ -189,4 +202,10 @@ win32_code_style = {
     "error":                      "#ansired",  # noqa: E241
     "tab_button.focused":         "bg:#ansigreen #ansiblack",  # noqa: E241
     "tab_button":                 "bg:#ansiwhite #ansiblack",  # noqa: E241
+    "dialog": "bg:#ansigreen",
+    "dialog frame.label": "bg:#ansiwhite #ansiblack",
+    "dialog.body": "bg:#ansiblack ",
+    "dialog shadow": "bg:#ansigreen",
+    "button": "bg:#ansigreen",
+    "text-area": "bg:#ansiblack #ansigreen",
 }
