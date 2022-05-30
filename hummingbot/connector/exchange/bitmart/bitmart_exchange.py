@@ -641,6 +641,9 @@ class BitmartExchange(ExchangeBase):
             responses = await safe_gather(*tasks, return_exceptions=True)
             for response in responses:
                 if isinstance(response, Exception):
+                    if hasattr(response, "message"):
+                        if response.message == "order not exist": 
+                            continue
                     raise response
                 if "data" not in response:
                     self.logger().info(f"_update_order_status data not in resp: {response}")
@@ -809,7 +812,7 @@ class BitmartExchange(ExchangeBase):
                                                api_params,
                                                "SIGNED"))
 
-            await safe_gather(*tasks)
+            await safe_gather(*tasks, return_exceptions=True)
 
             open_orders = await self.get_open_orders()
             for cl_order_id, tracked_order in tracked_orders:

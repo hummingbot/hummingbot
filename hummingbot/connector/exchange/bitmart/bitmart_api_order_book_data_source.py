@@ -169,8 +169,14 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             messages = decompress_ws_message(raw_msg.data)
                             if messages is None:
                                 continue
-
-                            messages = ujson.loads(messages)
+                            try:
+                                if type(messages) == str:
+                                    messages = ujson.loads(messages)
+                            except Exception as ex:
+                                if hasattr(ex, "message"):
+                                    self.logger().warning(f"Json Loads Failed {ex.message}")
+                                else:
+                                    self.logger().warning(f"Json Loads Failed {ex}")
 
                             if "errorCode" in messages.keys() or \
                                "data" not in messages.keys() or \
@@ -222,7 +228,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for trading_pair in self._trading_pairs:
                     ws_message: WSRequest = WSRequest({
                         "op": "subscribe",
-                        "args": [f"spot/depth400:{convert_to_exchange_trading_pair(trading_pair)}"]
+                        "args": [f"spot/depth50:{convert_to_exchange_trading_pair(trading_pair)}"]
                     })
                     await ws.send(ws_message)
 
@@ -232,9 +238,14 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             messages = decompress_ws_message(raw_msg.data)
                             if messages is None:
                                 continue
-
-                            messages = ujson.loads(messages)
-
+                            try:
+                                if type(messages) == str:
+                                    messages = ujson.loads(messages)
+                            except Exception as ex:
+                                if hasattr(ex, "message"):
+                                    self.logger().warning(f"Json Loads Failed {ex.message}")
+                                else:
+                                    self.logger().warning(f"Json Loads Failed {ex}")
                             if "errorCode" in messages.keys() or \
                                "data" not in messages.keys() or \
                                "table" not in messages.keys():

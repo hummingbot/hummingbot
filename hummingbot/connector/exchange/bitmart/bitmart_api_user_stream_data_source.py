@@ -4,11 +4,14 @@ import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
+import ujson
+
 import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
 from hummingbot.connector.exchange.bitmart import bitmart_utils
 from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.connector.exchange.bitmart.bitmart_utils import decompress_ws_message
 from hummingbot.core.web_assistant.connections.data_types import WSRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -117,7 +120,7 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 ws: WSAssistant = await self._get_ws_assistant()
                 try:
-                    await ws.connect(ws_url=CONSTANTS.WSS_URL,
+                    await ws.connect(ws_url=CONSTANTS.WSS_USER_URL,
                                      message_timeout=self.MESSAGE_TIMEOUT,
                                      ping_timeout=self.PING_TIMEOUT)
                 except RuntimeError:
@@ -131,9 +134,17 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 while True:
                     try:
                         async for raw_msg in ws.iter_messages():
-                            messages = raw_msg.data
+                            messages = decompress_ws_message(raw_msg.data)
                             if messages is None:
                                 continue
+                            try:
+                                if type(messages) == str:
+                                    messages = ujson.loads(messages)
+                            except Exception as ex:
+                                if hasattr(ex, "message"):
+                                    self.logger().warning(f"Json Loads Failed {ex.message}")
+                                else:
+                                    self.logger().warning(f"Json Loads Failed {ex}")
 
                             if "errorCode" in messages.keys() or \
                                "data" not in messages.keys() or \

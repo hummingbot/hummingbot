@@ -5,7 +5,8 @@ from hummingbot.core.api_throttler.data_types import RateLimit
 EXCHANGE_NAME = "bitmart"
 REST_URL = "https://api-cloud.bitmart.com"
 REST_URL_HK = "https://api-cloud.bitmart.news"
-WSS_URL = "wss://ws-manager-compress.bitmart.com?protocol=1.1"
+WSS_URL = "wss://ws-manager-compress.bitmart.com/api?protocol=1.1"
+WSS_USER_URL = "wss://ws-manager-compress.bitmart.com/user?protocol=1.1"
 WSS_URL_HK = "wss://ws-manager-compress.bitmart.news?protocol=1.1"
 
 # REST API ENDPOINTS
