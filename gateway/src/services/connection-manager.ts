@@ -5,6 +5,7 @@ import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { Pangolin } from '../connectors/pangolin/pangolin';
 import { Ethereumish, Uniswapish, UniswapLPish } from './common-interfaces';
+import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 
 export async function getChain(chain: string, network: string) {
   let chainInstance: Ethereumish;
@@ -33,6 +34,8 @@ export async function getConnector<T>(
     connectorInstance = UniswapLP.getInstance(chain, network);
   } else if (chain === 'avalanche' && connector === 'pangolin') {
     connectorInstance = Pangolin.getInstance(chain, network);
+  } else if (chain === 'avalanche' && connector === 'traderjoe') {
+    connectorInstance = Traderjoe.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
   }
