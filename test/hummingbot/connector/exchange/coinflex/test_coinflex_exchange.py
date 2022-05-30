@@ -1,11 +1,12 @@
 import asyncio
 import contextlib
+import functools
 import json
 import re
 import time
 from decimal import Decimal
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
-from typing import Awaitable, NamedTuple, Optional
+from typing import Awaitable, Callable, NamedTuple, Optional
 from unittest import TestCase
 from unittest.mock import AsyncMock, PropertyMock, patch
 
@@ -118,6 +119,12 @@ class CoinflexExchangeTests(TestCase):
         self.resume_test_event.set()
         raise exception
 
+    def _return_calculation_and_set_done_event(self, calculation: Callable, *args, **kwargs):
+        if self.resume_test_event.is_set():
+            raise asyncio.CancelledError
+        self.resume_test_event.set()
+        return calculation(*args, **kwargs)
+
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
@@ -220,7 +227,7 @@ class CoinflexExchangeTests(TestCase):
 
         order_data = {
             "clientOrderId": client_order_id or order.client_order_id,
-            "orderId": int(order.exchange_order_id if order else 1),
+            "orderId": int(order.exchange_order_id if order and order.exchange_order_id else 1),
             "timestamp": 1499405658658,
             "status": status,
             "side": side,
@@ -1418,6 +1425,59 @@ class CoinflexExchangeTests(TestCase):
 
         self.assertEqual(Decimal("10000"), self.exchange.available_balances["COINALPHA"])
         self.assertEqual(Decimal("10500"), self.exchange.get_balance("COINALPHA"))
+
+    def test_user_stream_event_listener_raises_cancelled_error(self):
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = asyncio.CancelledError
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.test_task)
+
+    def test_user_stream_event_queue_error_is_logged(self):
+        self.test_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
+
+        dummy_user_stream = AsyncMock()
+        dummy_user_stream.get.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
+            Exception("Dummy test error")
+        )
+        self.exchange._user_stream_tracker._user_stream = dummy_user_stream
+
+        self.async_run_with_timeout(self.resume_test_event.wait())
+        self.resume_test_event.clear()
+
+        self.assertTrue(self._is_logged("NETWORK", "Unknown error. Retrying after 1 seconds."))
+
+    @patch("hummingbot.core.data_type.in_flight_order.GET_EX_ORDER_ID_TIMEOUT", 0.0)
+    def test_user_stream_event_order_not_created_error(self):
+        self.test_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
+
+        self.exchange.start_tracking_order(
+            exchange_order_id=None,
+            order_id="OID1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+        )
+
+        order = self.exchange.in_flight_orders.get("OID1")
+
+        partial_fill = self._get_mock_user_stream_order_data(order=order)
+
+        dummy_user_stream = AsyncMock()
+        dummy_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                              lambda: partial_fill)
+
+        self.exchange._user_stream_tracker._user_stream = dummy_user_stream
+
+        self.async_run_with_timeout(self.resume_test_event.wait())
+        self.resume_test_event.clear()
+
+        self.assertTrue(self._is_logged("ERROR", f"Failed to get exchange order id for order: {order.client_order_id}"))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error in user stream listener loop."))
 
     def test_restore_tracking_states_only_registers_open_orders(self):
         orders = []
