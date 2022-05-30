@@ -58,7 +58,7 @@ cdef class HuobiOrderBook(OrderBook):
             "amount": msg["amount"],
             "price": msg["price"]
         }
-        return OrderBookMessage(OrderBookMessageType.DIFF, content, timestamp or msg_ts)
+        return OrderBookMessage(OrderBookMessageType.TRADE, content, timestamp or msg_ts)
 
     @classmethod
     def diff_message_from_exchange(cls,

@@ -9,6 +9,7 @@ import {
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from './error-handler';
+import { ReferenceCountingCloseable } from './refcounting-closeable';
 
 export class NonceInfo {
   constructor(readonly nonce: number, public expiry: number) {}
@@ -18,7 +19,18 @@ NonceInfo.prototype.valueOf = function () {
   return this.nonce;
 };
 
-export class NonceLocalStorage extends LocalStorage {
+export class NonceLocalStorage extends ReferenceCountingCloseable {
+  private readonly _localStorage: LocalStorage;
+
+  protected constructor(dbPath: string) {
+    super(dbPath);
+    this._localStorage = LocalStorage.getInstance(dbPath, this.handle);
+  }
+
+  public async init(): Promise<void> {
+    await this._localStorage.init();
+  }
+
   public async saveCurrentNonce(
     chain: string,
     chainId: number,
@@ -28,7 +40,7 @@ export class NonceLocalStorage extends LocalStorage {
     const nonceValue: string = String(nonce.nonce);
     const nonceExpiry: string = String(nonce.expiry);
 
-    return this.save(
+    return this._localStorage.save(
       chain + '/' + String(chainId) + '/' + address,
       `${nonceValue}:${nonceExpiry}`
     );
@@ -38,7 +50,7 @@ export class NonceLocalStorage extends LocalStorage {
     chain: string,
     chainId: number
   ): Promise<Record<string, NonceInfo>> {
-    return this.get((key: string, value: any) => {
+    return this._localStorage.get((key: string, value: any) => {
       const splitKey: string[] = key.split('/');
       if (
         splitKey.length === 3 &&
@@ -62,7 +74,7 @@ export class NonceLocalStorage extends LocalStorage {
     chainId: number,
     address: string,
     nonces: NonceInfo[]
-  ) {
+  ): Promise<void> {
     let value = '';
 
     for (const nonce of nonces) {
@@ -71,16 +83,18 @@ export class NonceLocalStorage extends LocalStorage {
       value = value + ',' + `${nonceValue}:${nonceExpiry}`;
     }
 
-    return this.save(`${chain}/${String(chainId)}/${address}/pending`, value);
+    return this._localStorage.save(
+      `${chain}/${String(chainId)}/${address}/pending`,
+      value
+    );
   }
 
   public async getPendingNonces(
     chain: string,
     chainId: number
   ): Promise<Record<string, NonceInfo[]>> {
-    return this.get((key: string, value: any) => {
+    return this._localStorage.get((key: string, value: any) => {
       const splitKey: string[] = key.split('/');
-
       if (
         splitKey.length === 4 &&
         splitKey[0] === chain &&
@@ -104,13 +118,11 @@ export class NonceLocalStorage extends LocalStorage {
     });
   }
 
-  public async deleteNonce(
-    chain: string,
-    chainId: number,
-    address: string
-  ): Promise<void> {
-    // TODO: Determine if this is entirely necessary.
-    return this.del(chain + '/' + String(chainId) + '/' + address);
+  public async close(handle: string): Promise<void> {
+    await super.close(handle);
+    if (this.refCount < 1) {
+      await this._localStorage.close(this.handle);
+    }
   }
 }
 
@@ -148,13 +160,14 @@ export class NonceLocalStorage extends LocalStorage {
  *    cancel happens, the API logic **must** call commitNonce() to reset the
  *    cached nonce back to the specified position.
  */
-export class EVMNonceManager {
+export class EVMNonceManager extends ReferenceCountingCloseable {
   #addressToNonce: Record<string, NonceInfo> = {};
   #addressToPendingNonces: Record<string, NonceInfo[]> = {};
 
   #initialized: boolean = false;
   #chainId: number;
   #chainName: string;
+
   #db: NonceLocalStorage;
 
   // These variables should be private but then we will not be able to mock it otherwise.
@@ -165,15 +178,18 @@ export class EVMNonceManager {
   constructor(
     chainName: string,
     chainId: number,
+    dbPath: string,
     localNonceTTL: number = 300 * 1000,
-    pendingNonceTTL: number = 300 * 1000,
-    dbPath: string = 'gateway.level'
+    pendingNonceTTL: number = 300 * 1000
   ) {
+    const refCountKey: string = `${chainName}/${chainId}/${dbPath}`;
+    super(refCountKey);
+
     this.#chainName = chainName;
     this.#chainId = chainId;
-    this.#db = new NonceLocalStorage(dbPath);
     this._localNonceTTL = localNonceTTL;
     this._pendingNonceTTL = pendingNonceTTL;
+    this.#db = NonceLocalStorage.getInstance(dbPath, this.handle);
   }
 
   // init can be called many times and generally should always be called
@@ -202,6 +218,7 @@ export class EVMNonceManager {
     }
 
     if (!this.#initialized) {
+      await this.#db.init();
       const addressToNonce: Record<string, NonceInfo> =
         await this.#db.getCurrentNonces(this.#chainName, this.#chainId);
 
@@ -223,7 +240,6 @@ export class EVMNonceManager {
           await this.mergeNonceFromEVMNode(address);
         })
       );
-
       this.#initialized = true;
     }
   }
@@ -286,36 +302,47 @@ export class EVMNonceManager {
     }
   }
 
-  async getNonce(ethAddress: string): Promise<number> {
-    /*
-    Returns the nonce of the last successful transaction of a given wallet.
-    Retrieves the nonce via an EVM call if not already initialized.
-    */
-    if (this._provider !== null) {
+  async getNonceFromMemory(ethAddress: string): Promise<number | null> {
+    if (this.#initialized) {
       if (this.#addressToNonce[ethAddress]) {
         await this.mergeNonceFromEVMNode(ethAddress);
         return this.#addressToNonce[ethAddress].nonce;
       } else {
-        const externalNonce: number =
-          (await this._provider.getTransactionCount(ethAddress)) - 1;
-
-        const now: number = new Date().getTime();
-        this.#addressToNonce[ethAddress] = new NonceInfo(
-          externalNonce,
-          now + this._pendingNonceTTL
-        );
-        await this.#db.saveCurrentNonce(
-          this.#chainName,
-          this.#chainId,
-          ethAddress,
-          this.#addressToNonce[ethAddress]
-        );
-        return this.#addressToNonce[ethAddress].nonce;
+        return null;
       }
     } else {
-      logger.error('EVMNonceManager.getNonce called before initiated');
+      logger.error(
+        'EVMNonceManager.getNonceFromMemory called before initiated'
+      );
       throw new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.getNonce'),
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.getNonceFromMemory'),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      );
+    }
+  }
+
+  async getNonceFromNode(ethAddress: string): Promise<number> {
+    if (this._provider !== null) {
+      const externalNonce: number =
+        (await this._provider.getTransactionCount(ethAddress)) - 1;
+
+      const now: number = new Date().getTime();
+
+      this.#addressToNonce[ethAddress] = new NonceInfo(
+        externalNonce,
+        now + this._pendingNonceTTL
+      );
+      await this.#db.saveCurrentNonce(
+        this.#chainName,
+        this.#chainId,
+        ethAddress,
+        this.#addressToNonce[ethAddress]
+      );
+      return this.#addressToNonce[ethAddress].nonce;
+    } else {
+      logger.error('EVMNonceManager.getNonceFromNode called before initiated');
+      throw new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.getNonceFromNode'),
         SERVICE_UNITIALIZED_ERROR_CODE
       );
     }
@@ -377,11 +404,19 @@ export class EVMNonceManager {
     }
   }
 
+  async getNonce(ethAddress: string): Promise<number> {
+    let nonce: number | null = await this.getNonceFromMemory(ethAddress);
+    if (nonce === null) {
+      nonce = await this.getNonceFromNode(ethAddress);
+    }
+    return nonce;
+  }
+
   async commitNonce(ethAddress: string, txNonce: number): Promise<void> {
     /*
     Stores the nonce of the last successful transaction.
     */
-    if (this._provider !== null) {
+    if (this.#initialized) {
       const now: number = new Date().getTime();
 
       if (this.#addressToNonce[ethAddress]) {
@@ -435,7 +470,10 @@ export class EVMNonceManager {
     return false;
   }
 
-  async close(): Promise<void> {
-    await this.#db.close();
+  async close(ownerHandle: string): Promise<void> {
+    await super.close(ownerHandle);
+    if (this.refCount < 1) {
+      await this.#db.close(this.handle);
+    }
   }
 }

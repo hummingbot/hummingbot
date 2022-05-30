@@ -6,7 +6,10 @@ import * as uniV3 from '@uniswap/v3-sdk';
 import { BigNumber, Contract, Transaction, Wallet } from 'ethers';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 import { UniswapV3Helper } from '../../../../src/connectors/uniswap/uniswap.v3.helper';
+import { OverrideConfigs } from '../../../config.util';
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 
+const overrideConfigs = new OverrideConfigs();
 let ethereum: Ethereum;
 let uniswapV3: UniswapV3;
 let uniswapV3Helper: UniswapV3Helper;
@@ -64,20 +67,64 @@ const DAI_USDC_POOL = new uniV3.Pool(
 );
 
 beforeAll(async () => {
+  await overrideConfigs.init();
+  await overrideConfigs.updateConfigs();
+
   ethereum = Ethereum.getInstance('kovan');
+  patchEVMNonceManager(ethereum.nonceManager);
   await ethereum.init();
+
   wallet = new Wallet(
     '0000000000000000000000000000000000000000000000000000000000000002', // noqa: mock
     ethereum.provider
   );
+
   uniswapV3 = UniswapV3.getInstance('ethereum', 'kovan');
   await uniswapV3.init();
   uniswapV3Helper = new UniswapV3Helper('kovan');
 });
 
+beforeEach(() => {
+  patchEVMNonceManager(ethereum.nonceManager);
+});
+
 afterEach(() => {
   unpatch();
 });
+
+afterAll(async () => {
+  await ethereum.close();
+  await overrideConfigs.resetConfigs();
+});
+
+// const patchFetchPairData = (noPath?: boolean) => {
+//   patch(uniswapV3, 'getPairs', () => {
+//     if (noPath) {
+//       return [
+//         new uniV3.Pool(
+//           WETH,
+//           USDC,
+//           500,
+//           '1390012087572052304381352642',
+//           '6025055903594410671025',
+//           -80865,
+//           TICK_PROVIDER
+//         ),
+//       ];
+//     }
+//     return [
+//       new uniV3.Pool(
+//         WETH,
+//         DAI,
+//         500,
+//         '1390012087572052304381352642',
+//         '6025055903594410671025',
+//         -80865,
+//         TICK_PROVIDER
+//       ),
+//     ];
+//   });
+// };
 
 const patchPoolState = () => {
   patch(uniswapV3, 'getPoolContract', () => {
