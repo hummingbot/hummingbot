@@ -97,35 +97,6 @@ afterAll(async () => {
   await overrideConfigs.resetConfigs();
 });
 
-// const patchFetchPairData = (noPath?: boolean) => {
-//   patch(uniswapV3, 'getPairs', () => {
-//     if (noPath) {
-//       return [
-//         new uniV3.Pool(
-//           WETH,
-//           USDC,
-//           500,
-//           '1390012087572052304381352642',
-//           '6025055903594410671025',
-//           -80865,
-//           TICK_PROVIDER
-//         ),
-//       ];
-//     }
-//     return [
-//       new uniV3.Pool(
-//         WETH,
-//         DAI,
-//         500,
-//         '1390012087572052304381352642',
-//         '6025055903594410671025',
-//         -80865,
-//         TICK_PROVIDER
-//       ),
-//     ];
-//   });
-// };
-
 const patchPoolState = () => {
   patch(uniswapV3, 'getPoolContract', () => {
     return {
