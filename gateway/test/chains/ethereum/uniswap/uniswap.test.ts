@@ -54,7 +54,7 @@ afterAll(async () => {
 });
 
 const patchTrade = (key: string, error?: Error) => {
-  patch(uniswap._alphaRouter.route, key, () => {
+  patch(uniswap.alphaRouter.route, key, () => {
     if (error) return [];
     const WETH_DAI = new Pair(
       CurrencyAmount.fromRawAmount(WETH, '2000000000000000000'),
