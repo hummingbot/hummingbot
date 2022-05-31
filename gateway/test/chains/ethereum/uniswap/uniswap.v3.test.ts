@@ -21,18 +21,21 @@ const WETH = new Token(
   18,
   'WETH'
 );
+
 const DAI = new Token(
   3,
   '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
   18,
   'DAI'
 );
+
 const USDC = new Token(
   3,
   '0x2F375e94FC336Cdec2Dc0cCB5277FE59CBf1cAe5',
   18,
   'DAI'
 );
+
 const TX = {
   type: 2,
   chainId: 42,
@@ -52,10 +55,13 @@ const TX = {
   from: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
   confirmations: 0,
 };
+
 const POOL_SQRT_RATIO_START = uniV3.encodeSqrtRatioX96(100e6, 100e18);
+
 const POOL_TICK_CURRENT = uniV3.TickMath.getTickAtSqrtRatio(
   POOL_SQRT_RATIO_START
 );
+
 const DAI_USDC_POOL = new uniV3.Pool(
   DAI,
   USDC,
@@ -84,17 +90,8 @@ beforeAll(async () => {
   uniswapV3Helper = new UniswapV3Helper('kovan');
 });
 
-beforeEach(() => {
-  patchEVMNonceManager(ethereum.nonceManager);
-});
-
 afterEach(() => {
   unpatch();
-});
-
-afterAll(async () => {
-  await ethereum.close();
-  await overrideConfigs.resetConfigs();
 });
 
 const patchPoolState = () => {
