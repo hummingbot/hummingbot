@@ -194,6 +194,9 @@ describe('EVMNodeService', () => {
     const pendingNonce1 = await nonceManager.getNextNonce(exampleAddress);
     expect(pendingNonce1).toEqual(11);
 
+    // if this runs too quickly it will fail (the nonce has not expired yet)
+    await new Promise((r) => setTimeout(r, 1000));
+
     const pendingNonce2 = await nonceManager.getNextNonce(exampleAddress);
     expect(pendingNonce2).toEqual(pendingNonce1);
   });
