@@ -3,3 +3,4 @@ certs
 *.yml
 coverage
 curve-js/
+dist/

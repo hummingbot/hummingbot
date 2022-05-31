@@ -12,6 +12,10 @@ configurations:
     configurationPath: avalanche.yml
     schemaPath: ethereum-schema.json
 
+  $namespace database:
+    configurationPath: database.yml
+    schemaPath: database-schema.json
+    
   $namespace ethereum:
     configurationPath: ethereum.yml
     schemaPath: ethereum-schema.json
@@ -36,6 +40,10 @@ configurations:
     configurationPath: pangolin.yml
     schemaPath: pangolin-schema.json
 
+  $namespace traderjoe:
+    configurationPath: traderjoe.yml
+    schemaPath: traderjoe-schema.json
+    
   $namespace server:
     configurationPath: server.yml
     schemaPath: server-schema.json
