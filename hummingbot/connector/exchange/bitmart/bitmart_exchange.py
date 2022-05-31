@@ -642,7 +642,7 @@ class BitmartExchange(ExchangeBase):
             for response in responses:
                 if isinstance(response, Exception):
                     if hasattr(response, "message"):
-                        if response.message == "order not exist": 
+                        if response.message == "order not exist":
                             continue
                     raise response
                 if "data" not in response:
