@@ -88,7 +88,7 @@ describe('Test EVMNonceManager', () => {
 
   const testChain2 = 'avalanche';
   const testChain2Id = 1;
-  const address1 = 'A';
+  const address1 = 'ABC';
 
   it('getNonce reads nonce from node, commits, then reads nonce from memory', async () => {
     const evmNonceManager = new EVMNonceManager(
