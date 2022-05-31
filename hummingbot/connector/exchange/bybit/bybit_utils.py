@@ -38,7 +38,7 @@ KEYS = {
 }
 
 OTHER_DOMAINS = ["bybit_testnet"]
-OTHER_DOMAINS_PARAMETER = {"bybit_testnet": None}
+OTHER_DOMAINS_PARAMETER = {"bybit_testnet": "bybit_testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"bybit_testnet": "BTC-USDT"}
 OTHER_DOMAINS_DEFAULT_FEES = {"bybit_testnet": [0.1, 0.1]}
 OTHER_DOMAINS_KEYS = {"bybit_testnet": {

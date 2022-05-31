@@ -457,9 +457,9 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             for symbol_data in data["result"]:
                 mapping[symbol_data["name"]] = combine_to_hb_trading_pair(base=symbol_data["baseCurrency"],
                                                                           quote=symbol_data["quoteCurrency"])
-            cls._trading_pair_symbol_map[domain] = mapping
         except Exception as ex:
             cls.logger().error(f"There was an error requesting exchange info ({str(ex)})")
+        cls._trading_pair_symbol_map[domain] = mapping
 
     async def _process_ws_messages(self, ws: WSAssistant):
         async for ws_response in ws.iter_messages():
