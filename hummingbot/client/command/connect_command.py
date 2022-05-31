@@ -78,7 +78,9 @@ class ConnectCommand:
                                ):
         self.notify("\nTesting connections, please wait...")
         df, failed_msgs = await self.connection_df()
-        lines = ["    " + line for line in format_df_for_printout(df, self.client_config_map.tables_format).split("\n")]
+        lines = ["    " + line for line in format_df_for_printout(
+            df,
+            table_format=self.client_config_map.tables_format).split("\n")]
         if failed_msgs:
             lines.append("\nFailed connections:")
             lines.extend(["    " + k + ": " + v for k, v in failed_msgs.items()])
@@ -90,7 +92,7 @@ class ConnectCommand:
         columns = ["Exchange", "  Keys Added", "  Keys Confirmed", "  Status"]
         data = []
         failed_msgs = {}
-        network_timeout = self.client_config_map.commands_timeout.other_commands_timeout
+        network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         try:
             err_msgs = await asyncio.wait_for(
                 UserBalances.instance().update_exchanges(self.client_config_map, reconnect=True), network_timeout
@@ -150,7 +152,7 @@ class ConnectCommand:
     ) -> Optional[str]:
         await Security.wait_til_decryption_done()
         api_keys = Security.api_keys(connector_name)
-        network_timeout = self.client_config_map.commands_timeout.other_commands_timeout
+        network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         try:
             err_msg = await asyncio.wait_for(
                 UserBalances.instance().add_exchange(connector_name, self.client_config_map, **api_keys),

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
 
@@ -17,11 +17,11 @@ from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import get_new_client_order_id, combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
@@ -32,6 +32,9 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
@@ -54,6 +57,7 @@ class KucoinExchange(ExchangePyBase):
         return cls._logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  kucoin_api_key: str,
                  kucoin_passphrase: str,
                  kucoin_secret_key: str,
@@ -63,7 +67,7 @@ class KucoinExchange(ExchangePyBase):
 
         self._domain = domain
         self._time_synchronizer = TimeSynchronizer()
-        super().__init__()
+        super().__init__(client_config_map=client_config_map)
         self._auth = KucoinAuth(
             api_key=kucoin_api_key,
             passphrase=kucoin_passphrase,

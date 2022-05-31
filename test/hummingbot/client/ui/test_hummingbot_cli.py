@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, patch
 
 from prompt_toolkit.widgets import Button
 
-from hummingbot.client.config.config_helpers import read_system_configs_from_yml
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.ui.custom_widgets import CustomTextArea
@@ -25,9 +26,15 @@ class HummingbotCLITest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
 
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
         tabs = {self.command_name: CommandTab(self.command_name, None, None, None, MagicMock())}
         self.mock_hb = MagicMock()
-        self.app = HummingbotCLI(None, None, None, tabs)
+        self.app = HummingbotCLI(
+            client_config_map=self.client_config_map,
+            input_handler=None,
+            bindings=None,
+            completer=None,
+            command_tabs=tabs)
         self.app.app = MagicMock()
         self.hb = HummingbotApplication()
 
@@ -124,7 +131,7 @@ class HummingbotCLITest(unittest.TestCase):
 
         handler: UIStartHandler = UIStartHandler()
         self.app.add_listener(HummingbotUIEvent.Start, handler)
-        self.app.did_start_ui(self.hb)
+        self.app.did_start_ui()
 
         mock_init_logging.assert_called()
         handler.mock.assert_called()

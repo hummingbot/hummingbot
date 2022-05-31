@@ -1,19 +1,16 @@
 import asyncio
 import json
 import platform
-from copy import deepcopy
 from decimal import Decimal
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 import hummingbot.connector.connector_metrics_collector
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.connector.connector_metrics_collector import DummyMetricsCollector, TradeVolumeMetricCollector
-from hummingbot.core.data_type.common import TradeType, OrderType
+from hummingbot.connector.connector_metrics_collector import TradeVolumeMetricCollector
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.event.events import OrderFilledEvent, MarketEvent
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 
@@ -21,7 +18,6 @@ class TradeVolumeMetricCollectorTests(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self._global_config_backup = deepcopy(global_config_map)
 
         self.metrics_collector_url = "localhost"
         self.connector_name = "test_connector"
@@ -38,74 +34,35 @@ class TradeVolumeMetricCollectorTests(TestCase):
 
         self.metrics_collector = TradeVolumeMetricCollector(
             connector=self.connector_mock,
-            activation_interval=10,
-            metrics_dispatcher=self.dispatcher_mock,
+            activation_interval=Decimal(10),
             rate_provider=self.rate_oracle,
-            instance_id=self.instance_id,
-            client_version=self.client_version)
+            instance_id=self.instance_id)
+
+        self.metrics_collector._dispatcher = self.dispatcher_mock
 
     def tearDown(self) -> None:
         hummingbot.connector.connector_metrics_collector.CLIENT_VERSION = self.original_client_version
-        self._reset_global_config()
         super().tearDown()
-
-    def _reset_global_config(self):
-        global_config_map.clear()
-        for key, value in self._global_config_backup.items():
-            global_config_map[key] = value
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
     def test_instance_creation_using_configuration_parameters(self):
-        metrics_config = ConfigVar(key="anonymized_metrics_enabled", prompt="")
-        metrics_config.value = True
-        global_config_map["anonymized_metrics_enabled"] = metrics_config
 
-        url_config = ConfigVar(key="log_server_url", prompt="")
-        url_config.value = "localhost/reporting-proxy"
-        global_config_map["log_server_url"] = url_config
-
-        interval_config = ConfigVar(key="anonymized_metrics_interval_min", prompt="")
-        interval_config.value = 5
-        global_config_map["anonymized_metrics_interval_min"] = interval_config
-
-        instance_id_config = ConfigVar(key="instance_id", prompt="")
-        instance_id_config.value = self.instance_id
-        global_config_map["instance_id"] = instance_id_config
-
-        metrics_collector = TradeVolumeMetricCollector.from_configuration(
-            connector=MagicMock(),
+        metrics_collector = TradeVolumeMetricCollector(
+            connector=self.connector_mock,
+            activation_interval=300,
             rate_provider=self.rate_oracle,
+            instance_id=self.instance_id,
             valuation_token="USDT")
 
         self.assertEqual(5 * 60, metrics_collector._activation_interval)
-        self.assertEqual("localhost/reporting-proxy", metrics_collector._dispatcher.log_server_url)
+        self.assertEqual(TradeVolumeMetricCollector.DEFAULT_METRICS_SERVER_URL,
+                         metrics_collector._dispatcher.log_server_url)
         self.assertEqual(self.instance_id, metrics_collector._instance_id)
         self.assertEqual(self.client_version, metrics_collector._client_version)
         self.assertEqual("USDT", metrics_collector._valuation_token)
-
-    def test_instance_creation_using_configuration_parameters_when_disabled(self):
-        metrics_config = ConfigVar(key="anonymized_metrics_enabled", prompt="")
-        metrics_config.value = False
-        global_config_map["anonymized_metrics_enabled"] = metrics_config
-
-        metrics_collector = TradeVolumeMetricCollector.from_configuration(
-            connector=MagicMock(),
-            rate_provider=self.rate_oracle,
-            valuation_token="USDT")
-
-        self.assertEqual(DummyMetricsCollector, type(metrics_collector))
-
-        del (global_config_map["anonymized_metrics_enabled"])
-
-        metrics_collector = TradeVolumeMetricCollector.from_configuration(
-            connector=MagicMock(),
-            rate_provider=self.rate_oracle,
-            valuation_token="USDT")
-
-        self.assertEqual(DummyMetricsCollector, type(metrics_collector))
 
     def test_start_and_stop_are_forwarded_to_dispatcher(self):
         self.metrics_collector.start()
@@ -221,10 +178,9 @@ class TradeVolumeMetricCollectorTests(TestCase):
         local_collector = TradeVolumeMetricCollector(
             connector=self.connector_mock,
             activation_interval=10,
-            metrics_dispatcher=self.dispatcher_mock,
             rate_provider=mock_rate_oracle,
-            instance_id=self.instance_id,
-            client_version=self.client_version)
+            instance_id=self.instance_id)
+        local_collector._dispatcher = self.dispatcher_mock
 
         event = OrderFilledEvent(
             timestamp=1000,

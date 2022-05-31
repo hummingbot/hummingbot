@@ -1,18 +1,16 @@
 import asyncio
 import unittest
 from collections import Awaitable
-from copy import deepcopy
 from decimal import Decimal
 from test.mock.mock_cli import CLIMockingAssistant
 from unittest.mock import MagicMock, patch
 
 from pydantic import Field
 
-from hummingbot.client.command.config_command import client_configs_to_display, color_settings_to_display
+from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_data_types import BaseClientModel, BaseStrategyConfigMap, ClientFieldData
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
@@ -24,23 +22,20 @@ class ConfigCommandTest(unittest.TestCase):
 
         self.async_run_with_timeout(read_system_configs_from_yml())
 
-        self.app = HummingbotApplication()
+        self.client_config = ClientConfigMap()
+        self.config_adapter = ClientConfigAdapter(self.client_config)
+
+        self.app = HummingbotApplication(client_config_map=self.config_adapter)
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
-        self.global_config_backup = deepcopy(global_config_map)
 
     def tearDown(self) -> None:
         self.cli_mock_assistant.stop()
-        self.reset_global_config()
         super().tearDown()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
-
-    def reset_global_config(self):
-        for key, value in self.global_config_backup.items():
-            global_config_map[key] = value
 
     @patch("hummingbot.client.hummingbot_application.get_strategy_config_map")
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
@@ -50,18 +45,6 @@ class ConfigCommandTest(unittest.TestCase):
         strategy_name = "some-strategy"
         self.app.strategy_name = strategy_name
 
-        tables_format_config_var = global_config_map["tables_format"]
-        global_config_map.clear()
-        global_config_map[tables_format_config_var.key] = tables_format_config_var
-        tables_format_config_var.value = "psql"
-        global_config_map[client_configs_to_display[0]] = ConfigVar(key=client_configs_to_display[0], prompt="")
-        global_config_map[client_configs_to_display[0]].value = "first"
-        global_config_map[client_configs_to_display[1]] = ConfigVar(key=client_configs_to_display[1], prompt="")
-        global_config_map[client_configs_to_display[1]].value = "second"
-        global_config_map[color_settings_to_display[0]] = ConfigVar(key=color_settings_to_display[0], prompt="")
-        global_config_map[color_settings_to_display[0]].value = "third"
-        global_config_map[color_settings_to_display[1]] = ConfigVar(key=color_settings_to_display[1], prompt="")
-        global_config_map[color_settings_to_display[1]].value = "fourth"
         strategy_config_map_mock = {
             "five": ConfigVar(key="five", prompt=""),
             "six": ConfigVar(key="six", prompt="", default="sixth"),
@@ -75,27 +58,40 @@ class ConfigCommandTest(unittest.TestCase):
         self.assertEqual(6, len(captures))
         self.assertEqual("\nGlobal Configurations:", captures[0])
 
-        df_str_expected = (
-            "    +---------------------+---------+"
-            "\n    | Key                 | Value   |"
-            "\n    |---------------------+---------|"
-            "\n    | tables_format       | psql    |"
-            "\n    | autofill_import     | first   |"
-            "\n    | kill_switch_enabled | second  |"
-            "\n    +---------------------+---------+"
-        )
+        df_str_expected = ("    +--------------------------+----------------------+\n"
+                           "    | Key                      | Value                |\n"
+                           "    |--------------------------+----------------------|\n"
+                           "    | kill_switch_mode         | kill_switch_disabled |\n"
+                           "    | autofill_import          | disabled             |\n"
+                           "    | telegram_mode            | telegram_disabled    |\n"
+                           "    | send_error_logs          | True                 |\n"
+                           "    | pmm_script_mode          | pmm_script_disabled  |\n"
+                           "    | gateway                  | gateway              |\n"
+                           "    | ∟ gateway_api_host       | localhost            |\n"
+                           "    | ∟ gateway_api_port       | 5000                 |\n"
+                           "    | rate_oracle_source       | binance              |\n"
+                           "    | global_token             | None                 |\n"
+                           "    | ∟ global_token_symbol    | $                    |\n"
+                           "    | rate_limits_share_pct    | 100                  |\n"
+                           "    | commands_timeout         | None                 |\n"
+                           "    | ∟ create_command_timeout | 10                   |\n"
+                           "    | ∟ other_commands_timeout | 30                   |\n"
+                           "    | tables_format            | psql                 |\n"
+                           "    +--------------------------+----------------------+")
 
         self.assertEqual(df_str_expected, captures[1])
         self.assertEqual("\nColor Settings:", captures[2])
 
-        df_str_expected = (
-            "    +-------------+---------+"
-            "\n    | Key         | Value   |"
-            "\n    |-------------+---------|"
-            "\n    | top-pane    | third   |"
-            "\n    | bottom-pane | fourth  |"
-            "\n    +-------------+---------+"
-        )
+        df_str_expected = ("    +--------------------+---------+\n"
+                           "    | Key                | Value   |\n"
+                           "    |--------------------+---------|\n"
+                           "    | ∟ top_pane         | #000000 |\n"
+                           "    | ∟ bottom_pane      | #000000 |\n"
+                           "    | ∟ output_pane      | #262626 |\n"
+                           "    | ∟ input_pane       | #1C1C1C |\n"
+                           "    | ∟ logs_pane        | #121212 |\n"
+                           "    | ∟ terminal_primary | #5FFFD7 |\n"
+                           "    +--------------------+---------+")
 
         self.assertEqual(df_str_expected, captures[3])
         self.assertEqual("\nStrategy Configurations:", captures[4])
@@ -118,11 +114,6 @@ class ConfigCommandTest(unittest.TestCase):
         notify_mock.side_effect = lambda s: captures.append(s)
         strategy_name = "some-strategy"
         self.app.strategy_name = strategy_name
-
-        tables_format_config_var = global_config_map["tables_format"]
-        global_config_map.clear()
-        global_config_map[tables_format_config_var.key] = tables_format_config_var
-        tables_format_config_var.value = "psql"
 
         class DoubleNestedModel(BaseClientModel):
             double_nested_attr: float = Field(default=3.0)

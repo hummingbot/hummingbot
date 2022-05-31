@@ -1029,5 +1029,5 @@ class GatewayEVMAMM(ConnectorBase):
         return self._in_flight_orders
 
     def _get_gateway_instance(self) -> GatewayHttpClient:
-        gateway_instance = GatewayHttpClient.get_instance(self.client_config_map)
+        gateway_instance = GatewayHttpClient.get_instance(self._client_config)
         return gateway_instance

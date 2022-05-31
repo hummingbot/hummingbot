@@ -3,6 +3,7 @@ import json
 import re
 import time
 from decimal import Decimal
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Dict
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
@@ -12,8 +13,11 @@ from aioresponses import aioresponses
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
-    BybitPerpetualAPIOrderBookDataSource
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import (
+    BybitPerpetualAPIOrderBookDataSource,
+)
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_derivative import BybitPerpetualDerivative
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
 from hummingbot.connector.trading_rule import TradingRule
@@ -23,7 +27,6 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import FundingInfo, MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BybitPerpetualDerivativeTests(TestCase):
@@ -44,11 +47,14 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.log_records = []
         self._finalMessage = 'FinalDummyMessage'
         self.async_task = None
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
-                                                  bybit_perpetual_secret_key='testSecretKey',
-                                                  trading_pairs=[self.trading_pair, self.non_linear_trading_pair],
-                                                  domain=self.domain)
+        self.connector = BybitPerpetualDerivative(
+            client_config_map=self.client_config_map,
+            bybit_perpetual_api_key='testApiKey',
+            bybit_perpetual_secret_key='testSecretKey',
+            trading_pairs=[self.trading_pair, self.non_linear_trading_pair],
+            domain=self.domain)
 
         self.connector.logger().setLevel(1)
         self.connector.logger().addHandler(self)
@@ -116,12 +122,12 @@ class BybitPerpetualDerivativeTests(TestCase):
         return message
 
     def _get_symbols_mock_response(
-        self,
-        linear: bool = True,
-        min_order_size: float = 1,
-        max_order_size: float = 2,
-        min_price_increment: float = 3,
-        min_base_amount_increment: float = 4,
+            self,
+            linear: bool = True,
+            min_order_size: float = 1,
+            max_order_size: float = 2,
+            min_price_increment: float = 3,
+            min_base_amount_increment: float = 4,
     ) -> Dict:
         base, quote = (
             (self.base_asset, self.quote_asset)
@@ -1037,14 +1043,14 @@ class BybitPerpetualDerivativeTests(TestCase):
             position=PositionAction.OPEN
         )
 
-        cancellation_results = asyncio.get_event_loop().run_until_complete(self.connector.cancel_all(timeout_seconds=10))
+        cancellation_results = asyncio.get_event_loop().run_until_complete(
+            self.connector.cancel_all(timeout_seconds=10))
 
         self.assertEqual(2, len(cancellation_results))
         self.assertTrue(any(map(lambda result: result.order_id == "O1" and result.success, cancellation_results)))
         self.assertTrue(any(map(lambda result: result.order_id == "O2" and not result.success, cancellation_results)))
 
     def test_cancel_all_logs_warning_when_process_times_out(self):
-
         self._simulate_trading_rules_initialized()
 
         self.connector._set_current_timestamp(1640001112.0)
@@ -1096,10 +1102,12 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(self.connector.ready)
 
     def test_connector_ready_status_when_trading_not_required(self):
-        local_connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
-                                                   bybit_perpetual_secret_key='testSecretKey',
-                                                   trading_pairs=[self.trading_pair],
-                                                   trading_required=False)
+        local_connector = BybitPerpetualDerivative(
+            client_config_map=self.client_config_map,
+            bybit_perpetual_api_key='testApiKey',
+            bybit_perpetual_secret_key='testSecretKey',
+            trading_pairs=[self.trading_pair],
+            trading_required=False)
 
         self.assertFalse(local_connector.ready)
 
@@ -2031,14 +2039,18 @@ class BybitPerpetualDerivativeTests(TestCase):
                                "BTC-USDT")
 
     def test_supported_position_modes(self):
-        testnet_linear_connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
-                                                            bybit_perpetual_secret_key='testSecretKey',
-                                                            trading_pairs=[self.trading_pair],
-                                                            domain="bybit_perpetual_testnet")
-        testnet_non_linear_connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
-                                                                bybit_perpetual_secret_key='testSecretKey',
-                                                                trading_pairs=[self.non_linear_trading_pair],
-                                                                domain="bybit_perpetual_testnet")
+        testnet_linear_connector = BybitPerpetualDerivative(
+            client_config_map=self.client_config_map,
+            bybit_perpetual_api_key='testApiKey',
+            bybit_perpetual_secret_key='testSecretKey',
+            trading_pairs=[self.trading_pair],
+            domain="bybit_perpetual_testnet")
+        testnet_non_linear_connector = BybitPerpetualDerivative(
+            client_config_map=self.client_config_map,
+            bybit_perpetual_api_key='testApiKey',
+            bybit_perpetual_secret_key='testSecretKey',
+            trading_pairs=[self.non_linear_trading_pair],
+            domain="bybit_perpetual_testnet")
 
         # Case 1: Linear Perpetual
         expected_result = [PositionMode.HEDGE]
@@ -2206,7 +2218,8 @@ class BybitPerpetualDerivativeTests(TestCase):
 
     @aioresponses()
     def test_fetch_funding_fee_supported_non_linear_trading_pair_receive_funding(self, get_mock):
-        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL, self.non_linear_trading_pair)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
+                                                          self.non_linear_trading_pair)
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
         regex_url = re.compile(f"^{url}")
 
@@ -2299,7 +2312,8 @@ class BybitPerpetualDerivativeTests(TestCase):
         }
         get_mock.get(regex_url, body=json.dumps(linear_mock_response))
 
-        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL, self.non_linear_trading_pair)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
+                                                          self.non_linear_trading_pair)
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
         regex_url = re.compile(f"^{url}")
         non_linear_mock_response = {
@@ -2336,7 +2350,8 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertFalse(self.connector._funding_fee_poll_notifier.is_set())
         self.assertGreater(self.connector._next_funding_fee_timestamp, initial_funding_fee_ts)
         self.assertTrue(self._is_logged("INFO", f"Funding payment of 0.0001 received on {self.trading_pair} market."))
-        self.assertTrue(self._is_logged("INFO", f"Funding payment of 0.0001 received on {self.non_linear_trading_pair} market."))
+        self.assertTrue(
+            self._is_logged("INFO", f"Funding payment of 0.0001 received on {self.non_linear_trading_pair} market."))
 
     def test_set_leverage_unsupported_trading_pair(self):
         self.connector_task = asyncio.get_event_loop().create_task(
@@ -2535,7 +2550,8 @@ class BybitPerpetualDerivativeTests(TestCase):
             self.connector._user_stream_tracker.start())
 
         # Add the authentication response for the websocket
-        self.mocking_assistant.add_websocket_json_message(ws_connect_mock.return_value, self._authentication_response(True))
+        self.mocking_assistant.add_websocket_json_message(ws_connect_mock.return_value,
+                                                          self._authentication_response(True))
 
         self.mocking_assistant.add_websocket_json_message(
             ws_connect_mock.return_value,
@@ -2605,7 +2621,8 @@ class BybitPerpetualDerivativeTests(TestCase):
                                             "Market", 0, 1, "")
 
         # Add the authentication response for the websocket
-        self.mocking_assistant.add_websocket_json_message(ws_connect_mock.return_value, self._authentication_response(True))
+        self.mocking_assistant.add_websocket_json_message(ws_connect_mock.return_value,
+                                                          self._authentication_response(True))
 
         self.mocking_assistant.add_websocket_json_message(
             ws_connect_mock.return_value,
@@ -2663,7 +2680,8 @@ class BybitPerpetualDerivativeTests(TestCase):
                                             "Market", 0, 1, "")
 
         # Add the authentication response for the websocket
-        self.mocking_assistant.add_websocket_json_message(ws_connect_mock.return_value, self._authentication_response(True))
+        self.mocking_assistant.add_websocket_json_message(ws_connect_mock.return_value,
+                                                          self._authentication_response(True))
 
         self.mocking_assistant.add_websocket_json_message(
             ws_connect_mock.return_value,
@@ -2726,7 +2744,8 @@ class BybitPerpetualDerivativeTests(TestCase):
             next_funding_utc_timestamp=int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()),
             rate=(Decimal('-15')),
         )
-        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT, self.trading_pair)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
+                                                          self.trading_pair)
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
         regex_url = re.compile(f"^{url}")
 

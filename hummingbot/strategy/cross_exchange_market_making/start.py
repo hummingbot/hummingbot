@@ -18,7 +18,7 @@ def start(self):
     raw_taker_trading_pair = xemm_map.get("taker_market_trading_pair").value
     min_profitability = xemm_map.get("min_profitability").value / Decimal("100")
     order_amount = xemm_map.get("order_amount").value
-    strategy_report_interval = self.clientconfig_map.strategy_report_interval
+    strategy_report_interval = self.client_config_map.strategy_report_interval
     limit_order_min_expiration = xemm_map.get("limit_order_min_expiration").value
     cancel_order_threshold = xemm_map.get("cancel_order_threshold").value / Decimal("100")
     active_order_canceling = xemm_map.get("active_order_canceling").value

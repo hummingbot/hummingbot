@@ -1,12 +1,14 @@
-from decimal import Decimal
 import unittest.mock
+from decimal import Decimal
+from test.hummingbot.strategy import assign_config_default
+
 import hummingbot.strategy.cross_exchange_market_making.start as strategy_start
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import (
-    cross_exchange_market_making_config_map as strategy_cmap
+    cross_exchange_market_making_config_map as strategy_cmap,
 )
-from hummingbot.client.config.global_config_map import global_config_map
-from test.hummingbot.strategy import assign_config_default
 
 
 class XEMMStartTest(unittest.TestCase):
@@ -14,7 +16,11 @@ class XEMMStartTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.strategy = None
-        self.markets = {"binance": ExchangeBase(), "kucoin": ExchangeBase()}
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.client_config_map.strategy_report_interval = 60.
+        self.markets = {
+            "binance": ExchangeBase(client_config_map=self.client_config_map),
+            "kucoin": ExchangeBase(client_config_map=self.client_config_map)}
         self.notifications = []
         self.log_errors = []
         assign_config_default(strategy_cmap)
@@ -24,7 +30,6 @@ class XEMMStartTest(unittest.TestCase):
         strategy_cmap.get("taker_market_trading_pair").value = "ETH-USDT"
         strategy_cmap.get("order_amount").value = Decimal("1")
         strategy_cmap.get("min_profitability").value = Decimal("2")
-        global_config_map.get("strategy_report_interval").value = 60.
         strategy_cmap.get("use_oracle_conversion_rate").value = False
 
     def _initialize_market_assets(self, market, trading_pairs):

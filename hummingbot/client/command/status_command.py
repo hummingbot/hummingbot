@@ -111,14 +111,13 @@ class StatusCommand:
     def missing_configurations_legacy(
         self,  # type: HummingbotApplication
     ) -> List[str]:
-        missing_globals = missing_required_configs_legacy(self.client_config_map)
         config_map = self.strategy_config_map
         missing_configs = []
         if not isinstance(config_map, ClientConfigAdapter):
             missing_configs = missing_required_configs_legacy(
                 get_strategy_config_map(self.strategy_name)
             )
-        return missing_globals + missing_configs
+        return missing_configs
 
     def validate_configs(
         self,  # type: HummingbotApplication
@@ -175,7 +174,7 @@ class StatusCommand:
                 self.notify(f"    {error}")
             return False
 
-        network_timeout = self.client_config_map.commands_timeout.other_commands_timeout
+        network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         try:
             invalid_conns = await asyncio.wait_for(self.validate_required_connections(), network_timeout)
         except asyncio.TimeoutError:

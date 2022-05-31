@@ -112,7 +112,7 @@ def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Bas
         style=dialog_style).run()
     password = input_dialog(
         title="Input Password",
-        text="\n\nEnter your password:",
+        text="\n\nEnter your previous password:",
         password=True,
         style=dialog_style).run()
     if password is None:

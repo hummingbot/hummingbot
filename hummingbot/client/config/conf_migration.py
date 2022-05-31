@@ -94,14 +94,10 @@ def migrate_global_config() -> List[str]:
         migrate_global_config_modes(client_config_map, data)
         keys = list(data.keys())
         for key in keys:
-            if key not in client_config_map.keys():
-                errors.append(
-                    f"Could not match the attribute {key} from the legacy config file to the new config map."
-                )
-            else:
+            if key in client_config_map.keys():
                 migrate_global_config_field(client_config_map, data, key)
         for key in data:
-            errors.append(f"ConfigVar {key} was not migrated.")
+            logging.getLogger().warning(f"ConfigVar {key} was not migrated.")
         errors.extend(client_config_map.validate_model())
         if len(errors) == 0:
             save_to_yml(CLIENT_CONFIG_PATH, client_config_map)

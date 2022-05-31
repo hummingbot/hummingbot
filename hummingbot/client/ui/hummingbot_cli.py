@@ -98,10 +98,10 @@ class HummingbotCLI(PubSub):
         loop.create_task(start_process_monitor(self.process_usage))
         loop.create_task(start_trade_monitor(self.trade_monitor))
 
-    def did_start_ui(self, hummingbot: "HummingbotApplication"):
+    def did_start_ui(self):
         self._stdout_redirect_context.enter_context(patch_stdout(log_field=self.log_field))
 
-        log_level = hummingbot.client_config_map.log_level
+        log_level = self.client_config_map.log_level
         init_logging("hummingbot_logs.yml", self.client_config_map, override_log_level=log_level)
 
         self.trigger_event(HummingbotUIEvent.Start, self)

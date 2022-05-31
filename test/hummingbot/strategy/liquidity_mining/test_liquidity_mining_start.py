@@ -1,11 +1,14 @@
-from decimal import Decimal
 import unittest.mock
+from decimal import Decimal
+from test.hummingbot.strategy import assign_config_default
+
 import hummingbot.strategy.liquidity_mining.start as strategy_start
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.liquidity_mining.liquidity_mining_config_map import (
-    liquidity_mining_config_map as strategy_cmap
+    liquidity_mining_config_map as strategy_cmap,
 )
-from test.hummingbot.strategy import assign_config_default
 
 
 class LiquidityMiningStartTest(unittest.TestCase):
@@ -13,7 +16,7 @@ class LiquidityMiningStartTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.strategy = None
-        self.markets = {"binance": ExchangeBase()}
+        self.markets = {"binance": ExchangeBase(client_config_map=ClientConfigAdapter(ClientConfigMap()))}
         self.notifications = []
         self.log_errors = []
         assign_config_default(strategy_cmap)

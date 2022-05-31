@@ -52,6 +52,7 @@ client_configs_to_display = ["autofill_import",
                              "pmm_script_mode",
                              "pmm_script_file_path",
                              "ethereum_chain_name",
+                             "gateway",
                              "gateway_enabled",
                              "gateway_cert_passphrase",
                              "gateway_api_host",
@@ -60,15 +61,16 @@ client_configs_to_display = ["autofill_import",
                              "global_token",
                              "global_token_symbol",
                              "rate_limits_share_pct",
+                             "commands_timeout",
                              "create_command_timeout",
                              "other_commands_timeout",
                              "tables_format"]
-color_settings_to_display = ["top-pane",
-                             "bottom-pane",
-                             "output-pane",
-                             "input-pane",
-                             "logs-pane",
-                             "terminal-primary"]
+color_settings_to_display = ["top_pane",
+                             "bottom_pane",
+                             "output_pane",
+                             "input_pane",
+                             "logs_pane",
+                             "terminal_primary"]
 columns = ["Key", "Value"]
 
 
@@ -97,13 +99,19 @@ class ConfigCommand:
         data = self.build_model_df_data(self.client_config_map, to_print=client_configs_to_display)
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
         self.notify("\nGlobal Configurations:")
-        lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
+        lines = ["    " + line for line in format_df_for_printout(
+            df,
+            table_format=self.client_config_map.tables_format,
+            max_col_width=50).split("\n")]
         self.notify("\n".join(lines))
 
         data = self.build_model_df_data(self.client_config_map, to_print=color_settings_to_display)
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
         self.notify("\nColor Settings:")
-        lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
+        lines = ["    " + line for line in format_df_for_printout(
+            df,
+            table_format=self.client_config_map.tables_format,
+            max_col_width=50).split("\n")]
         self.notify("\n".join(lines))
 
     def list_strategy_configs(
@@ -114,7 +122,10 @@ class ConfigCommand:
             data = self.build_df_data_from_config_map(config_map)
             df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
             self.notify("\nStrategy Configurations:")
-            lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
+            lines = ["    " + line for line in format_df_for_printout(
+                df,
+                table_format=self.client_config_map.tables_format,
+                max_col_width=50).split("\n")]
             self.notify("\n".join(lines))
 
     def build_df_data_from_config_map(
@@ -211,9 +222,9 @@ class ConfigCommand:
             else:
                 if input_value is None:
                     self.notify("Please follow the prompt to complete configurations: ")
-                client_config_key = key in self.client_config_map.keys()
+                client_config_key = key in self.client_config_map.config_paths()
                 if client_config_key:
-                    config_map = self.strategy_config_map
+                    config_map = self.client_config_map
                     file_path = CLIENT_CONFIG_PATH
                 else:
                     config_map = self.strategy_config_map

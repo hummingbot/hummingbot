@@ -1,12 +1,13 @@
 import asyncio
-from typing import Optional
-from unittest.mock import patch, MagicMock, AsyncMock
+from typing import TYPE_CHECKING, Optional
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
+if TYPE_CHECKING:
+    from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 
 
 class CLIMockingAssistant:
-    def __init__(self, app: HummingbotCLI):
+    def __init__(self, app: "HummingbotCLI"):
         self._app = app
         self._prompt_patch = patch(
             "hummingbot.client.ui.hummingbot_cli.HummingbotCLI.prompt"

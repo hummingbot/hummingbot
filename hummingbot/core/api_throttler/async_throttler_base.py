@@ -35,14 +35,12 @@ class AsyncThrottlerBase(ABC):
         :param retry_interval: Time between every capacity check.
         :param safety_margin: Percentage of limit to be added as a safety margin when calculating capacity to ensure calls are within the limit.
         """
-        from hummingbot.client.hummingbot_application import HummingbotApplication  # avoids circular import
-
         # Rate Limit Definitions
         self._rate_limits: List[RateLimit] = copy.deepcopy(rate_limits)
-        client_config = HummingbotApplication.main_application().client_config_map
+        client_config = self._client_config_map()
 
         # If configured, users can define the percentage of rate limits to allocate to the throttler.
-        self.limits_pct: Decimal = client_config.rate_limits_share_pct
+        self.limits_pct: Decimal = client_config.rate_limits_share_pct / 100
         for rate_limit in self._rate_limits:
             rate_limit.limit = max(Decimal("1"),
                                    math.floor(Decimal(str(rate_limit.limit)) * self.limits_pct))
@@ -62,6 +60,11 @@ class AsyncThrottlerBase(ABC):
 
         # Shared asyncio.Lock instance to prevent multiple async ContextManager from accessing the _task_logs variable
         self._lock = asyncio.Lock()
+
+    def _client_config_map(self):
+        from hummingbot.client.hummingbot_application import HummingbotApplication  # avoids circular import
+
+        return HummingbotApplication.main_application().client_config_map
 
     def get_related_limits(self, limit_id: str) -> Tuple[RateLimit, List[Tuple[RateLimit, int]]]:
         rate_limit: Optional[RateLimit] = self._id_to_limit_map.get(limit_id, None)

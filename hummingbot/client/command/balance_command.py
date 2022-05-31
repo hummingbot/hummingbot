@@ -79,7 +79,7 @@ class BalanceCommand:
         total_col_name = f'Total ({RateOracle.global_token_symbol})'
         sum_not_for_show_name = "sum_not_for_show"
         self.notify("Updating balances, please wait...")
-        network_timeout = self.client_config_map.commands_timeout.other_commands_timeout
+        network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         try:
             all_ex_bals = await asyncio.wait_for(
                 UserBalances.instance().all_balances_all_exchanges(self.client_config_map), network_timeout

@@ -6,6 +6,8 @@ from typing import List
 import pandas as pd
 from nose.plugins.attrib import attr
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.mock.mock_paper_exchange.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
@@ -41,8 +43,10 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
         self.min_profitbality = Decimal("0.005")
-        self.maker_market: MockPaperExchange = MockPaperExchange()
-        self.taker_market: MockPaperExchange = MockPaperExchange()
+        self.maker_market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        self.taker_market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()))
         self.maker_market.set_balanced_order_book(self.maker_trading_pairs[0], 1.0, 0.5, 1.5, 0.01, 10)
         self.taker_market.set_balanced_order_book(self.taker_trading_pairs[0], 1.0, 0.5, 1.5, 0.001, 4)
         self.maker_market.set_balance("COINALPHA", 5)
@@ -494,7 +498,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     def test_with_adjust_orders_enabled(self):
         self.clock.remove_iterator(self.strategy)
         self.clock.remove_iterator(self.maker_market)
-        self.maker_market: MockPaperExchange = MockPaperExchange()
+        self.maker_market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.maker_market.set_balanced_order_book(self.maker_trading_pairs[0], 1.0, 0.5, 1.5, 0.1, 10)
         self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
             MarketTradingPairTuple(self.maker_market, *self.maker_trading_pairs),
@@ -528,7 +534,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     def test_with_adjust_orders_disabled(self):
         self.clock.remove_iterator(self.strategy)
         self.clock.remove_iterator(self.maker_market)
-        self.maker_market: MockPaperExchange = MockPaperExchange()
+        self.maker_market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
 
         self.maker_market.set_balanced_order_book(self.maker_trading_pairs[0], 1.0, 0.5, 1.5, 0.1, 10)
         self.taker_market.set_balanced_order_book(self.taker_trading_pairs[0], 1.0, 0.5, 1.5, 0.001, 20)
@@ -706,7 +714,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     def test_empty_maker_orderbook(self):
         self.clock.remove_iterator(self.strategy)
         self.clock.remove_iterator(self.maker_market)
-        self.maker_market: MockPaperExchange = MockPaperExchange()
+        self.maker_market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
 
         # Orderbook is empty
         self.maker_market.new_empty_order_book(self.maker_trading_pairs[0])

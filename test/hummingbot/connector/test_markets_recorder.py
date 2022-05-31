@@ -24,7 +24,7 @@ from hummingbot.model.trade_fill import TradeFill
 
 class MarketsRecorderTests(TestCase):
 
-    @patch("hummingbot.model.sql_connection_manager.SQLConnectionManager.get_db_engine")
+    @patch("hummingbot.model.sql_connection_manager.create_engine")
     def setUp(self, engine_mock) -> None:
         super().setUp()
         self.display_name = "test_market"
