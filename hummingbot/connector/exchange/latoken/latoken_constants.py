@@ -4,7 +4,7 @@ HBOT_ORDER_ID_PREFIX = "latoken-hbot-"
 MAX_ORDER_ID_LEN = 36
 SNAPSHOT_LIMIT_SIZE = 100
 DEFAULT_DOMAIN = "com"
-DOMAIN_TO_ENDPOINT = {"com": "api.latoken"}
+DOMAIN_TO_ENDPOINT = {DEFAULT_DOMAIN: "api.latoken"}
 
 # Base URL
 REST_URL = "https://{}.{}"

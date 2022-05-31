@@ -30,6 +30,7 @@ class LatokenUserStreamDataSourceUnitTests(unittest.TestCase):
         cls.base_asset = "d8ae67f2-f954-4014-98c8-64b1ac334c64"
         cls.quote_asset = "0c3a106d-bde3-4c13-a26e-3fd2394529e5"
         cls.trading_pair = "ETH-USDT"
+        cls.trading_pairs = [cls.trading_pair]
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
         cls.domain = "com"
 
@@ -50,6 +51,7 @@ class LatokenUserStreamDataSourceUnitTests(unittest.TestCase):
 
         self.data_source = LatokenAPIUserStreamDataSource(
             auth=LatokenAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider),
+            trading_pairs=self.trading_pairs,
             domain=self.domain,
             throttler=self.throttler,
             time_synchronizer=self.time_synchronizer,
