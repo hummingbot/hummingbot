@@ -12,7 +12,6 @@ from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WS
 
 
 class KucoinAuth(AuthBase):
-
     def __init__(self, api_key: str, passphrase: str, secret_key: str, time_provider: TimeSynchronizer):
         self.api_key: str = api_key
         self.passphrase: str = passphrase
