@@ -136,6 +136,11 @@ main_config_map = {
                   prompt="Would you like to send error logs to hummingbot? (Yes/No) >>> ",
                   type_str="bool",
                   default=True),
+    "previous_strategy":
+        ConfigVar(key="previous_strategy",
+                  prompt=None, required_if=lambda: False,
+                  type_str="str",
+                  ),
     # Database options
     "db_engine":
         ConfigVar(key="db_engine",

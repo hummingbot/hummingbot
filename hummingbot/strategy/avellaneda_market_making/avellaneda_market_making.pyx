@@ -12,7 +12,11 @@ import pandas as pd
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import (
+    OrderType,
+    PriceType,
+    TradeType
+)
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
@@ -41,6 +45,7 @@ from hummingbot.strategy.hanging_orders_tracker import (
     HangingOrdersTracker,
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.strategy.order_tracker cimport OrderTracker
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.utils import order_age
@@ -77,6 +82,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._sb_order_tracker = OrderTracker()
         self._config_map = config_map
         self._market_info = market_info
+        self._price_delegate = OrderBookAssetPriceDelegate(market_info.market, market_info.trading_pair)
         self._hb_app_notification = hb_app_notification
         self._hanging_orders_enabled = False
         self._hanging_orders_cancel_pct = Decimal("10")
@@ -305,13 +311,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return self.c_get_mid_price()
 
     cdef object c_get_mid_price(self):
-        return self._market_info.get_mid_price()
-
-    def get_order_book_snapshot(self) -> float:
-        return self.c_get_order_book_snapshot()
-
-    cdef object c_get_order_book_snapshot(self):
-        return self._market_info.order_book.snapshot
+        return self._price_delegate.get_price_by_type(PriceType.MidPrice)
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
@@ -419,7 +419,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             self._trading_intensity_buffer_size = trading_intensity_buffer_size
 
             if self._trading_intensity is None:
-                self._trading_intensity = TradingIntensityIndicator(trading_intensity_buffer_size)
+                self._trading_intensity = TradingIntensityIndicator(
+                    order_book=self.market_info.order_book,
+                    price_delegate=self._price_delegate,
+                    sampling_length=self._trading_intensity_buffer_size,
+                )
             else:
                 self._trading_intensity.sampling_length = trading_intensity_buffer_size
 
@@ -429,7 +433,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def pure_mm_assets_df(self, to_show_current_pct: bool) -> pd.DataFrame:
         market, trading_pair, base_asset, quote_asset = self._market_info
-        price = self._market_info.get_mid_price()
+        price = self._price_delegate.get_price_by_type(PriceType.MidPrice)
         base_balance = float(market.get_balance(base_asset))
         quote_balance = float(market.get_balance(quote_asset))
         available_base_balance = float(market.get_available_balance(base_asset))
@@ -629,7 +633,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     if self._ticks_to_be_ready % 5 == 0:
                         self.logger().info(f"Calculating volatility, estimating order book liquidity ... {self._ticks_to_be_ready} ticks to fill buffers")
                 else:
-                    self.logger().info(f"Calculating volatility, estimating order book liquidity ... no change tick")
+                    self.logger().info(f"Calculating volatility, estimating order book liquidity ... no trades tick")
         finally:
             self._last_timestamp = timestamp
 
@@ -663,9 +667,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._last_sampling_timestamp = timestamp
 
         price = self.get_price()
-        snapshot = self.get_order_book_snapshot()
         self._avg_vol.add_sample(price)
-        self._trading_intensity.add_sample(snapshot)
+        self._trading_intensity.calculate(timestamp)
         # Calculate adjustment factor to have 0.01% of inventory resolution
         base_balance = market.get_balance(base_asset)
         quote_balance = market.get_balance(quote_asset)

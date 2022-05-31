@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 import asyncio
 import itertools
-import json
-from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Dict, Generator, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-import aiohttp
 import pandas as pd
 
 import docker
+from hummingbot.client.command.gateway_api_manager import Chain, GatewayChainApiManager, begin_placeholder_mode
 from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml_legacy
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
@@ -47,21 +45,7 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-@contextmanager
-def begin_placeholder_mode(hb: "HummingbotApplication") -> Generator["HummingbotApplication", None, None]:
-    hb.app.clear_input()
-    hb.placeholder_mode = True
-    hb.app.hide_input = True
-    try:
-        yield hb
-    finally:
-        hb.app.to_stop_config = False
-        hb.placeholder_mode = False
-        hb.app.hide_input = False
-        hb.app.change_prompt(prompt=">>> ")
-
-
-class GatewayCommand:
+class GatewayCommand(GatewayChainApiManager):
     def create_gateway(self):
         safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
 
@@ -84,12 +68,12 @@ class GatewayCommand:
         safe_ensure_future(self._test_connection(), loop=self.ev_loop)
 
     def gateway_config(self,
-                       key: List[str],
+                       key: Optional[str] = None,
                        value: str = None):
         if value:
-            safe_ensure_future(self._update_gateway_configuration(key[0], value), loop=self.ev_loop)
+            safe_ensure_future(self._update_gateway_configuration(key, value), loop=self.ev_loop)
         else:
-            safe_ensure_future(self._show_gateway_configuration(key[0]), loop=self.ev_loop)
+            safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
 
     @staticmethod
     async def check_gateway_image(docker_repo: str, docker_tag: str) -> bool:
@@ -99,7 +83,7 @@ class GatewayCommand:
     async def _test_connection(self):
         # test that the gateway is running
         if await GatewayHttpClient.get_instance().ping_gateway():
-            self.notify("\nSuccesfully pinged gateway.")
+            self.notify("\nSuccessfully pinged gateway.")
         else:
             self.notify("\nUnable to ping gateway.")
 
@@ -133,47 +117,28 @@ class GatewayCommand:
             self,       # type: HummingbotApplication
             container_id: str, conf_path: str = "/usr/src/app/conf"
     ):
-        with begin_placeholder_mode(self):
-            while True:
-                node_api_key: str = await self.app.prompt(prompt="Enter Infura API Key (required for Ethereum node, "
-                                                          "if you do not have one, make an account at infura.io):  >>> ")
-                self.app.clear_input()
-                if self.app.to_stop_config:
-                    self.app.to_stop_config = False
-                    return
-                try:
-                    # Verifies that the Infura API Key/Project ID is valid by sending a request
-                    async with aiohttp.ClientSession() as tmp_client:
-                        headers = {"Content-Type": "application/json"}
-                        data = {
-                            "jsonrpc": "2.0",
-                            "id": 1,
-                            "method": "eth_blockNumber",
-                            "params": []
-                        }
-                        try:
-                            resp = await tmp_client.post(url=f"https://mainnet.infura.io/v3/{node_api_key}",
-                                                         data=json.dumps(data),
-                                                         headers=headers)
-                            if resp.status != 200:
-                                self.notify("Error occured verifying Infura Node API Key. Please check your API Key and try again.")
-                                continue
-                        except Exception:
-                            raise
+        infura_api_key: Optional[str] = await self._get_api_key(Chain.ETHEREUM)
 
-                    exec_info = await docker_ipc(method_name="exec_create",
-                                                 container=container_id,
-                                                 cmd=f"./setup/generate_conf.sh {conf_path} {node_api_key}",
-                                                 user="hummingbot")
+        try:
+            # generate_conf alters the ethereum.yml file if a second value is
+            # passed to generate_conf.sh
+            if infura_api_key is None:
+                cmd: str = f"./setup/generate_conf.sh {conf_path}"
+            else:
+                cmd: str = f"./setup/generate_conf.sh {conf_path} {infura_api_key}"
+            exec_info = await docker_ipc(method_name="exec_create",
+                                         container=container_id,
+                                         cmd=cmd,
+                                         user="hummingbot")
 
-                    await docker_ipc(method_name="exec_start",
-                                     exec_id=exec_info["Id"],
-                                     detach=True)
-                    return
-                except asyncio.CancelledError:
-                    raise
-                except Exception:
-                    raise
+            await docker_ipc(method_name="exec_start",
+                             exec_id=exec_info["Id"],
+                             detach=True)
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            raise
 
     async def _create_gateway(self):
         gateway_paths: GatewayPaths = get_gateway_paths()
@@ -311,7 +276,7 @@ class GatewayCommand:
         except Exception:
             self.notify("\nError: Gateway configuration update failed. See log file for more details.")
 
-    async def _show_gateway_configuration(self, key: str):
+    async def _show_gateway_configuration(self, key: Optional[str] = None):
         host = global_config_map['gateway_api_host'].value
         port = global_config_map['gateway_api_port'].value
         try:
