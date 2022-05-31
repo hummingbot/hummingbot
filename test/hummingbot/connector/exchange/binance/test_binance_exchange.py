@@ -267,7 +267,7 @@ class BinanceExchangeTests(TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='OID1', exchange_order_id=None)"
+                "client_order_id='OID1', exchange_order_id=None, misc_updates={})"
             )
         )
 
@@ -320,7 +320,7 @@ class BinanceExchangeTests(TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None)"
+                "client_order_id='OID1', exchange_order_id=None, misc_updates={})"
             )
         )
 
@@ -1025,7 +1025,8 @@ class BinanceExchangeTests(TestCase):
                 "INFO",
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
                 f" update_timestamp={order_status['updateTime'] * 1e-3}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}')")
+                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
+                "misc_updates={})")
         )
 
     @aioresponses()
