@@ -325,7 +325,7 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         self.logger().error(
                             f"Unexpected error fetching order book snapshot for {trading_pair}.", exc_info=True)
                         await self._sleep(5.0)
-                await self._sleep(CONSTANTS.ONE_HOUR)
+                await self._sleep(CONSTANTS.HOUR)
             except asyncio.CancelledError:
                 raise
             except Exception:
