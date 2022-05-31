@@ -20,7 +20,7 @@ from hummingbot.connector.exchange.ftx.ftx_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair
 )
-from hummingbot.connector.exchange_base import NaN
+from hummingbot.connector.exchange_base import s_decimal_NaN
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -694,7 +694,7 @@ cdef class FtxExchange(ExchangeBase):
                    str trading_pair,
                    object amount,
                    object order_type=OrderType.LIMIT,
-                   object price=NaN,
+                   object price = s_decimal_NaN,
                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t> get_tracking_nonce()
@@ -707,7 +707,7 @@ cdef class FtxExchange(ExchangeBase):
                            trading_pair: str,
                            amount: Decimal,
                            order_type: OrderType = OrderType.LIMIT,
-                           price: Optional[Decimal] = NaN):
+                           price: Optional[Decimal] = s_decimal_NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
             double quote_amount
@@ -960,7 +960,7 @@ cdef class FtxExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = Decimal('NaN'),
+                price: Decimal = s_decimal_NaN,
                 is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
