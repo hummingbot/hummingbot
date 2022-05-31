@@ -4,13 +4,14 @@ from decimal import Decimal
 from typing import Any, Callable, Dict, Optional  # , cast
 
 import hummingbot.connector.exchange.latoken.latoken_constants as CONSTANTS
-from hummingbot.connector.exchange.latoken.latoken_web_assistants_factory import LatokenWebAssistantsFactory
+from hummingbot.connector.exchange.latoken.latoken_connections_factory import LatokenConnectionsFactory
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.in_flight_order import OrderState
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 # Order States for REST
 ORDER_STATE = {
@@ -128,22 +129,24 @@ def build_api_factory(
         time_synchronizer: Optional[TimeSynchronizer] = None,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
         time_provider: Optional[Callable] = None,
-        auth: Optional[AuthBase] = None,) -> LatokenWebAssistantsFactory:
+        auth: Optional[AuthBase] = None,) -> WebAssistantsFactory:
     time_synchronizer = time_synchronizer or TimeSynchronizer()
     time_provider = time_provider or (lambda: get_current_server_time(
         throttler=throttler,
         domain=domain,
     ))
-    api_factory = LatokenWebAssistantsFactory(
+    api_factory = WebAssistantsFactory(
         auth=auth,
         rest_pre_processors=[
             TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider),
         ])
+    api_factory._connections_factory = LatokenConnectionsFactory()
     return api_factory
 
 
-def build_api_factory_without_time_synchronizer_pre_processor() -> LatokenWebAssistantsFactory:
-    api_factory = LatokenWebAssistantsFactory()
+def build_api_factory_without_time_synchronizer_pre_processor() -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory()
+    api_factory._connections_factory = LatokenConnectionsFactory()
     return api_factory
 
 
@@ -152,7 +155,7 @@ def create_throttler() -> AsyncThrottler:
 
 
 async def api_request(path: str,
-                      api_factory: Optional[LatokenWebAssistantsFactory] = None,
+                      api_factory: Optional[WebAssistantsFactory] = None,
                       throttler: Optional[AsyncThrottler] = None,
                       time_synchronizer: Optional[TimeSynchronizer] = None,
                       domain: str = CONSTANTS.DEFAULT_DOMAIN,
