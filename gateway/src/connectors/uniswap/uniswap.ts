@@ -73,11 +73,12 @@ export class Uniswap implements Uniswapish {
   }
 
   public async init() {
-    if (this._chain == 'ethereum' && !this.ethereum.ready())
+    if (this._chain == 'ethereum')
       throw new InitializationError(
         SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
         SERVICE_UNITIALIZED_ERROR_CODE
       );
+    await this.ethereum.init();
     for (const token of this.ethereum.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
