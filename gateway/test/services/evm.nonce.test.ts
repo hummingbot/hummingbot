@@ -43,12 +43,9 @@ describe('Test NonceLocalStorage', () => {
     const address1 = 'A';
     const address2 = 'B';
 
-    // clean up any previous db runs
-    // await db.deleteNonce(testChain1, testChain1Id, address1);
-    // await db.deleteNonce(testChain1, testChain1Id, address2);
-
     const now: number = new Date().getTime();
-    // saves a key with a value
+
+    // saves a key with a NonceInfo value
     db.saveCurrentNonce(
       testChain1,
       testChain1Id,
@@ -64,7 +61,7 @@ describe('Test NonceLocalStorage', () => {
 
     const results = await db.getCurrentNonces(testChain1, testChain1Id);
 
-    // returns with an address as key, the chain/id is known by the parameters you provide
+    // returns with an address as key with the corresponding NonceInfo value
     expect(results).toStrictEqual({
       [address1]: new NonceInfo(15, now + 1000),
       [address2]: new NonceInfo(23, now + 1000),
@@ -88,11 +85,10 @@ describe('Test EVMNonceManager', () => {
 
   const testChain1 = 'ethereum';
   const testChain1Id = 1;
-  // const testChain1Id = 2;
+
   const testChain2 = 'avalanche';
   const testChain2Id = 1;
   const address1 = 'A';
-  // const address1 = 'B';
 
   it('getNonce reads nonce from node, commits, then reads nonce from memory', async () => {
     const evmNonceManager = new EVMNonceManager(
@@ -120,7 +116,7 @@ describe('Test EVMNonceManager', () => {
 
     await evmNonceManager.commitNonce(address1, nonce);
 
-    const nonce2 = await evmNonceManager.getNonce(address1);
+    const nonce2 = await evmNonceManager.getNextNonce(address1);
 
     expect(nonce2).toEqual(13);
   });
@@ -168,19 +164,19 @@ describe('Test EVMNonceManager', () => {
 
     await avalancheNonceManager.init(new providers.StaticJsonRpcProvider(''));
 
-    const ethereumNonce1 = await ethereumNonceManager.getNonce(address1);
-    const avalancheNonce1 = await avalancheNonceManager.getNonce(address1);
+    const ethereumNonce1 = await ethereumNonceManager.getNextNonce(address1);
+    const avalancheNonce1 = await avalancheNonceManager.getNextNonce(address1);
 
-    expect(ethereumNonce1).toEqual(13); // exists from previous test
-    expect(avalancheNonce1).toEqual(51);
+    expect(ethereumNonce1).toEqual(14); // exists from previous test
+    expect(avalancheNonce1).toEqual(52);
 
     await ethereumNonceManager.commitNonce(address1, ethereumNonce1);
     await avalancheNonceManager.commitNonce(address1, avalancheNonce1);
 
-    const ethereumNonce2 = await ethereumNonceManager.getNonce(address1);
-    const avalancheNonce2 = await avalancheNonceManager.getNonce(address1);
+    const ethereumNonce2 = await ethereumNonceManager.getNextNonce(address1);
+    const avalancheNonce2 = await avalancheNonceManager.getNextNonce(address1);
 
-    expect(ethereumNonce2).toEqual(14);
-    expect(avalancheNonce2).toEqual(52);
+    expect(ethereumNonce2).toEqual(15);
+    expect(avalancheNonce2).toEqual(53);
   });
 });
