@@ -56,7 +56,7 @@ export class LocalStorage extends ReferenceCountingCloseable {
 
   public async get(
     readFunc: (key: string, string: any) => [string, any] | undefined
-  ): Promise<any> {
+  ): Promise<Record<string, any>> {
     await this.assertDbOpen();
 
     const results: Record<string, any> = {};

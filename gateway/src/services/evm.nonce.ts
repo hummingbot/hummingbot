@@ -167,7 +167,6 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
   #initialized: boolean = false;
   #chainId: number;
   #chainName: string;
-
   #db: NonceLocalStorage;
 
   // These variables should be private but then we will not be able to mock it otherwise.
@@ -187,9 +186,9 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
 
     this.#chainName = chainName;
     this.#chainId = chainId;
+    this.#db = NonceLocalStorage.getInstance(dbPath, this.handle);
     this._localNonceTTL = localNonceTTL;
     this._pendingNonceTTL = pendingNonceTTL;
-    this.#db = NonceLocalStorage.getInstance(dbPath, this.handle);
   }
 
   // init can be called many times and generally should always be called
@@ -207,7 +206,7 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
     if (this._pendingNonceTTL < 0) {
       throw new InitializationError(
         SERVICE_UNITIALIZED_ERROR_MESSAGE(
-          'EVMNonceManager.init pendingNonceTTL must be greate than or equal to zero.'
+          'EVMNonceManager.init pendingNonceTTL must be greater than or equal to zero.'
         ),
         SERVICE_UNITIALIZED_ERROR_CODE
       );
@@ -250,7 +249,7 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
     If time period of the last stored nonce exceeds the localNonceTTL, we update the nonce using the getTransactionCount
     call.
     */
-    if (this._provider !== null) {
+    if (this.#initialized && this._provider != null) {
       const mergeExpiryTimestamp: number = this.#addressToNonce[ethAddress]
         ? this.#addressToNonce[ethAddress].expiry
         : -1;
@@ -322,12 +321,11 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
   }
 
   async getNonceFromNode(ethAddress: string): Promise<number> {
-    if (this._provider !== null) {
+    if (this.#initialized && this._provider != null) {
       const externalNonce: number =
         (await this._provider.getTransactionCount(ethAddress)) - 1;
 
       const now: number = new Date().getTime();
-
       this.#addressToNonce[ethAddress] = new NonceInfo(
         externalNonce,
         now + this._pendingNonceTTL
@@ -348,6 +346,14 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
     }
   }
 
+  async getNonce(ethAddress: string): Promise<number> {
+    let nonce: number | null = await this.getNonceFromMemory(ethAddress);
+    if (nonce === null) {
+      nonce = await this.getNonceFromNode(ethAddress);
+    }
+    return nonce;
+  }
+
   async getNextNonce(ethAddress: string): Promise<number> {
     /*
     Retrieves the next available nonce for a given wallet address.
@@ -355,7 +361,7 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
     */
     let newNonce = null;
     const now: number = new Date().getTime();
-    if (this._provider !== null) {
+    if (this.#initialized) {
       if (this.#addressToPendingNonces[ethAddress]) {
         await this.mergeNonceFromEVMNode(ethAddress);
 
@@ -402,14 +408,6 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
         SERVICE_UNITIALIZED_ERROR_CODE
       );
     }
-  }
-
-  async getNonce(ethAddress: string): Promise<number> {
-    let nonce: number | null = await this.getNonceFromMemory(ethAddress);
-    if (nonce === null) {
-      nonce = await this.getNonceFromNode(ethAddress);
-    }
-    return nonce;
   }
 
   async commitNonce(ethAddress: string, txNonce: number): Promise<void> {
@@ -464,9 +462,9 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
     }
   }
 
-  async isValidNonce(ethAddress: string, _nonce: number): Promise<boolean> {
+  async isValidNonce(ethAddress: string, nonce: number): Promise<boolean> {
     const expectedNonce: number = await this.getNextNonce(ethAddress);
-    if (_nonce == expectedNonce) return true;
+    if (nonce == expectedNonce) return true;
     return false;
   }
 
