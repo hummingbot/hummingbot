@@ -163,6 +163,8 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
         Creates an instance of WSAssistant connected to the exchange
+
+        :return: an instance of WSAssistant connected to the exchange
         """
         raise NotImplementedError
 
@@ -178,14 +180,16 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         """
         Identifies the channel fot a particular event message. Used to find the correct queue to add the message in
 
+        :param event_message: the event received through the websocket connection
+
         :return: the message channel
         """
         raise NotImplementedError
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         async for ws_response in websocket_assistant.iter_messages():
-            data = ws_response.data
-            channel = self._channel_originating_message(event_message=data)
+            data: Dict[str, Any] = ws_response.data
+            channel: str = self._channel_originating_message(event_message=data)
             if channel in [self._diff_messages_queue_key, self._trade_messages_queue_key]:
                 self._message_queue[channel].put_nowait(data)
 

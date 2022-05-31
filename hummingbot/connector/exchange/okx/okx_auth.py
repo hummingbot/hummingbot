@@ -25,6 +25,8 @@ class OkxAuth(AuthBase):
         the required parameter in the request header.
 
         :param request: the request to be configured for authenticated interaction
+
+        :return: The RESTRequest with auth information included
         """
 
         headers = {}

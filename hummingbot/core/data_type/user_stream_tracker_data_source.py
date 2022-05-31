@@ -58,6 +58,8 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
         Creates an instance of WSAssistant connected to the exchange
+
+        :return: an instance of WSAssistant connected to the exchange
         """
         raise NotImplementedError
 
@@ -81,7 +83,7 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
     async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
         websocket_assistant and await websocket_assistant.disconnect()
 
-    async def _sleep(self, delay):
+    async def _sleep(self, delay: float):
         """
         Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
 
@@ -89,5 +91,5 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
         """
         await asyncio.sleep(delay)
 
-    def _time(self):
+    def _time(self) -> float:
         return time.time()

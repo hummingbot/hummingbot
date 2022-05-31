@@ -39,7 +39,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
         )
 
         ws_url = connection_info["data"]["instanceServers"][0]["endpoint"]
-        self._ping_interval = int(int(connection_info["data"]["instanceServers"][0]["pingInterval"]) * 0.8 * 1e-3)
+        self._ping_interval = int(connection_info["data"]["instanceServers"][0]["pingInterval"]) * 0.8 * 1e-3
         token = connection_info["data"]["token"]
 
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
