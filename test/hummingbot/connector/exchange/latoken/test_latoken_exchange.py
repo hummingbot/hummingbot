@@ -65,9 +65,9 @@ class LatokenExchangeTests(TestCase):
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
-        self.exchange._latoken_time_synchronizer.add_time_offset_ms_sample(0)
-        self.exchange._latoken_time_synchronizer.logger().setLevel(1)
-        self.exchange._latoken_time_synchronizer.logger().addHandler(self)
+        self.exchange._time_synchronizer.add_time_offset_ms_sample(0)
+        self.exchange._time_synchronizer.logger().setLevel(1)
+        self.exchange._time_synchronizer.logger().addHandler(self)
         self.exchange._order_tracker.logger().setLevel(1)
         self.exchange._order_tracker.logger().addHandler(self)
 
@@ -486,8 +486,8 @@ class LatokenExchangeTests(TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "NETWORK",
-                f"Unexpected error canceling order {order.client_order_id}.",
+                "ERROR",
+                f"Failed to cancel order {order.client_order_id}",
             )
         )
 
@@ -559,7 +559,7 @@ class LatokenExchangeTests(TestCase):
         request_sent_event = asyncio.Event()
         seconds_counter_mock.side_effect = [0, 0, 0]
 
-        self.exchange._latoken_time_synchronizer.clear_time_offset_ms_samples()
+        self.exchange._time_synchronizer.clear_time_offset_ms_samples()
         url = web_utils.private_rest_url(CONSTANTS.PING_PATH_URL, self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -571,7 +571,7 @@ class LatokenExchangeTests(TestCase):
 
         self.async_run_with_timeout(self.exchange._update_time_synchronizer())
 
-        self.assertEqual(response["serverTime"] * 1e-3, self.exchange._latoken_time_synchronizer.time())
+        self.assertEqual(response["serverTime"] * 1e-3, self.exchange._time_synchronizer.time())
 
     @aioresponses()
     def test_update_time_synchronizer_failure_is_logged(self, mock_api):
