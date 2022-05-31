@@ -10,7 +10,6 @@ from bidict import bidict
 import hummingbot.connector.exchange.latoken.latoken_constants as CONSTANTS
 import hummingbot.connector.exchange.latoken.latoken_stomper as stomper
 from hummingbot.connector.exchange.latoken import latoken_utils as utils, latoken_web_utils as web_utils
-from hummingbot.connector.exchange.latoken.latoken_web_assistants_factory import LatokenWebAssistantsFactory
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
@@ -19,6 +18,7 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSRequest
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
@@ -31,7 +31,7 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self,
                  trading_pairs: List[str],
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
-                 api_factory: Optional[LatokenWebAssistantsFactory] = None,
+                 api_factory: Optional[WebAssistantsFactory] = None,
                  throttler: Optional[AsyncThrottler] = None,
                  time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__(trading_pairs)
@@ -55,7 +55,7 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_last_traded_prices(cls,
                                      trading_pairs: List[str],
                                      domain: str = CONSTANTS.DEFAULT_DOMAIN,
-                                     api_factory: Optional[LatokenWebAssistantsFactory] = None,
+                                     api_factory: Optional[WebAssistantsFactory] = None,
                                      throttler: Optional[AsyncThrottler] = None,
                                      time_synchronizer: Optional[TimeSynchronizer] = None) -> Dict[str, float]:
         """
@@ -96,7 +96,7 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def trading_pair_symbol_map(
             cls,
             domain: str = CONSTANTS.DEFAULT_DOMAIN,
-            api_factory: Optional[LatokenWebAssistantsFactory] = None,
+            api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None,
     ) -> bidict[str, str]:
@@ -125,7 +125,7 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def exchange_symbol_associated_to_pair(
             trading_pair: str,
             domain=CONSTANTS.DEFAULT_DOMAIN,
-            api_factory: Optional[LatokenWebAssistantsFactory] = None,
+            api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None,
     ) -> str:
@@ -151,7 +151,7 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def trading_pair_associated_to_exchange_symbol(
             symbol: str,
             domain=CONSTANTS.DEFAULT_DOMAIN,
-            api_factory: Optional[LatokenWebAssistantsFactory] = None,
+            api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None) -> str:
         """
@@ -176,7 +176,7 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def fetch_trading_pairs(
             domain: str = CONSTANTS.DEFAULT_DOMAIN,
             throttler: Optional[AsyncThrottler] = None,
-            api_factory: Optional[LatokenWebAssistantsFactory] = None,
+            api_factory: Optional[WebAssistantsFactory] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None) -> List[str]:
         """
         Returns a list of all known trading pairs enabled to operate with
@@ -453,7 +453,7 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _get_last_traded_price(cls,
                                      trading_pair: str,
                                      domain: str,
-                                     api_factory: LatokenWebAssistantsFactory,
+                                     api_factory: WebAssistantsFactory,
                                      throttler: AsyncThrottler,
                                      time_synchronizer: TimeSynchronizer) -> float:
         symbol = await cls.exchange_symbol_associated_to_pair(trading_pair=trading_pair, domain=domain, throttler=throttler)
@@ -472,7 +472,7 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _init_trading_pair_symbols(
             cls,
             domain: str = CONSTANTS.DEFAULT_DOMAIN,
-            api_factory: Optional[LatokenWebAssistantsFactory] = None,
+            api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None):
         """
