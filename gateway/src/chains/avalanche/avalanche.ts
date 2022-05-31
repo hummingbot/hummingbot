@@ -4,8 +4,11 @@ import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
 import { getEthereumConfig as getAvalancheConfig } from '../ethereum/ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
+import { TraderjoeConfig } from '../../connectors/traderjoe/traderjoe.config';
 import { PangolinConfig } from '../../connectors/pangolin/pangolin.config';
 import { Ethereumish } from '../../services/common-interfaces';
+import { ConfigManagerV2 } from '../../services/config-manager-v2';
+import { replaceOrAppend } from '../../services/base';
 
 export class Avalanche extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: Avalanche };
@@ -18,10 +21,13 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     super(
       'avalanche',
       config.network.chainID,
-      config.network.nodeURL,
+      replaceOrAppend(config.network.nodeURL, config.nodeAPIKey),
       config.network.tokenListSource,
       config.network.tokenListType,
-      config.manualGasPrice
+      config.manualGasPrice,
+      config.gasLimit,
+      ConfigManagerV2.getInstance().get('database.nonceDbPath'),
+      ConfigManagerV2.getInstance().get('database.transactionDbPath')
     );
     this._chain = config.network.name;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
@@ -65,6 +71,8 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     let spender: string;
     if (reqSpender === 'pangolin') {
       spender = PangolinConfig.config.routerAddress(this._chain);
+    } else if (reqSpender === 'traderjoe') {
+      spender = TraderjoeConfig.config.routerAddress(this._chain);
     } else {
       spender = reqSpender;
     }
@@ -77,5 +85,12 @@ export class Avalanche extends EthereumBase implements Ethereumish {
       'Canceling any existing transaction(s) with nonce number ' + nonce + '.'
     );
     return super.cancelTxWithGasPrice(wallet, nonce, this._gasPrice * 2);
+  }
+
+  async close() {
+    await super.close();
+    if (this._chain in Avalanche._instances) {
+      delete Avalanche._instances[this._chain];
+    }
   }
 }

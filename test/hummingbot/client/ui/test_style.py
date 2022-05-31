@@ -1,9 +1,9 @@
 import unittest
-
-from prompt_toolkit.styles import Style
 from unittest.mock import patch
 
-from hummingbot.client.ui.style import load_style, reset_style, hex_to_ansi
+from prompt_toolkit.styles import Style
+
+from hummingbot.client.ui.style import hex_to_ansi, load_style, reset_style
 
 
 class StyleTest(unittest.TestCase):
@@ -49,6 +49,12 @@ class StyleTest(unittest.TestCase):
                 "error": "#F5634A",
                 "tab_button.focused": "bg:#FCFCFC #FAFAFA",
                 "tab_button": "bg:#FFFFFF #FAFAFA",
+                "dialog": "bg:#171E2B",
+                "dialog frame.label": "bg:#FCFCFC #000000",
+                "dialog.body": "bg:#000000 #FCFCFC",
+                "dialog shadow": "bg:#171E2B",
+                "button": "bg:#000000",
+                "text-area": "bg:#000000 #FCFCFC",
                 # Label bg and font color
                 "primary-label": "bg:#5FFFD7 #FAFAFA",
                 "secondary-label": "bg:#FFFFFF #FAFAFA",
@@ -94,6 +100,12 @@ class StyleTest(unittest.TestCase):
                 "error": "#ansired",
                 "tab_button.focused": "bg:#ansiwhite #ansiwhite",
                 "tab_button": "bg:#ansiwhite #ansiwhite",
+                "dialog": "bg:#ansigreen",
+                "dialog frame.label": "bg:#ansiwhite #ansiblack",
+                "dialog.body": "bg:#ansiblack #ansiwhite",
+                "dialog shadow": "bg:#ansigreen",
+                "button": "bg:#ansigreen",
+                "text-area": "bg:#ansiblack #ansiwhite",
                 # Label bg and font color
                 "primary-label": "bg:#ansicyan #ansiwhite",
                 "secondary-label": "bg:#ansiwhite #ansiwhite",
@@ -137,6 +149,12 @@ class StyleTest(unittest.TestCase):
                 "error": "#F5634A",
                 "tab_button.focused": "bg:#010101 #333333",
                 "tab_button": "bg:#FFFFFF #333333",
+                "dialog": "bg:#171E2B",
+                "dialog frame.label": "bg:#010101 #000000",
+                "dialog.body": "bg:#000000 #010101",
+                "dialog shadow": "bg:#171E2B",
+                "button": "bg:#000000",
+                "text-area": "bg:#000000 #010101",
                 # Label bg and font color
                 "primary-label": "bg:#5FFFD7 #333333",
                 "secondary-label": "bg:#FFFFFF #333333",

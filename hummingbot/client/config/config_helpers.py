@@ -478,7 +478,7 @@ def validate_strategy_file(file_path: Path) -> Optional[str]:
 
 
 def read_yml_file(yml_path: Path) -> Dict[str, Any]:
-    with open(yml_path, "r") as file:
+    with open(yml_path, "r", encoding="utf-8") as file:
         data = yaml.safe_load(file) or {}
     return dict(data)
 
@@ -580,7 +580,7 @@ def _load_yml_data_into_map(yml_data: Dict[str, Any], cm: ClientConfigAdapter):
 async def load_yml_into_dict(yml_path: str) -> Dict[str, Any]:
     data = {}
     if isfile(yml_path):
-        with open(yml_path) as stream:
+        with open(yml_path, encoding="utf-8") as stream:
             data = yaml_parser.load(stream) or {}
 
     return dict(data.items())
@@ -588,11 +588,11 @@ async def load_yml_into_dict(yml_path: str) -> Dict[str, Any]:
 
 async def save_yml_from_dict(yml_path: str, conf_dict: Dict[str, Any]):
     try:
-        with open(yml_path, "w+") as stream:
+        with open(yml_path, "w+", encoding="utf-8") as stream:
             data = yaml_parser.load(stream) or {}
             for key in conf_dict:
                 data[key] = conf_dict.get(key)
-            with open(yml_path, "w+") as outfile:
+            with open(yml_path, "w+", encoding="utf-8") as outfile:
                 yaml_parser.dump(data, outfile)
     except Exception as e:
         logging.getLogger().error(f"Error writing configs: {str(e)}", exc_info=True)
@@ -603,11 +603,11 @@ async def load_yml_into_cm_legacy(yml_path: str, template_file_path: str, cm: Di
         data = {}
         conf_version = -1
         if isfile(yml_path):
-            with open(yml_path) as stream:
+            with open(yml_path, encoding="utf-8") as stream:
                 data = yaml_parser.load(stream) or {}
                 conf_version = data.get("template_version", 0)
 
-        with open(template_file_path, "r") as template_fd:
+        with open(template_file_path, "r", encoding="utf-8") as template_fd:
             template_data = yaml_parser.load(template_fd)
             template_version = template_data.get("template_version", 0)
 
@@ -688,7 +688,7 @@ def save_to_yml_legacy(yml_path: str, cm: Dict[str, ConfigVar]):
     Write current config saved a single config map into each a single yml file
     """
     try:
-        with open(yml_path) as stream:
+        with open(yml_path, encoding="utf-8") as stream:
             data = yaml_parser.load(stream) or {}
             for key in cm:
                 cvar = cm.get(key)
@@ -696,7 +696,7 @@ def save_to_yml_legacy(yml_path: str, cm: Dict[str, ConfigVar]):
                     data[key] = float(cvar.value)
                 else:
                     data[key] = cvar.value
-            with open(yml_path, "w+") as outfile:
+            with open(yml_path, "w+", encoding="utf-8") as outfile:
                 yaml_parser.dump(data, outfile)
     except Exception as e:
         logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
@@ -705,7 +705,7 @@ def save_to_yml_legacy(yml_path: str, cm: Dict[str, ConfigVar]):
 def save_to_yml(yml_path: Path, cm: ClientConfigAdapter):
     try:
         cm_yml_str = cm.generate_yml_output_str_with_comments()
-        with open(yml_path, "w") as outfile:
+        with open(yml_path, "w", encoding="utf-8") as outfile:
             outfile.write(cm_yml_str)
     except Exception as e:
         logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
@@ -736,10 +736,10 @@ async def create_yml_files_legacy():
 
             # Only overwrite log config. Updating `conf_global.yml` is handled by `read_configs_from_yml`
             if conf_path.endswith("hummingbot_logs.yml"):
-                with open(template_path, "r") as template_fd:
+                with open(template_path, "r", encoding="utf-8") as template_fd:
                     template_data = yaml_parser.load(template_fd)
                     template_version = template_data.get("template_version", 0)
-                with open(conf_path, "r") as conf_fd:
+                with open(conf_path, "r", encoding="utf-8") as conf_fd:
                     conf_version = 0
                     try:
                         conf_data = yaml_parser.load(conf_fd)
@@ -819,3 +819,8 @@ def parse_config_default_to_text(config: ConfigVar) -> str:
 
 def retrieve_validation_error_msg(e: ValidationError) -> str:
     return e.errors().pop()["msg"]
+
+
+def save_previous_strategy_value(file_name: str):
+    global_config_map["previous_strategy"].value = file_name
+    save_to_yml_legacy(GLOBAL_CONFIG_PATH, global_config_map)

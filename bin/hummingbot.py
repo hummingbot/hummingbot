@@ -18,6 +18,7 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.client.ui import login_prompt
+from hummingbot.client.ui.style import load_style
 from hummingbot.core.event.event_listener import EventListener
 from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.gateway import start_existing_gateway_container
@@ -76,8 +77,9 @@ async def main_async():
 def main():
     chdir_to_data_directory()
     secrets_manager_cls = ETHKeyFileSecretManger
-    if login_prompt(secrets_manager_cls):
-        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+    ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+    ev_loop.run_until_complete(read_system_configs_from_yml())
+    if login_prompt(secrets_manager_cls, style=load_style()):
         ev_loop.run_until_complete(main_async())
 
 
