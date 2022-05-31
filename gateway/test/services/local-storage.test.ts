@@ -48,7 +48,7 @@ describe('Test local-storage', () => {
 
     expect(db.dbPath).toStrictEqual(dbPath);
 
-    // delete the recentley added key/value pair
+    // delete the recently added key/value pair
     await db.del(testKey);
 
     const results2: Record<string, any> = await db.get((k: string, v: any) => {
@@ -59,28 +59,7 @@ describe('Test local-storage', () => {
     expect(results2).toStrictEqual({});
   });
 
-  // it('save, get and delete a key value pair with multiple value entries in the local db', async () => {
-  //   const testKey = 'abc';
-  //   const testValue = '123';
-
-  //   const db = new LocalStorage(dbPath);
-
-  //   // clean up any previous db runs
-  //   await db.del(testKey);
-
-  //   // saves a key with a value
-  //   await db.save(testKey, testValue);
-
-  //   // saves a key with another value
-  //   const anotherValue = '456';
-
-  //   await db.save(testKey, anotherValue);
-
   it('Put and retrieve a objects', async () => {
-    const testKey = 'abc';
-    const testValue = '123';
-    const anotherValue = '456';
-
     const db: LocalStorage = LocalStorage.getInstance(dbPath, handle);
 
     const firstKey: string = 'camel';
@@ -104,19 +83,6 @@ describe('Test local-storage', () => {
     const results: Record<string, any> = await db.get((k: string, v: any) => {
       return [k, v];
     });
-
-    // returns with an address as key, the chain/id is known by the parameters you provide
-    expect(results).toStrictEqual({
-      [testKey]: testValue + anotherValue,
-    });
-
-    await db.del(testKey);
-    const results2: Record<string, any> = await db.get((k: string, v: any) => {
-      return [k, v];
-    });
-
-    // the key has been deleted, expect an empty object
-    expect(results2).toStrictEqual({});
 
     expect(results[firstKey]).toStrictEqual(firstValue);
     expect(results[secondKey]).toStrictEqual(secondValue);
