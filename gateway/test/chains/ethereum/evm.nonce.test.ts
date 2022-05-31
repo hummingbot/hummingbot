@@ -33,7 +33,7 @@ describe('uninitiated EVMNodeService', () => {
     dbPath = await fsp.mkdtemp(
       path.join(os.tmpdir(), '/evm-nonce1.test.level')
     );
-    nonceManager = new EVMNonceManager('ethereum', 43, dbPath, 0);
+    nonceManager = new EVMNonceManager('ethereum', 43, dbPath, 0, 0);
     nonceManager.declareOwnership(handle);
   });
 
@@ -100,14 +100,14 @@ describe('uninitiated EVMNodeService', () => {
       'https://ethereum.node.com'
     );
 
-    const nonceManager2 = new EVMNonceManager('ethereum', 43, dbPath, -5);
+    const nonceManager2 = new EVMNonceManager('ethereum', 43, dbPath, 0, -5);
     nonceManager2.declareOwnership(handle);
 
     try {
       await expect(nonceManager2.init(provider)).rejects.toThrow(
         new InitializationError(
           SERVICE_UNITIALIZED_ERROR_MESSAGE(
-            'EVMNonceManager.init pendingNonceTTL must be greate than or equal to zero.'
+            'EVMNonceManager.init pendingNonceTTL must be greater than or equal to zero.'
           ),
           SERVICE_UNITIALIZED_ERROR_CODE
         )
@@ -122,23 +122,25 @@ describe('EVMNodeService', () => {
   let nonceManager: EVMNonceManager;
   let dbPath = '';
   const handle: string = ReferenceCountingCloseable.createHandle();
+  const provider = new providers.StaticJsonRpcProvider(
+    'https://ethereum.node.com'
+  );
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     dbPath = await fsp.mkdtemp(
       path.join(os.tmpdir(), '/evm-nonce2.test.level')
     );
-    nonceManager = new EVMNonceManager('ethereum', 43, dbPath, 60);
+    nonceManager = new EVMNonceManager('ethereum', 43, dbPath, 0, 0);
     nonceManager.declareOwnership(handle);
-    const provider = new providers.StaticJsonRpcProvider(
-      'https://ethereum.node.com'
-    );
     await nonceManager.init(provider);
+    await nonceManager.commitNonce(exampleAddress, 0);
   });
 
   afterAll(async () => {
     await nonceManager.close(handle);
     fs.rmSync(dbPath, { force: true, recursive: true });
   });
+
   const patchGetTransactionCount = () => {
     if (nonceManager._provider) {
       patch(nonceManager._provider, 'getTransactionCount', () => 11);
@@ -207,14 +209,14 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
     dbPath = await fsp.mkdtemp(
       path.join(os.tmpdir(), '/evm-nonce3.test.level')
     );
-    nonceManager1 = new EVMNonceManager('ethereum', 43, dbPath, 60);
+    nonceManager1 = new EVMNonceManager('ethereum', 43, dbPath, 60, 60);
     const provider1 = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
     );
     nonceManager1.declareOwnership(handle);
     await nonceManager1.init(provider1);
 
-    nonceManager2 = new EVMNonceManager('avalanche', 56, dbPath, 60);
+    nonceManager2 = new EVMNonceManager('avalanche', 56, dbPath, 60, 60);
     nonceManager2.declareOwnership(handle);
     const provider2 = new providers.StaticJsonRpcProvider(
       'https://avalanche.node.com'
@@ -239,8 +241,12 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
     if (nonceManager1._provider) {
       patch(nonceManager1._provider, 'getTransactionCount', () => 8);
     }
-    await nonceManager1.commitNonce(exampleAddress, 8);
-    const nonce2 = await nonceManager1.getNonce(exampleAddress);
-    await expect(nonce2).toEqual(10);
+
+    await expect(nonceManager1.commitNonce(exampleAddress, 8)).rejects.toThrow(
+      new InvalidNonceError(
+        INVALID_NONCE_ERROR_MESSAGE + 'txNonce(8) < currentNonce(10)',
+        INVALID_NONCE_ERROR_CODE
+      )
+    );
   });
 });
