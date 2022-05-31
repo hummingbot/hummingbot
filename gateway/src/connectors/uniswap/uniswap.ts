@@ -78,7 +78,9 @@ export class Uniswap implements Uniswapish {
         SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
         SERVICE_UNITIALIZED_ERROR_CODE
       );
-    await this.ethereum.init();
+    if (!this.ethereum.ready()) {
+      await this.ethereum.init();
+    }
     for (const token of this.ethereum.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,

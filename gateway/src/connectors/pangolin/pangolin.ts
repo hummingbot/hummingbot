@@ -70,7 +70,10 @@ export class Pangolin implements Uniswapish {
   public async init() {
     if (this._chain == 'avalanche')
       throw new Error('Avalanche is not available');
-    await this.avalanche.init();
+
+    if (!this.avalanche.ready()) {
+      await this.avalanche.init();
+    }
     for (const token of this.avalanche.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
