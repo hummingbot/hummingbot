@@ -100,27 +100,27 @@ const patchTrade = (key: string, error?: Error) => {
   });
 };
 
-// describe('verify Uniswap estimateSellTrade', () => {
-//   it('Should return an ExpectedTrade when available', async () => {
-//     patchTrade('bestTradeExactIn');
+describe('verify Uniswap estimateSellTrade', () => {
+  it('Should return an ExpectedTrade when available', async () => {
+    patchTrade('bestTradeExactIn');
 
-//     const expectedTrade = await uniswap.estimateSellTrade(
-//       WETH,
-//       DAI,
-//       BigNumber.from(1)
-//     );
-//     expect(expectedTrade).toHaveProperty('trade');
-//     expect(expectedTrade).toHaveProperty('expectedAmount');
-//   });
+    const expectedTrade = await uniswap.estimateSellTrade(
+      WETH,
+      DAI,
+      BigNumber.from(1)
+    );
+    expect(expectedTrade).toHaveProperty('trade');
+    expect(expectedTrade).toHaveProperty('expectedAmount');
+  });
 
-//   it('Should throw an error if no pair is available', async () => {
-//     patchTrade('bestTradeExactIn', new Error('error getting trade'));
+  it('Should throw an error if no pair is available', async () => {
+    patchTrade('bestTradeExactIn', new Error('error getting trade'));
 
-//     await expect(async () => {
-//       await uniswap.estimateSellTrade(WETH, DAI, BigNumber.from(1));
-//     }).rejects.toThrow(UniswapishPriceError);
-//   });
-// });
+    await expect(async () => {
+      await uniswap.estimateSellTrade(WETH, DAI, BigNumber.from(1));
+    }).rejects.toThrow(UniswapishPriceError);
+  });
+});
 
 describe('verify Uniswap estimateBuyTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
