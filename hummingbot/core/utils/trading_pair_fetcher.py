@@ -56,6 +56,9 @@ class TradingPairFetcher:
                     self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
             except ModuleNotFoundError:
                 continue
+            except Exception:
+                self.logger().exception(f"An error occurred when fetching trading pairs for {conn_setting.name}."
+                                        "Please check the logs")
 
         self.ready = True
 
