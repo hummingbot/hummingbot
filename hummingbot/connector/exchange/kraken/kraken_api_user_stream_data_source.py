@@ -2,6 +2,10 @@ import asyncio
 import logging
 from typing import Any, Dict, Optional
 
+from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
+from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
+from hummingbot.connector.exchange.kraken.kraken_order_book import KrakenOrderBook
+from hummingbot.connector.exchange.kraken.kraken_utils import build_api_factory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
@@ -9,12 +13,6 @@ from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
-from hummingbot.connector.exchange.kraken.kraken_order_book import KrakenOrderBook
-from hummingbot.connector.exchange.kraken.kraken_utils import (
-    build_api_factory
-)
-from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 
 MESSAGE_TIMEOUT = 3.0
 PING_TIMEOUT = 5.0

@@ -24,9 +24,9 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
+    OrderBookTradeEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderBookTradeEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )

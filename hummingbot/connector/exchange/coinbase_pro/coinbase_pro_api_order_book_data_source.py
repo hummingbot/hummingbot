@@ -10,11 +10,11 @@ from hummingbot.connector.exchange.coinbase_pro import coinbase_pro_constants as
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker_entry import (
-    CoinbaseProOrderBookTrackerEntry
+    CoinbaseProOrderBookTrackerEntry,
 )
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_utils import (
-    build_coinbase_pro_web_assistant_factory,
     CoinbaseProRESTRequest,
+    build_coinbase_pro_web_assistant_factory,
 )
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage

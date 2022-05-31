@@ -2,9 +2,7 @@ import asyncio
 import re
 import unittest
 from decimal import Decimal
-from typing import Any
-from typing import Awaitable
-from typing import Dict
+from typing import Any, Awaitable, Dict
 from unittest.mock import patch
 
 import ujson

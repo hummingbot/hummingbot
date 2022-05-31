@@ -5,38 +5,39 @@ import logging
 import re
 import time
 from decimal import Decimal
-from typing import Any, cast, Dict, List, Optional, Set, Type, Union
+from typing import Any, Dict, List, Optional, Set, Type, Union, cast
 
 from async_timeout import timeout
-from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.network_iterator import NetworkStatus
 
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.data_type.trade_fee import TokenAmount
-from hummingbot.core.event.events import BuyOrderCompletedEvent
-from hummingbot.core.event.events import BuyOrderCreatedEvent
-from hummingbot.core.event.events import MarketEvent
-from hummingbot.core.event.events import MarketOrderFailureEvent
-from hummingbot.core.event.events import OrderCancelledEvent
-from hummingbot.core.event.events import OrderFilledEvent
-from hummingbot.core.event.events import OrderType
-from hummingbot.core.event.events import SellOrderCompletedEvent
-from hummingbot.core.event.events import SellOrderCreatedEvent
-from hummingbot.core.event.events import TokenApprovalCancelledEvent
-from hummingbot.core.event.events import TokenApprovalEvent
-from hummingbot.core.event.events import TokenApprovalFailureEvent
-from hummingbot.core.event.events import TokenApprovalSuccessEvent
-from hummingbot.core.event.events import TradeType
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TokenApprovalCancelledEvent,
+    TokenApprovalEvent,
+    TokenApprovalFailureEvent,
+    TokenApprovalSuccessEvent,
+    TradeType,
+)
 from hummingbot.core.gateway import check_transaction_exceptions
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
+
 from .gateway_price_shim import GatewayPriceShim
 
 s_logger = None

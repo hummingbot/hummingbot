@@ -1,9 +1,9 @@
 import logging
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.client.settings import ConnectorSetting
+from hummingbot.client.settings import AllConnectorSettings, ConnectorSetting
 from hummingbot.logger import HummingbotLogger
+
 from .async_utils import safe_ensure_future
 
 
