@@ -1,5 +1,7 @@
 import argparse
 
+import path_util  # noqa: F401
+
 from hummingbot.client.config.conf_migration import migrate_configs
 from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
 

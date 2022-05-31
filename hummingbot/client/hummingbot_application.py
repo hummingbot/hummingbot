@@ -189,20 +189,20 @@ class HummingbotApplication(*commands):
                 shortcut = None
                 # see if we match against shortcut command
                 if shortcuts is not None:
-                    for s in shortcuts:
-                        if command_split[0] == s['command']:
-                            shortcut = s
+                    for each_shortcut in shortcuts:
+                        if command_split[0] == each_shortcut.command:
+                            shortcut = each_shortcut
                             break
 
                 # perform shortcut expansion
                 if shortcut is not None:
                     # check number of arguments
-                    num_shortcut_args = len(shortcut['arguments'])
+                    num_shortcut_args = len(shortcut.arguments)
                     if len(command_split) == num_shortcut_args + 1:
                         # notify each expansion if there's more than 1
-                        verbose = True if len(shortcut['output']) > 1 else False
+                        verbose = True if len(shortcut.output) > 1 else False
                         # do argument replace and re-enter this function with the expanded command
-                        for output_cmd in shortcut['output']:
+                        for output_cmd in shortcut.output:
                             final_cmd = output_cmd
                             for i in range(1, num_shortcut_args + 1):
                                 final_cmd = final_cmd.replace(f'${i}', command_split[i])

@@ -3,6 +3,8 @@ import unittest
 from decimal import Decimal
 from unittest.mock import patch
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.okex.constants import CLIENT_ID_PREFIX, MAX_ID_LEN
 from hummingbot.connector.exchange.okex.okex_exchange import OkexExchange
 from hummingbot.connector.utils import get_new_client_order_id
@@ -23,8 +25,13 @@ class TestOKExExchange(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.exchange = OkexExchange(
-            self.api_key, self.api_secret_key, self.api_passphrase, trading_pairs=[self.trading_pair]
+            client_config_map=self.client_config_map,
+            okex_api_key=self.api_key,
+            okex_secret_key=self.api_secret_key,
+            okex_passphrase=self.api_passphrase,
+            trading_pairs=[self.trading_pair]
         )
 
     @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")

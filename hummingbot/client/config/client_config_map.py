@@ -356,7 +356,11 @@ DB_MODES = {
 
 class PMMScriptMode(BaseClientModel, ABC):
     @abstractmethod
-    def get_iterator(self, strategy_name: str, markets: List[ExchangeBase], strategy: StrategyBase) -> Optional[PMMScriptIterator]:
+    def get_iterator(
+            self,
+            strategy_name: str,
+            markets: List[ExchangeBase],
+            strategy: StrategyBase) -> Optional[PMMScriptIterator]:
         ...
 
 
@@ -364,7 +368,11 @@ class PMMScriptDisabledMode(PMMScriptMode):
     class Config:
         title = "pmm_script_disabled"
 
-    def get_iterator(self, strategy_name: str, markets: List[ExchangeBase], strategy: StrategyBase) -> Optional[PMMScriptIterator]:
+    def get_iterator(
+            self,
+            strategy_name: str,
+            markets: List[ExchangeBase],
+            strategy: StrategyBase) -> Optional[PMMScriptIterator]:
         return None
 
 
@@ -377,7 +385,11 @@ class PMMScriptEnabledMode(PMMScriptMode):
     class Config:
         title = "pmm_script_enabled"
 
-    def get_iterator(self, strategy_name: str, markets: List[ExchangeBase], strategy: StrategyBase) -> Optional[PMMScriptIterator]:
+    def get_iterator(
+            self,
+            strategy_name: str,
+            markets: List[ExchangeBase],
+            strategy: StrategyBase) -> Optional[PMMScriptIterator]:
         if strategy_name != "pure_market_making":
             raise ValueError("PMM script feature is only available for pure_market_making strategy.")
         folder = dirname(self.pmm_script_file_path)
@@ -420,6 +432,9 @@ class GatewayConfigMap(BaseClientModel):
             prompt=lambda cm: "Please enter your Gateway API port",
         ),
     )
+
+    class Config:
+        title = "gateway"
 
 
 class GlobalTokenConfigMap(BaseClientModel):
@@ -489,11 +504,11 @@ class CommandsTimeoutConfigMap(BaseClientModel):
 class AnonymizedMetricsMode(BaseClientModel, ABC):
     @abstractmethod
     def get_collector(
-        self,
-        connector: ConnectorBase,
-        rate_provider: RateOracle,
-        instance_id: str,
-        valuation_token: str = "USDT",
+            self,
+            connector: ConnectorBase,
+            rate_provider: RateOracle,
+            instance_id: str,
+            valuation_token: str = "USDT",
     ) -> MetricsCollector:
         ...
 
@@ -503,11 +518,11 @@ class AnonymizedMetricsDisabledMode(AnonymizedMetricsMode):
         title = "anonymized_metrics_disabled"
 
     def get_collector(
-        self,
-        connector: ConnectorBase,
-        rate_provider: RateOracle,
-        instance_id: str,
-        valuation_token: str = "USDT",
+            self,
+            connector: ConnectorBase,
+            rate_provider: RateOracle,
+            instance_id: str,
+            valuation_token: str = "USDT",
     ) -> MetricsCollector:
         return DummyMetricsCollector()
 
@@ -525,11 +540,11 @@ class AnonymizedMetricsEnabledMode(AnonymizedMetricsMode):
         title = "anonymized_metrics_enabled"
 
     def get_collector(
-        self,
-        connector: ConnectorBase,
-        rate_provider: RateOracle,
-        instance_id: str,
-        valuation_token: str = "USDT",
+            self,
+            connector: ConnectorBase,
+            rate_provider: RateOracle,
+            instance_id: str,
+            valuation_token: str = "USDT",
     ) -> MetricsCollector:
         instance = TradeVolumeMetricCollector(
             connector=connector,
@@ -581,6 +596,7 @@ class ClientConfigMap(BaseClientModel):
     )
     autofill_import: AutofillImportEnum = Field(
         default=AutofillImportEnum.disabled,
+        description="What to auto-fill in the prompt after each import command (start/config)",
         client_data=ClientFieldData(
             prompt=lambda cm: (
                 f"What to auto-fill in the prompt after each import command? ({'/'.join(list(AutofillImportEnum))})"
@@ -595,12 +611,19 @@ class ClientConfigMap(BaseClientModel):
     )
     send_error_logs: bool = Field(
         default=True,
+        description="Error log sharing",
         client_data=ClientFieldData(
             prompt=lambda cm: "Would you like to send error logs to hummingbot? (Yes/No)",
         ),
     )
     db_mode: Union[tuple(DB_MODES.values())] = Field(
         default=DBSqliteMode(),
+        description=("Advanced database options, currently supports SQLAlchemy's included dialects"
+                     "\nReference: https://docs.sqlalchemy.org/en/13/dialects/"
+                     "\nTo use an instance of SQLite DB the required configuration is \n  db_engine: sqlite"
+                     "\nTo use a DBMS the required configuration is"
+                     "\n  db_host: 127.0.0.1\n  db_port: 3306\n  db_username: username\n  db_password: password"
+                     "\n  db_name: dbname"),
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select the desired db mode ({'/'.join(list(DB_MODES.keys()))})",
         ),
@@ -611,8 +634,14 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: f"Select the desired PMM script mode ({'/'.join(list(PMM_SCRIPT_MODES.keys()))})",
         ),
     )
-    balance_asset_limit: Dict[str, Dict[str, Decimal]] = Field(  # todo: validator that can handle inputs
-        default=json.dumps({exchange: None for exchange in AllConnectorSettings.get_exchange_names()}),
+    balance_asset_limit: Dict[str, Dict[str, Decimal]] = Field(
+        default={exchange: {} for exchange in AllConnectorSettings.get_exchange_names()},
+        description=("Balance Limit Configurations"
+                     "\ne.g. Setting USDT and BTC limits on Binance."
+                     "\nbalance_asset_limit:"
+                     "\n  binance:"
+                     "\n    BTC: 0.1"
+                     "\n    USDT: 1000"),
         client_data=ClientFieldData(
             prompt=lambda cm: (
                 "Use the `balance limit` command e.g. balance limit [EXCHANGE] [ASSET] [AMOUNT]"
@@ -621,19 +650,26 @@ class ClientConfigMap(BaseClientModel):
     )
     manual_gas_price: Decimal = Field(
         default=Decimal("50"),
+        description="Fixed gas price (in Gwei) for Ethereum transactions",
         gt=Decimal("0"),
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter fixed gas price (in Gwei) you want to use for Ethereum transactions",
         ),
     )
-    gateway: GatewayConfigMap = Field(default=GatewayConfigMap())
+    gateway: GatewayConfigMap = Field(
+        default=GatewayConfigMap(),
+        description=("Gateway API Configurations"
+                     "\ndefault host to only use localhost"
+                     "\nPort need to match the final installation port for Gateway"),
+    )
     anonymized_metrics_mode: Union[tuple(METRICS_MODES.values())] = Field(
         default=AnonymizedMetricsDisabledMode(),
+        description="Whether to enable aggregated order and trade data collection",
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select the desired metrics mode ({'/'.join(list(METRICS_MODES.keys()))})",
         ),
     )
-    command_shortcuts: List[CommandShortcutModel] = Field(  # todo: test it — does it load properly?
+    command_shortcuts: List[CommandShortcutModel] = Field(
         default=[
             CommandShortcutModel(
                 command="spreads",
@@ -641,19 +677,29 @@ class ClientConfigMap(BaseClientModel):
                 arguments=["Bid Spread", "Ask Spread"],
                 output=["config bid_spread $1", "config ask_spread $2"]
             )
-        ]
+        ],
+        description=("Command Shortcuts"
+                     "\nDefine abbreviations for often used commands"
+                     "\nor batch grouped commands together"),
     )
     rate_oracle_source: str = Field(
         default=RateOracleSource.binance.name,
+        description="A source for rate oracle, currently binance, ascendex, kucoin or coingecko",
         client_data=ClientFieldData(
             prompt=lambda cm: (
                 f"What source do you want rate oracle to pull data from? ({','.join(r.name for r in RateOracleSource)})"
             ),
         ),
     )
-    global_token: GlobalTokenConfigMap = Field(default=GlobalTokenConfigMap())
+    global_token: GlobalTokenConfigMap = Field(
+        default=GlobalTokenConfigMap(),
+        description="A universal token which to display tokens values in, e.g. USD,EUR,BTC"
+    )
     rate_limits_share_pct: Decimal = Field(
         default=Decimal("100"),
+        description=("Percentage of API rate limits (on any exchange and any end point) allocated to this bot instance."
+                     "\nEnter 50 to indicate 50%. E.g. if the API rate limit is 100 calls per second, and you allocate "
+                     "\n50% to this setting, the bot will have a maximum (limit) of 50 calls per second"),
         gt=Decimal("0"),
         le=Decimal("100"),
         client_data=ClientFieldData(
@@ -670,6 +716,7 @@ class ClientConfigMap(BaseClientModel):
         type=str,
     ) = Field(
         default="psql",
+        description="Tabulate table format style (https://github.com/astanin/python-tabulate#table-format)",
         client_data=ClientFieldData(
             prompt=lambda cm: (
                 "What tabulate formatting to apply to the tables?"

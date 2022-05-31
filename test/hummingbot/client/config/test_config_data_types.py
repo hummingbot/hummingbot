@@ -20,6 +20,48 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter, ConfigT
 from hummingbot.client.config.security import Security
 
 
+class SomeEnum(ClientConfigEnum):
+    ONE = "one"
+
+
+class DoubleNestedModel(BaseClientModel):
+    double_nested_attr: datetime = Field(
+        default=datetime(2022, 1, 1, 10, 30),
+        description="Double nested attr description"
+    )
+
+
+class NestedModel(BaseClientModel):
+    nested_attr: str = Field(
+        default="some value",
+        description="Nested attr\nmultiline description",
+    )
+    double_nested_model: DoubleNestedModel = Field(
+        default=DoubleNestedModel(),
+    )
+
+
+class DummyModel(BaseClientModel):
+    some_attr: SomeEnum = Field(
+        default=SomeEnum.ONE,
+        description="Some description",
+        client_data=ClientFieldData(),
+    )
+    nested_model: NestedModel = Field(
+        default=NestedModel(),
+        description="Nested model description",
+    )
+    another_attr: Decimal = Field(
+        default=Decimal("1.0"),
+        description="Some other\nmultiline description",
+    )
+    non_nested_no_description: time = Field(default=time(10, 30), )
+    date_attr: date = Field(default=date(2022, 1, 2))
+
+    class Config:
+        title = "dummy_model"
+
+
 class BaseClientModelTest(unittest.TestCase):
     def test_schema_encoding_removes_client_data_functions(self):
         class DummyModel(BaseClientModel):
@@ -111,44 +153,7 @@ class BaseClientModelTest(unittest.TestCase):
             self.assertIsInstance(actual.field_info, FieldInfo)
 
     def test_generate_yml_output_dict_with_comments(self):
-        class SomeEnum(ClientConfigEnum):
-            ONE = "one"
-
-        class DoubleNestedModel(BaseClientModel):
-            double_nested_attr: datetime = Field(
-                default=datetime(2022, 1, 1, 10, 30),
-                description="Double nested attr description"
-            )
-
-        class NestedModel(BaseClientModel):
-            nested_attr: str = Field(
-                default="some value",
-                description="Nested attr\nmultiline description",
-            )
-            double_nested_model: DoubleNestedModel = Field(
-                default=DoubleNestedModel(),
-            )
-
-        class DummyModel(BaseClientModel):
-            some_attr: SomeEnum = Field(
-                default=SomeEnum.ONE,
-                description="Some description",
-            )
-            nested_model: NestedModel = Field(
-                default=NestedModel(),
-                description="Nested model description",
-            )
-            another_attr: Decimal = Field(
-                default=Decimal("1.0"),
-                description="Some other\nmultiline description",
-            )
-            non_nested_no_description: time = Field(default=time(10, 30),)
-            date_attr: date = Field(default=date(2022, 1, 2))
-
-            class Config:
-                title = "dummy_model"
-
-        instance = ClientConfigAdapter(DummyModel())
+        instance = self._nested_config_adapter()
         res_str = instance.generate_yml_output_str_with_comments()
         expected_str = """\
 ##############################
@@ -160,11 +165,8 @@ some_attr: one
 
 # Nested model description
 nested_model:
-  # Nested attr
-  # multiline description
   nested_attr: some value
   double_nested_model:
-    # Double nested attr description
     double_nested_attr: 2022-01-01 10:30:00
 
 # Some other
@@ -198,6 +200,26 @@ secret_attr: """
 
         self.assertTrue(res_str.startswith(expected_str))
         self.assertNotIn(secret_value, res_str)
+
+    def test_config_paths_includes_all_intermediate_keys(self):
+        adapter = self._nested_config_adapter()
+
+        all_config_paths = list(adapter.config_paths())
+        expected_config_paths = [
+            'some_attr',
+            'nested_model',
+            'nested_model.nested_attr',
+            'nested_model.double_nested_model',
+            'nested_model.double_nested_model.double_nested_attr',
+            'another_attr',
+            'non_nested_no_description',
+            'date_attr',
+        ]
+
+        self.assertEqual(expected_config_paths, all_config_paths)
+
+    def _nested_config_adapter(self):
+        return ClientConfigAdapter(DummyModel())
 
 
 class BaseStrategyConfigMapTest(unittest.TestCase):

@@ -3,24 +3,26 @@ import json
 import re
 import unittest
 from decimal import Decimal
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Dict, List
 
 from aioresponses import aioresponses
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.coinbase_pro import coinbase_pro_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_exchange import CoinbaseProExchange
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
-    SellOrderCreatedEvent
+    SellOrderCreatedEvent,
 )
-from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.network_iterator import NetworkStatus
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class TestCoinbaseProExchange(unittest.TestCase):
@@ -44,9 +46,14 @@ class TestCoinbaseProExchange(unittest.TestCase):
         self.log_records = []
         self.mocking_assistant = NetworkMockingAssistant()
         self.async_tasks: List[asyncio.Task] = []
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = CoinbaseProExchange(
-            self.api_key, self.api_secret, self.api_passphrase, trading_pairs=[self.trading_pair]
+            client_config_map=self.client_config_map,
+            coinbase_pro_api_key=self.api_key,
+            coinbase_pro_secret_key=self.api_secret,
+            coinbase_pro_passphrase=self.api_passphrase,
+            trading_pairs=[self.trading_pair]
         )
         self.event_listener = EventLogger()
 

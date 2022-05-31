@@ -5,11 +5,10 @@ import time
 from collections import namedtuple
 from decimal import Decimal
 from enum import Enum
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS, ascend_ex_utils
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_tracker import AscendExOrderBookTracker
@@ -31,6 +30,9 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
@@ -95,6 +97,7 @@ class AscendExExchange(ExchangePyBase):
 
     def __init__(
             self,
+            client_config_map: "ClientConfigAdapter",
             ascend_ex_api_key: str,
             ascend_ex_secret_key: str,
             trading_pairs: Optional[List[str]] = None,
@@ -106,7 +109,7 @@ class AscendExExchange(ExchangePyBase):
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
-        super().__init__()
+        super().__init__(client_config_map=client_config_map)
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._ascend_ex_auth = AscendExAuth(ascend_ex_api_key, ascend_ex_secret_key)

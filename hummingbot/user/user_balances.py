@@ -20,9 +20,11 @@ class UserBalances:
         if api_details or conn_setting.uses_gateway_generic_connector():
             connector_class = get_connector_class(exchange)
             init_params = conn_setting.conn_init_parameters(api_details)
-            init_params.update(trading_pairs=gateway_connector_trading_pairs(conn_setting.name))
             read_only_client_config = ReadOnlyClientConfigAdapter.lock_config(client_config_map)
-            connector = connector_class(read_only_client_config, **init_params)
+            init_params.update(
+                trading_pairs=gateway_connector_trading_pairs(conn_setting.name),
+                client_config_map=read_only_client_config)
+            connector = connector_class(**init_params)
         return connector
 
     # return error message if the _update_balances fails

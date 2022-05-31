@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 from pydantic import BaseModel, Extra, Field, validator
 from pydantic.schema import default_ref_template
@@ -118,19 +118,15 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
     @validator("exchange", pre=True)
     def validate_exchange(cls, v: str):
         """Used for client-friendly error output."""
-        exchanges = v.split(", ")
-        for e in exchanges:
-            ret = validate_exchange(e)
-            if ret is not None:
-                raise ValueError(ret)
-        cls.__fields__["exchange"].type_ = List[
-            ClientConfigEnum(  # rebuild the exchanges enum
-                value="Exchanges",  # noqa: F821
-                names={e: e for e in AllConnectorSettings.get_all_connectors()},
-                type=str,
-            )
-        ]
-        return exchanges
+        ret = validate_exchange(v)
+        if ret is not None:
+            raise ValueError(ret)
+        cls.__fields__["exchange"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
+            value="Exchanges",  # noqa: F821
+            names={e: e for e in AllConnectorSettings.get_all_connectors()},
+            type=str,
+        )
+        return v
 
     @validator("market", pre=True)
     def validate_exchange_trading_pair(cls, v: str, values: Dict):

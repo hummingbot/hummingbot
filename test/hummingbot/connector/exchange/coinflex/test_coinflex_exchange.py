@@ -12,8 +12,10 @@ from unittest.mock import AsyncMock, PropertyMock, patch
 from aioresponses import aioresponses
 from async_timeout import timeout
 from bidict import bidict
-from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS
-from hummingbot.connector.exchange.coinflex import coinflex_web_utils
+
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS, coinflex_web_utils
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.connector.exchange.coinflex.coinflex_exchange import CoinflexExchange
 from hummingbot.connector.trading_rule import TradingRule
@@ -57,8 +59,10 @@ class CoinflexExchangeTests(TestCase):
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
         self.mocking_assistant = NetworkMockingAssistant()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = CoinflexExchange(
+            client_config_map=self.client_config_map,
             coinflex_api_key="testAPIKey",
             coinflex_api_secret="testSecret",
             trading_pairs=[self.trading_pair],

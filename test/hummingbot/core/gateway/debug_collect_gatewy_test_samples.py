@@ -7,21 +7,25 @@ This is included for record purpose only. If you need to collect another batch o
 the ETH address and nonce numbers.
 """
 
-from bin import path_util           # noqa: F401
 import asyncio
 from decimal import Decimal
 from os.path import join, realpath
-
-from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.core.event.events import TradeType
-from hummingbot.core.gateway import GatewayHttpClient
 from test.mock.http_recorder import HttpRecorder
+
+from bin import path_util  # noqa: F401
+from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    load_client_config_map_from_file,
+    read_system_configs_from_yml,
+)
+from hummingbot.core.event.events import TradeType
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 
 
 async def main():
+    client_config_map: ClientConfigAdapter = load_client_config_map_from_file()
     await read_system_configs_from_yml()
-    global_config_map["gateway_api_port"].value = 5000
+    client_config_map.gateway.gateway_api_port = 5000
 
     fixture_db_path: str = realpath(join(__file__, "../fixtures/gateway_http_client_fixture.db"))
     http_recorder: HttpRecorder = HttpRecorder(fixture_db_path)

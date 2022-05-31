@@ -45,16 +45,17 @@ class FormattedTextLexer(Lexer):
             style: css for style, css in load_style(client_config_map).style_rules
         }
         self.html_tag_css_style_map.update({
-            ti.attr: ti.value
+            ti.attr.replace("_", "-"): ti.value
             for ti in client_config_map.color.traverse()
-            if ti.attr not in self.html_tag_css_style_map
+            if ti.attr.replace("_", "-") not in self.html_tag_css_style_map
         })
 
         # Maps specific text to its corresponding UI styles
         self.text_style_tag_map: Dict[str, str] = text_ui_style
 
     def get_css_style(self, tag: str) -> str:
-        return self.html_tag_css_style_map.get(tag, "")
+        style = self.html_tag_css_style_map.get(tag, "")
+        return style
 
     def lex_document(self, document: Document) -> Callable[[int], StyleAndTextTuples]:
         lines = document.lines
@@ -66,7 +67,7 @@ class FormattedTextLexer(Lexer):
 
                 # Apply styling to command prompt
                 if current_line.startswith(self.PROMPT_TEXT):
-                    return [(self.get_css_style("primary-label"), current_line)]
+                    return [(self.get_css_style("primary_label"), current_line)]
 
                 matched_indexes: List[Tuple[int, int, str]] = [(match.start(), match.end(), style)
                                                                for special_word, style in self.text_style_tag_map.items()
@@ -80,7 +81,7 @@ class FormattedTextLexer(Lexer):
                 for start_idx, end_idx, style in matched_indexes:
                     line_fragments.extend([
                         ("", current_line[previous_idx:start_idx]),
-                        (self.get_css_style("output-pane"), current_line[start_idx:start_idx + 2]),
+                        (self.get_css_style("output_pane"), current_line[start_idx:start_idx + 2]),
                         (self.get_css_style(style), current_line[start_idx + 2:end_idx])
                     ])
                     previous_idx = end_idx

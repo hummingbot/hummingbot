@@ -48,9 +48,9 @@ def load_style(config_map: ClientConfigAdapter):
         color_error_label = hex_to_ansi(color_error_label)
 
         # Apply custom configuration
-        style["output-field"] = "bg:" + color_output_pane + " " + color_terminal_primary
-        style["input-field"] = "bg:" + color_input_pane + " " + style["input-field"].split(' ')[-1]
-        style["log-field"] = "bg:" + color_logs_pane + " " + style["log-field"].split(' ')[-1]
+        style["output_field"] = "bg:" + color_output_pane + " " + color_terminal_primary
+        style["input_field"] = "bg:" + color_input_pane + " " + style["input_field"].split(' ')[-1]
+        style["log_field"] = "bg:" + color_logs_pane + " " + style["log_field"].split(' ')[-1]
         style["tab_button.focused"] = "bg:" + color_terminal_primary + " " + color_logs_pane
         style["tab_button"] = style["tab_button"].split(' ')[0] + " " + color_logs_pane
         style["header"] = "bg:" + color_top_pane + " " + style["header"].split(' ')[-1]
@@ -59,12 +59,12 @@ def load_style(config_map: ClientConfigAdapter):
         style["search"] = color_terminal_primary
         style["search.current"] = color_terminal_primary
 
-        style["primary-label"] = "bg:" + color_primary_label + " " + color_output_pane
-        style["secondary-label"] = "bg:" + color_secondary_label + " " + color_output_pane
-        style["success-label"] = "bg:" + color_success_label + " " + color_output_pane
-        style["warning-label"] = "bg:" + color_warning_label + " " + color_output_pane
-        style["info-label"] = "bg:" + color_info_label + " " + color_output_pane
-        style["error-label"] = "bg:" + color_error_label + " " + color_output_pane
+        style["primary_label"] = "bg:" + color_primary_label + " " + color_output_pane
+        style["secondary_label"] = "bg:" + color_secondary_label + " " + color_output_pane
+        style["success_label"] = "bg:" + color_success_label + " " + color_output_pane
+        style["warning_label"] = "bg:" + color_warning_label + " " + color_output_pane
+        style["info_label"] = "bg:" + color_info_label + " " + color_output_pane
+        style["error_label"] = "bg:" + color_error_label + " " + color_output_pane
 
         return Style.from_dict(style)
 
@@ -73,21 +73,21 @@ def load_style(config_map: ClientConfigAdapter):
         style = default_ui_style
 
         # Apply custom configuration
-        style["output-field"] = "bg:" + color_output_pane + " " + color_terminal_primary
-        style["input-field"] = "bg:" + color_input_pane + " " + style["input-field"].split(' ')[-1]
-        style["log-field"] = "bg:" + color_logs_pane + " " + style["log-field"].split(' ')[-1]
+        style["output_field"] = "bg:" + color_output_pane + " " + color_terminal_primary
+        style["input_field"] = "bg:" + color_input_pane + " " + style["input_field"].split(' ')[-1]
+        style["log_field"] = "bg:" + color_logs_pane + " " + style["log_field"].split(' ')[-1]
         style["header"] = "bg:" + color_top_pane + " " + style["header"].split(' ')[-1]
         style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(' ')[-1]
         style["primary"] = color_terminal_primary
         style["tab_button.focused"] = "bg:" + color_terminal_primary + " " + color_logs_pane
         style["tab_button"] = style["tab_button"].split(' ')[0] + " " + color_logs_pane
 
-        style["primary-label"] = "bg:" + color_primary_label + " " + color_output_pane
-        style["secondary-label"] = "bg:" + color_secondary_label + " " + color_output_pane
-        style["success-label"] = "bg:" + color_success_label + " " + color_output_pane
-        style["warning-label"] = "bg:" + color_warning_label + " " + color_output_pane
-        style["info-label"] = "bg:" + color_info_label + " " + color_output_pane
-        style["error-label"] = "bg:" + color_error_label + " " + color_output_pane
+        style["primary_label"] = "bg:" + color_primary_label + " " + color_output_pane
+        style["secondary_label"] = "bg:" + color_secondary_label + " " + color_output_pane
+        style["success_label"] = "bg:" + color_success_label + " " + color_output_pane
+        style["warning_label"] = "bg:" + color_warning_label + " " + color_output_pane
+        style["info_label"] = "bg:" + color_info_label + " " + color_output_pane
+        style["error_label"] = "bg:" + color_error_label + " " + color_output_pane
 
         return Style.from_dict(style)
 
@@ -153,16 +153,16 @@ def hex_to_ansi(color_hex):
 
 
 text_ui_style = {
-    "&cGREEN": "success-label",
-    "&cYELLOW": "warning-label",
-    "&cRED": "error-label",
-    "&cMISSING_AND_REQUIRED": "error-label",
+    "&cGREEN": "success_label",
+    "&cYELLOW": "warning_label",
+    "&cRED": "error_label",
+    "&cMISSING_AND_REQUIRED": "error_label",
 }
 
 default_ui_style = {
-    "output-field":               "bg:#171E2B #1CD085",  # noqa: E241
-    "input-field":                "bg:#000000 #FFFFFF",  # noqa: E241
-    "log-field":                  "bg:#171E2B #FFFFFF",  # noqa: E241
+    "output_field":               "bg:#171E2B #1CD085",  # noqa: E241
+    "input_field":                "bg:#000000 #FFFFFF",  # noqa: E241
+    "log_field":                  "bg:#171E2B #FFFFFF",  # noqa: E241
     "header":                     "bg:#000000 #AAAAAA",  # noqa: E241
     "footer":                     "bg:#000000 #AAAAAA",  # noqa: E241
     "search":                     "bg:#000000 #93C36D",  # noqa: E241
@@ -178,9 +178,9 @@ default_ui_style = {
 # Style for an older version of Windows consoles. They support only 16 colors,
 # so we choose a combination that displays nicely.
 win32_code_style = {
-    "output-field":               "#ansigreen",  # noqa: E241
-    "input-field":                "#ansiwhite",  # noqa: E241
-    "log-field":                  "#ansiwhite",  # noqa: E241
+    "output_field":               "#ansigreen",  # noqa: E241
+    "input_field":                "#ansiwhite",  # noqa: E241
+    "log_field":                  "#ansiwhite",  # noqa: E241
     "header":                     "#ansiwhite",  # noqa: E241
     "footer":                     "#ansiwhite",  # noqa: E241
     "search":                     "#ansigreen",  # noqa: E241

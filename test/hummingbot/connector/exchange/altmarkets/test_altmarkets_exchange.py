@@ -4,12 +4,14 @@ import re
 import time
 from decimal import Decimal
 from functools import partial
-from typing import Awaitable, List, Dict
+from typing import Awaitable, Dict, List
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
 from hummingbot.connector.exchange.altmarkets.altmarkets_exchange import AltmarketsExchange
 from hummingbot.connector.exchange.altmarkets.altmarkets_in_flight_order import AltmarketsInFlightOrder
@@ -47,7 +49,10 @@ class AltmarketsExchangeTests(TestCase):
         super().setUp()
         self.log_records = []
         self.async_tasks: List[asyncio.Task] = []
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+
         self.exchange = AltmarketsExchange(
+            client_config_map=self.client_config_map,
             altmarkets_api_key=self.api_key,
             altmarkets_secret_key=self.api_secret_key,
             trading_pairs=[self.trading_pair]
