@@ -36,7 +36,7 @@ export class LocalStorage extends ReferenceCountingCloseable {
       await this.assertDbOpen();
     } else if (this.#db.status === 'closed') {
       // reopen the db
-      await this.#db.open({ createIfMissing: true, valueEncoding: 'json' });
+      await this.#db.open({ createIfMissing: true });
       await this.assertDbOpen();
     } else if (this.#db.status === 'opening') {
       // wait for but do not initate the opening of the db
