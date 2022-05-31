@@ -1,12 +1,7 @@
 import asyncio
 import logging
 from collections import defaultdict
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, Dict, List, Optional
 
 import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
 from hummingbot.connector.exchange.huobi.huobi_order_book import HuobiOrderBook

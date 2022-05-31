@@ -12,16 +12,12 @@ import conf
 from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS, coinflex_utils
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
 from hummingbot.connector.exchange.coinflex.coinflex_web_utils import (
+    CoinflexRESTRequest,
     api_call_with_retries,
     build_api_factory,
-    CoinflexRESTRequest,
 )
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.web_assistant.connections.data_types import (
-    RESTMethod,
-    RESTResponse,
-    WSJSONRequest,
-)
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTResponse, WSJSONRequest
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))

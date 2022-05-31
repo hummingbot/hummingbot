@@ -3,17 +3,16 @@ import json
 import re
 import unittest
 from decimal import Decimal
-from typing import Awaitable
-from typing import Dict
+from typing import Awaitable, Dict
 from unittest.mock import patch
 
 from aioresponses import aioresponses
 from bidict import bidict
 
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-from hummingbot.core.rate_oracle.rate_oracle import RateOracleSource
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
 from hummingbot.core.rate_oracle.utils import find_rate
+
 from .fixture import Fixture
 
 

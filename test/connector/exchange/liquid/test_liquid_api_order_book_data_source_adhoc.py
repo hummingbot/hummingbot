@@ -1,6 +1,7 @@
 import asyncio
 import concurrent
 import inspect
+from test.connector.exchange.liquid.fixture_liquid import FixtureLiquid
 from unittest import TestCase
 
 import aiohttp
@@ -10,7 +11,6 @@ from hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source impo
 from hummingbot.connector.exchange.liquid.liquid_order_book_message import LiquidOrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from test.connector.exchange.liquid.fixture_liquid import FixtureLiquid
 
 PATCH_BASE_PATH = \
     'hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source.LiquidAPIOrderBookDataSource.{method}'

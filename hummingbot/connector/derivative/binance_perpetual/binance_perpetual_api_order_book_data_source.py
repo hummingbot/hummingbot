@@ -6,7 +6,7 @@ from collections import defaultdict
 from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional
 
-from bidict import bidict, ValueDuplicationError
+from bidict import ValueDuplicationError, bidict
 
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_utils as web_utils
