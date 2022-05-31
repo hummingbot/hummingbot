@@ -114,7 +114,7 @@ WS_BALANCE = {
                   'order': 1, 'stake': 0,
                   'currency': 'USDT'}]}}
 
-WS_ORDER_CANCELLED = {
+WS_ORDER_CANCELED = {
     'id': -1, 'method': 'subscribe', 'code': 0,
     'result': {
         'instrument_name': 'BTC_USDT', 'subscription': 'user.order.BTC_USDT',

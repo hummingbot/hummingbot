@@ -44,6 +44,7 @@ cdef class EventLogger(EventListener):
         retval = self._wait_returns.get(notifier)
         if notifier in self._wait_returns:
             del self._wait_returns[notifier]
+        del self._waiting[notifier]
         return retval
 
     def __call__(self, event_object):
