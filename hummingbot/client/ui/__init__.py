@@ -81,18 +81,14 @@ def show_welcome(style: Style):
         style=style).run()
 
 
-def login_prompt(style: Style):
+def login_prompt(style: Style = default_dialog_style):
     import time
 
     from hummingbot.client.config.security import Security
 
     err_msg = None
     if Security.new_password_required():
-        if style is not None:
-            show_welcome(style)
-        else:
-            show_welcome()
-            style = default_dialog_style
+        show_welcome(style)
         password = input_dialog(
             title="Set Password",
             text="Create a password to protect your sensitive data. "
