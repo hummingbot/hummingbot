@@ -130,7 +130,11 @@ def main():
 
     # If no password is given from the command line, prompt for one.
     if args.config_password is None:
-        if not login_prompt(style=load_style()):
+        try:
+            style = load_style()
+        finally:
+            style = None
+        if not login_prompt(style=style):
             return
 
     asyncio.get_event_loop().run_until_complete(quick_start(args))
