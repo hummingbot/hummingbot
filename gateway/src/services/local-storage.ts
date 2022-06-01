@@ -79,6 +79,7 @@ export class LocalStorage extends ReferenceCountingCloseable {
   public async close(handle: string): Promise<void> {
     await super.close(handle);
     if (this.refCount < 1) {
+      logger.info(handle + ': LocalStorage is closing');
       // XXX(martin_kou): `await #db.close()` would freeze. So this is used
       // instead.
       this.#db.close((_) => true);

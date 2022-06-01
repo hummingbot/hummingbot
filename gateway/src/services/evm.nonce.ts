@@ -62,6 +62,7 @@ export class NonceLocalStorage extends ReferenceCountingCloseable {
   public async close(handle: string): Promise<void> {
     await super.close(handle);
     if (this.refCount < 1) {
+      logger.info(handle + ': NonceLocalStorage is closing');
       await this._localStorage.close(this.handle);
     }
   }
@@ -275,6 +276,7 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
   async close(ownerHandle: string): Promise<void> {
     await super.close(ownerHandle);
     if (this.refCount < 1) {
+      logger.info(handle + ': EVMNonceManager is closing');
       await this.#db.close(this.handle);
     }
   }
