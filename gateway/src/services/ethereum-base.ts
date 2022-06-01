@@ -69,12 +69,12 @@ export class EthereumBase {
     this.gasPriceConstant = gasPriceConstant;
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
+    this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
+    this._gasLimit = gasLimit;
 
     this._refCountingHandle = ReferenceCountingCloseable.createHandle();
     this._nonceManager = new EVMNonceManager(chainName, chainId, nonceDbPath);
     this._nonceManager.declareOwnership(this._refCountingHandle);
-    this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
-    this._gasLimit = gasLimit;
     this._txStorage = EvmTxStorage.getInstance(
       transactionDbPath,
       this._refCountingHandle
@@ -111,6 +111,7 @@ export class EthereumBase {
     if (!this.ready() && !this._initializing) {
       this._initializing = true;
       await this._nonceManager.init(this.provider);
+      await this._txStorage.init();
 
       this._initPromise = this.loadTokens(
         this.tokenListSource,
