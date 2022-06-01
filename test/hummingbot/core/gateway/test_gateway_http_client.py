@@ -215,7 +215,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         network = 'mainnet-beta'
         connector = 'serum'
 
-        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_root(
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_root(
             chain,
             network,
             connector
