@@ -207,3 +207,22 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         self.assertEqual("1000000000000000000000", result["rawAmount"])
         self.assertEqual("0xc7287236f64484b476cfbec0fd21bc49d85f8850c8885665003928a122041e18",      # noqa: mock
                          result["txHash"])
+
+
+    @async_test(loop=ev_loop)
+    async def test_clob_root(self):
+        chain = 'ethereum'
+        network = 'mainnet-beta'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_root(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertEqual(chain, result["chain"])
+        self.assertEqual(network, result["network"])
+        self.assertEqual(connector, result["connector"])
+        self.assertTrue(result["connection"])
+        self.assertGreater(result["timestamp"], 0)
