@@ -224,7 +224,7 @@ class GatewayHttpClient:
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         if isinstance(token_symbols, list):
-            token_symbols = [x for x in token_symbols if isinstance(x, str)]
+            token_symbols = [x for x in token_symbols if isinstance(x, str) and x.strip() != '']
             return await self.api_request("post", "network/balances", {
                 "chain": chain,
                 "network": network,
