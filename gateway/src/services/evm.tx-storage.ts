@@ -1,5 +1,6 @@
 import { LocalStorage } from './local-storage';
 import { ReferenceCountingCloseable } from './refcounting-closeable';
+import { logger } from './logger';
 
 // store the timestamp for when a transaction was initiated
 // this will be used to calculate a heuristic of the likelihood
@@ -8,12 +9,25 @@ export class EvmTxStorage extends ReferenceCountingCloseable {
   readonly localStorage: LocalStorage;
 
   protected constructor(dbPath: string) {
+    logger.debug('EvmTxStorage constructor called, dbPath: ' + dbPath);
     super(dbPath);
     this.localStorage = LocalStorage.getInstance(dbPath, this.handle);
   }
 
   public async init(): Promise<void> {
-    await this.localStorage.init();
+    logger.debug(
+      'EvmTxStorage init called, dbPath: ' +
+        this.localStorage.dbPath +
+        ', ready: ' +
+        this.localStorage.ready
+    );
+    if (!this.localStorage.ready) {
+      await this.localStorage.init();
+      logger.debug(
+        'EvmTxStorage init promise complete, dbPath: ' +
+          this.localStorage.dbPath
+      );
+    }
   }
 
   // pass in a date, then store it as a POSIX timestamp

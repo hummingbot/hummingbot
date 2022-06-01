@@ -62,6 +62,9 @@ export class EthereumBase {
     nonceDbPath: string,
     transactionDbPath: string
   ) {
+    logger.debug(
+      'ethereum-base constructor called: ' + chainName + '/' + chainId
+    );
     this._provider = new providers.StaticJsonRpcProvider(rpcUrl);
     this.chainName = chainName;
     this.chainId = chainId;
@@ -108,17 +111,30 @@ export class EthereumBase {
   }
 
   async init(): Promise<void> {
+    logger.debug(
+      'ethereum-base init called: ' +
+        this.chainName +
+        '/' +
+        this.chainId +
+        ', ready: ' +
+        this.ready()
+    );
     if (!this.ready() && !this._initializing) {
       this._initializing = true;
-      await this._nonceManager.init(this.provider);
-      await this._txStorage.init();
 
-      this._initPromise = this.loadTokens(
-        this.tokenListSource,
-        this.tokenListType
-      ).then(() => {
+      this._initPromise = Promise.all([
+        this._nonceManager.init(this.provider),
+        this._txStorage.init(),
+        this.loadTokens(this.tokenListSource, this.tokenListType),
+      ]).then(() => {
         this._ready = true;
         this._initializing = false;
+        logger.debug(
+          'ethereum-base init promise complete: ' +
+            this.chainName +
+            '/' +
+            this.chainId
+        );
       });
     }
     return this._initPromise;
