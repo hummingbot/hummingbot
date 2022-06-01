@@ -218,7 +218,7 @@ export namespace SerumRoutes {
     )
   );
 
-  router.get(
+  router.post(
     '/settleFunds',
     asyncHandler(
       async (

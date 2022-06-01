@@ -151,8 +151,13 @@ class GatewayHttpClient:
                     response = await client.get(url)
             elif method == "post":
                 response = await client.post(url, json=params)
+            elif method == 'put':
+                response = await client.put(url, json=params)
+            elif method == 'delete':
+                response = await client.delete(url, json=params)
             else:
                 raise ValueError(f"Unsupported request method {method}")
+
             parsed_response = await response.json()
             if response.status != 200 and not fail_silently:
                 self.log_error_codes(parsed_response)
@@ -412,7 +417,61 @@ class GatewayHttpClient:
             "connector": connector,
         })
 
-    async def clob_root(
+    async def solana_get_root(
+        self,
+        network: str
+    ) -> Dict[str, Any]:
+        return await self.api_request("get", "solana", {
+            "network": network
+        })
+
+    async def solana_post_balances(
+        self,
+        network: str,
+        address: str,
+        token_symbols: List[str]
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "solana/balances", {
+            "network": network,
+            "address": address,
+            "tokenSymbols": token_symbols
+        })
+
+    async def solana_get_token(
+        self,
+        network: str,
+        address: str,
+        token: str
+    ) -> Dict[str, Any]:
+        return await self.api_request("get", "solana/token", {
+            "network": network,
+            "address": address,
+            "token": token
+        })
+
+    async def solana_post_token(
+        self,
+        network: str,
+        address: str,
+        token: str
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "solana/token", {
+            "network": network,
+            "address": address,
+            "token": token
+        })
+
+    async def solana_post_poll(
+        self,
+        network: str,
+        tx_hash: str
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "solana/poll", {
+            "network": network,
+            "txHash": tx_hash
+        })
+
+    async def clob_get_root(
         self,
         chain: str,
         network: str,
@@ -424,7 +483,7 @@ class GatewayHttpClient:
             "connector": connector,
         })
 
-    async def clob_markets(
+    async def clob_get_markets(
         self,
         chain: str,
         network: str,
@@ -444,9 +503,9 @@ class GatewayHttpClient:
         if names is not None:
             request["names"] = names
 
-        return await self.api_request("post", "clob/markets", request)
+        return await self.api_request("get", "clob/markets", request)
 
-    async def clob_order_books(
+    async def clob_get_order_books(
         self,
         chain: str,
         network: str,
@@ -466,9 +525,9 @@ class GatewayHttpClient:
         if market_names is not None:
             request["marketNames"] = market_names
 
-        return await self.api_request("post", "clob/orderBooks", request)
+        return await self.api_request("get", "clob/orderBooks", request)
 
-    async def clob_tickers(
+    async def clob_get_tickers(
         self,
         chain: str,
         network: str,
@@ -488,9 +547,195 @@ class GatewayHttpClient:
         if market_names is not None:
             request["marketNames"] = market_names
 
-        return await self.api_request("post", "clob/tickers", request)
+        return await self.api_request("get", "clob/tickers", request)
 
-    async def clob_tickers(
+    async def clob_get_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["owner_address"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("get", "clob/orders", request)
+
+    async def clob_post_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("post", "clob/orders", request)
+
+    async def clob_delete_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["owner_address"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("delete", "clob/orders", request)
+
+    async def clob_get_open_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["owner_address"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("get", "clob/openOrders", request)
+
+    async def clob_get_filled_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["owner_address"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("get", "clob/filledOrders", request)
+
+    async def clob_post_settle_funds(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        market_name: str = None,
+        market_names: List[str] = None
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["owner_address"] = owner_address
+
+        if market_name is not None:
+            request["market_name"] = market_name
+
+        if market_names is not None:
+            request["orders"] = market_names
+
+        return await self.api_request("post", "clob/settleFunds", request)
+
+    async def serum_get_root(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+    ) -> Dict[str, Any]:
+        return await self.api_request("get", "serum", {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        })
+
+    async def serum_get_markets(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        name: str = None,
+        names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if name is not None:
+            request["name"] = name
+
+        if names is not None:
+            request["names"] = names
+
+        return await self.api_request("get", "serum/markets", request)
+
+    async def serum_get_order_books(
         self,
         chain: str,
         network: str,
@@ -510,6 +755,180 @@ class GatewayHttpClient:
         if market_names is not None:
             request["marketNames"] = market_names
 
-        return await self.api_request("post", "clob/tickers", request)
+        return await self.api_request("get", "serum/orderBooks", request)
+
+    async def serum_get_tickers(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        market_name: str = None,
+        market_names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if market_name is not None:
+            request["marketName"] = market_name
+
+        if market_names is not None:
+            request["marketNames"] = market_names
+
+        return await self.api_request("get", "serum/tickers", request)
+
+    async def serum_get_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["owner_address"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("get", "serum/orders", request)
+
+    async def serum_post_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("post", "serum/orders", request)
+
+    async def serum_delete_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["owner_address"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("delete", "serum/orders", request)
+
+    async def serum_get_open_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["owner_address"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("get", "serum/openOrders", request)
+
+    async def serum_get_filled_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["owner_address"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("get", "serum/filledOrders", request)
+
+    async def serum_post_settle_funds(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        market_name: str = None,
+        market_names: List[str] = None
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["owner_address"] = owner_address
+
+        if market_name is not None:
+            request["market_name"] = market_name
+
+        if market_names is not None:
+            request["orders"] = market_names
+
+        return await self.api_request("post", "serum/settleFunds", request)
 
     # TODO Implement all the accessor functions for CLOB & Solana gateway endpoints!!!
