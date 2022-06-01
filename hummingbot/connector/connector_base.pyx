@@ -5,6 +5,7 @@ from typing import Dict, List, Set, Tuple, TYPE_CHECKING
 from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.connector.utils import split_hb_trading_pair, TradeFillOrderDetails
+from hummingbot.connector.constants import NaN, s_decimal_NaN, s_decimal_0
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -344,7 +345,7 @@ cdef class ConnectorBase(NetworkIterator):
 
     def get_available_balance(self, currency: str) -> Decimal:
         """
-        Return availalbe balance for a given currency. The function accounts for balance changes since the last time
+        Return available balance for a given currency. The function accounts for balance changes since the last time
         the snapshot was taken if no real time balance update. The function applied limit if configured.
         :param currency: The currency (token) name
         :returns: Balance available for trading for the specified currency

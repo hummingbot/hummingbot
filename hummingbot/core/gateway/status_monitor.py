@@ -58,6 +58,18 @@ class StatusMonitor:
             self._monitor_task.cancel()
             self._monitor_task = None
 
+    async def wait_for_online_status(self, max_tries=30):
+        """
+        Wait for gateway status to go online with a max number of tries. If it
+        is online before time is up, it returns early, otherwise it returns the
+        current status after the max number of tries.
+        """
+        while True:
+            if self._current_status is Status.ONLINE or max_tries <= 0:
+                return self._current_status
+            await asyncio.sleep(POLL_INTERVAL)
+            max_tries = max_tries - 1
+
     async def _monitor_loop(self):
         while True:
             try:

@@ -97,7 +97,8 @@ class MultiOrderLevelModel(BaseClientModel):
         description="The number of orders placed on either side of the order book.",
         ge=2,
         client_data=ClientFieldData(
-            prompt=lambda mi: "How many orders do you want to place on both sides?"
+            prompt=lambda mi: "How many orders do you want to place on both sides?",
+            prompt_on_new=True,
         ),
     )
     level_distances: Decimal = Field(
@@ -105,7 +106,8 @@ class MultiOrderLevelModel(BaseClientModel):
         description="The spread between order levels, expressed in % of optimal spread.",
         ge=0,
         client_data=ClientFieldData(
-            prompt=lambda mi: "How far apart in % of optimal spread should orders on one side be?"
+            prompt=lambda mi: "How far apart in % of optimal spread should orders on one side be?",
+            prompt_on_new=True,
         ),
     )
 
