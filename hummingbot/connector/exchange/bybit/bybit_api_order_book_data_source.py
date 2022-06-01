@@ -491,8 +491,10 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 snapshot_queue.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
+            except asyncio.TimeoutError:
+                raise
             except Exception:
-                self.logger().exception("Unexpected error when processing public order book updates from exchange")
+                self.logger().error("Unexpected error when processing public order book updates from exchange")
 
     async def _take_full_order_book_snapshot(self, trading_pairs: List[str], snapshot_queue: asyncio.Queue):
         for trading_pair in trading_pairs:
