@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Any, Callable, Dict, Optional  # , cast
 
 import hummingbot.connector.exchange.latoken.latoken_constants as CONSTANTS
-from hummingbot.connector.exchange.latoken.latoken_connections_factory import LatokenConnectionsFactory
+from hummingbot.connector.exchange.latoken.latoken_stomper import LatokenConnectionsFactory
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -216,7 +216,6 @@ async def get_current_server_time(
         throttler=throttler,
         domain=domain,
         method=RESTMethod.GET,
-        return_err=True,
-        limit_id=CONSTANTS.GLOBAL_RATE_LIMIT
+        return_err=True
     )
     return response["serverTime"]
