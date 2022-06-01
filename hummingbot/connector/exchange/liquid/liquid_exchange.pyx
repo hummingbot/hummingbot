@@ -223,6 +223,8 @@ cdef class LiquidExchange(ExchangeBase):
         *required
         Async function used by NetworkBase class to handle when a single market goes online
         """
+        self.logger().warning("This exchange connector does not provide trades feed. "
+                              "Strategies which depend on it will not work properly.")
         self._stop_network()
         self._order_book_tracker.start()
         if self._trading_required:

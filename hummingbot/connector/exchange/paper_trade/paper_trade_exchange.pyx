@@ -5,7 +5,7 @@ import math
 import random
 from collections import defaultdict, deque
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from cpython cimport PyObject
 from cython.operator cimport address, dereference as deref, postincrement as inc
@@ -155,7 +155,7 @@ cdef class PaperTradeExchange(ExchangeBase):
         self,
         client_config_map: "ClientConfigAdapter",
         order_book_tracker: OrderBookTracker,
-        target_market: type,
+        target_market: Callable,
         exchange_name: str,
     ):
         order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
@@ -1044,6 +1044,9 @@ cdef class PaperTradeExchange(ExchangeBase):
             return max(precision_quantum, decimals_quantum)
         else:
             return Decimal(f"1e-10")
+
+    def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
+        return self.c_get_order_price_quantum(trading_pair, price)
 
     cdef object c_get_order_size_quantum(self,
                                          str trading_pair,

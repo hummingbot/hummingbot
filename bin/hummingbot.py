@@ -10,6 +10,7 @@ from bin.docker_connection import fork_and_start
 from hummingbot import chdir_to_data_directory, init_logging
 from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
 from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
     create_yml_files_legacy,
     load_client_config_map_from_file,
     write_config_to_yml,
@@ -17,6 +18,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.client.ui import login_prompt
+from hummingbot.client.ui.style import load_style
 from hummingbot.core.event.event_listener import EventListener
 from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.gateway import start_existing_gateway_container
@@ -43,10 +45,8 @@ class UIStartListener(EventListener):
             hb.start(self._hb_ref.client_config_map.log_level)
 
 
-async def main_async():
+async def main_async(client_config_map: ClientConfigAdapter):
     await create_yml_files_legacy()
-
-    client_config_map = load_client_config_map_from_file()
 
     # This init_logging() call is important, to skip over the missing config warnings.
     init_logging("hummingbot_logs.yml", client_config_map)
@@ -75,9 +75,10 @@ async def main_async():
 def main():
     chdir_to_data_directory()
     secrets_manager_cls = ETHKeyFileSecretManger
-    if login_prompt(secrets_manager_cls):
-        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        ev_loop.run_until_complete(main_async())
+    ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+    client_config_map = load_client_config_map_from_file()
+    if login_prompt(secrets_manager_cls, style=load_style(client_config_map)):
+        ev_loop.run_until_complete(main_async(client_config_map))
 
 
 if __name__ == "__main__":

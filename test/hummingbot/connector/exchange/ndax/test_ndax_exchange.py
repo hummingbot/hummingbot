@@ -1828,3 +1828,9 @@ class NdaxExchangeTests(TestCase):
 
         self.assertTrue("Error: The exchange API request limit has been reached (original error 'TOO MANY REQUESTS')"
                         in f"{exception_context.exception}")
+
+    def test_start_network_warning_is_logged(self):
+        self.async_run_with_timeout(self.exchange.start_network())
+
+        self.assertTrue(self._is_logged('WARNING', "This exchange connector does not provide trades feed. "
+                                                   "Strategies which depend on it will not work properly."))

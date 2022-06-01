@@ -1,42 +1,19 @@
-from decimal import Decimal
 from typing import List, Tuple
 
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import (
     CrossExchangeMarketMakingStrategy,
-)
-from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import (
-    cross_exchange_market_making_config_map as xemm_map,
 )
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 def start(self):
-    maker_market = xemm_map.get("maker_market").value.lower()
-    taker_market = xemm_map.get("taker_market").value.lower()
-    raw_maker_trading_pair = xemm_map.get("maker_market_trading_pair").value
-    raw_taker_trading_pair = xemm_map.get("taker_market_trading_pair").value
-    min_profitability = xemm_map.get("min_profitability").value / Decimal("100")
-    order_amount = xemm_map.get("order_amount").value
-    strategy_report_interval = self.client_config_map.strategy_report_interval
-    limit_order_min_expiration = xemm_map.get("limit_order_min_expiration").value
-    cancel_order_threshold = xemm_map.get("cancel_order_threshold").value / Decimal("100")
-    active_order_canceling = xemm_map.get("active_order_canceling").value
-    adjust_order_enabled = xemm_map.get("adjust_order_enabled").value
-    top_depth_tolerance = xemm_map.get("top_depth_tolerance").value
-    order_size_taker_volume_factor = xemm_map.get("order_size_taker_volume_factor").value / Decimal("100")
-    order_size_taker_balance_factor = xemm_map.get("order_size_taker_balance_factor").value / Decimal("100")
-    order_size_portfolio_ratio_limit = xemm_map.get("order_size_portfolio_ratio_limit").value / Decimal("100")
-    anti_hysteresis_duration = xemm_map.get("anti_hysteresis_duration").value
-    use_oracle_conversion_rate = xemm_map.get("use_oracle_conversion_rate").value
-    taker_to_maker_base_conversion_rate = xemm_map.get("taker_to_maker_base_conversion_rate").value
-    taker_to_maker_quote_conversion_rate = xemm_map.get("taker_to_maker_quote_conversion_rate").value
-    slippage_buffer = xemm_map.get("slippage_buffer").value / Decimal("100")
-
-    # check if top depth tolerance is a list or if trade size override exists
-    if isinstance(top_depth_tolerance, list) or "trade_size_override" in xemm_map:
-        self.notify("Current config is not compatible with cross exchange market making strategy. Please reconfigure")
-        return
+    c_map = self.strategy_config_map
+    maker_market = c_map.maker_market.lower()
+    taker_market = c_map.taker_market.lower()
+    raw_maker_trading_pair = c_map.maker_market_trading_pair
+    raw_taker_trading_pair = c_map.taker_market_trading_pair
+    status_report_interval = self.client_config_map.strategy_report_interval
 
     try:
         maker_trading_pair: str = raw_maker_trading_pair
@@ -70,23 +47,9 @@ def start(self):
     )
     self.strategy = CrossExchangeMarketMakingStrategy()
     self.strategy.init_params(
+        config_map=c_map,
         market_pairs=[self.market_pair],
-        min_profitability=min_profitability,
-        status_report_interval=strategy_report_interval,
+        status_report_interval=status_report_interval,
         logging_options=strategy_logging_options,
-        order_amount=order_amount,
-        limit_order_min_expiration=limit_order_min_expiration,
-        cancel_order_threshold=cancel_order_threshold,
-        active_order_canceling=active_order_canceling,
-        adjust_order_enabled=adjust_order_enabled,
-        top_depth_tolerance=top_depth_tolerance,
-        order_size_taker_volume_factor=order_size_taker_volume_factor,
-        order_size_taker_balance_factor=order_size_taker_balance_factor,
-        order_size_portfolio_ratio_limit=order_size_portfolio_ratio_limit,
-        anti_hysteresis_duration=anti_hysteresis_duration,
-        use_oracle_conversion_rate=use_oracle_conversion_rate,
-        taker_to_maker_base_conversion_rate=taker_to_maker_base_conversion_rate,
-        taker_to_maker_quote_conversion_rate=taker_to_maker_quote_conversion_rate,
-        slippage_buffer=slippage_buffer,
         hb_app_notification=True,
     )

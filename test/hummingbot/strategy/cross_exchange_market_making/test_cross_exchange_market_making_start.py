@@ -1,13 +1,13 @@
 import unittest.mock
 from decimal import Decimal
-from test.hummingbot.strategy import assign_config_default
 
 import hummingbot.strategy.cross_exchange_market_making.start as strategy_start
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import (
-    cross_exchange_market_making_config_map as strategy_cmap,
+from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map_pydantic import (
+    CrossExchangeMarketMakingConfigMap,
+    TakerToMakerConversionRateMode,
 )
 
 
@@ -23,14 +23,21 @@ class XEMMStartTest(unittest.TestCase):
             "kucoin": ExchangeBase(client_config_map=self.client_config_map)}
         self.notifications = []
         self.log_errors = []
-        assign_config_default(strategy_cmap)
-        strategy_cmap.get("maker_market").value = "binance"
-        strategy_cmap.get("taker_market").value = "kucoin"
-        strategy_cmap.get("maker_market_trading_pair").value = "ETH-USDT"
-        strategy_cmap.get("taker_market_trading_pair").value = "ETH-USDT"
-        strategy_cmap.get("order_amount").value = Decimal("1")
-        strategy_cmap.get("min_profitability").value = Decimal("2")
-        strategy_cmap.get("use_oracle_conversion_rate").value = False
+
+        config_map_raw = CrossExchangeMarketMakingConfigMap(
+            maker_market="binance",
+            taker_market="kucoin",
+            maker_market_trading_pair="ETH-USDT",
+            taker_market_trading_pair="ETH-USDT",
+            order_amount=1.0,
+            min_profitability=2.0,
+            conversion_rate_mode=TakerToMakerConversionRateMode(),
+        )
+
+        config_map_raw.conversion_rate_mode.taker_to_maker_base_conversion_rate = Decimal("1.0")
+        config_map_raw.conversion_rate_mode.taker_to_maker_quote_conversion_rate = Decimal("1.0")
+
+        self.strategy_config_map = ClientConfigAdapter(config_map_raw)
 
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]

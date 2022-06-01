@@ -1,16 +1,14 @@
 import os
 import sys
 from os.path import dirname, join, realpath
-from typing import Optional, Type
+from typing import Type
 
 from prompt_toolkit.shortcuts import input_dialog, message_dialog
 from prompt_toolkit.styles import Style
 
 from hummingbot import root_path
-from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.conf_migration import migrate_configs, migrate_non_secure_configs_only
 from hummingbot.client.config.config_crypt import BaseSecretsManager, store_password_verification
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import CONF_DIR_PATH
 
@@ -20,25 +18,14 @@ sys.path.insert(0, str(root_path()))
 with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
     version = version_file.read().strip()
 
-client_config_map = ClientConfigAdapter(ClientConfigMap())
-terminal_primary = client_config_map.color.terminal_primary
-dialog_style = Style.from_dict({
-    'dialog': 'bg:#171E2B',
-    'dialog frame.label': 'bg:#ffffff #000000',
-    'dialog.body': 'bg:#000000 ' + terminal_primary,
-    'dialog shadow': 'bg:#171E2B',
-    'button': 'bg:#000000',
-    'text-area': 'bg:#000000 #ffffff',
-})
 
-
-def login_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Optional[BaseSecretsManager]:
+def login_prompt(secrets_manager_cls: Type[BaseSecretsManager], style: Style):
     err_msg = None
     secrets_manager = None
     if Security.new_password_required() and legacy_confs_exist():
-        secrets_manager = migrate_configs_prompt(secrets_manager_cls)
+        secrets_manager = migrate_configs_prompt(secrets_manager_cls, style)
     if Security.new_password_required():
-        show_welcome()
+        show_welcome(style)
         password = input_dialog(
             title="Set Password",
             text="Create a password to protect your sensitive data. "
@@ -48,14 +35,14 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Optional[Base
                  " to migrate your existing secure configs to the new management system."
                  "\n\nEnter your new password:",
             password=True,
-            style=dialog_style).run()
+            style=style).run()
         if password is None:
             return None
         re_password = input_dialog(
             title="Set Password",
             text="Please re-enter your password:",
             password=True,
-            style=dialog_style).run()
+            style=style).run()
         if re_password is None:
             return None
         if password != re_password:
@@ -63,13 +50,13 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Optional[Base
         else:
             secrets_manager = secrets_manager_cls(password)
             store_password_verification(secrets_manager)
-            migrate_non_secure_only_prompt()
+        migrate_non_secure_only_prompt(style)
     else:
         password = input_dialog(
             title="Welcome back to Hummingbot",
             text="Enter your password:",
             password=True,
-            style=dialog_style).run()
+            style=style).run()
         if password is None:
             return None
         secrets_manager = secrets_manager_cls(password)
@@ -79,8 +66,8 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Optional[Base
         message_dialog(
             title='Error',
             text=err_msg,
-            style=dialog_style).run()
-        return login_prompt(secrets_manager_cls)
+            style=style).run()
+        return login_prompt(secrets_manager_cls, style)
     return secrets_manager
 
 
@@ -96,7 +83,7 @@ def legacy_confs_exist() -> bool:
     return exist
 
 
-def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> BaseSecretsManager:
+def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager], style: Style) -> BaseSecretsManager:
     message_dialog(
         title='Configs Migration',
         text="""
@@ -109,12 +96,12 @@ def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Bas
             please enter your password on the following screen.
 
                 """,
-        style=dialog_style).run()
+        style=style).run()
     password = input_dialog(
         title="Input Password",
         text="\n\nEnter your previous password:",
         password=True,
-        style=dialog_style).run()
+        style=style).run()
     if password is None:
         raise ValueError("Wrong password.")
     secrets_manager = secrets_manager_cls(password)
@@ -132,11 +119,11 @@ def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Bas
                             The migration process was completed successfully.
 
                                 """,
-            style=dialog_style).run()
+            style=style).run()
     return secrets_manager
 
 
-def migrate_non_secure_only_prompt():
+def migrate_non_secure_only_prompt(style: Style):
     message_dialog(
         title='Configs Migration',
         text="""
@@ -148,10 +135,10 @@ def migrate_non_secure_only_prompt():
                 We will now attempt to migrate any legacy config files to the new format.
 
                     """,
-        style=dialog_style).run()
+        style=style).run()
     errors = migrate_non_secure_configs_only()
     if len(errors) != 0:
-        _migration_errors_dialog(errors)
+        _migration_errors_dialog(errors, style)
     else:
         message_dialog(
             title='Configs Migration Success',
@@ -163,10 +150,10 @@ def migrate_non_secure_only_prompt():
                             The migration process was completed successfully.
 
                                 """,
-            style=dialog_style).run()
+            style=style).run()
 
 
-def _migration_errors_dialog(errors):
+def _migration_errors_dialog(errors, style: Style):
     padding = "\n                    "
     errors_str = padding + padding.join(errors)
     message_dialog(
@@ -179,10 +166,10 @@ def _migration_errors_dialog(errors):
                 {errors_str}
 
                     """,
-        style=dialog_style).run()
+        style=style).run()
 
 
-def show_welcome():
+def show_welcome(style: Style):
     message_dialog(
         title='Welcome to Hummingbot',
         text="""
@@ -201,7 +188,7 @@ def show_welcome():
 
 
         """.format(version=version),
-        style=dialog_style).run()
+        style=style).run()
     message_dialog(
         title='Important Warning',
         text="""
@@ -218,7 +205,7 @@ def show_welcome():
     You are solely responsible for the trades that you perform using Hummingbot.
 
         """,
-        style=dialog_style).run()
+        style=style).run()
     message_dialog(
         title='Important Warning',
         text="""
@@ -234,4 +221,4 @@ def show_welcome():
     data. Please store this password safely since there is no way to reset it.
 
         """,
-        style=dialog_style).run()
+        style=style).run()

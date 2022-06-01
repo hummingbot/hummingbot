@@ -616,6 +616,10 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: "Would you like to send error logs to hummingbot? (Yes/No)",
         ),
     )
+    previous_strategy: Optional[str] = Field(
+        default=None,
+        description="Can store the previous strategy ran for quick retrieval."
+    )
     db_mode: Union[tuple(DB_MODES.values())] = Field(
         default=DBSqliteMode(),
         description=("Advanced database options, currently supports SQLAlchemy's included dialects"

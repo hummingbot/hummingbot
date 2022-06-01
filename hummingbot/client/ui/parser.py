@@ -97,7 +97,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     gateway_create_parser.set_defaults(func=hummingbot.create_gateway)
 
     gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")
-    gateway_config_parser.add_argument("key", nargs=1, default=None, help="Name of the parameter you want to view/change")
+    gateway_config_parser.add_argument("key", nargs="?", default=None, help="Name of the parameter you want to view/change")
     gateway_config_parser.add_argument("value", nargs="?", default=None, help="New value for the parameter")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
@@ -139,6 +139,10 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     pmm_script_parser.add_argument("cmd", nargs="?", default=None, help="Command")
     pmm_script_parser.add_argument("args", nargs="*", default=None, help="Arguments")
     pmm_script_parser.set_defaults(func=hummingbot.pmm_script_command)
+
+    previous_strategy_parser = subparsers.add_parser("previous", help="Imports the last strategy used")
+    previous_strategy_parser.add_argument("option", nargs="?", choices=["Yes,No"], default=None)
+    previous_strategy_parser.set_defaults(func=hummingbot.previous_strategy)
 
     # add shortcuts so they appear in command help
     shortcuts = hummingbot.client_config_map.command_shortcuts

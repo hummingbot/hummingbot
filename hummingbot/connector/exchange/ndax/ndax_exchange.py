@@ -245,6 +245,8 @@ class NdaxExchange(ExchangeBase):
         It starts tracking order book, polling trading rules,
         updating statuses and tracking user data.
         """
+        self.logger().warning("This exchange connector does not provide trades feed. "
+                              "Strategies which depend on it will not work properly.")
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:

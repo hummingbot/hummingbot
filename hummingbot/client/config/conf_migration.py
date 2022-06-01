@@ -28,6 +28,9 @@ from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, save_to_yml
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import CLIENT_CONFIG_PATH, CONF_DIR_PATH, STRATEGIES_CONF_DIR_PATH
+from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map_pydantic import (
+    CrossExchangeMarketMakingConfigMap,
+)
 
 encrypted_conf_prefix = "encrypted_"
 encrypted_conf_postfix = ".json"
@@ -41,7 +44,7 @@ def migrate_configs(secrets_manager: BaseSecretsManager) -> List[str]:
     if len(errors) == 0:
         errors = migrate_global_config()
         if len(errors) == 0:
-            migrate_strategy_confs_paths()
+            errors.extend(migrate_strategy_confs_paths())
             errors.extend(migrate_connector_confs(secrets_manager))
             store_password_verification(secrets_manager)
             logging.getLogger().info("\nConf migration done.")
@@ -56,7 +59,7 @@ def migrate_non_secure_configs_only() -> List[str]:
     if len(errors) == 0:
         errors = migrate_global_config()
         if len(errors) == 0:
-            migrate_strategy_confs_paths()
+            errors.extend(migrate_strategy_confs_paths())
             logging.getLogger().info("\nConf migration done.")
     else:
         logging.getLogger().error("\nConf migration failed.")
@@ -230,16 +233,54 @@ def migrate_global_config_field(
 
 
 def migrate_strategy_confs_paths():
+    errors = []
     logging.getLogger().info("\nMigrating strategies...")
     for child in conf_dir_path.iterdir():
         if child.is_file() and child.name.endswith(".yml"):
             with open(str(child), "r") as f:
                 conf = yaml.safe_load(f)
             if "strategy" in conf and _has_connector_field(conf):
-
                 new_path = strategies_conf_dir_path / child.name
                 child.rename(new_path)
+                if conf["strategy"] == "cross_exchange_market_making":
+                    errors.extend(migrate_xemm_confs(conf, new_path))
                 logging.getLogger().info(f"Migrated conf for {conf['strategy']}")
+    return errors
+
+
+def migrate_xemm_confs(conf, new_path) -> List[str]:
+    if "active_order_canceling" in conf:
+        if conf["active_order_canceling"]:
+            conf["order_refresh_mode"] = {}
+        else:
+            conf["order_refresh_mode"] = {
+                "cancel_order_threshold": conf["cancel_order_threshold"],
+                "limit_order_min_expiration": conf["limit_order_min_expiration"]
+            }
+        conf.pop("active_order_canceling")
+        conf.pop("cancel_order_threshold")
+        conf.pop("limit_order_min_expiration")
+    if "use_oracle_conversion_rate" in conf:
+        if conf["use_oracle_conversion_rate"]:
+            conf["conversion_rate_mode"] = {}
+        else:
+            conf["conversion_rate_mode"] = {
+                "taker_to_maker_base_conversion_rate": conf["taker_to_maker_base_conversion_rate"],
+                "taker_to_maker_quote_conversion_rate": conf["taker_to_maker_quote_conversion_rate"]
+            }
+        conf.pop("use_oracle_conversion_rate")
+        conf.pop("taker_to_maker_base_conversion_rate")
+        conf.pop("taker_to_maker_quote_conversion_rate")
+    if "template_version" in conf:
+        conf.pop("template_version")
+    try:
+        config_map = ClientConfigAdapter(CrossExchangeMarketMakingConfigMap(**conf))
+        save_to_yml(new_path, config_map)
+        errors = []
+    except Exception as e:
+        logging.getLogger().error(str(e))
+        errors = [str(e)]
+    return errors
 
 
 def _has_connector_field(conf: Dict) -> bool:
