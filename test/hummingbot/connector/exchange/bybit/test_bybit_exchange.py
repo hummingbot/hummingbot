@@ -398,7 +398,7 @@ class TestBybitExchange(unittest.TestCase):
         order_request = next(((key, value) for key, value in mock_api.requests.items()
                               if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(order_request[1][0])
-        request_params = order_request[1][0].kwargs["data"]
+        request_params = order_request[1][0].kwargs["params"]
         self.assertEqual(self.ex_trading_pair, request_params["symbol"])
         self.assertEqual("BUY", request_params["side"])
         self.assertEqual("LIMIT", request_params["type"])
@@ -469,7 +469,7 @@ class TestBybitExchange(unittest.TestCase):
         order_request = next(((key, value) for key, value in mock_api.requests.items()
                               if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(order_request[1][0])
-        request_data = order_request[1][0].kwargs["data"]
+        request_data = order_request[1][0].kwargs["params"]
         self.assertEqual(self.ex_trading_pair, request_data["symbol"])
         self.assertEqual(TradeType.BUY.name, request_data["side"])
         self.assertEqual("LIMIT_MAKER", request_data["type"])
@@ -540,7 +540,7 @@ class TestBybitExchange(unittest.TestCase):
         order_request = next(((key, value) for key, value in mock_api.requests.items()
                               if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(order_request[1][0])
-        request_data = order_request[1][0].kwargs["data"]
+        request_data = order_request[1][0].kwargs["params"]
         self.assertEqual(self.ex_trading_pair, request_data["symbol"])
         self.assertEqual(TradeType.SELL.name, request_data["side"])
         self.assertEqual("MARKET", request_data["type"])

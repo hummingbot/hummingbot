@@ -644,11 +644,11 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         mock_queue = AsyncMock()
-        mock_queue.get.side_effect = asyncio.TimeoutError
+        mock_queue.get.side_effect = ['ERROR', asyncio.CancelledError]
         self.ob_data_source._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
-        sleep_mock.side_effect = [0, asyncio.CancelledError]
+        sleep_mock.side_effect = [asyncio.CancelledError]
         url = web_utils.rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, exception=Exception)
@@ -659,7 +659,7 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}."))
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
 
     @aioresponses()
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
