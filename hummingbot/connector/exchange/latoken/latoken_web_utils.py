@@ -1,10 +1,10 @@
 # import inspect
 # from types import FrameType
 from decimal import Decimal
-from typing import Any, Callable, Dict, Optional  # , cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union  # , cast
 
 import hummingbot.connector.exchange.latoken.latoken_constants as CONSTANTS
-from hummingbot.connector.exchange.latoken.latoken_connections_factory import LatokenConnectionsFactory
+from hummingbot.connector.exchange.latoken.latoken_processors import LatokenWSPostProcessor, LatokenWSPreProcessor
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -60,7 +60,7 @@ def ws_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
 
 
 # Order States for WS
-def get_order_status_ws(change_type: str, status: str, quantity: Decimal, filled: Decimal, delta_filled: Decimal):
+def get_order_status_ws(change_type: str, status: str, quantity: Decimal, filled: Decimal, delta_filled: Decimal) -> OrderState:
 
     order_state = None  # None is not used to update order in hbot order mgmt
     if status == "ORDER_STATUS_PLACED":
@@ -93,34 +93,14 @@ def get_order_status_ws(change_type: str, status: str, quantity: Decimal, filled
     return order_state
 
 
-def get_order_status_rest(status: str, filled: Decimal, quantity: Decimal):
+def get_order_status_rest(status: str, filled: Decimal, quantity: Decimal) -> OrderState:
     new_state = ORDER_STATE[status]
     if new_state == OrderState.FILLED and quantity != filled:
         new_state = OrderState.PARTIALLY_FILLED
     return new_state
 
 
-def create_full_mapping(ticker_list, currency_list, pair_list):
-    ticker_dict = {f"{ticker['baseCurrency']}/{ticker['quoteCurrency']}": ticker for ticker in ticker_list}
-    # pair_dict = {f"{pair['baseCurrency']}/{pair['quoteCurrency']}": pair for pair in pair_list}
-    currency_dict = {currency["id"]: currency for currency in currency_list}
-
-    for pt in pair_list:
-        key = f"{pt['baseCurrency']}/{pt['quoteCurrency']}"
-        is_valid = key in ticker_dict
-        pt["is_valid"] = is_valid
-        pt["id"] = ticker_dict[key] if is_valid else {"id": key}
-        base_id = pt["baseCurrency"]
-        if base_id in currency_dict:
-            pt["baseCurrency"] = currency_dict[base_id]
-        quote_id = pt["quoteCurrency"]
-        if quote_id in currency_dict:
-            pt["quoteCurrency"] = currency_dict[quote_id]
-
-    return pair_list
-
-
-def get_book_side(book):
+def get_book_side(book: List[Dict[str, str]]) -> Tuple[Tuple[Any, Any], ...]:
     return tuple((row['price'], row['quantity']) for row in book)
 
 
@@ -130,24 +110,27 @@ def build_api_factory(
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
         time_provider: Optional[Callable] = None,
         auth: Optional[AuthBase] = None,) -> WebAssistantsFactory:
+    throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
     time_provider = time_provider or (lambda: get_current_server_time(
         throttler=throttler,
         domain=domain,
     ))
     api_factory = WebAssistantsFactory(
+        throttler=throttler,
         auth=auth,
         rest_pre_processors=[
-            TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider),
-        ])
-    api_factory._connections_factory = LatokenConnectionsFactory()
+            TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider)],
+        ws_pre_processors=[LatokenWSPreProcessor()],
+        ws_post_processors=[LatokenWSPostProcessor()])
     return api_factory
 
 
-def build_api_factory_without_time_synchronizer_pre_processor() -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory()
-    api_factory._connections_factory = LatokenConnectionsFactory()
-    return api_factory
+def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
+    return WebAssistantsFactory(
+        throttler=throttler,
+        ws_pre_processors=[LatokenWSPreProcessor()],
+        ws_post_processors=[LatokenWSPostProcessor()])
 
 
 def create_throttler() -> AsyncThrottler:
@@ -166,7 +149,7 @@ async def api_request(path: str,
                       return_err: bool = False,
                       limit_id: Optional[str] = None,
                       timeout: Optional[float] = None,
-                      headers=None):
+                      headers=None) -> Union[str, Dict[str, Any]]:
     if headers is None:
         headers = {}
 
@@ -207,16 +190,15 @@ async def api_request(path: str,
 
 async def get_current_server_time(
         throttler: Optional[AsyncThrottler] = None,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
-) -> float:
-    api_factory = build_api_factory_without_time_synchronizer_pre_processor()
-    response = await api_request(
-        path=CONSTANTS.PING_PATH_URL,
-        api_factory=api_factory,
-        throttler=throttler,
-        domain=domain,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN) -> float:
+    throttler = throttler or create_throttler()
+    api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
+    rest_assistant = await api_factory.get_rest_assistant()
+    response = await rest_assistant.execute_request(
+        url=public_rest_url(path_url=CONSTANTS.PING_PATH_URL, domain=domain),
         method=RESTMethod.GET,
         return_err=True,
-        limit_id=CONSTANTS.GLOBAL_RATE_LIMIT
+        throttler_limit_id=CONSTANTS.PING_PATH_URL,
     )
+
     return response["serverTime"]

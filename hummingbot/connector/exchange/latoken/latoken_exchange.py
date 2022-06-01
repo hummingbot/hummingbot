@@ -1,9 +1,9 @@
 import asyncio
-import datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import ujson
+from bidict import bidict
 
 import hummingbot.connector.exchange.latoken.latoken_constants as CONSTANTS
 import hummingbot.connector.exchange.latoken.latoken_web_utils as web_utils
@@ -11,15 +11,10 @@ from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.latoken.latoken_api_order_book_data_source import LatokenAPIOrderBookDataSource
 from hummingbot.connector.exchange.latoken.latoken_api_user_stream_data_source import LatokenAPIUserStreamDataSource
 from hummingbot.connector.exchange.latoken.latoken_auth import LatokenAuth
-from hummingbot.connector.exchange.latoken.latoken_utils import (
-    LatokenCommissionType,
-    LatokenFeeSchema,
-    LatokenTakeType,
-    is_exchange_information_valid,
-)
+from hummingbot.connector.exchange.latoken.latoken_utils import LatokenCommissionType, LatokenFeeSchema, LatokenTakeType
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import (
@@ -29,16 +24,13 @@ from hummingbot.core.data_type.trade_fee import (
     TradeFeeBase,
 )
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.event.events import MarketEvent, OrderFilledEvent, OrderType, TradeType
-from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
 class LatokenExchange(ExchangePyBase):
-
     web_utils = web_utils
 
     def __init__(self,
@@ -54,8 +46,8 @@ class LatokenExchange(ExchangePyBase):
         self._secret_key = latoken_api_secret
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._authenticator = None
         super().__init__()
-        self._last_update_trade_fees_timestamp = 0
 
     @staticmethod
     def latoken_order_type(order_type: OrderType) -> str:
@@ -67,135 +59,63 @@ class LatokenExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return LatokenAuth(
-            api_key=self._api_key,
-            secret_key=self._secret_key,
-            time_provider=self._time_synchronizer)
+        if self._authenticator is None:
+            self._authenticator = LatokenAuth(
+                api_key=self._api_key, secret_key=self._secret_key, time_provider=self._time_synchronizer)
+        return self._authenticator
 
     @property
     def rate_limits_rules(self):
         return CONSTANTS.RATE_LIMITS
 
     @property
-    def domain(self):
+    def domain(self) -> str:
         return self._domain
 
     @property
     def name(self) -> str:
-        return "latoken" if self._domain == CONSTANTS.DEFAULT_DOMAIN else f"latoken_{self._domain}"
+        return "latoken" if self.domain == CONSTANTS.DEFAULT_DOMAIN else f"latoken_{self.domain}"
 
     @property
-    def client_order_id_max_length(self):
+    def client_order_id_max_length(self) -> int:
         return CONSTANTS.MAX_ORDER_ID_LEN
 
     @property
-    def client_order_id_prefix(self):
+    def client_order_id_prefix(self) -> str:
         return CONSTANTS.HBOT_ORDER_ID_PREFIX
 
     @property
-    def trading_rules_request_path(self):  # not applicable because we need to request multiple REST endpoints
-        raise NotImplementedError
+    def trading_rules_request_path(self) -> str:
+        return CONSTANTS.PAIR_PATH_URL
 
     @property
-    def check_network_request_path(self):
+    def trading_pairs_request_path(self) -> str:
+        return CONSTANTS.TICKER_PATH_URL
+
+    @property
+    def check_network_request_path(self) -> str:
         return CONSTANTS.PING_PATH_URL
 
-    def supported_order_types(self):
+    @property
+    def trading_pairs(self) -> Optional[List[str]]:
+        return self._trading_pairs
+
+    @property
+    def is_cancel_request_in_exchange_synchronous(self) -> bool:
+        return True
+
+    @property
+    def is_trading_required(self) -> bool:
+        return self._trading_required
+
+    def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT]
 
-    # async def _create_order(self,
-    #                         trade_type: TradeType,
-    #                         order_id: str,
-    #                         trading_pair: str,
-    #                         amount: Decimal,
-    #                         order_type: OrderType,
-    #                         price: Optional[Decimal] = Decimal("NaN")):
-    #     """
-    #     Creates a an order in the exchange using the parameters to configure it
-    #     :param trade_type: the side of the order (BUY of SELL)
-    #     :param order_id: the id that should be assigned to the order (the client id)
-    #     :param trading_pair: the token pair to operate with
-    #     :param amount: the order amount
-    #     :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
-    #     :param price: the order price
-    #     """
-    #     exchange_order_id = ""
-    #     trading_rule: TradingRule = self._trading_rules[trading_pair]
-    #     quantized_price = self.quantize_order_price(trading_pair, price)
-    #     quantize_amount_price = Decimal("0") if quantized_price.is_nan() else quantized_price
-    #     quantized_amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount,
-    #                                                   price=quantize_amount_price)
-    #
-    #     self.start_tracking_order(
-    #         order_id=order_id,
-    #         exchange_order_id=None,
-    #         trading_pair=trading_pair,
-    #         order_type=order_type,
-    #         trade_type=trade_type,
-    #         price=quantized_price,
-    #         amount=quantized_amount
-    #     )
-    #
-    #     if quantized_amount < trading_rule.min_order_size:
-    #         self.logger().warning(
-    #             f"{trade_type.name.title()} order amount {quantized_amount} is lower than the minimum order"
-    #             f" size {trading_rule.min_order_size}. The order will not be created.")
-    #         order_update: OrderUpdate = OrderUpdate(
-    #             client_order_id=order_id,
-    #             trading_pair=trading_pair,
-    #             update_timestamp=self.current_timestamp,
-    #             new_state=OrderState.FAILED,
-    #         )
-    #         self._order_tracker.process_order_update(order_update)
-    #         return
-    #
-    #     if self.latoken_order_type(order_type) == OrderType.LIMIT_MAKER.name:
-    #         self.logger().info('_create_order LIMIT_MAKER order not supported by Latoken, using LIMIT instead')
-    #
-    #     try:
-    #         exchange_order_id, update_timestamp = await self._place_order(
-    #             order_id=order_id,
-    #             trading_pair=trading_pair,
-    #             amount=amount,
-    #             trade_type=trade_type,
-    #             order_type=order_type,
-    #             price=price)
-    #
-    #         order_update: OrderUpdate = OrderUpdate(
-    #             client_order_id=order_id,
-    #             exchange_order_id=exchange_order_id,
-    #             trading_pair=trading_pair,
-    #             update_timestamp=update_timestamp,
-    #             new_state=OrderState.OPEN,
-    #         )
-    #         self._order_tracker.process_order_update(order_update)
-    #
-    #     except asyncio.CancelledError:
-    #         raise
-    #     except Exception:
-    #         self.logger().network(
-    #             f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
-    #             f"{amount} {trading_pair} {price}.",
-    #             exc_info=True,
-    #             app_warning_msg=f"Failed to submit buy order to {self.name_cap}. Check API key and network connection."
-    #         )
-    #         self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
-    #     return order_id, exchange_order_id
-
-    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
         exchange_order_id = await tracked_order.get_exchange_order_id()
-        api_json = {"id": exchange_order_id}
         cancel_result = await self._api_post(
-            path_url=CONSTANTS.ORDER_CANCEL_PATH_URL,
-            data=api_json,
-            is_auth_required=True)
-
-        order_cancel_status = cancel_result.get("status")
-
-        if order_cancel_status == "SUCCESS":
-            return True
-        else:  # order_cancel_status == "FAILURE":
-            raise ValueError(f"Cancel order failed, no SUCCESS message {order_cancel_status}")
+            path_url=CONSTANTS.ORDER_CANCEL_PATH_URL, params={"id": exchange_order_id}, is_auth_required=True)
+        return cancel_result["status"] == "SUCCESS"
 
     async def _place_order(self,
                            order_id: str,
@@ -213,24 +133,19 @@ class LatokenExchange(ExchangePyBase):
         :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
         :param price: the order price
         """
-        symbol = await self._orderbook_ds.exchange_symbol_associated_to_pair(
-            trading_pair=trading_pair,
-            domain=self._domain,
-            api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer)
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-        quantized_price = self.quantize_order_price(trading_pair, price)
+        quantized_price = self.quantize_order_price(trading_pair=trading_pair, price=price)
         quantize_amount_price = Decimal("0") if quantized_price.is_nan() else quantized_price
-        quantized_amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount,
-                                                      price=quantize_amount_price)
+        quantized_amount = self.quantize_order_amount(
+            trading_pair=trading_pair, amount=amount, price=quantize_amount_price)
         price_str = f"{quantized_price:f}"
         amount_str = f"{quantized_amount:f}"
-        type_str = self.latoken_order_type(order_type)
+        type_str = self.latoken_order_type(order_type=order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
 
         if type_str == OrderType.LIMIT_MAKER.name:
-            self.logger().info('_create_order LIMIT_MAKER order not supported by Latoken, using LIMIT instead')
+            self.logger().error('LIMIT_MAKER order not supported by Latoken, use LIMIT instead')
 
         base, quote = symbol.split('/')
         api_params = {
@@ -241,18 +156,18 @@ class LatokenExchange(ExchangePyBase):
             "quantity": amount_str,
             "type": OrderType.LIMIT.name,
             "price": price_str,
-            "timestamp": int(datetime.datetime.now().timestamp() * 1000),
+            "timestamp": int(self.current_timestamp * 1000),
             'condition': CONSTANTS.TIME_IN_FORCE_GTC
         }
 
         order_result = await self._api_post(
-            path_url=CONSTANTS.ORDER_PLACE_PATH_URL,
-            data=api_params,
+            path_url=CONSTANTS.ORDER_PATH_URL,
+            params=api_params,
             is_auth_required=True)
 
         if order_result["status"] == "SUCCESS":
             exchange_order_id = str(order_result["id"])
-            return exchange_order_id, datetime.datetime.now().timestamp()
+            return exchange_order_id, self.current_timestamp
         else:
             raise ValueError(f"Place order failed, no SUCCESS message {order_result}")
 
@@ -280,8 +195,8 @@ class LatokenExchange(ExchangePyBase):
         if fee_schema is None:
             self.logger().warning(f"For trading pair = {trading_pair} there is no fee schema loaded, using presets!")
             fee = build_trade_fee(
-                self.name,
-                is_maker,
+                exchange=self.name,
+                is_maker=is_maker,
                 base_currency=base_currency,
                 quote_currency=quote_currency,
                 order_type=order_type,
@@ -295,64 +210,15 @@ class LatokenExchange(ExchangePyBase):
                 is_maker is not None and is_maker) else fee_schema.taker_fee
             fee = AddedToCostTradeFee(
                 percent=percent) if order_side == TradeType.BUY else DeductedFromReturnsTradeFee(percent=percent)
-
         return fee
-
-    async def check_network(self) -> NetworkStatus:
-        """
-        Checks connectivity with the exchange using the API
-        """
-        try:
-            await self._api_get(path_url=self.check_network_request_path, return_err=False)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            return NetworkStatus.NOT_CONNECTED
-        return NetworkStatus.CONNECTED
-
-    async def _update_trading_rules(self):
-        ticker_list, currency_list, pair_list = await safe_gather(
-            self._api_get(path_url=CONSTANTS.TICKER_PATH_URL),
-            self._api_get(path_url=CONSTANTS.CURRENCY_PATH_URL),
-            self._api_get(path_url=CONSTANTS.PAIR_PATH_URL),
-            return_exceptions=True)
-
-        pairs = web_utils.create_full_mapping(ticker_list, currency_list, pair_list)
-        trading_rules_list = await self._format_trading_rules(pairs)
-
-        self._trading_rules.clear()
-        for trading_rule in trading_rules_list:
-            self._trading_rules[trading_rule.trading_pair] = trading_rule
-
-    async def _api_request(self,
-                           path_url: str,
-                           method: RESTMethod,
-                           params: Optional[Dict[str, Any]] = None,
-                           data: Optional[Dict[str, Any]] = None,
-                           is_auth_required: bool = False,
-                           limit_id: Optional[str] = CONSTANTS.GLOBAL_RATE_LIMIT,
-                           return_err=True) -> Dict[str, Any]:
-        return await web_utils.api_request(
-            path=path_url,
-            api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            domain=self._domain,
-            params=params,
-            data=data,
-            method=method,
-            is_auth_required=is_auth_required,
-            limit_id=limit_id,
-            return_err=return_err
-        )
 
     async def _update_trading_fees(self):
         fee_requests = [self._api_get(
             path_url=f"{CONSTANTS.FEES_PATH_URL}/{trading_pair.replace('-', '/')}",
-            is_auth_required=True) for trading_pair in self._trading_pairs]
-        responses = zip(self._trading_pairs, await safe_gather(*fee_requests, return_exceptions=True))
+            is_auth_required=True, limit_id=CONSTANTS.FEES_PATH_URL) for trading_pair in self.trading_pairs]
+        responses = zip(self.trading_pairs, await safe_gather(*fee_requests, return_exceptions=True))
         for trading_pair, response in responses:
-            self._trading_fees[trading_pair] = None if isinstance(response, Exception) else LatokenFeeSchema(response)
+            self._trading_fees[trading_pair] = None if isinstance(response, Exception) else LatokenFeeSchema(fee_schema=response)
 
     async def _user_stream_event_listener(self):
         """
@@ -365,20 +231,16 @@ class LatokenExchange(ExchangePyBase):
                 cmd = event_message.get('cmd', None)
                 if cmd and cmd == 'MESSAGE':
                     subscription_id = int(event_message['headers']['subscription'].split('_')[0])
-                    body = ujson.loads(event_message["body"])
+                    payload = ujson.loads(event_message["body"])["payload"]
 
-                    if subscription_id == CONSTANTS.SUBSCRIPTION_ID_ORDERS:
-                        for order in body["payload"]:  # self.logger().error(str(orders))
-                            self._process_order_update_ws(order)
+                    if subscription_id == CONSTANTS.SUBSCRIPTION_ID_ACCOUNT:
+                        await self._process_account_balance_update(balances=payload)
+                    elif subscription_id == CONSTANTS.SUBSCRIPTION_ID_ORDERS:
+                        for update in payload:
+                            await self._process_order_update(order=update)
                     elif subscription_id == CONSTANTS.SUBSCRIPTION_ID_TRADE_UPDATE:
-                        for trade_update in body["payload"]:
-                            self._process_trade_update_ws(
-                                trade_update,
-                                trading_pair=await self._orderbook_ds.trading_pair_associated_to_exchange_symbol(
-                                    symbol=f"{trade_update['baseCurrency']}/{trade_update['quoteCurrency']}",
-                                    domain=self._domain, api_factory=self._web_assistants_factory, throttler=self._throttler))
-                    elif subscription_id == CONSTANTS.SUBSCRIPTION_ID_ACCOUNT:
-                        _ = await self._process_account_balance_update(balances=body["payload"])
+                        for update in payload:
+                            await self._process_trade_update(trade=update)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -407,12 +269,17 @@ class LatokenExchange(ExchangePyBase):
             }
         ]
         """
+
+        await self._initialize_trading_pair_symbol_map()  # workaround for trading_rule path in _update_trading_rules
+
         trading_rules = []
-        for rule in filter(is_exchange_information_valid, pairs_list):
+        for rule in pairs_list:
+            if rule['status'] != 'PAIR_STATUS_ACTIVE':
+                continue
+
             try:
-                symbol = f"{rule['id']['baseCurrency']}/{rule['id']['quoteCurrency']}"
-                trading_pair = await self._orderbook_ds.trading_pair_associated_to_exchange_symbol(
-                    symbol=symbol, domain=self._domain, api_factory=self._web_assistants_factory, throttler=self._throttler)
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(
+                    symbol=f"{rule['baseCurrency']}/{rule['quoteCurrency']}")
 
                 min_order_size = Decimal(rule["minOrderQuantity"])
                 price_tick = Decimal(rule["priceTick"])
@@ -429,14 +296,39 @@ class LatokenExchange(ExchangePyBase):
                     min_notional_size=min_order_quantity,
                     min_order_value=min_order_value,
                     # max_price_significant_digits=len(rule["maxOrderCostUsd"])
-                    # supports_market_orders = False,
+                    supports_market_orders=False,
                 )
 
                 trading_rules.append(trading_rule)
-
             except Exception:
                 self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
         return trading_rules
+
+    async def _update_to_tracked_order(self, tracked_orders: List[InFlightOrder]) -> Tuple[List[Any], List[Any]]:
+        reviewed_orders = []
+        tasks = []
+
+        for tracked_order in tracked_orders:
+            try:
+                exchange_order_id = await tracked_order.get_exchange_order_id()
+            except asyncio.TimeoutError:
+                self.logger().debug(
+                    f"Tracked order {tracked_order.client_order_id} does not have an exchange id. "
+                    f"Attempting fetch in next polling interval."
+                )
+                await self._order_tracker.process_order_not_found(client_order_id=tracked_order.client_order_id)
+                continue
+            reviewed_orders.append(tracked_order)
+            tasks.append(
+                self._api_get(
+                    path_url=f"{CONSTANTS.GET_ORDER_PATH_URL}/{exchange_order_id}",
+                    is_auth_required=True,
+                    limit_id=CONSTANTS.GET_ORDER_PATH_URL))
+
+        self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
+        results = await safe_gather(*tasks, return_exceptions=True)
+
+        return results, reviewed_orders
 
     async def _update_order_status(self):
         # This is intended to be a backup measure to close straggler orders, in case Latoken's user stream events
@@ -449,32 +341,10 @@ class LatokenExchange(ExchangePyBase):
 
         if current_tick <= last_tick or len(tracked_orders) == 0:
             return
-        # if current_tick > last_tick and len(tracked_orders) > 0:
-        # not sure if the exchange order id is always up-to-date on the moment this function is called (?)
 
-        reviewed_orders = []
-        tasks = []
+        update_to_tracked = await self._update_to_tracked_order(tracked_orders=tracked_orders)
+        for order_update, tracked_order in zip(*update_to_tracked):
 
-        for tracked_order in tracked_orders:
-            try:
-                exchange_order_id = await tracked_order.get_exchange_order_id()
-            except asyncio.TimeoutError:
-                self.logger().debug(
-                    f"Tracked order {tracked_order.client_order_id} does not have an exchange id. "
-                    f"Attempting fetch in next polling interval."
-                )
-                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
-                continue
-            reviewed_orders.append(tracked_order)
-            tasks.append(
-                self._api_get(
-                    path_url=f"{CONSTANTS.GET_ORDER_PATH_URL}/{exchange_order_id}",
-                    is_auth_required=True,
-                    return_err=False))
-
-        self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
-        results = await safe_gather(*tasks, return_exceptions=True)
-        for order_update, tracked_order in zip(results, reviewed_orders):
             client_order_id = tracked_order.client_order_id
 
             # If the order has already been cancelled or has failed do nothing
@@ -488,7 +358,7 @@ class LatokenExchange(ExchangePyBase):
                 )
                 # Wait until the order not found error have repeated a few times before actually treating
                 # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
-                await self._order_tracker.process_order_not_found(client_order_id)
+                await self._order_tracker.process_order_not_found(client_order_id=client_order_id)
             else:
                 # Update order execution status
                 status = order_update["status"]
@@ -510,8 +380,8 @@ class LatokenExchange(ExchangePyBase):
         try:
             params = {'zeros': 'false'}  # if not testing this can be set to the default of false
             balances = await self._api_get(path_url=CONSTANTS.ACCOUNTS_PATH_URL, is_auth_required=True, params=params)
-            remote_asset_names = await self._process_account_balance_update(balances)
-            self._process_full_account_balances_refresh(remote_asset_names, balances)
+            remote_asset_names = await self._process_account_balance_update(balances=balances)
+            self._process_full_account_balances_refresh(remote_asset_names=remote_asset_names, balances=balances)
         except IOError:
             self.logger().exception("Error getting account balances from server")
 
@@ -520,102 +390,30 @@ class LatokenExchange(ExchangePyBase):
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
             domain=self.domain,
-            auth=self._auth)
+            auth=self.authenticator)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return LatokenAPIOrderBookDataSource(
-            trading_pairs=self._trading_pairs,
+            trading_pairs=self.trading_pairs,
+            connector=self,
             domain=self.domain,
-            api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-        )
+            api_factory=self._web_assistants_factory)
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return LatokenAPIUserStreamDataSource(
-            auth=self._auth,
-            trading_pairs=self._trading_pairs,
-            domain=self.domain,
+            auth=self.authenticator,
+            trading_pairs=self.trading_pairs,
+            connector=self,
             api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
+            domain=self.domain,
         )
 
-    def _get_trade_update(self, trade, trading_pair: str):
-        trade_update = None
-        timestamp = trade["timestamp"]
-        if timestamp < self._last_update_trade_fees_timestamp:  # currently always true
-            return trade_update
-        exchange_order_id = trade["order"]
-        tracked_order = self._order_tracker.fetch_order(exchange_order_id=exchange_order_id)
-        if tracked_order is None:
-            return trade_update
-
-        trade_id = trade["id"]
-        fee = Decimal(trade["fee"])
-        price = Decimal(trade["price"])
-        quantity = Decimal(trade["quantity"])
-
-        spot_fee = TradeFeeBase.new_spot_fee(
-            fee_schema=self.trade_fee_schema(), trade_type=tracked_order.trade_type,
-            percent_token=tracked_order.quote_asset,
-            flat_fees=[TokenAmount(amount=fee, token=tracked_order.quote_asset)])
-        # This is a fill for a tracked order
-        trade_update = TradeUpdate(
-            trade_id=trade_id,
-            client_order_id=tracked_order.client_order_id,
-            exchange_order_id=exchange_order_id,
-            trading_pair=trading_pair,  # or tracked_order.trading_pair
-            fill_timestamp=int(timestamp),
-            fill_price=price,
-            fill_base_amount=quantity,
-            fill_quote_amount=Decimal(trade["cost"]),
-            fee=spot_fee,
-        )
-        return trade_update
-
-    def _db_tracked_order_candidate(self, trade, trading_pair: str):
-        # This is a fill of an order registered in the DB but not tracked any more
-        base_currency, quote_currency = trading_pair.split('-')
-        trade_type = TradeType.BUY if trade["makerBuyer"] else TradeType.SELL
-        order_type = OrderType.LIMIT
-        amount = Decimal(trade["quantity"])
-        price = Decimal(trade["price"])
-        trade_id = trade["id"]
-        exchange_order_id = trade["order"]
-        client_order_id = self._exchange_order_ids.get(exchange_order_id, None)
-        fee = Decimal(trade["fee"])
-        trade_fee = TradeFeeBase.new_spot_fee(
-            fee_schema=self.trade_fee_schema(), trade_type=trade_type,
-            percent_token=quote_currency,
-            flat_fees=[TokenAmount(amount=fee, token=quote_currency)])
-
-        # trade_fee = self.get_fee(base_currency, quote_currency, order_type, trade_type, amount, price, is_maker)
-        self._current_trade_fills.add(TradeFillOrderDetails(
-            market=self.display_name,
-            exchange_trade_id=trade_id,
-            symbol=trading_pair))
-
-        self.trigger_event(
-            MarketEvent.OrderFilled,
-            OrderFilledEvent(
-                timestamp=float(trade["timestamp"]) * 1e-3,
-                order_id=client_order_id,
-                trading_pair=trading_pair,
-                trade_type=trade_type,
-                order_type=order_type,
-                price=price,
-                amount=amount,
-                trade_fee=trade_fee,
-                exchange_trade_id=trade_id
-            ))
-        self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
-
-    async def _process_account_balance_update(self, balances):
+    async def _process_account_balance_update(self, balances: List[Dict[str, Any]]) -> Set[str]:
         remote_asset_names = set()
 
         balance_to_gather = [
-            self._api_get(path_url=f"{CONSTANTS.CURRENCY_PATH_URL}/{balance['currency']}") for balance in balances]
+            self._api_get(path_url=f"{CONSTANTS.CURRENCY_PATH_URL}/{balance['currency']}",
+                          limit_id=CONSTANTS.CURRENCY_PATH_URL) for balance in balances]
 
         # maybe request every currency if len(account_balance) > 5
         currency_lists = await safe_gather(*balance_to_gather, return_exceptions=True)
@@ -640,7 +438,7 @@ class LatokenExchange(ExchangePyBase):
 
         return remote_asset_names
 
-    def _process_full_account_balances_refresh(self, remote_asset_names, balances):
+    def _process_full_account_balances_refresh(self, remote_asset_names: Set[str], balances: List[Dict[str, Any]]):
         """ use this for rest call and not ws because ws does not send entire account balance list"""
         local_asset_names = set(self._account_balances.keys())
         if not balances:
@@ -655,14 +453,42 @@ class LatokenExchange(ExchangePyBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    def _process_trade_update_ws(self, trade_update, trading_pair: str):
-        tu = self._get_trade_update(trade_update, trading_pair)
-        if tu is not None:
-            self._order_tracker.process_trade_update(tu)
-        elif self.is_confirmed_new_order_filled_event(trade_update["id"], trade_update["order"], trading_pair):
-            self._db_tracked_order_candidate(trade_update, trading_pair)
+    async def _process_trade_update(self, trade: Dict[str, Any]):
+        symbol = f"{trade['baseCurrency']}/{trade['quoteCurrency']}"
+        trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=symbol)
 
-    def _process_order_update_ws(self, order):
+        base_currency, quote_currency = trading_pair.split('-')
+        trade_type = TradeType.BUY if trade["makerBuyer"] else TradeType.SELL
+        timestamp = float(trade["timestamp"]) * 1e-3
+        quantity = Decimal(trade["quantity"])
+        price = Decimal(trade["price"])
+        trade_id = trade["id"]
+        exchange_order_id = trade["order"]
+        tracked_order = self._order_tracker.fetch_order(exchange_order_id=exchange_order_id)
+        client_order_id = tracked_order.client_order_id if tracked_order else None
+
+        absolute_fee = Decimal(trade["fee"])
+        fee = TradeFeeBase.new_spot_fee(
+            fee_schema=self.trade_fee_schema(), trade_type=trade_type, percent_token=quote_currency,
+            flat_fees=[TokenAmount(amount=absolute_fee, token=quote_currency)])
+
+        trade_update = TradeUpdate(
+            trade_id=trade_id,
+            exchange_order_id=exchange_order_id,
+            client_order_id=client_order_id,
+            trading_pair=trading_pair,  # or tracked_order.trading_pair
+            fill_timestamp=timestamp,
+            fill_price=price,
+            fill_base_amount=quantity,
+            fill_quote_amount=Decimal(trade["cost"]),
+            fee=fee,
+        )
+
+        self._order_tracker.process_trade_update(trade_update=trade_update)
+
+    async def _process_order_update(self, order: Dict[str, Any]):
+        symbol = f"{order['baseCurrency']}/{order['quoteCurrency']}"
+        trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=symbol)
         client_order_id = order['clientOrderId']
 
         change_type = order['changeType']
@@ -671,20 +497,34 @@ class LatokenExchange(ExchangePyBase):
         filled = Decimal(order['filled'])
         delta_filled = Decimal(order['deltaFilled'])
 
-        state = web_utils.get_order_status_ws(change_type, status, quantity, filled, delta_filled)
+        state = web_utils.get_order_status_ws(change_type=change_type, status=status, quantity=quantity,
+                                              filled=filled, delta_filled=delta_filled)
         if state is None:
             return
 
         timestamp = float(order["timestamp"]) * 1e-3
 
-        tracked_order = self._order_tracker.fetch_tracked_order(client_order_id)
+        order_update = OrderUpdate(
+            trading_pair=trading_pair,
+            update_timestamp=timestamp,
+            new_state=state,
+            client_order_id=client_order_id,
+        )
 
-        if tracked_order is not None:
-            order_update = OrderUpdate(
-                trading_pair=tracked_order.trading_pair,
-                update_timestamp=timestamp,
-                new_state=state,
-                client_order_id=client_order_id,
-                exchange_order_id=tracked_order.exchange_order_id,
-            )
-            self._order_tracker.process_order_update(order_update=order_update)
+        self._order_tracker.process_order_update(order_update=order_update)
+
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        mapping = bidict()
+
+        if not exchange_info:
+            return
+
+        for ticker in exchange_info:
+            exchange_trading_pair = f"{ticker['baseCurrency']}/{ticker['quoteCurrency']}"
+            if 'symbol' not in ticker:
+                continue  # don't update with trading_rules data, check format_trading_rules for workaround
+            base, quote = ticker["symbol"].split('/')
+            mapping[exchange_trading_pair] = combine_to_hb_trading_pair(base=base, quote=quote)
+
+        if mapping:
+            self._set_trading_pair_symbol_map(mapping)
