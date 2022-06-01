@@ -18,15 +18,13 @@ class LatokenTakeType(Enum):
 
 
 class LatokenFeeSchema:
-    def __init__(
-            self,
-            fee_schema
-    ):
-        if fee_schema is not None:
-            self.maker_fee = Decimal(fee_schema["makerFee"])
-            self.taker_fee = Decimal(fee_schema["takerFee"])
-            self.type = fee_type[fee_schema["type"]]
-            self.take = fee_take[fee_schema["take"]]
+    def __init__(self, fee_schema):
+        if fee_schema is None:
+            return
+        self.maker_fee = Decimal(fee_schema["makerFee"])
+        self.taker_fee = Decimal(fee_schema["takerFee"])
+        self.type = fee_type[fee_schema["type"]]
+        self.take = fee_take[fee_schema["take"]]
 
 
 CENTRALIZED = True
@@ -68,10 +66,3 @@ KEYS = {
                   is_secure=True,
                   is_connect_key=True),
 }
-
-
-OTHER_DOMAINS = []
-OTHER_DOMAINS_PARAMETER = {}
-OTHER_DOMAINS_EXAMPLE_PAIR = {}
-OTHER_DOMAINS_DEFAULT_FEES = {}
-OTHER_DOMAINS_KEYS = {}
