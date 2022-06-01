@@ -184,7 +184,7 @@ export namespace ClobRoutes {
     )
   );
 
-  router.get(
+  router.post(
     '/settleFunds',
     asyncHandler(
       async (

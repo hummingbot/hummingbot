@@ -29,7 +29,9 @@ export namespace SolanaRoutes {
   export const router = Router();
 
   export const getSolana = async (request: Request) => {
-    const solana = Solana.getInstance(request.body.chain);
+    const solana = Solana.getInstance(
+      request.body.network || SolanaConfig.config.network.slug
+    );
     await solana.init();
 
     return solana;
@@ -45,7 +47,8 @@ export namespace SolanaRoutes {
       const rpcUrl = solana.rpcUrl;
 
       response.status(200).json({
-        network: SolanaConfig.config.network.slug,
+        // TODO expose the network property from the solana class!!!
+        network: request.body.network || SolanaConfig.config.network.slug,
         rpcUrl: rpcUrl,
         connection: true,
         timestamp: Date.now(),
@@ -53,6 +56,7 @@ export namespace SolanaRoutes {
     })
   );
 
+  // TODO check if the http methods are the correct ones!!!
   // Get all token accounts and balances + solana balance
   router.post(
     '/balances',
@@ -106,6 +110,7 @@ export namespace SolanaRoutes {
     )
   );
 
+  // TODO check if the HTTP method is the correct one!!!
   // Gets status information about given transaction hash
   router.post(
     '/poll',
