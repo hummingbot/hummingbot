@@ -47,7 +47,7 @@ class TestAuth(unittest.TestCase):
 
     async def rest_auth_post(self, json) -> Dict[Any, Any]:
         """REST private POST request (order placement)"""
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PLACE_PATH_URL, domain=self.domain)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL, domain=self.domain)
         method = RESTMethod.POST
         headers = {
             "Content-Type": "application/json" if method == RESTMethod.POST else "application/x-www-form-urlencoded"}

@@ -2,9 +2,7 @@ import asyncio
 import json
 import re
 import unittest
-from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
-from typing import Any, Awaitable, Dict, List
+from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -14,8 +12,8 @@ from bidict import bidict
 import hummingbot.connector.exchange.latoken.latoken_constants as CONSTANTS
 import hummingbot.connector.exchange.latoken.latoken_web_utils as web_utils
 from hummingbot.connector.exchange.latoken.latoken_api_order_book_data_source import LatokenAPIOrderBookDataSource
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.connector.exchange.latoken.latoken_exchange import LatokenExchange
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
@@ -31,43 +29,36 @@ class LatokenAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         cls.base_asset = "d8ae67f2-f954-4014-98c8-64b1ac334c64"
         cls.quote_asset = "0c3a106d-bde3-4c13-a26e-3fd2394529e5"
         cls.trading_pair = "ETH-USDT"
-        # cls.ex_trading_pair = cls.base_asset + cls.quote_asset
+        cls.ex_trading_pair = cls.base_asset + '/' + cls.quote_asset
         cls.domain = "com"
-        for task in asyncio.all_tasks(loop=cls.ev_loop):
-            task.cancel()
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        for task in asyncio.all_tasks(loop=cls.ev_loop):
-            task.cancel()
-        super()
+        cls.TRADE_EVENT_TYPE = 'trade'  # taken from OrderBookTrackerDataSource
+        cls.DIFF_EVENT_TYPE = "order_book_diff"  # taken from OrderBookTrackerDataSource
 
     def setUp(self) -> None:
         super().setUp()
         self.log_records = []
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant()
-        self.time_synchronizer = TimeSynchronizer()
-        self.time_synchronizer.add_time_offset_ms_sample(1000)
 
-        self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self.connector = LatokenExchange(
+            latoken_api_key="",
+            latoken_api_secret="",
+            trading_pairs=[],
+            trading_required=False,
+            domain=self.domain)
         self.data_source = LatokenAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
-                                                         throttler=self.throttler,
-                                                         domain=self.domain,
-                                                         time_synchronizer=self.time_synchronizer)
+                                                         connector=self.connector,
+                                                         api_factory=self.connector._web_assistants_factory,
+                                                         domain=self.domain)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
         self.resume_test_event = asyncio.Event()
 
-        LatokenAPIOrderBookDataSource._trading_pair_symbol_map = {
-            self.domain: bidict(
-                {f"{self.base_asset}/{self.quote_asset}": self.trading_pair})
-        }
+        self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
-        LatokenAPIOrderBookDataSource._trading_pair_symbol_map = {}
         super().tearDown()
 
     def handle(self, record):
@@ -107,189 +98,42 @@ class LatokenAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         return resp
 
     @aioresponses()
-    def test_get_last_trade_prices(self, mock_api):
-        public_url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PATH_URL, domain=self.domain)
-        url = f"{public_url}/{self.base_asset}/{self.quote_asset}"
+    def test_get_new_order_book_successful(self, mock_api):
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {"symbol": "ETH/USDT", "baseCurrency": "620f2019-33c0-423b-8a9d-cde4d7f8ef7f",
-                         "quoteCurrency": "0c3a106d-bde3-4c13-a26e-3fd2394529e5", "volume24h": "0.000000000000000000",
-                         "volume7d": "0.000000000000000000", "change24h": "0.0000", "change7d": "0.0000",
-                         "amount24h": "0.000000000000000000", "amount7d": "0.000000000000000000",
-                         "lastPrice": "9.000000000000000000", "lastQuantity": "0.040000000000000000", "bestBid": "0",
-                         "bestBidQuantity": "0", "bestAsk": "6", "bestAskQuantity": "1.000000000000000000",
-                         "updateTimestamp": 1650039232793}
+        resp = self._snapshot_response()
 
-        mock_api.get(regex_url, body=json.dumps(mock_response))
+        mock_api.get(regex_url, body=json.dumps(resp))
 
-        result: Dict[str, Decimal] = self.async_run_with_timeout(
-            self.data_source.get_last_traded_prices(
-                trading_pairs=[self.trading_pair],
-                domain=self.domain,
-                throttler=self.throttler,
-                time_synchronizer=self.time_synchronizer)
+        order_book: OrderBook = self.async_run_with_timeout(
+            self.data_source.get_new_order_book(self.trading_pair)
         )
 
-        val = result[self.trading_pair]
-        self.assertEqual(1, len(result))
-        self.assertTrue(type(val) in [Decimal, float])
-        self.assertEqual(Decimal("9.0"), val)
+        expected_update_id = 1
+
+        self.assertEqual(expected_update_id, order_book.snapshot_uid)
+        bids = list(order_book.bid_entries())
+        asks = list(order_book.ask_entries())
+        self.assertEqual(2, len(bids))
+        self.assertEqual(50.50, bids[0].price)
+        self.assertEqual(-0.122, bids[0].amount)
+        # self.assertEqual(expected_update_id, bids[0].update_id)
+        self.assertEqual(1, len(asks))
+        self.assertEqual(6.00, asks[0].price)
+        self.assertEqual(1.000, asks[0].amount)
+        # self.assertEqual(expected_update_id, asks[0].update_id)
 
     @aioresponses()
-    def test_fetch_trading_pairs(self, mock_api):
-        LatokenAPIOrderBookDataSource._trading_pair_symbol_map = {}
-        ticker_url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PATH_URL, domain=self.domain)
-        currency_url = web_utils.public_rest_url(path_url=CONSTANTS.CURRENCY_PATH_URL, domain=self.domain)
-        pair_url = web_utils.public_rest_url(path_url=CONSTANTS.PAIR_PATH_URL, domain=self.domain)
-
-        ticker_list: List[Dict] = [
-            {"symbol": "REN/BTC", "baseCurrency": "8de4581d-3778-48e5-975e-511039a2aa6b",
-             "quoteCurrency": "92151d82-df98-4d88-9a4d-284fa9eca49f", "volume24h": "0", "volume7d": "0",
-             "change24h": "0", "change7d": "0", "amount24h": "0", "amount7d": "0", "lastPrice": "0",
-             "lastQuantity": "0", "bestBid": "0", "bestBidQuantity": "0", "bestAsk": "0", "bestAskQuantity": "0",
-             "updateTimestamp": 0},
-            {"symbol": "NECC/USDT", "baseCurrency": "ad48cd21-4834-4b7d-ad32-10d8371bbf3c",
-             "quoteCurrency": "0c3a106d-bde3-4c13-a26e-3fd2394529e5", "volume24h": "0", "volume7d": "0",
-             "change24h": "0", "change7d": "0", "amount24h": "0", "amount7d": "0", "lastPrice": "0",
-             "lastQuantity": "0", "bestBid": "0", "bestBidQuantity": "0", "bestAsk": "0", "bestAskQuantity": "0",
-             "updateTimestamp": 0}
-        ]
-        mock_api.get(ticker_url, body=json.dumps(ticker_list))
-        currency_list: List[Dict] = [
-            {"id": "8de4581d-3778-48e5-975e-511039a2aa6b", "status": "CURRENCY_STATUS_ACTIVE",
-             "type": "CURRENCY_TYPE_CRYPTO", "name": "REN", "tag": "REN", "description": "", "logo": "", "decimals": 18,
-             "created": 1599223148171, "tier": 3, "assetClass": "ASSET_CLASS_UNKNOWN", "minTransferAmount": 0},
-            {"id": "92151d82-df98-4d88-9a4d-284fa9eca49f", "status": "CURRENCY_STATUS_ACTIVE",
-             "type": "CURRENCY_TYPE_CRYPTO", "name": "Bitcoin", "tag": "BTC", "description": "", "logo": "",
-             "decimals": 8, "created": 1572912000000, "tier": 1, "assetClass": "ASSET_CLASS_UNKNOWN",
-             "minTransferAmount": 0},
-            {"id": "ad48cd21-4834-4b7d-ad32-10d8371bbf3c", "status": "CURRENCY_STATUS_ACTIVE",
-             "type": "CURRENCY_TYPE_CRYPTO", "name": "Natural Eco Carbon Coin", "tag": "NECC", "description": "",
-             "logo": "", "decimals": 18, "created": 1572912000000, "tier": 1, "assetClass": "ASSET_CLASS_UNKNOWN",
-             "minTransferAmount": 0},
-            {"id": "0c3a106d-bde3-4c13-a26e-3fd2394529e5", "status": "CURRENCY_STATUS_ACTIVE",
-             "type": "CURRENCY_TYPE_CRYPTO", "name": "Tether USD ", "tag": "USDT", "description": "", "logo": "",
-             "decimals": 6, "created": 1572912000000, "tier": 1, "assetClass": "ASSET_CLASS_UNKNOWN",
-             "minTransferAmount": 0}
-        ]
-        mock_api.get(currency_url, body=json.dumps(currency_list))
-        # this list is truncated
-        pair_list: List[Dict] = [
-            {"id": "30a1032d-1e3e-4c28-8ca7-b60f3406fc3e", "status": "PAIR_STATUS_ACTIVE",
-             "baseCurrency": "8de4581d-3778-48e5-975e-511039a2aa6b",
-             "quoteCurrency": "92151d82-df98-4d88-9a4d-284fa9eca49f",
-             "priceTick": "0.000000010000000000", "priceDecimals": 8,
-             "quantityTick": "1.000000000000000000", "quantityDecimals": 0,
-             "costDisplayDecimals": 8, "created": 1599249032243, "minOrderQuantity": "0",
-             "maxOrderCostUsd": "999999999999999999", "minOrderCostUsd": "0",
-             "externalSymbol": ""},
-            {"id": "3140357b-e0da-41b2-b8f4-20314c46325b", "status": "PAIR_STATUS_ACTIVE",
-             "baseCurrency": "ad48cd21-4834-4b7d-ad32-10d8371bbf3c",
-             "quoteCurrency": "0c3a106d-bde3-4c13-a26e-3fd2394529e5",
-             "priceTick": "0.000010000000000000", "priceDecimals": 5,
-             "quantityTick": "0.100000000000000000", "quantityDecimals": 1,
-             "costDisplayDecimals": 5, "created": 1576052642564, "minOrderQuantity": "0",
-             "maxOrderCostUsd": "999999999999999999", "minOrderCostUsd": "0",
-             "externalSymbol": ""}
-        ]
-
-        mock_api.get(pair_url, body=json.dumps(pair_list))
-
-        result: Dict[str] = self.async_run_with_timeout(
-            coroutine=self.data_source.fetch_trading_pairs(domain=self.domain, time_synchronizer=self.time_synchronizer)
-        )
-
-        self.assertEqual(2, len(result))
-        self.assertIn("REN-BTC", result)
-        self.assertIn("NECC-USDT", result)
-        self.assertNotIn("LA-BTC", result)
-
-    @aioresponses()
-    def test_fetch_trading_pairs_exception_raised(self, mock_api):
-        LatokenAPIOrderBookDataSource._trading_pair_symbol_map = {}
-
-        url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PATH_URL, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.get(regex_url, exception=Exception)
-
-        result: Dict[str] = self.async_run_with_timeout(
-            self.data_source.fetch_trading_pairs(time_synchronizer=self.time_synchronizer)
-        )
-
-        self.assertEqual(0, len(result))
-
-    @aioresponses()
-    def test_get_snapshot_successful(self, mock_api):
-        path_url = f"{CONSTANTS.BOOK_PATH_URL}/{self.base_asset}/{self.quote_asset}"
-        url = web_utils.public_rest_url(path_url=path_url, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.get(regex_url, body=json.dumps(self._snapshot_response()))
-
-        result: Dict[str, Any] = self.async_run_with_timeout(
-            self.data_source.get_snapshot(self.trading_pair)
-        )
-
-        self.assertEqual(self._snapshot_response(), result)
-
-    @aioresponses()
-    def test_get_snapshot_catch_exception(self, mock_api):
-        path_url = f"{CONSTANTS.BOOK_PATH_URL}/{self.base_asset}/{self.quote_asset}"
-        url = web_utils.public_rest_url(path_url=path_url, domain=self.domain)
+    def test_get_new_order_book_raises_exception(self, mock_api):
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=400)
         with self.assertRaises(IOError):
             self.async_run_with_timeout(
-                self.data_source.get_snapshot(self.trading_pair)
+                self.data_source.get_new_order_book(self.trading_pair)
             )
-
-    @aioresponses()
-    def test_get_new_order_book(self, mock_api):
-        path_url = f"{CONSTANTS.BOOK_PATH_URL}/{self.base_asset}/{self.quote_asset}"
-        url = web_utils.public_rest_url(path_url=path_url, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_response: Dict[str, Any] = {
-            "ask": [
-                {
-                    "price": "123.321",
-                    "quantity": "0.12",
-                    "cost": "14.79852",
-                    "accumulated": "14.79852"
-                },
-                {
-                    "price": "123.321",
-                    "quantity": "0.12",
-                    "cost": "14.79852",
-                    "accumulated": "14.79852"
-                }
-            ],
-            "bid": [
-                {
-                    "price": "123.321",
-                    "quantity": "0.12",
-                    "cost": "14.79852",
-                    "accumulated": "14.79852"
-                },
-                {
-                    "price": "123.321",
-                    "quantity": "0.12",
-                    "cost": "14.79852",
-                    "accumulated": "14.79852"
-                }
-            ],
-            "totalAsk": "...",
-            "totalBid": "..."
-        }
-        mock_api.get(regex_url, body=json.dumps(mock_response))
-
-        result: OrderBook = self.async_run_with_timeout(
-            self.data_source.get_new_order_book(self.trading_pair)
-        )
-
-        self.assertGreater(result.snapshot_uid, 1)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
@@ -365,7 +209,7 @@ class LatokenAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()  # AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
-        self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[self.TRADE_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -383,7 +227,7 @@ class LatokenAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[self.TRADE_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -402,7 +246,7 @@ class LatokenAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [self._trade_update_event(), asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[self.TRADE_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -420,7 +264,7 @@ class LatokenAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
-        self.data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[self.DIFF_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -438,7 +282,7 @@ class LatokenAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[self.DIFF_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -456,25 +300,22 @@ class LatokenAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [self._order_diff_event(), asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        diff_event = self._order_diff_event()
+        mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
+        self.data_source._message_queue[self.DIFF_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        try:
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
-            )
-        except asyncio.CancelledError:
-            pass
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
-
-        self.assertTrue(12345, msg.update_id)
+        self.assertTrue(msg.has_update_id)
+        self.assertEqual(float(json.loads(diff_event['body'])['timestamp']), 1650124759447)
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.BOOK_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=asyncio.CancelledError)
@@ -491,7 +332,7 @@ class LatokenAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
 
-        url = web_utils.public_rest_url(path_url=CONSTANTS.BOOK_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=Exception)
@@ -507,7 +348,7 @@ class LatokenAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     @aioresponses()
     def test_listen_for_order_book_snapshots_successful(self, mock_api, ):
         msg_queue: asyncio.Queue = asyncio.Queue()
-        url = web_utils.public_rest_url(path_url=CONSTANTS.BOOK_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, body=json.dumps(self._snapshot_response()))
