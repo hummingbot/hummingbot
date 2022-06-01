@@ -61,6 +61,14 @@ class LatokenUserStreamDataSourceUnitTests(unittest.TestCase):
             domain=self.domain)
         self.connector._web_assistants_factory._auth = self.auth
 
+        self.connector = LatokenExchange(
+            latoken_api_key="",
+            latoken_api_secret="",
+            trading_pairs=[],
+            trading_required=False,
+            domain=self.domain)
+        self.connector._web_assistants_factory._auth = self.auth
+
         self.data_source = LatokenAPIUserStreamDataSource(
             auth=self.auth,
             trading_pairs=[self.trading_pair],
