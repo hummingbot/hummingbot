@@ -31,6 +31,9 @@ blocktane_api_secret: null
 bybit_api_key: null
 bybit_api_secret: null
 
+bybit_testnet_api_key: null
+bybit_testnet_api_secret: null
+
 coinbase_pro_api_key: null
 coinbase_pro_secret_key: null
 coinbase_pro_passphrase: null
