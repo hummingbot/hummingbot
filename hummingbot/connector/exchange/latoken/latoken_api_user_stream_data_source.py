@@ -135,8 +135,7 @@ class LatokenAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 domain=self._domain,
                 method=RESTMethod.GET,
                 is_auth_required=True,
-                return_err=False,
-                limit_id=CONSTANTS.GLOBAL_RATE_LIMIT)
+                return_err=False)
         except asyncio.CancelledError:
             raise
         except Exception as exception:
@@ -154,8 +153,7 @@ class LatokenAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 domain=self._domain,
                 method=RESTMethod.GET,
                 is_auth_required=True,
-                return_err=True,
-                limit_id=CONSTANTS.GLOBAL_RATE_LIMIT
+                return_err=True
             )
 
             if "id" not in data:
