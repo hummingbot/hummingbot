@@ -276,7 +276,7 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
   async close(ownerHandle: string): Promise<void> {
     await super.close(ownerHandle);
     if (this.refCount < 1) {
-      logger.info(handle + ': EVMNonceManager is closing');
+      logger.info(ownerHandle + ': EVMNonceManager is closing');
       await this.#db.close(this.handle);
     }
   }

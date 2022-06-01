@@ -1,5 +1,6 @@
 import { Level } from 'level';
 import { ReferenceCountingCloseable } from './refcounting-closeable';
+import { logger } from './logger';
 
 export class LocalStorage extends ReferenceCountingCloseable {
   readonly #dbPath: string;
