@@ -410,7 +410,7 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             params=params,
             method=RESTMethod.GET,
             return_err=False,
-            limit_id=CONSTANTS.GLOBAL_RATE_LIMIT
+            limit_id=CONSTANTS.BOOK_PATH_URL
         )
 
         return data
@@ -465,7 +465,7 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             domain=domain,
             method=RESTMethod.GET,
             return_err=True,
-            limit_id=CONSTANTS.GLOBAL_RATE_LIMIT)
+            limit_id=CONSTANTS.TICKER_PATH_URL)
         return float(resp_json["lastPrice"])
 
     @classmethod
@@ -489,7 +489,6 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     domain=domain,
                     method=RESTMethod.GET,
                     return_err=True,
-                    limit_id=CONSTANTS.GLOBAL_RATE_LIMIT
                 ),
                 web_utils.api_request(
                     path=CONSTANTS.CURRENCY_PATH_URL,
@@ -499,7 +498,6 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     domain=domain,
                     method=RESTMethod.GET,
                     return_err=True,
-                    limit_id=CONSTANTS.GLOBAL_RATE_LIMIT
                 ),
                 web_utils.api_request(
                     path=CONSTANTS.PAIR_PATH_URL,
@@ -509,7 +507,6 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     domain=domain,
                     method=RESTMethod.GET,
                     return_err=True,
-                    limit_id=CONSTANTS.GLOBAL_RATE_LIMIT
                 ),
                 return_exceptions=True)
 

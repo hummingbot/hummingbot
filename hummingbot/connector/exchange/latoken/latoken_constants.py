@@ -1,5 +1,5 @@
 from hummingbot.connector.constants import MINUTE, TWELVE_HOURS
-from hummingbot.core.api_throttler.data_types import RateLimit
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 
 HBOT_ORDER_ID_PREFIX = "latoken-hbot-"
 MAX_ORDER_ID_LEN = 36
@@ -68,23 +68,50 @@ WS_HEARTBEAT_TIME_INTERVAL = 30 * SECOND
 
 MAX_REQUEST = 5000
 MAX_ALLOWED_TPS = 100
+LINKED_LIMIT_WEIGHT = 5
 
 # Websocket event types
 DIFF_EVENT_TYPE = "b"
 TRADE_EVENT_TYPE = "t"
 
-SUBSCRIPTION_ID_ACCOUNT = 0
-SUBSCRIPTION_ID_BOOKS = 1
-SUBSCRIPTION_ID_TRADES = 2
+SUBSCRIPTION_ID_BOOKS = 0
+SUBSCRIPTION_ID_TRADES = 1
+SUBSCRIPTION_ID_ACCOUNT = 2
 SUBSCRIPTION_ID_ORDERS = 3
-SUBSCRIPTION_ID_TRADE_UPDATE = 2
+SUBSCRIPTION_ID_TRADE_UPDATE = 4
 
 GLOBAL_RATE_LIMIT = "global"
 
 RATE_LIMITS = [
     RateLimit(limit_id=GLOBAL_RATE_LIMIT, limit=MAX_ALLOWED_TPS, time_interval=SECOND),
+    # Public API
+    RateLimit(limit_id=TICKER_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    RateLimit(limit_id=CURRENCY_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    RateLimit(limit_id=PAIR_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    RateLimit(limit_id=PING_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    RateLimit(limit_id=BOOK_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    RateLimit(limit_id=GLOBAL_RATE_LIMIT, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    # Private API
+    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    RateLimit(limit_id=TRADES_FOR_PAIR_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    RateLimit(limit_id=ORDER_PLACE_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    RateLimit(limit_id=ORDER_CANCEL_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    RateLimit(limit_id=GET_ORDER_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    RateLimit(limit_id=USER_ID_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    RateLimit(limit_id=FEES_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
 ]
-# Rate Limit Type
-# REQUEST_WEIGHT = "REQUEST_WEIGHT"
-# ORDERS = "ORDERS"
-# ORDERS_24HR = "ORDERS_24HR"

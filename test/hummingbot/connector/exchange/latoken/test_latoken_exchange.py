@@ -1484,7 +1484,7 @@ class LatokenExchangeTests(TestCase):
         event_message = {'cmd': 'MESSAGE',
                          'headers': {'destination': '/user/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/v1/account',
                                      'message-id': 'eb428773-8eaa-40ae-a3e3-b6eb2d1454ae', 'content-length': '3597',
-                                     'subscription': '0'},
+                                     'subscription': str(CONSTANTS.SUBSCRIPTION_ID_ACCOUNT)},
                          'body': '{"payload":[{"id":"6b4d1e11-1d0b-418c-a660-b9a30ef56529","status":"ACCOUNT_STATUS_ACTIVE","type":"ACCOUNT_TYPE_SPOT","timestamp":1648225456689,"currency":"d8ae67f2-f954-4014-98c8-64b1ac334c64","available":"10.000000000000000000","blocked":"1.000000000000000000","user":"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}],"nonce":0,"timestamp":1650265966821}'}
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [event_message, asyncio.CancelledError]
