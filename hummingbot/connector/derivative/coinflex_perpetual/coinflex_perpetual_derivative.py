@@ -761,9 +761,6 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 is_auth_required=True,
             )
 
-            # DEBUG - MUST BE REMOVED
-            self.logger().debug(f"DEBUG:: funding payment resp {response}")
-
             for funding_payment in response['data']:
                 payment = Decimal(funding_payment["payment"])
                 action = "paid" if payment < 0 else "received"
@@ -1223,8 +1220,6 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 is_auth_required=True,
                 disable_retries=True
             )
-            # DEBUG - MUST BE REMOVED
-            self.logger().debug(f"DEBUG:: Order create result: \n{create_result}")
 
             order_result = create_result["data"][0]
 
@@ -1311,8 +1306,6 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         return
                 else:
                     self.logger().error(f"Unhandled error canceling order: {client_order_id}. Error: {e.error_payload}", exc_info=True)
-            # DEBUG - MUST BE REMOVED
-            self.logger().debug(f"Order cancel result: \n{result}")
             if cancel_result.get("status", result.get("event")) in CONSTANTS.ORDER_CANCELLED_STATES:
                 cancelled_timestamp = cancel_result.get("timestamp", result.get("timestamp"))
                 order_update: OrderUpdate = OrderUpdate(
