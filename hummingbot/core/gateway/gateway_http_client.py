@@ -412,4 +412,104 @@ class GatewayHttpClient:
             "connector": connector,
         })
 
+    async def clob_root(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+    ) -> Dict[str, Any]:
+        return await self.api_request("get", "clob", {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        })
+
+    async def clob_markets(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        name: str = None,
+        names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if name is not None:
+            request["name"] = name
+
+        if names is not None:
+            request["names"] = names
+
+        return await self.api_request("post", "clob/markets", request)
+
+    async def clob_order_books(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        market_name: str = None,
+        market_names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if market_name is not None:
+            request["marketName"] = market_name
+
+        if market_names is not None:
+            request["marketNames"] = market_names
+
+        return await self.api_request("post", "clob/orderBooks", request)
+
+    async def clob_tickers(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        market_name: str = None,
+        market_names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if market_name is not None:
+            request["marketName"] = market_name
+
+        if market_names is not None:
+            request["marketNames"] = market_names
+
+        return await self.api_request("post", "clob/tickers", request)
+
+    async def clob_tickers(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        market_name: str = None,
+        market_names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if market_name is not None:
+            request["marketName"] = market_name
+
+        if market_names is not None:
+            request["marketNames"] = market_names
+
+        return await self.api_request("post", "clob/tickers", request)
+
     # TODO Implement all the accessor functions for CLOB & Solana gateway endpoints!!!
