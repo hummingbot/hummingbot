@@ -286,6 +286,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
+                await self._take_full_order_book_snapshot(trading_pairs=self._trading_pairs, snapshot_queue=output)
                 await self._sleep(5.0)
 
     async def listen_for_subscriptions(self):
@@ -491,10 +492,9 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 snapshot_queue.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
-            except asyncio.TimeoutError:
-                raise
             except Exception:
                 self.logger().error("Unexpected error when processing public order book updates from exchange")
+                raise
 
     async def _take_full_order_book_snapshot(self, trading_pairs: List[str], snapshot_queue: asyncio.Queue):
         for trading_pair in trading_pairs:
