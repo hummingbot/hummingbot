@@ -10,7 +10,7 @@ from hummingbot.core.data_type.order_book_message import (
 class BlockchainComOrderBook(OrderBook):
 
     @classmethod
-    def snapshot_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict]):
+    def snapshot_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict]) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(
