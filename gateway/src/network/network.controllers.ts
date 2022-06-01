@@ -56,6 +56,10 @@ export async function getStatus(
   }
 
   for (const connection of connections) {
+    if (!connection.ready()) {
+      await connection.init();
+    }
+
     chain = connection.chain;
     chainId = connection.chainId;
     rpcUrl = connection.rpcUrl;
