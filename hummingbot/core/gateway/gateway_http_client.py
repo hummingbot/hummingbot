@@ -1,10 +1,10 @@
-import aiohttp
 import logging
 import ssl
-
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
+
+import aiohttp
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
@@ -223,12 +223,16 @@ class GatewayHttpClient:
             token_symbols: List[str],
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "network/balances", {
-            "chain": chain,
-            "network": network,
-            "address": address,
-            "tokenSymbols": token_symbols,
-        }, fail_silently=fail_silently)
+        if isinstance(token_symbols, list):
+            token_symbols = [x for x in token_symbols if isinstance(x, str)]
+            return await self.api_request("post", "network/balances", {
+                "chain": chain,
+                "network": network,
+                "address": address,
+                "tokenSymbols": token_symbols,
+            }, fail_silently=fail_silently)
+        else:
+            return {}
 
     async def get_tokens(
             self,
