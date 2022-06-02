@@ -389,7 +389,7 @@ pure_market_making_config_map = {
                   type_str="json"),
     "should_wait_order_cancel_confirmation":
         ConfigVar(key="should_wait_order_cancel_confirmation",
-                  prompt="Should the strategy wait to receive a confirmation for orders cancellation "
+                  prompt="Should the strategy wait to receive a confirmation for orders cancelation "
                          "before creating a new set of orders? "
                          "(Not waiting requires enough available balance) (Yes/No) >>> ",
                   type_str="bool",
@@ -398,8 +398,8 @@ pure_market_making_config_map = {
     "split_order_levels_enabled":
         ConfigVar(key="split_order_levels_enabled",
                   prompt="Do you want bid and ask orders to be placed at multiple defined spread and amount? "
-                         "(This acts as an overrides which replaces order_amount, order_spreads, "
-                         "order_level_amount, order_level_spreads) (Yes/No) >>> ",
+                         "This acts as an overrides which replaces order_amount, order_spreads, "
+                         "order_level_amount, order_level_spreads (Yes/No) >>> ",
                   default=False,
                   type_str="bool",
                   validator=validate_bool),

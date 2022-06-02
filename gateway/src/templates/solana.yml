@@ -1,0 +1,17 @@
+networks:
+  mainnet-beta:
+    rpcURL: https://api.mainnet-beta.solana.com
+    nativeCurrencySymbol: SOL
+  testnet:
+    rpcURL: https://api.testnet.solana.com
+    nativeCurrencySymbol: SOL
+  devnet:
+    rpcURL: https://api.devnet.solana.com
+    nativeCurrencySymbol: SOL
+network: testnet
+tokenProgram: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+transactionLamports: 5000
+lamportsToSol: 0.000000001
+timeToLive: 75
+customRpcUrl: ~
+rpcAPIKey: ~

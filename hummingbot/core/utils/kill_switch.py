@@ -38,9 +38,9 @@ class KillSwitch:
                     if (self._profitability <= self._kill_switch_rate < Decimal("0.0")) or \
                             (self._profitability >= self._kill_switch_rate > Decimal("0.0")):
                         self.logger().info("Kill switch threshold reached. Stopping the bot...")
-                        self._hummingbot_application._notify(f"\n[Kill switch triggered]\n"
-                                                             f"Current profitability "
-                                                             f"is {self._profitability}. Stopping the bot...")
+                        self._hummingbot_application.notify(f"\n[Kill switch triggered]\n"
+                                                            f"Current profitability "
+                                                            f"is {self._profitability}. Stopping the bot...")
                         self._hummingbot_application.stop()
                         break
 

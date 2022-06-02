@@ -1,0 +1,15 @@
+{
+  "name": "ropsten",
+  "tokens": [
+    {
+      "symbol": "WETH",
+      "address": "0xc778417e063141139fce010982780140aa0cd5ab",
+      "decimals": 18
+    },
+    {
+      "symbol": "DAI",
+      "address": "0xad6d458402f60fd3bd25163575031acdce07538d",
+      "decimals": 18
+    }
+  ]
+}

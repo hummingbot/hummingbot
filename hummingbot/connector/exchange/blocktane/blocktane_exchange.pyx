@@ -83,7 +83,7 @@ cdef class BlocktaneExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -453,8 +453,8 @@ cdef class BlocktaneExchange(ExchangeBase):
                     if order_state == "cancel":
                         tracked_order.last_state = "cancel"
                         self.logger().info(f"The {tracked_order.order_type}-{tracked_order.trade_type} "
-                                           f"{client_order_id} has been cancelled according to Blocktane order status API.")
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                           f"{client_order_id} has been canceled according to Blocktane order status API.")
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                              OrderCancelledEvent(
                                                  self._current_timestamp,
                                                  client_order_id
@@ -587,10 +587,10 @@ cdef class BlocktaneExchange(ExchangeBase):
 
                     if order_status == "cancel":  # CANCEL
 
-                        self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
+                        self.logger().info(f"The order {tracked_order.client_order_id} has been canceled "
                                            f"according to Blocktane WebSocket API.")
                         tracked_order.last_state = "cancel"
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                              OrderCancelledEvent(self._current_timestamp,
                                                                  tracked_order.client_order_id))
                         self.c_stop_tracking_order(tracked_order.client_order_id)
@@ -931,9 +931,9 @@ cdef class BlocktaneExchange(ExchangeBase):
             if ("record.not_found" in str(err) and tracked_order is not None and
                     tracked_order.creation_timestamp < (time.time() - self.ORDER_NOT_EXIST_WAIT_TIME)):
                 # The order doesn't exist
-                self.logger().info(f"The order {order_id} does not exist on Blocktane. Marking as cancelled.")
+                self.logger().info(f"The order {order_id} does not exist on Blocktane. Marking as canceled.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
 
@@ -964,7 +964,7 @@ cdef class BlocktaneExchange(ExchangeBase):
                     successful_cancellation.append(CancellationResult(res, True))
         except Exception as e:
             self.logger().error(
-                f"Unexpected error cancelling orders. {e}"
+                f"Unexpected error canceling orders. {e}"
             )
 
         failed_cancellation = [CancellationResult(oid, False) for oid in order_id_set]

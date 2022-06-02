@@ -110,7 +110,7 @@ cdef class HedgeStrategy(StrategyBase):
                 self.log_with_clock(logging.INFO,
                                     f"{market_pair.trading_pair}: "
                                     f"order age of limit order ({order_age}) is more than {self._max_order_age}. "
-                                    f"Cancelling Order")
+                                    f"Canceling Order")
                 self.c_cancel_order(market_pair, o.client_order_id)
 
             if isnan(o.quantity) or isnan(o.filled_quantity):
@@ -121,7 +121,7 @@ cdef class HedgeStrategy(StrategyBase):
                                     f"quantity: {o.quantity} filled_quantity: {o.filled_quantity}"
                                     f"{o.quantity - o.filled_quantity} is different than quantity required {quantized_order_amount}. "
                                     f"order quantum: {order_size_quantum} "
-                                    f"Cancelling Order")
+                                    f"Canceling Order")
                 self.c_cancel_order(market_pair, o.client_order_id)
 
     cdef object check_and_hedge_asset(self,

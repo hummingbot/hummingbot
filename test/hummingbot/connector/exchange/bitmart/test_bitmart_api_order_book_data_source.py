@@ -31,6 +31,13 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        for task in asyncio.all_tasks(loop=cls.ev_loop):
+            task.cancel()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        for task in asyncio.all_tasks(loop=cls.ev_loop):
+            task.cancel()
 
     def setUp(self) -> None:
         super().setUp()

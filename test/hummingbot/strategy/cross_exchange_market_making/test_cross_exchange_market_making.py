@@ -1,4 +1,3 @@
-import logging
 import unittest
 from decimal import Decimal
 from math import ceil, floor
@@ -8,6 +7,7 @@ import pandas as pd
 from nose.plugins.attrib import attr
 
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -27,9 +27,6 @@ from hummingbot.core.event.events import (
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from test.mock.mock_paper_exchange import MockPaperExchange
-
-logging.basicConfig(level=logging.ERROR)
 
 
 @attr("stable")

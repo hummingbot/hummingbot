@@ -68,26 +68,6 @@ def set_data_path(path: str):
     _data_path = path
 
 
-def cert_path() -> str:
-    global _cert_path
-    if _cert_path is None:
-        from os.path import (
-            realpath,
-            join
-        )
-        _cert_path = realpath(join(prefix_path(), "certs"))
-
-    import os
-    if not os.path.exists(_cert_path):
-        os.makedirs(_cert_path)
-    return _cert_path
-
-
-def set_cert_path(path: str):
-    global _cert_path
-    _cert_path = path
-
-
 _independent_package: Optional[bool] = None
 
 
@@ -122,8 +102,9 @@ def chdir_to_data_directory():
     app_data_dir: str = appdirs.user_data_dir("Hummingbot", "hummingbot.io")
     os.makedirs(os.path.join(app_data_dir, "logs"), 0o711, exist_ok=True)
     os.makedirs(os.path.join(app_data_dir, "conf"), 0o711, exist_ok=True)
-    os.makedirs(os.path.join(app_data_dir, "scripts"), 0o711, exist_ok=True)
+    os.makedirs(os.path.join(app_data_dir, "pmm_scripts"), 0o711, exist_ok=True)
     os.makedirs(os.path.join(app_data_dir, "certs"), 0o711, exist_ok=True)
+    os.makedirs(os.path.join(app_data_dir, "scripts"), 0o711, exist_ok=True)
     os.chdir(app_data_dir)
     set_prefix_path(app_data_dir)
 

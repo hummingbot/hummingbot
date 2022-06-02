@@ -35,7 +35,7 @@ def start(self):
 
     # check if top depth tolerance is a list or if trade size override exists
     if isinstance(top_depth_tolerance, list) or "trade_size_override" in xemm_map:
-        self._notify("Current config is not compatible with cross exchange market making strategy. Please reconfigure")
+        self.notify("Current config is not compatible with cross exchange market making strategy. Please reconfigure")
         return
 
     try:
@@ -44,7 +44,7 @@ def start(self):
         maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [maker_trading_pair])[0]
         taker_assets: Tuple[str, str] = self._initialize_market_assets(taker_market, [taker_trading_pair])[0]
     except ValueError as e:
-        self._notify(str(e))
+        self.notify(str(e))
         return
 
     market_names: List[Tuple[str, List[str]]] = [
