@@ -3,6 +3,7 @@ import json
 import re
 import time
 from decimal import Decimal
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Dict
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
@@ -12,8 +13,9 @@ from aioresponses import aioresponses
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
-    BybitPerpetualAPIOrderBookDataSource
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import (
+    BybitPerpetualAPIOrderBookDataSource,
+)
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_derivative import BybitPerpetualDerivative
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
 from hummingbot.connector.trading_rule import TradingRule
@@ -23,7 +25,6 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import FundingInfo, MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BybitPerpetualDerivativeTests(TestCase):
@@ -206,7 +207,10 @@ class BybitPerpetualDerivativeTests(TestCase):
                 "cum_exec_value": 0,
                 "cum_exec_fee": 0,
                 "reject_reason": "",
-                "order_link_id": get_new_client_order_id(True, self.trading_pair, max_id_len=CONSTANTS.ORDER_ID_LEN),
+                "order_link_id": get_new_client_order_id(True,
+                                                         self.trading_pair,
+                                                         max_id_len=CONSTANTS.ORDER_ID_LEN,
+                                                         hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID),
                 "created_at": "2019-11-30T11:03:43.452Z",
                 "updated_at": "2019-11-30T11:03:43.455Z"
             },
@@ -232,7 +236,8 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.assertEqual(get_new_client_order_id(True,
                                                  self.trading_pair,
-                                                 max_id_len=CONSTANTS.ORDER_ID_LEN), new_order_id)
+                                                 max_id_len=CONSTANTS.ORDER_ID_LEN,
+                                                 hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID), new_order_id)
         self.assertEqual("Buy", result["side"])
         self.assertEqual(self.ex_trading_pair, result["symbol"])
         self.assertEqual("Limit", result["order_type"])
@@ -540,7 +545,10 @@ class BybitPerpetualDerivativeTests(TestCase):
                 "cum_exec_value": 0,
                 "cum_exec_fee": 0,
                 "reject_reason": "",
-                "order_link_id": get_new_client_order_id(False, self.trading_pair, max_id_len=CONSTANTS.ORDER_ID_LEN),
+                "order_link_id": get_new_client_order_id(False,
+                                                         self.trading_pair,
+                                                         max_id_len=CONSTANTS.ORDER_ID_LEN,
+                                                         hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID),
                 "created_at": "2019-11-30T11:03:43.452Z",
                 "updated_at": "2019-11-30T11:03:43.455Z"
             },
@@ -566,7 +574,8 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.assertEqual(get_new_client_order_id(False,
                                                  self.trading_pair,
-                                                 max_id_len=CONSTANTS.ORDER_ID_LEN), new_order_id)
+                                                 max_id_len=CONSTANTS.ORDER_ID_LEN,
+                                                 hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID), new_order_id)
         self.assertEqual("Sell", result["side"])
         self.assertEqual("BTCUSDT", result["symbol"])
         self.assertEqual("Market", result["order_type"])
@@ -2831,7 +2840,10 @@ class BybitPerpetualDerivativeTests(TestCase):
             position_action="OPEN",
         )
         expected_client_order_id = get_new_client_order_id(
-            is_buy=True, trading_pair=self.trading_pair, max_id_len=CONSTANTS.ORDER_ID_LEN
+            is_buy=True,
+            trading_pair=self.trading_pair,
+            max_id_len=CONSTANTS.ORDER_ID_LEN,
+            hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID
         )
 
         self.assertEqual(result, expected_client_order_id)
@@ -2844,7 +2856,10 @@ class BybitPerpetualDerivativeTests(TestCase):
             position_action="OPEN",
         )
         expected_client_order_id = get_new_client_order_id(
-            is_buy=False, trading_pair=self.trading_pair, max_id_len=CONSTANTS.ORDER_ID_LEN
+            is_buy=False,
+            trading_pair=self.trading_pair,
+            max_id_len=CONSTANTS.ORDER_ID_LEN,
+            hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID
         )
 
         self.assertEqual(result, expected_client_order_id)
