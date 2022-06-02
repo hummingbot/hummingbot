@@ -18,16 +18,35 @@ import {
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
   TOKEN_NOT_SUPPORTED_ERROR_CODE,
 } from '../../../src/services/error-handler';
+import { OverrideConfigs } from '../../config.util';
+import { patchEVMNonceManager } from '../../evm.nonce.mock';
 
 jest.useFakeTimers();
 
+const overrideConfigs = new OverrideConfigs();
 let harmony: Harmony;
+
 beforeAll(async () => {
+  await overrideConfigs.init();
+  await overrideConfigs.updateConfigs();
+
   harmony = Harmony.getInstance('testnet');
+  patchEVMNonceManager(harmony.nonceManager);
   await harmony.init();
 });
 
-afterEach(() => unpatch());
+beforeEach(() => {
+  patchEVMNonceManager(harmony.nonceManager);
+});
+
+afterEach(() => {
+  unpatch();
+});
+
+afterAll(async () => {
+  await harmony.close();
+  await overrideConfigs.resetConfigs();
+});
 
 const zeroAddress =
   '0000000000000000000000000000000000000000000000000000000000000000'; // noqa: mock
