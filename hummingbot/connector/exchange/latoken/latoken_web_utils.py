@@ -100,26 +100,6 @@ def get_order_status_rest(status: str, filled: Decimal, quantity: Decimal):
     return new_state
 
 
-def create_full_mapping(ticker_list, currency_list, pair_list):
-    ticker_dict = {f"{ticker['baseCurrency']}/{ticker['quoteCurrency']}": ticker for ticker in ticker_list}
-    # pair_dict = {f"{pair['baseCurrency']}/{pair['quoteCurrency']}": pair for pair in pair_list}
-    currency_dict = {currency["id"]: currency for currency in currency_list}
-
-    for pt in pair_list:
-        key = f"{pt['baseCurrency']}/{pt['quoteCurrency']}"
-        is_valid = key in ticker_dict
-        pt["is_valid"] = is_valid
-        pt["id"] = ticker_dict[key] if is_valid else {"id": key}
-        base_id = pt["baseCurrency"]
-        if base_id in currency_dict:
-            pt["baseCurrency"] = currency_dict[base_id]
-        quote_id = pt["quoteCurrency"]
-        if quote_id in currency_dict:
-            pt["quoteCurrency"] = currency_dict[quote_id]
-
-    return pair_list
-
-
 def get_book_side(book):
     return tuple((row['price'], row['quantity']) for row in book)
 

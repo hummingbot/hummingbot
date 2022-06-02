@@ -91,7 +91,8 @@ class LatokenAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 msg_subscribe_orders = stomper.subscribe(
                     CONSTANTS.ORDERS_STREAM.format(**path_params), CONSTANTS.SUBSCRIPTION_ID_ORDERS, ack="auto")
                 msg_subscribe_trades = stomper.subscribe(
-                    CONSTANTS.TRADE_UPDATE_STREAM.format(**path_params), CONSTANTS.SUBSCRIPTION_ID_TRADE_UPDATE, ack="auto")
+                    CONSTANTS.TRADE_UPDATE_STREAM.format(**path_params), CONSTANTS.SUBSCRIPTION_ID_TRADE_UPDATE,
+                    ack="auto")
                 msg_subscribe_account = stomper.subscribe(
                     CONSTANTS.ACCOUNT_STREAM.format(**path_params), CONSTANTS.SUBSCRIPTION_ID_ACCOUNT, ack="auto")
 
