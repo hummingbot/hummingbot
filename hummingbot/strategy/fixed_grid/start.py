@@ -1,15 +1,9 @@
-from typing import (
-    List,
-    Tuple,
-)
+from decimal import Decimal
+from typing import List, Tuple
 
-from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.fixed_grid import FixedGridStrategy
 from hummingbot.strategy.fixed_grid.fixed_grid_config_map import fixed_grid_config_map as c_map
-from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
-from hummingbot.connector.exchange_base import ExchangeBase
-from decimal import Decimal
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 def start(self):
@@ -54,8 +48,7 @@ def start(self):
             ask_order_optimization_depth=ask_order_optimization_depth,
             bid_order_optimization_depth=bid_order_optimization_depth,
             logging_options=strategy_logging_options,
-            take_if_crossed=take_if_crossed,
-           
+            take_if_crossed=take_if_crossed,           
             order_refresh_tolerance_pct=order_refresh_tolerance_pct,
             hb_app_notification=True,
             should_wait_order_cancel_confirmation=should_wait_order_cancel_confirmation,

@@ -1,9 +1,7 @@
 #!/usr/bin/env python
-from typing import (
-    NamedTuple,
-    List
-)
 from decimal import Decimal
+from typing import List, NamedTuple
+
 from hummingbot.core.event.events import OrderType
 
 ORDER_PROPOSAL_ACTION_CREATE_ORDERS = 1
