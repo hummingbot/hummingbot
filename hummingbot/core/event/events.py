@@ -5,7 +5,7 @@ from typing import Dict, List, NamedTuple, Optional
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase, TokenAmount
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
 
 class MarketEvent(Enum):
@@ -29,7 +29,7 @@ class MarketEvent(Enum):
     RangePositionFailure = 304
 
 
-class OrderBookEvent(Enum):
+class OrderBookEvent(int, Enum):
     TradeEvent = 901
 
 
