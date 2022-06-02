@@ -3,6 +3,7 @@ import unittest
 from collections import Awaitable
 from decimal import Decimal
 from test.mock.mock_cli import CLIMockingAssistant
+from typing import Union
 from unittest.mock import MagicMock, patch
 
 from pydantic import Field
@@ -66,14 +67,14 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | telegram_mode            | telegram_disabled    |\n"
                            "    | send_error_logs          | True                 |\n"
                            "    | pmm_script_mode          | pmm_script_disabled  |\n"
-                           "    | gateway                  | gateway              |\n"
+                           "    | gateway                  |                      |\n"
                            "    | ∟ gateway_api_host       | localhost            |\n"
                            "    | ∟ gateway_api_port       | 5000                 |\n"
                            "    | rate_oracle_source       | binance              |\n"
-                           "    | global_token             | None                 |\n"
+                           "    | global_token             |                      |\n"
                            "    | ∟ global_token_symbol    | $                    |\n"
                            "    | rate_limits_share_pct    | 100                  |\n"
-                           "    | commands_timeout         | None                 |\n"
+                           "    | commands_timeout         |                      |\n"
                            "    | ∟ create_command_timeout | 10                   |\n"
                            "    | ∟ other_commands_timeout | 30                   |\n"
                            "    | tables_format            | psql                 |\n"
@@ -121,16 +122,20 @@ class ConfigCommandTest(unittest.TestCase):
             class Config:
                 title = "double_nested_model"
 
-        class NestedModel(BaseClientModel):
+        class NestedModelOne(BaseClientModel):
             nested_attr: str = Field(default="some value")
             double_nested_model: DoubleNestedModel = Field(default=DoubleNestedModel())
 
             class Config:
-                title = "nested_model"
+                title = "nested_mode_one"
+
+        class NestedModelTwo(BaseClientModel):
+            class Config:
+                title = "nested_mode_two"
 
         class DummyModel(BaseClientModel):
             some_attr: int = Field(default=1)
-            nested_model: NestedModel = Field(default=NestedModel())
+            nested_model: Union[NestedModelTwo, NestedModelOne] = Field(default=NestedModelOne())
             another_attr: Decimal = Field(default=Decimal("1.0"))
             missing_no_default: int = Field(default=...)
 
@@ -150,9 +155,9 @@ class ConfigCommandTest(unittest.TestCase):
             "\n    | Key                    | Value                  |"
             "\n    |------------------------+------------------------|"
             "\n    | some_attr              | 1                      |"
-            "\n    | nested_model           | nested_model           |"
+            "\n    | nested_model           | nested_mode_one        |"
             "\n    | ∟ nested_attr          | some value             |"
-            "\n    | ∟ double_nested_model  | double_nested_model    |"
+            "\n    | ∟ double_nested_model  |                        |"
             "\n    |   ∟ double_nested_attr | 3.0                    |"
             "\n    | another_attr           | 1.0                    |"
             "\n    | missing_no_default     | &cMISSING_AND_REQUIRED |"

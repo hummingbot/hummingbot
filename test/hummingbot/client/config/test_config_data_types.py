@@ -3,7 +3,7 @@ import json
 import unittest
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Awaitable, Dict
+from typing import Awaitable, Dict, Union
 from unittest.mock import patch
 
 from pydantic import Field, SecretStr
@@ -90,29 +90,33 @@ class BaseClientModelTest(unittest.TestCase):
             class Config:
                 title = "double_nested_model"
 
-        class NestedModel(BaseClientModel):
+        class NestedModelOne(BaseClientModel):
             nested_attr: str = Field(default="some value")
             double_nested_model: DoubleNestedModel = Field(default=DoubleNestedModel())
 
             class Config:
-                title = "nested_model"
+                title = "nested_mode_one"
+
+        class NestedModelTwo(BaseClientModel):
+            class Config:
+                title = "nested_mode_two"
 
         class DummyModel(BaseClientModel):
             some_attr: int = Field(default=1, client_data=ClientFieldData())
-            nested_model: NestedModel = Field(default=NestedModel())
+            nested_model: Union[NestedModelTwo, NestedModelOne] = Field(default=NestedModelOne())
             another_attr: Decimal = Field(default=Decimal("1.0"))
 
             class Config:
                 title = "dummy_model"
 
-        expected = [
+        expected_values = [
             ConfigTraversalItem(0, "some_attr", "some_attr", 1, "1", ClientFieldData(), None, int),
             ConfigTraversalItem(
                 0,
                 "nested_model",
                 "nested_model",
-                ClientConfigAdapter(NestedModel()),
-                "nested_model",
+                ClientConfigAdapter(NestedModelOne()),
+                "nested_mode_one",
                 None,
                 None,
                 NestedModel,
@@ -125,7 +129,7 @@ class BaseClientModelTest(unittest.TestCase):
                 "nested_model.double_nested_model",
                 "double_nested_model",
                 ClientConfigAdapter(DoubleNestedModel()),
-                "double_nested_model",
+                "",
                 None,
                 None,
                 DoubleNestedModel,
@@ -143,7 +147,7 @@ class BaseClientModelTest(unittest.TestCase):
         ]
         cm = ClientConfigAdapter(DummyModel())
 
-        for expected, actual in zip(expected, cm.traverse()):
+        for expected, actual in zip(expected_values, cm.traverse()):
             self.assertEqual(expected.depth, actual.depth)
             self.assertEqual(expected.config_path, actual.config_path)
             self.assertEqual(expected.attr, actual.attr)

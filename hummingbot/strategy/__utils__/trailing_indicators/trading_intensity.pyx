@@ -60,6 +60,10 @@ cdef class TradingIntensityIndicator:
     def sampling_length(self) -> int:
         return self._sampling_length
 
+    @sampling_length.setter
+    def sampling_length(self, new_len: int):
+        self._sampling_length = new_len
+
     @property
     def last_quotes(self) -> list:
         """A helper method to be used in unit tests"""
@@ -119,9 +123,6 @@ cdef class TradingIntensityIndicator:
     cdef c_register_trade(self, object trade):
         self._current_trade_sample.append(trade)
 
-    def _estimate_intensity(self):
-        self.c_estimate_intensity()
-
     cdef c_estimate_intensity(self):
         cdef:
             dict trades_consolidated
@@ -152,6 +153,9 @@ cdef class TradingIntensityIndicator:
 
         # Fit the probability density function; reuse previously calculated parameters as initial values
         try:
+            print(f"price_levels = {price_levels}")
+            print(f"lambdas_adj = {lambdas_adj}")
+            print(f"alpha = {self._alpha} :: kappa = {self._kappa}")
             params = curve_fit(lambda t, a, b: a*np.exp(-b*t),
                                price_levels,
                                lambdas_adj,

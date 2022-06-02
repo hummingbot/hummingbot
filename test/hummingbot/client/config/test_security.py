@@ -23,9 +23,10 @@ class SecurityTest(unittest.TestCase):
         self.new_conf_dir_path = TemporaryDirectory()
         self.default_pswrd_verification_path = security.PASSWORD_VERIFICATION_PATH
         self.default_connectors_conf_dir_path = config_helpers.CONNECTORS_CONF_DIR_PATH
-        config_crypt.PASSWORD_VERIFICATION_PATH = (
-            Path(self.new_conf_dir_path.name) / "conf" / ".password_verification"
-        )
+        mock_conf_dir = Path(self.new_conf_dir_path.name) / "conf"
+        mock_conf_dir.mkdir(parents=True, exist_ok=True)
+        config_crypt.PASSWORD_VERIFICATION_PATH = mock_conf_dir / ".password_verification"
+
         security.PASSWORD_VERIFICATION_PATH = config_crypt.PASSWORD_VERIFICATION_PATH
         config_helpers.CONNECTORS_CONF_DIR_PATH = (
             Path(self.new_conf_dir_path.name) / "connectors"
