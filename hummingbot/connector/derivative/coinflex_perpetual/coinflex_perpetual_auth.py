@@ -5,16 +5,19 @@ from base64 import b64encode
 from datetime import datetime
 from typing import Dict
 
-from hummingbot.connector.exchange.coinflex.coinflex_web_utils import CoinflexRESTRequest
+from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_web_utils import CoinflexPerpetualRESTRequest
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import WSRequest
 
 
-class CoinflexAuth(AuthBase):
+class CoinflexPerpetualAuth(AuthBase):
+    """
+    Auth class required by Coinflex Perpetual API
+    """
 
-    def __init__(self, api_key: str, secret_key: str):
+    def __init__(self, api_key: str, api_secret: str):
         self.api_key = api_key
-        self.secret_key = secret_key
+        self.secret_key = api_secret
 
     def _time(self):
         """ Function created to enable patching during unit tests execution.
@@ -22,7 +25,7 @@ class CoinflexAuth(AuthBase):
         """
         return time.time()
 
-    async def rest_authenticate(self, request: CoinflexRESTRequest) -> CoinflexRESTRequest:
+    async def rest_authenticate(self, request: CoinflexPerpetualRESTRequest) -> CoinflexPerpetualRESTRequest:
         """
         Adds the server time and the signature to the request, required for authenticated interactions. It also adds
         the required parameter in the request header.
@@ -59,7 +62,7 @@ class CoinflexAuth(AuthBase):
         return request
 
     def _header_for_authentication(self,
-                                   request: CoinflexRESTRequest) -> Dict[str, str]:
+                                   request: CoinflexPerpetualRESTRequest) -> Dict[str, str]:
         time_now = self._time()
         timestamp = datetime.utcfromtimestamp(int(time_now)).isoformat()
         nonce = int(time_now * 1e3)
