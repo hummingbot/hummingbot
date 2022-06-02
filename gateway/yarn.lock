@@ -358,8 +358,9 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@curvefi/api@file:./curve-js":
-  version "1.25.1"
+"@curvefi/api@james-hummingbot/curve-js#james-hummingbot/hummingbot":
+  version "1.25.2"
+  resolved "https://codeload.github.com/james-hummingbot/curve-js/tar.gz/a7cb4a297a46f100735e7bfedeaf48cdb96d0eed"
   dependencies:
     "@ethersproject/networks" "^5.5.0"
     axios "^0.21.1"
