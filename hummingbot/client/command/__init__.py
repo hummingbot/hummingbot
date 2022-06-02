@@ -10,6 +10,7 @@ from .history_command import HistoryCommand
 from .import_command import ImportCommand
 from .order_book_command import OrderBookCommand
 from .pmm_script_command import PMMScriptCommand
+from .previous_strategy_command import PreviousCommand
 from .rate_command import RateCommand
 from .silly_commands import SillyCommands
 from .start_command import StartCommand
@@ -36,4 +37,5 @@ __all__ = [
     GatewayCommand,
     PMMScriptCommand,
     RateCommand,
+    PreviousCommand
 ]
