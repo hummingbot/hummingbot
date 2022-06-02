@@ -5,15 +5,19 @@ import { UniswapishPriceError } from '../../../../src/services/error-handler';
 import {
   Fetcher,
   Pair,
+  Percent,
   Route,
   Token,
   TokenAmount,
   Trade,
   TradeType,
 } from '@uniswap/sdk';
+import { OverrideConfigs } from '../../../config.util';
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 import { BigNumber } from 'ethers';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 
+const overrideConfigs = new OverrideConfigs();
 let ethereum: Ethereum;
 let uniswap: Uniswap;
 
@@ -31,14 +35,28 @@ const DAI = new Token(
 );
 
 beforeAll(async () => {
+  await overrideConfigs.init();
+  await overrideConfigs.updateConfigs();
+
   ethereum = Ethereum.getInstance('kovan');
+  patchEVMNonceManager(ethereum.nonceManager);
   await ethereum.init();
+
   uniswap = Uniswap.getInstance('ethereum', 'kovan');
   await uniswap.init();
 });
 
+beforeEach(() => {
+  patchEVMNonceManager(ethereum.nonceManager);
+});
+
 afterEach(() => {
   unpatch();
+});
+
+afterAll(async () => {
+  await ethereum.close();
+  await overrideConfigs.resetConfigs();
 });
 
 const patchFetchPairData = () => {
@@ -67,6 +85,7 @@ const patchTrade = (key: string, error?: Error) => {
     ];
   });
 };
+
 describe('verify Uniswap estimateSellTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
@@ -112,5 +131,22 @@ describe('verify Uniswap estimateBuyTrade', () => {
     await expect(async () => {
       await uniswap.estimateBuyTrade(WETH, DAI, BigNumber.from(1));
     }).rejects.toThrow(UniswapishPriceError);
+  });
+});
+
+describe('getAllowedSlippage', () => {
+  it('return value of string when not null', () => {
+    const allowedSlippage = uniswap.getAllowedSlippage('1/100');
+    expect(allowedSlippage).toEqual(new Percent('1', '100'));
+  });
+
+  it('return value from config when string is null', () => {
+    const allowedSlippage = uniswap.getAllowedSlippage();
+    expect(allowedSlippage).toEqual(new Percent('2', '100'));
+  });
+
+  it('return value from config when string is malformed', () => {
+    const allowedSlippage = uniswap.getAllowedSlippage('yo');
+    expect(allowedSlippage).toEqual(new Percent('2', '100'));
   });
 });

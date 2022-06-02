@@ -1,16 +1,8 @@
-#!/usr/bin/env python
 import time
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from typing import Dict, List, Optional
 
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage,
-    OrderBookMessageType,
-)
 
 
 class KucoinOrderBookMessage(OrderBookMessage):
@@ -29,14 +21,6 @@ class KucoinOrderBookMessage(OrderBookMessage):
         return super(KucoinOrderBookMessage, cls).__new__(
             cls, message_type, content, timestamp=timestamp, *args, **kwargs
         )
-
-    @property
-    def update_id(self) -> int:
-        return int(self.timestamp * 1e3)
-
-    @property
-    def trade_id(self) -> int:
-        return int(self.timestamp * 1e3)
 
     @property
     def trading_pair(self) -> str:

@@ -690,7 +690,7 @@ class WazirxExchange(ExchangeBase):
                 tracked_order.last_state = order_msg["status"]
 
                 if tracked_order.is_cancelled:
-                    self.logger().info(f"Successfully cancelled order {client_order_id}.")
+                    self.logger().info(f"Successfully canceled order {client_order_id}.")
                     self.trigger_event(
                         MarketEvent.OrderCancelled,
                         OrderCancelledEvent(
@@ -785,7 +785,7 @@ class WazirxExchange(ExchangeBase):
         except Exception:
             self.logger().error("Cancel all failed.", exc_info=True)
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order on Wazirx. Check API key and network connection."
             )

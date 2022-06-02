@@ -57,24 +57,24 @@ class BeaxyAPIUserStreamDataSource(UserStreamTrackerDataSource):
                                     'Retrying after 30 seconds...', exc_info=True)
                 await asyncio.sleep(30.0)
 
-    async def _listen_for_balance(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def _listen_for_balance(self, output: asyncio.Queue):
         async for msg in self.__listen_ws(BeaxyConstants.TradingApi.WS_BALANCE_ENDPOINT):
             output.put_nowait([BeaxyConstants.UserStream.BALANCE_MESSAGE, msg])
 
-    async def _listen_for_orders(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def _listen_for_orders(self, output: asyncio.Queue):
         async for msg in self.__listen_ws(BeaxyConstants.TradingApi.WS_ORDERS_ENDPOINT):
             output.put_nowait([BeaxyConstants.UserStream.ORDER_MESSAGE, msg])
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         *required
         Subscribe to user stream via web socket, and keep the connection open for incoming messages
-        :param ev_loop: ev_loop to execute this function in
+
         :param output: an async queue where the incoming messages are stored
         """
         await safe_gather(
-            self._listen_for_balance(ev_loop, output),
-            self._listen_for_orders(ev_loop, output),
+            self._listen_for_balance(output),
+            self._listen_for_orders(output),
         )
 
     async def _inner_messages(self,

@@ -54,7 +54,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         order.current_state = OrderState.PENDING_CANCEL
 
     def _simulate_order_cancelled(self, order: InFlightOrder):
-        order.current_state = OrderState.CANCELLED
+        order.current_state = OrderState.CANCELED
 
     def _simulate_order_failed(self, order: InFlightOrder):
         order.current_state = OrderState.FAILED

@@ -1,19 +1,11 @@
 import logging
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, Dict, List, Optional
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage,
-    OrderBookMessageType,
-)
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 
 

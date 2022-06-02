@@ -504,7 +504,7 @@ class BitmartExchangeTests(unittest.TestCase):
 
         logged_msg = (
             f"Failed to cancel order {order_id}:"
-            f" Failed to cancel order - {order_id}. Order was already matched or cancelled on the exchange."
+            f" Failed to cancel order - {order_id}. Order was already matched or canceled on the exchange."
         )
         self.assertTrue(self.is_logged("NETWORK", logged_msg))
 

@@ -1,59 +1,95 @@
 import base64
-import json
-import time
 import hashlib
 import hmac
-from typing import (
-    Any,
-    Dict
-)
 from collections import OrderedDict
+from typing import Any, Dict
+from urllib.parse import urlencode
+
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
 
-class KucoinAuth:
-    def __init__(self, api_key: str, passphrase: str, secret_key: str):
+class KucoinAuth(AuthBase):
+    def __init__(self, api_key: str, passphrase: str, secret_key: str, time_provider: TimeSynchronizer):
         self.api_key: str = api_key
         self.passphrase: str = passphrase
         self.secret_key: str = secret_key
-        self.partner_id: str = "Hummingbot"
-        self.partner_key: str = "8fb50686-81a8-408a-901c-07c5ac5bd758"
+        self.time_provider = time_provider
 
     @staticmethod
     def keysort(dictionary: Dict[str, str]) -> Dict[str, str]:
         return OrderedDict(sorted(dictionary.items(), key=lambda t: t[0]))
 
-    def third_party_header(self, timestamp: str):
-        partner_payload = timestamp + self.partner_id + self.api_key
-        partner_signature = base64.b64encode(hmac.new(self.partner_key.encode("utf-8"), partner_payload.encode("utf-8"), hashlib.sha256).digest())
+    async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
+        """
+        Adds the server time and the signature to the request, required for authenticated interactions. It also adds
+        the required parameter in the request header.
+
+        :param request: the request to be configured for authenticated interaction
+        """
+
+        headers = {}
+        if request.headers is not None:
+            headers.update(request.headers)
+        headers.update(self.authentication_headers(request=request))
+        request.headers = headers
+
+        return request
+
+    async def ws_authenticate(self, request: WSRequest) -> WSRequest:
+        """
+        This method is intended to configure a websocket request to be authenticated. KuCoin does not use this
+        functionality
+        """
+        return request  # pass-through
+
+    def partner_header(self, timestamp: str):
+        partner_payload = timestamp + CONSTANTS.HB_PARTNER_ID + self.api_key
+        partner_signature = base64.b64encode(
+            hmac.new(
+                CONSTANTS.HB_PARTNER_KEY.encode("utf-8"),
+                partner_payload.encode("utf-8"),
+                hashlib.sha256).digest())
         third_party = {
-            "KC-API-PARTNER": self.partner_id,
+            "KC-API-PARTNER": CONSTANTS.HB_PARTNER_ID,
             "KC-API-PARTNER-SIGN": str(partner_signature, "utf-8")
         }
         return third_party
 
-    def add_auth_to_params(self,
-                           method: str,
-                           path_url: str,
-                           args: Dict[str, Any] = None,
-                           partner_header: bool = False) -> Dict[str, Any]:
-        timestamp = int(time.time() * 1000)
-        request = {
+    def authentication_headers(self, request: RESTRequest) -> Dict[str, Any]:
+        timestamp = int(self.time_provider.time() * 1000)
+        header = {
             "KC-API-KEY": self.api_key,
             "KC-API-TIMESTAMP": str(timestamp),
-            "Content-Type": "application/json",
             "KC-API-KEY-VERSION": "2"
         }
-        if args is not None:
-            query_string = json.dumps(args)
-            payload = str(timestamp) + method.upper() + path_url + query_string
+
+        path_url = f"/api{request.url.split('/api')[-1]}"
+        if request.params:
+            sorted_params = self.keysort(request.params)
+            query_string_components = urlencode(sorted_params)
+            path_url = f"{path_url}?{query_string_components}"
+
+        if request.data is not None:
+            body = request.data
         else:
-            payload = str(timestamp) + method.upper() + path_url
-        signature = base64.b64encode(hmac.new(self.secret_key.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).digest())
+            body = ""
+        payload = str(timestamp) + request.method.value.upper() + path_url + body
+
+        signature = base64.b64encode(
+            hmac.new(
+                self.secret_key.encode("utf-8"),
+                payload.encode("utf-8"),
+                hashlib.sha256).digest())
         passphrase = base64.b64encode(
-            hmac.new(self.secret_key.encode('utf-8'), self.passphrase.encode('utf-8'), hashlib.sha256).digest())
-        request["KC-API-SIGN"] = str(signature, "utf-8")
-        request["KC-API-PASSPHRASE"] = str(passphrase, "utf-8")
-        if partner_header:
-            headers = self.third_party_header(str(timestamp))
-            request.update(headers)
-        return request
+            hmac.new(
+                self.secret_key.encode('utf-8'),
+                self.passphrase.encode('utf-8'),
+                hashlib.sha256).digest())
+        header["KC-API-SIGN"] = str(signature, "utf-8")
+        header["KC-API-PASSPHRASE"] = str(passphrase, "utf-8")
+        partner_headers = self.partner_header(str(timestamp))
+        header.update(partner_headers)
+        return header

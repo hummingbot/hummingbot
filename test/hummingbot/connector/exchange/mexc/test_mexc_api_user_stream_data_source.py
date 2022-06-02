@@ -61,8 +61,7 @@ class MexcAPIUserStreamDataSourceTests(TestCase):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                    messages))
+            self.data_source.listen_for_user_stream(messages))
         # Add a dummy message for the websocket to read and include in the "messages" queue
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value,
                                                              ujson.dumps({'channel': 'push.personal.order'}))
@@ -77,6 +76,5 @@ class MexcAPIUserStreamDataSourceTests(TestCase):
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             self.async_run_with_timeout(self.listening_task)

@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 from abc import (
     ABCMeta,
     abstractmethod
@@ -50,6 +48,13 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
     @abstractmethod
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         raise NotImplementedError
+
+    async def listen_for_subscriptions(self):
+        """
+        Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
+        exchange. Each message should be stored in the proper queue for its message type.
+        """
+        pass
 
     @abstractmethod
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):

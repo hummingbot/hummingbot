@@ -5,7 +5,6 @@ import {
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from '../../services/error-handler';
 import { logger } from '../../services/logger';
-import { UniswapConfig } from './uniswap.config';
 import { Contract, ContractInterface } from '@ethersproject/contracts';
 import { Token, CurrencyAmount, TradeType } from '@uniswap/sdk-core';
 import * as uniV3 from '@uniswap/v3-sdk';
@@ -36,7 +35,7 @@ export class UniswapV3 extends UniswapV3Helper implements Uniswapish {
   private constructor(chain: string, network: string) {
     super(network);
     this._chain = chain;
-    this._gasLimit = UniswapConfig.config.gasLimit(3);
+    this._gasLimit = this.ethereum.gasLimit;
   }
 
   public static getInstance(chain: string, network: string): UniswapV3 {

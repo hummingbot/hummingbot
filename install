@@ -6,7 +6,8 @@ cd $(dirname $0)
 if [ "${CONDA_EXE} " == " " ]; then
     CONDA_EXE=$((find /opt/conda/bin/conda || find ~/anaconda3/bin/conda || \
 	    find /usr/local/anaconda3/bin/conda || find ~/miniconda3/bin/conda  || \
-	    find /root/miniconda/bin/conda || find ~/Anaconda3/Scripts/conda) 2>/dev/null)
+	    find /root/miniconda/bin/conda || find ~/Anaconda3/Scripts/conda || \
+	    find $CONDA/bin/conda) 2>/dev/null)
 fi
 
 if [ "${CONDA_EXE}_" == "_" ]; then

@@ -13,27 +13,25 @@ from typing import (
     List,
 )
 
-import path_util        # noqa: F401
-from bin.hummingbot import (
-    detect_available_port,
-    UIStartListener,
-)
+import path_util  # noqa: F401
+
+from bin.hummingbot import detect_available_port, UIStartListener
 from hummingbot import init_logging
-from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
+    all_configs_complete,
     create_yml_files,
     read_system_configs_from_yml,
     update_strategy_config_map_from_file,
-    all_configs_complete,
 )
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
+from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.client.settings import AllConnectorSettings, CONF_FILE_PATH
 from hummingbot.client.ui import login_prompt
 from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.gateway import start_existing_gateway_container
 from hummingbot.core.management.console import start_management_console
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.client.settings import AllConnectorSettings, CONF_FILE_PATH
-from hummingbot.client.config.security import Security
 
 from bin.docker_connection import fork_and_start
 

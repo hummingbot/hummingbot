@@ -51,6 +51,7 @@ class TimeSynchronizer:
         """
         Executes the time_provider passed as parameter to obtain the current time, and adds a new sample in the
         internal list.
+
         :param time_provider: Awaitable object that returns the current time
         """
         try:
@@ -70,6 +71,7 @@ class TimeSynchronizer:
         """
         Executes the time_provider passed as parameter to obtain the current time, and adds a new sample in the
         internal list, ONLY if the current instance has not been updated yet.
+
         :param time_provider: Awaitable object that returns the current time
         """
         if not self._time_offset_ms:

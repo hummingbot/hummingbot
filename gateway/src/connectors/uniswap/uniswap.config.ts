@@ -3,7 +3,6 @@ import { AvailableNetworks } from '../../services/config-manager-types';
 export namespace UniswapConfig {
   export interface NetworkConfig {
     allowedSlippage: (version: number) => string;
-    gasLimit: (version: number) => number;
     ttl: (version: number) => number;
     uniswapV2RouterAddress: (network: string) => string;
     uniswapV3RouterAddress: (network: string) => string;
@@ -16,10 +15,6 @@ export namespace UniswapConfig {
     allowedSlippage: (version: number) =>
       ConfigManagerV2.getInstance().get(
         `uniswap.versions.v${version}.allowedSlippage`
-      ),
-    gasLimit: (version: number) =>
-      ConfigManagerV2.getInstance().get(
-        `uniswap.versions.v${version}.gasLimit`
       ),
     ttl: (version: number) =>
       ConfigManagerV2.getInstance().get(`uniswap.versions.v${version}.ttl`),

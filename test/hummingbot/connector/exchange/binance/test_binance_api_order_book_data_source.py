@@ -2,12 +2,7 @@ import asyncio
 import json
 import re
 import unittest
-from typing import (
-    Any,
-    Awaitable,
-    Dict,
-    List,
-)
+from typing import Any, Awaitable, Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses.core import aioresponses
@@ -636,4 +631,4 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        self.assertTrue(12345, msg.update_id)
+        self.assertEqual(1027024, msg.update_id)

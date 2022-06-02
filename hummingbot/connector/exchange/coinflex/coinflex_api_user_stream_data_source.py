@@ -1,10 +1,6 @@
 import asyncio
 import logging
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from typing import Dict, List, Optional
 
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 from hummingbot.connector.exchange.coinflex import coinflex_web_utils as web_utils
@@ -21,7 +17,7 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     HEARTBEAT_TIME_INTERVAL = 30.0
 
-    _bausds_logger: Optional[HummingbotLogger] = None
+    _cfausds_logger: Optional[HummingbotLogger] = None
 
     def __init__(self,
                  auth: CoinflexAuth,
@@ -39,9 +35,9 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._bausds_logger is None:
-            cls._bausds_logger = logging.getLogger(__name__)
-        return cls._bausds_logger
+        if cls._cfausds_logger is None:
+            cls._cfausds_logger = logging.getLogger(__name__)
+        return cls._cfausds_logger
 
     @property
     def last_recv_time(self) -> float:
@@ -49,7 +45,7 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         Returns the time of the last received message
         :return: the timestamp of the last received message in seconds
         """
-        if not all(chan in self._subscribed_channels for chan in CONSTANTS.WS_CHANNELS["USER_STREAM"]):
+        if not all([chan in self._subscribed_channels for chan in CONSTANTS.WS_CHANNELS["USER_STREAM"]]):
             return 0
         if self._ws_assistant:
             return self._ws_assistant.last_recv_time
@@ -79,7 +75,7 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             )
             raise
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         Connects to the user private channel in the exchange using a websocket connection. With the established
         connection listens to all balance events and order updates provided by the exchange, and stores them in the

@@ -84,11 +84,10 @@ cdef class ExchangeBase(ConnectorBase):
             OrderBook order_book = self.c_get_order_book(trading_pair)
             object top_price
         try:
-            top_price = Decimal(order_book.c_get_price(is_buy))
+            top_price = Decimal(str(order_book.c_get_price(is_buy)))
         except EnvironmentError as e:
             self.logger().warning(f"{'Ask' if is_buy else 'Bid'} orderbook for {trading_pair} is empty.")
             return s_decimal_NaN
-
         return self.c_quantize_order_price(trading_pair, top_price)
 
     cdef ClientOrderBookQueryResult c_get_vwap_for_volume(self, str trading_pair, bint is_buy, object volume):

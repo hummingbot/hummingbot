@@ -1,16 +1,18 @@
 import asyncio
 import os
-
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_helpers import (
-    update_strategy_config_map_from_file,
-    short_strategy_name,
-    format_config_file_name,
-    validate_strategy_file
-)
-from hummingbot.client.settings import CONF_FILE_PATH, CONF_PREFIX, required_exchanges
 from typing import TYPE_CHECKING
+
+from hummingbot.client.config.config_helpers import (
+    format_config_file_name,
+    save_previous_strategy_value,
+    short_strategy_name,
+    update_strategy_config_map_from_file,
+    validate_strategy_file,
+)
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.settings import CONF_FILE_PATH, CONF_PREFIX, required_exchanges
+from hummingbot.core.utils.async_utils import safe_ensure_future
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -32,6 +34,8 @@ class ImportCommand:
         required_exchanges.clear()
         if file_name is None:
             file_name = await self.prompt_a_file_name()
+            if file_name is not None:
+                save_previous_strategy_value(file_name)
         if self.app.to_stop_config:
             self.app.to_stop_config = False
             return

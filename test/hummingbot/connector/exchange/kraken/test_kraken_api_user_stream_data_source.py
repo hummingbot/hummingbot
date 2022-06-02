@@ -119,7 +119,7 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         output_queue = asyncio.Queue()
-        self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        self.ev_loop.create_task(self.data_source.listen_for_user_stream(output_queue))
 
         resp = self.get_open_orders_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(

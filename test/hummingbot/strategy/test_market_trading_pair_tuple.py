@@ -7,10 +7,8 @@ from typing import List
 import pandas as pd
 
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode,
-)
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -24,7 +22,6 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from test.mock.mock_paper_exchange import MockPaperExchange
 
 s_decimal_0 = Decimal(0)
 

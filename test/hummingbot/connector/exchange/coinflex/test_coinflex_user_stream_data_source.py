@@ -2,13 +2,7 @@ import asyncio
 import json
 import re
 import unittest
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
-from typing import (
-    Any,
-    Awaitable,
-    Dict,
-    Optional,
-)
+from typing import Any, Awaitable, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
@@ -17,6 +11,7 @@ from hummingbot.connector.exchange.coinflex.coinflex_api_user_stream_data_source
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
 from hummingbot.connector.exchange.coinflex.coinflex_user_stream_tracker import CoinflexUserStreamTracker
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class CoinflexUserStreamDataSourceUnitTests(unittest.TestCase):
@@ -135,7 +130,7 @@ class CoinflexUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         msg = self.async_run_with_timeout(msg_queue.get())
@@ -175,7 +170,7 @@ class CoinflexUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
@@ -189,7 +184,7 @@ class CoinflexUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
@@ -203,7 +198,7 @@ class CoinflexUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         self.async_run_with_timeout(self.resume_test_event.wait())
@@ -222,7 +217,7 @@ class CoinflexUserStreamDataSourceUnitTests(unittest.TestCase):
         mock_ws.close.return_value = None
 
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         self.async_run_with_timeout(self.resume_test_event.wait())

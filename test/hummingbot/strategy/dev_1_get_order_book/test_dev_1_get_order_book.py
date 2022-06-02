@@ -1,17 +1,13 @@
-
 import asyncio
 import unittest
-import pandas as pd
-
 from decimal import Decimal
 
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
-from hummingbot.strategy.dev_1_get_order_book import GetOrderBookStrategy
+import pandas as pd
+
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.strategy.dev_1_get_order_book import GetOrderBookStrategy
 
 
 class Dev1GetOrderBookUnitTest(unittest.TestCase):

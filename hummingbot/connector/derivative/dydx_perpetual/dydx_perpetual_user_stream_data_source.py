@@ -49,7 +49,7 @@ class DydxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             self._ws_assistant = await self._api_factory.get_ws_assistant()
         return self._ws_assistant
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         ws = None
         while True:
             try:
