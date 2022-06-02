@@ -1,6 +1,5 @@
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict
 
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
@@ -32,25 +31,6 @@ EXAMPLE_PAIR = "LA-USDT"
 DEFAULT_FEES = TradeFeeSchema(maker_percent_fee_decimal=Decimal("0.001"), taker_percent_fee_decimal=Decimal("0.001"))
 fee_type = {"FEE_SCHEME_TYPE_PERCENT_QUOTE": LatokenCommissionType.PERCENT}
 fee_take = {"FEE_SCHEME_TAKE_PROPORTION": LatokenTakeType.PROPORTION}
-# def is_pair_valid(pair_data: Dict[str, Any]) -> bool:
-#     return pair_data["status"] == 'PAIR_STATUS_ACTIVE'
-
-
-def is_exchange_information_valid(pair_data: Dict[str, Any]) -> bool:
-    """
-    Verifies if a trading pair is enabled to operate with based on its exchange information
-    :param pair_data: the exchange information for a trading pair
-    :return: True if the trading pair is enabled, False otherwise
-    """
-    # pair_details = pair_data["id"]
-    pair_base = pair_data["baseCurrency"]
-    pair_quote = pair_data["quoteCurrency"]
-
-    return pair_data["is_valid"] and pair_data["status"] == 'PAIR_STATUS_ACTIVE' and \
-        isinstance(pair_base, dict) and isinstance(pair_quote, dict) and \
-        pair_base["status"] == 'CURRENCY_STATUS_ACTIVE' and pair_base["type"] == 'CURRENCY_TYPE_CRYPTO' and \
-        pair_quote["status"] == 'CURRENCY_STATUS_ACTIVE' and pair_quote["type"] == 'CURRENCY_TYPE_CRYPTO'
-
 
 KEYS = {
     "latoken_api_key":
