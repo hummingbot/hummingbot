@@ -24,7 +24,6 @@ export namespace ConnectorsRoutes {
             available_networks: PangolinConfig.config.availableNetworks,
           },
           {
-
             name: 'sushiswap',
             trading_type: SushiswapConfig.config.tradingTypes,
             available_networks: SushiswapConfig.config.availableNetworks,
@@ -33,7 +32,6 @@ export namespace ConnectorsRoutes {
             name: 'traderjoe',
             trading_type: TraderjoeConfig.config.tradingTypes,
             available_networks: TraderjoeConfig.config.availableNetworks,
-
           },
         ],
       });
