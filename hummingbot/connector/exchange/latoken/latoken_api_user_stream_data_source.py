@@ -126,7 +126,7 @@ class LatokenAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def _get_throttler_instance(cls) -> AsyncThrottler:
         return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
-    async def _get_listen_key(self):
+    async def _get_listen_key(self) -> str:
         try:
             data = await web_utils.api_request(
                 path=CONSTANTS.USER_ID_PATH_URL,
