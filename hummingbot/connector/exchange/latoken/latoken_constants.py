@@ -66,10 +66,8 @@ LISTEN_KEY_KEEP_ALIVE_INTERVAL = float(TWELVE_HOURS)
 UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0 * SECOND
 WS_HEARTBEAT_TIME_INTERVAL = 30 * SECOND
 
-MAX_REQUEST = 5000
-MAX_ALLOWED_TPS = 100
-LINKED_LIMIT_WEIGHT = 5
-
+GENERAL_TPS = 700
+MAX_ALLOWED_TPS = 3500
 # Websocket event types
 DIFF_EVENT_TYPE = "b"
 TRADE_EVENT_TYPE = "t"
@@ -80,38 +78,27 @@ SUBSCRIPTION_ID_ACCOUNT = 2
 SUBSCRIPTION_ID_ORDERS = 3
 SUBSCRIPTION_ID_TRADE_UPDATE = 4
 
-GLOBAL_RATE_LIMIT = "global"
+PUBLIC_LIMIT_ID = "PublicPoints"
+PRIVATE_LIMIT_ID = "PrivatePoints"  # includes place-orders
+PUBLIC_LINKED_LIMITS = [LinkedLimitWeightPair(PUBLIC_LIMIT_ID)]
+PRIVATE_LINKED_LIMITS = [LinkedLimitWeightPair(PRIVATE_LIMIT_ID)]
 
 RATE_LIMITS = [
-    RateLimit(limit_id=GLOBAL_RATE_LIMIT, limit=MAX_ALLOWED_TPS, time_interval=SECOND),
+    RateLimit(limit_id=PUBLIC_LIMIT_ID, limit=GENERAL_TPS, time_interval=SECOND),
+    RateLimit(limit_id=PRIVATE_LIMIT_ID, limit=GENERAL_TPS, time_interval=SECOND),
     # Public API
-    RateLimit(limit_id=TICKER_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
-    RateLimit(limit_id=CURRENCY_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
-    RateLimit(limit_id=PAIR_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
-    RateLimit(limit_id=PING_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
-    RateLimit(limit_id=BOOK_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
-    RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
-    RateLimit(limit_id=GLOBAL_RATE_LIMIT, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    RateLimit(limit_id=TICKER_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PUBLIC_LINKED_LIMITS),
+    RateLimit(limit_id=CURRENCY_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PUBLIC_LINKED_LIMITS),
+    RateLimit(limit_id=PAIR_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PUBLIC_LINKED_LIMITS),
+    RateLimit(limit_id=PING_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PUBLIC_LINKED_LIMITS),
+    RateLimit(limit_id=BOOK_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PUBLIC_LINKED_LIMITS),
+    RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PUBLIC_LINKED_LIMITS),
     # Private API
-    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
-    RateLimit(limit_id=TRADES_FOR_PAIR_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
-    RateLimit(limit_id=ORDER_PLACE_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
-    RateLimit(limit_id=ORDER_CANCEL_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
-    RateLimit(limit_id=GET_ORDER_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
-    RateLimit(limit_id=USER_ID_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
-    RateLimit(limit_id=FEES_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT, LINKED_LIMIT_WEIGHT)]),
+    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PRIVATE_LINKED_LIMITS),
+    RateLimit(limit_id=TRADES_FOR_PAIR_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PRIVATE_LINKED_LIMITS),
+    RateLimit(limit_id=ORDER_PLACE_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PRIVATE_LINKED_LIMITS),
+    RateLimit(limit_id=ORDER_CANCEL_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND, linked_limits=PRIVATE_LINKED_LIMITS),
+    RateLimit(limit_id=GET_ORDER_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PRIVATE_LINKED_LIMITS),
+    RateLimit(limit_id=USER_ID_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PRIVATE_LINKED_LIMITS),
+    RateLimit(limit_id=FEES_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PRIVATE_LINKED_LIMITS),
 ]

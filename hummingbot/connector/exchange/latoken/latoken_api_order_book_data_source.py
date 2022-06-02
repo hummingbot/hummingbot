@@ -9,7 +9,7 @@ from bidict import bidict
 
 import hummingbot.connector.exchange.latoken.latoken_constants as CONSTANTS
 import hummingbot.connector.exchange.latoken.latoken_stomper as stomper
-from hummingbot.connector.exchange.latoken import latoken_utils as utils, latoken_web_utils as web_utils
+from hummingbot.connector.exchange.latoken import latoken_web_utils as web_utils
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
@@ -341,7 +341,8 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 if self._ws_assistant is None:
                     self._ws_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
-                await self._ws_assistant.connect(ws_url=web_utils.ws_url(self._domain), ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+                await self._ws_assistant.connect(ws_url=web_utils.ws_url(self._domain),
+                                                 ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
 
                 msg_out = stomper.Frame()
                 msg_out.cmd = "CONNECT"
@@ -431,8 +432,11 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     time_synchronizer=self._time_synchronizer)
 
                 path_params = {'symbol': symbol}
-                msg_subscribe_books = stomper.subscribe(CONSTANTS.BOOK_STREAM.format(**path_params), f"{CONSTANTS.SUBSCRIPTION_ID_BOOKS}_{trading_pair}", ack="auto")
-                msg_subscribe_trades = stomper.subscribe(CONSTANTS.TRADES_STREAM.format(**path_params), f"{CONSTANTS.SUBSCRIPTION_ID_TRADES}_{trading_pair}", ack="auto")
+                msg_subscribe_books = stomper.subscribe(CONSTANTS.BOOK_STREAM.format(**path_params),
+                                                        f"{CONSTANTS.SUBSCRIPTION_ID_BOOKS}_{trading_pair}", ack="auto")
+                msg_subscribe_trades = stomper.subscribe(CONSTANTS.TRADES_STREAM.format(**path_params),
+                                                         f"{CONSTANTS.SUBSCRIPTION_ID_TRADES}_{trading_pair}",
+                                                         ack="auto")
 
                 subscriptions.append(client.subscribe(WSRequest(payload=msg_subscribe_books)))
                 subscriptions.append(client.subscribe(WSRequest(payload=msg_subscribe_trades)))
@@ -456,7 +460,8 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                      api_factory: WebAssistantsFactory,
                                      throttler: AsyncThrottler,
                                      time_synchronizer: TimeSynchronizer) -> float:
-        symbol = await cls.exchange_symbol_associated_to_pair(trading_pair=trading_pair, domain=domain, throttler=throttler)
+        symbol = await cls.exchange_symbol_associated_to_pair(
+            trading_pair=trading_pair, domain=domain, throttler=throttler)
         resp_json = await web_utils.api_request(
             path=f"{CONSTANTS.TICKER_PATH_URL}/{symbol}",
             api_factory=api_factory,
@@ -480,40 +485,19 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         mapping = bidict()
         try:
-            ticker_list, currency_list, pair_list = await safe_gather(
-                web_utils.api_request(
-                    path=CONSTANTS.TICKER_PATH_URL,
-                    api_factory=api_factory,
-                    throttler=throttler,
-                    time_synchronizer=time_synchronizer,
-                    domain=domain,
-                    method=RESTMethod.GET,
-                    return_err=True,
-                ),
-                web_utils.api_request(
-                    path=CONSTANTS.CURRENCY_PATH_URL,
-                    api_factory=api_factory,
-                    throttler=throttler,
-                    time_synchronizer=time_synchronizer,
-                    domain=domain,
-                    method=RESTMethod.GET,
-                    return_err=True,
-                ),
-                web_utils.api_request(
-                    path=CONSTANTS.PAIR_PATH_URL,
-                    api_factory=api_factory,
-                    throttler=throttler,
-                    time_synchronizer=time_synchronizer,
-                    domain=domain,
-                    method=RESTMethod.GET,
-                    return_err=True,
-                ),
-                return_exceptions=True)
+            tickers = await web_utils.api_request(
+                path=CONSTANTS.TICKER_PATH_URL,
+                api_factory=api_factory,
+                throttler=throttler,
+                time_synchronizer=time_synchronizer,
+                domain=domain,
+                method=RESTMethod.GET,
+                return_err=True)
 
-            full_mapping = web_utils.create_full_mapping(ticker_list, currency_list, pair_list)
-
-            for pair in filter(utils.is_exchange_information_valid, full_mapping):
-                mapping[f"{pair['id']['baseCurrency']}/{pair['id']['quoteCurrency']}"] = pair["id"]["symbol"].replace('/', '-')
+            for ticker in tickers:
+                trading_pair = ticker["symbol"].replace('/', '-')
+                # if trading_pair in cls._trading_pairs: # fix this!
+                mapping[f"{ticker['baseCurrency']}/{ticker['quoteCurrency']}"] = trading_pair
 
         except Exception as ex:
             cls.logger().error(f"There was an error requesting exchange info ({ex})")
