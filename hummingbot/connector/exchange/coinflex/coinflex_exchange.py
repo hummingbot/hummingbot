@@ -2,35 +2,24 @@ import asyncio
 import logging
 import time
 from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
 
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 import hummingbot.connector.exchange.coinflex.coinflex_web_utils as web_utils
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.coinflex import coinflex_utils
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
 from hummingbot.connector.exchange.coinflex.coinflex_order_book_tracker import CoinflexOrderBookTracker
 from hummingbot.connector.exchange.coinflex.coinflex_user_stream_tracker import CoinflexUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import (
-    InFlightOrder,
-    OrderState,
-    OrderUpdate,
-    TradeUpdate,
-)
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
@@ -42,6 +31,7 @@ from hummingbot.logger import HummingbotLogger
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
+s_float_NaN = float("nan")
 
 
 class CoinflexExchange(ExchangeBase):
@@ -419,9 +409,9 @@ class CoinflexExchange(ExchangeBase):
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
-        Cancels all currently active orders. The cancellations are performed in parallel tasks.
+        Cancels all currently active orders. The cancelations are performed in parallel tasks.
         :param timeout_seconds: the maximum time (in seconds) the cancel logic should run
-        :return: a list of CancellationResult instances, one for each of the orders to be cancelled
+        :return: a list of CancellationResult instances, one for each of the orders to be canceled
         """
         incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
         tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
@@ -454,7 +444,7 @@ class CoinflexExchange(ExchangeBase):
                             trading_pair: str,
                             amount: Decimal,
                             order_type: OrderType,
-                            price: Optional[Decimal] = Decimal("NaN")):
+                            price: Optional[Decimal] = s_decimal_NaN):
         """
         Creates a an order in the exchange using the parameters to configure it
         :param trade_type: the side of the order (BUY of SELL)
@@ -490,7 +480,6 @@ class CoinflexExchange(ExchangeBase):
             self._order_tracker.process_order_update(order_update)
             return
 
-        order_result = None
         amount_str = f"{amount:f}"
         type_str = CoinflexExchange.coinflex_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
@@ -499,6 +488,10 @@ class CoinflexExchange(ExchangeBase):
             domain=self._domain,
             api_factory=self._api_factory,
             throttler=self._throttler)
+
+        if self.current_timestamp == s_float_NaN:
+            raise ValueError("Cannot create orders while connector is starting/stopping.")
+
         api_params = {"responseType": "FULL"}
         order_params = {"marketCode": symbol,
                         "side": side_str,
@@ -533,6 +526,8 @@ class CoinflexExchange(ExchangeBase):
                 new_state=OrderState.OPEN,
             )
             self._order_tracker.process_order_update(order_update)
+
+            await self._update_order_fills_from_event_or_create(None, order_result)
 
         except asyncio.CancelledError:
             raise
@@ -583,13 +578,14 @@ class CoinflexExchange(ExchangeBase):
                     cancel_result = result["data"][0]
                 except web_utils.CoinflexAPIError as e:
                     # Catch order not found as cancelled.
+                    result = {}
                     cancel_result = {}
-                    if e.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
+                    if e.error_payload.get("errors") in CONSTANTS.ORDER_NOT_FOUND_ERRORS:
                         cancel_result = e.error_payload["data"][0]
                     else:
                         self.logger().error(f"Unhandled error canceling order: {order_id}. Error: {e.error_payload}", exc_info=True)
 
-                if cancel_result.get("status") in CONSTANTS.ORDER_CANCELED_STATES:
+                if cancel_result.get("status", result.get("event")) in CONSTANTS.ORDER_CANCELED_STATES:
                     cancelled_timestamp = cancel_result.get("timestamp", result.get("timestamp"))
                     order_update: OrderUpdate = OrderUpdate(
                         client_order_id=order_id,
@@ -606,8 +602,7 @@ class CoinflexExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception(f"There was a an error when requesting cancelation of order {order_id}")
-                raise
+                self.logger().exception(f"There was an error when requesting cancelation of order {order_id}")
 
     async def _status_polling_loop(self):
         """
@@ -726,49 +721,22 @@ class CoinflexExchange(ExchangeBase):
                     client_order_id = order_data.get("clientOrderId")
 
                     tracked_order = self.in_flight_orders.get(client_order_id)
-                    if tracked_order is not None:
-                        async with timeout(self._sleep_time(5)):
-                            await tracked_order.get_exchange_order_id()
-                        exec_amt_base = coinflex_utils.decimal_val_or_none(order_data.get("matchQuantity"))
-                        if exec_amt_base:
-                            fill_price = coinflex_utils.decimal_val_or_none(order_data.get("matchPrice"))
-                            exec_amt_quote = exec_amt_base * fill_price if exec_amt_base and fill_price else None
-                            fee_paid = coinflex_utils.decimal_val_or_none(order_data.get("fees"))
-                            if fee_paid:
-                                fee = TradeFeeBase.new_spot_fee(
-                                    fee_schema=self.trade_fee_schema(),
-                                    trade_type=tracked_order.trade_type,
-                                    percent_token=order_data.get("feeInstrumentId"),
-                                    flat_fees=[TokenAmount(amount=fee_paid, token=order_data.get("feeInstrumentId"))]
-                                )
-                            else:
-                                fee = self.get_fee(base_currency=tracked_order.base_asset,
-                                                   quote_currency=tracked_order.quote_asset,
-                                                   order_type=tracked_order.order_type,
-                                                   order_side=tracked_order.trade_type,
-                                                   amount=tracked_order.amount,
-                                                   price=tracked_order.price,
-                                                   is_maker=True)
-                            trade_update = TradeUpdate(
-                                trading_pair=tracked_order.trading_pair,
-                                trade_id=int(order_data["matchId"]),
-                                client_order_id=client_order_id,
-                                exchange_order_id=str(order_data["orderId"]),
-                                fill_timestamp=int(order_data["timestamp"]) * 1e-3,
-                                fill_price=fill_price,
-                                fill_base_amount=exec_amt_base,
-                                fill_quote_amount=exec_amt_quote,
-                                fee=fee,
-                            )
-                            self._order_tracker.process_trade_update(trade_update=trade_update)
-                        order_update = OrderUpdate(
-                            trading_pair=tracked_order.trading_pair,
-                            update_timestamp=int(order_data["timestamp"]) * 1e-3,
-                            new_state=CONSTANTS.ORDER_STATE[order_data["status"]],
-                            client_order_id=client_order_id,
-                            exchange_order_id=str(order_data["orderId"]),
-                        )
-                        self._order_tracker.process_order_update(order_update=order_update)
+                    if not tracked_order:
+                        return
+                    try:
+                        await tracked_order.get_exchange_order_id()
+                    except asyncio.TimeoutError:
+                        self.logger().error(f"Failed to get exchange order id for order: {tracked_order.client_order_id}")
+                        raise
+                    await self._update_order_fills_from_event_or_create(tracked_order, order_data)
+                    order_update = OrderUpdate(
+                        trading_pair=tracked_order.trading_pair,
+                        update_timestamp=int(order_data["timestamp"]) * 1e-3,
+                        new_state=CONSTANTS.ORDER_STATE[order_data["status"]],
+                        client_order_id=client_order_id,
+                        exchange_order_id=str(order_data["orderId"]),
+                    )
+                    self._order_tracker.process_order_update(order_update=order_update)
 
                 elif event_type == "balance":
                     self._process_balance_message(event_message)
@@ -778,6 +746,49 @@ class CoinflexExchange(ExchangeBase):
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
+
+    async def _update_order_fills_from_event_or_create(self, tracked_order, order_data):
+        """
+        Used to update fills from user stream events or order creation.
+        """
+        client_order_id = order_data.get("clientOrderId")
+        exec_amt_base = coinflex_utils.decimal_val_or_none(order_data.get("matchQuantity"))
+        if not exec_amt_base:
+            return
+
+        if not tracked_order:
+            tracked_order = self.in_flight_orders.get(client_order_id)
+
+        fill_price = coinflex_utils.decimal_val_or_none(order_data.get("matchPrice", order_data.get("price")))
+        exec_amt_quote = exec_amt_base * fill_price if exec_amt_base and fill_price else None
+        fee_paid = coinflex_utils.decimal_val_or_none(order_data.get("fees"))
+        if fee_paid:
+            fee = TradeFeeBase.new_spot_fee(
+                fee_schema=self.trade_fee_schema(),
+                trade_type=tracked_order.trade_type,
+                percent_token=order_data.get("feeInstrumentId"),
+                flat_fees=[TokenAmount(amount=fee_paid, token=order_data.get("feeInstrumentId"))]
+            )
+        else:
+            fee = self.get_fee(base_currency=tracked_order.base_asset,
+                               quote_currency=tracked_order.quote_asset,
+                               order_type=tracked_order.order_type,
+                               order_side=tracked_order.trade_type,
+                               amount=tracked_order.amount,
+                               price=tracked_order.price,
+                               is_maker=True)
+        trade_update = TradeUpdate(
+            trading_pair=tracked_order.trading_pair,
+            trade_id=int(order_data["matchId"]),
+            client_order_id=client_order_id,
+            exchange_order_id=str(order_data["orderId"]),
+            fill_timestamp=int(order_data["timestamp"]) * 1e-3,
+            fill_price=fill_price,
+            fill_base_amount=exec_amt_base,
+            fill_quote_amount=exec_amt_quote,
+            fee=fee,
+        )
+        self._order_tracker.process_trade_update(trade_update=trade_update)
 
     async def _update_order_fills_from_trades(self, tracked_order, order_update):
         """
@@ -831,7 +842,7 @@ class CoinflexExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=client_order_id,
                 trading_pair=tracked_order.trading_pair,
-                update_timestamp=self.current_timestamp,
+                update_timestamp=self.current_timestamp if self.current_timestamp != s_float_NaN else int(time.time()),
                 new_state=OrderState.FAILED,
             )
             self._order_tracker.process_order_update(order_update)
@@ -853,8 +864,7 @@ class CoinflexExchange(ExchangeBase):
 
         # If we get the exchange order id, use that, otherwise use client order id.
         try:
-            async with timeout(self._sleep_time(1)):
-                await tracked_order.get_exchange_order_id()
+            await tracked_order.get_exchange_order_id()
             order_params["orderId"] = tracked_order.exchange_order_id
         except asyncio.TimeoutError:
             order_params["clientOrderId"] = tracked_order.client_order_id
@@ -884,12 +894,12 @@ class CoinflexExchange(ExchangeBase):
             for order_result, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
 
-                # If the order has already been cancelled or has failed do nothing
+                # If the order has already been canceled or has failed do nothing
                 if client_order_id not in self.in_flight_orders:
                     continue
 
                 if isinstance(order_result, Exception) or not order_result.get("data"):
-                    if not isinstance(order_result, web_utils.CoinflexAPIError) or order_result.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
+                    if not isinstance(order_result, web_utils.CoinflexAPIError) or order_result.error_payload.get("errors") in CONSTANTS.ORDER_NOT_FOUND_ERRORS:
                         self.logger().network(
                             f"Error fetching status update for the order {client_order_id}, marking as not found: {order_result}.",
                             app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
