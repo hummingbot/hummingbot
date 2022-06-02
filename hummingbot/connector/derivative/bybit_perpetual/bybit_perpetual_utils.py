@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Dict, List, Optional
 
 from hummingbot.client.config.config_methods import using_exchange
@@ -5,14 +6,18 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+
+# Bybit fees: https://help.bybit.com/hc/en-us/articles/360039261154
+# Fees have to be expressed as percent value
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.0006"),
+    taker_percent_fee_decimal=Decimal("0.0001"),
+)
 
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USD"
-
-# Bybit fees: https://help.bybit.com/hc/en-us/articles/360039261154
-# Fees have to be expressed as percent value
-DEFAULT_FEES = [-0.025, 0.075]
 
 # USE_ETHEREUM_WALLET not required because default value is false
 # FEE_TYPE not required because default value is Percentage

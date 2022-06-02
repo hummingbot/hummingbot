@@ -1,11 +1,18 @@
+from decimal import Decimal
 from typing import Any, Dict
 
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "ZRX-ETH"
-DEFAULT_FEES = [0.1, 0.1]
+
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.001"),
+    taker_percent_fee_decimal=Decimal("0.001"),
+    buy_percent_fee_deducted_from_returns=True
+)
 
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:

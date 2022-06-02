@@ -1,9 +1,8 @@
 import asyncio
 import inspect
 import time
-from collections import deque, OrderedDict
-from typing import Dict, List
-from typing import TYPE_CHECKING
+from collections import OrderedDict, deque
+from typing import TYPE_CHECKING, Dict, List
 
 import pandas as pd
 
@@ -11,7 +10,7 @@ from hummingbot import check_dev_mode
 from hummingbot.client.config.config_helpers import get_strategy_config_map, missing_required_configs
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import required_exchanges, ethereum_wallet_required
+from hummingbot.client.settings import ethereum_wallet_required, required_exchanges
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -126,7 +125,7 @@ class StatusCommand:
                     script_status = '\n Status from PMM script would not appear here. ' \
                                     'Simply run the status command without "--live" to see PMM script status.'
                     await self.cls_display_delay(
-                        await self.strategy_status(live=True) + script_status + "\n\n Press escape key to stop update.", 1
+                        await self.strategy_status(live=True) + script_status + "\n\n Press escape key to stop update.", 0.1
                     )
                 self.app.live_updates = False
                 self.notify("Stopped live status display update.")
