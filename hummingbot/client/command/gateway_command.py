@@ -287,7 +287,10 @@ class GatewayCommand(GatewayChainApiManager):
         if self._gateway_monitor.current_status == Status.ONLINE:
             try:
                 status = await GatewayHttpClient.get_instance().get_gateway_status()
-                self.notify(pd.DataFrame(status))
+                if status is None or status == []:
+                    self.notify("There are currently no connectors online.")
+                else:
+                    self.notify(pd.DataFrame(status))
             except Exception:
                 self.notify("\nError: Unable to fetch status of connected Gateway server.")
         else:
