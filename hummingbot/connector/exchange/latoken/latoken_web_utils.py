@@ -1,7 +1,7 @@
 # import inspect
 # from types import FrameType
 from decimal import Decimal
-from typing import Any, Callable, Dict, Optional  # , cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union  # , cast
 
 import hummingbot.connector.exchange.latoken.latoken_constants as CONSTANTS
 from hummingbot.connector.exchange.latoken.latoken_stomper import LatokenConnectionsFactory
@@ -60,7 +60,7 @@ def ws_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
 
 
 # Order States for WS
-def get_order_status_ws(change_type: str, status: str, quantity: Decimal, filled: Decimal, delta_filled: Decimal):
+def get_order_status_ws(change_type: str, status: str, quantity: Decimal, filled: Decimal, delta_filled: Decimal) -> Optional[OrderState]:
 
     order_state = None  # None is not used to update order in hbot order mgmt
     if status == "ORDER_STATUS_PLACED":
@@ -93,14 +93,14 @@ def get_order_status_ws(change_type: str, status: str, quantity: Decimal, filled
     return order_state
 
 
-def get_order_status_rest(status: str, filled: Decimal, quantity: Decimal):
+def get_order_status_rest(status: str, filled: Decimal, quantity: Decimal) -> OrderState:
     new_state = ORDER_STATE[status]
     if new_state == OrderState.FILLED and quantity != filled:
         new_state = OrderState.PARTIALLY_FILLED
     return new_state
 
 
-def get_book_side(book):
+def get_book_side(book: List[Dict[str, str]]) -> Tuple[Tuple[Any, Any], ...]:
     return tuple((row['price'], row['quantity']) for row in book)
 
 
@@ -146,7 +146,7 @@ async def api_request(path: str,
                       return_err: bool = False,
                       limit_id: Optional[str] = None,
                       timeout: Optional[float] = None,
-                      headers=None):
+                      headers=None) -> Union[str, Dict[str, Any]]:
     if headers is None:
         headers = {}
 
