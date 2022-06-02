@@ -153,9 +153,6 @@ cdef class TradingIntensityIndicator:
 
         # Fit the probability density function; reuse previously calculated parameters as initial values
         try:
-            print(f"price_levels = {price_levels}")
-            print(f"lambdas_adj = {lambdas_adj}")
-            print(f"alpha = {self._alpha} :: kappa = {self._kappa}")
             params = curve_fit(lambda t, a, b: a*np.exp(-b*t),
                                price_levels,
                                lambdas_adj,

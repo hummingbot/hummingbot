@@ -126,6 +126,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         except FileNotFoundError:
             pass
 
+        self.get_config_map_execution_mode()
+        self.get_config_map_hanging_orders()
+
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
 
@@ -418,7 +421,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             or self._trading_intensity_buffer_size != trading_intensity_buffer_size
         ):
             self._trading_intensity_buffer_size = trading_intensity_buffer_size
-            self._trading_intensity.sampling_length = trading_intensity_buffer_size
+            if self._trading_intensity is not None:
+                self._trading_intensity.sampling_length = trading_intensity_buffer_size
 
         if self._trading_intensity is None and self.market_info.market.ready:
             self._trading_intensity = TradingIntensityIndicator(
