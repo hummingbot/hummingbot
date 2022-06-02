@@ -1,5 +1,4 @@
 import logging
-import time
 from decimal import Decimal
 from typing import Dict
 
@@ -47,13 +46,12 @@ class AVWAPExample(ScriptStrategyBase):
                         is_buy=self.vwap["is_buy"],
                         amount=vwap_order_adjusted.amount,
                         order_type=vwap_order_adjusted.order_type)
-                    self.last_ordered_ts = time.time()
+                    self.last_ordered_ts = self.current_timestamp
 
     def init_vwap_stats(self):
         # General parameters
         vwap = self.vwap.copy()
-        connector = self.connectors[vwap["connector_name"]]
-        vwap["connector"] = connector
+        vwap["connector"] = self.connectors[vwap["connector_name"]]
         vwap["delta"] = 0
         vwap["status"] = "ACTIVE"
         base_asset, quote_asset = split_hb_trading_pair(vwap["trading_pair"])
