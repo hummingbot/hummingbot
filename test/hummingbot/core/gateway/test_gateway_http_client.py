@@ -226,3 +226,132 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         self.assertEqual(connector, result["connector"])
         self.assertTrue(result["connection"])
         self.assertGreater(result["timestamp"], 0)
+
+    @async_test(loop=ev_loop)
+    async def test_clob_get_root(self):
+        chain = 'ethereum'
+        network = 'mainnet-beta'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_root(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertEqual(chain, result["chain"])
+        self.assertEqual(network, result["network"])
+        self.assertEqual(connector, result["connector"])
+        self.assertTrue(result["connection"])
+        self.assertGreater(result["timestamp"], 0)
+
+    @async_test(loop=ev_loop)
+    async def test_clob_get_markets(self):
+        chain = 'ethereum'
+        network = 'mainnet-beta'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_markets(
+            chain,
+            network,
+            connector
+        )
+
+    @async_test(loop=ev_loop)
+    async def test_clob_get_order_books(self):
+        chain = 'ethereum'
+        network = 'mainnet-beta'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_order_books(
+            chain,
+            network,
+            connector
+        )
+
+    @async_test(loop=ev_loop)
+    async def test_clob_get_tickers(self):
+        chain = 'ethereum'
+        network = 'mainnet-beta'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_tickers(
+            chain,
+            network,
+            connector
+        )
+
+    @async_test(loop=ev_loop)
+    async def test_clob_get_orders(self):
+        chain = 'ethereum'
+        network = 'mainnet-beta'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_orders(
+            chain,
+            network,
+            connector
+        )
+
+    @async_test(loop=ev_loop)
+    async def test_clob_post_orders(self):
+        chain = 'ethereum'
+        network = 'mainnet-beta'
+        connector = 'serum'
+
+        orders = []
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_post_orders(
+            chain,
+            network,
+            connector,
+            orders
+        )
+
+    @async_test(loop=ev_loop)
+    async def test_clob_delete_orders(self):
+        chain = 'ethereum'
+        network = 'mainnet-beta'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_delete_orders(
+            chain,
+            network,
+            connector
+        )
+
+    @async_test(loop=ev_loop)
+    async def test_clob_get_open_orders(self):
+        chain = 'ethereum'
+        network = 'mainnet-beta'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_open_orders(
+            chain,
+            network,
+            connector
+        )
+
+    @async_test(loop=ev_loop)
+    async def test_clob_get_filled_orders(self):
+        chain = 'ethereum'
+        network = 'mainnet-beta'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_filled_orders(
+            chain,
+            network,
+            connector
+        )
+
+    @async_test(loop=ev_loop)
+    async def test_clob_post_settle_funds(self):
+        chain = 'ethereum'
+        network = 'mainnet-beta'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_post_settle_funds(
+            chain,
+            network,
+            connector
+        )
