@@ -56,6 +56,7 @@ class RateOracle(NetworkBase):
 
     coingecko_token_categories = [
         "cryptocurrency",
+        "exchange-based-tokens",
         "decentralized-exchange",
         "decentralized-finance-defi",
         "smart-contract-platform",

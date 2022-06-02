@@ -19,6 +19,8 @@ connector_status = {
     'coinbase_pro': 'yellow',
     'coinflex': 'yellow',
     'coinflex_test': 'yellow',
+    'coinflex_perpetual': 'yellow',
+    'coinflex_perpetual_testnet': 'yellow',
     'coinzoom': 'yellow',
     'crypto_com': 'green',
     'digifinex': "yellow",

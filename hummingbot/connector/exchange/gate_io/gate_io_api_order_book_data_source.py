@@ -7,7 +7,7 @@ from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -130,7 +130,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "event": "subscribe",
                     "payload": [symbol]
                 }
-                subscribe_trade_request: WSRequest = WSJSONRequest(payload=trades_payload)
+                subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
 
                 order_book_payload = {
                     "time": int(self._time()),
@@ -138,7 +138,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "event": "subscribe",
                     "payload": [symbol, "100ms"]
                 }
-                subscribe_orderbook_request: WSRequest = WSJSONRequest(payload=order_book_payload)
+                subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
 
                 await ws.send(subscribe_trade_request)
                 await ws.send(subscribe_orderbook_request)

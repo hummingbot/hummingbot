@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -50,7 +50,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 "event": "subscribe",
                 "payload": symbols
             }
-            subscribe_order_change_request: WSRequest = WSJSONRequest(
+            subscribe_order_change_request: WSJSONRequest = WSJSONRequest(
                 payload=orders_change_payload,
                 is_auth_required=True)
 
@@ -60,7 +60,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 "event": "subscribe",
                 "payload": symbols
             }
-            subscribe_trades_request: WSRequest = WSJSONRequest(
+            subscribe_trades_request: WSJSONRequest = WSJSONRequest(
                 payload=trades_payload,
                 is_auth_required=True)
 
@@ -69,7 +69,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 "channel": CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
                 "event": "subscribe",  # "unsubscribe" for unsubscription
             }
-            subscribe_balance_request: WSRequest = WSJSONRequest(
+            subscribe_balance_request: WSJSONRequest = WSJSONRequest(
                 payload=balance_payload,
                 is_auth_required=True)
 
