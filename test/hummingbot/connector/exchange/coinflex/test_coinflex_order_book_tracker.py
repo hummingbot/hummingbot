@@ -50,7 +50,7 @@ class CoinflexOrderBookTrackerUnitTests(unittest.TestCase):
         self.assertEqual("coinflex", self.tracker.exchange_name)
 
         test_tracker = CoinflexOrderBookTracker(trading_pairs=[self.trading_pair],
-                                                domain="test",
+                                                domain="coinflex_test",
                                                 throttler=self.throttler)
 
         self.assertEqual("coinflex_test", test_tracker.exchange_name)
@@ -129,7 +129,8 @@ class CoinflexOrderBookTrackerUnitTests(unittest.TestCase):
                     ["4.00000200", "12.00000000"]
                 ]
             },
-            timestamp=time.time()
+            timestamp=time.time(),
+            metadata={"trading_pair": self.trading_pair}
         )
         self._simulate_message_enqueue(self.tracker._tracking_message_queues[self.trading_pair], snapshot_msg)
 
@@ -151,7 +152,8 @@ class CoinflexOrderBookTrackerUnitTests(unittest.TestCase):
                     ["4.00000200", "12.00000000"]
                 ]
             },
-            timestamp=time.time()
+            timestamp=time.time(),
+            metadata={"trading_pair": self.trading_pair}
         )
         past_diff_msg: OrderBookMessage = CoinflexOrderBook.diff_message_from_exchange(
             msg={

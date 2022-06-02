@@ -1,21 +1,22 @@
 #!/usr/bin/env python
-from async_timeout import timeout
-import os
-import sys
-import math
-import time
 import asyncio
 import logging
+import math
+import os
+import sys
+import time
 import unittest
 from os.path import join, realpath
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
+
+from async_timeout import timeout
+
+from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
+from hummingbot.connector.exchange.coinflex.coinflex_order_book_tracker import CoinflexOrderBookTracker
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
-from hummingbot.connector.exchange.coinflex.coinflex_order_book_tracker import CoinflexOrderBookTracker
-from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
-from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)

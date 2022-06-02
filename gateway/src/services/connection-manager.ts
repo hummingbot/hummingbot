@@ -4,6 +4,7 @@ import { Harmony } from '../chains/harmony/harmony';
 import { Polygon } from '../chains/polygon/polygon';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { Pangolin } from '../connectors/pangolin/pangolin';
+import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Ethereumish } from './common-interfaces';
 
 export async function getChain(chain: string, network: string) {
@@ -30,6 +31,8 @@ export async function getConnector(
     connectorInstance = Uniswap.getInstance(chain, network);
   else if (chain === 'avalanche' && connector === 'pangolin')
     connectorInstance = Pangolin.getInstance(chain, network);
+  else if (chain === 'avalanche' && connector === 'traderjoe')
+    connectorInstance = Traderjoe.getInstance(chain, network);
   else throw new Error('unsupported chain or connector');
   if (!connectorInstance.ready()) {
     await connectorInstance.init();
