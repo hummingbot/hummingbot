@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 
 import ujson
 
-import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
+import hummingbot.connector.derivative.coinflex_perpetual.constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import EndpointRESTRequest, RESTMethod, RESTResponse
@@ -29,7 +29,7 @@ def public_rest_url(path_url: str = "",
     """
     local_domain_api_version = domain_api_version or CONSTANTS.PUBLIC_API_VERSION
     local_endpoint_api_version = endpoint_api_version or CONSTANTS.PUBLIC_API_VERSION
-    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "coinflex_test" else local_domain_api_version
+    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "coinflex_perpetual_testnet" else local_domain_api_version
     endpoint = "" if not len(path_url) else f"/{path_url}"
     if only_hostname:
         return CONSTANTS.REST_URL.format(subdomain_prefix)
@@ -49,7 +49,7 @@ def private_rest_url(path_url: str = "",
     """
     local_domain_api_version = domain_api_version or CONSTANTS.PRIVATE_API_VERSION
     local_endpoint_api_version = endpoint_api_version or CONSTANTS.PRIVATE_API_VERSION
-    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "coinflex_test" else local_domain_api_version
+    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "coinflex_perpetual_testnet" else local_domain_api_version
     endpoint = "" if not len(path_url) else f"/{path_url}"
     if only_hostname:
         return CONSTANTS.REST_URL.format(subdomain_prefix)
@@ -79,12 +79,18 @@ def websocket_url(domain: str = CONSTANTS.DEFAULT_DOMAIN,
     """
     local_domain_api_version = domain_api_version or CONSTANTS.PUBLIC_API_VERSION
     local_endpoint_api_version = endpoint_api_version or CONSTANTS.PUBLIC_API_VERSION
-    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "coinflex_test" else local_domain_api_version
+    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "coinflex_perpetual_testnet" else local_domain_api_version
     return CONSTANTS.WSS_URL.format(subdomain_prefix, local_endpoint_api_version)
 
 
-def build_api_factory(throttler: AsyncThrottler, auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory(throttler=throttler, auth=auth, rest_pre_processors=[CoinflexRESTPreProcessor()])
+def build_api_factory(
+        throttler: Optional[AsyncThrottler] = None,
+        auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
+    throttler = throttler or create_throttler()
+    api_factory = WebAssistantsFactory(
+        throttler=throttler,
+        auth=auth,
+        rest_pre_processors=[CoinflexPerpetualRESTPreProcessor()])
     return api_factory
 
 
@@ -93,7 +99,7 @@ def create_throttler() -> AsyncThrottler:
 
 
 @dataclass
-class CoinflexRESTRequest(EndpointRESTRequest):
+class CoinflexPerpetualRESTRequest(EndpointRESTRequest):
     """
     CoinFLEX version of the `RESTRequest` class.
     """
@@ -151,7 +157,7 @@ class CoinflexRESTRequest(EndpointRESTRequest):
         return ""
 
 
-class CoinflexAPIError(IOError):
+class CoinflexPerpetualAPIError(IOError):
     """
     CoinFLEX API Errors
     """
@@ -160,9 +166,9 @@ class CoinflexAPIError(IOError):
         self.error_payload = error_payload
 
 
-class CoinflexRESTPreProcessor(RESTPreProcessorBase):
+class CoinflexPerpetualRESTPreProcessor(RESTPreProcessorBase):
 
-    async def pre_process(self, request: CoinflexRESTRequest) -> CoinflexRESTRequest:
+    async def pre_process(self, request: CoinflexPerpetualRESTRequest) -> CoinflexPerpetualRESTRequest:
         base_headers = {
             "Content-Type": "application/json",
             "User-Agent": CONSTANTS.USER_AGENT
@@ -220,20 +226,20 @@ async def rest_response_with_errors(rest_assistant, request):
 
 def _extract_error_from_response(response_data: Dict[str, Any]):
     if "errors" in response_data:
-        raise CoinflexAPIError(response_data)
+        raise CoinflexPerpetualAPIError(response_data)
     if "error" in response_data:
         response_data['errors'] = response_data.get('error')
-        raise CoinflexAPIError(response_data)
+        raise CoinflexPerpetualAPIError(response_data)
     if str(response_data.get("success")).lower() == "false":
         response_data['errors'] = response_data.get('message')
-        raise CoinflexAPIError(response_data)
+        raise CoinflexPerpetualAPIError(response_data)
     resp_data = response_data.get("data", [])
-    if len(resp_data) and str(resp_data[0].get("success")).lower() == "false":
+    if resp_data and len(resp_data) and str(resp_data[0].get("success")).lower() == "false":
         response_data['errors'] = resp_data[0].get('message')
-        raise CoinflexAPIError(response_data)
+        raise CoinflexPerpetualAPIError(response_data)
 
 
-async def api_call_with_retries(request: CoinflexRESTRequest,
+async def api_call_with_retries(request: CoinflexPerpetualRESTRequest,
                                 rest_assistant: RESTAssistant,
                                 throttler: AsyncThrottler,
                                 logger: logging.Logger = None,
@@ -266,7 +272,7 @@ async def api_call_with_retries(request: CoinflexRESTRequest,
             return await api_call_with_retries(request=request, rest_assistant=rest_assistant, throttler=throttler,
                                                logger=logger, try_count=try_count)
         else:
-            raise CoinflexAPIError({"errors": resp, "status": http_status})
+            raise CoinflexPerpetualAPIError({"errors": resp, "status": http_status})
     return resp
 
 
@@ -293,7 +299,7 @@ async def api_request(path: str,
     api_factory = api_factory or build_api_factory(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
 
-    request = CoinflexRESTRequest(
+    request = CoinflexPerpetualRESTRequest(
         method=method,
         endpoint=path,
         domain=domain,
