@@ -169,7 +169,7 @@ class ClientConfigAdapter:
             type_ = field.type_
             if hasattr(self, attr):
                 value = getattr(self, attr)
-                printable_value = self._get_printable_value(value, secure)
+                printable_value = self._get_printable_value(attr, value, secure)
                 client_field_data = field_info.extra.get("client_data")
             else:
                 value = None
@@ -210,6 +210,9 @@ class ClientConfigAdapter:
     def get_default(self, attr_name: str) -> Any:
         return self._hb_config.__fields__[attr_name].field_info.default
 
+    def get_type(self, attr_name: str) -> Type:
+        return self._hb_config.__fields__[attr_name].type_
+
     def generate_yml_output_str_with_comments(self) -> str:
         fragments_with_comments = [self._generate_title()]
         self._add_model_fragments(fragments_with_comments)
@@ -242,15 +245,22 @@ class ClientConfigAdapter:
         yield
         self._hb_config.Config.validate_assignment = True
 
-    @staticmethod
-    def _get_printable_value(value: Any, secure: bool) -> str:
+    def _get_printable_value(self, attr: str, value: Any, secure: bool) -> str:
         if isinstance(value, ClientConfigAdapter):
-            printable_value = value.hb_config.Config.title
+            if self._is_union(self.get_type(attr)):  # it is a union of modes
+                printable_value = value.hb_config.Config.title
+            else:  # it is a collection of settings stored in a submodule
+                printable_value = ""
         elif isinstance(value, SecretStr) and not secure:
             printable_value = value.get_secret_value()
         else:
             printable_value = str(value)
         return printable_value
+
+    @staticmethod
+    def _is_union(t: Type) -> bool:
+        is_union = hasattr(t, "__origin__") and t.__origin__ == Union
+        return is_union
 
     def _dict_in_conf_order(self) -> Dict[str, Any]:
         d = {}

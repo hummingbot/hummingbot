@@ -24,7 +24,7 @@ class SecurityTest(unittest.TestCase):
         self.default_pswrd_verification_path = security.PASSWORD_VERIFICATION_PATH
         self.default_connectors_conf_dir_path = config_helpers.CONNECTORS_CONF_DIR_PATH
         config_crypt.PASSWORD_VERIFICATION_PATH = (
-            Path(self.new_conf_dir_path.name) / ".password_verification"
+            Path(self.new_conf_dir_path.name) / "conf" / ".password_verification"
         )
         security.PASSWORD_VERIFICATION_PATH = config_crypt.PASSWORD_VERIFICATION_PATH
         config_helpers.CONNECTORS_CONF_DIR_PATH = (
