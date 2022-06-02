@@ -37,6 +37,11 @@ coinflex_api_secret: null
 coinflex_test_api_key: null
 coinflex_test_api_secret: null
 
+coinflex_perpetual_api_key: null
+coinflex_perpetual_api_secret: null
+coinflex_perpetual_testnet_api_key: null
+coinflex_perpetual_testnet_api_secret: null
+
 coinzoom_api_key: null
 coinzoom_secret_key: null
 coinzoom_username: null
@@ -66,6 +71,10 @@ loopring_private_key: null
 kucoin_api_key: null
 kucoin_secret_key: null
 kucoin_passphrase: null
+
+kucoin_testnet_api_key: null
+kucoin_testnet_secret_key: null
+kucoin_testnet_passphrase: null
 
 altmarkets_api_key: null
 altmarkets_secret_key: null
@@ -187,8 +196,8 @@ db_username: null
 db_password: null
 db_name: null
 
-script_enabled: null
-script_file_path: null
+pmm_script_enabled: null
+pmm_script_file_path: null
 
 # Balance Limit Configurations
 # e.g. Setting USDT and BTC limits on Binance.
@@ -281,3 +290,6 @@ error-label: "#FF0000"
 
 # tabulate table format style (https://github.com/astanin/python-tabulate#table-format)
 tables_format: 'psql'
+
+# previously imported strategy
+previous_strategy:

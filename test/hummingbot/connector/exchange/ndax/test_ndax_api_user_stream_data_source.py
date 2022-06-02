@@ -88,8 +88,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
         initial_last_recv_time = self.data_source.last_recv_time
 
         self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                    messages))
+            self.data_source.listen_for_user_stream(messages))
         # Add the authentication response for the websocket
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value,
@@ -128,8 +127,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
         ws_connect_mock.return_value.close.side_effect = lambda: self._raise_exception(Exception)
 
         self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                    messages))
+            self.data_source.listen_for_user_stream(messages))
         # Add the authentication response for the websocket
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value,
@@ -153,8 +151,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             self.async_run_with_timeout(self.listening_task)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -168,8 +165,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             self.async_run_with_timeout(self.listening_task)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -183,8 +179,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             # Add the authentication response for the websocket
             self.mocking_assistant.add_websocket_aiohttp_message(
                 ws_connect_mock.return_value,
@@ -213,8 +208,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
 
         try:
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             self.async_run_with_timeout(self.listening_task)
         except Exception:
             pass
@@ -234,8 +228,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
 
         try:
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             # Add the authentication response for the websocket
             self.mocking_assistant.add_websocket_aiohttp_message(
                 ws_connect_mock.return_value,

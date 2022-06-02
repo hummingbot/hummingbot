@@ -47,11 +47,11 @@ class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._ws_assistant.last_recv_time if self._ws_assistant is not None else 0
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         *required
         Subscribe to user stream via web socket, and keep the connection open for incoming messages
-        :param ev_loop: ev_loop to execute this function in
+
         :param output: an async queue where the incoming messages are stored
         """
         while True:

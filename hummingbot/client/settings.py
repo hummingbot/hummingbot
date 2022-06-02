@@ -36,7 +36,9 @@ TEMPLATE_PATH = realpath(join(__file__, "../../templates/"))
 CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
-SCRIPTS_PATH = realpath(join(__file__, "../../../scripts/"))
+PMM_SCRIPTS_PATH = realpath(join(__file__, "../../../pmm_scripts/"))
+SCRIPT_STRATEGIES_MODULE = "scripts"
+SCRIPT_STRATEGIES_PATH = realpath(join(__file__, f"../../../{SCRIPT_STRATEGIES_MODULE}/"))
 CERTS_PATH = "certs/"
 
 # Certificates for securely communicating with the gateway api

@@ -1,11 +1,9 @@
 import argparse
-from typing import (
-    List,
-    Any
-)
-from hummingbot.exceptions import ArgumentParserError
+from typing import Any, List
+
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.exceptions import ArgumentParserError
 
 
 class ThrowingArgumentParser(argparse.ArgumentParser):
@@ -71,6 +69,8 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     start_parser = subparsers.add_parser("start", help="Start the current bot")
     start_parser.add_argument("--restore", default=False, action="store_true", dest="restore", help="Restore and maintain any active orders.")
     # start_parser.add_argument("--log-level", help="Level of logging")
+    start_parser.add_argument("--script", type=str, dest="script", help="Script strategy file name")
+
     start_parser.set_defaults(func=hummingbot.start)
 
     stop_parser = subparsers.add_parser('stop', help="Stop the current bot")
@@ -95,7 +95,7 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     gateway_create_parser.set_defaults(func=hummingbot.create_gateway)
 
     gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")
-    gateway_config_parser.add_argument("key", nargs=1, default=None, help="Name of the parameter you want to view/change")
+    gateway_config_parser.add_argument("key", nargs="?", default=None, help="Name of the parameter you want to view/change")
     gateway_config_parser.add_argument("value", nargs="?", default=None, help="New value for the parameter")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
@@ -119,7 +119,7 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     gateway_test_parser.set_defaults(func=hummingbot.test_connection)
 
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
-    exit_parser.add_argument("-f", "--force", "--suspend", action="store_true", help="Force exit without cancelling outstanding orders",
+    exit_parser.add_argument("-f", "--force", "--suspend", action="store_true", help="Force exit without canceling outstanding orders",
                              default=False)
     exit_parser.set_defaults(func=hummingbot.exit)
 
@@ -133,10 +133,14 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     ticker_parser.add_argument("--market", type=str, dest="market", help="The market (trading pair) of the order book")
     ticker_parser.set_defaults(func=hummingbot.ticker)
 
-    script_parser = subparsers.add_parser("script", help="Send command to running script instance")
-    script_parser.add_argument("cmd", nargs="?", default=None, help="Command")
-    script_parser.add_argument("args", nargs="*", default=None, help="Arguments")
-    script_parser.set_defaults(func=hummingbot.script_command)
+    pmm_script_parser = subparsers.add_parser("pmm_script", help="Send command to running PMM script instance")
+    pmm_script_parser.add_argument("cmd", nargs="?", default=None, help="Command")
+    pmm_script_parser.add_argument("args", nargs="*", default=None, help="Arguments")
+    pmm_script_parser.set_defaults(func=hummingbot.pmm_script_command)
+
+    previous_strategy_parser = subparsers.add_parser("previous", help="Imports the last strategy used")
+    previous_strategy_parser.add_argument("option", nargs="?", choices=["Yes,No"], default=None)
+    previous_strategy_parser.set_defaults(func=hummingbot.previous_strategy)
 
     # add shortcuts so they appear in command help
     shortcuts = global_config_map.get("command_shortcuts").value

@@ -1,7 +1,7 @@
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
-DEFAULT_DOMAIN = "live"
+DEFAULT_DOMAIN = "coinflex"
 
 HBOT_ORDER_ID_PREFIX = "48"
 USER_AGENT = "HBOT"
@@ -62,8 +62,9 @@ ONE_DAY = 86400
 MAX_REQUEST = 5000
 
 # Order States
-ORDER_CANCELLED_STATES = [
+ORDER_CANCELED_STATES = [
     "OrderClosed",
+    "cancelOrder",
     "CANCELED",
     "CANCELED_BY_USER",
     "CANCELED_BY_MAKER_ONLY",
@@ -75,6 +76,7 @@ ORDER_CANCELLED_STATES = [
 
 ORDER_STATE = {
     "PENDING": OrderState.PENDING_CREATE,
+    "placeOrder": OrderState.OPEN,
     "OrderOpened": OrderState.OPEN,
     "OPEN": OrderState.OPEN,
     "OrderMatched": OrderState.FILLED,
@@ -85,10 +87,13 @@ ORDER_STATE = {
     "EXPIRED": OrderState.FAILED,
 }
 
-for state in ORDER_CANCELLED_STATES:
-    ORDER_STATE[state] = OrderState.CANCELLED
+for state in ORDER_CANCELED_STATES:
+    ORDER_STATE[state] = OrderState.CANCELED
 
-ORDER_NOT_FOUND_ERROR = "Open order not found with clientOrderId or orderId"
+ORDER_NOT_FOUND_ERRORS = [
+    "Open order not found with clientOrderId or orderId",
+    "Order request was rejected with status REJECT_CANCEL_ORDER_ID_NOT_FOUND"
+]
 
 # Websocket event types
 DIFF_EVENT_TYPE = "depth"

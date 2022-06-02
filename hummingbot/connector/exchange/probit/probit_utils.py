@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Dict, List, Tuple
 
 import dateutil.parser as dp
@@ -9,12 +10,17 @@ from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.002"),
+    taker_percent_fee_decimal=Decimal("0.002"),
+)
+
 
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "ETH-USDT"
-
-DEFAULT_FEES = [0.2, 0.2]
 
 
 def convert_iso_to_epoch(ts: str) -> float:

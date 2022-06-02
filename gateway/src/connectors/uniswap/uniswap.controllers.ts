@@ -46,7 +46,8 @@ export async function getTradeInfo(
   baseAsset: string,
   quoteAsset: string,
   baseAmount: Decimal,
-  tradeSide: string
+  tradeSide: string,
+  allowedSlippage?: string
 ): Promise<TradeInfo> {
   const baseToken: Tokenish = getFullTokenFromSymbol(
     ethereumish,
@@ -67,13 +68,15 @@ export async function getTradeInfo(
     expectedTrade = await uniswapish.estimateBuyTrade(
       quoteToken,
       baseToken,
-      requestAmount
+      requestAmount,
+      allowedSlippage
     );
   } else {
     expectedTrade = await uniswapish.estimateSellTrade(
       baseToken,
       quoteToken,
-      requestAmount
+      requestAmount,
+      allowedSlippage
     );
   }
 
@@ -99,7 +102,8 @@ export async function price(
       req.base,
       req.quote,
       new Decimal(req.amount),
-      req.side
+      req.side,
+      req.allowedSlippage
     );
   } catch (e) {
     if (e instanceof Error) {
@@ -149,7 +153,8 @@ export async function trade(
 ): Promise<TradeResponse> {
   const startTimestamp: number = Date.now();
 
-  const { limitPrice, maxFeePerGas, maxPriorityFeePerGas } = req;
+  const { limitPrice, maxFeePerGas, maxPriorityFeePerGas, allowedSlippage } =
+    req;
 
   let maxFeePerGasBigNumber: BigNumber | undefined;
   if (maxFeePerGas) {
@@ -231,7 +236,8 @@ export async function trade(
       uniswapish.gasLimit,
       req.nonce,
       maxFeePerGasBigNumber,
-      maxPriorityFeePerGasBigNumber
+      maxPriorityFeePerGasBigNumber,
+      allowedSlippage
     );
 
     if (tx.hash) {

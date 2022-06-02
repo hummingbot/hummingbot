@@ -102,8 +102,9 @@ def chdir_to_data_directory():
     app_data_dir: str = appdirs.user_data_dir("Hummingbot", "hummingbot.io")
     os.makedirs(os.path.join(app_data_dir, "logs"), 0o711, exist_ok=True)
     os.makedirs(os.path.join(app_data_dir, "conf"), 0o711, exist_ok=True)
-    os.makedirs(os.path.join(app_data_dir, "scripts"), 0o711, exist_ok=True)
+    os.makedirs(os.path.join(app_data_dir, "pmm_scripts"), 0o711, exist_ok=True)
     os.makedirs(os.path.join(app_data_dir, "certs"), 0o711, exist_ok=True)
+    os.makedirs(os.path.join(app_data_dir, "scripts"), 0o711, exist_ok=True)
     os.chdir(app_data_dir)
     set_prefix_path(app_data_dir)
 

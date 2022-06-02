@@ -4,6 +4,7 @@ import {
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from '../../services/error-handler';
+import { isFractionString } from '../../services/validators';
 import { UniswapConfig } from './uniswap.config';
 import routerAbi from './uniswap_v2_router_abi.json';
 import {
@@ -46,7 +47,7 @@ export class Uniswap implements Uniswapish {
     this.chainId = this.ethereum.chainId;
     this._ttl = UniswapConfig.config.ttl(2);
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = UniswapConfig.config.gasLimit(2);
+    this._gasLimit = this.ethereum.gasLimit;
     this._router = config.uniswapV2RouterAddress(network);
   }
 
@@ -122,9 +123,17 @@ export class Uniswap implements Uniswapish {
   }
 
   /**
-   * Gets the allowed slippage percent from configuration.
+   * Gets the allowed slippage percent from the optional parameter or the value
+   * in the configuration.
+   *
+   * @param allowedSlippageStr (Optional) should be of the form '1/10'.
    */
-  getSlippagePercentage(): Percent {
+  public getAllowedSlippage(allowedSlippageStr?: string): Percent {
+    if (allowedSlippageStr != null && isFractionString(allowedSlippageStr)) {
+      const fractionSplit = allowedSlippageStr.split('/');
+      return new Percent(fractionSplit[0], fractionSplit[1]);
+    }
+
     const allowedSlippage = UniswapConfig.config.allowedSlippage(2);
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
@@ -146,7 +155,8 @@ export class Uniswap implements Uniswapish {
   async estimateSellTrade(
     baseToken: Token,
     quoteToken: Token,
-    amount: BigNumber
+    amount: BigNumber,
+    allowedSlippage?: string
   ): Promise<ExpectedTrade> {
     const nativeTokenAmount: TokenAmount = new TokenAmount(
       baseToken,
@@ -178,7 +188,7 @@ export class Uniswap implements Uniswapish {
         `${baseToken.name}.`
     );
     const expectedAmount = trades[0].minimumAmountOut(
-      this.getSlippagePercentage()
+      this.getAllowedSlippage(allowedSlippage)
     );
     return { trade: trades[0], expectedAmount };
   }
@@ -196,7 +206,8 @@ export class Uniswap implements Uniswapish {
   async estimateBuyTrade(
     quoteToken: Token,
     baseToken: Token,
-    amount: BigNumber
+    amount: BigNumber,
+    allowedSlippage?: string
   ): Promise<ExpectedTrade> {
     const nativeTokenAmount: TokenAmount = new TokenAmount(
       baseToken,
@@ -228,7 +239,7 @@ export class Uniswap implements Uniswapish {
     );
 
     const expectedAmount = trades[0].maximumAmountIn(
-      this.getSlippagePercentage()
+      this.getAllowedSlippage(allowedSlippage)
     );
     return { trade: trades[0], expectedAmount };
   }
@@ -257,12 +268,13 @@ export class Uniswap implements Uniswapish {
     gasLimit: number,
     nonce?: number,
     maxFeePerGas?: BigNumber,
-    maxPriorityFeePerGas?: BigNumber
+    maxPriorityFeePerGas?: BigNumber,
+    allowedSlippage?: string
   ): Promise<Transaction> {
     const result: SwapParameters = Router.swapCallParameters(trade, {
       ttl,
       recipient: wallet.address,
-      allowedSlippage: this.getSlippagePercentage(),
+      allowedSlippage: this.getAllowedSlippage(allowedSlippage),
     });
 
     const contract: Contract = new Contract(uniswapRouter, abi, wallet);

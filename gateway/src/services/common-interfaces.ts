@@ -31,8 +31,13 @@ import {
   Currency as SushiCurrency,
   Fraction as SushiFraction,
 } from '@sushiswap/sdk';
+import {
+  Token as TokenTraderjoe,
+  CurrencyAmount as CurrencyAmountTraderjoe,
+  Trade as TradeTraderjoe,
+  Fraction as TraderjoeFraction,
+} from '@traderjoe-xyz/sdk';
 
-export type Tokenish = Token | TokenPangolin | UniswapCoreToken | SushiToken;
 export type UniswapishTrade =
   | Trade
   | TradePangolin
@@ -41,13 +46,30 @@ export type UniswapishTrade =
       SushiToken,
       SushiTradeType.EXACT_INPUT | SushiTradeType.EXACT_OUTPUT
     >
+
+export type Tokenish =
+  | Token
+  | TokenPangolin
+  | TokenTraderjoe
+  | UniswapCoreToken
+  | SushiToken;
+export type UniswapishTrade =
+  | Trade
+  | TradePangolin
+  | TradeTraderjoe
+  | SushiswapTrade<SushiToken, SushiToken, SushiTradeType.EXACT_INPUT | SushiTradeType.EXACT_OUTPUT>
   | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
   | UniswapCoreCurrencyAmount<Currency>
+  | CurrencyAmountTraderjoe
   | sushiCurrencyAmount<SushiCurrency | SushiToken>;
-export type Fractionish = UniswapFraction | PangolinFraction | SushiFraction;
+export type Fractionish =
+  | UniswapFraction
+  | PangolinFraction
+  | TraderjoeFraction
+  | SushiFraction;
 
 export interface ExpectedTrade {
   trade: UniswapishTrade;
@@ -96,7 +118,8 @@ export interface Uniswapish {
   estimateSellTrade(
     baseToken: Tokenish,
     quoteToken: Tokenish,
-    amount: BigNumber
+    amount: BigNumber,
+    allowedSlippage?: string
   ): Promise<ExpectedTrade>;
 
   /**
@@ -112,7 +135,8 @@ export interface Uniswapish {
   estimateBuyTrade(
     quoteToken: Tokenish,
     baseToken: Tokenish,
-    amount: BigNumber
+    amount: BigNumber,
+    allowedSlippage?: string
   ): Promise<ExpectedTrade>;
 
   /**
@@ -139,7 +163,8 @@ export interface Uniswapish {
     gasLimit: number,
     nonce?: number,
     maxFeePerGas?: BigNumber,
-    maxPriorityFeePerGas?: BigNumber
+    maxPriorityFeePerGas?: BigNumber,
+    allowedSlippage?: string
   ): Promise<Transaction>;
 }
 

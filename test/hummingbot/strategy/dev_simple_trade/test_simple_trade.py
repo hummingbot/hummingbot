@@ -1,4 +1,3 @@
-import logging
 import unittest
 from decimal import Decimal
 from typing import List
@@ -6,10 +5,8 @@ from typing import List
 import pandas as pd
 
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
@@ -23,9 +20,6 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.strategy.dev_simple_trade.dev_simple_trade import SimpleTradeStrategy
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from test.mock.mock_paper_exchange import MockPaperExchange
-
-logging.basicConfig(level=logging.ERROR)
 
 
 class SimpleTradeUnitTest(unittest.TestCase):

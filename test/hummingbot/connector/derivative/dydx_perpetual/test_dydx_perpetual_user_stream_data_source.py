@@ -75,7 +75,7 @@ class DydxPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(self.ev_loop, asyncio.Queue()))
+            self.async_run_with_timeout(self.data_source.listen_for_user_stream(asyncio.Queue()))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth.DydxPerpetualAuth.get_ws_auth_params")
@@ -89,7 +89,7 @@ class DydxPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         ws_connect_mock.return_value.receive.side_effect = lambda *_: self._create_exception_and_unlock_test_with_event(
             Exception("TEST ERROR")
         )
-        self.async_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, asyncio.Queue()))
+        self.async_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(asyncio.Queue()))
 
         self.async_run_with_timeout(self.resume_test_event.wait(), 1.0)
 

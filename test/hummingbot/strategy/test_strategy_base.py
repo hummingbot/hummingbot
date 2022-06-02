@@ -26,7 +26,7 @@ from hummingbot.core.event.events import (
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker import OrderTracker
 from hummingbot.strategy.strategy_base import StrategyBase
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 
 ms_logger = None
 

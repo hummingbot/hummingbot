@@ -85,7 +85,7 @@ class TestAltmarketsAPIUserStreamDataSource(unittest.TestCase):
     def test_listen_for_user_stream_user_trades(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         output_queue = asyncio.Queue()
-        self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        self.ev_loop.create_task(self.data_source.listen_for_user_stream(output_queue))
 
         resp = self.get_user_trades_mock()
         self.mocking_assistant.add_websocket_text_message(
@@ -135,7 +135,7 @@ class TestAltmarketsAPIUserStreamDataSource(unittest.TestCase):
             message=json.dumps(resp))
 
         output_queue = asyncio.Queue()
-        self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        self.ev_loop.create_task(self.data_source.listen_for_user_stream(output_queue))
         self.mocking_assistant.run_until_all_text_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(output_queue.empty())

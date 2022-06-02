@@ -1,9 +1,9 @@
 import cachetools
 import errno
 import functools
-import pandas as pd
 import numpy as np
 import socket
+import pandas as pd
 
 
 def async_ttl_cache(ttl: int = 3600, maxsize: int = 1):

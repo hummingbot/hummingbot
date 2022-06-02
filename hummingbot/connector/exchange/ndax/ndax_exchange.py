@@ -3,24 +3,14 @@ import logging
 import math
 import time
 from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-    Union,
-)
+from typing import Any, AsyncIterable, Dict, List, Optional, Union
 
 import aiohttp
 import ujson
 
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
-from hummingbot.connector.exchange.ndax.ndax_in_flight_order import (
-    NdaxInFlightOrder,
-    NdaxInFlightOrderNotCreated,
-)
+from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder, NdaxInFlightOrderNotCreated
 from hummingbot.connector.exchange.ndax.ndax_order_book_tracker import NdaxOrderBookTracker
 from hummingbot.connector.exchange.ndax.ndax_user_stream_tracker import NdaxUserStreamTracker
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
@@ -29,8 +19,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
@@ -252,6 +241,8 @@ class NdaxExchange(ExchangeBase):
         It starts tracking order book, polling trading rules,
         updating statuses and tracking user data.
         """
+        self.logger().warning("This exchange connector does not provide trades feed. "
+                              "Strategies which depend on it will not work properly.")
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
@@ -967,7 +958,7 @@ class NdaxExchange(ExchangeBase):
             if was_locally_working and tracked_order.is_working:
                 self.trigger_order_created_event(tracked_order)
             elif tracked_order.is_cancelled:
-                self.logger().info(f"Successfully cancelled order {client_order_id}")
+                self.logger().info(f"Successfully canceled order {client_order_id}")
                 self.trigger_event(MarketEvent.OrderCancelled,
                                    OrderCancelledEvent(
                                        self.current_timestamp,
