@@ -38,15 +38,6 @@ import {
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
 
-export type UniswapishTrade =
-  | Trade
-  | TradePangolin
-  | SushiswapTrade<
-      SushiToken,
-      SushiToken,
-      SushiTradeType.EXACT_INPUT | SushiTradeType.EXACT_OUTPUT
-    >
-
 export type Tokenish =
   | Token
   | TokenPangolin
@@ -58,10 +49,10 @@ export type UniswapishTrade =
   | TradePangolin
   | TradeTraderjoe
   | SushiswapTrade<
-      SushiToken, 
-      SushiToken, 
+      SushiToken,
+      SushiToken,
       SushiTradeType.EXACT_INPUT | SushiTradeType.EXACT_OUTPUT
-      >
+    >
   | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
 export type UniswapishAmount =
   | CurrencyAmount
