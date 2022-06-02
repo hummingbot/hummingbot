@@ -1,5 +1,6 @@
 from decimal import Decimal
 from enum import Enum
+from typing import Any, Dict
 
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
@@ -17,7 +18,7 @@ class LatokenTakeType(Enum):
 
 
 class LatokenFeeSchema:
-    def __init__(self, fee_schema):
+    def __init__(self, fee_schema: Dict[str, Any]):
         if fee_schema is None:
             return
         self.maker_fee = Decimal(fee_schema["makerFee"])

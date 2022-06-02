@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import ujson
 
@@ -60,11 +60,15 @@ class LatokenExchange(ExchangePyBase):
         return LatokenAuth(api_key=self._api_key, secret_key=self._secret_key, time_provider=self._time_synchronizer)
 
     @property
+    def auth(self) -> LatokenAuth:
+        return self._auth
+
+    @property
     def rate_limits_rules(self):
         return CONSTANTS.RATE_LIMITS
 
     @property
-    def domain(self):
+    def domain(self) -> str:
         return self._domain
 
     @property
@@ -72,25 +76,25 @@ class LatokenExchange(ExchangePyBase):
         return "latoken" if self._domain == CONSTANTS.DEFAULT_DOMAIN else f"latoken_{self._domain}"
 
     @property
-    def client_order_id_max_length(self):
+    def client_order_id_max_length(self) -> int:
         return CONSTANTS.MAX_ORDER_ID_LEN
 
     @property
-    def client_order_id_prefix(self):
+    def client_order_id_prefix(self) -> str:
         return CONSTANTS.HBOT_ORDER_ID_PREFIX
 
     @property
-    def trading_rules_request_path(self):  # not applicable because we need to request multiple REST endpoints
+    def trading_rules_request_path(self) -> str:  # not applicable because we need to request multiple REST endpoints
         return CONSTANTS.PAIR_PATH_URL
 
     @property
-    def check_network_request_path(self):
+    def check_network_request_path(self) -> str:
         return CONSTANTS.PING_PATH_URL
 
-    def supported_order_types(self):
+    def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT]
 
-    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
         exchange_order_id = await tracked_order.get_exchange_order_id()
         api_json = {"id": exchange_order_id}
         cancel_result = await self._api_post(
@@ -375,7 +379,7 @@ class LatokenExchange(ExchangePyBase):
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
             domain=self.domain,
-            auth=self._auth)
+            auth=self.auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return LatokenAPIOrderBookDataSource(
@@ -388,7 +392,7 @@ class LatokenExchange(ExchangePyBase):
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return LatokenAPIUserStreamDataSource(
-            auth=self._auth,
+            auth=self.auth,
             trading_pairs=self._trading_pairs,
             domain=self.domain,
             api_factory=self._web_assistants_factory,
@@ -396,7 +400,7 @@ class LatokenExchange(ExchangePyBase):
             time_synchronizer=self._time_synchronizer,
         )
 
-    async def _process_account_balance_update(self, balances):
+    async def _process_account_balance_update(self, balances: List[Dict[str, Any]]) -> Set[str]:
         remote_asset_names = set()
 
         balance_to_gather = [
@@ -410,7 +414,7 @@ class LatokenExchange(ExchangePyBase):
                       isinstance(currency, dict) and currency["status"] != 'FAILURE'}
 
         for balance in balances:
-            if balance['status'] == "FAILURE" and balance['error'] == 'NOT_FOUND':
+            if balance["status"] == "FAILURE" and balance["error"] == 'NOT_FOUND':
                 self.logger().error(f"Could not resolve currency details for balance={balance}")
                 continue
             asset_name = currencies.get(balance["currency"], None)
@@ -426,7 +430,7 @@ class LatokenExchange(ExchangePyBase):
 
         return remote_asset_names
 
-    def _process_full_account_balances_refresh(self, remote_asset_names, balances):
+    def _process_full_account_balances_refresh(self, remote_asset_names: Set[str], balances: List[Dict[str, Any]]):
         """ use this for rest call and not ws because ws does not send entire account balance list"""
         local_asset_names = set(self._account_balances.keys())
         if not balances:
@@ -441,7 +445,7 @@ class LatokenExchange(ExchangePyBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    async def _process_trade_update(self, trade):
+    async def _process_trade_update(self, trade: Dict[str, Any]):
         symbol = f"{trade['baseCurrency']}/{trade['quoteCurrency']}"
         trading_pair = await self._orderbook_ds.trading_pair_associated_to_exchange_symbol(
             symbol=symbol, domain=self._domain, api_factory=self._web_assistants_factory, throttler=self._throttler)
@@ -475,7 +479,7 @@ class LatokenExchange(ExchangePyBase):
 
         self._order_tracker.process_trade_update(trade_update)
 
-    async def _process_order_update(self, order):
+    async def _process_order_update(self, order: Dict[str, Any]):
         symbol = f"{order['baseCurrency']}/{order['quoteCurrency']}"
         trading_pair = await self._orderbook_ds.trading_pair_associated_to_exchange_symbol(
             symbol=symbol, domain=self._domain, api_factory=self._web_assistants_factory, throttler=self._throttler)
