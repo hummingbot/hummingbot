@@ -281,7 +281,7 @@ class HummingbotApplication(*commands):
             conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
 
             if connector_name.endswith("paper_trade") and conn_setting.type == ConnectorType.Exchange:
-                connector = create_paper_trade_market(conn_setting.parent_name, trading_pairs)
+                connector = create_paper_trade_market(conn_setting.parent_name, self.client_config_map, trading_pairs)
                 paper_trade_account_balance = self.client_config_map.paper_trade.paper_trade_account_balance
                 if paper_trade_account_balance is not None:
                     for asset, balance in paper_trade_account_balance.items():
@@ -306,7 +306,7 @@ class HummingbotApplication(*commands):
     def _initialize_notifiers(self):
         self.notifiers.extend(
             [
-                notifier for notifier in self.client_config_map.telegram_mode.get_notifiers()
+                notifier for notifier in self.client_config_map.telegram_mode.get_notifiers(self)
                 if notifier not in self.notifiers
             ]
         )

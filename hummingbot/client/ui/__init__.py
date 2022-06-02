@@ -107,7 +107,7 @@ def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager], style:
     secrets_manager = secrets_manager_cls(password)
     errors = migrate_configs(secrets_manager)
     if len(errors) != 0:
-        _migration_errors_dialog(errors)
+        _migration_errors_dialog(errors, style)
     else:
         message_dialog(
             title='Configs Migration Success',

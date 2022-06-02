@@ -100,7 +100,7 @@ def migrate_global_config() -> List[str]:
             if key in client_config_map.keys():
                 migrate_global_config_field(client_config_map, data, key)
         for key in data:
-            logging.getLogger().warning(f"ConfigVar {key} was not migrated.")
+            logging.getLogger().warning(f"Global ConfigVar {key} was not migrated.")
         errors.extend(client_config_map.validate_model())
         if len(errors) == 0:
             save_to_yml(CLIENT_CONFIG_PATH, client_config_map)

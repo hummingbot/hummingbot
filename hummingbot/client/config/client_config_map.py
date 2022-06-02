@@ -453,6 +453,9 @@ class GlobalTokenConfigMap(BaseClientModel):
         ),
     )
 
+    class Config:
+        title = "global_token"
+
     # === post-validations ===
 
     @root_validator()
@@ -490,6 +493,9 @@ class CommandsTimeoutConfigMap(BaseClientModel):
             ),
         ),
     )
+
+    class Config:
+        title = "commands_timeout"
 
     @validator(
         "create_command_timeout",
