@@ -32,7 +32,7 @@ class WalletSetupTest(unittest.TestCase):
 
         # this private key must be in the correct format or it will fail
         # account isn't our code but it gets tested indirectly in test_import_and_save_wallet
-        private_key = "0x8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
+        private_key = "0x8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"  # noqa: mock
         acct = Account.privateKeyToAccount(private_key)
 
         # there is no check on the format of the password in save_wallet
@@ -58,7 +58,7 @@ class WalletSetupTest(unittest.TestCase):
         self.assertRaisesRegex(ValueError, "^The private key must be exactly 32 bytes long", import_and_save_wallet, password, ill_formed_private_key2)
 
         # this private key must be in the correct format or it will fail
-        private_key = "0x8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
+        private_key = "0x8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"  # noqa: mock
         password = "topsecret"
         acct = import_and_save_wallet(password, private_key)
         file_path = "%s%s%s%s" % (get_key_file_path(), KEYFILE_PREFIX, acct.address, KEYFILE_POSTFIX)
@@ -78,7 +78,7 @@ class WalletSetupTest(unittest.TestCase):
         self.assertEqual(list_wallets(), [])
 
         # make one wallet
-        private_key = "0x8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
+        private_key = "0x8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"  # noqa: mock
         password = "topsecret"
         import_and_save_wallet(password, private_key)
 
@@ -90,7 +90,7 @@ class WalletSetupTest(unittest.TestCase):
         self.assertEqual(len(list_wallets()), 1)
 
         # make a second wallet
-        private_key2 = "0xaaaaaf21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41eeee"
+        private_key2 = "0xaaaaaf21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41eeee"  # noqa: mock
         password2 = "topsecrettopsecret"
         import_and_save_wallet(password2, private_key2)
 

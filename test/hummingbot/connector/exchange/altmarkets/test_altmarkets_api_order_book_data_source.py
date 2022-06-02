@@ -34,6 +34,13 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
         cls.api_secret_key = "testSecretKey"
         cls.username = "testUsername"
         cls.throttler = AsyncThrottler(Constants.RATE_LIMITS)
+        for task in asyncio.all_tasks(loop=cls.ev_loop):
+            task.cancel()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        for task in asyncio.all_tasks(loop=cls.ev_loop):
+            task.cancel()
 
     def setUp(self) -> None:
         super().setUp()

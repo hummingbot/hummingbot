@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "caCertificatePath": { "type": "string" },
+    "certificatePath": { "type": "string" },
+    "keyPath": { "type": "string" }
+  },
+  "additionalProperties": false,
+  "required": ["caCertificatePath", "certificatePath", "keyPath"]
+}

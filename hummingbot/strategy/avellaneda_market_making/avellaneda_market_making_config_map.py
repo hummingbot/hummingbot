@@ -236,7 +236,7 @@ avellaneda_market_making_config_map = {
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False)),
     "should_wait_order_cancel_confirmation":
         ConfigVar(key="should_wait_order_cancel_confirmation",
-                  prompt="Should the strategy wait to receive a confirmation for orders cancellation "
+                  prompt="Should the strategy wait to receive a confirmation for orders cancelation "
                          "before creating a new set of orders? "
                          "(Not waiting requires enough available balance) (Yes/No) >>> ",
                   type_str="bool",

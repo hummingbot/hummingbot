@@ -1001,7 +1001,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertTrue(self._is_logged(
             "INFO",
-            f"Successfully cancelled order {order.client_order_id}."
+            f"Successfully canceled order {order.client_order_id}."
         ))
 
     def test_user_stream_event_listener_raises_cancelled_error(self):
@@ -1419,7 +1419,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertTrue(self._is_logged(
             "DEBUG",
             "The order OID1 does not exist on Binance Perpetuals. "
-            "No cancellation needed."
+            "No cancelation needed."
         ))
 
         self.assertTrue("OID1" not in self.exchange._client_order_tracker._in_flight_orders)
@@ -1541,7 +1541,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELLED
+            initial_state=OrderState.CANCELED
         ))
         orders.append(InFlightOrder(
             client_order_id="OID3",

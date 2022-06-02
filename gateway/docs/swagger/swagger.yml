@@ -1,0 +1,34 @@
+swagger: '2.0'
+
+info:
+  description: 'Gateway allows clients to interoperate with blockchains and DeFi protocols via a REST API. This allows for a language agnostic way to use official SDKs for blockchains.'
+  version: '1.0.0'
+  title: 'gateway'
+  contact:
+    email: 'dev@hummingbot.io'
+  license:
+    name: 'Apache 2.0'
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+
+host: 'localhost:5000'
+
+tags:
+  - name: 'system'
+    description: 'Get information about the currently running Gateway program'  
+  - name: 'network'
+    description: 'Get information about specific networks'
+  - name: 'wallet'
+    description: 'Manage private keys available for use in Gateway'
+  - name: 'amm'
+    description: 'Interact with AMM decentralized exchanges'
+  - name: 'evm'
+    description: 'Interact with EVM based blockchains'
+  - name: 'solana'
+    description: 'Interact with the Solana blockchain'
+
+schemes:
+  - 'http'
+
+externalDocs:
+  description: 'Find out more about gateway'
+  url: 'https://github.com/CoinAlpha/hummingbot'

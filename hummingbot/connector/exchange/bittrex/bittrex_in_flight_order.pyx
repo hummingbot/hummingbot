@@ -37,11 +37,11 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"CANCELLED", "FAILURE"}
+        return self.last_state in {"CANCELED", "FAILURE"}
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"CANCELLED"}
+        return self.last_state in {"CANCELED"}
 
     @property
     def order_type_description(self) -> str:

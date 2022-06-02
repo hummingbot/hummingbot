@@ -404,7 +404,7 @@ cdef class CeloArbStrategy(StrategyBase):
         self.log_with_clock(logging.INFO, msg)
         if self._hb_app_notification:
             from hummingbot.client.hummingbot_application import HummingbotApplication
-            HummingbotApplication.main_application()._notify(msg)
+            HummingbotApplication.main_application().notify(msg)
 
     def celo_orders_to_trade_fills(self):
         results = []

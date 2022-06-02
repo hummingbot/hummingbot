@@ -1,0 +1,859 @@
+definitions:
+  EthereumConfigResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'rpcUrl'
+      - 'connection'
+      - 'timestamp'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      rpcUrl:
+        type: 'string'
+        example: 'https://mainnet.infura.io/v3/'
+      connection:
+        type: 'boolean'
+        example: true
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+
+  NonceRequest:
+    type: 'object'
+    required:
+      - 'privateKey'
+      - 'chain'
+      - 'network'
+    properties:
+      privateKey:
+        type: 'string'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+
+  NonceResponse:
+    type: 'object'
+    required:
+      - 'nonce'
+    properties:
+      privateKey:
+        type: 'integer'
+        example: 123
+
+  AllowancesRequest:
+    type: 'object'
+    required:
+      - 'privateKey'
+      - 'spender'
+      - 'tokenSymbols'
+      - 'chain'
+      - 'network'
+    properties:
+      privateKey:
+        type: 'string'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
+      spender:
+        type: 'string'
+        example: 'uniswap'
+      tokenSymbols:
+        type: 'array'
+        items: 'string'
+        example: ['WETH', 'DAI']
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+
+  AllowancesResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'spender'
+      - 'approvals'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      spender:
+        type: 'string'
+        example: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+      approvals:
+        type: 'object'
+        properties:
+          id:
+            type: 'string'
+          name:
+            type: 'string'
+        example: '{"WETH": "100","DAI": "300"}'
+
+  BalancesRequest:
+    type: 'object'
+    required:
+      - 'privateKey'
+      - 'tokenSymbols'
+      - 'chain'
+      - 'network'
+    properties:
+      privateKey:
+        type: 'string'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
+      tokenSymbols:
+        type: 'array'
+        items: 'string'
+        example: ['WETH', 'DAI']
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+
+  BalancesResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'balances'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      balances:
+        type: 'object'
+        properties:
+          id:
+            type: 'string'
+          name:
+            type: 'string'
+        example: '{"ETH": "1.5", "WETH": "100","DAI": "300"}'
+
+  ApproveRequest:
+    type: 'object'
+    required:
+      - 'privateKey'
+      - 'spender'
+      - 'token'
+      - 'chain'
+      - 'network'
+    properties:
+      privateKey:
+        type: 'string'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
+      spender:
+        type: 'string'
+        example: 'uniswap'
+      token:
+        type: 'string'
+        example: 'WETH'
+      amount:
+        type: 'string'
+        example: '0'
+      nonce:
+        type: 'number'
+        example: 123
+      maxFeePerGas:
+        type: 'string'
+        example: '5000000000'
+      maxPriorityFeePerGas:
+        type: 'string'
+        example: '5000000000'
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+
+  ApproveResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'tokenAddress'
+      - 'spender'
+      - 'amount'
+      - 'nonce'
+      - 'approval'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 1.526
+      tokenAddress:
+        type: 'string'
+        example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
+      spender:
+        type: 'string'
+        example: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+      amount:
+        type: 'string'
+        example: '100'
+      nonce:
+        type: 'number'
+        example: 124
+      approval:
+        type: 'object'
+        example: '{"type": 2,"chainId": 42,"nonce": 129,"maxPriorityFeePerGas": "94000000000","maxFeePerGas": "94000000000","gasPrice": null,"gasLimit": "100000","to": "0xd0A1E359811322d97991E03f863a0C30C2cF029C","value": "0","data": "0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","accessList": [],"hash": "0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d","v": 1,"r": "0x47c517271885b7041d81bcd65cd050a5d6be3fbd67a8f1660ac8d7e68fc8221f","s": "0x7c62e114b2cb0eae6236b597fb4aacb01c51e56afd7f734e6039d83aa400ba82","from": "0xFaA12FD102FE8623C9299c72B03E45107F2772B5","confirmations": 0}'  # noqa: documentation
+
+  PollRequest:
+    type: 'object'
+    required:
+      - 'txHash'
+      - 'chain'
+      - 'network'
+    properties:
+      txHash:
+        type: 'string'
+        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'  # noqa: documentation
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+
+  PollResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'currentBlock'
+      - 'txHash'
+      - 'txStatus'
+      - 'txBlock'
+      - 'txData'
+      - 'txReceipt'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      currentBlock:
+        type: 'integer'
+        example: 28243911
+      txHash:
+        type: 'string'
+        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'  # noqa: documentation
+      txStatus:
+        type: 'number'
+        example: 1
+      txBlock:
+        type: 'number'
+        example: 28243800
+      txData:
+        type: 'object'
+      txReceipt:
+        type: 'object'
+
+  UniswapConfigResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'uniswap_router'
+      - 'connection'
+      - 'timestamp'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      uniswap_router:
+        type: 'string'
+        example: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+      connection:
+        type: 'boolean'
+        example: true
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+
+  PriceRequest:
+    type: 'object'
+    required:
+      - 'quote'
+      - 'base'
+      - 'amount'
+      - 'side'
+      - 'chain'
+      - 'network'
+    properties:
+      quote:
+        type: 'string'
+        example: 'WETH'
+      base:
+        type: 'string'
+        example: 'DAI'
+      amount:
+        type: 'string'
+        example: '10'
+      side:
+        type: 'string'
+        example: 'BUY'
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+
+  PriceResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'base'
+      - 'quote'
+      - 'amount'
+      - 'expectedAmount'
+      - 'price'
+      - 'gasPrice'
+      - 'gasPriceToken'
+      - 'gasLimit'
+      - 'gasCost'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      base:
+        type: 'string'
+        example: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa'
+      quote:
+        type: 'string'
+        example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
+      amount:
+        type: 'string'
+        example: '10'
+      expectedAmount:
+        type: 'string'
+        example: '0.000000000000000001'
+      price:
+        type: 'string'
+      gasPrice:
+        type: 'number'
+        example: 96
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
+      gasLimit:
+        type: 'number'
+        example: 150688
+      gasCost:
+        type: 'string'
+        example: '0.014466048000000000'
+
+  TradeRequest:
+    type: 'object'
+    required:
+      - 'quote'
+      - 'base'
+      - 'amount'
+      - 'side'
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      quote:
+        type: 'string'
+        example: 'WETH'
+      base:
+        type: 'string'
+        example: 'DAI'
+      amount:
+        type: 'string'
+        example: '10'
+      side:
+        type: 'string'
+        example: 'BUY'
+      limitPrice:
+        type: 'string'
+      nonce:
+        type: number
+      maxFeePerGas:
+        type: number
+      maxPriorityFeePerGas:
+        type: number
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+      connector:
+        type: 'string'
+        example: 'uniswap'
+
+  TradeResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'base'
+      - 'quote'
+      - 'amount'
+      - 'price'
+      - 'gasPrice'
+      - 'gasPriceToken'
+      - 'gasLimit'
+      - 'gasCost'
+      - 'nonce'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      base:
+        type: 'string'
+        example: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa'
+      quote:
+        type: 'string'
+        example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
+      amount:
+        type: 'string'
+        example: '10'
+      expectedIn:
+        type: 'string'
+      expectedOut:
+        type: 'string'
+      price:
+        type: 'string'
+      gasPrice:
+        type: 'string'
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
+      gasLimit:
+        type: 'string'
+      gasCost:
+        type: 'string'
+      nonce:
+        type: 'string'
+      txHash:
+        type: 'string'
+
+  CancelRequest:
+    type: 'object'
+    required:
+      - 'nonce'
+      - 'address'
+      - 'chain'
+      - 'network'
+    properties:
+      nonce:
+        type: 'integer'
+        example: 123
+      address:
+        type: 'string'
+        example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+  
+  CancelResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      txHash:
+        type: 'string'
+        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'  # noqa: documentation
+
+  AddWalletRequest:
+    type: 'object'
+    required:
+      - 'chainName'
+      - 'privateKey'
+    properties:
+      chainName:
+        type: 'string'
+        example: 'ethereum'
+      privateKey:
+        type: 'string'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
+  
+  RemoveWalletRequest:
+    type: 'object'
+    required:
+      - 'chainName'
+      - 'address'
+    properties:
+      chainName:
+        type: 'string'
+        example: 'ethereum'
+      address:
+        type: 'string'
+        example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
+
+  GetWalletResponse:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'walletAddresses'
+    properties:
+      chain:
+        type: 'string'
+      tokenSymbols:
+        type: 'array'
+        items: 'string'
+        example: ['0xd0A1E359811322d97991E03f863a0C30C2cF029C', '0xd0A1E359811322d97991E03f863a0C30C2XXXXXX']
+
+  ConfigUpdateRequest:
+    type: 'object'
+    required:
+      - 'configPath'
+      - 'configValue'
+    properties:
+      configPath:
+        type: 'string'
+      configValue:
+        OneOf:
+          - type: 'boolean'
+          - type: 'number'
+
+  SolanaConfigResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'rpcUrl'
+      - 'connection'
+      - 'timestamp'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet-beta'
+      rpcUrl:
+        type: 'string'
+        example: 'https://api.mainnet-beta.solana.com'
+      connection:
+        type: 'boolean'
+        example: true
+      timestamp:
+        type: 'integer'
+        example: 1641889489132
+
+  SolanaBalanceRequest:
+    type: 'object'
+    required:
+      - 'address'
+      - 'tokenSymbols'
+    properties:
+      address:
+        type: 'string'
+        example: '3xgEFpNpz1hPU7iHN9P3WPgLTWfZXu6wSUuGw8kigNQr'
+      tokenSymbols:
+        type: 'array'
+        items: 'string'
+        example: ['SOL', 'RAY', 'MNGO']
+
+  SolanaBalanceResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'balances'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet-beta'
+      timestamp:
+        type: 'integer'
+        example: 1641889944387
+      latency:
+        type: 'number'
+        example: 0.374
+      balances:
+        type: 'object'
+        properties:
+          id:
+            type: 'string'
+          name:
+            type: 'string'
+        example: '{"SOL": "1.5", "RAY": "100", "MNGO": "3000"}'
+
+  SolanaTokenRequest:
+    type: 'object'
+    required:
+      - 'address'
+      - 'token'
+    properties:
+      address:
+        type: 'string'
+        example: 'oaMWkrYr1g9JBcDUPRqz21cJBxowM4CEbDy2FsCgNK569CjZSr4wa51d4k9DpTRJU8GUHfp3e9YX2pGXaBS5Tta'
+      token:
+        type: 'string'
+        example: 'MNGO'
+
+  SolanaTokenResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'token'
+      - 'mintAddress'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet-beta'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      token:
+        type: 'string'
+        example: 'MNGO'
+      mintAddress:
+        type: 'string'
+        example: 'MangoCzJ36AjZyKwVj3VnYU4GTonjfVEnJmvvWaxLac'
+      accountAddress:
+        type: 'string'
+        example: 'GizuDGzHpZFFJTjRKG57LFmzb5AooBiceugbmDPgsb5T'
+      amount:
+        type: 'string'
+        example: '3000.000451'
+
+  SolanaPollRequest:
+    type: 'object'
+    required:
+      - 'txHash'
+    properties:
+      txHash:
+        type: 'string'
+        example: 'oaMWkrYr1g9JBcDUPRqz21cJBxowM4CEbDy2FsCgNK569CjZSr4wa51d4k9DpTRJU8GUHfp3e9YX2pGXaBS5Tta'
+
+  SolanaTransaction:
+    type: 'object'
+    required:
+      - 'slot'
+      - 'transaction'
+      - 'meta'
+    properties:
+      slot:
+        type: 'integer'
+        example: 112646487
+      transaction:
+        type: 'object'
+        example: '
+        {
+          "message": {
+            "accountKeys": [
+              "3UVYmECPPMZSCqWKfENfuoTv51fTDTWicX9xmBD2euKe",
+              "AjozzgE83A3x1sHNUR64hfH7zaEBWeMaFuAN9kQgujrc",
+              "SysvarS1otHashes111111111111111111111111111",
+              "SysvarC1ock11111111111111111111111111111111",
+              "Vote111111111111111111111111111111111111111"
+            ],
+            "header": {
+              "numReadonlySignedAccounts": 0,
+              "numReadonlyUnsignedAccounts": 3,
+              "numRequiredSignatures": 1
+            },
+            "instructions": [
+              {
+                "accounts": [
+                  1,
+                  2,
+                  3,
+                  0
+                ],
+                "data": "37u9WtQpcm6ULa3WRQHmj49EPs4if7o9f1jSRVZpm2dvihR9C8jY4NqEwXUbLwx15HBSNcP1",
+                "programIdIndex": 4
+              }
+            ],
+            "recentBlockhash": "mfcyqEXB3DnHXki6KjjmZck6YjmZLvpAByy2fj4nh6B"
+          },
+          "signatures": [
+            "2nBhEBYYvfaAe16UMNqRHre4YNSskvuYgx3M6E4JP1oDYvZEJHvoPzyUidNgNX5r9sTyN1J9UxtbCXy2rqYcuyuv"
+          ]
+        }'
+      meta:
+        type: 'object'
+        example: '
+        {
+          "err": null,
+          "fee": 5000,
+          "innerInstructions": [],
+          "postBalances": [
+            499998932500,
+            26858640,
+            1,
+            1,
+            1
+          ],
+          "postTokenBalances": [],
+          "preBalances": [
+            499998937500,
+            26858640,
+            1,
+            1,
+            1
+          ],
+          "preTokenBalances": [],
+          "status": {
+            "Ok": null
+          }
+        }'
+      blockTime:
+        type: 'integer'
+        example: 1641891662
+
+  SolanaPollResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'currentBlock'
+      - 'txHash'
+      - 'txStatus'
+      - 'txBlock'
+      - 'txData'
+      - 'txReceipt'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet-beta'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      currentBlock:
+        type: 'integer'
+        example: 112646487
+      txHash:
+        type: 'string'
+        example: 'oaMWkrYr1g9JBcDUPRqz21cJBxowM4CEbDy2FsCgNK569CjZSr4wa51d4k9DpTRJU8GUHfp3e9YX2pGXaBS5Tta'
+      txStatus:
+        type: 'number'
+        example: 1
+      txData:
+        $ref: '#/definitions/SolanaTransaction'
+
+  TokensResponse:
+    type: 'object'
+    required:
+      - 'tokens'
+    properties:
+      tokens:
+        type: 'object'
+        example: '
+        {
+          tokens: [
+            {
+              "address": "0x006BeA43Baa3f7A6f765F14f10A1a1b08334EF45",
+              "chainId": "1",
+              "name": "Stox",
+              "symbol": "STX",
+              "decimals": "18",
+              "logoURI": "https://tokens.1inch.io/0x006bea43baa3f7a6f765f14f10a1a1b08334ef45.png"
+            },
+            {
+              "address": "0x0327112423F3A68efdF1fcF402F6c5CB9f7C33fd",
+              "chainId": "1",
+              "name": "PieDAOBTC",
+              "symbol": "BTC",
+              "decimals": "18",
+              "logoURI": "https://tokens.1inch.io/0x0327112423f3a68efdf1fcf402f6c5cb9f7c33fd.png"
+            }
+          ]
+        }'
+
+  NetworkSelectionRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+      connector:
+        type: 'string'
+        example: 'uniswap'
+
+  EstimateGasResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'gasPrice'
+      - 'gasPriceToken'
+      - 'gasLimit'
+      - 'gasCost'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      gasPrice:
+        type: 'number'
+        example: 96
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
+      gasLimit:
+        type: 'number'
+        example: 150688
+      gasCost:
+        type: 'string'
+        example: '0.014466048000000000'
+

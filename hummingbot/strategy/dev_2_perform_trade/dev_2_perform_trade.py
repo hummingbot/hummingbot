@@ -69,7 +69,7 @@ class PerformTradeStrategy(StrategyPyBase):
     def notify_hb_app(self, msg: str):
         if self._hb_app_notification:
             from hummingbot.client.hummingbot_application import HummingbotApplication
-            HummingbotApplication.main_application()._notify(msg)
+            HummingbotApplication.main_application().notify(msg)
 
     def did_fill_order(self, event: OrderFilledEvent):
         """

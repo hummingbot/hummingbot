@@ -17,7 +17,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 
 logging.basicConfig(level=logging.ERROR)
 
