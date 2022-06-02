@@ -139,9 +139,6 @@ class LatokenAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_fetch_trading_pairs(self, mock_api):
         LatokenAPIOrderBookDataSource._trading_pair_symbol_map = {}
         ticker_url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PATH_URL, domain=self.domain)
-        currency_url = web_utils.public_rest_url(path_url=CONSTANTS.CURRENCY_PATH_URL, domain=self.domain)
-        pair_url = web_utils.public_rest_url(path_url=CONSTANTS.PAIR_PATH_URL, domain=self.domain)
-
         ticker_list: List[Dict] = [
             {"symbol": "REN/BTC", "baseCurrency": "8de4581d-3778-48e5-975e-511039a2aa6b",
              "quoteCurrency": "92151d82-df98-4d88-9a4d-284fa9eca49f", "volume24h": "0", "volume7d": "0",
@@ -155,46 +152,6 @@ class LatokenAPIOrderBookDataSourceUnitTests(unittest.TestCase):
              "updateTimestamp": 0}
         ]
         mock_api.get(ticker_url, body=json.dumps(ticker_list))
-        currency_list: List[Dict] = [
-            {"id": "8de4581d-3778-48e5-975e-511039a2aa6b", "status": "CURRENCY_STATUS_ACTIVE",
-             "type": "CURRENCY_TYPE_CRYPTO", "name": "REN", "tag": "REN", "description": "", "logo": "", "decimals": 18,
-             "created": 1599223148171, "tier": 3, "assetClass": "ASSET_CLASS_UNKNOWN", "minTransferAmount": 0},
-            {"id": "92151d82-df98-4d88-9a4d-284fa9eca49f", "status": "CURRENCY_STATUS_ACTIVE",
-             "type": "CURRENCY_TYPE_CRYPTO", "name": "Bitcoin", "tag": "BTC", "description": "", "logo": "",
-             "decimals": 8, "created": 1572912000000, "tier": 1, "assetClass": "ASSET_CLASS_UNKNOWN",
-             "minTransferAmount": 0},
-            {"id": "ad48cd21-4834-4b7d-ad32-10d8371bbf3c", "status": "CURRENCY_STATUS_ACTIVE",
-             "type": "CURRENCY_TYPE_CRYPTO", "name": "Natural Eco Carbon Coin", "tag": "NECC", "description": "",
-             "logo": "", "decimals": 18, "created": 1572912000000, "tier": 1, "assetClass": "ASSET_CLASS_UNKNOWN",
-             "minTransferAmount": 0},
-            {"id": "0c3a106d-bde3-4c13-a26e-3fd2394529e5", "status": "CURRENCY_STATUS_ACTIVE",
-             "type": "CURRENCY_TYPE_CRYPTO", "name": "Tether USD ", "tag": "USDT", "description": "", "logo": "",
-             "decimals": 6, "created": 1572912000000, "tier": 1, "assetClass": "ASSET_CLASS_UNKNOWN",
-             "minTransferAmount": 0}
-        ]
-        mock_api.get(currency_url, body=json.dumps(currency_list))
-        # this list is truncated
-        pair_list: List[Dict] = [
-            {"id": "30a1032d-1e3e-4c28-8ca7-b60f3406fc3e", "status": "PAIR_STATUS_ACTIVE",
-             "baseCurrency": "8de4581d-3778-48e5-975e-511039a2aa6b",
-             "quoteCurrency": "92151d82-df98-4d88-9a4d-284fa9eca49f",
-             "priceTick": "0.000000010000000000", "priceDecimals": 8,
-             "quantityTick": "1.000000000000000000", "quantityDecimals": 0,
-             "costDisplayDecimals": 8, "created": 1599249032243, "minOrderQuantity": "0",
-             "maxOrderCostUsd": "999999999999999999", "minOrderCostUsd": "0",
-             "externalSymbol": ""},
-            {"id": "3140357b-e0da-41b2-b8f4-20314c46325b", "status": "PAIR_STATUS_ACTIVE",
-             "baseCurrency": "ad48cd21-4834-4b7d-ad32-10d8371bbf3c",
-             "quoteCurrency": "0c3a106d-bde3-4c13-a26e-3fd2394529e5",
-             "priceTick": "0.000010000000000000", "priceDecimals": 5,
-             "quantityTick": "0.100000000000000000", "quantityDecimals": 1,
-             "costDisplayDecimals": 5, "created": 1576052642564, "minOrderQuantity": "0",
-             "maxOrderCostUsd": "999999999999999999", "minOrderCostUsd": "0",
-             "externalSymbol": ""}
-        ]
-
-        mock_api.get(pair_url, body=json.dumps(pair_list))
-
         result: Dict[str] = self.async_run_with_timeout(
             coroutine=self.data_source.fetch_trading_pairs(domain=self.domain, time_synchronizer=self.time_synchronizer)
         )
