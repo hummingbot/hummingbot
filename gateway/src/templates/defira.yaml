@@ -3,10 +3,10 @@
 # execution price. It uses a rational number for precision.
 allowedSlippage: '2/100'
 
-# the maximum gas allowed for a uniswap trade.
+# the maximum gas allowed for a defira trade.
 gasLimit: 150688
 
-# how long a trade is valid in seconds. After time passes uniswap will not
+# how long a trade is valid in seconds. After time passes defira will not
 # perform the trade, but the gas will still be sent.
 ttl: 600
 
@@ -14,4 +14,4 @@ contractAddresses:
   mainnet: 
     routerAddress: '0x3C8BF7e25EbfAaFb863256A4380A8a93490d8065'
   testnet:
-    routerAddress: '0x3C8BF7e25EbfAaFb863256A4380A8a93490d8065'
+    routerAddress: '0x0b0e0cbf19bcab886175ceffc7c6d190aa60c25e'
