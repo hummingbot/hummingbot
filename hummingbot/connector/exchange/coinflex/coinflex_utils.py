@@ -64,7 +64,7 @@ class CoinflexConfigMap(BaseConnectorConfigMap):
 KEYS = CoinflexConfigMap.construct()
 
 OTHER_DOMAINS = ["coinflex_test"]
-OTHER_DOMAINS_PARAMETER = {"coinflex_test": "test"}
+OTHER_DOMAINS_PARAMETER = {"coinflex_test": "coinflex_test"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"coinflex_test": "BTC-USDT"}
 OTHER_DOMAINS_DEFAULT_FEES = {"coinflex_test": [0.1, 0.1]}
 
