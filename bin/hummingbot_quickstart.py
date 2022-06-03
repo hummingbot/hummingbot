@@ -133,7 +133,7 @@ def main():
         try:
             if not login_prompt(style=load_style()):
                 return
-        finally:
+        except Exception:
             if not login_prompt():
                 return
 
