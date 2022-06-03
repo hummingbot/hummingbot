@@ -45,9 +45,9 @@ class FormattedTextLexer(Lexer):
             style: css for style, css in load_style(client_config_map).style_rules
         }
         self.html_tag_css_style_map.update({
-            ti.attr.replace("_", "-"): ti.value
+            ti.attr: ti.value
             for ti in client_config_map.color.traverse()
-            if ti.attr.replace("_", "-") not in self.html_tag_css_style_map
+            if ti.attr not in self.html_tag_css_style_map
         })
 
         # Maps specific text to its corresponding UI styles
