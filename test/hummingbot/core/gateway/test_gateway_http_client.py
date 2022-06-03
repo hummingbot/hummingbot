@@ -211,7 +211,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_clob_root(self):
-        chain = 'ethereum'
+        chain = 'solana'
         network = 'mainnet-beta'
         connector = 'serum'
 
@@ -229,7 +229,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_clob_get_root(self):
-        chain = 'ethereum'
+        chain = 'solana'
         network = 'mainnet-beta'
         connector = 'serum'
 
@@ -247,7 +247,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_clob_get_markets(self):
-        chain = 'ethereum'
+        chain = 'solana'
         network = 'mainnet-beta'
         connector = 'serum'
 
@@ -259,7 +259,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_clob_get_order_books(self):
-        chain = 'ethereum'
+        chain = 'solana'
         network = 'mainnet-beta'
         connector = 'serum'
 
@@ -271,7 +271,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_clob_get_tickers(self):
-        chain = 'ethereum'
+        chain = 'solana'
         network = 'mainnet-beta'
         connector = 'serum'
 
@@ -283,7 +283,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_clob_get_orders(self):
-        chain = 'ethereum'
+        chain = 'solana'
         network = 'mainnet-beta'
         connector = 'serum'
 
@@ -295,7 +295,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_clob_post_orders(self):
-        chain = 'ethereum'
+        chain = 'solana'
         network = 'mainnet-beta'
         connector = 'serum'
 
@@ -310,7 +310,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_clob_delete_orders(self):
-        chain = 'ethereum'
+        chain = 'solana'
         network = 'mainnet-beta'
         connector = 'serum'
 
@@ -322,7 +322,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_clob_get_open_orders(self):
-        chain = 'ethereum'
+        chain = 'solana'
         network = 'mainnet-beta'
         connector = 'serum'
 
@@ -334,7 +334,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_clob_get_filled_orders(self):
-        chain = 'ethereum'
+        chain = 'solana'
         network = 'mainnet-beta'
         connector = 'serum'
 
@@ -346,7 +346,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_clob_post_settle_funds(self):
-        chain = 'ethereum'
+        chain = 'solana'
         network = 'mainnet-beta'
         connector = 'serum'
 

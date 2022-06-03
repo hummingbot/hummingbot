@@ -477,7 +477,7 @@ class GatewayHttpClient:
         network: str,
         connector: str,
     ) -> Dict[str, Any]:
-        return await self.api_request("get", "clob", {
+        return await self.api_request("post", "clob", {
             "chain": chain,
             "network": network,
             "connector": connector,
