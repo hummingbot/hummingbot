@@ -15,4 +15,3 @@ contractAddresses:
     routerAddress: '0x3C8BF7e25EbfAaFb863256A4380A8a93490d8065'
   testnet:
     routerAddress: '0xA5C5D1fd1Fd07F95359E2bde419CB5B2cdC622A9'
-
