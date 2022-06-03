@@ -28,6 +28,7 @@ from hummingbot.client.config.security import Security
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.settings import STRATEGIES_CONF_DIR_PATH, AllConnectorSettings
 from hummingbot.client.ui import login_prompt
+from hummingbot.client.ui.style import load_style
 from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.gateway import start_existing_gateway_container
 from hummingbot.core.management.console import start_management_console
@@ -136,8 +137,9 @@ def main():
 
     # If no password is given from the command line, prompt for one.
     secrets_manager_cls = ETHKeyFileSecretManger
+    client_config_map = load_client_config_map_from_file()
     if args.config_password is None:
-        secrets_manager = login_prompt(secrets_manager_cls)
+        secrets_manager = login_prompt(secrets_manager_cls, style=load_style(client_config_map))
         if not secrets_manager:
             return
     else:
