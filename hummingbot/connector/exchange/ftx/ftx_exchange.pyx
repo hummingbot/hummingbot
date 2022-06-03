@@ -84,6 +84,7 @@ cdef class FtxExchange(ExchangeBase):
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
+    REFERRAL_PROGRAM = "hummingbot1"
 
     FTX_API_ENDPOINT = "https://ftx.com/api"
 
@@ -583,6 +584,7 @@ cdef class FtxExchange(ExchangeBase):
             }
         else:
             raise ValueError(f"Unknown order_type for FTX: {order_type}")
+        body["externalReferralProgram"] = self.REFERRAL_PROGRAM
 
         api_response = await self._api_request("POST", path_url=path_url, body=body)
 

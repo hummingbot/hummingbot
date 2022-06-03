@@ -3,13 +3,20 @@ from typing import Any, Dict
 
 from pydantic import Field, SecretStr
 
-import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
+import hummingbot.connector.derivative.coinflex_perpetual.constants as CONSTANTS
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.0000"),
+    taker_percent_fee_decimal=Decimal("0.0008"),
+    buy_percent_fee_deducted_from_returns=True
+)
+
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "BTC-USD"
-DEFAULT_FEES = [0.0, 0.08]
 
 
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
@@ -29,61 +36,28 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     :param exchange_info: the exchange information for a trading pair
     :return: True if the trading pair is enabled, False otherwise
     """
-    return exchange_info.get("type", None) == "SPOT"
+    return exchange_info.get("type", None) in ["FUTURE"] and " Perp" in exchange_info.get("name", "")
 
 
 def decimal_val_or_none(string_value: str):
     return Decimal(string_value) if string_value else None
 
 
-class CoinflexConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="coinflex", client_data=None)
-    coinflex_api_key: SecretStr = Field(
+class CoinflexPerpetulConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="coinflex_perpetual", const=True, client_data=None)
+    coinflex_perpetual_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your CoinFLEX API key",
+            prompt=lambda cm: "Enter your Coinflex Perpetual API key",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
-        )
+        ),
     )
-    coinflex_api_secret: SecretStr = Field(
+    coinflex_perpetual_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your CoinFLEX API secret",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
-    )
-
-    class Config:
-        title = "coinflex"
-
-
-KEYS = CoinflexConfigMap.construct()
-
-OTHER_DOMAINS = ["coinflex_test"]
-OTHER_DOMAINS_PARAMETER = {"coinflex_test": "coinflex_test"}
-OTHER_DOMAINS_EXAMPLE_PAIR = {"coinflex_test": "BTC-USDT"}
-OTHER_DOMAINS_DEFAULT_FEES = {"coinflex_test": [0.1, 0.1]}
-
-
-class CoinflexTestConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="coinflex_test", client_data=None)
-    coinflex_test_api_key: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your CoinFLEX Staging API key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
-    )
-    coinflex_test_api_secret: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your CoinFLEX Staging API secret",
+            prompt=lambda cm: "Enter your Coinflex Perpetual API secret",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
@@ -91,7 +65,41 @@ class CoinflexTestConfigMap(BaseConnectorConfigMap):
     )
 
     class Config:
-        title = "coinflex_test"
+        title = "coinflex_perpetual"
 
 
-OTHER_DOMAINS_KEYS = {"coinflex_test": CoinflexTestConfigMap.construct()}
+KEYS = CoinflexPerpetulConfigMap.construct()
+
+
+OTHER_DOMAINS = ["coinflex_perpetual_testnet"]
+OTHER_DOMAINS_PARAMETER = {"coinflex_perpetual_testnet": "coinflex_perpetual_testnet"}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"coinflex_perpetual_testnet": "BTC-USDT"}
+OTHER_DOMAINS_DEFAULT_FEES = {"coinflex_perpetual_testnet": DEFAULT_FEES}
+
+
+class CoinflexPerpetulTestnetConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="coinflex_perpetual_testnet", const=True, client_data=None)
+    coinflex_perpetual_testnet_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Coinflex Perpetual testnet API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+    coinflex_perpetual_testnet_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Coinflex Perpetual testnet API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "coinflex_perpetual_testnet"
+
+
+OTHER_DOMAINS_KEYS = {"coinflex_perpetual_testnet": CoinflexPerpetulTestnetConfigMap.construct()}
