@@ -4,7 +4,7 @@
 # export ETH_ADDRESS='<put-your-public-key-here>'
 # export AVALANCHE_ADDRESS='<put-your-public-key-here>'
 
-# -k is --insecure, this disables certificate verfication and should only be
+# -k is --insecure, this disables certificate verification and should only be
 # used for local development and testing
 
 # Config
@@ -35,7 +35,7 @@ curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: app
 
 curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/add_avalanche_key.json)" https://localhost:5000/wallet/add | jq
 
-## read publick keys
+## read public keys
 curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT https://localhost:5000/wallet | jq
 
 ## remove keys

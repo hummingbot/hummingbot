@@ -14,7 +14,8 @@ export async function getChain(chain: string, network: string) {
   else if (chain === 'avalanche')
     chainInstance = Avalanche.getInstance(network);
   else if (chain === 'harmony') chainInstance = Harmony.getInstance(network);
-  else if (chain === 'solana') chainInstance = Solana.getInstance(network);
+  else if (chain === 'solana')
+    chainInstance = await Solana.getInstance(network);
   else throw new Error('unsupported chain');
 
   if (!chainInstance.ready()) {
@@ -38,7 +39,7 @@ export async function getConnector(
   else if (chain === 'avalanche' && connector === 'traderjoe')
     connectorInstance = Traderjoe.getInstance(chain, network);
   else if (chain === 'solana' && connector === 'serum')
-    connectorInstance = Serum.getInstance(chain, network);
+    connectorInstance = await Serum.getInstance(chain, network);
   else throw new Error('unsupported chain or connector');
 
   if (!connectorInstance.ready()) {
