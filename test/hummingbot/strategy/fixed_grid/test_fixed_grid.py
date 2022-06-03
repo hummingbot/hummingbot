@@ -224,4 +224,3 @@ class FixedGridUnitTest(unittest.TestCase):
         self.simulate_maker_market_trade(False, 5.0, 89.5)
         self.assertEqual(5, len(strategy.active_buys))
         self.assertEqual(4, len(strategy.active_sells))
-
