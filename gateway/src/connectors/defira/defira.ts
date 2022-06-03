@@ -28,8 +28,8 @@ import { percentRegexp } from '../../services/config-manager-v2';
 import { Harmony } from '../../chains/harmony/harmony';
 import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 
-export class defira implements Uniswapish {
-  private static _instances: { [name: string]: defira };
+export class Defira implements Uniswapish {
+  private static _instances: { [name: string]: Defira };
   private harmony: Harmony;
   private _chain: string;
   private _router: string;
@@ -51,15 +51,15 @@ export class defira implements Uniswapish {
     this._router = config.uniswapV2RouterAddress(network);
   }
 
-  public static getInstance(chain: string, network: string): defira {
-    if (defira._instances === undefined) {
-      defira._instances = {};
+  public static getInstance(chain: string, network: string): Defira {
+    if (Defira._instances === undefined) {
+      Defira._instances = {};
     }
-    if (!(chain + network in defira._instances)) {
-      defira._instances[chain + network] = new defira(chain, network);
+    if (!(chain + network in Defira._instances)) {
+      Defira._instances[chain + network] = new Defira(chain, network);
     }
 
-    return defira._instances[chain + network];
+    return Defira._instances[chain + network];
   }
 
   /**
