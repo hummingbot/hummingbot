@@ -417,11 +417,11 @@ class GatewayHttpClient:
             "connector": connector,
         })
 
-    async def solana_get_root(
+    async def solana_post_root(
         self,
         network: str
     ) -> Dict[str, Any]:
-        return await self.api_request("get", "solana", {
+        return await self.api_request("post", "solana", {
             "network": network
         })
 
@@ -477,7 +477,7 @@ class GatewayHttpClient:
         network: str,
         connector: str,
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "clob", {
+        return await self.api_request("get", "clob", {
             "chain": chain,
             "network": network,
             "connector": connector,
@@ -930,5 +930,3 @@ class GatewayHttpClient:
             request["orders"] = market_names
 
         return await self.api_request("post", "serum/settleFunds", request)
-
-    # TODO Implement all the accessor functions for CLOB & Solana gateway endpoints!!!

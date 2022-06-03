@@ -52,7 +52,7 @@ export namespace SerumRoutes {
     asyncHandler(verifySerumIsAvailable)
   );
 
-  router.post(
+  router.get(
     '/',
     asyncHandler(
       async (request: Request<any>, response: Response<any, any>) => {
