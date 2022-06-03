@@ -45,6 +45,7 @@ class LatokenExchange(ExchangePyBase):
         self._secret_key = latoken_api_secret
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._authenticator = None
         super().__init__()
 
     @staticmethod
@@ -57,11 +58,10 @@ class LatokenExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return LatokenAuth(api_key=self._api_key, secret_key=self._secret_key, time_provider=self._time_synchronizer)
-
-    @property
-    def auth(self) -> LatokenAuth:
-        return self._auth
+        if self._authenticator is None:
+            self._authenticator = LatokenAuth(
+                api_key=self._api_key, secret_key=self._secret_key, time_provider=self._time_synchronizer)
+        return self._authenticator
 
     @property
     def rate_limits_rules(self):
@@ -73,7 +73,7 @@ class LatokenExchange(ExchangePyBase):
 
     @property
     def name(self) -> str:
-        return "latoken" if self._domain == CONSTANTS.DEFAULT_DOMAIN else f"latoken_{self._domain}"
+        return "latoken" if self.domain == CONSTANTS.DEFAULT_DOMAIN else f"latoken_{self.domain}"
 
     @property
     def client_order_id_max_length(self) -> int:
@@ -124,7 +124,7 @@ class LatokenExchange(ExchangePyBase):
         """
         symbol = await self._orderbook_ds.exchange_symbol_associated_to_pair(
             trading_pair=trading_pair,
-            domain=self._domain,
+            domain=self.domain,
             api_factory=self._web_assistants_factory,
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer)
@@ -270,7 +270,7 @@ class LatokenExchange(ExchangePyBase):
 
             try:
                 trading_pair = await self._orderbook_ds.trading_pair_associated_to_exchange_symbol(
-                    symbol=f"{rule['baseCurrency']}/{rule['quoteCurrency']}", domain=self._domain,
+                    symbol=f"{rule['baseCurrency']}/{rule['quoteCurrency']}", domain=self.domain,
                     api_factory=self._web_assistants_factory, throttler=self._throttler)
 
                 if trading_pair not in self._trading_pairs:
@@ -299,18 +299,7 @@ class LatokenExchange(ExchangePyBase):
                 self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
         return trading_rules
 
-    async def _update_order_status(self):
-        # This is intended to be a backup measure to close straggler orders, in case Latoken's user stream events
-        # are not working.
-        # The minimum poll interval for order status is 10 seconds.
-        last_tick = self._last_poll_timestamp / CONSTANTS.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        current_tick = self.current_timestamp / CONSTANTS.UPDATE_ORDER_STATUS_MIN_INTERVAL
-
-        tracked_orders: List[InFlightOrder] = list(self.in_flight_orders.values())
-
-        if current_tick <= last_tick or len(tracked_orders) == 0:
-            return
-
+    async def _update_to_tracked_order(self, tracked_orders: List[InFlightOrder]) -> Tuple[List, List]:
         reviewed_orders = []
         tasks = []
 
@@ -333,7 +322,23 @@ class LatokenExchange(ExchangePyBase):
 
         self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
         results = await safe_gather(*tasks, return_exceptions=True)
-        for order_update, tracked_order in zip(results, reviewed_orders):
+
+        return results, reviewed_orders
+
+    async def _update_order_status(self):
+        # This is intended to be a backup measure to close straggler orders, in case Latoken's user stream events
+        # are not working.
+        # The minimum poll interval for order status is 10 seconds.
+        last_tick = self._last_poll_timestamp / CONSTANTS.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        current_tick = self.current_timestamp / CONSTANTS.UPDATE_ORDER_STATUS_MIN_INTERVAL
+
+        tracked_orders: List[InFlightOrder] = list(self.in_flight_orders.values())
+
+        if current_tick <= last_tick or len(tracked_orders) == 0:
+            return
+
+        update_to_tracked = await self._update_to_tracked_order(tracked_orders)
+        for order_update, tracked_order in zip(*update_to_tracked):
             client_order_id = tracked_order.client_order_id
 
             # If the order has already been cancelled or has failed do nothing
@@ -379,7 +384,7 @@ class LatokenExchange(ExchangePyBase):
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
             domain=self.domain,
-            auth=self.auth)
+            auth=self.authenticator)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return LatokenAPIOrderBookDataSource(
@@ -392,7 +397,7 @@ class LatokenExchange(ExchangePyBase):
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return LatokenAPIUserStreamDataSource(
-            auth=self.auth,
+            auth=self.authenticator,
             trading_pairs=self._trading_pairs,
             domain=self.domain,
             api_factory=self._web_assistants_factory,
@@ -448,7 +453,7 @@ class LatokenExchange(ExchangePyBase):
     async def _process_trade_update(self, trade: Dict[str, Any]):
         symbol = f"{trade['baseCurrency']}/{trade['quoteCurrency']}"
         trading_pair = await self._orderbook_ds.trading_pair_associated_to_exchange_symbol(
-            symbol=symbol, domain=self._domain, api_factory=self._web_assistants_factory, throttler=self._throttler)
+            symbol=symbol, domain=self.domain, api_factory=self._web_assistants_factory, throttler=self._throttler)
 
         base_currency, quote_currency = trading_pair.split('-')
         trade_type = TradeType.BUY if trade["makerBuyer"] else TradeType.SELL
@@ -482,7 +487,7 @@ class LatokenExchange(ExchangePyBase):
     async def _process_order_update(self, order: Dict[str, Any]):
         symbol = f"{order['baseCurrency']}/{order['quoteCurrency']}"
         trading_pair = await self._orderbook_ds.trading_pair_associated_to_exchange_symbol(
-            symbol=symbol, domain=self._domain, api_factory=self._web_assistants_factory, throttler=self._throttler)
+            symbol=symbol, domain=self.domain, api_factory=self._web_assistants_factory, throttler=self._throttler)
         client_order_id = order['clientOrderId']
 
         change_type = order['changeType']
