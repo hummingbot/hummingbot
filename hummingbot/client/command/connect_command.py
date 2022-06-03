@@ -186,5 +186,3 @@ class ConnectCommand:
             if previous_keys is not None:
                 previous_config = ClientConfigAdapter(connector_config.hb_config.__class__(**previous_keys))
                 Security.update_secure_config(previous_config)
-            else:
-                Security.remove_secure_config(connector_name)
