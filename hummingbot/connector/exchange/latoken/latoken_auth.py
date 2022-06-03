@@ -35,9 +35,7 @@ class LatokenAuth(AuthBase):
         if request.headers is not None:
             headers.update(request.headers)
         endpoint = str(urlsplit(request.url).path)
-        signature = self._generate_signature(method=request.method.name,
-                                             endpoint=str(endpoint),
-                                             params=request_params)
+        signature = self._generate_signature(method=request.method.name, endpoint=endpoint, params=request_params)
         headers.update(self.header_for_authentication(signature))
 
         request.headers = headers
