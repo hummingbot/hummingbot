@@ -1,4 +1,3 @@
-import sys
 from os.path import dirname, join, realpath
 
 from prompt_toolkit.shortcuts import input_dialog, message_dialog
