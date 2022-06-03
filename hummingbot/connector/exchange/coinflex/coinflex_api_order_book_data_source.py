@@ -3,25 +3,18 @@ import logging
 import time
 from collections import defaultdict
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-)
+from typing import Any, Dict, List, Mapping, Optional
+
+from bidict import bidict
 
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
-from bidict import bidict
-from hummingbot.connector.exchange.coinflex import coinflex_utils
-from hummingbot.connector.exchange.coinflex import coinflex_web_utils as web_utils
+from hummingbot.connector.exchange.coinflex import coinflex_utils, coinflex_web_utils as web_utils
 from hummingbot.connector.exchange.coinflex.coinflex_order_book import CoinflexOrderBook
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -48,7 +41,6 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._domain = domain
         self._throttler = throttler
         self._api_factory = api_factory or web_utils.build_api_factory()
-        self._order_book_create_function = lambda: OrderBook()
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
     @classmethod
@@ -74,13 +66,28 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         the function will create a new one.
         :return: Dictionary of associations between token pair and its latest price
         """
-        tasks = [cls._get_last_traded_price(
-            trading_pair=t_pair,
-            domain=domain,
+        resp = await web_utils.api_request(
+            path=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
             api_factory=api_factory,
-            throttler=throttler) for t_pair in trading_pairs]
-        results = await safe_gather(*tasks)
-        return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
+            throttler=throttler,
+            domain=domain,
+            method=RESTMethod.GET,
+        )
+
+        results = {}
+
+        for t_pair in trading_pairs:
+            symbol = await cls.trading_pair_associated_to_exchange_symbol(
+                symbol=t_pair,
+                domain=domain,
+                throttler=throttler)
+            matched_ticker = [t for t in resp if t.get("marketCode") == symbol]
+            if not (len(matched_ticker) and "last" in matched_ticker[0]):
+                raise IOError(f"Error fetching last traded prices for {t_pair}. "
+                              f"Response: {resp}.")
+            results[t_pair] = float(matched_ticker[0]["last"])
+
+        return results
 
     @classmethod
     @async_ttl_cache(ttl=2, maxsize=1)
@@ -88,7 +95,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Returns the mid price of all trading pairs, obtaining the information from the exchange. This functionality is
         required by the market price strategy.
-        :param domain: Domain to use for the connection with the exchange (either "live" or "test"). Default value is "live"
+        :param domain: Domain to use for the connection with the exchange
         :return: Dictionary with the trading pair as key, and the mid price as value
         """
 
@@ -115,7 +122,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def trading_pair_symbol_map_ready(cls, domain: str = CONSTANTS.DEFAULT_DOMAIN):
         """
         Checks if the mapping from exchange symbols to client trading pairs has been initialized
-        :param domain: the domain of the exchange being used (either "live" or "test"). Default value is "live"
+        :param domain: Domain to use for the connection with the exchange
         :return: True if the mapping has been initialized, False otherwise
         """
         return domain in cls._trading_pair_symbol_map and len(cls._trading_pair_symbol_map[domain]) > 0
@@ -131,7 +138,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returns the internal map used to translate trading pairs from and to the exchange notation.
         In general this should not be used. Instead call the methods `exchange_symbol_associated_to_pair` and
         `trading_pair_associated_to_exchange_symbol`
-        :param domain: the domain of the exchange being used (either "live" or "test"). Default value is "live"
+        :param domain: Domain to use for the connection with the exchange
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
         :return: bidirectional mapping between trading pair exchange notation and client notation
@@ -157,7 +164,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Used to translate a trading pair from the client notation to the exchange notation
         :param trading_pair: trading pair in client notation
-        :param domain: the domain of the exchange being used (either "live" or "test"). Default value is "live"
+        :param domain: Domain to use for the connection with the exchange
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
         :return: trading pair in exchange notation
@@ -177,7 +184,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Used to translate a trading pair from the exchange notation to the client notation
         :param symbol: trading pair in exchange notation
-        :param domain: the domain of the exchange being used (either "live" or "test"). Default value is "live"
+        :param domain: Domain to use for the connection with the exchange
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
         :return: trading pair in client notation
@@ -195,7 +202,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             api_factory: Optional[WebAssistantsFactory] = None) -> List[str]:
         """
         Returns a list of all known trading pairs enabled to operate with
-        :param domain: the domain of the exchange being used (either "live" or "test"). Default value is "live"
+        :param domain: Domain to use for the connection with the exchange
         :return: list of trading pairs in client notation
         """
         mapping = await CoinflexAPIOrderBookDataSource.trading_pair_symbol_map(
@@ -414,31 +421,6 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 exc_info=True
             )
             raise
-
-    @classmethod
-    async def _get_last_traded_price(cls,
-                                     trading_pair: str,
-                                     domain: str,
-                                     api_factory: WebAssistantsFactory,
-                                     throttler: AsyncThrottler) -> float:
-        symbol = await cls.exchange_symbol_associated_to_pair(
-            trading_pair=trading_pair,
-            domain=domain,
-            throttler=throttler)
-
-        resp = await web_utils.api_request(
-            path=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
-            api_factory=api_factory,
-            throttler=throttler,
-            domain=domain,
-            method=RESTMethod.GET,
-        )
-
-        matched_ticker = [t for t in resp if t.get("marketCode") == symbol]
-        if not (len(matched_ticker) and "last" in matched_ticker[0]):
-            raise IOError(f"Error fetching last traded prices for {trading_pair}. "
-                          f"Response: {resp}.")
-        return float(matched_ticker[0]["last"])
 
     @classmethod
     async def _init_trading_pair_symbols(
