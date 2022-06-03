@@ -38,7 +38,7 @@ import {
 export namespace ClobRoutes {
   export const router = Router();
 
-  router.post(
+  router.get(
     '/',
     asyncHandler(
       async (request: Request<any>, response: Response<any, any>) => {
@@ -59,7 +59,7 @@ export namespace ClobRoutes {
     )
   );
 
-  router.post(
+  router.get(
     '/markets',
     asyncHandler(
       async (
@@ -76,7 +76,7 @@ export namespace ClobRoutes {
   /**
    * Returns the last traded prices.
    */
-  router.post(
+  router.get(
     '/tickers',
     asyncHandler(
       async (
@@ -90,7 +90,7 @@ export namespace ClobRoutes {
     )
   );
 
-  router.post(
+  router.get(
     '/orderBooks',
     asyncHandler(
       async (
@@ -104,7 +104,7 @@ export namespace ClobRoutes {
     )
   );
 
-  router.post(
+  router.get(
     '/orders',
     asyncHandler(
       async (
@@ -152,7 +152,7 @@ export namespace ClobRoutes {
     )
   );
 
-  router.post(
+  router.get(
     '/openOrders',
     asyncHandler(
       async (
@@ -168,7 +168,7 @@ export namespace ClobRoutes {
     )
   );
 
-  router.post(
+  router.get(
     '/filledOrders',
     asyncHandler(
       async (
