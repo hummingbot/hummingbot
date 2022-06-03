@@ -26,7 +26,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class BinanceConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="binance", client_data=None)
+    connector: str = Field(default="binance", const=True, client_data=None)
     binance_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -55,11 +55,11 @@ KEYS = BinanceConfigMap.construct()
 OTHER_DOMAINS = ["binance_us"]
 OTHER_DOMAINS_PARAMETER = {"binance_us": "us"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"binance_us": "BTC-USDT"}
-OTHER_DOMAINS_DEFAULT_FEES = {"binance_us": [0.1, 0.1]}
+OTHER_DOMAINS_DEFAULT_FEES = {"binance_us": DEFAULT_FEES}
 
 
 class BinanceUSConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="binance_us", client_data=None)
+    connector: str = Field(default="binance_us", const=True, client_data=None)
     binance_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
