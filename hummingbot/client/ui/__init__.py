@@ -4,10 +4,21 @@ from os.path import dirname, join, realpath
 from prompt_toolkit.shortcuts import input_dialog, message_dialog
 from prompt_toolkit.styles import Style
 
-sys.path.insert(0, realpath(join(__file__, "../../../")))
+from hummingbot.client.config.global_config_map import color_config_map
+
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
     version = version_file.read().strip()
+
+default_dialog_style = Style.from_dict({
+    'dialog': 'bg:#171E2B',
+    'dialog frame.label': 'bg:#ffffff #000000',
+    'dialog.body': 'bg:#000000 ' + color_config_map["terminal-primary"].default,
+    'dialog shadow': 'bg:#171E2B',
+    'button': 'bg:#000000',
+    'text-area': 'bg:#000000 #ffffff',
+})
 
 
 def show_welcome(style: Style):
@@ -71,7 +82,7 @@ def show_welcome(style: Style):
         style=style).run()
 
 
-def login_prompt(style: Style):
+def login_prompt(style: Style = default_dialog_style):
     import time
 
     from hummingbot.client.config.security import Security
