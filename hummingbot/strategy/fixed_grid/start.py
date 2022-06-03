@@ -48,7 +48,7 @@ def start(self):
             ask_order_optimization_depth=ask_order_optimization_depth,
             bid_order_optimization_depth=bid_order_optimization_depth,
             logging_options=strategy_logging_options,
-            take_if_crossed=take_if_crossed,           
+            take_if_crossed=take_if_crossed,
             order_refresh_tolerance_pct=order_refresh_tolerance_pct,
             hb_app_notification=True,
             should_wait_order_cancel_confirmation=should_wait_order_cancel_confirmation,
