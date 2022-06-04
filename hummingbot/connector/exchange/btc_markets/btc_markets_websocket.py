@@ -1,17 +1,17 @@
 #!/usr/bin/env python
 import asyncio
 import logging
-import websockets
+from typing import Any, AsyncIterable, List, Optional
+
 import ujson
-import hummingbot.connector.exchange.btc_markets.btc_markets_constants as constants
-from hummingbot.core.utils.async_utils import safe_ensure_future
-
-
-from typing import Optional, AsyncIterable, Any, List
+import websockets
 from websockets.exceptions import ConnectionClosed
-from hummingbot.logger import HummingbotLogger
+
+import hummingbot.connector.exchange.btc_markets.btc_markets_constants as constants
 from hummingbot.connector.exchange.btc_markets.btc_markets_auth import BtcMarketsAuth
 from hummingbot.connector.exchange.btc_markets.btc_markets_utils import RequestId, get_ms_timestamp
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 
 # reusable websocket class
 # ToDo: We should eventually remove this class, and instantiate web socket connection normally (see Binance for example)

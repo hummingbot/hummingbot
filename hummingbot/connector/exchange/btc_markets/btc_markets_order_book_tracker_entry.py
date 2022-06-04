@@ -1,6 +1,6 @@
+from hummingbot.connector.exchange.btc_markets.btc_markets_active_order_tracker import BtcMarketsActiveOrderTracker
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from hummingbot.connector.exchange.btc_markets.btc_markets_active_order_tracker import BtcMarketsActiveOrderTracker
 
 
 class BtcMarketsOrderBookTrackerEntry(OrderBookTrackerEntry):

@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
-import sys
 import asyncio
 import logging
+import sys
 import unittest
-import conf
-
 from os.path import join, realpath
-from hummingbot.connector.exchange.btc_markets.btc_markets_user_stream_tracker import BtcMarketsUserStreamTracker
+
+import conf
 from hummingbot.connector.exchange.btc_markets.btc_markets_auth import BtcMarketsAuth
+from hummingbot.connector.exchange.btc_markets.btc_markets_user_stream_tracker import BtcMarketsUserStreamTracker
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))

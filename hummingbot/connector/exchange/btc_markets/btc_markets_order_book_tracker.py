@@ -2,19 +2,20 @@
 import asyncio
 import bisect
 import logging
-import hummingbot.connector.exchange.btc_markets.btc_markets_constants as constants
 import time
-
 from collections import defaultdict, deque
-from typing import Optional, Dict, List, Deque
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.connector.exchange.btc_markets.btc_markets_order_book_message import BtcMarketsOrderBookMessage
+from typing import Deque, Dict, List, Optional
+
+import hummingbot.connector.exchange.btc_markets.btc_markets_constants as constants
 from hummingbot.connector.exchange.btc_markets.btc_markets_active_order_tracker import BtcMarketsActiveOrderTracker
-from hummingbot.connector.exchange.btc_markets.btc_markets_api_order_book_data_source \
-    import BtcMarketsAPIOrderBookDataSource
+from hummingbot.connector.exchange.btc_markets.btc_markets_api_order_book_data_source import (
+    BtcMarketsAPIOrderBookDataSource,
+)
 from hummingbot.connector.exchange.btc_markets.btc_markets_order_book import BtcMarketsOrderBook
+from hummingbot.connector.exchange.btc_markets.btc_markets_order_book_message import BtcMarketsOrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.logger import HummingbotLogger
 
 
 class BtcMarketsOrderBookTracker(OrderBookTracker):

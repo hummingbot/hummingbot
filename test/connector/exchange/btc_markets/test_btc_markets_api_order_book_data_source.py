@@ -1,16 +1,15 @@
-import unittest
-import conf
-
-from hummingbot.connector.exchange.btc_markets.btc_markets_api_order_book_data_source \
-    import BtcMarketsAPIOrderBookDataSource
-from hummingbot.connector.exchange.btc_markets.btc_markets_auth import BtcMarketsAuth
-from unittest import mock
 import asyncio
+import unittest
+from typing import Any, Dict
+from unittest import mock
+
 import aiohttp
-from typing import (
-    Any,
-    Dict,
+
+import conf
+from hummingbot.connector.exchange.btc_markets.btc_markets_api_order_book_data_source import (
+    BtcMarketsAPIOrderBookDataSource,
 )
+from hummingbot.connector.exchange.btc_markets.btc_markets_auth import BtcMarketsAuth
 
 trading_pairs = ['USDT-AUD', 'BTC-AUD']
 
