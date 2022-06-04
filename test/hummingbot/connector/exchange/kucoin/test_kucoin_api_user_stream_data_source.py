@@ -2,20 +2,17 @@ import asyncio
 import json
 import re
 import unittest
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.kucoin import (
-    kucoin_constants as CONSTANTS,
-    kucoin_web_utils as web_utils,
-)
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS, kucoin_web_utils as web_utils
 from hummingbot.connector.exchange.kucoin.kucoin_api_user_stream_data_source import KucoinAPIUserStreamDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
@@ -56,6 +53,8 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
             auth=self.auth)
 
         self.data_source = KucoinAPIUserStreamDataSource(
+            auth=self.auth,
+            trading_pairs=[self.trading_pair],
             throttler=self.throttler,
             api_factory=self.api_factory)
 
