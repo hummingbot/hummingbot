@@ -1,0 +1,7 @@
+{
+  "chain": "avalanche",
+  "network": "avalanche",
+  "address": "$AVALANCHE_ADDRESS",
+  "spender": "traderjoe",
+  "token": "WAVAX"
+}

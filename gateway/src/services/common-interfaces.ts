@@ -23,17 +23,31 @@ import {
   Trade as TradePangolin,
   Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
-
-export type Tokenish = Token | TokenPangolin | UniswapCoreToken;
+import {
+  Token as TokenTraderjoe,
+  CurrencyAmount as CurrencyAmountTraderjoe,
+  Trade as TradeTraderjoe,
+  Fraction as TraderjoeFraction,
+} from '@traderjoe-xyz/sdk';
+export type Tokenish =
+  | Token
+  | TokenPangolin
+  | TokenTraderjoe
+  | UniswapCoreToken;
 export type UniswapishTrade =
   | Trade
   | TradePangolin
+  | TradeTraderjoe
   | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
+  | CurrencyAmountTraderjoe
   | UniswapCoreCurrencyAmount<Currency>;
-export type Fractionish = UniswapFraction | PangolinFraction;
+export type Fractionish =
+  | UniswapFraction
+  | PangolinFraction
+  | TraderjoeFraction;
 
 export interface ExpectedTrade {
   trade: UniswapishTrade;
