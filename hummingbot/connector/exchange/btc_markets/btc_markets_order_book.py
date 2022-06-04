@@ -1,18 +1,13 @@
 #!/usr/bin/env python
 
 import logging
-import hummingbot.connector.exchange.btc_markets.btc_markets_constants as constants
+from typing import Any, Dict, List, Optional
 
-from typing import (
-    Optional,
-    Dict,
-    List, Any)
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage, OrderBookMessageType
-)
+import hummingbot.connector.exchange.btc_markets.btc_markets_constants as constants
 from hummingbot.connector.exchange.btc_markets.btc_markets_order_book_message import BtcMarketsOrderBookMessage
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.logger import HummingbotLogger
 
 _logger = None
 

@@ -1,18 +1,19 @@
 #!/usr/bin/env python
-import sys
 import asyncio
-import unittest
-import aiohttp
-import conf
 import logging
-
+import sys
+import unittest
 from os.path import join, realpath
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
+import aiohttp
+
+import conf
+import hummingbot.connector.exchange.btc_markets.btc_markets_constants as constants
 from hummingbot.connector.exchange.btc_markets.btc_markets_auth import BtcMarketsAuth
+from hummingbot.connector.exchange.btc_markets.btc_markets_utils import get_ms_timestamp
 from hummingbot.connector.exchange.btc_markets.btc_markets_websocket import BtcMarketsWebsocket
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-import hummingbot.connector.exchange.btc_markets.btc_markets_constants as constants
-from hummingbot.connector.exchange.btc_markets.btc_markets_utils import get_ms_timestamp
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)

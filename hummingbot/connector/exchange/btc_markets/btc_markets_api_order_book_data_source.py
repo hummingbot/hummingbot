@@ -2,12 +2,12 @@
 import asyncio
 import logging
 import time
+from typing import Any, Dict, List, Optional
+
 import aiohttp
 import pandas as pd
+
 import hummingbot.connector.exchange.btc_markets.btc_markets_constants as constants
-
-
-from typing import Optional, List, Dict, Any
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -16,8 +16,8 @@ from hummingbot.logger import HummingbotLogger
 
 from .btc_markets_active_order_tracker import BtcMarketsActiveOrderTracker
 from .btc_markets_order_book import BtcMarketsOrderBook
-from .btc_markets_websocket import BtcMarketsWebsocket
 from .btc_markets_utils import str_date_to_ts
+from .btc_markets_websocket import BtcMarketsWebsocket
 
 
 class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
