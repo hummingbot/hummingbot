@@ -4,9 +4,15 @@ from hummingbot.core.api_throttler.data_types import RateLimit
 
 EXCHANGE_NAME = "bitmart"
 REST_URL = "https://api-cloud.bitmart.com"
-REST_URL_HK = "https://api-cloud.bitmart.news"
-WSS_URL = "wss://ws-manager-compress.bitmart.com?protocol=1.1"
-WSS_URL_HK = "wss://ws-manager-compress.bitmart.news?protocol=1.1"
+WSS_PUBLIC_URL = "wss://ws-manager-compress.bitmart.com/api?protocol=1.1"
+WSS_PRIVATE_URL = "wss://ws-manager-compress.bitmart.com/user?protocol=1.1"
+WS_PING_TIMEOUT = 20 * 0.8
+
+DEFAULT_DOMAIN = ""
+
+PUBLIC_TRADE_CHANNEL_NAME = "spot/trade"
+PUBLIC_DEPTH_CHANNEL_NAME = "spot/depth50"
+PRIVATE_ORDER_PROGRESS_CHANNEL_NAME = "spot/user/order"
 
 # REST API ENDPOINTS
 CHECK_NETWORK_PATH_URL = "system/service"
@@ -20,6 +26,7 @@ GET_ACCOUNT_SUMMARY_PATH_URL = "spot/v1/wallet"
 GET_ORDER_DETAIL_PATH_URL = "spot/v1/order_detail"
 GET_TRADE_DETAIL_PATH_URL = "spot/v1/trades"
 GET_OPEN_ORDERS_PATH_URL = "spot/v1/orders"
+SERVER_TIME_PATH = "system/time"
 
 # WS API ENDPOINTS
 WS_CONNECT = "WSConnect"
@@ -31,15 +38,16 @@ RATE_LIMITS = [
     RateLimit(limit_id=GET_TRADING_PAIRS_PATH_URL, limit=5, time_interval=1),
     RateLimit(limit_id=GET_TRADING_RULES_PATH_URL, limit=5, time_interval=1),
     RateLimit(limit_id=GET_LAST_TRADING_PRICES_PATH_URL, limit=5, time_interval=1),
-    RateLimit(limit_id=GET_ORDER_BOOK_PATH_URL, limit=5, time_interval=1),
+    RateLimit(limit_id=GET_ORDER_BOOK_PATH_URL, limit=30, time_interval=5),
     RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=50, time_interval=1),
     RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=50, time_interval=1),
     RateLimit(limit_id=GET_ACCOUNT_SUMMARY_PATH_URL, limit=10, time_interval=1),
     RateLimit(limit_id=GET_ORDER_DETAIL_PATH_URL, limit=50, time_interval=1),
     RateLimit(limit_id=GET_TRADE_DETAIL_PATH_URL, limit=10, time_interval=1),
     RateLimit(limit_id=GET_OPEN_ORDERS_PATH_URL, limit=10, time_interval=1),
-    RateLimit(limit_id=WS_CONNECT, limit=1, time_interval=1),
-    RateLimit(limit_id=WS_SUBSCRIBE, limit=60, time_interval=600),
+    RateLimit(limit_id=SERVER_TIME_PATH, limit=10, time_interval=1),
+    RateLimit(limit_id=WS_CONNECT, limit=30, time_interval=60),
+    RateLimit(limit_id=WS_SUBSCRIBE, limit=100, time_interval=10),
 ]
 
 ORDER_STATUS = {
