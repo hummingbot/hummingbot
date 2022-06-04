@@ -6,13 +6,17 @@ import math
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
-from hummingbot.connector.exchange.bitmart import bitmart_constants as CONSTANTS, bitmart_utils
+from hummingbot.connector.exchange.bitmart import (
+    bitmart_constants as CONSTANTS,
+    bitmart_utils,
+    bitmart_web_utils as web_utils,
+)
 from hummingbot.connector.exchange.bitmart.bitmart_api_order_book_data_source import BitmartAPIOrderBookDataSource
+from hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source import BitmartAPIUserStreamDataSource
 from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
 from hummingbot.connector.exchange.bitmart.bitmart_in_flight_order import BitmartInFlightOrder
-from hummingbot.connector.exchange.bitmart.bitmart_order_book_tracker import BitmartOrderBookTracker
-from hummingbot.connector.exchange.bitmart.bitmart_user_stream_tracker import BitmartUserStreamTracker
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
@@ -20,7 +24,9 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -74,19 +80,34 @@ class BitmartExchange(ExchangeBase):
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
+        self._time_synchronizer = TimeSynchronizer()
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._api_factory = bitmart_utils.build_api_factory(throttler=self._throttler)
+        self._bitmart_auth = BitmartAuth(api_key=bitmart_api_key,
+                                         secret_key=bitmart_secret_key,
+                                         memo=bitmart_memo,
+                                         time_provider=self._time_synchronizer)
+        self._api_factory = web_utils.build_api_factory(
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            auth=self._bitmart_auth)
         self._rest_assistant = None
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._bitmart_auth = BitmartAuth(api_key=bitmart_api_key,
-                                         secret_key=bitmart_secret_key,
-                                         memo=bitmart_memo)
-        self._set_order_book_tracker(BitmartOrderBookTracker(
-            throttler=self._throttler, trading_pairs=trading_pairs
-        ))
-        self._user_stream_tracker = BitmartUserStreamTracker(
-            throttler=self._throttler, bitmart_auth=self._bitmart_auth, trading_pairs=trading_pairs
+        self._orderbook_ds: BitmartAPIOrderBookDataSource = BitmartAPIOrderBookDataSource(
+            trading_pairs=self._trading_pairs,
+            connector=self,
+            api_factory=self._api_factory,
+        )
+        self._set_order_book_tracker(OrderBookTracker(
+            data_source=self._orderbook_ds,
+            trading_pairs=self._trading_pairs))
+        self._user_stream_tracker = UserStreamTracker(
+            data_source=BitmartAPIUserStreamDataSource(
+                auth=self._bitmart_auth,
+                trading_pairs=self._trading_pairs,
+                connector=self,
+                api_factory=self._api_factory,
+            )
         )
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
@@ -339,7 +360,7 @@ class BitmartExchange(ExchangeBase):
         async with self._throttler.execute_task(path_url):
             url = f"{CONSTANTS.REST_URL}/{path_url}"
 
-            headers = self._bitmart_auth.get_headers(bitmart_utils.get_ms_timestamp(), params, auth_type)
+            headers = self._bitmart_auth.get_headers(params, auth_type)
 
             if method == "get":
                 request = RESTRequest(
@@ -562,7 +583,8 @@ class BitmartExchange(ExchangeBase):
 
             # result = True is a successful cancel, False indicates cancel failed due to already cancelled or matched
             if "result" in response["data"] and not response["data"]["result"]:
-                raise ValueError(f"Failed to cancel order - {order_id}. Order was already matched or canceled on the exchange.")
+                raise ValueError(
+                    f"Failed to cancel order - {order_id}. Order was already matched or canceled on the exchange.")
             return order_id
         except asyncio.CancelledError:
             raise
@@ -666,9 +688,9 @@ class BitmartExchange(ExchangeBase):
         client_order_id = tracked_order.client_order_id
 
         # Update order execution status
-        if "status" in order_msg:       # REST API
+        if "status" in order_msg:  # REST API
             tracked_order.last_state = CONSTANTS.ORDER_STATUS[int(order_msg["status"])]
-        elif "state" in order_msg:      # WebSocket
+        elif "state" in order_msg:  # WebSocket
             tracked_order.last_state = CONSTANTS.ORDER_STATUS[int(order_msg["state"])]
 
         if tracked_order.is_cancelled:
@@ -718,7 +740,8 @@ class BitmartExchange(ExchangeBase):
                 exchange_trade_id=trade_id
             )
         )
-        if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or tracked_order.executed_amount_base >= tracked_order.amount:
+        if math.isclose(tracked_order.executed_amount_base,
+                        tracked_order.amount) or tracked_order.executed_amount_base >= tracked_order.amount:
             tracked_order.last_state = "FILLED"
             self.logger().info(f"The {tracked_order.trade_type.name} order "
                                f"{tracked_order.client_order_id} has completed "
@@ -765,7 +788,8 @@ class BitmartExchange(ExchangeBase):
                 exchange_trade_id=trade_id
             )
         )
-        if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or tracked_order.executed_amount_base >= tracked_order.amount:
+        if math.isclose(tracked_order.executed_amount_base,
+                        tracked_order.amount) or tracked_order.executed_amount_base >= tracked_order.amount:
             tracked_order.last_state = "FILLED"
             self.logger().info(f"The {tracked_order.trade_type.name} order "
                                f"{tracked_order.client_order_id} has completed "
@@ -881,7 +905,7 @@ class BitmartExchange(ExchangeBase):
             try:
                 if "data" not in event_message:
                     continue
-                for msg in event_message["data"]:     # data is a list
+                for msg in event_message["data"]:  # data is a list
                     await self._process_order_message(msg)
                     await self._process_trade_message_ws(msg)
             except asyncio.CancelledError:
@@ -900,7 +924,8 @@ class BitmartExchange(ExchangeBase):
             page = 1
             while True:
                 response = await self._api_request("get", CONSTANTS.GET_OPEN_ORDERS_PATH_URL,
-                                                   {"symbol": bitmart_utils.convert_to_exchange_trading_pair(trading_pair),
+                                                   {"symbol": bitmart_utils.convert_to_exchange_trading_pair(
+                                                       trading_pair),
                                                     "offset": page,
                                                     "limit": page_len,
                                                     "status": "9"},
@@ -943,9 +968,47 @@ class BitmartExchange(ExchangeBase):
         return ret_val
 
     async def all_trading_pairs(self) -> List[str]:
-        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
-        return await BitmartAPIOrderBookDataSource.fetch_trading_pairs()
+        try:
+            response = await self._api_request(
+                "get",
+                CONSTANTS.GET_TRADING_PAIRS_PATH_URL)
+            return [await self.trading_pair_associated_to_exchange_symbol(symbol)
+                    for symbol in response["data"]["symbols"]]
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete for dydx trading pairs
+            pass
 
-    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
-        # This method should be removed and instead we should implement _get_last_traded_price
-        return await BitmartAPIOrderBookDataSource.get_last_traded_prices(trading_pairs=trading_pairs)
+        return []
+
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
+        params = {
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        }
+
+        resp_json = await self._api_request(
+            method="get",
+            path_url=CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL,
+            params=params
+        )
+
+        return float(resp_json["data"]["tickers"][0]["last_price"])
+
+    async def exchange_symbol_associated_to_pair(self, trading_pair: str) -> str:
+        """
+        Used to translate a trading pair from the client notation to the exchange notation
+
+        :param trading_pair: trading pair in client notation
+
+        :return: trading pair in exchange notation
+        """
+        return bitmart_utils.convert_to_exchange_trading_pair(trading_pair)
+
+    async def trading_pair_associated_to_exchange_symbol(self, symbol: str, ) -> str:
+        """
+        Used to translate a trading pair from the exchange notation to the client notation
+
+        :param symbol: trading pair in exchange notation
+
+        :return: trading pair in client notation
+        """
+        return bitmart_utils.convert_from_exchange_trading_pair(symbol)
