@@ -153,8 +153,9 @@ class BinanceExchange(ExchangePyBase):
                       "side": side_str,
                       "quantity": amount_str,
                       "type": type_str,
-                      "newClientOrderId": order_id,
-                      "price": price_str}
+                      "newClientOrderId": order_id}
+        if order_type != OrderType.MARKET:
+            api_params["price"] = price_str
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
 
