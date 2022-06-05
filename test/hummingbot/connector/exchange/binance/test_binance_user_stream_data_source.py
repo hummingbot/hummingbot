@@ -2,20 +2,17 @@ import asyncio
 import json
 import re
 import unittest
-
-from aioresponses import aioresponses
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.connector.exchange.binance import (
-    binance_constants as CONSTANTS,
-    binance_web_utils as web_utils,
-)
+from aioresponses import aioresponses
+
+from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
@@ -50,6 +47,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         self.data_source = BinanceAPIUserStreamDataSource(
             auth=BinanceAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider),
             domain=self.domain,
+            trading_pairs=[self.trading_pair],
             throttler=self.throttler,
             time_synchronizer=self.time_synchronizer,
         )
