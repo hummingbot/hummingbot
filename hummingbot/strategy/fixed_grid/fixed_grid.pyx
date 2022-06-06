@@ -332,11 +332,12 @@ cdef class FixedGridStrategy(StrategyBase):
                 level = no_sells - lvl_sell
                 lvl_sell += 1
             spread = 0 if price == 0 else abs(order.price - price)/price
-            age = "n/a"
+            age = pd.Timestamp(order_age(order, self._current_timestamp), unit='s').strftime('%H:%M:%S')
+	    # age = "n/a"
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-            if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
-                                   unit='s').strftime('%H:%M:%S')
+            # if "//" not in order.client_order_id:
+            #     age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
+            #                        unit='s').strftime('%H:%M:%S')
 
            
             amount_orig = ""

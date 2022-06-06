@@ -54,5 +54,5 @@ def start(self):
             should_wait_order_cancel_confirmation=should_wait_order_cancel_confirmation,
         )
     except Exception as e:
-        self._notify(str(e))
+        self.notify(str(e))
         self.logger().error("Unknown error during initialization.", exc_info=True)
