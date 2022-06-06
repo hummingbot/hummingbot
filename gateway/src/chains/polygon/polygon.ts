@@ -6,6 +6,7 @@ import { getEthereumConfig as getPolygonConfig } from '../ethereum/ethereum.conf
 import { Provider } from '@ethersproject/abstract-provider';
 import { Ethereumish } from '../../services/common-interfaces';
 import { replaceOrAppend } from '../../services/base';
+import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
 export class Polygon extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: Polygon };
@@ -22,7 +23,9 @@ export class Polygon extends EthereumBase implements Ethereumish {
       config.network.tokenListSource,
       config.network.tokenListType,
       config.manualGasPrice,
-      config.gasLimit
+      config.gasLimit,
+      ConfigManagerV2.getInstance().get('database.nonceDbPath'),
+      ConfigManagerV2.getInstance().get('database.transactionDbPath')
     );
     this._chain = config.network.name;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
