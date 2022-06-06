@@ -22,8 +22,6 @@ export namespace OpenoceanConfig {
         'openocean.contractAddresses.' + network + '.routerAddress'
       ),
     tradingTypes: ['EVM_AMM'],
-    availableNetworks: [
-      { chain: 'avalanche', networks: ['avalanche'] },
-    ],
+    availableNetworks: [{ chain: 'avalanche', networks: ['avalanche'] }],
   };
 }

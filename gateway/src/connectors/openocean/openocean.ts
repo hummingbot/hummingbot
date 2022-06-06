@@ -1,10 +1,5 @@
 import { percentRegexp } from '../../services/config-manager-v2';
-import {
-  BigNumber,
-  ContractInterface,
-  Transaction,
-  Wallet,
-} from 'ethers';
+import { BigNumber, ContractInterface, Transaction, Wallet } from 'ethers';
 import { OpenoceanConfig } from './openocean.config';
 import {
   Percent,
@@ -21,24 +16,39 @@ import axios from 'axios';
 import { logger } from '../../services/logger';
 import { Avalanche } from '../../chains/avalanche/avalanche';
 import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
-import { Currency } from "@uniswap/sdk/dist/entities/currency";
+import { Currency } from '@uniswap/sdk/dist/entities/currency';
 import {
   HttpException,
-  InitializationError, SERVICE_UNITIALIZED_ERROR_CODE,
-  SERVICE_UNITIALIZED_ERROR_MESSAGE, TRADE_FAILED_ERROR_CODE, TRADE_FAILED_ERROR_MESSAGE,
-  UniswapishPriceError, UNKNOWN_ERROR_ERROR_CODE, UNKNOWN_ERROR_MESSAGE
-} from "../../services/error-handler";
+  InitializationError,
+  SERVICE_UNITIALIZED_ERROR_CODE,
+  SERVICE_UNITIALIZED_ERROR_MESSAGE,
+  TRADE_FAILED_ERROR_CODE,
+  TRADE_FAILED_ERROR_MESSAGE,
+  UniswapishPriceError,
+  UNKNOWN_ERROR_ERROR_CODE,
+  UNKNOWN_ERROR_MESSAGE,
+} from '../../services/error-handler';
 
-export function newFakeTrade(tokenIn: Token, tokenOut: Token, tokenInAmount: BigNumber, tokenOutAmount: BigNumber): Trade {
-  const baseAmount = new TokenAmount(tokenIn, tokenInAmount.toString())
-  const quoteAmount = new TokenAmount(tokenOut, tokenOutAmount.toString())
+export function newFakeTrade(
+  tokenIn: Token,
+  tokenOut: Token,
+  tokenInAmount: BigNumber,
+  tokenOutAmount: BigNumber
+): Trade {
+  const baseAmount = new TokenAmount(tokenIn, tokenInAmount.toString());
+  const quoteAmount = new TokenAmount(tokenOut, tokenOutAmount.toString());
   // Pair needs the reserves but this is not possible to pull in sushiswap contract
-  let pair = new Pair(baseAmount, quoteAmount)
-  let route = new Route([pair], tokenIn, tokenOut)
-  let trade = new Trade(route, baseAmount, TradeType.EXACT_INPUT);
+  const pair = new Pair(baseAmount, quoteAmount);
+  const route = new Route([pair], tokenIn, tokenOut);
+  const trade = new Trade(route, baseAmount, TradeType.EXACT_INPUT);
   // hack to set readonly component given we can't easily get pool token amounts
-  (trade.executionPrice as Price) = new Price(tokenIn, tokenOut, tokenInAmount.toBigInt(), tokenOutAmount.toBigInt())
-  return trade
+  (trade.executionPrice as Price) = new Price(
+    tokenIn,
+    tokenOut,
+    tokenInAmount.toBigInt(),
+    tokenOutAmount.toBigInt()
+  );
+  return trade;
 }
 
 export class Openocean implements Uniswapish {
@@ -84,8 +94,8 @@ export class Openocean implements Uniswapish {
   }
 
   public getTokenByCurrency(currency: Currency): Token | any {
-    for(let key in this.tokenList){
-      if(this.tokenList[key].symbol == currency.symbol){
+    for (const key in this.tokenList) {
+      if (this.tokenList[key].symbol == currency.symbol) {
         return this.tokenList[key];
       }
     }
@@ -184,19 +194,25 @@ export class Openocean implements Uniswapish {
       `getting amounts out ${baseToken.address}-${quoteToken.address}.`
     );
 
-    const reqAmount = new Decimal(amount.toString()).div(new Decimal((10 ** baseToken.decimals).toString())).toNumber();
+    const reqAmount = new Decimal(amount.toString())
+      .div(new Decimal((10 ** baseToken.decimals).toString()))
+      .toNumber();
     logger.info(`reqAmount:${reqAmount}`);
     const gasPrice = this.avalanche.gasPrice;
     let quoteRes;
-    try{
-      quoteRes = await axios.get(`https://open-api.openocean.finance/v3/${this.chainName}/quote`,{params:{
-          inTokenAddress: baseToken.address,
-          outTokenAddress: quoteToken.address,
-          amount: reqAmount,
-          gasPrice: gasPrice,
+    try {
+      quoteRes = await axios.get(
+        `https://open-api.openocean.finance/v3/${this.chainName}/quote`,
+        {
+          params: {
+            inTokenAddress: baseToken.address,
+            outTokenAddress: quoteToken.address,
+            amount: reqAmount,
+            gasPrice: gasPrice,
+          },
         }
-      });
-    } catch(e) {
+      );
+    } catch (e) {
       if (e instanceof Error) {
         logger.error(`Could not get trade info. ${e.message}`);
         throw new HttpException(
@@ -214,14 +230,25 @@ export class Openocean implements Uniswapish {
       }
     }
 
-    if(quoteRes.status == 200){
-      if(quoteRes.data.code == 200 && Number(quoteRes.data.data.outAmount) > 0){
+    if (quoteRes.status == 200) {
+      if (
+        quoteRes.data.code == 200 &&
+        Number(quoteRes.data.data.outAmount) > 0
+      ) {
         const quoteData = quoteRes.data.data;
         const amounts = [quoteData.inAmount, quoteData.outAmount];
-        const maximumOutput = new TokenAmount(quoteToken, amounts[1].toString());
-        const trade = newFakeTrade(baseToken, quoteToken, BigNumber.from(amounts[0]), BigNumber.from(amounts[1]));
+        const maximumOutput = new TokenAmount(
+          quoteToken,
+          amounts[1].toString()
+        );
+        const trade = newFakeTrade(
+          baseToken,
+          quoteToken,
+          BigNumber.from(amounts[0]),
+          BigNumber.from(amounts[1])
+        );
         return { trade: trade, expectedAmount: maximumOutput };
-      }else{
+      } else {
         throw new UniswapishPriceError(
           `priceSwapIn: no trade pair found for ${baseToken.address} to ${quoteToken.address}.`
         );
@@ -253,19 +280,25 @@ export class Openocean implements Uniswapish {
       `getting amounts in ${quoteToken.address}-${baseToken.address}.`
     );
 
-    const reqAmount = new Decimal(amount.toString()).div(new Decimal((10 ** baseToken.decimals).toString())).toNumber();
+    const reqAmount = new Decimal(amount.toString())
+      .div(new Decimal((10 ** baseToken.decimals).toString()))
+      .toNumber();
     logger.info(`reqAmount:${reqAmount}`);
     const gasPrice = this.avalanche.gasPrice;
     let quoteRes;
-    try{
-      quoteRes = await axios.get(`https://openapi-test.openocean.finance/v3/${this.chainName}/reverseQuote`,{params:{
-          inTokenAddress: baseToken.address,
-          outTokenAddress: quoteToken.address,
-          amount: reqAmount,
-          gasPrice: gasPrice,
+    try {
+      quoteRes = await axios.get(
+        `https://open-api.openocean.finance/v3/${this.chainName}/reverseQuote`,
+        {
+          params: {
+            inTokenAddress: baseToken.address,
+            outTokenAddress: quoteToken.address,
+            amount: reqAmount,
+            gasPrice: gasPrice,
+          },
         }
-      });
-    }catch(e){
+      );
+    } catch (e) {
       if (e instanceof Error) {
         logger.error(`Could not get trade info. ${e.message}`);
         throw new HttpException(
@@ -282,14 +315,22 @@ export class Openocean implements Uniswapish {
         );
       }
     }
-    if(quoteRes.status == 200){
-      if(quoteRes.data.code == 200 && Number(quoteRes.data.data.reverseAmount) > 0){
+    if (quoteRes.status == 200) {
+      if (
+        quoteRes.data.code == 200 &&
+        Number(quoteRes.data.data.reverseAmount) > 0
+      ) {
         const quoteData = quoteRes.data.data;
         const amounts = [quoteData.reverseAmount, quoteData.inAmount];
         const minimumInput = new TokenAmount(quoteToken, amounts[0].toString());
-        const trade = newFakeTrade(quoteToken, baseToken, BigNumber.from(amounts[0]), BigNumber.from(amounts[1]));
+        const trade = newFakeTrade(
+          quoteToken,
+          baseToken,
+          BigNumber.from(amounts[0]),
+          BigNumber.from(amounts[1])
+        );
         return { trade: trade, expectedAmount: minimumInput };
-      }else{
+      } else {
         throw new UniswapishPriceError(
           `priceSwapIn: no trade pair found for ${baseToken} to ${quoteToken}.`
         );
@@ -335,17 +376,21 @@ export class Openocean implements Uniswapish {
     const inToken = this.getTokenByCurrency(trade.route.input);
     const outToken = this.getTokenByCurrency(trade.route.output);
     let swapRes;
-    try{
-      swapRes = await axios.get(`https://open-api.openocean.finance/v3/${this.chainName}/swap_quote`,{params:{
-          inTokenAddress: inToken.address,
-          outTokenAddress: outToken.address,
-          amount: trade.inputAmount.toExact(),
-          slippage: this.getSlippageNumberage(),
-          account: wallet.address,
-          gasPrice: gasPrice.toString(),
+    try {
+      swapRes = await axios.get(
+        `https://open-api.openocean.finance/v3/${this.chainName}/swap_quote`,
+        {
+          params: {
+            inTokenAddress: inToken.address,
+            outTokenAddress: outToken.address,
+            amount: trade.inputAmount.toExact(),
+            slippage: this.getSlippageNumberage(),
+            account: wallet.address,
+            gasPrice: gasPrice.toString(),
+          },
         }
-      });
-    }catch(e){
+      );
+    } catch (e) {
       if (e instanceof Error) {
         logger.error(`Could not get trade info. ${e.message}`);
         throw new HttpException(
@@ -362,7 +407,7 @@ export class Openocean implements Uniswapish {
         );
       }
     }
-    if(swapRes.status == 200 && swapRes.data.code == 200){
+    if (swapRes.status == 200 && swapRes.data.code == 200) {
       const swapData = swapRes.data.data;
       if (!nonce) {
         nonce = await this.avalanche.nonceManager.getNonce(wallet.address);
@@ -375,7 +420,7 @@ export class Openocean implements Uniswapish {
         gasLimit: BigNumber.from(gas.toString()),
         data: swapData.data,
         value: BigNumber.from(swapData.value),
-        chainId: this.chainId
+        chainId: this.chainId,
       };
       const tx = await wallet.sendTransaction(trans);
       logger.info(tx);

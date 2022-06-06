@@ -6,7 +6,8 @@ let avalanche: Avalanche;
 let openocean: Openocean;
 
 const address: string = '0x00000000000000000000000000000000000';
-const privateKey = '0000000000000000000000000000000000000000000000000000000000000002';
+const privateKey =
+  '0000000000000000000000000000000000000000000000000000000000000002';
 
 beforeAll(async () => {
   avalanche = Avalanche.getInstance('avalanche');

@@ -23,7 +23,10 @@ export const validateSpender: Validator = mkValidator(
 
   (val) =>
     typeof val === 'string' &&
-    (val === 'pangolin' || val === 'traderjoe' || val === 'openocean' || isAddress(val))
+    (val === 'pangolin' ||
+      val === 'traderjoe' ||
+      val === 'openocean' ||
+      isAddress(val))
 );
 
 export const validateAvalancheApproveRequest: RequestValidator =
