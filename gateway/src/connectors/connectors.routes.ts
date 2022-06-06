@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../services/error-handler';
 import { PangolinConfig } from './pangolin/pangolin.config';
+import { TraderjoeConfig } from './traderjoe/traderjoe.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
 import { OpenoceanConfig } from './openocean/openocean.config';
 
@@ -26,6 +27,11 @@ export namespace ConnectorsRoutes {
             name: 'openocean',
             trading_type: OpenoceanConfig.config.tradingTypes,
             available_networks: OpenoceanConfig.config.availableNetworks,
+          },
+          {
+            name: 'traderjoe',
+            trading_type: TraderjoeConfig.config.tradingTypes,
+            available_networks: TraderjoeConfig.config.availableNetworks,
           },
         ],
       });

@@ -54,13 +54,13 @@ jobs:
         run: yarn --cwd ./gateway install
 
       # Compile and run tests if code has changed
-      - name: Run Flake8 and eslint
+      - name: Run pre-commit hooks on diff
         shell: bash
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         run: |
           source $CONDA/etc/profile.d/conda.sh
           conda activate hummingbot
-          pre-commit run
+          pre-commit run --files $(git diff --name-only origin/$GITHUB_BASE_REF)
 
       - name: Run stable tests and calculate coverage
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
