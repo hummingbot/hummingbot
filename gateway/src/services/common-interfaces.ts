@@ -24,6 +24,12 @@ import {
   Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
 import {
+  Token as TokenQuickswap,
+  CurrencyAmount as CurrencyAmountQuickswap,
+  Trade as TradeQuickswap,
+  Fraction as QuickswapFraction,
+} from 'quickswap-sdk';
+import {
   Token as TokenTraderjoe,
   CurrencyAmount as CurrencyAmountTraderjoe,
   Trade as TradeTraderjoe,
@@ -32,21 +38,25 @@ import {
 export type Tokenish =
   | Token
   | TokenPangolin
+  | TokenQuickswap
   | TokenTraderjoe
   | UniswapCoreToken;
 export type UniswapishTrade =
   | Trade
   | TradePangolin
+  | TradeQuickswap
   | TradeTraderjoe
   | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
+  | CurrencyAmountQuickswap
   | CurrencyAmountTraderjoe
   | UniswapCoreCurrencyAmount<Currency>;
 export type Fractionish =
   | UniswapFraction
   | PangolinFraction
+  | QuickswapFraction
   | TraderjoeFraction;
 
 export interface ExpectedTrade {

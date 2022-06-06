@@ -4,6 +4,7 @@ import { Harmony } from '../chains/harmony/harmony';
 import { Polygon } from '../chains/polygon/polygon';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { Pangolin } from '../connectors/pangolin/pangolin';
+import { Quickswap } from '../connectors/quickswap/quickswap';
 import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Ethereumish } from './common-interfaces';
 
@@ -29,6 +30,8 @@ export async function getConnector(
   let connectorInstance: any;
   if (chain === 'ethereum' && connector === 'uniswap')
     connectorInstance = Uniswap.getInstance(chain, network);
+  else if (chain === 'polygon' && connector === 'quickswap')
+    connectorInstance = Quickswap.getInstance(chain, network);
   else if (chain === 'avalanche' && connector === 'pangolin')
     connectorInstance = Pangolin.getInstance(chain, network);
   else if (chain === 'avalanche' && connector === 'traderjoe')
