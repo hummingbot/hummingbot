@@ -1,10 +1,13 @@
 jest.useFakeTimers();
-import { Openocean, newFakeTrade } from '../../../../src/connectors/openocean/openocean';
-import { HttpException, UniswapishPriceError } from '../../../../src/services/error-handler';
 import {
-  Token,
-  Trade,
-} from '@uniswap/sdk';
+  Openocean,
+  newFakeTrade,
+} from '../../../../src/connectors/openocean/openocean';
+import {
+  HttpException,
+  UniswapishPriceError,
+} from '../../../../src/services/error-handler';
+import { Token, Trade } from '@uniswap/sdk';
 import { BigNumber, Wallet } from 'ethers';
 import { Avalanche } from '../../../../src/chains/avalanche/avalanche';
 
@@ -31,7 +34,6 @@ const bDAI = new Token(
   'bDAI'
 );
 
-
 beforeAll(async () => {
   avalanche = Avalanche.getInstance('avalanche');
   await avalanche.init();
@@ -55,16 +57,18 @@ describe('verify Openocean estimateSellTrade', () => {
   });
 
   it('Should throw an error if no pair is available', async () => {
-
     await expect(async () => {
-      await openocean.estimateSellTrade(USDC, bDAI, BigNumber.from((10 ** USDC.decimals).toString()));
+      await openocean.estimateSellTrade(
+        USDC,
+        bDAI,
+        BigNumber.from((10 ** USDC.decimals).toString())
+      );
     }).rejects.toThrow(UniswapishPriceError);
   });
 });
 
 describe('verify Openocean estimateBuyTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
-
     const expectedTrade = await openocean.estimateBuyTrade(
       USDC,
       WAVAX,
@@ -75,9 +79,12 @@ describe('verify Openocean estimateBuyTrade', () => {
   });
 
   it('Should return an error if no pair is available', async () => {
-
     await expect(async () => {
-      await openocean.estimateBuyTrade(USDC, bDAI, BigNumber.from((10 ** bDAI.decimals).toString()));
+      await openocean.estimateBuyTrade(
+        USDC,
+        bDAI,
+        BigNumber.from((10 ** bDAI.decimals).toString())
+      );
     }).rejects.toThrow(UniswapishPriceError);
   });
 });
@@ -98,13 +105,18 @@ describe('verify Openocean executeTrade', () => {
       0,
       openocean.routerAbi,
       0,
-      10,
+      10
     );
     expect(expectedTrade).toHaveProperty('nonce');
   });
 
   it('Should return an error if no nonce is available', async () => {
-    const trade = newFakeTrade(USDC,bDAI,BigNumber.from((10 ** USDC.decimals).toString()),BigNumber.from((10 ** bDAI.decimals).toString()));
+    const trade = newFakeTrade(
+      USDC,
+      bDAI,
+      BigNumber.from((10 ** USDC.decimals).toString()),
+      BigNumber.from((10 ** bDAI.decimals).toString())
+    );
     const gasPrice = avalanche.gasPrice;
     await expect(async () => {
       await openocean.executeTrade(
@@ -115,7 +127,7 @@ describe('verify Openocean executeTrade', () => {
         0,
         openocean.routerAbi,
         0,
-        10,
+        10
       );
     }).rejects.toThrow(HttpException);
   });
