@@ -210,14 +210,14 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_solana_get_root(self):
-        network = 'mainnet-beta'
+        network = 'testnet'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().solana_post_root(
             network
         )
 
         self.assertEqual(network, result["network"])
-        self.assertEqual("testnet", result["rpcUrl"])
+        self.assertEqual("https://api.testnet.solana.com", result["rpcUrl"])
         self.assertTrue(result["connection"])
         self.assertGreater(result["timestamp"], 0)
 
