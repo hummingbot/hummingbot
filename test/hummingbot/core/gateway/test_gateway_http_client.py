@@ -223,7 +223,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_solana_post_balances(self):
-        network = 'mainnet-beta'
+        network = 'testnet'
         address = ''
         token_symbols = ['']
 
@@ -237,7 +237,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_solana_get_token(self):
-        network = 'mainnet-beta'
+        network = 'testnet'
         address = ''
         token = ''
 
@@ -251,7 +251,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_solana_post_token(self):
-        network = 'mainnet-beta'
+        network = 'testnet'
         address = ''
         token = ''
 
@@ -265,7 +265,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_solana_post_poll(self):
-        network = 'mainnet-beta'
+        network = 'testnet'
         tx_hash = ''
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().solana_post_poll(
@@ -278,7 +278,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_clob_get_root(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_root(
@@ -296,7 +296,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_clob_get_markets(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_markets(
@@ -310,7 +310,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_clob_get_order_books(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_order_books(
@@ -324,7 +324,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_clob_get_tickers(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_tickers(
@@ -338,7 +338,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_clob_get_orders(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_orders(
@@ -352,7 +352,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_clob_post_orders(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         orders = []
@@ -369,7 +369,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_clob_delete_orders(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_delete_orders(
@@ -383,7 +383,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_clob_get_open_orders(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_open_orders(
@@ -397,7 +397,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_clob_get_filled_orders(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_filled_orders(
@@ -411,7 +411,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_clob_post_settle_funds(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_post_settle_funds(
@@ -443,7 +443,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_serum_get_markets(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_get_markets(
@@ -457,7 +457,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_serum_get_order_books(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_get_order_books(
@@ -471,7 +471,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_serum_get_tickers(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_get_tickers(
@@ -485,7 +485,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_serum_get_orders(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_get_orders(
@@ -499,7 +499,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_serum_post_orders(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         orders = []
@@ -516,7 +516,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_serum_delete_orders(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_delete_orders(
@@ -530,7 +530,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_serum_get_open_orders(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_get_open_orders(
@@ -544,7 +544,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_serum_get_filled_orders(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_get_filled_orders(
@@ -558,7 +558,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_serum_post_settle_funds(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_post_settle_funds(
