@@ -222,19 +222,20 @@ class BitmartExchange(ExchangePyBase):
         """
         result = []
         for rule in symbols_details["data"]["symbols"]:
-            try:
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(rule["symbol"])
-                price_decimals = Decimal(str(rule["price_max_precision"]))
-                # E.g. a price decimal of 2 means 0.01 incremental.
-                price_step = Decimal("1") / Decimal(str(math.pow(10, price_decimals)))
-                result.append(TradingRule(trading_pair=trading_pair,
-                                          min_order_size=Decimal(str(rule["base_min_size"])),
-                                          max_order_size=Decimal(str(rule["base_max_size"])),
-                                          min_order_value=Decimal(str(rule["min_buy_amount"])),
-                                          min_base_amount_increment=Decimal(str(rule["quote_increment"])),
-                                          min_price_increment=price_step))
-            except Exception:
-                self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
+            if bitmart_utils.is_exchange_information_valid(rule):
+                try:
+                    trading_pair = await self.trading_pair_associated_to_exchange_symbol(rule["symbol"])
+                    price_decimals = Decimal(str(rule["price_max_precision"]))
+                    # E.g. a price decimal of 2 means 0.01 incremental.
+                    price_step = Decimal("1") / Decimal(str(math.pow(10, price_decimals)))
+                    result.append(TradingRule(trading_pair=trading_pair,
+                                              min_order_size=Decimal(str(rule["base_min_size"])),
+                                              max_order_size=Decimal(str(rule["base_max_size"])),
+                                              min_order_value=Decimal(str(rule["min_buy_amount"])),
+                                              min_base_amount_increment=Decimal(str(rule["quote_increment"])),
+                                              min_price_increment=price_step))
+                except Exception:
+                    self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
         return result
 
     async def _update_trading_fees(self):
@@ -299,8 +300,10 @@ class BitmartExchange(ExchangePyBase):
                 continue
 
             if isinstance(order_fill, Exception):
-                self.logger().info(
-                    f"Error fetching order fills for the order {tracked_order.client_order_id}: {order_fill}.")
+                is_error_caused_by_unexistent_order = '"code":50005' in str(order_fill)
+                if not is_error_caused_by_unexistent_order:
+                    self.logger().warning(
+                        f"Error fetching order fills for the order {tracked_order.client_order_id}: {order_fill}.")
             else:
                 await self._process_order_fill_update(order=tracked_order, fill_update=order_fill)
 
