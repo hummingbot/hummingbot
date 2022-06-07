@@ -106,6 +106,10 @@ class BinanceExchange(ExchangePyBase):
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
         return True
 
+    @property
+    def is_trading_required(self) -> bool:
+        return self._trading_required
+
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
