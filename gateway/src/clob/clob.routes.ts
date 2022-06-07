@@ -153,7 +153,7 @@ export namespace ClobRoutes {
   );
 
   router.get(
-    '/openOrders',
+    '/orders/open',
     asyncHandler(
       async (
         request: Request<any, any, ClobGetOpenOrdersRequest>,
@@ -169,7 +169,7 @@ export namespace ClobRoutes {
   );
 
   router.get(
-    '/filledOrders',
+    '/orders/filled',
     asyncHandler(
       async (
         request: Request<any, any, ClobGetFilledOrdersRequest>,

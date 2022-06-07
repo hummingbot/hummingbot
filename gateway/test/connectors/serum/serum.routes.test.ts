@@ -1274,8 +1274,8 @@
 //   });
 // });
 //
-// describe(`/serum/openOrders`, () => {
-//   describe(`GET /serum/openOrders`, () => {
+// describe(`/serum/orders/open`, () => {
+//   describe(`GET /serum/orders/open`, () => {
 //     describe('Single order', () => {
 //       it('Get a specific open order by its id and owner address', async () => {
 //         console.log('');
@@ -1353,86 +1353,7 @@
 //     });
 //   });
 //
-//   describe(`DELETE /serum/openOrders`, () => {
-//     describe('Single open order', () => {
-//       it('Cancel a specific open order by its id and owner address', async () => {
-//         console.log('');
-//       });
-//
-//       it('Cancel a specific open order by its id, owner address and market name', async () => {
-//         console.log('');
-//       });
-//
-//       it('Cancel a specific open order by its exchange id and owner address', async () => {
-//         console.log('');
-//       });
-//
-//       it('Cancel a specific open order by its exchange id, owner address and market name', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to cancel an open order without informing the order parameter', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to cancel an open order without informing its owner address', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to cancel an open order without informing its id and exchange id', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to cancel a non existing open order', async () => {
-//         console.log('');
-//       });
-//     });
-//
-//     describe('Multiple orders', () => {
-//       it('Cancel multiple open orders by their ids and owner addresses', async () => {
-//         console.log('');
-//       });
-//
-//       it('Cancel multiple open orders by their ids, owner addresses, and market names', async () => {
-//         console.log('');
-//       });
-//
-//       it('Cancel multiple open orders by their exchange ids and owner addresses', async () => {
-//         console.log('');
-//       });
-//
-//       it('Cancel multiple open orders by their exchange ids, owner addresses, and market names', async () => {
-//         console.log('');
-//       });
-//
-//       it('Cancel all open orders for an owner address', async () => {
-//         console.log('');
-//       });
-//
-//       it('Cancel all open orders for an owner address and a market name', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to cancel multiple open orders without informing the orders parameter', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to cancel multiple open orders without informing any orders within the orders parameter', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to cancel multiple open orders without informing some of their owner addresses', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to cancel multiple open orders informing an id of a non existing one', async () => {
-//         console.log('');
-//       });
-//     });
-//   });
-// });
-//
-// describe(`/serum/filledOrders`, () => {
+// describe(`/serum/orders/filled`, () => {
 //   describe(`GET /serum/filledOrders`, () => {
 //     describe('Single order', () => {
 //       it('Get a specific filled order by its id and owner address', async () => {

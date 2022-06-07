@@ -154,9 +154,14 @@ export const convertSingle = <O extends Output>(
 };
 
 export const convertToJsonIfNeeded = (input: any): any => {
-  if (IMap.isMap(input)) return input.toJS();
+  let output = input;
 
-  return input;
+  if (IMap.isMap(input)) output = input.toJS();
+
+  // TODO remove!!!
+  console.log(JSON.stringify(output));
+
+  return output;
 };
 
 export const convertSerumMarketToMarket = (

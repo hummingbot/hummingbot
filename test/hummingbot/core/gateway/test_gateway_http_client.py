@@ -425,7 +425,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_serum_get_root(self):
         chain = 'solana'
-        network = 'mainnet-beta'
+        network = 'testnet'
         connector = 'serum'
 
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_get_root(
