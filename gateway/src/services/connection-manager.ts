@@ -2,6 +2,7 @@ import { Ethereum } from '../chains/ethereum/ethereum';
 import { Avalanche } from '../chains/avalanche/avalanche';
 import { Harmony } from '../chains/harmony/harmony';
 import { Curve } from '../connectors/curve/curve';
+import { Polygon } from '../chains/polygon/polygon';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { Pangolin } from '../connectors/pangolin/pangolin';
 import { Ethereumish, Uniswapish } from './common-interfaces';
@@ -15,6 +16,7 @@ export async function getChain(
   if (chain === 'ethereum') chainInstance = Ethereum.getInstance(network);
   else if (chain === 'avalanche')
     chainInstance = Avalanche.getInstance(network);
+  else if (chain === 'polygon') chainInstance = Polygon.getInstance(network);
   else if (chain === 'harmony') chainInstance = Harmony.getInstance(network);
   else throw new Error('unsupported chain');
   if (!chainInstance.ready) {

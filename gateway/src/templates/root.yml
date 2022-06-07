@@ -20,6 +20,10 @@ configurations:
     configurationPath: ethereum.yml
     schemaPath: ethereum-schema.json
 
+  $namespace polygon:
+    configurationPath: polygon.yml
+    schemaPath: ethereum-schema.json
+    
   $namespace ethereumGasStation:
     configurationPath: ethereum-gas-station.yml
     schemaPath: ethereum-gas-station-schema.json

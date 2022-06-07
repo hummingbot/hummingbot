@@ -1,6 +1,7 @@
 import fse from 'fs-extra';
 import { Avalanche } from '../../chains/avalanche/avalanche';
 import { Ethereum } from '../../chains/ethereum/ethereum';
+import { Polygon } from '../../chains/polygon/polygon';
 import { Solana } from '../../chains/solana/solana';
 import { Harmony } from '../../chains/harmony/harmony';
 
@@ -47,6 +48,10 @@ export async function addWallet(
     const avalanche = Avalanche.getInstance(req.network);
     address = avalanche.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await avalanche.encrypt(req.privateKey, passphrase);
+  } else if (req.chain === 'polygon') {
+    const polygon = Polygon.getInstance(req.network);
+    address = polygon.getWalletFromPrivateKey(req.privateKey).address;
+    encryptedPrivateKey = await polygon.encrypt(req.privateKey, passphrase);
   } else if (req.chain === 'solana') {
     address = solana
       .getKeypairFromPrivateKey(req.privateKey)
