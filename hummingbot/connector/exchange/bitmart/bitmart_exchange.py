@@ -1,11 +1,11 @@
 import asyncio
-import copy
-import json
-import logging
 import math
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
+from bidict import bidict
+
+from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.bitmart import (
     bitmart_constants as CONSTANTS,
     bitmart_utils,
@@ -14,42 +14,20 @@ from hummingbot.connector.exchange.bitmart import (
 from hummingbot.connector.exchange.bitmart.bitmart_api_order_book_data_source import BitmartAPIOrderBookDataSource
 from hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source import BitmartAPIUserStreamDataSource
 from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
-from hummingbot.connector.exchange.bitmart.bitmart_in_flight_order import BitmartInFlightOrder
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.clock import Clock
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    BuyOrderCreatedEvent,
-    MarketEvent,
-    MarketOrderFailureEvent,
-    OrderCancelledEvent,
-    OrderFilledEvent,
-    SellOrderCompletedEvent,
-    SellOrderCreatedEvent,
-)
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
-from hummingbot.logger import HummingbotLogger
-
-ctce_logger = None
-s_decimal_NaN = Decimal("nan")
-s_decimal_0 = Decimal(0)
+from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
-class BitmartExchange(ExchangeBase):
+class BitmartExchange(ExchangePyBase):
     """
     BitmartExchange connects with BitMart exchange and provides order book pricing, user account tracking and
     trading functionality.
@@ -59,12 +37,7 @@ class BitmartExchange(ExchangeBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     UPDATE_TRADE_STATUS_MIN_INTERVAL = 10.0
 
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        global ctce_logger
-        if ctce_logger is None:
-            ctce_logger = logging.getLogger(__name__)
-        return ctce_logger
+    web_utils = web_utils
 
     def __init__(self,
                  bitmart_api_key: str,
@@ -79,114 +52,66 @@ class BitmartExchange(ExchangeBase):
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
-        super().__init__()
-        self._time_synchronizer = TimeSynchronizer()
-        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._bitmart_auth = BitmartAuth(api_key=bitmart_api_key,
-                                         secret_key=bitmart_secret_key,
-                                         memo=bitmart_memo,
-                                         time_provider=self._time_synchronizer)
-        self._api_factory = web_utils.build_api_factory(
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            auth=self._bitmart_auth)
-        self._rest_assistant = None
+        self._api_key: str = bitmart_api_key
+        self._secret_key: str = bitmart_secret_key
+        self._memo: str = bitmart_memo
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._orderbook_ds: BitmartAPIOrderBookDataSource = BitmartAPIOrderBookDataSource(
-            trading_pairs=self._trading_pairs,
-            connector=self,
-            api_factory=self._api_factory,
-        )
-        self._set_order_book_tracker(OrderBookTracker(
-            data_source=self._orderbook_ds,
-            trading_pairs=self._trading_pairs))
-        self._user_stream_tracker = UserStreamTracker(
-            data_source=BitmartAPIUserStreamDataSource(
-                auth=self._bitmart_auth,
-                trading_pairs=self._trading_pairs,
-                connector=self,
-                api_factory=self._api_factory,
-            )
-        )
-        self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
-        self._poll_notifier = asyncio.Event()
-        self._last_timestamp = 0
-        self._in_flight_orders = {}  # Dict[client_order_id:str, BitmartInFlightOrder]
-        self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
-        self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
-        self._status_polling_task = None
-        self._user_stream_event_listener_task = None
-        self._trading_rules_polling_task = None
-        self._last_poll_timestamp = 0
-        self._real_time_balance_update = False
+
+        super().__init__()
+        self.real_time_balance_update = False
+
+    @property
+    def authenticator(self):
+        return BitmartAuth(
+            api_key=self._api_key,
+            secret_key=self._secret_key,
+            memo=self._memo,
+            time_provider=self._time_synchronizer)
 
     @property
     def name(self) -> str:
         return "bitmart"
 
     @property
-    def order_books(self) -> Dict[str, OrderBook]:
-        return self.order_book_tracker.order_books
+    def rate_limits_rules(self):
+        return CONSTANTS.RATE_LIMITS
 
     @property
-    def trading_rules(self) -> Dict[str, TradingRule]:
-        return self._trading_rules
+    def domain(self):
+        return CONSTANTS.DEFAULT_DOMAIN
 
     @property
-    def in_flight_orders(self) -> Dict[str, BitmartInFlightOrder]:
-        return self._in_flight_orders
+    def client_order_id_max_length(self):
+        return CONSTANTS.MAX_ORDER_ID_LEN
 
     @property
-    def status_dict(self) -> Dict[str, bool]:
-        """
-        A dictionary of statuses of various connector's components.
-        """
-        return {
-            "order_books_initialized": self.order_book_tracker.ready,
-            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "trading_rule_initialized": len(self._trading_rules) > 0,
-            "user_stream_initialized":
-                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
-        }
+    def client_order_id_prefix(self):
+        return CONSTANTS.HBOT_ORDER_ID_PREFIX
 
     @property
-    def ready(self) -> bool:
-        """
-        :return True when all statuses pass, this might take 5-10 seconds for all the connector's components and
-        services to be ready.
-        """
-        return all(self.status_dict.values())
+    def trading_rules_request_path(self):
+        return CONSTANTS.GET_TRADING_RULES_PATH_URL
 
     @property
-    def limit_orders(self) -> List[LimitOrder]:
-        return [
-            in_flight_order.to_limit_order()
-            for in_flight_order in self._in_flight_orders.values()
-        ]
+    def trading_pairs_request_path(self):
+        return CONSTANTS.GET_TRADING_RULES_PATH_URL
 
     @property
-    def tracking_states(self) -> Dict[str, any]:
-        """
-        :return active in-flight orders in json format, is used to save in sqlite db.
-        """
-        return {
-            key: value.to_json()
-            for key, value in self._in_flight_orders.items()
-            if not value.is_done
-        }
+    def check_network_request_path(self):
+        return CONSTANTS.CHECK_NETWORK_PATH_URL
 
-    def restore_tracking_states(self, saved_states: Dict[str, any]):
-        """
-        Restore in-flight orders from saved tracking states, this is st the connector can pick up on where it left off
-        when it disconnects.
-        :param saved_states: The saved tracking_states.
-        """
-        self._in_flight_orders.update({
-            key: BitmartInFlightOrder.from_json(value)
-            for key, value in saved_states.items()
-        })
+    @property
+    def trading_pairs(self):
+        return self._trading_pairs
+
+    @property
+    def is_cancel_request_in_exchange_synchronous(self) -> bool:
+        return True
+
+    @property
+    def is_trading_required(self) -> bool:
+        return self._trading_required
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -195,107 +120,76 @@ class BitmartExchange(ExchangeBase):
         """
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
-    def start(self, clock: Clock, timestamp: float):
-        """
-        This function is called automatically by the clock.
-        """
-        super().start(clock, timestamp)
+    def _create_web_assistants_factory(self) -> WebAssistantsFactory:
+        return web_utils.build_api_factory(
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            auth=self._auth)
 
-    def stop(self, clock: Clock):
-        """
-        This function is called automatically by the clock.
-        """
-        super().stop(clock)
+    def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
+        return BitmartAPIOrderBookDataSource(
+            trading_pairs=self._trading_pairs,
+            connector=self,
+            api_factory=self._web_assistants_factory)
 
-    async def start_network(self):
-        """
-        This function is required by NetworkIterator base class and is called automatically.
-        It starts tracking order book, polling trading rules,
-        updating statuses and tracking user data.
-        """
-        self.order_book_tracker.start()
-        self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
-        if self._trading_required:
-            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
-            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
-
-    async def stop_network(self):
-        """
-        This function is required by NetworkIterator base class and is called automatically.
-        """
-        self.order_book_tracker.stop()
-        if self._status_polling_task is not None:
-            self._status_polling_task.cancel()
-            self._status_polling_task = None
-        if self._trading_rules_polling_task is not None:
-            self._trading_rules_polling_task.cancel()
-            self._trading_rules_polling_task = None
-        if self._status_polling_task is not None:
-            self._status_polling_task.cancel()
-            self._status_polling_task = None
-        if self._user_stream_tracker_task is not None:
-            self._user_stream_tracker_task.cancel()
-            self._user_stream_tracker_task = None
-        if self._user_stream_event_listener_task is not None:
-            self._user_stream_event_listener_task.cancel()
-            self._user_stream_event_listener_task = None
-
-    async def check_network(self) -> NetworkStatus:
-        """
-        This function is required by NetworkIterator base class and is called periodically to check
-        the network connection. Simply ping the network (or call any light weight public API).
-        """
-        try:
-            request = RESTRequest(
-                method=RESTMethod.GET,
-                url=f"{CONSTANTS.REST_URL}/{CONSTANTS.CHECK_NETWORK_PATH_URL}",
-            )
-            rest_assistant = await self._get_rest_assistant()
-            response = await rest_assistant.call(request=request)
-            if response.status != 200:
-                raise Exception
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            return NetworkStatus.NOT_CONNECTED
-        return NetworkStatus.CONNECTED
-
-    async def _get_rest_assistant(self) -> RESTAssistant:
-        if self._rest_assistant is None:
-            self._rest_assistant = await self._api_factory.get_rest_assistant()
-        return self._rest_assistant
-
-    async def _trading_rules_polling_loop(self):
-        """
-        Periodically update trading rule.
-        """
-        while True:
-            try:
-                await self._update_trading_rules()
-                await asyncio.sleep(60)
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().network(f"Unexpected error while fetching trading rules. Error: {str(e)}",
-                                      exc_info=True,
-                                      app_warning_msg="Could not fetch new trading rules from BitMart. "
-                                                      "Check network connection.")
-                await asyncio.sleep(0.5)
-
-    async def _update_trading_rules(self):
-        request = RESTRequest(
-            method=RESTMethod.GET,
-            url=f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_TRADING_RULES_PATH_URL}",
+    def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
+        return BitmartAPIUserStreamDataSource(
+            auth=self._auth,
+            trading_pairs=self._trading_pairs,
+            connector=self,
+            api_factory=self._web_assistants_factory,
         )
-        rest_assistant = await self._get_rest_assistant()
-        response = await rest_assistant.call(request=request)
 
-        symbols_details: Dict[str, Any] = await response.json()
-        self._trading_rules.clear()
-        self._trading_rules = self._format_trading_rules(symbols_details)
+    def _get_fee(self,
+                 base_currency: str,
+                 quote_currency: str,
+                 order_type: OrderType,
+                 order_side: TradeType,
+                 amount: Decimal,
+                 price: Decimal = s_decimal_NaN,
+                 is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        """
+        To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
+        function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
+        maker order.
+        """
+        is_maker = order_type is OrderType.LIMIT_MAKER
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
-    def _format_trading_rules(self, symbols_details: Dict[str, Any]) -> Dict[str, TradingRule]:
+    async def _place_order(self,
+                           order_id: str,
+                           trading_pair: str,
+                           amount: Decimal,
+                           trade_type: TradeType,
+                           order_type: OrderType,
+                           price: Decimal) -> Tuple[str, float]:
+
+        api_params = {"symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
+                      "side": trade_type.name.lower(),
+                      "type": "limit",
+                      "size": f"{amount:f}",
+                      "price": f"{price:f}",
+                      "clientOrderId": order_id,
+                      }
+        order_result = await self._api_post(
+            path_url=CONSTANTS.CREATE_ORDER_PATH_URL,
+            data=api_params,
+            is_auth_required=True)
+        exchange_order_id = str(order_result["data"]["order_id"])
+
+        return exchange_order_id, self.current_timestamp
+
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        api_params = {
+            "clientOrderId": order_id,
+        }
+        cancel_result = await self._api_post(
+            path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
+            data=api_params,
+            is_auth_required=True)
+        return cancel_result.get("data", {}).get("result", False)
+
+    async def _format_trading_rules(self, symbols_details: Dict[str, Any]) -> List[TradingRule]:
         """
         Converts json API response into a dictionary of trading rules.
         :param symbols_details: The json API response
@@ -326,299 +220,28 @@ class BitmartExchange(ExchangeBase):
             }
         }
         """
-        result = {}
+        result = []
         for rule in symbols_details["data"]["symbols"]:
             try:
-                trading_pair = bitmart_utils.convert_from_exchange_trading_pair(rule["symbol"])
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(rule["symbol"])
                 price_decimals = Decimal(str(rule["price_max_precision"]))
                 # E.g. a price decimal of 2 means 0.01 incremental.
                 price_step = Decimal("1") / Decimal(str(math.pow(10, price_decimals)))
-                result[trading_pair] = TradingRule(trading_pair=trading_pair,
-                                                   min_order_size=Decimal(str(rule["base_min_size"])),
-                                                   max_order_size=Decimal(str(rule["base_max_size"])),
-                                                   min_order_value=Decimal(str(rule["min_buy_amount"])),
-                                                   min_base_amount_increment=Decimal(str(rule["quote_increment"])),
-                                                   min_price_increment=price_step)
+                result.append(TradingRule(trading_pair=trading_pair,
+                                          min_order_size=Decimal(str(rule["base_min_size"])),
+                                          max_order_size=Decimal(str(rule["base_max_size"])),
+                                          min_order_value=Decimal(str(rule["min_buy_amount"])),
+                                          min_base_amount_increment=Decimal(str(rule["quote_increment"])),
+                                          min_price_increment=price_step))
             except Exception:
-                self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
+                self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
         return result
 
-    async def _api_request(self,
-                           method: str,
-                           path_url: str,
-                           params: Optional[Dict[str, Any]] = None,
-                           auth_type: str = None) -> Dict[str, Any]:
+    async def _update_trading_fees(self):
         """
-        Sends an aiohttp request and waits for a response.
-        :param method: The HTTP method, e.g. get or post
-        :param path_url: The path url or the API end point
-        :param params: Request parameters
-        :param auth_type: Type of Authorization header to send in request, from {"SIGNED", "KEYED", None}
-        :returns A response in json format.
+        Update fees information from the exchange
         """
-        params = params or {}
-        async with self._throttler.execute_task(path_url):
-            url = f"{CONSTANTS.REST_URL}/{path_url}"
-
-            headers = self._bitmart_auth.get_headers(params, auth_type)
-
-            if method == "get":
-                request = RESTRequest(
-                    method=RESTMethod.GET,
-                    url=url,
-                    headers=headers,
-                    params=params
-                )
-                rest_assistant = await self._get_rest_assistant()
-                response = await rest_assistant.call(request=request)
-            elif method == "post":
-                post_json = json.dumps(params)
-                request = RESTRequest(
-                    method=RESTMethod.POST,
-                    url=url,
-                    headers=headers,
-                    data=post_json
-                )
-                rest_assistant = await self._get_rest_assistant()
-                response = await rest_assistant.call(request=request)
-            else:
-                raise NotImplementedError
-
-            try:
-                parsed_response = json.loads(await response.text())
-            except Exception as e:
-                raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
-            if response.status != 200:
-                raise IOError(f"Error calling {url}. HTTP status is {response.status}. "
-                              f"Message: {parsed_response['message']}")
-            if int(parsed_response["code"]) != 1000:
-                raise IOError(f"{url} API call failed, error message: {parsed_response['message']}")
-            return parsed_response
-
-    def get_order_price_quantum(self, trading_pair: str, price: Decimal):
-        """
-        Returns a price step, a minimum price increment for a given trading pair.
-        """
-        trading_rule = self._trading_rules[trading_pair]
-        return trading_rule.min_price_increment
-
-    def get_order_size_quantum(self, trading_pair: str, order_size: Decimal):
-        """
-        Returns an order amount step, a minimum amount increment for a given trading pair.
-        """
-        trading_rule = self._trading_rules[trading_pair]
-        return Decimal(trading_rule.min_base_amount_increment)
-
-    def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self.order_book_tracker.order_books:
-            raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self.order_book_tracker.order_books[trading_pair]
-
-    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
-            price: Decimal = s_decimal_NaN, **kwargs) -> str:
-        """
-        Buys an amount of base asset (of the given trading pair). This function returns immediately.
-        To see an actual order, you'll have to wait for BuyOrderCreatedEvent.
-        :param trading_pair: The market (e.g. BTC-USDT) to buy from
-        :param amount: The amount in base token value
-        :param order_type: The order type
-        :param price: The price (note: this is no longer optional)
-        :returns A new internal order id
-        """
-        order_id: str = bitmart_utils.get_new_client_order_id(True, trading_pair)
-        safe_ensure_future(self._create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price))
-        return order_id
-
-    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
-             price: Decimal = s_decimal_NaN, **kwargs) -> str:
-        """
-        Sells an amount of base asset (of the given trading pair). This function returns immediately.
-        To see an actual order, you'll have to wait for SellOrderCreatedEvent.
-        :param trading_pair: The market (e.g. BTC-USDT) to sell from
-        :param amount: The amount in base token value
-        :param order_type: The order type
-        :param price: The price (note: this is no longer optional)
-        :returns A new internal order id
-        """
-        order_id: str = bitmart_utils.get_new_client_order_id(False, trading_pair)
-        safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
-        return order_id
-
-    def cancel(self, trading_pair: str, order_id: str):
-        """
-        Cancel an order. This function returns immediately.
-        To get the cancellation result, you'll have to wait for OrderCancelledEvent.
-        :param trading_pair: The market (e.g. BTC-USDT) of the order.
-        :param order_id: The internal order id (also called client_order_id)
-        """
-        safe_ensure_future(self._execute_cancel(trading_pair, order_id))
-        return order_id
-
-    async def _create_order(self,
-                            trade_type: TradeType,
-                            order_id: str,
-                            trading_pair: str,
-                            amount: Decimal,
-                            order_type: OrderType,
-                            price: Decimal):
-        """
-        Calls create-order API end point to place an order, starts tracking the order and triggers order created event.
-        :param trade_type: BUY or SELL
-        :param order_id: Internal order id (also called client_order_id)
-        :param trading_pair: The market to place order
-        :param amount: The order amount (in base token value)
-        :param order_type: The order type
-        :param price: The order price
-        """
-        if not order_type.is_limit_type():
-            raise Exception(f"Unsupported order type: {order_type}")
-        trading_rule = self._trading_rules[trading_pair]
-
-        try:
-            amount = self.quantize_order_amount(trading_pair, amount)
-            price = self.quantize_order_price(trading_pair, price)
-            if amount < trading_rule.min_order_size:
-                raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
-                                 f"{trading_rule.min_order_size}.")
-            api_params = {"symbol": bitmart_utils.convert_to_exchange_trading_pair(trading_pair),
-                          "side": trade_type.name.lower(),
-                          "type": "limit",
-                          "size": f"{amount:f}",
-                          "price": f"{price:f}"
-                          }
-            self.start_tracking_order(order_id,
-                                      None,
-                                      trading_pair,
-                                      trade_type,
-                                      price,
-                                      amount,
-                                      order_type
-                                      )
-
-            order_result = await self._api_request("post", CONSTANTS.CREATE_ORDER_PATH_URL, api_params, "SIGNED")
-            exchange_order_id = str(order_result["data"]["order_id"])
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
-                                   f"{amount} {trading_pair}.")
-                tracked_order.update_exchange_order_id(exchange_order_id)
-
-            event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
-            event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-            self.trigger_event(event_tag,
-                               event_class(
-                                   self.current_timestamp,
-                                   order_type,
-                                   trading_pair,
-                                   amount,
-                                   price,
-                                   order_id,
-                                   tracked_order.creation_timestamp
-                               ))
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self.stop_tracking_order(order_id)
-            self.logger().network(
-                f"Error submitting {trade_type.name} {order_type.name} order to BitMart for "
-                f"{amount} {trading_pair} "
-                f"{price}.",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
-
-    def start_tracking_order(self,
-                             order_id: str,
-                             exchange_order_id: str,
-                             trading_pair: str,
-                             trade_type: TradeType,
-                             price: Decimal,
-                             amount: Decimal,
-                             order_type: OrderType):
-        """
-        Starts tracking an order by simply adding it into _in_flight_orders dictionary.
-        """
-        self._in_flight_orders[order_id] = BitmartInFlightOrder(
-            client_order_id=order_id,
-            exchange_order_id=exchange_order_id,
-            trading_pair=trading_pair,
-            order_type=order_type,
-            trade_type=trade_type,
-            price=price,
-            amount=amount,
-            creation_timestamp=self.current_timestamp
-        )
-
-    def stop_tracking_order(self, order_id: str):
-        """
-        Stops tracking an order by simply removing it from _in_flight_orders dictionary.
-        """
-        if order_id in self._in_flight_orders:
-            del self._in_flight_orders[order_id]
-
-    async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
-        """
-        Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
-        the cancellation is successful, it simply states it receives the request.
-        :param trading_pair: The market trading pair
-        :param order_id: The internal order id
-        order.last_state to change to CANCELED
-        """
-        try:
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is None:
-                raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            if tracked_order.exchange_order_id is None:
-                await tracked_order.get_exchange_order_id()
-            ex_order_id = tracked_order.exchange_order_id
-            response = await self._api_request(
-                "post",
-                CONSTANTS.CANCEL_ORDER_PATH_URL,
-                {"symbol": bitmart_utils.convert_to_exchange_trading_pair(trading_pair),
-                 "order_id": int(ex_order_id)},
-                "SIGNED"
-            )
-
-            # result = True is a successful cancel, False indicates cancel failed due to already cancelled or matched
-            if "result" in response["data"] and not response["data"]["result"]:
-                raise ValueError(
-                    f"Failed to cancel order - {order_id}. Order was already matched or canceled on the exchange.")
-            return order_id
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self.logger().network(
-                f"Failed to cancel order {order_id}: {str(e)}",
-                exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on Bitmart. "
-                                f"Check API key and network connection."
-            )
-
-    async def _status_polling_loop(self):
-        """
-        Periodically update user balances and order status via REST API. This serves as a fallback measure for web
-        socket API updates.
-        """
-        while True:
-            try:
-                await self._poll_notifier.wait()
-                await safe_gather(
-                    self._update_balances(),
-                    self._update_order_status(),
-                )
-                self._last_poll_timestamp = self.current_timestamp
-                self._poll_notifier.clear()
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(str(e), exc_info=True)
-                self.logger().network("Unexpected error while fetching account updates.",
-                                      exc_info=True,
-                                      app_warning_msg="Could not fetch account updates from BitMart. "
-                                                      "Check API key and network connection.")
-                await asyncio.sleep(0.5)
+        pass
 
     async def _update_balances(self):
         """
@@ -626,7 +249,9 @@ class BitmartExchange(ExchangeBase):
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        account_info = await self._api_request("get", CONSTANTS.GET_ACCOUNT_SUMMARY_PATH_URL, {}, "KEYED")
+        account_info = await self._api_get(
+            path_url=CONSTANTS.GET_ACCOUNT_SUMMARY_PATH_URL,
+            is_auth_required=True)
         for account in account_info["data"]["wallet"]:
             asset_name = account["id"]
             self._account_available_balances[asset_name] = Decimal(str(account["available"]))
@@ -638,377 +263,152 @@ class BitmartExchange(ExchangeBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
-        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+    async def _request_order_update(self, order: InFlightOrder) -> Dict[str, Any]:
+        return await self._api_get(
+            path_url=CONSTANTS.GET_ORDER_DETAIL_PATH_URL,
+            params={"clientOrderId": order.client_order_id},
+            is_auth_required=True)
+
+    async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
+        return await self._api_request(
+            method=RESTMethod.GET,
+            path_url=CONSTANTS.GET_TRADE_DETAIL_PATH_URL,
+            params={
+                "symbol": await self.exchange_symbol_associated_to_pair(order.trading_pair),
+                "order_id": await order.get_exchange_order_id()},
+            is_auth_required=True)
 
     async def _update_order_status(self):
         """
         Calls REST API to get status update for each in-flight order.
         """
-        last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
-        current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+        tracked_orders: List[InFlightOrder] = list(self.in_flight_orders.values())
+        order_update_tasks = []
+        order_fill_tasks = []
+        for tracked_order in tracked_orders:
+            order_fill_tasks.append(asyncio.create_task(self._request_order_fills(order=tracked_order)))
+            order_update_tasks.append(asyncio.create_task(self._request_order_update(order=tracked_order)))
+        self.logger().debug(f"Polling for order status updates of {len(order_update_tasks)} orders.")
 
-        if current_tick > last_tick and len(self._in_flight_orders) > 0:
-            tracked_orders = list(self._in_flight_orders.values())
-            tasks = []
-            for tracked_order in tracked_orders:
-                order_id = await tracked_order.get_exchange_order_id()
-                trading_pair = tracked_order.trading_pair
-                tasks.append(self._api_request("get",
-                                               CONSTANTS.GET_ORDER_DETAIL_PATH_URL,
-                                               {"order_id": int(order_id),
-                                                "symbol": bitmart_utils.convert_to_exchange_trading_pair(trading_pair)},
-                                               "KEYED"
-                                               ))
-            self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
-            responses = await safe_gather(*tasks, return_exceptions=True)
-            for response in responses:
-                if isinstance(response, Exception):
-                    raise response
-                if "data" not in response:
-                    self.logger().info(f"_update_order_status data not in resp: {response}")
-                    continue
-                result = response["data"]
-                await self._process_trade_message_rest(result)
-                await self._process_order_message(result)
+        order_updates = await safe_gather(*order_update_tasks, return_exceptions=True)
+        order_fills = await safe_gather(*order_fill_tasks, return_exceptions=True)
+        for order_update, order_fill, tracked_order in zip(order_updates, order_fills, tracked_orders):
+            if tracked_order.is_cancelled or tracked_order.is_failure:
+                # If the order is already cancelled of failed, the requests must have failed.
+                # We should not process the results, they will just produce unnecessary warnings in the logs
+                continue
 
-    async def _process_order_message(self, order_msg: Dict[str, Any]):
-        """
-        Updates in-flight order and triggers cancellation or failure event if needed.
-        :param order_msg: The order response from either REST or web socket API (they are of the same format)
-        """
-        for order in self._in_flight_orders.values():
-            await order.get_exchange_order_id()
-        exchange_order_id = str(order_msg["order_id"])
-        tracked_orders = list(self._in_flight_orders.values())
-        tracked_order = [order for order in tracked_orders if exchange_order_id == order.exchange_order_id]
-        if not tracked_order:
-            return
-        tracked_order = tracked_order[0]
-        client_order_id = tracked_order.client_order_id
+            if isinstance(order_fill, Exception):
+                self.logger().info(
+                    f"Error fetching order fills for the order {tracked_order.client_order_id}: {order_fill}.")
+            else:
+                await self._process_order_fill_update(order=tracked_order, fill_update=order_fill)
 
-        # Update order execution status
-        if "status" in order_msg:  # REST API
-            tracked_order.last_state = CONSTANTS.ORDER_STATUS[int(order_msg["status"])]
-        elif "state" in order_msg:  # WebSocket
-            tracked_order.last_state = CONSTANTS.ORDER_STATUS[int(order_msg["state"])]
-
-        if tracked_order.is_cancelled:
-            self.logger().info(f"Successfully canceled order {client_order_id}.")
-            self.trigger_event(MarketEvent.OrderCancelled,
-                               OrderCancelledEvent(
-                                   self.current_timestamp,
-                                   client_order_id))
-            tracked_order.cancelled_event.set()
-            self.stop_tracking_order(client_order_id)
-        elif tracked_order.is_failure:
-            self.logger().info(f"The market order {client_order_id} has failed according to order status API. ")
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(
-                                   self.current_timestamp,
-                                   client_order_id,
-                                   tracked_order.order_type
-                               ))
-            self.stop_tracking_order(client_order_id)
-
-    async def _process_trade_message_rest(self, trade_msg: Dict[str, Any]):
-        """
-        Updates in-flight order and trigger order filled event for trade message received from REST API. Triggers order completed
-        event if the total executed amount equals to the specified order amount.
-        """
-        for order in self._in_flight_orders.values():
-            await order.get_exchange_order_id()
-        track_order = [o for o in self._in_flight_orders.values() if str(trade_msg["order_id"]) == o.exchange_order_id]
-        if not track_order:
-            return
-        tracked_order = track_order[0]
-        (delta_trade_amount, delta_trade_price, trade_id) = tracked_order.update_with_trade_update_rest(trade_msg)
-        if not delta_trade_amount:
-            return
-        self.trigger_event(
-            MarketEvent.OrderFilled,
-            OrderFilledEvent(
-                self.current_timestamp,
-                tracked_order.client_order_id,
-                tracked_order.trading_pair,
-                tracked_order.trade_type,
-                tracked_order.order_type,
-                delta_trade_price,
-                delta_trade_amount,
-                # TradeFee(0.0, [(trade_msg["fee_coin_name"], Decimal(str(trade_msg["fees"])))]),
-                estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
-                exchange_trade_id=trade_id
-            )
-        )
-        if math.isclose(tracked_order.executed_amount_base,
-                        tracked_order.amount) or tracked_order.executed_amount_base >= tracked_order.amount:
-            tracked_order.last_state = "FILLED"
-            self.logger().info(f"The {tracked_order.trade_type.name} order "
-                               f"{tracked_order.client_order_id} has completed "
-                               f"according to trade status rest API.")
-            event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
-                else MarketEvent.SellOrderCompleted
-            event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
-                else SellOrderCompletedEvent
-            self.trigger_event(event_tag,
-                               event_class(self.current_timestamp,
-                                           tracked_order.client_order_id,
-                                           tracked_order.base_asset,
-                                           tracked_order.quote_asset,
-                                           tracked_order.executed_amount_base,
-                                           tracked_order.executed_amount_quote,
-                                           tracked_order.order_type))
-            self.stop_tracking_order(tracked_order.client_order_id)
-
-    async def _process_trade_message_ws(self, trade_msg: Dict[str, Any]):
-        """
-        Updates in-flight order and trigger order filled event for order message received from WebSocket API. Triggers order completed
-        event if the total executed amount equals to the specified order amount.
-        """
-        for order in self._in_flight_orders.values():
-            await order.get_exchange_order_id()
-        track_order = [o for o in self._in_flight_orders.values() if str(trade_msg["order_id"]) == o.exchange_order_id]
-        if not track_order:
-            return
-        tracked_order = track_order[0]
-        (delta_trade_amount, delta_trade_price, trade_id) = tracked_order.update_with_order_update_ws(trade_msg)
-        if not delta_trade_amount:
-            return
-        self.trigger_event(
-            MarketEvent.OrderFilled,
-            OrderFilledEvent(
-                self.current_timestamp,
-                tracked_order.client_order_id,
-                tracked_order.trading_pair,
-                tracked_order.trade_type,
-                tracked_order.order_type,
-                delta_trade_price,
-                delta_trade_amount,
-                estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
-                exchange_trade_id=trade_id
-            )
-        )
-        if math.isclose(tracked_order.executed_amount_base,
-                        tracked_order.amount) or tracked_order.executed_amount_base >= tracked_order.amount:
-            tracked_order.last_state = "FILLED"
-            self.logger().info(f"The {tracked_order.trade_type.name} order "
-                               f"{tracked_order.client_order_id} has completed "
-                               f"according to trade status ws API.")
-            event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
-                else MarketEvent.SellOrderCompleted
-            event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
-                else SellOrderCompletedEvent
-            self.trigger_event(event_tag,
-                               event_class(self.current_timestamp,
-                                           tracked_order.client_order_id,
-                                           tracked_order.base_asset,
-                                           tracked_order.quote_asset,
-                                           tracked_order.executed_amount_base,
-                                           tracked_order.executed_amount_quote,
-                                           tracked_order.order_type))
-            self.stop_tracking_order(tracked_order.client_order_id)
-
-    async def cancel_all(self, timeout_seconds: float):
-        """
-        Cancels all in-flight orders and waits for cancellation results.
-        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
-        :param timeout_seconds: The timeout at which the operation will be canceled.
-        :returns List of CancellationResult which indicates whether each order is successfully cancelled.
-        """
-        if self._trading_pairs is None:
-            raise Exception("cancel_all can only be used when trading_pairs are specified.")
-        for order in self._in_flight_orders.values():
-            await order.get_exchange_order_id()
-        tracked_orders: Dict[str, BitmartInFlightOrder] = self._in_flight_orders.copy().items()
-        cancellation_results = []
-        try:
-            tasks = []
-
-            for _, order in tracked_orders:
-                api_params = {
-                    "symbol": bitmart_utils.convert_to_exchange_trading_pair(order.trading_pair),
-                    "order_id": int(order.exchange_order_id),
-                }
-                tasks.append(self._api_request("post",
-                                               CONSTANTS.CANCEL_ORDER_PATH_URL,
-                                               api_params,
-                                               "SIGNED"))
-
-            await safe_gather(*tasks)
-
-            open_orders = await self.get_open_orders()
-            for cl_order_id, tracked_order in tracked_orders:
-                open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
-                if not open_order:
-                    cancellation_results.append(CancellationResult(cl_order_id, True))
-                    self.trigger_event(MarketEvent.OrderCancelled,
-                                       OrderCancelledEvent(self.current_timestamp, cl_order_id))
-                    self.stop_tracking_order(cl_order_id)
+            if not tracked_order.is_done:
+                if isinstance(order_update, Exception):
+                    self.logger().network(
+                        f"Error fetching status update for the order {tracked_order.client_order_id}: {order_update}.",
+                        app_warning_msg=f"Failed to fetch status update for the order {tracked_order.client_order_id}."
+                    )
+                    await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
                 else:
-                    cancellation_results.append(CancellationResult(cl_order_id, False))
-        except Exception:
-            self.logger().network(
-                "Failed to cancel all orders.",
-                exc_info=True,
-                app_warning_msg="Failed to cancel all orders on BitMart. Check API key and network connection."
+                    await self._process_order_update(order=tracked_order, order_update=order_update)
+
+    async def _process_order_fill_update(self, order: InFlightOrder, fill_update: Dict[str, Any]):
+        fills_data = fill_update["data"]["trades"]
+
+        for fill_data in fills_data:
+            fee = TradeFeeBase.new_spot_fee(
+                fee_schema=self.trade_fee_schema(),
+                trade_type=order.trade_type,
+                percent_token=fill_data["fee_coin_name"],
+                flat_fees=[TokenAmount(amount=Decimal(fill_data["fees"]), token=fill_data["fee_coin_name"])]
             )
-        return cancellation_results
+            trade_update = TradeUpdate(
+                trade_id=str(fill_data["detail_id"]),
+                client_order_id=order.client_order_id,
+                exchange_order_id=str(fill_data["order_id"]),
+                trading_pair=order.trading_pair,
+                fee=fee,
+                fill_base_amount=Decimal(fill_data["size"]),
+                fill_quote_amount=Decimal(fill_data["size"]) * Decimal(fill_data["price_avg"]),
+                fill_price=Decimal(fill_data["price_avg"]),
+                fill_timestamp=int(fill_data["create_time"]) * 1e-3,
+            )
+            self._order_tracker.process_trade_update(trade_update)
 
-    def tick(self, timestamp: float):
-        """
-        Is called automatically by the clock for each clock's tick (1 second by default).
-        It checks if status polling task is due for execution.
-        """
-        last_tick = int(self._last_timestamp / self.POLL_INTERVAL)
-        current_tick = int(timestamp / self.POLL_INTERVAL)
-        if current_tick > last_tick:
-            if not self._poll_notifier.is_set():
-                self._poll_notifier.set()
-        self._last_timestamp = timestamp
-
-    def get_fee(self,
-                base_currency: str,
-                quote_currency: str,
-                order_type: OrderType,
-                order_side: TradeType,
-                amount: Decimal,
-                price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
-        """
-        To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
-        function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
-        maker order.
-        """
-        is_maker = order_type is OrderType.LIMIT_MAKER
-        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
-
-    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
-        while True:
-            try:
-                yield await self._user_stream_tracker.user_stream.get()
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().network(
-                    "Unknown error. Retrying after 1 seconds.",
-                    exc_info=True,
-                    app_warning_msg="Could not fetch user events from Bitmart. Check API key and network connection."
-                )
-                await asyncio.sleep(1.0)
+    async def _process_order_update(self, order: InFlightOrder, order_update: Dict[str, Any]):
+        order_data = order_update["data"]
+        new_state = CONSTANTS.ORDER_STATE[order_data["status"]]
+        update = OrderUpdate(
+            client_order_id=order.client_order_id,
+            exchange_order_id=str(order_data["order_id"]),
+            trading_pair=order.trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=new_state,
+        )
+        self._order_tracker.process_order_update(update)
 
     async def _user_stream_event_listener(self):
-        """
-        Listens to message in _user_stream_tracker.user_stream queue. The messages are put in by
-        BitmartAPIUserStreamDataSource.
-        """
         async for event_message in self._iter_user_event_queue():
-            try:
-                if "data" not in event_message:
-                    continue
-                for msg in event_message["data"]:  # data is a list
-                    await self._process_order_message(msg)
-                    await self._process_trade_message_ws(msg)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
-                await asyncio.sleep(5.0)
 
-    async def get_open_orders(self) -> List[OpenOrder]:
-        if self._trading_pairs is None:
-            raise Exception("get_open_orders can only be used when trading_pairs are specified.")
+            event_type = event_message.get("table")
+            execution_data = event_message.get("data", [])
 
-        page_len = 100
-        responses = []
-        for trading_pair in self._trading_pairs:
-            page = 1
-            while True:
-                response = await self._api_request("get", CONSTANTS.GET_OPEN_ORDERS_PATH_URL,
-                                                   {"symbol": bitmart_utils.convert_to_exchange_trading_pair(
-                                                       trading_pair),
-                                                    "offset": page,
-                                                    "limit": page_len,
-                                                    "status": "9"},
-                                                   "KEYED")
-                responses.append(response)
-                count = len(response["data"]["orders"])
-                if count < page_len:
-                    break
-                else:
-                    page += 1
+            # Refer to https://developer-pro.bitmart.com/en/spot/#private-order-progress
+            if event_type == CONSTANTS.PRIVATE_ORDER_PROGRESS_CHANNEL_NAME:
+                for each_event in execution_data:
+                    try:
+                        client_order_id: Optional[str] = each_event.get("client_order_id")
+                        tracked_order = self._order_tracker.fetch_order(client_order_id=client_order_id)
 
-        for order in self._in_flight_orders.values():
-            await order.get_exchange_order_id()
+                        if tracked_order is not None:
+                            new_state = CONSTANTS.ORDER_STATE[each_event["state"]]
+                            event_timestamp = int(each_event["ms_t"]) * 1e-3
+                            is_fill_candidate_by_state = new_state in [OrderState.PARTIALLY_FILLED, OrderState.FILLED]
+                            is_fill_candidate_by_amount = tracked_order.executed_amount_base < Decimal(
+                                each_event["filled_size"])
 
-        ret_val = []
-        for response in responses:
-            for order in response["data"]["orders"]:
-                exchange_order_id = str(order["order_id"])
-                tracked_orders = list(self._in_flight_orders.values())
-                tracked_order = [o for o in tracked_orders if exchange_order_id == o.exchange_order_id]
-                if not tracked_order:
-                    continue
-                tracked_order = tracked_order[0]
-                if order["type"] != "limit":
-                    raise Exception(f"Unsupported order type {order['type']}")
-                ret_val.append(
-                    OpenOrder(
-                        client_order_id=tracked_order.client_order_id,
-                        trading_pair=bitmart_utils.convert_from_exchange_trading_pair(order["symbol"]),
-                        price=Decimal(str(order["price"])),
-                        amount=Decimal(str(order["size"])),
-                        executed_amount=Decimal(str(order["filled_size"])),
-                        status=CONSTANTS.ORDER_STATUS[int(order["status"])],
-                        order_type=OrderType.LIMIT,
-                        is_buy=True if order["side"].lower() == "buy" else False,
-                        time=int(order["create_time"]),
-                        exchange_order_id=str(order["order_id"])
-                    )
-                )
-        return ret_val
+                            if is_fill_candidate_by_state and is_fill_candidate_by_amount:
+                                try:
+                                    trade_fills: Dict[str, Any] = await self._request_order_fills(tracked_order)
+                                    await self._process_order_fill_update(order=tracked_order, fill_update=trade_fills)
+                                except asyncio.CancelledError:
+                                    raise
+                                except Exception:
+                                    self.logger().exception("Unexpected error requesting order fills for "
+                                                            f"{tracked_order.client_order_id}")
 
-    async def all_trading_pairs(self) -> List[str]:
-        try:
-            response = await self._api_request(
-                "get",
-                CONSTANTS.GET_TRADING_PAIRS_PATH_URL)
-            return [await self.trading_pair_associated_to_exchange_symbol(symbol)
-                    for symbol in response["data"]["symbols"]]
-        except Exception:
-            # Do nothing if the request fails -- there will be no autocomplete for dydx trading pairs
-            pass
+                            order_update = OrderUpdate(
+                                trading_pair=tracked_order.trading_pair,
+                                update_timestamp=event_timestamp,
+                                new_state=new_state,
+                                client_order_id=client_order_id,
+                                exchange_order_id=each_event["order_id"],
+                            )
+                            self._order_tracker.process_order_update(order_update=order_update)
 
-        return []
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        self.logger().exception("Unexpected error in user stream listener loop.")
+                        await self._sleep(5.0)
+
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        mapping = bidict()
+        for symbol_data in filter(bitmart_utils.is_exchange_information_valid, exchange_info["data"]["symbols"]):
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["base_currency"],
+                                                                        quote=symbol_data["quote_currency"])
+        self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         }
 
-        resp_json = await self._api_request(
-            method="get",
+        resp_json = await self._api_get(
             path_url=CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL,
             params=params
         )
 
         return float(resp_json["data"]["tickers"][0]["last_price"])
-
-    async def exchange_symbol_associated_to_pair(self, trading_pair: str) -> str:
-        """
-        Used to translate a trading pair from the client notation to the exchange notation
-
-        :param trading_pair: trading pair in client notation
-
-        :return: trading pair in exchange notation
-        """
-        return bitmart_utils.convert_to_exchange_trading_pair(trading_pair)
-
-    async def trading_pair_associated_to_exchange_symbol(self, symbol: str, ) -> str:
-        """
-        Used to translate a trading pair from the exchange notation to the client notation
-
-        :param symbol: trading pair in exchange notation
-
-        :return: trading pair in client notation
-        """
-        return bitmart_utils.convert_from_exchange_trading_pair(symbol)

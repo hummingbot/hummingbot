@@ -10,7 +10,7 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
-def public_rest_url(path_url: str) -> str:
+def public_rest_url(path_url: str, **kwargs) -> str:
     """
     Creates a full URL for provided REST endpoint
 
@@ -21,7 +21,7 @@ def public_rest_url(path_url: str) -> str:
     return urljoin(CONSTANTS.REST_URL, path_url)
 
 
-def private_rest_url(path_url: str) -> str:
+def private_rest_url(path_url: str, **kwargs) -> str:
     return public_rest_url(path_url)
 
 
