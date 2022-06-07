@@ -27,7 +27,7 @@ class GatewayError(Enum):
     TradeFailed = 1007
     SwapPriceExceedsLimitPrice = 1008
     SwapPriceLowerThanLimitPrice = 1009
-    ServiceUnitialized = 1010
+    ServiceUninitialized = 1010
     UnknownChainError = 1011
     UnknownError = 1099
 
@@ -113,7 +113,7 @@ class GatewayHttpClient:
                 self.logger().info("Gateway tried to use an unsupported token.")
             elif error_code == GatewayError.TradeFailed.value:
                 self.logger().info("The trade on gateway has failed.")
-            elif error_code == GatewayError.ServiceUnitialized.value:
+            elif error_code == GatewayError.ServiceUninitialized.value:
                 self.logger().info("Some values was uninitialized. Please contact dev@hummingbot.io ")
             elif error_code == GatewayError.SwapPriceExceedsLimitPrice.value:
                 self.logger().info("The swap price is greater than your limit buy price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
