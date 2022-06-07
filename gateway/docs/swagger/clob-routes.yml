@@ -97,8 +97,8 @@ paths:
             $ref: '#/definitions/SerumGetTickersResponse'
         '404':
           description: 'Not found response.'
-  /clob/createOrders:
-    get:
+  /clob/orders:
+    post:
       tags:
         - 'clob'
       summary: 'Create One Or More Orders'
@@ -122,7 +122,6 @@ paths:
             $ref: '#/definitions/SerumPostCreateOrdersResponse'
         '400':
           description: 'Bad request response.'
-  /clob/getOrders:
     get:
       tags:
         - 'clob'
@@ -149,8 +148,7 @@ paths:
           description: 'Bad request response.'
         '404':
           description: 'Not found response.'
-  /clob/cancelOrders:
-    get:
+    delete:
       tags:
         - 'clob'
       summary: 'Cancel One Or More Orders Open Orders'
@@ -176,7 +174,7 @@ paths:
           description: 'Bad request response.'
         '404':
           description: 'Not found response.'
-  /clob/getOpenOrders:
+  /clob/orders/open:
     get:
       tags:
         - 'clob'
@@ -203,7 +201,7 @@ paths:
           description: 'Bad request response.'
         '404':
           description: 'Not found response.'
-  /clob/getFilledOrders:
+  /clob/orders/filled:
     get:
       tags:
         - 'clob'

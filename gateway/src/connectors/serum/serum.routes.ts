@@ -181,7 +181,7 @@ export namespace SerumRoutes {
   );
 
   router.get(
-    '/openOrders',
+    '/orders/open',
     asyncHandler(
       async (
         request: Request<any, any, SerumGetOpenOrdersRequest>,
@@ -200,7 +200,7 @@ export namespace SerumRoutes {
   );
 
   router.get(
-    '/filledOrders',
+    '/orders/filled',
     asyncHandler(
       async (
         request: Request<any, any, SerumGetFilledOrdersRequest>,

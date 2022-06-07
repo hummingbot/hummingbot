@@ -97,8 +97,8 @@ paths:
             $ref: '#/definitions/SerumGetTickersResponse'
         '404':
           description: 'Not found response.'
-  /serum/createOrders:
-    get:
+  /serum/orders:
+    post:
       tags:
         - 'serum'
       summary: 'Create One Or More Orders'
@@ -122,7 +122,6 @@ paths:
             $ref: '#/definitions/SerumPostCreateOrdersResponse'
         '400':
           description: 'Bad request response.'
-  /serum/getOrders:
     get:
       tags:
         - 'serum'
@@ -149,8 +148,7 @@ paths:
           description: 'Bad request response.'
         '404':
           description: 'Not found response.'
-  /serum/cancelOrders:
-    get:
+    delete:
       tags:
         - 'serum'
       summary: 'Cancel One Or More Orders Open Orders'
@@ -176,7 +174,7 @@ paths:
           description: 'Bad request response.'
         '404':
           description: 'Not found response.'
-  /serum/getOpenOrders:
+  /serum/orders/open:
     get:
       tags:
         - 'serum'
@@ -203,7 +201,7 @@ paths:
           description: 'Bad request response.'
         '404':
           description: 'Not found response.'
-  /serum/getFilledOrders:
+  /serum/orders/filled:
     get:
       tags:
         - 'serum'
