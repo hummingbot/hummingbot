@@ -647,7 +647,7 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("get", "clob/openOrders", request)
+        return await self.api_request("get", "clob/orders/open", request)
 
     async def clob_get_filled_orders(
         self,
@@ -673,7 +673,7 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("get", "clob/filledOrders", request)
+        return await self.api_request("get", "clob/orders/filled", request)
 
     async def clob_post_settle_funds(
         self,
@@ -877,7 +877,7 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("get", "serum/openOrders", request)
+        return await self.api_request("get", "serum/orders/open", request)
 
     async def serum_get_filled_orders(
         self,
@@ -903,7 +903,7 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("get", "serum/filledOrders", request)
+        return await self.api_request("get", "serum/orders/filled", request)
 
     async def serum_post_settle_funds(
         self,
