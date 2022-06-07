@@ -17,7 +17,7 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     HEARTBEAT_TIME_INTERVAL = 30.0
 
-    _bausds_logger: Optional[HummingbotLogger] = None
+    _cfausds_logger: Optional[HummingbotLogger] = None
 
     def __init__(self,
                  auth: CoinflexAuth,
@@ -35,9 +35,9 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._bausds_logger is None:
-            cls._bausds_logger = logging.getLogger(__name__)
-        return cls._bausds_logger
+        if cls._cfausds_logger is None:
+            cls._cfausds_logger = logging.getLogger(__name__)
+        return cls._cfausds_logger
 
     @property
     def last_recv_time(self) -> float:
@@ -45,7 +45,7 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         Returns the time of the last received message
         :return: the timestamp of the last received message in seconds
         """
-        if not all(chan in self._subscribed_channels for chan in CONSTANTS.WS_CHANNELS["USER_STREAM"]):
+        if not all([chan in self._subscribed_channels for chan in CONSTANTS.WS_CHANNELS["USER_STREAM"]]):
             return 0
         if self._ws_assistant:
             return self._ws_assistant.last_recv_time

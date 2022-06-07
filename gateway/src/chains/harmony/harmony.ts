@@ -6,6 +6,7 @@ import { EthereumBase } from '../../services/ethereum-base';
 import { getHarmonyConfig } from './harmony.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { Ethereumish } from '../../services/common-interfaces';
+import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
 export class Harmony extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: Harmony };
@@ -25,7 +26,9 @@ export class Harmony extends EthereumBase implements Ethereumish {
       config.network.tokenListSource,
       config.network.tokenListType,
       config.manualGasPrice,
-      config.gasLimit
+      config.gasLimit,
+      ConfigManagerV2.getInstance().get('database.nonceDbPath'),
+      ConfigManagerV2.getInstance().get('database.transactionDbPath')
     );
     this._chain = network;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
@@ -152,5 +155,12 @@ export class Harmony extends EthereumBase implements Ethereumish {
       'Canceling any existing transaction(s) with nonce number ' + nonce + '.'
     );
     return this.cancelTxWithGasPrice(wallet, nonce, this._gasPrice * 2);
+  }
+
+  async close() {
+    await super.close();
+    if (this._chain in Harmony._instances) {
+      delete Harmony._instances[this._chain];
+    }
   }
 }
