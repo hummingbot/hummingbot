@@ -1,11 +1,8 @@
 from typing import Dict, Optional
 
-from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage,
-    OrderBookMessageType
-)
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+
 
 class BlockchainComOrderBook(OrderBook):
 
@@ -14,5 +11,10 @@ class BlockchainComOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "trading_pair": msg["symbol"],
+                "bids": msg["bids"],
+                "asks": msg["asks"]
+            }
         )
