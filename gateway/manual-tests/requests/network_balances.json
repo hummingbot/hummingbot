@@ -2,5 +2,5 @@
   "chain": "ethereum",
   "network": "kovan",
   "address": "$ETH_ADDRESS",
-  "tokenSymbols": ["ETH", "WETH", "DAI"]
+  "tokenSymbols": ["ANT","BAT","DAI","MKR","REP","USDC","WETH"]
 }
