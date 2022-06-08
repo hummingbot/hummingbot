@@ -84,12 +84,12 @@ class GatewayHttpClient:
         return cls._shared_client
 
     @classmethod
-    def reload_certs(cls):
+    def reload_certs(cls, client_config_map: "ClientConfigAdapter"):
         """
         Re-initializes the aiohttp.ClientSession. This should be called whenever there is any updates to the
         Certificates used to secure a HTTPS connection to the Gateway service.
         """
-        cls._http_client(re_init=True)
+        cls._http_client(client_config_map, re_init=True)
 
     @property
     def base_url(self) -> str:

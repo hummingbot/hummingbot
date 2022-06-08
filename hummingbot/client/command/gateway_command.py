@@ -114,7 +114,7 @@ class GatewayCommand(GatewayChainApiManager):
             pass_phase = Security.secrets_manager.password.get_secret_value()
         create_self_sign_certs(pass_phase, self.client_config_map)
         self.notify(f"Gateway SSL certification files are created in {cert_path}.")
-        self._get_gateway_instance().reload_certs()
+        self._get_gateway_instance().reload_certs(self.client_config_map)
 
     async def _generate_gateway_confs(
             self,       # type: HummingbotApplication
