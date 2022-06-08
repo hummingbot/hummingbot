@@ -25,6 +25,8 @@ import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
 import { ClobRoutes } from './clob/clob.routes';
 import { SerumRoutes } from './connectors/serum/serum.routes';
+import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
+import { SerumConfig } from './connectors/serum/serum.config';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -55,6 +57,7 @@ gatewayApp.use('/evm', EVMRoutes.router);
 gatewayApp.use('/connectors', ConnectorsRoutes.router);
 
 gatewayApp.use('/amm', AmmRoutes.router);
+gatewayApp.use('/amm/liquidity', AmmLiquidityRoutes.router);
 gatewayApp.use('/clob', ClobRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
@@ -68,7 +71,9 @@ gatewayApp.get('/', (_req: Request, res: Response) => {
 interface ConnectorsResponse {
   uniswap: Array<AvailableNetworks>;
   pangolin: Array<AvailableNetworks>;
+  sushiswap: Array<AvailableNetworks>;
   traderjoe: Array<AvailableNetworks>;
+  serum: Array<AvailableNetworks>;
 }
 
 gatewayApp.get(
@@ -77,7 +82,9 @@ gatewayApp.get(
     res.status(200).json({
       uniswap: UniswapConfig.config.availableNetworks,
       pangolin: PangolinConfig.config.availableNetworks,
+      sushiswap: SushiswapConfig.config.availableNetworks,
       traderjoe: TraderjoeConfig.config.availableNetworks,
+      serum: SerumConfig.config.availableNetworks,
     });
   })
 );
@@ -124,9 +131,11 @@ export const swaggerDocument = SwaggerManager.generateSwaggerJson(
     './docs/swagger/connectors-routes.yml',
     './docs/swagger/wallet-routes.yml',
     './docs/swagger/amm-routes.yml',
+    './docs/swagger/amm-liquidity-routes.yml',
     './docs/swagger/evm-routes.yml',
     './docs/swagger/network-routes.yml',
     './docs/swagger/solana-routes.yml',
+    './docs/swagger/clob-routes.yml',
     './docs/swagger/serum-routes.yml',
   ]
 );
