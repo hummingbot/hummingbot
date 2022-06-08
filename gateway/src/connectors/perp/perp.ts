@@ -22,6 +22,7 @@ import { Transaction, Wallet } from 'ethers';
 import { logger } from '../../services/logger';
 import { percentRegexp } from '../../services/config-manager-v2';
 import { Ethereum } from '../../chains/ethereum/ethereum';
+import { Perpish } from '../../services/common-interfaces';
 
 export interface PerpPosition {
   positionAmt: string;
@@ -32,7 +33,7 @@ export interface PerpPosition {
   tickerSymbol: string;
 }
 
-export class Perp {
+export class Perp implements Perpish {
   private static _instances: { [name: string]: Perp };
   private ethereum: Ethereum;
   private _perp: PerpetualProtocol;

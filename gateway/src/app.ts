@@ -17,12 +17,13 @@ import { SwaggerManager } from './services/swagger-manager';
 import { NetworkRoutes } from './network/network.routes';
 import { ConnectorsRoutes } from './connectors/connectors.routes';
 import { EVMRoutes } from './evm/evm.routes';
-import { AmmRoutes, PerpAmmRoutes } from './amm/amm.routes';
+import { AmmRoutes, AmmLiquidityRoutes, PerpAmmRoutes } from './amm/amm.routes';
 import { PangolinConfig } from './connectors/pangolin/pangolin.config';
 import { TraderjoeConfig } from './connectors/traderjoe/traderjoe.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
 import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
+import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -54,6 +55,7 @@ gatewayApp.use('/connectors', ConnectorsRoutes.router);
 
 gatewayApp.use('/amm', AmmRoutes.router);
 gatewayApp.use('/amm/perp', PerpAmmRoutes.router);
+gatewayApp.use('/amm/liquidity', AmmLiquidityRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
 
@@ -65,6 +67,7 @@ gatewayApp.get('/', (_req: Request, res: Response) => {
 interface ConnectorsResponse {
   uniswap: Array<AvailableNetworks>;
   pangolin: Array<AvailableNetworks>;
+  sushiswap: Array<AvailableNetworks>;
   traderjoe: Array<AvailableNetworks>;
 }
 
@@ -74,6 +77,7 @@ gatewayApp.get(
     res.status(200).json({
       uniswap: UniswapConfig.config.availableNetworks,
       pangolin: PangolinConfig.config.availableNetworks,
+      sushiswap: SushiswapConfig.config.availableNetworks,
       traderjoe: TraderjoeConfig.config.availableNetworks,
     });
   })
@@ -121,6 +125,7 @@ export const swaggerDocument = SwaggerManager.generateSwaggerJson(
     './docs/swagger/connectors-routes.yml',
     './docs/swagger/wallet-routes.yml',
     './docs/swagger/amm-routes.yml',
+    './docs/swagger/amm-liquidity-routes.yml',
     './docs/swagger/evm-routes.yml',
     './docs/swagger/network-routes.yml',
     './docs/swagger/solana-routes.yml',
