@@ -43,6 +43,11 @@ coinflex_api_secret: null
 coinflex_test_api_key: null
 coinflex_test_api_secret: null
 
+coinflex_perpetual_api_key: null
+coinflex_perpetual_api_secret: null
+coinflex_perpetual_testnet_api_key: null
+coinflex_perpetual_testnet_api_secret: null
+
 coinzoom_api_key: null
 coinzoom_secret_key: null
 coinzoom_username: null
