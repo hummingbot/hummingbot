@@ -3,6 +3,7 @@ import { Avalanche } from '../chains/avalanche/avalanche';
 import { Harmony } from '../chains/harmony/harmony';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { Pangolin } from '../connectors/pangolin/pangolin';
+import { Perp } from '../connectors/perp/perp';
 import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Ethereumish } from './common-interfaces';
 
@@ -22,11 +23,14 @@ export async function getChain(chain: string, network: string) {
 export async function getConnector(
   chain: string,
   network: string,
-  connector: string | undefined
+  connector: string | undefined,
+  address?: string
 ) {
   let connectorInstance: any;
   if (chain === 'ethereum' && connector === 'uniswap')
     connectorInstance = Uniswap.getInstance(chain, network);
+  else if (chain === 'ethereum' && connector === 'perp')
+    connectorInstance = Perp.getInstance(chain, network, address);
   else if (chain === 'avalanche' && connector === 'pangolin')
     connectorInstance = Pangolin.getInstance(chain, network);
   else if (chain === 'avalanche' && connector === 'traderjoe')

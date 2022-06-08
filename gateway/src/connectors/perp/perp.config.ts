@@ -12,7 +12,7 @@ export namespace PerpConfig {
     allowedSlippage: ConfigManagerV2.getInstance().get(`perp.allowedSlippage`),
     ttl: ConfigManagerV2.getInstance().get(`perp.versions.ttl`),
     tradingTypes: (type: string) =>
-      type === 'perp' ? ['EVM_Perpetual'] : ['EVM_Range_AMM'],
+      type === 'perp' ? ['EVM_Perpetual'] : ['EVM_AMM_LP'],
     availableNetworks: [{ chain: 'ethereum', networks: ['optimism'] }],
   };
 }
