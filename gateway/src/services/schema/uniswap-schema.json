@@ -26,5 +26,11 @@
     }
   },
   "additionalProperties": false,
-  "required": ["allowedSlippage", "gasLimit", "ttl", "maximumHops", "contractAddresses"]
+  "required": [
+    "allowedSlippage",
+    "gasLimit",
+    "ttl",
+    "maximumHops",
+    "contractAddresses"
+  ]
 }

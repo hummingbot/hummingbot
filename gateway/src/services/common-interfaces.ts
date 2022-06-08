@@ -52,7 +52,7 @@ export type UniswapishTrade =
       SushiToken,
       SushiTradeType.EXACT_INPUT | SushiTradeType.EXACT_OUTPUT
     >
-  | Trade<Currency, Currency, TradeType>
+  | Trade<Currency, Currency, TradeType>;
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
