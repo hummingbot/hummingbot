@@ -325,7 +325,7 @@ class GatewayEVMAMM(ConnectorBase):
         :return: A dictionary of token and its allowance.
         """
         ret_val = {}
-        if self.chain == 'curve':
+        if self.connector_name == 'curve':
             # the curve API as used in gateway handles allowances when trades
             # are performed so on the gateway side we assume that allowances
             # are always ready
