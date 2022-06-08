@@ -6,6 +6,7 @@ import { EthereumBase } from '../../services/ethereum-base';
 import { EthereumConfig, getEthereumConfig } from './ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { UniswapConfig } from '../../connectors/uniswap/uniswap.config';
+import { Perp } from '../../connectors/perp/perp';
 import { Ethereumish } from '../../services/common-interfaces';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
@@ -170,6 +171,13 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     let spender: string;
     if (reqSpender === 'uniswap') {
       spender = UniswapConfig.config.uniswapV2RouterAddress(this._chain);
+    } else if (reqSpender === 'perp') {
+      const perp = Perp.getInstance(this._chain, 'optimism');
+      if (!perp.ready()) {
+        perp.init();
+        throw Error('Perp curie not ready');
+      }
+      spender = perp.perp.contracts.vault.address;
     } else {
       spender = reqSpender;
     }

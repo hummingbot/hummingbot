@@ -17,7 +17,7 @@ import { SwaggerManager } from './services/swagger-manager';
 import { NetworkRoutes } from './network/network.routes';
 import { ConnectorsRoutes } from './connectors/connectors.routes';
 import { EVMRoutes } from './evm/evm.routes';
-import { AmmRoutes } from './amm/amm.routes';
+import { AmmRoutes, PerpAmmRoutes } from './amm/amm.routes';
 import { PangolinConfig } from './connectors/pangolin/pangolin.config';
 import { TraderjoeConfig } from './connectors/traderjoe/traderjoe.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
@@ -53,6 +53,7 @@ gatewayApp.use('/evm', EVMRoutes.router);
 gatewayApp.use('/connectors', ConnectorsRoutes.router);
 
 gatewayApp.use('/amm', AmmRoutes.router);
+gatewayApp.use('/amm/perp', PerpAmmRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
 
