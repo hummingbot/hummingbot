@@ -24,6 +24,7 @@ class Status(Enum):
 class StatusMonitor:
     _monitor_task: Optional[asyncio.Task]
     _current_status: Status
+    _current_connector_conn_status: Status
     _sm_logger: Optional[logging.Logger] = None
 
     @classmethod
@@ -35,12 +36,17 @@ class StatusMonitor:
     def __init__(self, app: "HummingbotApplication"):
         self._app = app
         self._current_status = Status.OFFLINE
+        self._current_connector_conn_status = Status.OFFLINE
         self._monitor_task = None
         self._gateway_config_keys: List[str] = []
 
     @property
     def current_status(self) -> Status:
         return self._current_status
+
+    @property
+    def current_connector_conn_status(self) -> Status:
+        return self._current_connector_conn_status
 
     @property
     def gateway_config_keys(self) -> List[str]:
@@ -80,9 +86,14 @@ class StatusMonitor:
                         GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
 
                         await self.update_gateway_config_key_list()
+                    elif self._current_connector_conn_status is Status.OFFLINE:
+                        gateway_connectors_status = await GatewayHttpClient.get_instance().get_gateway_status(fail_silently=True)
+                        self._current_connector_conn_status = Status.ONLINE \
+                            if any([status["currentBlockNumber"] > 0 for status in gateway_connectors_status]) else Status.OFFLINE
                     self._current_status = Status.ONLINE
                 else:
                     self._current_status = Status.OFFLINE
+                    self._current_connector_conn_status = Status.OFFLINE
             except asyncio.CancelledError:
                 raise
             except Exception:
