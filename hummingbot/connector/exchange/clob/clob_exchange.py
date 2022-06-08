@@ -20,34 +20,36 @@ from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
-class GatewayCLOB(ExchangePyBase):
+class CLOBExchange(ExchangePyBase):
+
+    # TODO move to constants?!!!
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
 
     web_utils = web_utils
 
     def __init__(self,
-                 clob_api_key: str,
-                 clob_api_secret: str,
+                 binance_api_key: str,
+                 binance_api_secret: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  ):
-        self.api_key = clob_api_key
-        self.secret_key = clob_api_secret
+        self.api_key = binance_api_key
+        self.secret_key = binance_api_secret
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._last_trades_poll_binance_timestamp = 1.0
         super().__init__()
 
-    # TODO Is it necessary to use all of the options available in gateway/src/connectors/serum/serum.types.ts?!!!
     @staticmethod
     def clob_order_type(order_type: OrderType) -> str:
         return order_type.name.upper()
 
-    @staticmethod
-    def to_hb_order_type(clob_type: str) -> OrderType:
-        return OrderType[clob_type]
+    # TODO remove?!!!
+    # @staticmethod
+    # def to_hb_order_type(binance_type: str) -> OrderType:
+    #     return OrderType[binance_type]
 
     @property
     def authenticator(self):
@@ -59,9 +61,9 @@ class GatewayCLOB(ExchangePyBase):
     @property
     def name(self) -> str:
         if self._domain == "com":
-            return "clob"
+            return "binance"
         else:
-            return f"clob_{self._domain}"
+            return f"binance_{self._domain}"
 
     @property
     def rate_limits_rules(self):
@@ -137,7 +139,7 @@ class GatewayCLOB(ExchangePyBase):
         order_result = None
         amount_str = f"{amount:f}"
         price_str = f"{price:f}"
-        type_str = GatewayCLOB.clob_order_type(order_type)
+        type_str = CLOBExchange.clob_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self._orderbook_ds.exchange_symbol_associated_to_pair(
             trading_pair=trading_pair,
@@ -328,10 +330,8 @@ class GatewayCLOB(ExchangePyBase):
         long_interval_last_tick = self._last_poll_timestamp / self.LONG_POLL_INTERVAL
         long_interval_current_tick = self.current_timestamp / self.LONG_POLL_INTERVAL
 
-        if (
-            long_interval_current_tick > long_interval_last_tick
-            or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)
-        ):
+        if (long_interval_current_tick > long_interval_last_tick
+                or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
             query_time = int(self._last_trades_poll_binance_timestamp * 1e3)
             self._last_trades_poll_binance_timestamp = self._time_synchronizer.time()
             order_by_exchange_id_map = {}
