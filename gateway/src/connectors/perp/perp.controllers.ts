@@ -47,17 +47,12 @@ export async function getPriceData(
     );
   }
 
-  const gasPrice = ethereumish.gasPrice;
   return {
     network: ethereumish.chain,
     timestamp: startTimestamp,
     latency: latency(startTimestamp, Date.now()),
     base: req.base,
     quote: req.quote,
-    gasPrice: gasPrice,
-    gasPriceToken: ethereumish.nativeTokenSymbol,
-    gasLimit: perpish.gasLimit,
-    gasCost: gasCostInEthString(gasPrice, perpish.gasLimit),
     markPrice: prices.markPrice.toString(),
     indexPrice: prices.indexPrice.toString(),
     indexTwapPrice: prices.indexTwapPrice.toString(),

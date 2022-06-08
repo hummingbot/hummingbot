@@ -44,6 +44,10 @@ configurations:
     configurationPath: perp.yml
     schemaPath: perp-schema.json
 
+  $namespace sushiswap:
+    configurationPath: sushiswap.yml
+    schemaPath: sushiswap-schema.json
+
   $namespace traderjoe:
     configurationPath: traderjoe.yml
     schemaPath: traderjoe-schema.json
