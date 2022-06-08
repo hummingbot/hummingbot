@@ -15,6 +15,11 @@ import { EvmTxStorage } from './evm.tx-storage';
 import fse from 'fs-extra';
 import { ConfigManagerCertPassphrase } from './config-manager-cert-passphrase';
 import { logger } from './logger';
+import {
+  HttpException,
+  INVALID_NONCE_ERROR_MESSAGE,
+  INVALID_NONCE_ERROR_CODE,
+} from './error-handler';
 import { ReferenceCountingCloseable } from './refcounting-closeable';
 
 // information about an Ethereum token
@@ -318,7 +323,20 @@ export class EthereumBase {
         '.'
     );
     if (!nonce) {
-      nonce = await this.nonceManager.getNonce(wallet.address);
+      nonce = await this.nonceManager.getNextNonce(wallet.address);
+    } else {
+      const isValid: boolean = await this.nonceManager.isValidNonce(
+        wallet.address,
+        nonce
+      );
+
+      if (!isValid) {
+        throw new HttpException(
+          500,
+          INVALID_NONCE_ERROR_MESSAGE + nonce,
+          INVALID_NONCE_ERROR_CODE
+        );
+      }
     }
     const params: any = {
       gasLimit: '100000',
@@ -373,6 +391,9 @@ export class EthereumBase {
    * node, and add them together.
    */
   async getGasPrice(): Promise<number | null> {
+    if (!this.ready) {
+      await this.init();
+    }
     const feeData: providers.FeeData = await this._provider.getFeeData();
     if (feeData.gasPrice !== null && feeData.maxPriorityFeePerGas !== null) {
       return (
