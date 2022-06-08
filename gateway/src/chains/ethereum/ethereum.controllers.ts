@@ -24,7 +24,11 @@ import {
   CustomTransaction,
   CustomTransactionResponse,
 } from './ethereum.requests';
-import { Ethereumish } from '../../services/common-interfaces';
+import {
+  Ethereumish,
+  UniswapLPish,
+  Uniswapish,
+} from '../../services/common-interfaces';
 import {
   NonceRequest,
   NonceResponse,
@@ -376,7 +380,7 @@ export async function poll(
       // decode logs
       if (req.connector) {
         try {
-          const connector = await getConnector(
+          const connector: Uniswapish | UniswapLPish = await getConnector(
             req.chain,
             req.network,
             req.connector

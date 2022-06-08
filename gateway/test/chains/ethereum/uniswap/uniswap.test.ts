@@ -7,7 +7,10 @@ import { Pair, Route } from '@uniswap/v2-sdk';
 import { Trade } from '@uniswap/router-sdk';
 import { BigNumber, utils } from 'ethers';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
+import { OverrideConfigs } from '../../../config.util';
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 
+const overrideConfigs = new OverrideConfigs();
 let ethereum: Ethereum;
 let uniswap: Uniswap;
 
@@ -25,10 +28,19 @@ const DAI = new Token(
 );
 
 beforeAll(async () => {
+  await overrideConfigs.init();
+  await overrideConfigs.updateConfigs();
+
   ethereum = Ethereum.getInstance('kovan');
+  patchEVMNonceManager(ethereum.nonceManager);
   await ethereum.init();
+
   uniswap = Uniswap.getInstance('ethereum', 'kovan');
   await uniswap.init();
+});
+
+beforeEach(() => {
+  patchEVMNonceManager(ethereum.nonceManager);
 });
 
 afterEach(() => {
