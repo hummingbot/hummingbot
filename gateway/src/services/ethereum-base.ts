@@ -130,9 +130,11 @@ export class EthereumBase {
   ): Promise<void> {
     this.tokenList = await this.getTokenList(tokenListSource, tokenListType);
     if (this.tokenList) {
-      this.tokenList.forEach(
-        (token: TokenInfo) => (this._tokenMap[token.symbol] = token)
-      );
+      this.tokenList.forEach((token: TokenInfo) => {
+        if (token.chainId === this.chainId) {
+          this._tokenMap[token.symbol] = token;
+        }
+      });
     }
   }
 
@@ -323,7 +325,8 @@ export class EthereumBase {
   public getTokenBySymbol(tokenSymbol: string): TokenInfo | undefined {
     return this.tokenList.find(
       (token: TokenInfo) =>
-        token.symbol.toUpperCase() === tokenSymbol.toUpperCase()
+        token.symbol.toUpperCase() === tokenSymbol.toUpperCase() &&
+        token.chainId === this.chainId
     );
   }
 
