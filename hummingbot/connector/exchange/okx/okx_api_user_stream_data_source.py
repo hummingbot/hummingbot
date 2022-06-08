@@ -33,9 +33,10 @@ class OkxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         ws: WSAssistant = await self._get_ws_assistant()
-        await ws.connect(
-            ws_url=CONSTANTS.OKX_WS_URI_PRIVATE,
-            message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)
+        async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
+            await ws.connect(
+                ws_url=CONSTANTS.OKX_WS_URI_PRIVATE,
+                message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)
 
         payload = {
             "op": "login",
