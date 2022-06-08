@@ -15,7 +15,12 @@ export namespace ConnectorsRoutes {
         connectors: [
           {
             name: 'uniswap',
-            trading_type: UniswapConfig.config.tradingTypes('v2'),
+            trading_type: UniswapConfig.config.tradingTypes('swap'),
+            available_networks: UniswapConfig.config.availableNetworks,
+          },
+          {
+            name: 'uniswapLP',
+            trading_type: UniswapConfig.config.tradingTypes('LP'),
             available_networks: UniswapConfig.config.availableNetworks,
           },
           {

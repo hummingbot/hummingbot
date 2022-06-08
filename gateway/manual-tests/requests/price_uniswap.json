@@ -3,7 +3,7 @@
   "chain": "ethereum",
   "network": "kovan",
   "quote": "WETH",
-  "base": "MKR",
+  "base": "DAI",
   "amount": "1",
   "side": "BUY"
 }

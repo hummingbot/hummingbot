@@ -4,8 +4,9 @@ import { Harmony } from '../chains/harmony/harmony';
 import { Curve } from '../connectors/curve/curve';
 import { Polygon } from '../chains/polygon/polygon';
 import { Uniswap } from '../connectors/uniswap/uniswap';
+import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { Pangolin } from '../connectors/pangolin/pangolin';
-import { Ethereumish, Uniswapish } from './common-interfaces';
+import { Ethereumish, Uniswapish, UniswapLPish } from './common-interfaces';
 import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 
 export async function getChain(
@@ -29,17 +30,21 @@ export async function getConnector(
   chain: string,
   network: string,
   connector: string | undefined
-): Promise<Uniswapish | Curve> {
-  let connectorInstance: any;
-  if (chain === 'ethereum' && connector === 'uniswap')
+): Promise<Uniswapish | UniswapLPish | Curve> {
+  let connectorInstance: Uniswapish | UniswapLPish | Curve;
+  if (chain === 'ethereum' && connector === 'uniswap') {
     connectorInstance = Uniswap.getInstance(chain, network);
-  else if (chain === 'ethereum' && connector === 'curve')
+  } else if (chain === 'ethereum' && connector === 'uniswapLP') {
+    connectorInstance = UniswapLP.getInstance(chain, network);
+  } else if (chain === 'ethereum' && connector === 'curve') {
     connectorInstance = Curve.getInstance(chain, network);
-  else if (chain === 'avalanche' && connector === 'pangolin')
+  } else if (chain === 'avalanche' && connector === 'pangolin') {
     connectorInstance = Pangolin.getInstance(chain, network);
-  else if (chain === 'avalanche' && connector === 'traderjoe')
+  } else if (chain === 'avalanche' && connector === 'traderjoe') {
     connectorInstance = Traderjoe.getInstance(chain, network);
-  else throw new Error('unsupported chain or connector');
+  } else {
+    throw new Error('unsupported chain or connector');
+  }
   if (!connectorInstance.ready) {
     await connectorInstance.init();
   }

@@ -1,10 +1,10 @@
-import aiohttp
 import logging
 import ssl
-
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
+
+import aiohttp
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
@@ -29,6 +29,8 @@ class GatewayError(Enum):
     SwapPriceLowerThanLimitPrice = 1009
     ServiceUnitialized = 1010
     UnknownChainError = 1011
+    UnknownTokenError = 1012
+    InvalidNonceError = 1013
     UnknownError = 1099
 
 
@@ -121,6 +123,10 @@ class GatewayHttpClient:
                 self.logger().info("The swap price is lower than your limit sell price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
             elif error_code == GatewayError.UnknownChainError.value:
                 self.logger().info("An unknown chain error has occurred on gateway. Make sure your gateway settings are correct.")
+            elif error_code == GatewayError.UnknownTokenError.value:
+                self.logger().info("An unknown token was used.")
+            elif error_code == GatewayError.InvalidNonceError.value:
+                self.logger().info("The nonce used was invalid.")
             elif error_code == GatewayError.UnknownError.value:
                 self.logger().info("An unknown error has occurred on gateway. Please send your logs to dev@hummingbot.io")
 
@@ -260,7 +266,7 @@ class GatewayHttpClient:
             address: str,
             token: str,
             spender: str,
-            nonce: int,
+            nonce: Optional[int] = None,
             max_fee_per_gas: Optional[int] = None,
             max_priority_fee_per_gas: Optional[int] = None
     ) -> Dict[str, Any]:
@@ -269,9 +275,10 @@ class GatewayHttpClient:
             "network": network,
             "address": address,
             "token": token,
-            "spender": spender,
-            "nonce": nonce
+            "spender": spender
         }
+        if nonce is not None:
+            request_payload["nonce"] = nonce
         if max_fee_per_gas is not None:
             request_payload["maxFeePerGas"] = str(max_fee_per_gas)
         if max_priority_fee_per_gas is not None:
@@ -376,7 +383,7 @@ class GatewayHttpClient:
             side: TradeType,
             amount: Decimal,
             price: Decimal,
-            nonce: int,
+            nonce: Optional[int] = None,
             max_fee_per_gas: Optional[int] = None,
             max_priority_fee_per_gas: Optional[int] = None
     ) -> Dict[str, Any]:
@@ -394,6 +401,8 @@ class GatewayHttpClient:
             "nonce": nonce,
             "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }
+        if nonce is not None:
+            request_payload["nonce"] = int(nonce)
         if max_fee_per_gas is not None:
             request_payload["maxFeePerGas"] = str(max_fee_per_gas)
         if max_priority_fee_per_gas is not None:
