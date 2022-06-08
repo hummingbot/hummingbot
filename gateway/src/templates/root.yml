@@ -44,6 +44,10 @@ configurations:
     configurationPath: quickswap.yml
     schemaPath: quickswap-schema.json
     
+  $namespace sushiswap:
+    configurationPath: sushiswap.yml
+    schemaPath: sushiswap-schema.json
+
   $namespace traderjoe:
     configurationPath: traderjoe.yml
     schemaPath: traderjoe-schema.json
