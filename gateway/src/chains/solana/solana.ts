@@ -455,7 +455,6 @@ export class Solana implements Solanaish {
       wallet,
       tokenAddress,
       wallet.publicKey
-      // this._tokenProgramAddress, // TODO should we include this!!!
     );
   }
 
