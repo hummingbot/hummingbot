@@ -4,6 +4,7 @@ import { PangolinConfig } from './pangolin/pangolin.config';
 import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
+import { SerumConfig } from "./serum/serum.config";
 
 export namespace ConnectorsRoutes {
   export const router = Router();
@@ -36,6 +37,11 @@ export namespace ConnectorsRoutes {
           {
             name: 'traderjoe',
             trading_type: TraderjoeConfig.config.tradingTypes,
+            available_networks: TraderjoeConfig.config.availableNetworks,
+          },
+          {
+            name: 'serum',
+            trading_type: SerumConfig.config.tradingTypes,
             available_networks: TraderjoeConfig.config.availableNetworks,
           },
         ],

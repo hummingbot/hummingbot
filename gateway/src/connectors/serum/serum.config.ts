@@ -1,8 +1,11 @@
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
+import {AvailableNetworks} from "../../services/config-manager-types";
 
 export namespace SerumConfig {
   export interface Config {
-    network: NetworkConfig;
+    networkConfig: (network: string) => NetworkConfig;
+    availableNetworks: Array<AvailableNetworks>;
+    tradingTypes: Array<string>;
     markets: MarketsConfig;
     tickers: TickersConfig;
   }
@@ -21,27 +24,25 @@ export namespace SerumConfig {
     source: string;
     url: string;
   }
-}
 
-export function getSerumConfig(network: string): SerumConfig.Config {
-  const configManager = ConfigManagerV2.getInstance();
-
-  const prefix = 'serum';
-
-  const targetNetwork = network || configManager.get(`${prefix}.network`);
-
-  return {
-    network: {
-      rpcURL: configManager.get(`${prefix}.networks.${targetNetwork}.rpcURL`),
+  export const config: Config = {
+    networkConfig: (network: string) => {
+      return {
+        rpcURL: ConfigManagerV2.getInstance().get(`$serum.networks.${network}.rpcURL`),
+      }
     },
+    tradingTypes: ['exchange'],
     markets: {
-      url: configManager.get(`${prefix}.markets.url`),
-      blacklist: configManager.get(`${prefix}.markets.blacklist`),
-      whiteList: configManager.get(`${prefix}.markets.whitelist`),
+      url: ConfigManagerV2.getInstance().get(`$serum.markets.url`),
+      blacklist: ConfigManagerV2.getInstance().get(`$serum.markets.blacklist`),
+      whiteList: ConfigManagerV2.getInstance().get(`$serum.markets.whitelist`),
     },
     tickers: {
-      source: configManager.get(`${prefix}.tickers.source`),
-      url: configManager.get(`${prefix}.tickers.url`),
+      source: ConfigManagerV2.getInstance().get(`$serum.tickers.source`),
+      url: ConfigManagerV2.getInstance().get(`$serum.tickers.url`),
     },
+    availableNetworks: [
+      { chain: 'solana', networks: ['mainnet-beta', 'devnet'] },
+    ],
   };
 }
