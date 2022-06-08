@@ -39,6 +39,7 @@ omit =
         hummingbot/strategy/aroon_oscillator*
         hummingbot/strategy/dev*
         hummingbot/strategy/hedge*
+        hummingbot/user/user_balances.py        
 dynamic_context = test_function
 branch = true
 
