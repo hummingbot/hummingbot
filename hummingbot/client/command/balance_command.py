@@ -1,18 +1,19 @@
 import asyncio
+import threading
+from decimal import Decimal
+from typing import TYPE_CHECKING, Dict, List, Optional
 
-from hummingbot.client.settings import GLOBAL_CONFIG_PATH
-from hummingbot.user.user_balances import UserBalances
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.global_config_map import global_config_map
+import pandas as pd
+
 from hummingbot.client.config.config_helpers import save_to_yml
 from hummingbot.client.config.config_validators import validate_decimal, validate_exchange
-from hummingbot.connector.other.celo.celo_cli import CeloCLI
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.performance import PerformanceMetrics
+from hummingbot.client.settings import GLOBAL_CONFIG_PATH
+from hummingbot.connector.other.celo.celo_cli import CeloCLI
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-import pandas as pd
-from decimal import Decimal
-from typing import TYPE_CHECKING, Dict, Optional, List
-import threading
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.user.user_balances import UserBalances
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -135,10 +136,11 @@ class BalanceCommand:
         allocated_total = Decimal("0")
         rows = []
         for token, bal in ex_balances.items():
-            if bal == Decimal(0):
-                continue
             avai = Decimal(ex_avai_balances.get(token.upper(), 0)) if ex_avai_balances is not None else Decimal(0)
-            allocated = f"{(bal - avai) / bal:.0%}"
+            if bal == Decimal(0):
+                allocated = "0%"
+            else:
+                allocated = f"{(bal - avai) / bal:.0%}"
             rate = await RateOracle.global_rate(token)
             rate = Decimal("0") if rate is None else rate
             global_value = rate * bal
