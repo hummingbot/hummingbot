@@ -380,11 +380,11 @@ export async function poll(
       // decode logs
       if (req.connector) {
         try {
-          const connector: Uniswapish | UniswapLPish = await getConnector(
+          const connector: Uniswapish | UniswapLPish = (await getConnector(
             req.chain,
             req.network,
             req.connector
-          );
+          )) as Uniswapish | UniswapLPish;
           txReceipt.logs = connector.abiDecoder?.decodeLogs(txReceipt.logs);
         } catch (e) {
           logger.error(e);

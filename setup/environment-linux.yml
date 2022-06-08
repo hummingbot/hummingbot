@@ -70,7 +70,6 @@ dependencies:
     - setuptools==50.3.2
     - signalr-client-aio==0.0.1.6.2
     - simplejson==3.17.2
-    - solana==0.23.3
     - virtualenv==20.4.7
     - web3==5.23.0
     - websockets==9.1

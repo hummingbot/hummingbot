@@ -17,7 +17,7 @@ import { SwaggerManager } from './services/swagger-manager';
 import { NetworkRoutes } from './network/network.routes';
 import { ConnectorsRoutes } from './connectors/connectors.routes';
 import { EVMRoutes } from './evm/evm.routes';
-import { AmmRoutes } from './amm/amm.routes';
+import { AmmRoutes, AmmLiquidityRoutes } from './amm/amm.routes';
 import { PangolinConfig } from './connectors/pangolin/pangolin.config';
 import { TraderjoeConfig } from './connectors/traderjoe/traderjoe.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
