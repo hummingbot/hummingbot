@@ -103,6 +103,8 @@ export class NonceLocalStorage extends ReferenceCountingCloseable {
  */
 export class EVMNonceManager extends ReferenceCountingCloseable {
   #addressToNonce: Record<string, [number, Date]> = {};
+  #addressToLeadingNonce: Record<string, [number, Date]> = {};
+
   #initialized: boolean = false;
   #db: NonceLocalStorage;
   readonly #chainId: number;
@@ -164,12 +166,31 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
   }
 
   async mergeNonceFromEVMNode(ethAddress: string): Promise<void> {
+    /*
+    Retrieves and saves the nonce from the last successful transaction from the EVM node.
+    If time period of the last stored nonce exceeds the localNonceTTL, we update the nonce using the getTransactionCount
+    call.
+    */
     if (this._provider !== null) {
+      const timestamp = this.#addressToNonce[ethAddress][1];
+      const now = new Date();
+      const diffInSeconds = (now.getTime() - timestamp.getTime()) / 1000;
+      if (diffInSeconds < this.#localNonceTTL) {
+        return;
+      }
+
       const externalNonce: number = await this._provider.getTransactionCount(
         ethAddress
       );
 
+      const externalPendingNonce: number =
+        await this._provider.getTransactionCount(ethAddress, 'pending');
+
       this.#addressToNonce[ethAddress] = [externalNonce, new Date()];
+      this.#addressToLeadingNonce[ethAddress] = [
+        externalPendingNonce,
+        new Date(),
+      ];
       await this.#db.saveNonce(
         this.#chainName,
         this.#chainId,
@@ -192,13 +213,7 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
   async getNonceFromMemory(ethAddress: string): Promise<number | null> {
     if (this.#initialized) {
       if (this.#addressToNonce[ethAddress]) {
-        const timestamp = this.#addressToNonce[ethAddress][1];
-        const now = new Date();
-        const diffInSeconds = (now.getTime() - timestamp.getTime()) / 1000;
-        if (diffInSeconds > this.#localNonceTTL) {
-          await this.mergeNonceFromEVMNode(ethAddress);
-        }
-
+        await this.mergeNonceFromEVMNode(ethAddress);
         return this.#addressToNonce[ethAddress][0];
       } else {
         return null;
@@ -245,23 +260,39 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
     return nonce;
   }
 
-  async commitNonce(
-    ethAddress: string,
-    txNonce: number | null = null
-  ): Promise<void> {
-    if (this.#initialized) {
-      let newNonce;
-      if (txNonce) {
-        newNonce = txNonce + 1;
+  async getNextNonce(ethAddress: string): Promise<number> {
+    /*
+    Retrieves the next available nonce for a given wallet address.
+    */
+    let newNonce;
+    if (this._provider !== null) {
+      if (this.#addressToLeadingNonce[ethAddress]) {
+        newNonce = this.#addressToLeadingNonce[ethAddress][0] + 1;
       } else {
         newNonce = (await this.getNonce(ethAddress)) + 1;
       }
-      this.#addressToNonce[ethAddress] = [newNonce, new Date()];
+      this.#addressToLeadingNonce[ethAddress] = [newNonce, new Date()];
+      return newNonce;
+    } else {
+      logger.error('EVMNonceManager.getNextNonce called before initiated');
+      throw new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.getNextNonce'),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      );
+    }
+  }
+
+  async commitNonce(ethAddress: string, txNonce: number): Promise<void> {
+    /*
+    Stores the nonce of the last successful transaction.
+    */
+    if (this._provider !== null) {
+      this.#addressToNonce[ethAddress] = [txNonce, new Date()];
       await this.#db.saveNonce(
         this.#chainName,
         this.#chainId,
         ethAddress,
-        newNonce
+        txNonce
       );
     } else {
       logger.error('EVMNonceManager.commitNonce called before initiated');
@@ -270,6 +301,12 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
         SERVICE_UNITIALIZED_ERROR_CODE
       );
     }
+  }
+
+  async isValidNonce(ethAddress: string, _nonce: number): Promise<boolean> {
+    const expectedNonce: number = await this.getNextNonce(ethAddress);
+    if (_nonce == expectedNonce) return true;
+    return false;
   }
 
   async close(ownerHandle: string): Promise<void> {
