@@ -1,5 +1,8 @@
 import {
+  HttpException,
   InitializationError,
+  LOAD_WALLET_ERROR_CODE,
+  LOAD_WALLET_ERROR_MESSAGE,
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from '../../services/error-handler';
@@ -20,17 +23,28 @@ import { logger } from '../../services/logger';
 import { percentRegexp } from '../../services/config-manager-v2';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 
+export interface PerpPosition {
+  positionAmt: string;
+  positionSide: string;
+  unRealizedProfit: string;
+  leverage: string;
+  entryPrice: string;
+  tickerSymbol: string;
+}
+
 export class Perp {
   private static _instances: { [name: string]: Perp };
   private ethereum: Ethereum;
   private _perp: PerpetualProtocol;
+  private _address: string;
   private _wallet?: Wallet;
   private _chain: string;
   private chainId;
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
+  public gasLimit = 16000000; // Default from perpfi https://github.com/perpetual-protocol/sdk-curie/blob/6211010ce6ddeb24312085775fc7e64336e426da/src/transactionSender/index.ts#L44
 
-  private constructor(chain: string, network: string, wallet?: Wallet) {
+  private constructor(chain: string, network: string, address?: string) {
     this._chain = chain;
     this.ethereum = Ethereum.getInstance(network);
     this.chainId = this.ethereum.chainId;
@@ -38,26 +52,27 @@ export class Perp {
       chainId: this.chainId,
       providerConfigs: [{ rpcUrl: this.ethereum.rpcUrl }],
     });
-    this._wallet = wallet;
+    this._address = address ? address : '';
+  }
+
+  public get perp(): PerpetualProtocol {
+    return this._perp;
   }
 
   public static getInstance(
     chain: string,
     network: string,
-    wallet?: Wallet
+    address?: string
   ): Perp {
     if (Perp._instances === undefined) {
       Perp._instances = {};
     }
 
-    let address = '';
-    if (wallet) address = wallet.address;
-
     if (!(chain + network + address in Perp._instances)) {
       Perp._instances[chain + network + address] = new Perp(
         chain,
         network,
-        wallet
+        address
       );
     }
 
@@ -90,7 +105,18 @@ export class Perp {
       );
     }
     await this._perp.init();
-    if (this._wallet) {
+    if (this._address !== '') {
+      try {
+        this._wallet = await this.ethereum.getWallet(this._address);
+      } catch (err) {
+        logger.error(`Wallet ${this._address} not available.`);
+        throw new HttpException(
+          500,
+          LOAD_WALLET_ERROR_MESSAGE + err,
+          LOAD_WALLET_ERROR_CODE
+        );
+      }
+
       await this._perp.connect({ signer: this._wallet });
       logger.info(
         `${this._wallet.address} wallet connected on perp ${this._chain}.`
@@ -115,7 +141,7 @@ export class Perp {
       allowedSlippage = allowedSlippageStr;
     } else allowedSlippage = PerpConfig.config.allowedSlippage;
     const nd = allowedSlippage.match(percentRegexp);
-    if (nd) return Number(nd[0]) / Number(nd[1]);
+    if (nd) return Number(nd[1]) / Number(nd[2]);
     throw new Error(
       'Encountered a malformed percent string in the config for ALLOWED_SLIPPAGE.'
     );
@@ -130,50 +156,77 @@ export class Perp {
 
   /**
    * Queries for the market, index and indexTwap prices for a given market pair.
-   * @param pair Market pair
+   * @param tickerSymbol Market pair
    */
-  async prices(pair: string): Promise<{
+  async prices(tickerSymbol: string): Promise<{
     markPrice: Big;
     indexPrice: Big;
     indexTwapPrice: Big;
   }> {
-    const tickerSymbol = pair.replace('-', '');
     const market = this._perp.markets.getMarket({ tickerSymbol });
     return await market.getPrices();
   }
 
   /**
    * Used to know if a market is active/tradable.
-   * @param pair Market pair
+   * @param tickerSymbol Market pair
    * @returns true | false
    */
-  async isMarketActive(pair: string): Promise<boolean> {
-    const tickerSymbol = pair.replace('-', '');
+  async isMarketActive(tickerSymbol: string): Promise<boolean> {
     const market = this._perp.markets.getMarket({ tickerSymbol });
     return (await market.getStatus()) === MarketStatus.ACTIVE ? true : false;
   }
 
   /**
-   * Gets available Positions/Position.
+   * Gets available Position.
    * @param tickerSymbol An optional parameter to get specific position.
    * @returns Return all Positions or specific position.
    */
-  async getPositions(
-    tickerSymbol?: string
-  ): Promise<Positions | Position | undefined> {
+  async getPositions(tickerSymbol: string): Promise<PerpPosition | undefined> {
     const positions = this._perp.positions;
+    let positionAmt: string = '',
+      positionSide: string = '',
+      unRealizedProfit: string = '',
+      leverage: string = '',
+      entryPrice: string = '';
+    positionAmt = '0';
     if (positions && tickerSymbol) {
-      return await positions.getTakerPositionByTickerSymbol(tickerSymbol);
+      const position = await positions.getTakerPositionByTickerSymbol(
+        tickerSymbol
+      );
+      if (position) {
+        positionSide = PositionSide[position.side];
+        unRealizedProfit = (await position.getUnrealizedPnl()).toString();
+        leverage = '1';
+        entryPrice = position.entryPrice.toString();
+        positionAmt = position.sizeAbs.toString();
+      }
     }
-    return positions;
+    return {
+      positionAmt,
+      positionSide,
+      unRealizedProfit,
+      leverage,
+      entryPrice,
+      tickerSymbol,
+    };
   }
 
+  /**
+   * Given the necessary parameters, open a position.
+   * @param isLong Will create a long position if true, else a short pos will be created.
+   * @param tickerSymbol the market to create position on.
+   * @param minBaseAmount the min amount for the position to be opened.
+   * @returns An ethers transaction object.
+   */
   async openPosition(
     isLong: boolean,
     tickerSymbol: string,
     minBaseAmount: string
   ): Promise<Transaction> {
+    console.log(this.getAllowedSlippage().toString());
     const slippage = new Big(this.getAllowedSlippage());
+    //console.log(minBaseAmount);
     const amountInput = new Big(minBaseAmount);
     const side = isLong ? PositionSide.LONG : PositionSide.SHORT;
     const isAmountInputBase = false; // we are not using base token to open position.
@@ -189,10 +242,18 @@ export class Perp {
       .transaction;
   }
 
+  /**
+   * Closes an open position on the specified market.
+   * @param tickerSymbol The market on which we want to close position.
+   * @returns An ethers transaction object.
+   */
   async closePosition(tickerSymbol: string): Promise<Transaction> {
     const slippage = new Big(this.getAllowedSlippage());
     const clearingHouse = this._perp.clearingHouse as ClearingHouse;
-    const position = await this.getPositions(tickerSymbol);
+    const positions = this._perp.positions as Positions;
+    const position = await positions.getTakerPositionByTickerSymbol(
+      tickerSymbol
+    );
     if (!position) {
       throw new Error(`No active position on ${tickerSymbol}.`);
     }
