@@ -39,6 +39,7 @@ encrypted_conf_prefix = "encrypted_"
 encrypted_conf_postfix = ".json"
 conf_dir_path = CONF_DIR_PATH
 strategies_conf_dir_path = STRATEGIES_CONF_DIR_PATH
+celo_address = None
 
 
 def migrate_configs(secrets_manager: BaseSecretsManager) -> List[str]:
@@ -89,6 +90,8 @@ def backup_existing_dir() -> List[str]:
 
 
 def migrate_global_config() -> List[str]:
+    global celo_address
+
     logging.getLogger().info("\nMigrating the global config...")
     global_config_path = CONF_DIR_PATH / "conf_global.yml"
     errors = []
@@ -97,11 +100,16 @@ def migrate_global_config() -> List[str]:
             data = yaml.safe_load(f)
         del data["template_version"]
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        migrate_global_config_modes(client_config_map, data)
+        _migrate_global_config_modes(client_config_map, data)
+        "kraken_api_tier" in data and data.pop("kraken_api_tier")
+        "key_file_path" in data and data.pop("key_file_path")
+        celo_address = data.get("celo_address")
+        if celo_address is not None:
+            data.pop("celo_address")
         keys = list(data.keys())
         for key in keys:
             if key in client_config_map.keys():
-                migrate_global_config_field(client_config_map, data, key)
+                _migrate_global_config_field(client_config_map, data, key)
         for key in data:
             logging.getLogger().warning(f"Global ConfigVar {key} was not migrated.")
         errors.extend(client_config_map.validate_model())
@@ -115,7 +123,7 @@ def migrate_global_config() -> List[str]:
     return errors
 
 
-def migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: Dict):
+def _migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: Dict):
     client_config_map: Union[ClientConfigAdapter, ClientConfigMap] = client_config_map  # for IDE autocomplete
 
     kill_switch_enabled = data.pop("kill_switch_enabled")
@@ -125,10 +133,10 @@ def migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: Di
     else:
         client_config_map.kill_switch_mode = KillSwitchDisabledMode()
 
-    migrate_global_config_field(
+    _migrate_global_config_field(
         client_config_map.paper_trade, data, "paper_trade_exchanges"
     )
-    migrate_global_config_field(
+    _migrate_global_config_field(
         client_config_map.paper_trade, data, "paper_trade_account_balance"
     )
 
@@ -168,10 +176,10 @@ def migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: Di
     else:
         client_config_map.pmm_script_mode = PMMScriptDisabledMode()
 
-    migrate_global_config_field(
+    _migrate_global_config_field(
         client_config_map.gateway, data, "gateway_api_host"
     )
-    migrate_global_config_field(
+    _migrate_global_config_field(
         client_config_map.gateway, data, "gateway_api_port"
     )
 
@@ -184,33 +192,33 @@ def migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: Di
     else:
         client_config_map.anonymized_metrics_mode = AnonymizedMetricsDisabledMode()
 
-    migrate_global_config_field(
+    _migrate_global_config_field(
         client_config_map.global_token, data, "global_token", "global_token_name"
     )
-    migrate_global_config_field(
+    _migrate_global_config_field(
         client_config_map.global_token, data, "global_token_symbol"
     )
 
-    migrate_global_config_field(
+    _migrate_global_config_field(
         client_config_map.commands_timeout, data, "create_command_timeout"
     )
-    migrate_global_config_field(
+    _migrate_global_config_field(
         client_config_map.commands_timeout, data, "other_commands_timeout"
     )
 
     color_map: Union[ClientConfigAdapter, ColorConfigMap] = client_config_map.color
-    migrate_global_config_field(color_map, data, "top-pane", "top_pane")
-    migrate_global_config_field(color_map, data, "bottom-pane", "bottom_pane")
-    migrate_global_config_field(color_map, data, "output-pane", "output_pane")
-    migrate_global_config_field(color_map, data, "input-pane", "input_pane")
-    migrate_global_config_field(color_map, data, "logs-pane", "logs_pane")
-    migrate_global_config_field(color_map, data, "terminal-primary", "terminal_primary")
-    migrate_global_config_field(color_map, data, "primary-label", "primary_label")
-    migrate_global_config_field(color_map, data, "secondary-label", "secondary_label")
-    migrate_global_config_field(color_map, data, "success-label", "success_label")
-    migrate_global_config_field(color_map, data, "warning-label", "warning_label")
-    migrate_global_config_field(color_map, data, "info-label", "info_label")
-    migrate_global_config_field(color_map, data, "error-label", "error_label")
+    _migrate_global_config_field(color_map, data, "top-pane", "top_pane")
+    _migrate_global_config_field(color_map, data, "bottom-pane", "bottom_pane")
+    _migrate_global_config_field(color_map, data, "output-pane", "output_pane")
+    _migrate_global_config_field(color_map, data, "input-pane", "input_pane")
+    _migrate_global_config_field(color_map, data, "logs-pane", "logs_pane")
+    _migrate_global_config_field(color_map, data, "terminal-primary", "terminal_primary")
+    _migrate_global_config_field(color_map, data, "primary-label", "primary_label")
+    _migrate_global_config_field(color_map, data, "secondary-label", "secondary_label")
+    _migrate_global_config_field(color_map, data, "success-label", "success_label")
+    _migrate_global_config_field(color_map, data, "warning-label", "warning_label")
+    _migrate_global_config_field(color_map, data, "info-label", "info_label")
+    _migrate_global_config_field(color_map, data, "error-label", "error_label")
 
     balance_asset_limit = data.pop("balance_asset_limit")
     if balance_asset_limit is not None:
@@ -226,7 +234,7 @@ def migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: Di
         client_config_map.balance_asset_limit = balance_asset_limit
 
 
-def migrate_global_config_field(
+def _migrate_global_config_field(
     cm: ClientConfigAdapter, global_config_data: Dict[str, Any], attr: str, cm_attr: Optional[str] = None
 ):
     value = global_config_data.pop(attr)
@@ -367,8 +375,9 @@ def migrate_connector_confs(secrets_manager: BaseSecretsManager):
             if connector_dir.name.startswith("_") or connector_dir.name in connector_exceptions:
                 continue
             try:
+                suffix = "data_types" if connector_dir.name == "celo" else "utils"
                 util_module_path: str = (
-                    f"hummingbot.connector.{type_dir.name}.{connector_dir.name}.{connector_dir.name}_utils"
+                    f"hummingbot.connector.{type_dir.name}.{connector_dir.name}.{connector_dir.name}_{suffix}"
                 )
                 util_module = importlib.import_module(util_module_path)
                 config_keys = getattr(util_module, "KEYS", None)
@@ -391,6 +400,9 @@ def _maybe_migrate_encrypted_confs(config_keys: BaseConnectorConfigMap) -> List[
     missing_fields = []
     for el in cm.traverse():
         if el.client_field_data is not None:
+            if el.attr == "celo_address" and celo_address is not None:
+                cm.setattr_no_validation(el.attr, celo_address)
+                continue
             key_path = conf_dir_path / f"{encrypted_conf_prefix}{el.attr}{encrypted_conf_postfix}"
             if key_path.exists():
                 with open(key_path, 'r') as f:
