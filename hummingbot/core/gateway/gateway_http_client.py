@@ -1,10 +1,10 @@
-import aiohttp
 import logging
 import ssl
-
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
+
+import aiohttp
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
@@ -260,7 +260,7 @@ class GatewayHttpClient:
             address: str,
             token: str,
             spender: str,
-            nonce: int,
+            nonce: Optional[int] = None,
             max_fee_per_gas: Optional[int] = None,
             max_priority_fee_per_gas: Optional[int] = None
     ) -> Dict[str, Any]:
@@ -269,9 +269,10 @@ class GatewayHttpClient:
             "network": network,
             "address": address,
             "token": token,
-            "spender": spender,
-            "nonce": nonce
+            "spender": spender
         }
+        if nonce is not None:
+            request_payload["nonce"] = nonce
         if max_fee_per_gas is not None:
             request_payload["maxFeePerGas"] = str(max_fee_per_gas)
         if max_priority_fee_per_gas is not None:
@@ -376,7 +377,7 @@ class GatewayHttpClient:
             side: TradeType,
             amount: Decimal,
             price: Decimal,
-            nonce: int,
+            nonce: Optional[int] = None,
             max_fee_per_gas: Optional[int] = None,
             max_priority_fee_per_gas: Optional[int] = None
     ) -> Dict[str, Any]:
@@ -394,6 +395,8 @@ class GatewayHttpClient:
             "nonce": nonce,
             "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }
+        if nonce is not None:
+            request_payload["nonce"] = int(nonce)
         if max_fee_per_gas is not None:
             request_payload["maxFeePerGas"] = str(max_fee_per_gas)
         if max_priority_fee_per_gas is not None:
