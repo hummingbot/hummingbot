@@ -12,7 +12,7 @@ import BN from 'bn.js';
 import { Cache, CacheContainer } from 'node-ts-cache';
 import { MemoryStorage } from 'node-ts-cache-storage-memory';
 import { Solana } from '../../chains/solana/solana';
-import { getSerumConfig, SerumConfig } from './serum.config';
+import { SerumConfig } from './serum.config';
 import { default as constants } from './serum.constants';
 import {
   convertArrayOfSerumOrdersToMapOfOrders,
@@ -96,9 +96,9 @@ export class Serum {
     this.chain = chain;
     this.network = network;
 
-    this.config = getSerumConfig(network);
+    this.config = SerumConfig.config;
 
-    this.connection = new Connection(this.config.network.rpcURL);
+    this.connection = new Connection(this.config.networkConfig(network).rpcURL);
   }
 
   private async serumGetMarketsInformation(): Promise<BasicSerumMarket[]> {
