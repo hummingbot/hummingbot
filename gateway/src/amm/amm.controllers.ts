@@ -33,21 +33,21 @@ import {
 
 export async function price(req: PriceRequest): Promise<PriceResponse> {
   const chain = await getChain(req.chain, req.network);
-  const connector: Uniswapish = await getConnector<Uniswapish>(
+  const connector: Uniswapish = (await getConnector(
     req.chain,
     req.network,
     req.connector
-  );
+  )) as Uniswapish;
   return uniswapPrice(chain, connector, req);
 }
 
 export async function trade(req: TradeRequest): Promise<TradeResponse> {
   const chain = await getChain(req.chain, req.network);
-  const connector: Uniswapish = await getConnector<Uniswapish>(
+  const connector: Uniswapish = (await getConnector(
     req.chain,
     req.network,
     req.connector
-  );
+  )) as Uniswapish;
   return uniswapTrade(chain, connector, req);
 }
 
@@ -55,11 +55,11 @@ export async function addLiquidity(
   req: AddLiquidityRequest
 ): Promise<AddLiquidityResponse> {
   const chain = await getChain(req.chain, req.network);
-  const connector: UniswapLPish = await getConnector<UniswapLPish>(
+  const connector: UniswapLPish = (await getConnector(
     req.chain,
     req.network,
     req.connector
-  );
+  )) as UniswapLPish;
   return uniswapV3AddLiquidity(chain, connector, req);
 }
 
@@ -68,7 +68,11 @@ export async function reduceLiquidity(
 ): Promise<RemoveLiquidityResponse> {
   const chain = await getChain(req.chain, req.network);
   const connector: UniswapLPish = <UniswapLPish>(
-    await getConnector<UniswapLPish>(req.chain, req.network, req.connector)
+    ((await getConnector(
+      req.chain,
+      req.network,
+      req.connector
+    )) as UniswapLPish)
   );
   return uniswapV3RemoveLiquidity(chain, connector, req);
 }
@@ -78,7 +82,11 @@ export async function collectFees(
 ): Promise<RemoveLiquidityResponse> {
   const chain = await getChain(req.chain, req.network);
   const connector: UniswapLPish = <UniswapLPish>(
-    await getConnector<UniswapLPish>(req.chain, req.network, req.connector)
+    ((await getConnector(
+      req.chain,
+      req.network,
+      req.connector
+    )) as UniswapLPish)
   );
   return uniswapV3CollectEarnedFees(chain, connector, req);
 }
@@ -88,7 +96,11 @@ export async function positionInfo(
 ): Promise<PositionResponse> {
   const chain = await getChain(req.chain, req.network);
   const connector: UniswapLPish = <UniswapLPish>(
-    await getConnector<UniswapLPish>(req.chain, req.network, req.connector)
+    ((await getConnector(
+      req.chain,
+      req.network,
+      req.connector
+    )) as UniswapLPish)
   );
   return uniswapV3PositionInfo(chain, connector, req);
 }
@@ -98,7 +110,11 @@ export async function poolPrice(
 ): Promise<PoolPriceResponse> {
   const chain = await getChain(req.chain, req.network);
   const connector: UniswapLPish = <UniswapLPish>(
-    await getConnector<UniswapLPish>(req.chain, req.network, req.connector)
+    ((await getConnector(
+      req.chain,
+      req.network,
+      req.connector
+    )) as UniswapLPish)
   );
   return uniswapV3PoolPrice(chain, connector, req);
 }
@@ -108,7 +124,7 @@ export async function estimateGas(
 ): Promise<EstimateGasResponse> {
   const chain = await getChain(req.chain, req.network);
   const connector: Uniswapish = <Uniswapish>(
-    await getConnector<Uniswapish>(req.chain, req.network, req.connector)
+    ((await getConnector(req.chain, req.network, req.connector)) as Uniswapish)
   );
   return uniswapEstimateGas(chain, connector);
 }

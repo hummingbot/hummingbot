@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { validatePublicKey } from '../chains/solana/solana.validators';
+import { Serumish } from '../connectors/serum/serum';
 import { getConnector } from '../services/connection-manager';
 import { asyncHandler } from '../services/error-handler';
 import {
@@ -42,11 +43,11 @@ export namespace ClobRoutes {
     '/',
     asyncHandler(
       async (request: Request<any>, response: Response<any, any>) => {
-        const connector = await getConnector(
+        const connector = (await getConnector(
           request.body.chain,
           request.body.network,
           request.body.connector
-        );
+        )) as Serumish;
 
         response.status(StatusCodes.OK).json({
           chain: connector.chain,

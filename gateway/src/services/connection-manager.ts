@@ -31,14 +31,15 @@ export async function getChain(chain: string, network: string) {
   return chainInstance;
 }
 
-type ConnectorType<T> = T extends Uniswapish ? Uniswapish : UniswapLPish;
+type ConnectorType = Uniswapish | UniswapLPish | Serumish;
 
-export async function getConnector<T>(
+export async function getConnector(
   chain: string,
   network: string,
   connector: string | undefined
-): Promise<ConnectorType<T>> {
-  let connectorInstance: Uniswapish | UniswapLPish | Serumish;
+): Promise<ConnectorType> {
+  let connectorInstance: ConnectorType;
+
   if (chain === 'ethereum' && connector === 'uniswap') {
     connectorInstance = Uniswap.getInstance(chain, network);
   } else if (chain === 'ethereum' && connector === 'sushiswap') {
@@ -59,5 +60,5 @@ export async function getConnector<T>(
     await connectorInstance.init();
   }
 
-  return connectorInstance as ConnectorType<T>;
+  return connectorInstance as ConnectorType;
 }
