@@ -57,9 +57,9 @@ class BinanceExchangeTests(TestCase):
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
-        self.exchange._binance_time_synchronizer.add_time_offset_ms_sample(0)
-        self.exchange._binance_time_synchronizer.logger().setLevel(1)
-        self.exchange._binance_time_synchronizer.logger().addHandler(self)
+        self.exchange._time_synchronizer.add_time_offset_ms_sample(0)
+        self.exchange._time_synchronizer.logger().setLevel(1)
+        self.exchange._time_synchronizer.logger().addHandler(self)
         self.exchange._order_tracker.logger().setLevel(1)
         self.exchange._order_tracker.logger().addHandler(self)
 
@@ -256,7 +256,7 @@ class BinanceExchangeTests(TestCase):
         self._validate_auth_credentials_for_post_request(order_request[1][0])
 
         self.assertNotIn("OID1", self.exchange.in_flight_orders)
-        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
@@ -303,7 +303,7 @@ class BinanceExchangeTests(TestCase):
         self.async_run_with_timeout(request_sent_event.wait())
 
         self.assertNotIn("OID1", self.exchange.in_flight_orders)
-        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
@@ -382,7 +382,7 @@ class BinanceExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Successfully cancelled order {order.client_order_id}."
+                f"Successfully canceled order {order.client_order_id}."
             )
         )
 
@@ -418,13 +418,14 @@ class BinanceExchangeTests(TestCase):
                                if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_for_request(cancel_request[1][0])
 
-        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
+        self.assertEqual(0, len(self.order_cancelled_logger.event_log))
 
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                f"There was a an error when requesting cancellation of order {order.client_order_id}"
-            )
+                f"Failed to cancel order {order.client_order_id}"
+            ),
+            msg=f"{self.log_records}"
         )
 
     @aioresponses()
@@ -493,7 +494,7 @@ class BinanceExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Successfully cancelled order {order1.client_order_id}."
+                f"Successfully canceled order {order1.client_order_id}."
             )
         )
 
@@ -503,7 +504,7 @@ class BinanceExchangeTests(TestCase):
         request_sent_event = asyncio.Event()
         seconds_counter_mock.side_effect = [0, 0, 0]
 
-        self.exchange._binance_time_synchronizer.clear_time_offset_ms_samples()
+        self.exchange._time_synchronizer.clear_time_offset_ms_samples()
         url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -515,7 +516,7 @@ class BinanceExchangeTests(TestCase):
 
         self.async_run_with_timeout(self.exchange._update_time_synchronizer())
 
-        self.assertEqual(response["serverTime"] * 1e-3, self.exchange._binance_time_synchronizer.time())
+        self.assertEqual(response["serverTime"] * 1e-3, self.exchange._time_synchronizer.time())
 
     @aioresponses()
     def test_update_time_synchronizer_failure_is_logged(self, mock_api):
@@ -958,7 +959,7 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
         self.assertTrue(
-            self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}.")
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
         )
 
     @aioresponses()
@@ -1306,7 +1307,7 @@ class BinanceExchangeTests(TestCase):
         self.assertTrue(order.is_done)
 
         self.assertTrue(
-            self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}.")
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
         )
 
     def test_user_stream_update_for_order_fill(self):
@@ -1513,7 +1514,7 @@ class BinanceExchangeTests(TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELLED
+            initial_state=OrderState.CANCELED
         ))
         orders.append(InFlightOrder(
             client_order_id="OID3",

@@ -5,7 +5,7 @@ import math
 import random
 from collections import defaultdict, deque
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from cpython cimport PyObject
 from cython.operator cimport address, dereference as deref, postincrement as inc
@@ -142,13 +142,13 @@ cdef class PaperTradeExchange(ExchangeBase):
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     ORDER_BOOK_TRADE_EVENT_TAG = OrderBookEvent.TradeEvent.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
 
-    def __init__(self, order_book_tracker: OrderBookTracker, target_market: type, exchange_name: str):
+    def __init__(self, order_book_tracker: OrderBookTracker, target_market: Callable, exchange_name: str):
         order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
         self._order_book_tracker = order_book_tracker
         self._budget_checker = BudgetChecker(exchange=self)
@@ -664,7 +664,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                                   f"{quote_balance:.8g} {quote_asset} available.")
 
             self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+            self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp,
                                                      order_id)
                                  )
@@ -755,7 +755,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                                   f"{sold_amount:.8g} {base_asset} needed vs. "
                                   f"{base_balance:.8g} {base_asset} available.")
             self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+            self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp,
                                                      order_id)
                                  )
@@ -978,7 +978,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                 delete_success = self.c_delete_limit_order(orders_map, address(map_it), orders_it)
                 cancellation_results.append(CancellationResult(limit_order_cid,
                                                                delete_success))
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp,
                                                          limit_order_cid)
                                      )

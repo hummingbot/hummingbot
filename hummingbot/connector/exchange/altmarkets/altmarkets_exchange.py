@@ -556,9 +556,9 @@ class AltmarketsExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except asyncio.TimeoutError:
-            self.logger().info(f"The order {order_id} could not be cancelled due to a timeout."
+            self.logger().info(f"The order {order_id} could not be canceled due to a timeout."
                                " The action will be retried later.")
-            errors_found = {"message": "Timeout during order cancellation"}
+            errors_found = {"message": "Timeout during order cancelation"}
         except AltmarketsAPIError as e:
             errors_found = e.error_payload.get('errors', e.error_payload)
             if isinstance(errors_found, dict):
@@ -568,7 +568,7 @@ class AltmarketsExchange(ExchangeBase):
 
         if order_state in Constants.ORDER_STATES['CANCEL_WAIT'] or \
                 self._order_not_found_records.get(order_id, 0) >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
-            self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
+            self.logger().info(f"Successfully canceled order {order_id} on {Constants.EXCHANGE_NAME}.")
             self.stop_tracking_order(order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, order_id))
@@ -750,7 +750,7 @@ class AltmarketsExchange(ExchangeBase):
         if updated:
             safe_ensure_future(self._trigger_order_fill(tracked_order, order_msg))
         if tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+            self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
             self.stop_tracking_order(tracked_order.client_order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id))

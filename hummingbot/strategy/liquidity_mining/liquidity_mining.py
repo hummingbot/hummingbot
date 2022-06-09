@@ -89,7 +89,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
     @property
     def active_orders(self):
         """
-        List active orders (they have been sent to the market and have not been cancelled yet)
+        List active orders (they have been sent to the market and have not been canceled yet)
         """
         limit_orders = self.order_tracker.active_limit_orders
         return [o[1] for o in limit_orders]

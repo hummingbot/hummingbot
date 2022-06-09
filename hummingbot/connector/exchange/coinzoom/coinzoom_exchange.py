@@ -552,9 +552,9 @@ class CoinzoomExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except asyncio.TimeoutError:
-            self.logger().info(f"The order {order_id} could not be cancelled due to a timeout."
+            self.logger().info(f"The order {order_id} could not be canceled due to a timeout."
                                " The action will be retried later.")
-            err = {"message": "Timeout during order cancellation"}
+            err = {"message": "Timeout during order cancelation"}
         except CoinzoomAPIError as e:
             err = e.error_payload.get('error', e.error_payload)
             self.logger().error(f"Order Cancel API Error: {err}")
@@ -564,7 +564,7 @@ class CoinzoomExchange(ExchangeBase):
                 order_was_cancelled = True
 
         if order_was_cancelled:
-            self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
+            self.logger().info(f"Successfully canceled order {order_id} on {Constants.EXCHANGE_NAME}.")
             self.stop_tracking_order(order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, order_id))
@@ -721,7 +721,7 @@ class CoinzoomExchange(ExchangeBase):
                 'price': 5000,
                 'quantity': 0.001,
                 'executionType': 'CANCEL',
-                'orderStatus': 'CANCELLED',
+                'orderStatus': 'CANCELED',
                 'lastQuantity': 0,
                 'leavesQuantity': 0,
                 'cumulativeQuantity': 0,
@@ -759,7 +759,7 @@ class CoinzoomExchange(ExchangeBase):
             if updated:
                 safe_ensure_future(self._trigger_order_fill(tracked_order, order_msg))
             elif tracked_order.is_cancelled:
-                self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+                self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
                 self.stop_tracking_order(tracked_order.client_order_id)
                 self.trigger_event(MarketEvent.OrderCancelled,
                                    OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id))
@@ -848,7 +848,7 @@ class CoinzoomExchange(ExchangeBase):
                 cancellation_results = await safe_gather(*tasks, return_exceptions=False)
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.", exc_info=True,
+                "Unexpected error canceling orders.", exc_info=True,
                 app_warning_msg=(f"Failed to cancel all orders on {Constants.EXCHANGE_NAME}. "
                                  "Check API key and network connection.")
             )

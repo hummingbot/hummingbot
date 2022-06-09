@@ -61,19 +61,52 @@ debug.log
 .vscode/
 .history/
 
+# emacs files
+\#*\#
+.\#*
+
 # Documentation build dir
 /documentation/site/
 
-# Gateway API files
-/certs
-*.pem
+# Cert files
 gateway.env
+/certs
+/gateway/certs/
+*.pem
 
 # Coverage
 .coverage
 /cover/
 /coverage_html_report/
 coverage.xml
+
+/gateway/coverage/
+
+# Gateway-V2 repo
+# configuration files
+/gateway/conf/*
+/gateway_conf
+# except the examples, template and migration files in /gateway/conf/
+!/gateway/conf/*-example.yml
+# these are database files create by the level library
+/**/*.level
+
+# node installs
+/gateway/node_modules/
+
+# debug logs
+/gateway/npm-debug.log
+
+# distribution files
+/gateway/dist/
+
+# misc
+/gateway/coverage/
+/gateway/logs/
+*.srl
+*.key
+*.crt
+*.log
 
 # Debug console
 .debug_console_ssh_host_key

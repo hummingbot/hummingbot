@@ -153,7 +153,7 @@ cdef class OrderTracker(TimeIterator):
 
     cdef bint c_check_and_track_cancel(self, str order_id):
         """
-        :param order_id: the order id to be cancelled
+        :param order_id: the order id to be canceled
         :return: True if there's no existing in flight cancel for the order id, False otherwise.
         """
         cdef:

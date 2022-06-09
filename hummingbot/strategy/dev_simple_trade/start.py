@@ -26,7 +26,7 @@ def start(self):
             trading_pair: str = raw_market_trading_pair
             assets: Tuple[str, str] = self._initialize_market_assets(market, [trading_pair])[0]
         except ValueError as e:
-            self._notify(str(e))
+            self.notify(str(e))
             return
 
         market_names: List[Tuple[str, List[str]]] = [(market, [trading_pair])]
@@ -47,5 +47,5 @@ def start(self):
                                             order_amount=order_amount,
                                             logging_options=strategy_logging_options)
     except Exception as e:
-        self._notify(str(e))
+        self.notify(str(e))
         self.logger().error("Unknown error during initialization.", exc_info=True)

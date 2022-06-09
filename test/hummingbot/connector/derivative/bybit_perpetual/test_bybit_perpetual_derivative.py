@@ -3,6 +3,7 @@ import json
 import re
 import time
 from decimal import Decimal
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Dict
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
@@ -12,18 +13,18 @@ from aioresponses import aioresponses
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
-    BybitPerpetualAPIOrderBookDataSource
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import (
+    BybitPerpetualAPIOrderBookDataSource,
+)
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_derivative import BybitPerpetualDerivative
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import FundingInfo, MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BybitPerpetualDerivativeTests(TestCase):
@@ -206,7 +207,10 @@ class BybitPerpetualDerivativeTests(TestCase):
                 "cum_exec_value": 0,
                 "cum_exec_fee": 0,
                 "reject_reason": "",
-                "order_link_id": get_new_client_order_id(True, self.trading_pair),
+                "order_link_id": get_new_client_order_id(True,
+                                                         self.trading_pair,
+                                                         max_id_len=CONSTANTS.ORDER_ID_LEN,
+                                                         hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID),
                 "created_at": "2019-11-30T11:03:43.452Z",
                 "updated_at": "2019-11-30T11:03:43.455Z"
             },
@@ -230,7 +234,10 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         result = mock_response["result"]
 
-        self.assertEqual(get_new_client_order_id(True, self.trading_pair), new_order_id)
+        self.assertEqual(get_new_client_order_id(True,
+                                                 self.trading_pair,
+                                                 max_id_len=CONSTANTS.ORDER_ID_LEN,
+                                                 hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID), new_order_id)
         self.assertEqual("Buy", result["side"])
         self.assertEqual(self.ex_trading_pair, result["symbol"])
         self.assertEqual("Limit", result["order_type"])
@@ -249,7 +256,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(OrderType.LIMIT, in_flight_order.order_type)
         self.assertEqual(TradeType.BUY, in_flight_order.trade_type)
         self.assertEqual(10, in_flight_order.leverage)
-        self.assertEqual(PositionAction.OPEN.name, in_flight_order.position)
+        self.assertEqual(PositionAction.OPEN, in_flight_order.position)
 
     @aioresponses()
     def test_create_buy_order_fails_when_amount_smaller_than_minimum(self, post_mock):
@@ -427,7 +434,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         }
         post_mock.post(regex_url, body=json.dumps(mock_response))
 
-        self.connector.set_position_mode(PositionMode.HEDGE)
+        self.connector._position_mode = PositionMode.HEDGE
 
         self._simulate_trading_rules_initialized()
 
@@ -446,9 +453,8 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.assertEqual(1, len(self.connector.in_flight_orders))
         self.assertTrue("C1" in self.connector.in_flight_orders)
-        in_flight_order: BybitPerpetualInFlightOrder = self.connector.in_flight_orders["C1"]
-        self.assertEqual(in_flight_order.position, PositionAction.CLOSE.name)
-        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for BTC-USDT. Amount: 1 Price: 46000."))
+        in_flight_order: InFlightOrder = self.connector.in_flight_orders["C1"]
+        self.assertEqual(in_flight_order.position, PositionAction.CLOSE)
 
     @aioresponses()
     def test_create_order_open_position_action(self, post_mock):
@@ -507,9 +513,8 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.assertEqual(1, len(self.connector.in_flight_orders))
         self.assertTrue("C1" in self.connector.in_flight_orders)
-        in_flight_order: BybitPerpetualInFlightOrder = self.connector.in_flight_orders["C1"]
-        self.assertEqual(in_flight_order.position, PositionAction.OPEN.name)
-        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for BTC-USDT. Amount: 1 Price: 46000."))
+        in_flight_order: InFlightOrder = self.connector.in_flight_orders["C1"]
+        self.assertEqual(in_flight_order.position, PositionAction.OPEN)
 
     @aioresponses()
     @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
@@ -540,7 +545,10 @@ class BybitPerpetualDerivativeTests(TestCase):
                 "cum_exec_value": 0,
                 "cum_exec_fee": 0,
                 "reject_reason": "",
-                "order_link_id": get_new_client_order_id(False, self.trading_pair),
+                "order_link_id": get_new_client_order_id(False,
+                                                         self.trading_pair,
+                                                         max_id_len=CONSTANTS.ORDER_ID_LEN,
+                                                         hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID),
                 "created_at": "2019-11-30T11:03:43.452Z",
                 "updated_at": "2019-11-30T11:03:43.455Z"
             },
@@ -564,7 +572,10 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         result = mock_response["result"]
 
-        self.assertEqual(get_new_client_order_id(False, self.trading_pair), new_order_id)
+        self.assertEqual(get_new_client_order_id(False,
+                                                 self.trading_pair,
+                                                 max_id_len=CONSTANTS.ORDER_ID_LEN,
+                                                 hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID), new_order_id)
         self.assertEqual("Sell", result["side"])
         self.assertEqual("BTCUSDT", result["symbol"])
         self.assertEqual("Market", result["order_type"])
@@ -583,7 +594,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(OrderType.MARKET, in_flight_order.order_type)
         self.assertEqual(TradeType.SELL, in_flight_order.trade_type)
         self.assertEqual(10, in_flight_order.leverage)
-        self.assertEqual(PositionAction.OPEN.name, in_flight_order.position)
+        self.assertEqual(PositionAction.OPEN, in_flight_order.position)
 
     @aioresponses()
     def test_update_trading_rules_with_polling_loop(self, get_mock):
@@ -784,8 +795,9 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN.name
+            position=PositionAction.OPEN
         )
 
         cancelled_order_id = self.connector.cancel(trading_pair=self.trading_pair, order_id="O1")
@@ -845,8 +857,9 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN.name
+            position=PositionAction.OPEN
         )
 
         self.connector.cancel(trading_pair=self.trading_pair, order_id="O1")
@@ -856,7 +869,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(self._is_logged(
             "ERROR",
             "Failed to cancel order O1:"
-            " Bybit Perpetual encountered a problem cancelling the order (1001 - Test error description)"))
+            " Bybit Perpetual encountered a problem canceling the order (1001 - Test error description)"))
 
     @aioresponses()
     def test_order_marked_as_cancelled_if_cancellation_status_error_is_not_found(self, post_mock):
@@ -864,7 +877,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
 
         mock_response = {
-            "ret_code": CONSTANTS.ORDER_NOT_EXISTS_ERROR_CODE,
+            "ret_code": CONSTANTS.RET_CODE_ORDER_NOT_EXISTS,
             "ret_msg": "order not exists",
             "ext_code": "",
             "ext_info": "",
@@ -886,18 +899,19 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN.name
+            position=PositionAction.OPEN
         )
 
         self.connector.cancel(trading_pair=self.trading_pair, order_id="O1")
 
         asyncio.get_event_loop().run_until_complete(self.mock_done_event.wait())
 
-        self.assertNotIn("O1", self.connector.in_flight_orders)
+        # Orders are not being removed on failure, needs to be done in the strategy
         self.assertTrue(self._is_logged(
             "WARNING",
-            "Failed to cancel order O1: order not found (130010 - order not exists)"))
+            "Failed to cancel order O1: order not found (20001 - order not exists)"))
 
     def test_cancel_tracked_order_logs_error_when_cancelling_non_tracked_order(self):
         self._simulate_trading_rules_initialized()
@@ -926,13 +940,14 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN.name
+            position=PositionAction.OPEN
         )
 
         with self.assertRaises(asyncio.CancelledError):
             asyncio.get_event_loop().run_until_complete(
-                self.connector._execute_cancel(trading_pair=self.trading_pair, order_id="O1"))
+                self.connector._execute_cancel(trading_pair=self.trading_pair, client_order_id="O1"))
 
     @aioresponses()
     def test_cancel_all_in_flight_orders(self, post_mock):
@@ -990,42 +1005,46 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self._simulate_trading_rules_initialized()
 
-        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN.name)
-        self.connector._in_flight_orders["O2"] = BybitPerpetualInFlightOrder(
-            client_order_id="O2",
+            position=PositionAction.OPEN,
+        )
+
+        self.connector.start_tracking_order(
+            order_id="O2",
             exchange_order_id="EO2",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["New"],
             leverage=10,
-            position=PositionAction.OPEN.name,
-            initial_state="New")
-        # Add also an order already done, that should not be cancelled
-        self.connector._in_flight_orders["O3"] = BybitPerpetualInFlightOrder(
-            client_order_id="O3",
+            position=PositionAction.OPEN
+        )
+
+        self.connector.start_tracking_order(
+            order_id="O3",
             exchange_order_id="EO3",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["Filled"],
             leverage=10,
-            position=PositionAction.OPEN.name,
-            initial_state="Filled")
+            position=PositionAction.OPEN
+        )
 
         cancellation_results = asyncio.get_event_loop().run_until_complete(self.connector.cancel_all(timeout_seconds=10))
 
@@ -1037,25 +1056,26 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self._simulate_trading_rules_initialized()
 
-        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN.name)
+            position=PositionAction.OPEN,
+        )
 
         cancellation_results = asyncio.get_event_loop().run_until_complete(
             self.connector.cancel_all(timeout_seconds=0.1))
 
-        self.assertTrue(self._is_logged("WARNING", "Cancellation of all active orders for Bybit Perpetual connector"
-                                                   " stopped after max wait time"))
-        self.assertEqual(1, len(cancellation_results))
-        self.assertTrue(cancellation_results[0].order_id == "O1" and not cancellation_results[0].success)
+        self.assertTrue(self._is_logged("NETWORK", "Unexpected error canceling orders."))
+        self.assertEqual(0, len(cancellation_results))
 
     def test_fee_estimation(self):
         with self.assertRaises(DeprecationWarning):
@@ -1111,29 +1131,33 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(local_connector.ready)
 
     def test_limit_orders(self):
-        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN.name)
-        self.connector._in_flight_orders["O2"] = BybitPerpetualInFlightOrder(
-            client_order_id="O2",
+            position=PositionAction.OPEN
+        )
+
+        self.connector.start_tracking_order(
+            order_id="O2",
             exchange_order_id="EO2",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.SELL,
+            trading_type=TradeType.SELL,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.MARKET,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["New"],
             leverage=10,
-            position=PositionAction.OPEN.name,
-            initial_state="New")
+            position=PositionAction.OPEN,
+        )
 
         limit_orders = self.connector.limit_orders
 
@@ -1142,62 +1166,72 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual("O2", limit_orders[1].client_order_id)
 
     def test_generate_tracking_states(self):
-        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN.name)
-        self.connector._in_flight_orders["O2"] = BybitPerpetualInFlightOrder(
-            client_order_id="O2",
+            position=PositionAction.OPEN
+        )
+
+        self.connector.start_tracking_order(
+            order_id="O2",
             exchange_order_id="EO2",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.SELL,
+            trading_type=TradeType.SELL,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.MARKET,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["New"],
             leverage=10,
-            position=PositionAction.OPEN.name,
-            initial_state="New")
+            position=PositionAction.OPEN
+        )
 
         tracking_states = self.connector.tracking_states
 
         expected_first_order_json = {'client_order_id': 'O1', 'exchange_order_id': 'EO1', 'trading_pair': 'BTC-USDT',
                                      'order_type': 'LIMIT', 'trade_type': 'BUY', 'price': '44000', 'amount': '1',
-                                     'executed_amount_base': '0', 'executed_amount_quote': '0', 'fee_asset': 'USDT',
-                                     'fee_paid': '0', 'last_state': 'Created', 'leverage': '10', 'position': 'OPEN',
+                                     'executed_amount_base': '0', 'executed_amount_quote': '0', 'last_state': '0',
+                                     'leverage': '10', 'order_fills': {}, 'position': 'OPEN',
                                      'creation_timestamp': 1640001112.0}
         expected_second_order_json = {'client_order_id': 'O2', 'exchange_order_id': 'EO2', 'trading_pair': 'BTC-USDT',
                                       'order_type': 'MARKET', 'trade_type': 'SELL', 'price': '44000', 'amount': '1',
-                                      'executed_amount_base': '0', 'executed_amount_quote': '0', 'fee_asset': 'USDT',
-                                      'fee_paid': '0', 'last_state': 'New', 'leverage': '10', 'position': 'OPEN',
+                                      'executed_amount_base': '0', 'executed_amount_quote': '0', 'last_state': '1',
+                                      'leverage': '10', 'order_fills': {}, 'position': 'OPEN',
                                       'creation_timestamp': 1640001112.0}
         self.assertEqual(2, len(tracking_states))
         self.assertEqual(expected_first_order_json, tracking_states["O1"])
         self.assertEqual(expected_second_order_json, tracking_states["O2"])
 
     def test_restore_tracking_states(self):
-        order = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN.name)
+            position=PositionAction.OPEN
+        )
+
+        order = self.connector.in_flight_orders["O1"]
+
         order_json = {'client_order_id': 'O1', 'exchange_order_id': 'EO1', 'trading_pair': 'BTC-USDT',
                       'order_type': 'LIMIT', 'trade_type': 'BUY', 'price': '44000', 'amount': '1',
-                      'executed_amount_base': '0', 'executed_amount_quote': '0', 'fee_asset': 'USDT',
-                      'fee_paid': '0', 'last_state': 'Created', 'leverage': '10', 'position': 'OPEN',
+                      'executed_amount_base': '0', 'executed_amount_quote': '0', 'last_state': '0',
+                      'leverage': '10', 'order_fills': {}, 'position': 'OPEN',
                       'creation_timestamp': 1640001112.0}
 
         self.connector.restore_tracking_states({order.client_order_id: order_json})
@@ -1217,7 +1251,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         order_json = {'client_order_id': 'O1', 'exchange_order_id': 'EO1', 'trading_pair': alt_pair,
                       'order_type': 'LIMIT', 'trade_type': 'BUY', 'price': '44000', 'amount': '1',
                       'executed_amount_base': '0', 'executed_amount_quote': '0', 'fee_asset': 'USDC',
-                      'fee_paid': '0', 'last_state': 'Created', 'leverage': '10', 'position': 'OPEN'}
+                      'fee_paid': '0', 'last_state': '0', 'leverage': '10', 'position': 'OPEN'}
 
         self.connector.restore_tracking_states({client_order_id: order_json})
 
@@ -1258,7 +1292,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         }
         post_mock.post(regex_url, body=json.dumps(mock_response))
 
-        cancel_future = self.connector._execute_cancel(trading_pair=alt_pair, order_id=client_order_id)
+        cancel_future = self.connector._execute_cancel(trading_pair=alt_pair, client_order_id=client_order_id)
         asyncio.get_event_loop().run_until_complete(cancel_future)
 
         cancel_json = mock_response["result"]
@@ -1380,18 +1414,20 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self._simulate_trading_rules_initialized()
 
-        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["New"],
             leverage=10,
-            position=PositionAction.OPEN.name,
-            initial_state="New")
+            position=PositionAction.OPEN,
+        )
 
         asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
 
@@ -1401,7 +1437,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual("EO1", request_data["order_id"])
         self.assertEqual("O1", request_data["order_link_id"])
         self.assertEqual(0, len(self.connector.in_flight_orders))
-        self.assertTrue(self._is_logged("INFO", "Successfully cancelled order O1"))
+
         cancellation_events = self.order_cancelled_logger.event_log
         self.assertEqual(1, len(cancellation_events))
         self.assertEqual("O1", cancellation_events[0].order_id)
@@ -1452,18 +1488,20 @@ class BybitPerpetualDerivativeTests(TestCase):
         get_mock.get(regex_url, body=json.dumps(mock_response))
         self._simulate_trading_rules_initialized()
 
-        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["New"],
             leverage=10,
-            position=PositionAction.OPEN.name,
-            initial_state="New")
+            position=PositionAction.OPEN
+        )
 
         asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
         request_data = mock_response["result"]
@@ -1472,8 +1510,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual("EO1", request_data["order_id"])
         self.assertEqual("O1", request_data["order_link_id"])
         self.assertEqual(0, len(self.connector.in_flight_orders))
-        self.assertTrue(self._is_logged("INFO", "The market order O1 has failed according to order status event. "
-                                                "Reason: Out of limits"))
+
         failure_events = self.order_failure_logger.event_log
         self.assertEqual(1, len(failure_events))
         self.assertEqual("O1", failure_events[0].order_id)
@@ -1499,18 +1536,20 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self._simulate_trading_rules_initialized()
 
-        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["New"],
             leverage=10,
-            position=PositionAction.OPEN.name,
-            initial_state="New")
+            position=PositionAction.OPEN
+        )
 
         asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
 
@@ -1525,18 +1564,20 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._simulate_trading_rules_initialized()
         self.connector._leverage[self.trading_pair] = 10
 
-        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["Created"],
             leverage=10,
-            position=PositionAction.OPEN.name,
-            initial_state="Created")
+            position=PositionAction.OPEN
+        )
 
         status_request_result = {
             "user_id": 106958,
@@ -1567,23 +1608,20 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.connector._process_order_event_message(status_request_result)
 
-        self.assertTrue(self.connector.in_flight_orders["O1"].is_new)
-        buy_events = self.buy_order_created_logger.event_log
-        self.assertEqual(1, len(buy_events))
-        self.assertEqual("O1", buy_events[0].order_id)
+        self.assertTrue(self.connector.in_flight_orders["O1"].current_state == OrderState.OPEN)
 
-        self.connector._in_flight_orders["O2"] = BybitPerpetualInFlightOrder(
-            client_order_id="O2",
+        self.connector.start_tracking_order(
+            order_id="O2",
             exchange_order_id="EO2",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.SELL,
+            trading_type=TradeType.SELL,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["Created"],
             leverage=10,
-            position=PositionAction.OPEN.name,
-            initial_state="Created")
+            position=PositionAction.OPEN
+        )
 
         status_request_result = {
             "user_id": 106958,
@@ -1614,10 +1652,7 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.connector._process_order_event_message(status_request_result)
 
-        self.assertTrue(self.connector.in_flight_orders["O2"].is_new)
-        sell_events = self.sell_order_created_logger.event_log
-        self.assertEqual(1, len(sell_events))
-        self.assertEqual("O2", sell_events[0].order_id)
+        self.assertTrue(self.connector.in_flight_orders["O2"].current_state == OrderState.OPEN)
 
     def test_status_update_with_filled_status_marks_inflight_order_as_completed(self):
         """ If for any reason the connector does not receive the fully filled event, it should mark the order
@@ -1626,19 +1661,20 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._simulate_trading_rules_initialized()
         self.connector._leverage[self.trading_pair] = 10
 
-        order = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["Created"],
             leverage=10,
-            position=PositionAction.OPEN.name,
-            initial_state="Created")
-        self.connector._in_flight_orders["O1"] = order
+            position=PositionAction.OPEN
+        )
 
         status_request_result = {
             "user_id": 106958,
@@ -1668,15 +1704,6 @@ class BybitPerpetualDerivativeTests(TestCase):
             "order_id": "EO1"}
 
         self.connector._process_order_event_message(status_request_result)
-
-        self.assertNotIn("O1", self.connector.in_flight_orders)
-
-        order_completed_events = self.buy_order_completed_logger.event_log
-        self.assertEqual(order.client_order_id, order_completed_events[0].order_id)
-        self.assertEqual(order.base_asset, order_completed_events[0].base_asset)
-        self.assertEqual(order.quote_asset, order_completed_events[0].quote_asset)
-        self.assertEqual(order.order_type, order_completed_events[0].order_type)
-        self.assertEqual(order.exchange_order_id, order_completed_events[0].exchange_order_id)
 
     @aioresponses()
     def test_update_trade_history_for_not_existent_order_does_not_fail(self, get_mock):
@@ -1726,18 +1753,22 @@ class BybitPerpetualDerivativeTests(TestCase):
         get_mock.get(regex_url, body=json.dumps(mock_response))
         self._simulate_trading_rules_initialized()
 
-        order = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN.name)
-        self.connector._in_flight_orders["O1"] = order
+            position=PositionAction.OPEN
+        )
+
+        order = self.connector.in_flight_orders["O1"]
 
         asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
 
@@ -1834,24 +1865,28 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._simulate_trading_rules_initialized()
         self.connector._leverage[self.trading_pair] = 10
 
-        order = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN.name)
-        self.connector._in_flight_orders["O1"] = order
+            position=PositionAction.OPEN
+        )
+
+        order = self.connector.in_flight_orders["O1"]
 
         get_mock.get(regex_url, body=json.dumps(mock_response_partial_fill))
         asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
 
-        self.assertEqual(Decimal("0.8"), order.executed_amount_base)
-        self.assertEqual(Decimal(35200), order.executed_amount_quote)
+        self.assertAlmostEqual(Decimal("0.8"), order.executed_amount_base)
+        self.assertAlmostEqual(Decimal(35200), order.executed_amount_quote)
         order_filled_events = self.order_filled_logger.event_log
         self.assertEqual(order.client_order_id, order_filled_events[0].order_id)
         self.assertEqual(order.trading_pair, order_filled_events[0].trading_pair)
@@ -1864,8 +1899,8 @@ class BybitPerpetualDerivativeTests(TestCase):
         get_mock.get(regex_url, body=json.dumps(mock_response_complete_fill))
         asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
 
-        self.assertEqual(Decimal(1), order.executed_amount_base)
-        self.assertEqual(Decimal(44000), order.executed_amount_quote)
+        self.assertAlmostEqual(Decimal(1), order.executed_amount_base)
+        self.assertAlmostEqual(Decimal(44000), order.executed_amount_quote)
         order_filled_events = self.order_filled_logger.event_log
         self.assertEqual(order.client_order_id, order_filled_events[1].order_id)
         self.assertEqual(order.trading_pair, order_filled_events[1].trading_pair)
@@ -1878,14 +1913,16 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(Decimal("0.0000001"), order_filled_events[1].trade_fee.flat_fees[0].amount)
         self.assertEqual("256e5ef8-abfe-5772-971b-f944e15e0d69", order_filled_events[1].exchange_trade_id)
 
-        self.assertTrue(self._is_logged("INFO", "The BUY order O1 has completed according to order status API"))
-        order_completed_events = self.buy_order_completed_logger.event_log
+        order_completed_events = self.order_filled_logger.event_log
         self.assertEqual(order.client_order_id, order_completed_events[0].order_id)
-        self.assertEqual(order.base_asset, order_completed_events[0].base_asset)
-        self.assertEqual(order.quote_asset, order_completed_events[0].quote_asset)
-        self.assertEqual(Decimal(44000), order_completed_events[0].quote_asset_amount)
-        self.assertEqual(Decimal(1), order_completed_events[0].base_asset_amount)
-        self.assertEqual(order.exchange_order_id, order_completed_events[0].exchange_order_id)
+
+        self.assertEqual(order.trading_pair, order_completed_events[0].trading_pair)
+        self.assertEqual(order.trade_type, order_completed_events[0].trade_type)
+        self.assertEqual(order.order_type, order_completed_events[0].order_type)
+        self.assertEqual(order.price, order_completed_events[0].price)
+        self.assertAlmostEqual(Decimal(0.8), order_completed_events[0].amount)
+        self.assertEqual(order.leverage, order_completed_events[0].leverage)
+        self.assertEqual(order.position.name, order_completed_events[0].position)
 
     @aioresponses()
     def test_update_trade_history_when_api_call_raises_exception(self, get_mock):
@@ -1908,18 +1945,20 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self._simulate_trading_rules_initialized()
 
-        order = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN.name)
-        self.connector._in_flight_orders["O1"] = order
+            position=PositionAction.OPEN
+        )
 
         asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
 
@@ -2017,6 +2056,106 @@ class BybitPerpetualDerivativeTests(TestCase):
         # Case 2: Non-Linear Perpetual
         expected_result = [PositionMode.ONEWAY]
         self.assertEqual(expected_result, testnet_non_linear_connector.supported_position_modes())
+
+    @aioresponses()
+    def test_set_position_mode_success(self, post_mock):
+        self.connector._trading_pairs = [self.trading_pair]
+
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.SET_POSITION_MODE_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "ok",
+            "ext_code": "",
+            "result": None,
+            "ext_info": None,
+            "time_now": "1577477968.175013",
+            "rate_limit_status": 74,
+            "rate_limit_reset_ms": 1577477968183,
+            "rate_limit": 75
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
+
+        asyncio.get_event_loop().run_until_complete(
+            self.connector._set_position_mode(PositionMode.HEDGE)
+        )
+
+        self.assertTrue(
+            self._is_logged("DEBUG", "Bybit Perpetual switching position mode to PositionMode.HEDGE for "
+                                     f"{self.trading_pair} succeeded.")
+        )
+
+        post_mock.post(regex_url, body=json.dumps(mock_response))
+
+        asyncio.get_event_loop().run_until_complete(
+            self.connector._set_position_mode(PositionMode.ONEWAY)
+        )
+
+        self.assertTrue(
+            self._is_logged("DEBUG", "Bybit Perpetual switching position mode to PositionMode.ONEWAY for "
+                                     f"{self.trading_pair} succeeded.")
+        )
+
+    @aioresponses()
+    def test_set_position_mode_failure(self, post_mock):
+        self.connector._trading_pairs = [self.trading_pair]
+
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.SET_POSITION_MODE_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 1000,
+            "ret_msg": "Some problem",
+            "ext_code": "",
+            "result": None,
+            "ext_info": None,
+            "time_now": "1577477968.175013",
+            "rate_limit_status": 74,
+            "rate_limit_reset_ms": 1577477968183,
+            "rate_limit": 75
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
+
+        asyncio.get_event_loop().run_until_complete(
+            self.connector._set_position_mode(PositionMode.HEDGE)
+        )
+
+        self.assertTrue(
+            self._is_logged(
+                "DEBUG",
+                "Bybit Perpetual encountered a problem switching position mode to PositionMode.HEDGE for "
+                f"{self.trading_pair} (1000 - Some problem)"
+            )
+        )
+
+    @aioresponses()
+    def test_set_position_mode_nonlinear(self, post_mock):
+        self.connector._trading_pairs = [self.non_linear_trading_pair]
+
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.SET_POSITION_MODE_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 1000,
+            "ret_msg": "Some problem",
+            "ext_code": "",
+            "result": None,
+            "ext_info": None,
+            "time_now": "1577477968.175013",
+            "rate_limit_status": 74,
+            "rate_limit_reset_ms": 1577477968183,
+            "rate_limit": 75
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
+
+        with self.assertRaisesRegex(Exception, "Inverse Perpetuals don't allow for a position mode change."):
+            asyncio.get_event_loop().run_until_complete(
+                self.connector._set_position_mode(PositionMode.HEDGE)
+            )
 
     def test_tick_funding_fee_poll_notifier_not_set(self):
         self.assertFalse(self.connector._funding_fee_poll_notifier.is_set())
@@ -2467,10 +2606,12 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.tracker_task = asyncio.get_event_loop().create_task(
             self.connector._user_stream_tracker.start())
 
+        self.connector._set_current_timestamp(1640001112.0)
+
         # Prepare inflight order
         self.connector.start_tracking_order("xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418",
                                             "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418", "BTC-USDT", "Sell", "8579.5", 1,
-                                            "Market", 1, "")
+                                            "Market", 0, 1, "")
 
         # Add the authentication response for the websocket
         self.mocking_assistant.add_websocket_json_message(ws_connect_mock.return_value, self._authentication_response(True))
@@ -2514,8 +2655,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         # Wait until the connector finishes processing the message queue
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
 
-        self.assertTrue(self._is_logged('INFO', 'Successfully cancelled order xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418'))
-
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_receives_updates_execution(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -2525,10 +2664,12 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.tracker_task = asyncio.get_event_loop().create_task(
             self.connector._user_stream_tracker.start())
 
+        self.connector._set_current_timestamp(1640001112.0)
+
         # Prepare inflight order
         self.connector.start_tracking_order("xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419",
                                             "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419", "BTC-USDT", "Buy", "8300", 1,
-                                            "Market", 1, "")
+                                            "Market", 0, 1, "")
 
         # Add the authentication response for the websocket
         self.mocking_assistant.add_websocket_json_message(ws_connect_mock.return_value, self._authentication_response(True))
@@ -2563,7 +2704,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
 
         self.assertTrue("xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6" in self.connector.in_flight_orders[
-            "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419"].trade_id_set)
+            "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419"].order_fills)
 
     def test_get_funding_info_trading_pair_exist(self):
         expected_funding_info: FundingInfo = FundingInfo(
@@ -2699,7 +2840,10 @@ class BybitPerpetualDerivativeTests(TestCase):
             position_action="OPEN",
         )
         expected_client_order_id = get_new_client_order_id(
-            is_buy=True, trading_pair=self.trading_pair
+            is_buy=True,
+            trading_pair=self.trading_pair,
+            max_id_len=CONSTANTS.ORDER_ID_LEN,
+            hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID
         )
 
         self.assertEqual(result, expected_client_order_id)
@@ -2712,7 +2856,10 @@ class BybitPerpetualDerivativeTests(TestCase):
             position_action="OPEN",
         )
         expected_client_order_id = get_new_client_order_id(
-            is_buy=False, trading_pair=self.trading_pair
+            is_buy=False,
+            trading_pair=self.trading_pair,
+            max_id_len=CONSTANTS.ORDER_ID_LEN,
+            hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID
         )
 
         self.assertEqual(result, expected_client_order_id)

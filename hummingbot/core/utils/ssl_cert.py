@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 from datetime import datetime, timedelta
-from hummingbot import cert_path
+from hummingbot.core.gateway import get_gateway_paths
 from os import listdir
 from os.path import join
 
@@ -174,7 +174,7 @@ def certs_files_exist() -> bool:
                       server_key_filename, server_cert_filename,
                       client_key_filename, client_cert_filename]
 
-    file_list = listdir(cert_path())
+    file_list = listdir(get_gateway_paths().local_certs_path.as_posix())
     return all(elem in file_list for elem in required_certs)
 
 
@@ -182,17 +182,17 @@ def create_self_sign_certs(pass_phase: str):
     """
     Create self-sign CA Cert
     """
-    CERT_FILE_PATH = cert_path()
+    cert_directory: str = get_gateway_paths().local_certs_path.as_posix()
 
     filepath_list = {
-        'ca_key': join(CERT_FILE_PATH, ca_key_filename),
-        'ca_cert': join(CERT_FILE_PATH, ca_cert_filename),
-        'server_key': join(CERT_FILE_PATH, server_key_filename),
-        'server_cert': join(CERT_FILE_PATH, server_cert_filename),
-        'server_csr': join(CERT_FILE_PATH, server_csr_filename),
-        'client_key': join(CERT_FILE_PATH, client_key_filename),
-        'client_cert': join(CERT_FILE_PATH, client_cert_filename),
-        'client_csr': join(CERT_FILE_PATH, client_csr_filename)
+        'ca_key': join(cert_directory, ca_key_filename),
+        'ca_cert': join(cert_directory, ca_cert_filename),
+        'server_key': join(cert_directory, server_key_filename),
+        'server_cert': join(cert_directory, server_cert_filename),
+        'server_csr': join(cert_directory, server_csr_filename),
+        'client_key': join(cert_directory, client_key_filename),
+        'client_cert': join(cert_directory, client_cert_filename),
+        'client_csr': join(cert_directory, client_csr_filename)
     }
 
     # Create CA Private & Public Keys for signing

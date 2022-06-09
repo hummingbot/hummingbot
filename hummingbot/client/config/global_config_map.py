@@ -2,15 +2,18 @@ import os.path
 import random
 import re
 from decimal import Decimal
-from typing import Callable, Optional
+from typing import Callable, Dict, Optional
 
 from tabulate import tabulate_formats
 
 from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.settings import AllConnectorSettings, DEFAULT_KEY_FILE_PATH, DEFAULT_LOG_FILE_PATH
+from hummingbot.client.settings import DEFAULT_KEY_FILE_PATH, DEFAULT_LOG_FILE_PATH, AllConnectorSettings
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
+
+PMM_SCRIPT_ENABLED_KEY = "pmm_script_enabled"
+PMM_SCRIPT_FILE_PATH_KEY = "pmm_script_file_path"
 
 
 def generate_client_id() -> str:
@@ -22,17 +25,16 @@ def using_exchange(exchange: str) -> Callable:
     return using_exchange_pointer(exchange)
 
 
-def validate_script_file_path(file_path: str) -> Optional[bool]:
+def validate_pmm_script_file_path(file_path: str) -> Optional[bool]:
     import hummingbot.client.settings as settings
     path, name = os.path.split(file_path)
     if path == "":
-        file_path = os.path.join(settings.SCRIPTS_PATH, file_path)
+        file_path = os.path.join(settings.PMM_SCRIPTS_PATH, file_path)
     if not os.path.isfile(file_path):
         return f"{file_path} file does not exist."
 
 
-def connector_keys():
-    from hummingbot.client.settings import AllConnectorSettings
+def connector_keys() -> Dict[str, ConfigVar]:
     all_keys = {}
     for connector_setting in AllConnectorSettings.get_connector_settings().values():
         all_keys.update(connector_setting.config_keys)
@@ -120,33 +122,6 @@ main_config_map = {
                   required_if=lambda: global_config_map["celo_address"].value is not None,
                   is_secure=True,
                   is_connect_key=True),
-    "ethereum_wallet":
-        ConfigVar(key="ethereum_wallet",
-                  prompt="Enter your wallet private key >>> ",
-                  type_str="str",
-                  required_if=lambda: False,
-                  is_connect_key=True),
-    "ethereum_rpc_url":
-        ConfigVar(key="ethereum_rpc_url",
-                  prompt="Which Ethereum node would you like your client to connect to? >>> ",
-                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None),
-    "ethereum_rpc_ws_url":
-        ConfigVar(key="ethereum_rpc_ws_url",
-                  prompt="Enter the Websocket Address of your Ethereum Node >>> ",
-                  required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None),
-    "ethereum_chain_name":
-        ConfigVar(key="ethereum_chain_name",
-                  prompt="What is your preferred ethereum chain name (MAIN_NET, KOVAN)? >>> ",
-                  type_str="str",
-                  required_if=lambda: False,
-                  validator=lambda s: None if s in {"MAIN_NET", "KOVAN"} else "Invalid chain name.",
-                  default="MAIN_NET"),
-    "ethereum_token_list_url":
-        ConfigVar(key="ethereum_token_list_url",
-                  prompt="Specify token list url of a list available on https://tokenlists.org/ >>> ",
-                  type_str="str",
-                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
-                  default="https://defi.cmc.eth.link/"),
     "kill_switch_enabled":
         ConfigVar(key="kill_switch_enabled",
                   prompt="Would you like to enable the kill switch? (Yes/No) >>> ",
@@ -189,6 +164,11 @@ main_config_map = {
                   prompt="Would you like to send error logs to hummingbot? (Yes/No) >>> ",
                   type_str="bool",
                   default=True),
+    "previous_strategy":
+        ConfigVar(key="previous_strategy",
+                  prompt=None, required_if=lambda: False,
+                  type_str="str",
+                  ),
     # Database options
     "db_engine":
         ConfigVar(key="db_engine",
@@ -226,18 +206,18 @@ main_config_map = {
                   type_str="str",
                   required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
                   default="dbname"),
-    "script_enabled":
-        ConfigVar(key="script_enabled",
-                  prompt="Would you like to enable script feature? (Yes/No) >>> ",
+    PMM_SCRIPT_ENABLED_KEY:
+        ConfigVar(key=PMM_SCRIPT_ENABLED_KEY,
+                  prompt="Would you like to enable PMM script feature? (Yes/No) >>> ",
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
-    "script_file_path":
-        ConfigVar(key="script_file_path",
-                  prompt='Enter path to your script file >>> ',
+    PMM_SCRIPT_FILE_PATH_KEY:
+        ConfigVar(key=PMM_SCRIPT_FILE_PATH_KEY,
+                  prompt='Enter path to your PMM script file >>> ',
                   type_str="str",
-                  required_if=lambda: global_config_map["script_enabled"].value,
-                  validator=validate_script_file_path),
+                  required_if=lambda: global_config_map[PMM_SCRIPT_ENABLED_KEY].value,
+                  validator=validate_pmm_script_file_path),
     "balance_asset_limit":
         ConfigVar(key="balance_asset_limit",
                   prompt="Use the `balance limit` command"
@@ -444,7 +424,7 @@ paper_trade_config_map = {
     "paper_trade_account_balance":
         ConfigVar(key="paper_trade_account_balance",
                   prompt="Enter paper trade balance settings (Input must be valid json: "
-                         "e.g. [[\"ETH\", 10.0], [\"USDC\", 100]]) >>> ",
+                         "e.g. {\"ETH\": 10, \"USDC\": 50000}) >>> ",
                   required_if=lambda: False,
                   type_str="json",
                   ),

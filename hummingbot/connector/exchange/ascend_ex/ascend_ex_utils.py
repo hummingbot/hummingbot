@@ -1,3 +1,4 @@
+from decimal import Decimal
 import random
 import string
 import time
@@ -5,16 +6,20 @@ from typing import Any, Dict, Optional, Tuple
 
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.001"),
+    taker_percent_fee_decimal=Decimal("0.001"),
+)
+
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USDT"
-
-DEFAULT_FEES = [0.1, 0.1]
 
 
 HBOT_BROKER_ID = "HMBot"

@@ -27,5 +27,6 @@ class AltmarketsAuthTests(TestCase):
         self.assertEqual("application/json", headers["Content-Type"])
         self.assertEqual(self._api_key, headers["X-Auth-Apikey"])
         self.assertEqual('1234567899', headers["X-Auth-Nonce"])
-        self.assertEqual('13e611ce9c44f18aced4905a9cfb9133fddb1f85d02e1d3764a6aaf1803a22b0', headers["X-Auth-Signature"])
+        self.assertEqual('13e611ce9c44f18aced4905a9cfb9133fddb1f85d02e1d3764a6aaf1803a22b0',        # noqa: mock
+                         headers["X-Auth-Signature"])
         self.assertEqual(Constants.USER_AGENT, headers["User-Agent"])

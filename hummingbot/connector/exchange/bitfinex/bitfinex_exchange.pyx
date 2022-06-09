@@ -85,7 +85,7 @@ cdef class BitfinexExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -887,18 +887,18 @@ cdef class BitfinexExchange(ExchangeBase):
                 response = _response
                 break
 
-            self.logger().info(f"Successfully cancelled order {order_id}.")
+            self.logger().info(f"Successfully canceled order {order_id}.")
             self.c_stop_tracking_order(order_id)
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+            self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp, order_id))
             return order_id
 
         except IOError as e:
             if "order not found" in e.message:
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
-                self.logger().info(f"The order {order_id} does not exist on Bitfinex. No cancellation needed.")
+                self.logger().info(f"The order {order_id} does not exist on Bitfinex. No cancelation needed.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
         except asyncio.CancelledError:
@@ -1123,7 +1123,7 @@ cdef class BitfinexExchange(ExchangeBase):
             cancellation_results = []
             async for _response in ws.messages(waitFor=waitFor):
                 cancelled_client_oids = [o[-1]['order_id'] for o in _response[2][4]]
-                self.logger().info(f"Succesfully cancelled orders: {cancelled_client_oids}")
+                self.logger().info(f"Succesfully canceled orders: {cancelled_client_oids}")
                 for c_oid in cancelled_client_oids:
                     cancellation_results.append(CancellationResult(c_oid, True))
                 break
@@ -1317,9 +1317,9 @@ cdef class BitfinexExchange(ExchangeBase):
                                                                      tracked_order.executed_amount_quote,
                                                                      order_type))
                 else:
-                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been cancelled "
+                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been canceled "
                                        f"according to order status API.")
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                          OrderCancelledEvent(
                                              self._current_timestamp,
                                              tracked_order.client_order_id

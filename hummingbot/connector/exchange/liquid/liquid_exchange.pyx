@@ -76,7 +76,7 @@ cdef class LiquidExchangeTransactionTracker(TransactionTracker):
 cdef class LiquidExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -219,6 +219,8 @@ cdef class LiquidExchange(ExchangeBase):
         *required
         Async function used by NetworkBase class to handle when a single market goes online
         """
+        self.logger().warning("This exchange connector does not provide trades feed. "
+                              "Strategies which depend on it will not work properly.")
         self._stop_network()
         self._order_book_tracker.start()
         if self._trading_required:
@@ -581,7 +583,7 @@ cdef class LiquidExchange(ExchangeBase):
                         )
                         self.c_stop_tracking_order(client_order_id)
                         self.c_trigger_event(
-                            self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                            self.MARKET_ORDER_CANCELED_EVENT_TAG,
                             OrderCancelledEvent(self._current_timestamp, client_order_id)
                         )
                 except asyncio.CancelledError:
@@ -657,9 +659,9 @@ cdef class LiquidExchange(ExchangeBase):
                                                                      tracked_order.executed_amount_quote,
                                                                      order_type))
                 else:
-                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been cancelled "
+                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been canceled "
                                        f"according to order status API.")
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                          OrderCancelledEvent(
                                              self._current_timestamp,
                                              tracked_order.client_order_id
@@ -791,9 +793,9 @@ cdef class LiquidExchange(ExchangeBase):
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                 elif event_status == "cancelled":  # status == "cancelled":
                     tracked_order.last_state = "cancelled"
-                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been cancelled "
+                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been canceled "
                                        f"according to Liquid user stream.")
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                          OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
 
@@ -1008,21 +1010,21 @@ cdef class LiquidExchange(ExchangeBase):
             cancelled_id = str(res.get('id'))
 
             if order_status == 'cancelled' and cancelled_id == exchange_order_id:
-                self.logger().info(f"Successfully cancelled order {order_id}.")
+                self.logger().info(f"Successfully canceled order {order_id}.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
             elif order_status == "filled" and cancelled_id == exchange_order_id:
-                self.logger().info(f"The order {order_id} has already been filled on Liquid. No cancellation needed.")
+                self.logger().info(f"The order {order_id} has already been filled on Liquid. No cancelation needed.")
                 await self._update_order_status()  # We do this to correctly process the order fill and stop tracking.
                 return order_id
         except IOError as e:
             if "order not found" in str(e).lower():
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
-                self.logger().info(f"The order {order_id} does not exist on Liquid. No cancellation needed.")
+                self.logger().info(f"The order {order_id} does not exist on Liquid. No cancelation needed.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
         except asyncio.CancelledError:
@@ -1070,7 +1072,7 @@ cdef class LiquidExchange(ExchangeBase):
                         )
         except Exception as e:
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                f"Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg=f"Failed to cancel order on Liquid. Check API key and network connection."
             )

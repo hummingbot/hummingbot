@@ -6,8 +6,8 @@ import hummingbot.connector.exchange.k2.k2_constants as CONSTANTS
 
 from typing import Dict, Any
 
-SECRET_BEGIN_SUBSTRING = '-----BEGIN RSA PRIVATE KEY-----\n'
-SECRET_KEY_END_SUBSTRING = '\n-----END RSA PRIVATE KEY-----'
+SECRET_BEGIN_SUBSTRING = '-----BEGIN RSA' + ' PRIVATE KEY-----\n'
+SECRET_KEY_END_SUBSTRING = '\n-----END RSA ' + 'PRIVATE KEY-----'
 
 
 class K2Auth():

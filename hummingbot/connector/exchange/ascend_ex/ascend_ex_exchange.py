@@ -8,14 +8,13 @@ from enum import Enum
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS, ascend_ex_utils
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_tracker import AscendExOrderBookTracker
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker import AscendExUserStreamTracker
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import build_api_factory
-from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -71,7 +70,7 @@ class AscendExTradingRule(TradingRule):
         self.commission_reserve_rate = commission_reserve_rate
 
 
-class AscendExExchange(ExchangePyBase):
+class AscendExExchange(ExchangeBase):
     """
     AscendExExchange connects with AscendEx exchange and provides order book pricing, user account tracking and
     trading functionality.
@@ -678,7 +677,7 @@ class AscendExExchange(ExchangePyBase):
                             order_data["cfq"],
                             order_data["err"],
                             order_data["fa"],
-                            order_data["t"],
+                            int(order_data["t"]) * 1e-3,
                             order_data["orderId"],
                             order_data["sn"],
                             order_data["sd"],
@@ -717,7 +716,7 @@ class AscendExExchange(ExchangePyBase):
                 if non_tracked_order is None:
                     raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
                 else:
-                    self.logger().info(f"The order {order_id} was finished before being cancelled")
+                    self.logger().info(f"The order {order_id} was finished before being canceled")
             else:
                 ex_order_id = await tracked_order.get_exchange_order_id()
 
