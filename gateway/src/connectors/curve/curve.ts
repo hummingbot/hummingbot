@@ -159,28 +159,28 @@ export class Curve {
 
     if (side === 'BUY') {
       const best = await curve.getBestRouteAndOutput(
-        baseToken.address,
         quoteToken.address,
+        baseToken.address,
         tokenAmount
       );
       route = best.route;
       outputAmount = best.output;
       expectedAmount = await curve.routerExchangeExpected(
-        baseToken.address,
         quoteToken.address,
+        baseToken.address,
         tokenAmount
       );
     } else {
       const best = await curve.getBestRouteAndOutput(
-        quoteToken.address,
         baseToken.address,
+        quoteToken.address,
         tokenAmount
       );
       route = best.route;
       outputAmount = best.output;
       expectedAmount = await curve.routerExchangeExpected(
-        quoteToken.address,
         baseToken.address,
+        quoteToken.address,
         tokenAmount
       );
     }
@@ -247,8 +247,8 @@ export class Curve {
 
     if (side === 'BUY') {
       return await curve.routerExchange(
-        baseToken.address,
         quoteToken.address,
+        baseToken.address,
         tokenAmount,
         nonce,
         gasLimit,
@@ -256,8 +256,8 @@ export class Curve {
       );
     } else {
       return await curve.routerExchange(
-        quoteToken.address,
         baseToken.address,
+        quoteToken.address,
         tokenAmount,
         nonce,
         gasLimit,
