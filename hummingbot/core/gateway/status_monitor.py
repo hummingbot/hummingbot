@@ -99,8 +99,11 @@ class StatusMonitor:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unable to find Gateway service. Please check that Gateway service is online. ")
-                self._current_status = Status.OFFLINE
+                """
+                We wouldn't be changing any status here because whatever error happens here would have been a result of manipulation data from
+                the try block. They wouldn't be as a result of http related error because they're expected to fail silently.
+                """
+                pass
             await asyncio.sleep(POLL_INTERVAL)
 
     async def _fetch_gateway_configs(self) -> Dict[str, Any]:
