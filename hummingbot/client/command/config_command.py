@@ -220,15 +220,18 @@ class ConfigCommand:
             ):
                 await self._config_single_key_legacy(key, input_value)
             else:
-                if input_value is None:
-                    self.notify("Please follow the prompt to complete configurations: ")
                 client_config_key = key in self.client_config_map.config_paths()
                 if client_config_key:
                     config_map = self.client_config_map
                     file_path = CLIENT_CONFIG_PATH
+                elif self.strategy is not None:
+                    self.notify("Configuring the strategy while it is running is not currently supported.")
+                    return
                 else:
                     config_map = self.strategy_config_map
                     file_path = STRATEGIES_CONF_DIR_PATH / self.strategy_file_name
+                if input_value is None:
+                    self.notify("Please follow the prompt to complete configurations: ")
                 if key == "inventory_target_base_pct":
                     await self.asset_ratio_maintenance_prompt(config_map, input_value)
                 elif key == "inventory_price":

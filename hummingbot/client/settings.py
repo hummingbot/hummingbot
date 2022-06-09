@@ -358,7 +358,9 @@ class AllConnectorSettings:
 
     @classmethod
     def get_exchange_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Exchange}
+        return {
+            cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Exchange
+        }.union(set(PAPER_TRADE_EXCHANGES))
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
