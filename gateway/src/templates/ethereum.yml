@@ -29,6 +29,6 @@ networks:
     tokenListSource: src/chains/ethereum/erc20_tokens_kovan.json
     nativeCurrencySymbol: ETH
     gasPriceRefreshInterval: 60
-nodeAPIKey: '117bfd0769f54bd2b91f50d2b1c19f9a'
+nodeAPIKey: ''
 gasLimit: 3000000
 manualGasPrice: 110
