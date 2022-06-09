@@ -96,7 +96,7 @@ export class EthereumBase {
   }
 
   public get gasLimit() {
-    return this._provider;
+    return this._gasLimit;
   }
 
   public events() {
