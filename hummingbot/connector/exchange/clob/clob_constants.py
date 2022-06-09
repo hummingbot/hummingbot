@@ -3,8 +3,10 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 DEFAULT_DOMAIN = "com"
 
-HBOT_ORDER_ID_PREFIX = "x-XEKWYICX"
-MAX_ORDER_ID_LEN = 36
+# TODO check value!!!
+CLIENT_ORDER_ID_PREFIX = "x-XEKWYICX"
+# TODO check value!!!
+MAX_CLIENT_ORDER_ID_LENGTH = 36
 
 # Base URL
 REST_URL = "https://api.binance.{}/api/"
@@ -15,15 +17,18 @@ PRIVATE_API_VERSION = "v3"
 
 # Public API endpoints or BinanceClient function
 TICKER_PRICE_CHANGE_PATH_URL = "/ticker/24hr"
-EXCHANGE_INFO_PATH_URL = "/exchangeInfo"
-PING_PATH_URL = "/ping"
+# TODO check value!!!
+TRADING_RULES_REQUEST_PATH = "/exchangeInfo"
+# TODO check value!!!
+CHECK_NETWORK_REQUEST_PATH = "/ping"
 SNAPSHOT_PATH_URL = "/depth"
 SERVER_TIME_PATH_URL = "/time"
 
 # Private API endpoints or BinanceClient function
 ACCOUNTS_PATH_URL = "/account"
 MY_TRADES_PATH_URL = "/myTrades"
-ORDER_PATH_URL = "/order"
+# TODO check value!!!
+ORDER_PATH_URL = "/clob/orders"
 BINANCE_USER_STREAM_PATH_URL = "/userDataStream"
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
@@ -65,6 +70,7 @@ ORDER_STATE = {
 DIFF_EVENT_TYPE = "depthUpdate"
 TRADE_EVENT_TYPE = "trade"
 
+# TODO check value!!!
 RATE_LIMITS = [
     # Pools
     RateLimit(limit_id=REQUEST_WEIGHT, limit=1200, time_interval=ONE_MINUTE),
@@ -73,7 +79,7 @@ RATE_LIMITS = [
     # Weighted Limits
     RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 40)]),
-    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    RateLimit(limit_id=TRADING_RULES_REQUEST_PATH, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[(LinkedLimitWeightPair(REQUEST_WEIGHT, 10))]),
     RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 50)]),
@@ -81,7 +87,7 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1)]),
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=PING_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    RateLimit(limit_id=CHECK_NETWORK_REQUEST_PATH, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1)]),
     RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 10)]),

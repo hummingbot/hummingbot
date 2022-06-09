@@ -26,7 +26,7 @@ import {
   OrderSide,
   OrderStatus,
   OrderType,
-  PostSettleFundsResponse,
+  SettleFundsResponse,
   SerumMarket,
   SerumOrder,
   SerumOrderBook,
@@ -68,7 +68,7 @@ type SingleOutput =
   | CancelOrdersResponse
   | GetOpenOrdersResponse
   | GetFilledOrdersResponse
-  | PostSettleFundsResponse;
+  | SettleFundsResponse;
 
 type Output = SingleOutput;
 
@@ -393,7 +393,7 @@ export const convertToGetFilledOrderResponse = (
 
 export const convertToPostSettleFundsResponse = (
   input: Fund[]
-): PostSettleFundsResponse => {
+): SettleFundsResponse => {
   return input;
 };
 

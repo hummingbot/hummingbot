@@ -20,8 +20,8 @@ import {
   GetOrdersResponse,
   GetTickersRequest,
   GetTickersResponse,
-  PostSettleFundsRequest,
-  PostSettleFundsResponse,
+  SettleFundsRequest,
+  SettleFundsResponse,
 } from './serum.types';
 
 //
@@ -96,7 +96,7 @@ export type SerumCancelOrdersRequest = NetworkSelectionRequest &
 export type SerumCancelOrdersResponse = CancelOrdersResponse;
 
 //
-// GET /serum/openOrders
+// GET /serum/orders/open
 //
 
 export type SerumGetOpenOrdersRequest = NetworkSelectionRequest &
@@ -111,7 +111,7 @@ export type SerumGetOpenOrdersRequest = NetworkSelectionRequest &
 export type SerumGetOpenOrdersResponse = GetOpenOrdersResponse;
 
 //
-// GET /serum/filledOrders
+// GET /serum/orders/filled
 //
 
 export type SerumGetFilledOrdersRequest = NetworkSelectionRequest &
@@ -130,6 +130,6 @@ export type SerumGetFilledOrdersResponse = GetFilledOrdersResponse;
 //
 
 export type SerumPostSettleFundsRequest = NetworkSelectionRequest &
-  PostSettleFundsRequest;
+  SettleFundsRequest;
 
-export type SerumPostSettleFundsResponse = PostSettleFundsResponse;
+export type SerumPostSettleFundsResponse = SettleFundsResponse;

@@ -331,14 +331,14 @@ export type GetFilledOrdersResponse =
   | IMap<string, GetFilledOrderResponse>
   | GetFilledOrderResponse;
 
-export type PostSettleFundsRequest =
+export type SettleFundsRequest =
   | { ownerAddress: string }
   | { marketName: string; ownerAddress: string }
   | { marketNames: string[]; ownerAddress: string };
 
 export type PostSettleFundResponse = Fund[];
 
-export type PostSettleFundsResponse =
+export type SettleFundsResponse =
   | IMap<string, PostSettleFundResponse>
   | PostSettleFundResponse;
 
