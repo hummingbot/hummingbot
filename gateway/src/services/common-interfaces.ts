@@ -24,29 +24,46 @@ import {
   Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
 import {
+  Trade as SushiswapTrade,
+  Token as SushiToken,
+  CurrencyAmount as sushiCurrencyAmount,
+  TradeType as SushiTradeType,
+  Currency as SushiCurrency,
+  Fraction as SushiFraction,
+} from '@sushiswap/sdk';
+import {
   Token as TokenTraderjoe,
   CurrencyAmount as CurrencyAmountTraderjoe,
   Trade as TradeTraderjoe,
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
+
 export type Tokenish =
   | Token
   | TokenPangolin
   | TokenTraderjoe
-  | UniswapCoreToken;
+  | UniswapCoreToken
+  | SushiToken;
 export type UniswapishTrade =
   | TradePangolin
-  | Trade<Currency, Currency, TradeType>
-  | TradeTraderjoe;
+  | TradeTraderjoe
+  | SushiswapTrade<
+      SushiToken,
+      SushiToken,
+      SushiTradeType.EXACT_INPUT | SushiTradeType.EXACT_OUTPUT
+    >
+  | Trade<Currency, Currency, TradeType>;
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
+  | UniswapCoreCurrencyAmount<Currency>
   | CurrencyAmountTraderjoe
-  | UniswapCoreCurrencyAmount<Currency>;
+  | sushiCurrencyAmount<SushiCurrency | SushiToken>;
 export type Fractionish =
   | UniswapFraction
   | PangolinFraction
-  | TraderjoeFraction;
+  | TraderjoeFraction
+  | SushiFraction;
 
 export interface ExpectedTrade {
   trade: UniswapishTrade;

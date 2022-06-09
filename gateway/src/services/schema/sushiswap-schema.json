@@ -5,20 +5,15 @@
     "allowedSlippage": { "type": "string" },
     "gasLimit": { "type": "integer" },
     "ttl": { "type": "integer" },
-    "maximumHops": { "type": "integer" },
     "contractAddresses": {
       "type": "object",
       "patternProperties": {
         "^\\w+$": {
           "type": "object",
           "properties": {
-            "uniswapV3SmartOrderRouterAddress": { "type": "string" },
-            "uniswapV3NftManagerAddress": { "type": "string" }
+            "sushiswapRouterAddress": { "type": "string" }
           },
-          "required": [
-            "uniswapV3SmartOrderRouterAddress",
-            "uniswapV3NftManagerAddress"
-          ],
+          "required": ["sushiswapRouterAddress"],
           "additionalProperties": false
         }
       },
@@ -26,11 +21,5 @@
     }
   },
   "additionalProperties": false,
-  "required": [
-    "allowedSlippage",
-    "gasLimit",
-    "ttl",
-    "maximumHops",
-    "contractAddresses"
-  ]
+  "required": ["allowedSlippage", "gasLimit", "ttl", "contractAddresses"]
 }
