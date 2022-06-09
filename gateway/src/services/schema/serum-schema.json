@@ -48,10 +48,10 @@
       "properties": {
         "url": { "type": "string" },
         "blacklist": {
-          "type": "array"
+          "type": ["array", "null"]
         },
         "whitelist": {
-          "type": "array"
+          "type": ["array", "null"]
         }
       }
     },
