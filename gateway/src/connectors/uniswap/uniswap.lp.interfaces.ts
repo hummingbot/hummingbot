@@ -34,17 +34,8 @@ export interface RawPosition {
   tokensOwed1: BigNumber;
 }
 
-export interface AddLiquidityData {
-  recipient: string;
-  createPool: boolean;
-  slippageTolerance: Percent;
-  deadline: number;
-}
-
-export interface IncreaseLiquidityData {
-  tokenId: number;
-  slippageTolerance: Percent;
-  deadline: number;
+export interface AddPosReturn extends uniV3.MethodParameters {
+  swapRequired: boolean;
 }
 
 export interface ReduceLiquidityData {
