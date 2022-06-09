@@ -75,19 +75,19 @@ class CLOBExchange(ExchangePyBase):
 
     @property
     def client_order_id_max_length(self):
-        return CONSTANTS.MAX_ORDER_ID_LEN
+        return CONSTANTS.MAX_CLIENT_ORDER_ID_LENGTH
 
     @property
     def client_order_id_prefix(self):
-        return CONSTANTS.HBOT_ORDER_ID_PREFIX
+        return CONSTANTS.CLIENT_ORDER_ID_PREFIX
 
     @property
     def trading_rules_request_path(self):
-        return CONSTANTS.EXCHANGE_INFO_PATH_URL
+        return CONSTANTS.TRADING_RULES_REQUEST_PATH
 
     @property
     def check_network_request_path(self):
-        return CONSTANTS.PING_PATH_URL
+        return CONSTANTS.CHECK_NETWORK_REQUEST_PATH
 
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]

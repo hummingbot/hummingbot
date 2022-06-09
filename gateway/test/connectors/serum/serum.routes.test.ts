@@ -1354,7 +1354,7 @@
 //   });
 //
 // describe(`/serum/orders/filled`, () => {
-//   describe(`GET /serum/filledOrders`, () => {
+//   describe(`GET /serum/orders/filled`, () => {
 //     describe('Single order', () => {
 //       it('Get a specific filled order by its id and owner address', async () => {
 //         console.log('');
