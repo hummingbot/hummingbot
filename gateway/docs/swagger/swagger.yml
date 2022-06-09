@@ -21,6 +21,8 @@ tags:
     description: 'Manage private keys available for use in Gateway'
   - name: 'amm'
     description: 'Interact with AMM decentralized exchanges'
+  - name: 'amm/liquidity'
+    description: 'Interact with AMM LP contracts'
   - name: 'evm'
     description: 'Interact with EVM based blockchains'
   - name: 'solana'
