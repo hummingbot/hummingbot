@@ -15,6 +15,7 @@ from hummingbot.logger.logger import HummingbotLogger
 
 from certs import creds  # isort: skip <- this module with the dictionary inside has to be created to provide the keys
 
+
 this_loop = asyncio.get_event_loop()
 
 
@@ -81,8 +82,6 @@ hummingbot.core.web_assistant.connections.rest_connection.RESTConnection = RESTC
 hummingbot.logger.logger.HummingbotLogger = TestingHL
 logging.getLogger().setLevel(logging.DEBUG)
 
-
-from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange  # noqa: E402
 from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange  # noqa: E402
 
 # Has to be after connection tracing override of RESTConnection
@@ -115,15 +114,6 @@ async def proceed(question):
             return strtobool(answer.lower())
         except ValueError:
             pass
-
-
-def get_binance(ec):
-    exchange = BinanceExchange(
-        binance_api_key=creds.k,
-        binance_api_secret=creds.s,
-        trading_pairs=[ec.pair],
-    )
-    return exchange
 
 
 def get_gate_io(ec):
