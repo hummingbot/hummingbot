@@ -34,7 +34,7 @@ export class Uniswap implements Uniswapish {
   private _alphaRouter: AlphaRouter;
   private _router: string;
   private _routerAbi: ContractInterface;
-  private _gasLimit: number;
+  private _gasEstimate: number;
   private _ttl: number;
   private _maximumHops: number;
   private chainId;
@@ -53,7 +53,7 @@ export class Uniswap implements Uniswapish {
       provider: this.ethereum.provider,
     });
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = UniswapConfig.config.gasLimit;
+    this._gasEstimate = UniswapConfig.config.gasEstimate;
     this._router = config.uniswapV3SmartOrderRouterAddress(network);
   }
 
@@ -124,8 +124,8 @@ export class Uniswap implements Uniswapish {
   /**
    * Default gas limit for swap transactions.
    */
-  public get gasLimit(): number {
-    return this._gasLimit;
+  public get gasEstimate(): number {
+    return this._gasEstimate;
   }
 
   /**

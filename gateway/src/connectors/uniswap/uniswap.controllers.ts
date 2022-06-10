@@ -172,8 +172,9 @@ export async function price(
   const tradePrice =
     req.side === 'BUY' ? trade.executionPrice.invert() : trade.executionPrice;
 
-  const gasLimit = uniswapish.gasLimit;
+  const gasLimit = ethereumish.gasLimit;
   const gasPrice = ethereumish.gasPrice;
+  const gasEstimate = uniswapish.gasEstimate;
   return {
     network: ethereumish.chain,
     timestamp: startTimestamp,
@@ -187,7 +188,7 @@ export async function price(
     gasPrice: gasPrice,
     gasPriceToken: ethereumish.nativeTokenSymbol,
     gasLimit: gasLimit,
-    gasCost: gasCostInEthString(gasPrice, gasLimit),
+    gasCost: gasCostInEthString(gasPrice, gasEstimate),
   };
 }
 
@@ -236,7 +237,8 @@ export async function trade(
   }
 
   const gasPrice: number = ethereumish.gasPrice;
-  const gasLimit: number = uniswapish.gasLimit;
+  const gasLimit: number = ethereumish.gasLimit;
+  const gasEstimate: number = uniswapish.gasEstimate;
 
   if (req.side === 'BUY') {
     const price: Fractionish =
@@ -263,7 +265,7 @@ export async function trade(
       uniswapish.router,
       uniswapish.ttl,
       uniswapish.routerAbi,
-      uniswapish.gasLimit,
+      gasLimit,
       req.nonce,
       maxFeePerGasBigNumber,
       maxPriorityFeePerGasBigNumber,
@@ -297,7 +299,7 @@ export async function trade(
       gasPrice: gasPrice,
       gasPriceToken: ethereumish.nativeTokenSymbol,
       gasLimit: gasLimit,
-      gasCost: gasCostInEthString(gasPrice, gasLimit),
+      gasCost: gasCostInEthString(gasPrice, gasEstimate),
       nonce: tx.nonce,
       txHash: tx.hash,
     };
@@ -329,7 +331,7 @@ export async function trade(
       uniswapish.router,
       uniswapish.ttl,
       uniswapish.routerAbi,
-      uniswapish.gasLimit,
+      gasLimit,
       req.nonce,
       maxFeePerGasBigNumber,
       maxPriorityFeePerGasBigNumber

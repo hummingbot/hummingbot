@@ -3,7 +3,7 @@
 allowedSlippage: '2/100'
 
 # the maximum gas allowed for a uniswap trade.
-gasLimit: 150688
+gasEstimate: 150688
 
 # how long a trade is valid in seconds. After time passes uniswap will not
 # perform the trade, but the gas will still be sent.
