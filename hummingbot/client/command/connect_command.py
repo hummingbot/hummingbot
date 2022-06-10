@@ -140,7 +140,10 @@ class ConnectCommand:
             return "No Celo connection has been configured."
         if CeloCLI.unlocked and not to_reconnect:
             return None
-        err_msg = CeloCLI.validate_node_synced()
+        try:
+            err_msg = CeloCLI.validate_node_synced()
+        except FileNotFoundError:
+            err_msg = "Celo CLI not installed."
         if err_msg is not None:
             return err_msg
         err_msg = CeloCLI.unlock_account(celo_config.celo_address, celo_config.celo_password.get_secret_value())
