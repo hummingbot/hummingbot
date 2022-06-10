@@ -673,7 +673,7 @@ class ClientConfigMap(BaseClientModel):
                      "\nPort need to match the final installation port for Gateway"),
     )
     anonymized_metrics_mode: Union[tuple(METRICS_MODES.values())] = Field(
-        default=AnonymizedMetricsDisabledMode(),
+        default=AnonymizedMetricsEnabledMode(),
         description="Whether to enable aggregated order and trade data collection",
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select the desired metrics mode ({'/'.join(list(METRICS_MODES.keys()))})",
