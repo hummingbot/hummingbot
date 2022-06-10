@@ -3,7 +3,7 @@
   "type": "object",
   "properties": {
     "allowedSlippage": { "type": "string" },
-    "gasLimit": { "type": "integer" },
+    "gasEstimate": { "type": "integer" },
     "ttl": { "type": "integer" },
     "contractAddresses": {
       "type": "object",
@@ -21,5 +21,5 @@
     }
   },
   "additionalProperties": false,
-  "required": ["allowedSlippage", "gasLimit", "ttl", "contractAddresses"]
+  "required": ["allowedSlippage", "gasEstimate", "ttl", "contractAddresses"]
 }
