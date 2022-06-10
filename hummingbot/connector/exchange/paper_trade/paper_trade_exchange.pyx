@@ -458,9 +458,9 @@ cdef class PaperTradeExchange(ExchangeBase):
 
         adjusted_order_candidate = self._budget_checker.populate_collateral_entries(order_candidate)
 
-        # Base currency acquired, including fees.
-        paid_amount = adjusted_order_candidate.order_collateral.amount
         # Quote currency used, including fees.
+        paid_amount = adjusted_order_candidate.order_collateral.amount
+        # Base currency acquired, including fees.
         acquired_amount = adjusted_order_candidate.potential_returns.amount
 
         # It's not possible to fulfill the order, the possible acquired amount is less than requested
@@ -652,9 +652,9 @@ cdef class PaperTradeExchange(ExchangeBase):
 
         adjusted_order_candidate = self._budget_checker.populate_collateral_entries(order_candidate)
 
-        # Base currency acquired, including fees.
-        paid_amount = adjusted_order_candidate.order_collateral.amount
         # Quote currency used, including fees.
+        paid_amount = adjusted_order_candidate.order_collateral.amount
+        # Base currency acquired, including fees.
         acquired_amount = adjusted_order_candidate.potential_returns.amount
 
         # It's not possible to fulfill the order, the possible acquired amount is less than requested
