@@ -1,0 +1,2 @@
+nonceDbPath: '/var/lib/gateway/nonce.level'
+transactionDbPath: '/var/lib/gateway/transaction.level'
