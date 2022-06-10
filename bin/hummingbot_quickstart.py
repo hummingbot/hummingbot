@@ -129,13 +129,10 @@ def main():
         args.config_password = os.environ["CONFIG_PASSWORD"]
 
     # If no password is given from the command line, prompt for one.
+    asyncio.get_event_loop().run_until_complete(read_system_configs_from_yml())
     if args.config_password is None:
-        try:
-            if not login_prompt(style=load_style()):
-                return
-        except Exception:
-            if not login_prompt():
-                return
+        if not login_prompt(style=load_style()):
+            return
 
     asyncio.get_event_loop().run_until_complete(quick_start(args))
 
