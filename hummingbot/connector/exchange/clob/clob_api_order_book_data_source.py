@@ -7,9 +7,9 @@ from typing import Any, Dict, List, Mapping, Optional
 
 from bidict import bidict
 
-import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-from hummingbot.connector.exchange.binance import binance_utils, binance_web_utils as web_utils
-from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
+import hummingbot.connector.exchange.clob.clob_constants as CONSTANTS
+from hummingbot.connector.exchange.clob import clob_utils, clob_web_utils as web_utils
+from hummingbot.connector.exchange.clob.clob_order_book import CLOBOrderBook
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -70,7 +70,7 @@ class CLOBAPIOrderBookDataSource(OrderBookTrackerDataSource):
         parameter
 
         :param trading_pairs: list of trading pairs to get the prices for
-        :param domain: which Binance domain we are connecting to (the default value is 'com')
+        :param domain: which CLOB domain we are connecting to (the default value is 'com')
         :param api_factory: the instance of the web assistant factory to be used when doing requests to the server.
             If no instance is provided then a new one will be created.
         :param throttler: the instance of the throttler to use to limit request to the server. If it is not specified
@@ -248,7 +248,7 @@ class CLOBAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, 1000)
         snapshot_timestamp: float = time.time()
-        snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
+        snapshot_msg: OrderBookMessage = CLOBOrderBook.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
             metadata={"trading_pair": trading_pair}
@@ -276,7 +276,7 @@ class CLOBAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     api_factory=self._api_factory,
                     throttler=self._throttler,
                     time_synchronizer=self._time_synchronizer)
-                trade_msg: OrderBookMessage = BinanceOrderBook.trade_message_from_exchange(
+                trade_msg: OrderBookMessage = CLOBOrderBook.trade_message_from_exchange(
                     json_msg, {"trading_pair": trading_pair})
                 output.put_nowait(trade_msg)
 
@@ -304,7 +304,7 @@ class CLOBAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     api_factory=self._api_factory,
                     throttler=self._throttler,
                     time_synchronizer=self._time_synchronizer)
-                order_book_message: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
+                order_book_message: OrderBookMessage = CLOBOrderBook.diff_message_from_exchange(
                     json_msg, time.time(), {"trading_pair": trading_pair})
                 output.put_nowait(order_book_message)
             except asyncio.CancelledError:
@@ -326,7 +326,7 @@ class CLOBAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     try:
                         snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair=trading_pair)
                         snapshot_timestamp: float = time.time()
-                        snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
+                        snapshot_msg: OrderBookMessage = CLOBOrderBook.snapshot_message_from_exchange(
                             snapshot,
                             snapshot_timestamp,
                             metadata={"trading_pair": trading_pair}
@@ -509,7 +509,7 @@ class CLOBAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 method=RESTMethod.GET,
             )
 
-            for symbol_data in filter(binance_utils.is_exchange_information_valid, data["symbols"]):
+            for symbol_data in filter(clob_utils.is_exchange_information_valid, data["symbols"]):
                 mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseAsset"],
                                                                             quote=symbol_data["quoteAsset"])
 

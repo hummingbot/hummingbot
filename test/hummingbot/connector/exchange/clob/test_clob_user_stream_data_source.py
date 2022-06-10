@@ -8,14 +8,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
-from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
-from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
+from hummingbot.connector.exchange.clob import clob_constants as CONSTANTS, clob_web_utils as web_utils
+from hummingbot.connector.exchange.clob.clob_api_user_stream_data_source import CLOBAPIUserStreamDataSource
+from hummingbot.connector.exchange.clob.clob_auth import CLOBAuth
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
-class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
+class CLOBUserStreamDataSourceUnitTests(unittest.TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
@@ -44,8 +44,8 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        self.data_source = BinanceAPIUserStreamDataSource(
-            auth=BinanceAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider),
+        self.data_source = CLOBAPIUserStreamDataSource(
+            auth=CLOBAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider),
             domain=self.domain,
             trading_pairs=[self.trading_pair],
             throttler=self.throttler,
@@ -156,7 +156,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         result: bool = self.async_run_with_timeout(self.data_source._ping_listen_key())
         self.assertTrue(result)
 
-    @patch("hummingbot.connector.exchange.binance.binance_api_user_stream_data_source.BinanceAPIUserStreamDataSource"
+    @patch("hummingbot.connector.exchange.clob.clob_api_user_stream_data_source.CLOBAPIUserStreamDataSource"
            "._ping_listen_key",
            new_callable=AsyncMock)
     def test_manage_listen_key_task_loop_keep_alive_failed(self, mock_ping_listen_key):
@@ -176,7 +176,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         self.assertIsNone(self.data_source._current_listen_key)
         self.assertFalse(self.data_source._listen_key_initialized_event.is_set())
 
-    @patch("hummingbot.connector.exchange.binance.binance_api_user_stream_data_source.BinanceAPIUserStreamDataSource."
+    @patch("hummingbot.connector.exchange.clob.clob_api_user_stream_data_source.CLOBAPIUserStreamDataSource."
            "_ping_listen_key",
            new_callable=AsyncMock)
     def test_manage_listen_key_task_loop_keep_alive_successful(self, mock_ping_listen_key):

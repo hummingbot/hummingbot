@@ -25,35 +25,35 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 KEYS = {
-    "binance_api_key":
-        ConfigVar(key="binance_api_key",
-                  prompt="Enter your Binance API key >>> ",
-                  required_if=using_exchange("binance"),
+    "clob_api_key":
+        ConfigVar(key="clob_api_key",
+                  prompt="Enter your CLOB API key >>> ",
+                  required_if=using_exchange("clob"),
                   is_secure=True,
                   is_connect_key=True),
-    "binance_api_secret":
-        ConfigVar(key="binance_api_secret",
-                  prompt="Enter your Binance API secret >>> ",
-                  required_if=using_exchange("binance"),
+    "clob_api_secret":
+        ConfigVar(key="clob_api_secret",
+                  prompt="Enter your CLOB API secret >>> ",
+                  required_if=using_exchange("clob"),
                   is_secure=True,
                   is_connect_key=True),
 }
 
-OTHER_DOMAINS = ["binance_us"]
-OTHER_DOMAINS_PARAMETER = {"binance_us": "us"}
-OTHER_DOMAINS_EXAMPLE_PAIR = {"binance_us": "BTC-USDT"}
-OTHER_DOMAINS_DEFAULT_FEES = {"binance_us": [0.1, 0.1]}
-OTHER_DOMAINS_KEYS = {"binance_us": {
-    "binance_us_api_key":
-        ConfigVar(key="binance_us_api_key",
-                  prompt="Enter your Binance US API key >>> ",
-                  required_if=using_exchange("binance_us"),
+OTHER_DOMAINS = ["clob_us"]
+OTHER_DOMAINS_PARAMETER = {"clob_us": "us"}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"clob_us": "BTC-USDT"}
+OTHER_DOMAINS_DEFAULT_FEES = {"clob_us": [0.1, 0.1]}
+OTHER_DOMAINS_KEYS = {"clob_us": {
+    "clob_us_api_key":
+        ConfigVar(key="clob_us_api_key",
+                  prompt="Enter your CLOB US API key >>> ",
+                  required_if=using_exchange("clob_us"),
                   is_secure=True,
                   is_connect_key=True),
-    "binance_us_api_secret":
-        ConfigVar(key="binance_us_api_secret",
-                  prompt="Enter your Binance US API secret >>> ",
-                  required_if=using_exchange("binance_us"),
+    "clob_us_api_secret":
+        ConfigVar(key="clob_us_api_secret",
+                  prompt="Enter your CLOB US API secret >>> ",
+                  required_if=using_exchange("clob_us"),
                   is_secure=True,
                   is_connect_key=True),
 }}

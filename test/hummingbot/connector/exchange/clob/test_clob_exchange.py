@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
-from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
-from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
+from hummingbot.connector.exchange.clob import clob_constants as CONSTANTS, clob_web_utils as web_utils
+from hummingbot.connector.exchange.clob.clob_api_order_book_data_source import CLOBAPIOrderBookDataSource
+from hummingbot.connector.exchange.clob.clob_exchange import CLOBExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -30,7 +30,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 
 
-class BinanceExchangeTests(TestCase):
+class CLOBExchangeTests(TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
@@ -49,9 +49,9 @@ class BinanceExchangeTests(TestCase):
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
 
-        self.exchange = BinanceExchange(
-            binance_api_key="testAPIKey",
-            binance_api_secret="testSecret",
+        self.exchange = CLOBExchange(
+            clob_api_key="testAPIKey",
+            clob_api_secret="testSecret",
             trading_pairs=[self.trading_pair],
         )
 
@@ -65,14 +65,14 @@ class BinanceExchangeTests(TestCase):
 
         self._initialize_event_loggers()
 
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
+        CLOBAPIOrderBookDataSource._trading_pair_symbol_map = {
             "com": bidict(
                 {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
         }
 
     def tearDown(self) -> None:
         self.test_task and self.test_task.cancel()
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
+        CLOBAPIOrderBookDataSource._trading_pair_symbol_map = {}
         super().tearDown()
 
     def _initialize_event_loggers(self):
@@ -208,7 +208,7 @@ class BinanceExchangeTests(TestCase):
         request_data = order_request[1][0].kwargs["data"]
         self.assertEqual(self.exchange_trading_pair, request_data["symbol"])
         self.assertEqual(CONSTANTS.SIDE_BUY, request_data["side"])
-        self.assertEqual(BinanceExchange.binance_order_type(OrderType.LIMIT), request_data["type"])
+        self.assertEqual(CLOBExchange.clob_order_type(OrderType.LIMIT), request_data["type"])
         self.assertEqual(Decimal("100"), Decimal(request_data["quantity"]))
         self.assertEqual(Decimal("10000"), Decimal(request_data["price"]))
         self.assertEqual("OID1", request_data["newClientOrderId"])
@@ -759,7 +759,7 @@ class BinanceExchangeTests(TestCase):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
                                               self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
-        self.exchange._last_trades_poll_binance_timestamp = 10
+        self.exchange._last_trades_poll_clob_timestamp = 10
         self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
 
         trades_request = [(key, value) for key, value in mock_api.requests.items()

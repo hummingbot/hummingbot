@@ -9,16 +9,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses.core import aioresponses
 from bidict import bidict
 
-import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
-from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+import hummingbot.connector.exchange.clob.clob_constants as CONSTANTS
+import hummingbot.connector.exchange.clob.clob_web_utils as web_utils
+from hummingbot.connector.exchange.clob.clob_api_order_book_data_source import CLOBAPIOrderBookDataSource
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
 
-class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
+class CLOBAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
@@ -48,23 +48,23 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.time_synchronizer.add_time_offset_ms_sample(1000)
 
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
-        self.data_source = BinanceAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
-                                                         throttler=self.throttler,
-                                                         domain=self.domain,
-                                                         time_synchronizer=self.time_synchronizer)
+        self.data_source = CLOBAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
+                                                      throttler=self.throttler,
+                                                      domain=self.domain,
+                                                      time_synchronizer=self.time_synchronizer)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
         self.resume_test_event = asyncio.Event()
 
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
+        CLOBAPIOrderBookDataSource._trading_pair_symbol_map = {
             "com": bidict(
                 {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
         }
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
+        CLOBAPIOrderBookDataSource._trading_pair_symbol_map = {}
         super().tearDown()
 
     def handle(self, record):
@@ -214,7 +214,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_fetch_trading_pairs(self, mock_api):
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
+        CLOBAPIOrderBookDataSource._trading_pair_symbol_map = {}
         url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.domain)
 
         mock_response: Dict[str, Any] = {
@@ -322,7 +322,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_fetch_trading_pairs_exception_raised(self, mock_api):
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
+        CLOBAPIOrderBookDataSource._trading_pair_symbol_map = {}
 
         url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -598,8 +598,8 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             )
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.binance.binance_api_order_book_data_source"
-           ".BinanceAPIOrderBookDataSource._sleep")
+    @patch("hummingbot.connector.exchange.clob.clob_api_order_book_data_source"
+           ".CLOBAPIOrderBookDataSource._sleep")
     def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
