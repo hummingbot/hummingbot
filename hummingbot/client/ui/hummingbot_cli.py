@@ -116,7 +116,6 @@ class HummingbotCLI(PubSub):
             clipboard=PyperclipClipboard(),
         )
         await self.app.run_async(pre_run=self.did_start_ui)
-        # await self.app.run_async(pre_run=partial(self.did_start_ui, self.app))
         self._stdout_redirect_context.close()
 
     def accept(self, buff):
