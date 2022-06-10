@@ -1,6 +1,7 @@
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
+# TODO check value!!!
 DEFAULT_DOMAIN = "com"
 
 # TODO check value!!!
@@ -9,13 +10,13 @@ CLIENT_ORDER_ID_PREFIX = "x-XEKWYICX"
 MAX_CLIENT_ORDER_ID_LENGTH = 36
 
 # Base URL
-REST_URL = "https://api.binance.{}/api/"
-WSS_URL = "wss://stream.binance.{}:9443/ws"
+REST_URL = "https://api.clob.{}/api/"
+WSS_URL = "wss://stream.clob.{}:9443/ws"
 
 PUBLIC_API_VERSION = "v3"
 PRIVATE_API_VERSION = "v3"
 
-# Public API endpoints or BinanceClient function
+# Public API endpoints or CLOBClient function
 TICKER_PRICE_CHANGE_PATH_URL = "/ticker/24hr"
 # TODO check value!!!
 TRADING_RULES_REQUEST_PATH = "/exchangeInfo"
@@ -24,7 +25,7 @@ CHECK_NETWORK_REQUEST_PATH = "/ping"
 SNAPSHOT_PATH_URL = "/depth"
 SERVER_TIME_PATH_URL = "/time"
 
-# Private API endpoints or BinanceClient function
+# Private API endpoints or CLOBClient function
 ACCOUNTS_PATH_URL = "/account"
 MY_TRADES_PATH_URL = "/myTrades"
 # TODO check value!!!
@@ -33,7 +34,7 @@ BINANCE_USER_STREAM_PATH_URL = "/userDataStream"
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
-# Binance params
+# CLOB params
 
 SIDE_BUY = 'BUY'
 SIDE_SELL = 'SELL'

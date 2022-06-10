@@ -3,9 +3,9 @@ import logging
 import time
 from typing import List, Optional
 
-import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
-from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
+import hummingbot.connector.exchange.clob.clob_constants as CONSTANTS
+import hummingbot.connector.exchange.clob.clob_web_utils as web_utils
+from hummingbot.connector.exchange.clob.clob_auth import CLOBAuth
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -25,14 +25,14 @@ class CLOBAPIUserStreamDataSource(UserStreamTrackerDataSource):
     _bausds_logger: Optional[HummingbotLogger] = None
 
     def __init__(self,
-                 auth: BinanceAuth,
+                 auth: CLOBAuth,
                  trading_pairs: List[str],
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  api_factory: Optional[WebAssistantsFactory] = None,
                  throttler: Optional[AsyncThrottler] = None,
                  time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__()
-        self._auth: BinanceAuth = auth
+        self._auth: CLOBAuth = auth
         self._time_synchronizer = time_synchronizer
         self._current_listen_key = None
         self._domain = domain

@@ -1,9 +1,9 @@
 import unittest
 
-from hummingbot.connector.exchange.binance import binance_utils as utils
+from hummingbot.connector.exchange.clob import clob_utils as utils
 
 
-class BinanceUtilTestCases(unittest.TestCase):
+class CLOBUtilTestCases(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:

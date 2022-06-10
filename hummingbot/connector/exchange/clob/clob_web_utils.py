@@ -1,6 +1,6 @@
 from typing import Any, Callable, Dict, Optional
 
-import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
+import hummingbot.connector.exchange.clob.clob_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -13,7 +13,7 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     """
     Creates a full URL for provided public REST endpoint
     :param path_url: a public REST endpoint
-    :param domain: the Binance domain to connect to ("com" or "us"). The default value is "com"
+    :param domain: the CLOB domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
     return CONSTANTS.REST_URL.format(domain) + CONSTANTS.PUBLIC_API_VERSION + path_url
@@ -23,7 +23,7 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     """
     Creates a full URL for provided private REST endpoint
     :param path_url: a private REST endpoint
-    :param domain: the Binance domain to connect to ("com" or "us"). The default value is "com"
+    :param domain: the CLOB domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
     return CONSTANTS.REST_URL.format(domain) + CONSTANTS.PRIVATE_API_VERSION + path_url
@@ -109,7 +109,7 @@ async def api_request(path: str,
             else:
                 error_response = await response.text()
                 if error_response is not None and "code" in error_response and "msg" in error_response:
-                    raise IOError(f"The request to Binance failed. Error: {error_response}. Request: {request}")
+                    raise IOError(f"The request to CLOB failed. Error: {error_response}. Request: {request}")
                 else:
                     raise IOError(f"Error executing request {method.name} {path}. "
                                   f"HTTP status is {response.status}.")

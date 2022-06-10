@@ -7,11 +7,11 @@ from unittest.mock import MagicMock
 
 from typing_extensions import Awaitable
 
-from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
+from hummingbot.connector.exchange.clob.clob_auth import CLOBAuth
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 
 
-class BinanceAuthTests(TestCase):
+class CLOBAuthTests(TestCase):
 
     def setUp(self) -> None:
         self._api_key = "testApiKey"
@@ -36,7 +36,7 @@ class BinanceAuthTests(TestCase):
         }
         full_params = copy(params)
 
-        auth = BinanceAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
+        auth = CLOBAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
         request = RESTRequest(method=RESTMethod.GET, params=params, is_auth_required=True)
         configured_request = self.async_run_with_timeout(auth.rest_authenticate(request))
 

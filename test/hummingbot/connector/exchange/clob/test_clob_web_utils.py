@@ -1,10 +1,10 @@
 import unittest
 
-import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-from hummingbot.connector.exchange.binance import binance_web_utils as web_utils
+import hummingbot.connector.exchange.clob.clob_constants as CONSTANTS
+from hummingbot.connector.exchange.clob import clob_web_utils as web_utils
 
 
-class BinanceUtilTestCases(unittest.TestCase):
+class CLOBUtilTestCases(unittest.TestCase):
 
     def test_public_rest_url(self):
         path_url = "/TEST_PATH"

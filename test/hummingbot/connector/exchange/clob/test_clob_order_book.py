@@ -1,13 +1,13 @@
 from unittest import TestCase
 
-from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
+from hummingbot.connector.exchange.clob.clob_order_book import CLOBOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
-class BinanceOrderBookTests(TestCase):
+class CLOBOrderBookTests(TestCase):
 
     def test_snapshot_message_from_exchange(self):
-        snapshot_message = BinanceOrderBook.snapshot_message_from_exchange(
+        snapshot_message = CLOBOrderBook.snapshot_message_from_exchange(
             msg={
                 "lastUpdateId": 1,
                 "bids": [
@@ -36,7 +36,7 @@ class BinanceOrderBookTests(TestCase):
         self.assertEqual(1, snapshot_message.asks[0].update_id)
 
     def test_diff_message_from_exchange(self):
-        diff_msg = BinanceOrderBook.diff_message_from_exchange(
+        diff_msg = CLOBOrderBook.diff_message_from_exchange(
             msg={
                 "e": "depthUpdate",
                 "E": 123456789,
@@ -90,7 +90,7 @@ class BinanceOrderBookTests(TestCase):
             "M": True
         }
 
-        trade_message = BinanceOrderBook.trade_message_from_exchange(
+        trade_message = CLOBOrderBook.trade_message_from_exchange(
             msg=trade_update,
             metadata={"trading_pair": "COINALPHA-HBOT"}
         )

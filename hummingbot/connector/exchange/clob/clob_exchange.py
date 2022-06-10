@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.clob import clob_constants as constant
@@ -12,6 +12,17 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 
 class CLOBExchange(ExchangePyBase):
+    def __init__(
+        self,
+        trading_pairs: Optional[List[str]] = None,
+        trading_required: bool = True,
+        domain: str = constant.DEFAULT_DOMAIN,
+    ):
+        self._domain = domain
+        self._trading_required = trading_required
+        self._trading_pairs = trading_pairs
+        super().__init__()
+
     @property
     def domain(self):
         return self._domain
@@ -104,6 +115,7 @@ class CLOBExchange(ExchangePyBase):
             is_auth_required=True
         )
 
+        # TODO handle order not found and cancelation_pending state.
         if canceled_order.get("status") == "CANCELED":
             return True
 
@@ -118,34 +130,46 @@ class CLOBExchange(ExchangePyBase):
         amount: Decimal,
         price: Decimal = s_decimal_NaN,
         is_maker: Optional[bool] = None
-    ) -> TradeFeeBase:  # TODO check this return type, it is different from abstract!!!
+    ) -> TradeFeeBase:  # TODO check this return type, it is different from abstract (AddedToCostTradeFee)!!!
         is_maker = order_type is OrderType.LIMIT_MAKER
 
         return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _update_trading_fees(self):
+        # TODO binance is not implementing this, should we implement it?!!!
         pass
 
     def _user_stream_event_listener(self):
+        """
+        This functions runs in background continuously processing the events received from the exchange by the user
+        stream data source. It keeps reading events from the queue until the task is interrupted.
+        The events received are balance updates, order updates and trade events.
+        """
+        # TODO should we implement this?!!!
         pass
 
     def _format_trading_rules(self):
-        pass
+        raise NotImplementedError()
 
     def _update_order_status(self):
-        pass
+        raise NotImplementedError()
 
     def _update_balances(self):
-        pass
+        raise NotImplementedError()
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
-        pass
+        raise NotImplementedError()
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        pass
+        raise NotImplementedError()
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        pass
+        raise NotImplementedError()
 
     def c_stop_tracking_order(self, order_id):
-        pass
+        raise NotImplementedError()
+
+    async def _status_polling_loop_fetch_updates(self):
+        # TODO do we need to override this method?!!!
+        # await self._update_order_fills_from_trades()
+        await super()._status_polling_loop_fetch_updates()
