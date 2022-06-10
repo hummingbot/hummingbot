@@ -48,7 +48,7 @@ class BalanceCommand:
                 exchange = args[0]
                 asset = args[1].upper()
                 amount = float(args[2])
-                if exchange not in balance_asset_limit or balance_asset_limit[exchange] is None:
+                if balance_asset_limit.get(exchange) is None:
                     balance_asset_limit[exchange] = {}
                 if amount < 0 and asset in balance_asset_limit[exchange].keys():
                     balance_asset_limit[exchange].pop(asset)
