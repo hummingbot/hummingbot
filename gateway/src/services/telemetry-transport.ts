@@ -1,7 +1,7 @@
 import winston from 'winston';
 import https from 'https';
 import querystring from 'querystring';
-console.log("Dummy");
+console.log('Dummy');
 export type LogCallback = (err: any, res: any) => void;
 
 // Inherit from `winston-transport Http` so you can take advantage
