@@ -159,17 +159,6 @@ jobs:
       - name: Install Dependencies
         run: yarn --cwd ./gateway install
 
-      - name: Create yml passphrase file
-        shell: bash
-        env:
-          CERT_PASSPHRASE: ${{ secrets.CERT_PASSPHRASE }}
-        run: |
-          mkdir -p ./gateway/conf/
-          cat << EOF >> ./gateway/conf/gateway-passphrase.yml
-          CERT_PASSPHRASE: "$CERT_PASSPHRASE"
-          EOF
-          chmod 0600 ./gateway/conf/gateway-passphrase.yml
-
       - name: Build project
         run: yarn --cwd ./gateway build
 
