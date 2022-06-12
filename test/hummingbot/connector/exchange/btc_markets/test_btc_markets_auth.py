@@ -15,7 +15,7 @@ from hummingbot.connector.exchange.btc_markets.btc_markets_utils import get_ms_t
 from hummingbot.connector.exchange.btc_markets.btc_markets_websocket import BtcMarketsWebsocket
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
-sys.path.insert(0, realpath(join(__file__, "../../../../../")))
+sys.path.insert(0, realpath(join(__file__, "../../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 

@@ -35,7 +35,7 @@ from hummingbot.model.trade_fill import TradeFill
 
 from . import fixture
 
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../../")))
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
