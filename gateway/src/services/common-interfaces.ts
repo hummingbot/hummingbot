@@ -22,7 +22,8 @@ import {
   CurrencyAmount as CurrencyAmountDefikingdoms,
   Trade as TradeDefikingdoms,
   Fraction as DefikingdomsFraction,
-} from '@defikingdoms/sdk';
+// } from '@defikingdoms/sdk';
+} from '@switchboard-xyz/defikingdoms-sdk';
 import {
   Token as TokenPangolin,
   CurrencyAmount as CurrencyAmountPangolin,
