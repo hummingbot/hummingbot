@@ -21,7 +21,8 @@ import {
   Trade,
   Pair,
   SwapParameters,
-} from '@defikingdoms/sdk';
+// } from '@defikingdoms/sdk';
+} from '@switchboard-xyz/defikingdoms-sdk';
 import { BigNumber, Transaction, Wallet } from 'ethers';
 import { logger } from '../../services/logger';
 import { percentRegexp } from '../../services/config-manager-v2';
@@ -302,7 +303,8 @@ export class Defikingdoms implements Uniswapish {
     const tx: ContractTransaction = await contract[result.methodName](
       ...result.args,
       {
-        gasPrice: (gasPrice * 1e9).toFixed(0),
+        // gasPrice: (gasPrice * 1e9).toFixed(0),
+        gasPrice: (gasPrice).toFixed(0),
         gasLimit: gasLimit.toFixed(0),
         value: result.value,
         nonce: nonce,

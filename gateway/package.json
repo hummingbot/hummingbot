@@ -28,6 +28,7 @@
     "@project-serum/serum": "^0.13.61",
     "@solana/spl-token-registry": "^0.2.700",
     "@solana/web3.js": "^1.31.0",
+    "@switchboard-xyz/defikingdoms-sdk": "^1.0.7",
     "@types/fs-extra": "^9.0.13",
     "@types/lodash": "^4.14.178",
     "@types/minimist": "^1.2.2",
