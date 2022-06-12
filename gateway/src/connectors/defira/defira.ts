@@ -13,38 +13,17 @@ import {
   ContractTransaction,
 } from '@ethersproject/contracts';
 import {
-  // TODO: use this instead of UniswapRouter
-  Router,
-  // TODO: use this instead of UniswapPair. Note that its constructor takes in an optional factory address
-  // parameter that SHOULD be populated since the default only works for mainnet
-  Pair,
+  Router as DefiraRouter,
+  Pair as DefiraPair,
   SwapParameters,
-  // TODO: use this instead of UniswapTrade
-  Trade,
+  Trade as DefiraTrade,
+  Fetcher as DefiraFetcher,
 } from '@zuzu-cat/defira-sdk';
 
 import {
-  // TODO: use this instead of UniswapRouter
-  Router as UniswapRouter,
-  // TODO: use @uniswap/sdk-core Percent instead of this one
-  Percent as UniswapPercent,
-  // TODO: use @uniswap/sdk-core Token instead of this one
-  Token as UniswapToken,
-  // TODO: use @uniswap/sdk-core CurrencyAmount instead of this one
-  TokenAmount as UniswapTokenAmount,
-  // TODO: use defira-sdk Pair instead of this one once defira-sdk Fetcher is hooked in
-  Pair as UniswapPair,
-  // TODO: use defira-sdk Fetcher instead of this one
-  Fetcher as UniswapFetcher,
-  // TODO: use defira-sdk Trade instead of this one
-  Trade as UniswapTrade,
-} from '@uniswap/sdk';
-import {
-  // TODO: use this instead of UniswapPercent
   Percent,
-  // TODO: use this instead of UniswapTokenAmount
-  CurrencyAmount,
-  // TODO: use this for some generic parameters
+  Token as DefiraToken,
+  CurrencyAmount as DefiraTokenAmount,
   TradeType,
 } from '@uniswap/sdk-core';
 import { BigNumber, Transaction, Wallet } from 'ethers';
@@ -63,7 +42,7 @@ export class Defira implements Uniswapish {
   private _gasLimit: number;
   private _ttl: number;
   private chainId;
-  private tokenList: Record<string, UniswapToken> = {};
+  private tokenList: Record<string, DefiraToken> = {};
   private _ready: boolean = false;
 
   private constructor(chain: string, network: string) {
@@ -95,7 +74,7 @@ export class Defira implements Uniswapish {
    *
    * @param address Token address
    */
-  public getTokenByAddress(address: string): UniswapToken {
+  public getTokenByAddress(address: string): DefiraToken {
     return this.tokenList[address];
   }
 
@@ -106,7 +85,7 @@ export class Defira implements Uniswapish {
         SERVICE_UNITIALIZED_ERROR_CODE
       );
     for (const token of this.harmony.storedTokenList) {
-      this.tokenList[token.address] = new UniswapToken(
+      this.tokenList[token.address] = new DefiraToken(
         this.chainId,
         token.address,
         token.decimals,
@@ -167,15 +146,15 @@ export class Defira implements Uniswapish {
    *
    * @param allowedSlippageStr (Optional) should be of the form '1/10'.
    */
-  public getAllowedSlippage(allowedSlippageStr?: string): UniswapPercent {
+  public getAllowedSlippage(allowedSlippageStr?: string): Percent {
     if (allowedSlippageStr != null && isFractionString(allowedSlippageStr)) {
       const fractionSplit = allowedSlippageStr.split('/');
-      return new UniswapPercent(fractionSplit[0], fractionSplit[1]);
+      return new Percent(fractionSplit[0], fractionSplit[1]);
     }
 
     const allowedSlippage = DefiraConfig.config.allowedSlippage();
     const nd = allowedSlippage.match(percentRegexp);
-    if (nd) return new UniswapPercent(nd[1], nd[2]);
+    if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(
       'Encountered a malformed percent string in the config for ALLOWED_SLIPPAGE.'
     );
@@ -192,26 +171,25 @@ export class Defira implements Uniswapish {
    * @param amount Amount of `baseToken` to put into the transaction
    */
   async estimateSellTrade(
-    baseToken: UniswapToken,
-    quoteToken: UniswapToken,
+    baseToken: DefiraToken,
+    quoteToken: DefiraToken,
     amount: BigNumber,
     allowedSlippage?: string
   ): Promise<ExpectedTrade> {
-    const nativeTokenAmount: UniswapTokenAmount = new UniswapTokenAmount(
-      baseToken,
-      amount.toString()
-    );
+    const nativeTokenAmount = DefiraTokenAmount.fromRawAmount(baseToken, amount.toString());
+
     logger.info(
       `Fetching pair data for ${baseToken.address}-${quoteToken.address}.`
     );
 
     // TODO: replace fetcher which returns defira-sdk Pair instead of this uniswap-sdk Pair
-    const pair: UniswapPair = await UniswapFetcher.fetchPairData(
+    const pair: DefiraPair = await DefiraFetcher.fetchPairData(
       quoteToken,
       baseToken,
-      this.harmony.provider
+      this._factory,
+      "INIT_HASH_PLACEHOLDER"
     );
-    const trades: UniswapTrade[] = UniswapTrade.bestTradeExactIn(
+    const trades: DefiraTrade[] = DefiraTrade.bestTradeExactIn(
       [pair],
       nativeTokenAmount,
       quoteToken,
@@ -244,24 +222,21 @@ export class Defira implements Uniswapish {
    * @param amount Amount of `baseToken` desired from the transaction
    */
   async estimateBuyTrade(
-    quoteToken: UniswapToken,
-    baseToken: UniswapToken,
+    quoteToken: DefiraToken,
+    baseToken: DefiraToken,
     amount: BigNumber,
     allowedSlippage?: string
   ): Promise<ExpectedTrade> {
-    const nativeTokenAmount: UniswapTokenAmount = new UniswapTokenAmount(
-      baseToken,
-      amount.toString()
-    );
+    const nativeTokenAmount = DefiraTokenAmount.fromRawAmount(baseToken, amount.toString())
     logger.info(
       `Fetching pair data for ${quoteToken.address}-${baseToken.address}.`
     );
-    const pair: UniswapPair = await UniswapFetcher.fetchPairData(
+    const pair: DefiraPair = await DefiraFetcher.fetchPairData(
       quoteToken,
       baseToken,
       this.harmony.provider
     );
-    const trades: UniswapTrade[] = UniswapTrade.bestTradeExactOut(
+    const trades: DefiraTrade[] = DefiraTrade.bestTradeExactOut(
       [pair],
       quoteToken,
       nativeTokenAmount,
@@ -300,7 +275,7 @@ export class Defira implements Uniswapish {
    */
   async executeTrade(
     wallet: Wallet,
-    trade: UniswapTrade,
+    trade: DefiraTrade,
     gasPrice: number,
     defiraRouter: string,
     ttl: number,
@@ -311,7 +286,7 @@ export class Defira implements Uniswapish {
     maxPriorityFeePerGas?: BigNumber,
     allowedSlippage?: string
   ): Promise<Transaction> {
-    const result: SwapParameters = UniswapRouter.swapCallParameters(trade, {
+    const result: SwapParameters = DefiraRouter.swapCallParameters(trade, {
       ttl,
       recipient: wallet.address,
       allowedSlippage: this.getAllowedSlippage(allowedSlippage),
