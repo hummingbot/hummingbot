@@ -29,6 +29,7 @@ export class OverrideConfigs {
         path.join(os.tmpdir(), '/transaction.test.level')
       );
     }
+    this.#initialized = true;
   }
 
   updateConfigs(): void {
