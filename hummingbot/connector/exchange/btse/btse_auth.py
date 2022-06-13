@@ -46,6 +46,9 @@ class BtseAuth(AuthBase):
         """
         return request  # pass-through
 
+    def header_for_authentication(self) -> Dict[str, str]:
+        return {"X-MBX-APIKEY": self.api_key}
+
     def get_auth_headers(
         self,
         path_url: str,
