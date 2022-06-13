@@ -164,7 +164,9 @@ jobs:
 
       - name: Run unit test
         run: |
-          cd gateway
+          ls -la
+          cd ../gateway
+          ls -la
           yarn test:unit 
 
       - name: Run unit test coverage
