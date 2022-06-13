@@ -15,6 +15,8 @@ connector_status = {
     'blocktane': 'yellow',
     'bybit_perpetual': 'yellow',
     'bybit_perpetual_testnet': 'yellow',
+    'bybit_testnet': 'yellow',
+    'bybit': 'yellow',
     'celo': 'yellow',
     'coinbase_pro': 'yellow',
     'coinflex': 'yellow',
@@ -43,7 +45,7 @@ connector_status = {
     'perpetual_finance': 'yellow',
     'probit': 'yellow',
     'probit_kr': 'yellow',
-    'terra': 'yellow',
+    'terra': 'red',
     'uniswap': 'yellow',
     'uniswap_v3': 'yellow',
     'wazirx': 'yellow'
