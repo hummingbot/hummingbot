@@ -1,6 +1,7 @@
 from decimal import Decimal
 from typing import Optional
 
+from hummingbot.client.config.client_config_map import using_exchange
 from hummingbot.client.config.config_validators import (
     validate_bool,
     validate_decimal,
@@ -9,7 +10,6 @@ from hummingbot.client.config.config_validators import (
     validate_market_trading_pair,
 )
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.global_config_map import using_exchange
 from hummingbot.client.settings import AllConnectorSettings, required_exchanges
 
 

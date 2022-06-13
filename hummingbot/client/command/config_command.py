@@ -1,11 +1,10 @@
 import asyncio
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 from prompt_toolkit.utils import is_windows
 
-import hummingbot.client.config.global_config_map as global_config
 from hummingbot.client.config.config_data_types import BaseTradingStrategyConfigMap
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
@@ -16,7 +15,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import GLOBAL_CONFIG_PATH, STRATEGIES_CONF_DIR_PATH
+from hummingbot.client.settings import CLIENT_CONFIG_PATH, STRATEGIES_CONF_DIR_PATH
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.client.ui.style import load_style
 from hummingbot.connector.utils import split_hb_trading_pair
@@ -43,16 +42,17 @@ no_restart_pmm_keys = ["order_amount",
                        "price_floor_pct",
                        "price_band_refresh_time"
                        ]
-global_configs_to_display = ["autofill_import",
-                             "kill_switch_enabled",
+client_configs_to_display = ["autofill_import",
+                             "kill_switch_mode",
                              "kill_switch_rate",
-                             "telegram_enabled",
+                             "telegram_mode",
                              "telegram_token",
                              "telegram_chat_id",
                              "send_error_logs",
-                             global_config.PMM_SCRIPT_ENABLED_KEY,
-                             global_config.PMM_SCRIPT_FILE_PATH_KEY,
+                             "pmm_script_mode",
+                             "pmm_script_file_path",
                              "ethereum_chain_name",
+                             "gateway",
                              "gateway_enabled",
                              "gateway_cert_passphrase",
                              "gateway_api_host",
@@ -61,15 +61,16 @@ global_configs_to_display = ["autofill_import",
                              "global_token",
                              "global_token_symbol",
                              "rate_limits_share_pct",
+                             "commands_timeout",
                              "create_command_timeout",
                              "other_commands_timeout",
                              "tables_format"]
-color_settings_to_display = ["top-pane",
-                             "bottom-pane",
-                             "output-pane",
-                             "input-pane",
-                             "logs-pane",
-                             "terminal-primary"]
+color_settings_to_display = ["top_pane",
+                             "bottom_pane",
+                             "output_pane",
+                             "input_pane",
+                             "logs_pane",
+                             "terminal_primary"]
 columns = ["Key", "Value"]
 
 
@@ -89,24 +90,28 @@ class ConfigCommand:
 
     def list_configs(self,  # type: HummingbotApplication
                      ):
-        self.list_global_configs()
+        self.list_client_configs()
         self.list_strategy_configs()
 
-    def list_global_configs(
+    def list_client_configs(
         self  # type: HummingbotApplication
     ):
-        data = [[cv.key, cv.value] for cv in global_config.global_config_map.values()
-                if cv.key in global_configs_to_display and not cv.is_secure]
+        data = self.build_model_df_data(self.client_config_map, to_print=client_configs_to_display)
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
         self.notify("\nGlobal Configurations:")
-        lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
+        lines = ["    " + line for line in format_df_for_printout(
+            df,
+            table_format=self.client_config_map.tables_format,
+            max_col_width=50).split("\n")]
         self.notify("\n".join(lines))
 
-        data = [[cv.key, cv.value] for cv in global_config.global_config_map.values()
-                if cv.key in color_settings_to_display and not cv.is_secure]
+        data = self.build_model_df_data(self.client_config_map, to_print=color_settings_to_display)
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
         self.notify("\nColor Settings:")
-        lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
+        lines = ["    " + line for line in format_df_for_printout(
+            df,
+            table_format=self.client_config_map.tables_format,
+            max_col_width=50).split("\n")]
         self.notify("\n".join(lines))
 
     def list_strategy_configs(
@@ -117,7 +122,10 @@ class ConfigCommand:
             data = self.build_df_data_from_config_map(config_map)
             df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
             self.notify("\nStrategy Configurations:")
-            lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
+            lines = ["    " + line for line in format_df_for_printout(
+                df,
+                table_format=self.client_config_map.tables_format,
+                max_col_width=50).split("\n")]
             self.notify("\n".join(lines))
 
     def build_df_data_from_config_map(
@@ -131,9 +139,13 @@ class ConfigCommand:
         return data
 
     @staticmethod
-    def build_model_df_data(config_map: ClientConfigAdapter) -> List[Tuple[str, Any]]:
+    def build_model_df_data(
+        config_map: ClientConfigAdapter, to_print: Optional[List[str]] = None
+    ) -> List[Tuple[str, Any]]:
         model_data = []
         for traversal_item in config_map.traverse():
+            if to_print is not None and traversal_item.attr not in to_print:
+                continue
             attr_printout = (
                 "  " * (traversal_item.depth - 1)
                 + (u"\u221F " if not is_windows() else "  ")
@@ -148,7 +160,14 @@ class ConfigCommand:
         Returns a list of configurable keys - using config command, excluding exchanges api keys
         as they are set from connect command.
         """
-        keys = [c.key for c in global_config.global_config_map.values() if c.prompt is not None and not c.is_connect_key]
+        keys = [
+            traversal_item.config_path
+            for traversal_item in self.client_config_map.traverse()
+            if (
+                traversal_item.client_field_data is not None
+                and traversal_item.client_field_data.prompt is not None
+            )
+        ]
         if self.strategy_config_map is not None:
             if isinstance(self.strategy_config_map, ClientConfigAdapter):
                 keys.extend([
@@ -196,16 +215,21 @@ class ConfigCommand:
 
         try:
             if (
-                key in global_config.global_config_map
-                or (
-                    not isinstance(self.strategy_config_map, (type(None), ClientConfigAdapter))
-                    and key in self.strategy_config_map
-                )
+                not isinstance(self.strategy_config_map, (type(None), ClientConfigAdapter))
+                and key in self.strategy_config_map
             ):
                 await self._config_single_key_legacy(key, input_value)
             else:
-                config_map = self.strategy_config_map
-                file_path = STRATEGIES_CONF_DIR_PATH / self.strategy_file_name
+                client_config_key = key in self.client_config_map.config_paths()
+                if client_config_key:
+                    config_map = self.client_config_map
+                    file_path = CLIENT_CONFIG_PATH
+                elif self.strategy is not None:
+                    self.notify("Configuring the strategy while it is running is not currently supported.")
+                    return
+                else:
+                    config_map = self.strategy_config_map
+                    file_path = STRATEGIES_CONF_DIR_PATH / self.strategy_file_name
                 if input_value is None:
                     self.notify("Please follow the prompt to complete configurations: ")
                 if key == "inventory_target_base_pct":
@@ -219,8 +243,11 @@ class ConfigCommand:
                     return
                 save_to_yml(file_path, config_map)
                 self.notify("\nNew configuration saved.")
-                self.list_strategy_configs()
-                self.app.app.style = load_style()
+                if client_config_key:
+                    self.list_client_configs()
+                else:
+                    self.list_strategy_configs()
+                self.app.app.style = load_style(self.client_config_map)
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
@@ -236,10 +263,7 @@ class ConfigCommand:
         input_value: Any,
     ):  # pragma: no cover
         config_var, config_map, file_path = None, None, None
-        if key in global_config.global_config_map:
-            config_map = global_config.global_config_map
-            file_path = GLOBAL_CONFIG_PATH
-        elif self.strategy_config_map is not None and key in self.strategy_config_map:
+        if self.strategy_config_map is not None and key in self.strategy_config_map:
             config_map = self.strategy_config_map
             file_path = STRATEGIES_CONF_DIR_PATH / self.strategy_file_name
         config_var = config_map[key]
@@ -261,7 +285,7 @@ class ConfigCommand:
         save_to_yml_legacy(str(file_path), config_map)
         self.notify("\nNew configuration saved:")
         self.notify(f"{key}: {str(config_var.value)}")
-        self.app.app.style = load_style()
+        self.app.app.style = load_style(self.client_config_map)
         for config in missings:
             self.notify(f"{config.key}: {str(config.value)}")
         if (
@@ -385,7 +409,7 @@ class ConfigCommand:
             base_asset, quote_asset = market.split("-")
 
             if exchange.endswith("paper_trade"):
-                balances = global_config.global_config_map["paper_trade_account_balance"].value
+                balances = self.client_config_map.paper_trade.paper_trade_account_balance
             else:
                 balances = await UserBalances.instance().balances(
                     exchange, base_asset, quote_asset

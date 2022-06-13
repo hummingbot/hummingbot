@@ -1,31 +1,33 @@
-from bin import path_util       # noqa: F401
-
-from aiounittest import async_test
-from aiohttp import ClientSession
 import asyncio
-from async_timeout import timeout
+import time
+import unittest
 from contextlib import ExitStack, asynccontextmanager
 from decimal import Decimal
 from os.path import join, realpath
-import time
+from test.mock.http_recorder import HttpPlayer
 from typing import Generator, Optional, Set
-import unittest
 from unittest.mock import patch
 
+from aiohttp import ClientSession
+from aiounittest import async_test
+from async_timeout import timeout
+
+from bin import path_util  # noqa: F401
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
-    TradeType,
     MarketEvent,
     OrderCancelledEvent,
-    TokenApprovalEvent,
     TokenApprovalCancelledEvent,
+    TokenApprovalEvent,
+    TradeType,
 )
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from test.mock.http_recorder import HttpPlayer
 
 WALLET_ADDRESS = "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92"
 NETWORK = "ropsten"
@@ -49,11 +51,13 @@ class GatewayCancelUnitTest(unittest.TestCase):
         cls._db_path = realpath(join(__file__, "../fixtures/gateway_cancel_fixture.db"))
         cls._http_player = HttpPlayer(cls._db_path)
         cls._clock: Clock = Clock(ClockMode.REALTIME)
+        cls._client_config_map = ClientConfigAdapter(ClientConfigMap())
         cls._connector: GatewayEVMAMM = GatewayEVMAMM(
-            "uniswap",
-            "ethereum",
-            NETWORK,
-            WALLET_ADDRESS,
+            client_config_map=cls._client_config_map,
+            connector_name="uniswap",
+            chain="ethereum",
+            network=NETWORK,
+            wallet_address=WALLET_ADDRESS,
             trading_pairs=[TRADING_PAIR],
             trading_required=True
         )

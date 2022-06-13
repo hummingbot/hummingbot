@@ -1,13 +1,16 @@
 import asyncio
 import unittest
-from copy import deepcopy
 from decimal import Decimal
 from test.mock.mock_cli import CLIMockingAssistant
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.client.config.config_helpers import get_strategy_config_map, read_system_configs_from_yml
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    get_strategy_config_map,
+    read_system_configs_from_yml,
+)
 from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
@@ -18,20 +21,15 @@ class CreateCommandTest(unittest.TestCase):
         self.ev_loop = asyncio.get_event_loop()
 
         self.async_run_with_timeout(read_system_configs_from_yml())
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.app = HummingbotApplication()
+        self.app = HummingbotApplication(client_config_map=self.client_config_map)
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
-        self.global_config_backup = deepcopy(global_config_map)
 
     def tearDown(self) -> None:
         self.cli_mock_assistant.stop()
-        self.reset_global_config()
         super().tearDown()
-
-    def reset_global_config(self):
-        for key, value in self.global_config_backup.items():
-            global_config_map[key] = value
 
     @staticmethod
     def get_async_sleep_fn(delay: float):
@@ -80,8 +78,8 @@ class CreateCommandTest(unittest.TestCase):
         config_maps = []
         save_to_yml_mock.side_effect = lambda _, cm: config_maps.append(cm)
 
-        global_config_map["create_command_timeout"].value = 10
-        global_config_map["other_commands_timeout"].value = 30
+        self.client_config_map.commands_timeout.create_command_timeout = 10
+        self.client_config_map.commands_timeout.other_commands_timeout = 30
         strategy_name = "some-strategy"
         strategy_file_name = f"{strategy_name}.yml"
         base_strategy = "pure_market_making"
@@ -119,8 +117,8 @@ class CreateCommandTest(unittest.TestCase):
         config_maps = []
         save_to_yml_mock.side_effect = lambda _, cm: config_maps.append(cm)
 
-        global_config_map["create_command_timeout"].value = 0.005
-        global_config_map["other_commands_timeout"].value = 0.01
+        self.client_config_map.commands_timeout.create_command_timeout = 0.005
+        self.client_config_map.commands_timeout.other_commands_timeout = 0.01
         strategy_name = "some-strategy"
         strategy_file_name = f"{strategy_name}.yml"
         base_strategy = "pure_market_making"
@@ -189,8 +187,8 @@ class CreateCommandTest(unittest.TestCase):
         get_last_price_mock.return_value = None
         validate_required_connections_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
         is_decryption_done_mock.return_value = True
-        global_config_map["create_command_timeout"].value = 0.005
-        global_config_map["other_commands_timeout"].value = 0.01
+        self.client_config_map.commands_timeout.create_command_timeout = 0.005
+        self.client_config_map.commands_timeout.other_commands_timeout = 0.01
         strategy_file_name = "some-strategy.yml"
         self.cli_mock_assistant.queue_prompt_reply("pure_market_making")  # strategy
         self.cli_mock_assistant.queue_prompt_reply("binance")  # spot connector

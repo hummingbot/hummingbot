@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Dict, List, Optional, Iterator
+from typing import Dict, List, Optional, Iterator, TYPE_CHECKING
 
 from hummingbot.connector.budget_checker import BudgetChecker
 from hummingbot.connector.connector_base import ConnectorBase
@@ -9,6 +9,9 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult, ClientOrderBookQueryResult
 from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
@@ -21,8 +24,8 @@ cdef class ExchangeBase(ConnectorBase):
     interface.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, client_config_map: "ClientConfigAdapter"):
+        super().__init__(client_config_map)
         self._order_book_tracker = None
         self._budget_checker = BudgetChecker(exchange=self)
 

@@ -60,6 +60,10 @@ cdef class TradingIntensityIndicator:
     def sampling_length(self) -> int:
         return self._sampling_length
 
+    @sampling_length.setter
+    def sampling_length(self, new_len: int):
+        self._sampling_length = new_len
+
     @property
     def last_quotes(self) -> list:
         """A helper method to be used in unit tests"""
@@ -118,9 +122,6 @@ cdef class TradingIntensityIndicator:
 
     cdef c_register_trade(self, object trade):
         self._current_trade_sample.append(trade)
-
-    def _estimate_intensity(self):
-        self.c_estimate_intensity()
 
     cdef c_estimate_intensity(self):
         cdef:

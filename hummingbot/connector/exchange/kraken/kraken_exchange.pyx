@@ -9,13 +9,12 @@ from typing import (
     AsyncIterable,
     Dict,
     List,
-    Optional,
+    Optional, TYPE_CHECKING,
 )
 
 from async_timeout import timeout
 from libc.stdint cimport int32_t, int64_t
 
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
@@ -66,6 +65,9 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("NaN")
@@ -107,6 +109,7 @@ cdef class KrakenExchange(ExchangeBase):
         return s_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  kraken_api_key: str,
                  kraken_secret_key: str,
                  poll_interval: float = 30.0,
@@ -114,7 +117,7 @@ cdef class KrakenExchange(ExchangeBase):
                  trading_required: bool = True,
                  kraken_api_tier: str = "starter"):
 
-        super().__init__()
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         self._api_factory = build_api_factory()
         self._rest_assistant = None
@@ -1128,8 +1131,7 @@ cdef class KrakenExchange(ExchangeBase):
         return self.c_get_order_book(trading_pair)
 
     def _build_async_throttler(self, api_tier: KrakenAPITier) -> AsyncThrottler:
-        limits_pct_conf: Optional[Decimal] = global_config_map["rate_limits_share_pct"].value
-        limits_pct = Decimal("100") if limits_pct_conf is None else limits_pct_conf
+        limits_pct = self._client_config.rate_limits_share_pct
         if limits_pct < Decimal("100"):
             self.logger().warning(
                 f"The Kraken API does not allow enough bandwidth for a reduced rate-limit share percentage."

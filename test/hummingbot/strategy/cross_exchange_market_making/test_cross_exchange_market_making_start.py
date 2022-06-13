@@ -2,8 +2,8 @@ import unittest.mock
 from decimal import Decimal
 
 import hummingbot.strategy.cross_exchange_market_making.start as strategy_start
+from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map_pydantic import (
     CrossExchangeMarketMakingConfigMap,
@@ -16,7 +16,11 @@ class XEMMStartTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.strategy = None
-        self.markets = {"binance": ExchangeBase(), "kucoin": ExchangeBase()}
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.client_config_map.strategy_report_interval = 60.
+        self.markets = {
+            "binance": ExchangeBase(client_config_map=self.client_config_map),
+            "kucoin": ExchangeBase(client_config_map=self.client_config_map)}
         self.notifications = []
         self.log_errors = []
 
@@ -34,8 +38,6 @@ class XEMMStartTest(unittest.TestCase):
         config_map_raw.conversion_rate_mode.taker_to_maker_quote_conversion_rate = Decimal("1.0")
 
         self.strategy_config_map = ClientConfigAdapter(config_map_raw)
-
-        global_config_map.get("strategy_report_interval").value = 60.
 
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]

@@ -19,10 +19,10 @@ from eth_keyfile.keyfile import (
 )
 from pydantic import SecretStr
 
-from hummingbot import root_path
+from hummingbot.client.settings import CONF_DIR_PATH
 
 PASSWORD_VERIFICATION_WORD = "HummingBot"
-PASSWORD_VERIFICATION_PATH = root_path() / ".password_verification"
+PASSWORD_VERIFICATION_PATH = CONF_DIR_PATH / ".password_verification"
 
 
 class BaseSecretsManager(ABC):

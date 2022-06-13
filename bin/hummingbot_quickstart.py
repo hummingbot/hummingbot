@@ -20,14 +20,15 @@ from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
 from hummingbot.client.config.config_helpers import (
     all_configs_complete,
     create_yml_files_legacy,
+    load_client_config_map_from_file,
     load_strategy_config_map_from_file,
     read_system_configs_from_yml,
 )
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.settings import STRATEGIES_CONF_DIR_PATH, AllConnectorSettings
 from hummingbot.client.ui import login_prompt
+from hummingbot.client.ui.style import load_style
 from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.gateway import start_existing_gateway_container
 from hummingbot.core.management.console import start_management_console
@@ -74,6 +75,7 @@ def autofix_permissions(user_group_spec: str):
 
 async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsManager):
     config_file_name = args.config_file_name
+    client_config = load_client_config_map_from_file()
 
     if args.auto_set_permissions is not None:
         autofix_permissions(args.auto_set_permissions)
@@ -84,10 +86,10 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     await Security.wait_til_decryption_done()
     await create_yml_files_legacy()
-    init_logging("hummingbot_logs.yml")
+    init_logging("hummingbot_logs.yml", client_config)
     await read_system_configs_from_yml()
 
-    AllConnectorSettings.initialize_paper_trade_settings(global_config_map.get("paper_trade_exchanges").value)
+    AllConnectorSettings.initialize_paper_trade_settings(client_config.paper_trade.paper_trade_exchanges)
 
     hb = HummingbotApplication.main_application()
     # Todo: validate strategy and config_file_name before assinging
@@ -105,12 +107,8 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
         )
         hb.strategy_config_map = strategy_config
 
-    # To ensure quickstart runs with the default value of False for kill_switch_enabled if not present
-    if not global_config_map.get("kill_switch_enabled"):
-        global_config_map.get("kill_switch_enabled").value = False
-
     if strategy_config is not None:
-        if not all_configs_complete(strategy_config):
+        if not all_configs_complete(strategy_config, hb.client_config_map):
             hb.status()
 
     # The listener needs to have a named variable for keeping reference, since the event listener system
@@ -118,8 +116,8 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     start_listener: UIStartListener = UIStartListener(hb)
     hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
-    tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container()]
-    if global_config_map.get("debug_console").value:
+    tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container(client_config)]
+    if client_config.debug_console:
         management_port: int = detect_available_port(8211)
         tasks.append(start_management_console(locals(), host="localhost", port=management_port))
 
@@ -139,8 +137,9 @@ def main():
 
     # If no password is given from the command line, prompt for one.
     secrets_manager_cls = ETHKeyFileSecretManger
+    client_config_map = load_client_config_map_from_file()
     if args.config_password is None:
-        secrets_manager = login_prompt(secrets_manager_cls)
+        secrets_manager = login_prompt(secrets_manager_cls, style=load_style(client_config_map))
         if not secrets_manager:
             return
     else:

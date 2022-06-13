@@ -867,14 +867,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 )
                 price_above_bid = (ceil(top_bid_price / price_quantum) + 1) * price_quantum
 
-            try:
-                taker_price = taker_market.c_get_vwap_for_volume(taker_trading_pair, False, size).result_price
-            except ZeroDivisionError:
-                return s_decimal_nan
-
-            # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
-            if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
-                taker_price *= self.market_conversion_rate()
+            taker_price = self.c_calculate_effective_hedging_price(market_pair, is_bid, size)
 
             # you are buying on the maker market and selling on the taker market
             maker_price = taker_price / (1 + self.min_profitability)
@@ -903,13 +896,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 )
                 next_price_below_top_ask = (floor(top_ask_price / price_quantum) - 1) * price_quantum
 
-            try:
-                taker_price = taker_market.c_get_vwap_for_volume(taker_trading_pair, True, size).result_price
-            except ZeroDivisionError:
-                return s_decimal_nan
-
-            if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
-                taker_price *= self.market_conversion_rate()
+            taker_price = self.c_calculate_effective_hedging_price(market_pair, is_bid, size)
 
             # You are selling on the maker market and buying on the taker market
             maker_price = taker_price * (1 + self.min_profitability)

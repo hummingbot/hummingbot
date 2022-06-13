@@ -5,7 +5,7 @@ import time
 import warnings
 from collections import defaultdict
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 from dateutil.parser import parse as dateparse
 from dydx3.errors import DydxApiError
@@ -14,11 +14,13 @@ from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import D
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper import DydxPerpetualClientWrapper
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_in_flight_order import DydxPerpetualInFlightOrder
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tracker import \
-    DydxPerpetualOrderBookTracker
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tracker import (
+    DydxPerpetualOrderBookTracker,
+)
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import \
-    DydxPerpetualUserStreamTracker
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import (
+    DydxPerpetualUserStreamTracker,
+)
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_utils import build_api_factory
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.exchange_base import ExchangeBase
@@ -26,13 +28,7 @@ from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import (
-    OrderType,
-    PositionAction,
-    PositionMode,
-    PositionSide,
-    TradeType
-)
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -57,6 +53,9 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -132,6 +131,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     def __init__(
         self,
+        client_config_map: "ClientConfigAdapter",
         dydx_perpetual_api_key: str,
         dydx_perpetual_api_secret: str,
         dydx_perpetual_passphrase: str,
@@ -142,7 +142,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         trading_required: bool = True,
     ):
 
-        ExchangeBase.__init__(self)
+        ExchangeBase.__init__(self, client_config_map=client_config_map)
         PerpetualTrading.__init__(self)
         self._real_time_balance_update = True
         self._api_factory = build_api_factory()

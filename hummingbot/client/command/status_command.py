@@ -12,7 +12,6 @@ from hummingbot.client.config.config_helpers import (
     get_strategy_config_map,
     missing_required_configs_legacy,
 )
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import ethereum_wallet_required, required_exchanges
 from hummingbot.connector.connector_base import ConnectorBase
@@ -91,14 +90,16 @@ class StatusCommand:
             self.notify(app_warning)
             return app_warning
 
-    async def validate_required_connections(self) -> Dict[str, str]:
+    async def validate_required_connections(
+        self  # type: HummingbotApplication
+    ) -> Dict[str, str]:
         invalid_conns = {}
         if self.strategy_name == "celo_arb":
             err_msg = await self.validate_n_connect_celo(True)
             if err_msg is not None:
                 invalid_conns["celo"] = err_msg
         if not any([str(exchange).endswith("paper_trade") for exchange in required_exchanges]):
-            connections = await UserBalances.instance().update_exchanges(exchanges=required_exchanges)
+            connections = await UserBalances.instance().update_exchanges(self.client_config_map, exchanges=required_exchanges)
             invalid_conns.update({ex: err_msg for ex, err_msg in connections.items()
                                   if ex in required_exchanges and err_msg is not None})
             if ethereum_wallet_required():
@@ -110,14 +111,13 @@ class StatusCommand:
     def missing_configurations_legacy(
         self,  # type: HummingbotApplication
     ) -> List[str]:
-        missing_globals = missing_required_configs_legacy(global_config_map)
         config_map = self.strategy_config_map
         missing_configs = []
         if not isinstance(config_map, ClientConfigAdapter):
             missing_configs = missing_required_configs_legacy(
                 get_strategy_config_map(self.strategy_name)
             )
-        return missing_globals + missing_configs
+        return missing_configs
 
     def validate_configs(
         self,  # type: HummingbotApplication
@@ -174,7 +174,7 @@ class StatusCommand:
                 self.notify(f"    {error}")
             return False
 
-        network_timeout = float(global_config_map["other_commands_timeout"].value)
+        network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         try:
             invalid_conns = await asyncio.wait_for(self.validate_required_connections(), network_timeout)
         except asyncio.TimeoutError:

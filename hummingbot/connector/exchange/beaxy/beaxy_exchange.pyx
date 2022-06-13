@@ -4,7 +4,7 @@ import logging
 from async_timeout import timeout
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import Any, AsyncIterable, Dict, List, Optional, TYPE_CHECKING
 
 import aiohttp
 from aiohttp.client_exceptions import ContentTypeError
@@ -42,6 +42,9 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 s_logger = None
 s_decimal_0 = Decimal('0.0')
@@ -83,13 +86,14 @@ cdef class BeaxyExchange(ExchangeBase):
 
     def __init__(
         self,
+        client_config_map: "ClientConfigAdapter",
         beaxy_api_key: str,
         beaxy_secret_key: str,
         poll_interval: float = 5.0,  # interval which the class periodically pulls status from the rest API
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True
     ):
-        super().__init__()
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         self._beaxy_auth = BeaxyAuth(beaxy_api_key, beaxy_secret_key)
         self._order_book_tracker = BeaxyOrderBookTracker(trading_pairs=trading_pairs)

@@ -10,6 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS, kucoin_web_utils as web_utils
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
@@ -53,9 +55,14 @@ class TestKucoinExchange(unittest.TestCase):
 
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = KucoinExchange(
-            self.api_key, self.api_passphrase, self.api_secret_key, trading_pairs=[self.trading_pair]
+            client_config_map=self.client_config_map,
+            kucoin_api_key=self.api_key,
+            kucoin_passphrase=self.api_passphrase,
+            kucoin_secret_key=self.api_secret_key,
+            trading_pairs=[self.trading_pair]
         )
 
         self.exchange.logger().setLevel(1)

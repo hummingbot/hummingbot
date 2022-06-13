@@ -9,7 +9,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from os import listdir, scandir, unlink
 from os.path import isfile, join
-from pathlib import Path
+from pathlib import Path, PosixPath
 from typing import Any, Callable, Dict, Generator, List, Optional, Type, Union
 
 import ruamel.yaml
@@ -20,16 +20,16 @@ from pydantic.main import ModelMetaclass, validate_model
 from yaml import SafeDumper
 
 from hummingbot import get_strategy_list, root_path
+from hummingbot.client.config.client_config_map import ClientConfigMap, CommandShortcutModel
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map, init_fee_overrides_config
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import (
+    CLIENT_CONFIG_PATH,
     CONF_DIR_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
     CONNECTORS_CONF_DIR_PATH,
-    GLOBAL_CONFIG_PATH,
     STRATEGIES_CONF_DIR_PATH,
     TEMPLATE_PATH,
     TRADE_FEES_CONFIG_PATH,
@@ -61,6 +61,14 @@ def datetime_representer(dumper: SafeDumper, data: datetime):
     return dumper.represent_datetime(data)
 
 
+def path_representer(dumper: SafeDumper, data: Path):
+    return dumper.represent_str(str(data))
+
+
+def command_shortcut_representer(dumper: SafeDumper, data: CommandShortcutModel):
+    return dumper.represent_dict(data.__dict__)
+
+
 yaml.add_representer(
     data_type=Decimal, representer=decimal_representer, Dumper=SafeDumper
 )
@@ -75,6 +83,15 @@ yaml.add_representer(
 )
 yaml.add_representer(
     data_type=datetime, representer=datetime_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=Path, representer=path_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=PosixPath, representer=path_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=CommandShortcutModel, representer=command_shortcut_representer, Dumper=SafeDumper
 )
 
 
@@ -137,6 +154,9 @@ class ClientConfigAdapter:
     def keys(self) -> Generator[str, None, None]:
         return self._hb_config.__fields__.keys()
 
+    def config_paths(self) -> Generator[str, None, None]:
+        return (traversal_item.config_path for traversal_item in self.traverse())
+
     def traverse(self, secure: bool = True) -> Generator[ConfigTraversalItem, None, None]:
         """The intended use for this function is to simplify config map traversals in the client code.
 
@@ -149,7 +169,7 @@ class ClientConfigAdapter:
             type_ = field.type_
             if hasattr(self, attr):
                 value = getattr(self, attr)
-                printable_value = self._get_printable_value(value, secure)
+                printable_value = self._get_printable_value(attr, value, secure)
                 client_field_data = field_info.extra.get("client_data")
             else:
                 value = None
@@ -187,13 +207,15 @@ class ClientConfigAdapter:
     def get_description(self, attr_name: str) -> str:
         return self._hb_config.__fields__[attr_name].field_info.description
 
+    def get_default(self, attr_name: str) -> Any:
+        return self._hb_config.__fields__[attr_name].field_info.default
+
+    def get_type(self, attr_name: str) -> Type:
+        return self._hb_config.__fields__[attr_name].type_
+
     def generate_yml_output_str_with_comments(self) -> str:
-        conf_dict = self._dict_in_conf_order()
-        self._encrypt_secrets(conf_dict)
-        original_fragments = yaml.safe_dump(conf_dict, sort_keys=False).split("\n")
         fragments_with_comments = [self._generate_title()]
-        self._add_model_fragments(fragments_with_comments, original_fragments)
-        fragments_with_comments.append("\n")  # EOF empty line
+        self._add_model_fragments(fragments_with_comments)
         yml_str = "".join(fragments_with_comments)
         return yml_str
 
@@ -223,15 +245,22 @@ class ClientConfigAdapter:
         yield
         self._hb_config.Config.validate_assignment = True
 
-    @staticmethod
-    def _get_printable_value(value: Any, secure: bool) -> str:
+    def _get_printable_value(self, attr: str, value: Any, secure: bool) -> str:
         if isinstance(value, ClientConfigAdapter):
-            printable_value = value.hb_config.Config.title
+            if self._is_union(self.get_type(attr)):  # it is a union of modes
+                printable_value = value.hb_config.Config.title
+            else:  # it is a collection of settings stored in a submodule
+                printable_value = ""
         elif isinstance(value, SecretStr) and not secure:
             printable_value = value.get_secret_value()
         else:
             printable_value = str(value)
         return printable_value
+
+    @staticmethod
+    def _is_union(t: Type) -> bool:
+        is_union = hasattr(t, "__origin__") and t.__origin__ == Union
+        return is_union
 
     def _dict_in_conf_order(self) -> Dict[str, Any]:
         d = {}
@@ -273,20 +302,42 @@ class ClientConfigAdapter:
     def _add_model_fragments(
         self,
         fragments_with_comments: List[str],
-        original_fragments: List[str],
     ):
-        for i, traversal_item in enumerate(self.traverse()):
+
+        fragments_with_comments.append("\n")
+        first_level_conf_items_generator = (item for item in self.traverse() if item.depth == 0)
+
+        for traversal_item in first_level_conf_items_generator:
+            fragments_with_comments.append("\n")
+
             attr_comment = traversal_item.field_info.description
             if attr_comment is not None:
-                comment_prefix = f"\n{' ' * 2 * traversal_item.depth}# "
-                attr_comment = "".join(f"{comment_prefix}{c}" for c in attr_comment.split("\n"))
-                if traversal_item.depth == 0:
-                    attr_comment = f"\n{attr_comment}"
-                fragments_with_comments.extend([attr_comment, f"\n{original_fragments[i]}"])
-            elif traversal_item.depth == 0:
-                fragments_with_comments.append(f"\n\n{original_fragments[i]}")
-            else:
-                fragments_with_comments.append(f"\n{original_fragments[i]}")
+                comment_prefix = f"{' ' * 2 * traversal_item.depth}# "
+                attr_comment = "\n".join(f"{comment_prefix}{c}" for c in attr_comment.split("\n"))
+                fragments_with_comments.append(attr_comment)
+                fragments_with_comments.append("\n")
+
+            attribute = traversal_item.attr
+            value = getattr(self, attribute)
+            if isinstance(value, ClientConfigAdapter):
+                value = value._dict_in_conf_order()
+            conf_as_dictionary = {attribute: value}
+            self._encrypt_secrets(conf_as_dictionary)
+
+            yaml_config = yaml.safe_dump(conf_as_dictionary, sort_keys=False)
+            fragments_with_comments.append(yaml_config)
+
+
+class ReadOnlyClientConfigAdapter(ClientConfigAdapter):
+    def __setattr__(self, key, value):
+        if key == "_hb_config":
+            super().__setattr__(key, value)
+        else:
+            raise AttributeError("Cannot set an attribute on a read-only client adapter")
+
+    @classmethod
+    def lock_config(cls, config_map: ClientConfigMap):
+        return cls(config_map._hb_config)
 
 
 def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
@@ -522,6 +573,23 @@ def load_connector_config_map_from_file(yml_path: Path) -> ClientConfigAdapter:
     return config_map
 
 
+def load_client_config_map_from_file() -> ClientConfigAdapter:
+    yml_path = CLIENT_CONFIG_PATH
+    if yml_path.exists():
+        config_data = read_yml_file(yml_path)
+    else:
+        config_data = {}
+    client_config = ClientConfigMap()
+    config_map = ClientConfigAdapter(client_config)
+    config_validation_errors = _load_yml_data_into_map(config_data, config_map)
+
+    if len(config_validation_errors) > 0:
+        all_errors = "\n".join(config_validation_errors)
+        raise ConfigValidationError(f"There are errors in the client global configuration (\n{all_errors})")
+
+    return config_map
+
+
 def get_connector_hb_config(connector_name: str) -> BaseClientModel:
     if connector_name == "celo":
         hb_config = celo_data_types.KEYS
@@ -567,14 +635,13 @@ def list_connector_configs() -> List[Path]:
     return connector_configs
 
 
-def _load_yml_data_into_map(yml_data: Dict[str, Any], cm: ClientConfigAdapter):
+def _load_yml_data_into_map(yml_data: Dict[str, Any], cm: ClientConfigAdapter) -> List[str]:
     for key in cm.keys():
         if key in yml_data:
             cm.setattr_no_validation(key, yml_data[key])
-    try:
-        cm.validate_model()  # try coercing values to appropriate type
-    except Exception:
-        pass  # but don't raise if it fails
+
+    config_validation_errors = cm.validate_model()  # try coercing values to appropriate type
+    return config_validation_errors
 
 
 async def load_yml_into_dict(yml_path: str) -> Dict[str, Any]:
@@ -658,9 +725,6 @@ async def read_system_configs_from_yml():
     If a yml file is outdated, it gets reformatted with the new template
     """
     await load_yml_into_cm_legacy(
-        GLOBAL_CONFIG_PATH, str(TEMPLATE_PATH / "conf_global_TEMPLATE.yml"), global_config_map
-    )
-    await load_yml_into_cm_legacy(
         str(TRADE_FEES_CONFIG_PATH), str(TEMPLATE_PATH / "conf_fee_overrides_TEMPLATE.yml"), fee_overrides_config_map
     )
     # In case config maps get updated (due to default values)
@@ -668,18 +732,15 @@ async def read_system_configs_from_yml():
 
 
 def save_system_configs_to_yml():
-    save_to_yml_legacy(GLOBAL_CONFIG_PATH, global_config_map)
     save_to_yml_legacy(str(TRADE_FEES_CONFIG_PATH), fee_overrides_config_map)
 
 
-async def refresh_trade_fees_config():
+async def refresh_trade_fees_config(client_config_map: ClientConfigAdapter):
     """
     Refresh the trade fees config, after new connectors have been added (e.g. gateway connectors).
     """
     init_fee_overrides_config()
-    await load_yml_into_cm_legacy(
-        GLOBAL_CONFIG_PATH, str(TEMPLATE_PATH / "conf_global_TEMPLATE.yml"), global_config_map
-    )
+    save_to_yml(CLIENT_CONFIG_PATH, client_config_map)
     save_to_yml_legacy(str(TRADE_FEES_CONFIG_PATH), fee_overrides_config_map)
 
 
@@ -712,14 +773,16 @@ def save_to_yml(yml_path: Path, cm: ClientConfigAdapter):
 
 
 def write_config_to_yml(
-    strategy_config_map: Union[ClientConfigAdapter, Dict], strategy_file_name: str
+    strategy_config_map: Union[ClientConfigAdapter, Dict],
+    strategy_file_name: str,
+    client_config_map: ClientConfigAdapter,
 ):
     strategy_file_path = Path(STRATEGIES_CONF_DIR_PATH) / strategy_file_name
     if isinstance(strategy_config_map, ClientConfigAdapter):
         save_to_yml(strategy_file_path, strategy_config_map)
     else:
         save_to_yml_legacy(strategy_file_path, strategy_config_map)
-    save_to_yml_legacy(GLOBAL_CONFIG_PATH, global_config_map)
+    save_to_yml(CLIENT_CONFIG_PATH, client_config_map)
 
 
 async def create_yml_files_legacy():
@@ -776,13 +839,14 @@ def short_strategy_name(strategy: str) -> str:
         return strategy
 
 
-def all_configs_complete(strategy_config):
+def all_configs_complete(strategy_config: Union[ClientConfigAdapter, Dict], client_config_map: ClientConfigAdapter):
     strategy_valid = (
         config_map_complete_legacy(strategy_config)
         if isinstance(strategy_config, Dict)
         else len(strategy_config.validate_model()) == 0
     )
-    return config_map_complete_legacy(global_config_map) and strategy_valid
+    client_config_valid = len(client_config_map.validate_model()) == 0
+    return client_config_valid and strategy_valid
 
 
 def config_map_complete_legacy(config_map):
@@ -821,6 +885,6 @@ def retrieve_validation_error_msg(e: ValidationError) -> str:
     return e.errors().pop()["msg"]
 
 
-def save_previous_strategy_value(file_name: str):
-    global_config_map["previous_strategy"].value = file_name
-    save_to_yml_legacy(GLOBAL_CONFIG_PATH, global_config_map)
+def save_previous_strategy_value(file_name: str, client_config_map: ClientConfigAdapter):
+    client_config_map.previous_strategy = file_name
+    save_to_yml(CLIENT_CONFIG_PATH, client_config_map)

@@ -2,7 +2,7 @@ import asyncio
 import copy
 import logging
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import Any, AsyncIterable, Dict, List, Optional, TYPE_CHECKING
 
 from async_timeout import timeout
 from libc.stdint cimport int64_t
@@ -46,6 +46,9 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 s_logger = None
 s_decimal_0 = Decimal("0.0")
 s_decimal_nan = Decimal("nan")
@@ -87,13 +90,14 @@ cdef class CoinbaseProExchange(ExchangeBase):
         return s_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  coinbase_pro_api_key: str,
                  coinbase_pro_secret_key: str,
                  coinbase_pro_passphrase: str,
                  poll_interval: float = 5.0,    # interval which the class periodically pulls status from the rest API
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
-        super().__init__()
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         auth = CoinbaseProAuth(coinbase_pro_api_key, coinbase_pro_secret_key, coinbase_pro_passphrase)
         self._web_assistants_factory = build_coinbase_pro_web_assistant_factory(auth)

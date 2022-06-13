@@ -1,14 +1,13 @@
 import asyncio
 import unittest
-from copy import deepcopy
 from test.mock.mock_cli import CLIMockingAssistant
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 
-from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.client_config_map import ClientConfigMap, DBSqliteMode
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
 from hummingbot.client.config.security import Security
 from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -20,21 +19,16 @@ class ConnectCommandTest(unittest.TestCase):
         self.ev_loop = asyncio.get_event_loop()
 
         self.async_run_with_timeout(read_system_configs_from_yml())
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.app = HummingbotApplication()
+        self.app = HummingbotApplication(client_config_map=self.client_config_map)
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
-        self.global_config_backup = deepcopy(global_config_map)
 
     def tearDown(self) -> None:
         self.cli_mock_assistant.stop()
-        self.reset_global_config()
         Security._decryption_done.clear()
         super().tearDown()
-
-    def reset_global_config(self):
-        for key, value in self.global_config_backup.items():
-            global_config_map[key] = value
 
     @staticmethod
     def get_async_sleep_fn(delay: float):
@@ -82,7 +76,6 @@ class ConnectCommandTest(unittest.TestCase):
         api_secret = "someSecret"
         api_keys_mock.return_value = {"binance_api_key": api_key, "binance_api_secret": api_secret}
         connector_config_file_exists_mock.return_value = False
-        global_config_map["other_commands_timeout"].value = 30
         self.cli_mock_assistant.queue_prompt_reply(api_key)  # binance API key
         self.cli_mock_assistant.queue_prompt_reply(api_secret)  # binance API secret
 
@@ -131,7 +124,7 @@ class ConnectCommandTest(unittest.TestCase):
         __: MagicMock,
     ):
         add_exchange_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
-        global_config_map["other_commands_timeout"].value = 0.01
+        self.client_config_map.commands_timeout.other_commands_timeout = 0.01
         api_key = "someKey"
         api_secret = "someSecret"
         api_keys_mock.return_value = {"binance_api_key": api_key, "binance_api_secret": api_secret}
@@ -153,7 +146,7 @@ class ConnectCommandTest(unittest.TestCase):
     @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
     def test_connection_df_handles_network_timeouts(self, _: AsyncMock, update_exchanges_mock: AsyncMock):
         update_exchanges_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
-        global_config_map["other_commands_timeout"].value = 0.01
+        self.client_config_map.commands_timeout.other_commands_timeout = 0.01
 
         with self.assertRaises(asyncio.TimeoutError):
             self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.connection_df())
@@ -169,7 +162,7 @@ class ConnectCommandTest(unittest.TestCase):
         self.cli_mock_assistant.toggle_logs()
 
         update_exchanges_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
-        global_config_map["other_commands_timeout"].value = 0.01
+        self.client_config_map.commands_timeout.other_commands_timeout = 0.01
 
         with self.assertRaises(asyncio.TimeoutError):
             self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.connection_df())
@@ -182,7 +175,7 @@ class ConnectCommandTest(unittest.TestCase):
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.connection_df")
     def test_show_connections(self, connection_df_mock, notify_mock):
-        global_config_map["tables_format"].value = "psql"
+        self.client_config_map.db_mode = DBSqliteMode()
 
         Security._decryption_done.set()
 

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 from urllib.parse import quote, urljoin
 
 import aiohttp
@@ -16,7 +16,7 @@ from hummingbot.connector.exchange.mexc.mexc_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     num_to_increment,
-    ws_order_status_convert_to_str
+    ws_order_status_convert_to_str,
 )
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.trading_rule import TradingRule
@@ -43,6 +43,9 @@ from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
@@ -81,6 +84,7 @@ class MexcExchange(ExchangeBase):
         return cls._logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  mexc_api_key: str,
                  mexc_secret_key: str,
                  poll_interval: float = 5.0,
@@ -88,7 +92,7 @@ class MexcExchange(ExchangeBase):
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
-        super().__init__()
+        super().__init__(client_config_map=client_config_map)
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._shared_client = aiohttp.ClientSession()
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)

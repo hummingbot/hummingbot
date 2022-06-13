@@ -8,6 +8,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 import pandas as pd
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.mock.mock_paper_exchange.mock_paper_exchange import MockPaperExchange
@@ -90,7 +91,9 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         trade_fee_schema = TradeFeeSchema(
             maker_percent_fee_decimal=Decimal("0.25"), taker_percent_fee_decimal=Decimal("0.25")
         )
-        self.market: MockPaperExchange = MockPaperExchange(trade_fee_schema)
+        self.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=trade_fee_schema)
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.market, self.trading_pair, *self.trading_pair.split("-")
         )
@@ -128,13 +131,15 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             sampling_length=20)
 
         self.strategy.avg_vol = self.avg_vol_indicator
-        self.strategy.trading_intensity = self.trading_intensity_indicator
 
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
 
         self.clock.add_iterator(self.market)
         self.clock.add_iterator(self.strategy)
         self.strategy.start(self.clock, self.start_timestamp)
+
+        self.strategy.trading_intensity = self.trading_intensity_indicator
+
         self.clock.backtest_til(self.start_timestamp)
 
     def tearDown(self) -> None:
@@ -713,10 +718,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
         # Check reservation_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("100.0326907301569683694926933"), self.strategy.reservation_price, 2)
-        self.assertAlmostEqual(Decimal("0.5839922263432378129408529925"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("100.3246868433285872759631198"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("99.74069461698534946302226680"), self.strategy.optimal_bid, 2)
+        self.assertAlmostEqual(Decimal("100.035"), self.strategy.reservation_price, 2)
+        self.assertAlmostEqual(Decimal("0.592"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("100.331"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("99.739"), self.strategy.optimal_bid, 2)
 
     def test_calculate_reservation_price_and_optimal_spread_timeframe_infinite(self):
         # Init params
@@ -734,10 +739,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
         # Check reservation_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("100.0368705177791277118658666"), self.strategy.reservation_price, 2)
-        self.assertAlmostEqual(Decimal("0.5836641014510773004537887908"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("100.3287025685046663620927610"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("99.74503846705358906163897220"), self.strategy.optimal_bid, 2)
+        self.assertAlmostEqual(Decimal("100.040"), self.strategy.reservation_price, 2)
+        self.assertAlmostEqual(Decimal("0.594"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("100.337"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("99.743"), self.strategy.optimal_bid, 2)
 
     def test_create_proposal_based_on_order_override(self):
         # Initial check for empty order_override

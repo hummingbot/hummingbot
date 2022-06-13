@@ -3,7 +3,7 @@ import json
 import unittest
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Awaitable, Dict
+from typing import Awaitable, Dict, Union
 from unittest.mock import patch
 
 from pydantic import Field, SecretStr
@@ -18,6 +18,48 @@ from hummingbot.client.config.config_data_types import (
 )
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, ConfigTraversalItem, ConfigValidationError
 from hummingbot.client.config.security import Security
+
+
+class SomeEnum(ClientConfigEnum):
+    ONE = "one"
+
+
+class DoubleNestedModel(BaseClientModel):
+    double_nested_attr: datetime = Field(
+        default=datetime(2022, 1, 1, 10, 30),
+        description="Double nested attr description"
+    )
+
+
+class NestedModel(BaseClientModel):
+    nested_attr: str = Field(
+        default="some value",
+        description="Nested attr\nmultiline description",
+    )
+    double_nested_model: DoubleNestedModel = Field(
+        default=DoubleNestedModel(),
+    )
+
+
+class DummyModel(BaseClientModel):
+    some_attr: SomeEnum = Field(
+        default=SomeEnum.ONE,
+        description="Some description",
+        client_data=ClientFieldData(),
+    )
+    nested_model: NestedModel = Field(
+        default=NestedModel(),
+        description="Nested model description",
+    )
+    another_attr: Decimal = Field(
+        default=Decimal("1.0"),
+        description="Some other\nmultiline description",
+    )
+    non_nested_no_description: time = Field(default=time(10, 30), )
+    date_attr: date = Field(default=date(2022, 1, 2))
+
+    class Config:
+        title = "dummy_model"
 
 
 class BaseClientModelTest(unittest.TestCase):
@@ -48,29 +90,33 @@ class BaseClientModelTest(unittest.TestCase):
             class Config:
                 title = "double_nested_model"
 
-        class NestedModel(BaseClientModel):
+        class NestedModelOne(BaseClientModel):
             nested_attr: str = Field(default="some value")
             double_nested_model: DoubleNestedModel = Field(default=DoubleNestedModel())
 
             class Config:
-                title = "nested_model"
+                title = "nested_mode_one"
+
+        class NestedModelTwo(BaseClientModel):
+            class Config:
+                title = "nested_mode_two"
 
         class DummyModel(BaseClientModel):
             some_attr: int = Field(default=1, client_data=ClientFieldData())
-            nested_model: NestedModel = Field(default=NestedModel())
+            nested_model: Union[NestedModelTwo, NestedModelOne] = Field(default=NestedModelOne())
             another_attr: Decimal = Field(default=Decimal("1.0"))
 
             class Config:
                 title = "dummy_model"
 
-        expected = [
+        expected_values = [
             ConfigTraversalItem(0, "some_attr", "some_attr", 1, "1", ClientFieldData(), None, int),
             ConfigTraversalItem(
                 0,
                 "nested_model",
                 "nested_model",
-                ClientConfigAdapter(NestedModel()),
-                "nested_model",
+                ClientConfigAdapter(NestedModelOne()),
+                "nested_mode_one",
                 None,
                 None,
                 NestedModel,
@@ -83,7 +129,7 @@ class BaseClientModelTest(unittest.TestCase):
                 "nested_model.double_nested_model",
                 "double_nested_model",
                 ClientConfigAdapter(DoubleNestedModel()),
-                "double_nested_model",
+                "",
                 None,
                 None,
                 DoubleNestedModel,
@@ -101,7 +147,7 @@ class BaseClientModelTest(unittest.TestCase):
         ]
         cm = ClientConfigAdapter(DummyModel())
 
-        for expected, actual in zip(expected, cm.traverse()):
+        for expected, actual in zip(expected_values, cm.traverse()):
             self.assertEqual(expected.depth, actual.depth)
             self.assertEqual(expected.config_path, actual.config_path)
             self.assertEqual(expected.attr, actual.attr)
@@ -111,44 +157,7 @@ class BaseClientModelTest(unittest.TestCase):
             self.assertIsInstance(actual.field_info, FieldInfo)
 
     def test_generate_yml_output_dict_with_comments(self):
-        class SomeEnum(ClientConfigEnum):
-            ONE = "one"
-
-        class DoubleNestedModel(BaseClientModel):
-            double_nested_attr: datetime = Field(
-                default=datetime(2022, 1, 1, 10, 30),
-                description="Double nested attr description"
-            )
-
-        class NestedModel(BaseClientModel):
-            nested_attr: str = Field(
-                default="some value",
-                description="Nested attr\nmultiline description",
-            )
-            double_nested_model: DoubleNestedModel = Field(
-                default=DoubleNestedModel(),
-            )
-
-        class DummyModel(BaseClientModel):
-            some_attr: SomeEnum = Field(
-                default=SomeEnum.ONE,
-                description="Some description",
-            )
-            nested_model: NestedModel = Field(
-                default=NestedModel(),
-                description="Nested model description",
-            )
-            another_attr: Decimal = Field(
-                default=Decimal("1.0"),
-                description="Some other\nmultiline description",
-            )
-            non_nested_no_description: time = Field(default=time(10, 30),)
-            date_attr: date = Field(default=date(2022, 1, 2))
-
-            class Config:
-                title = "dummy_model"
-
-        instance = ClientConfigAdapter(DummyModel())
+        instance = self._nested_config_adapter()
         res_str = instance.generate_yml_output_str_with_comments()
         expected_str = """\
 ##############################
@@ -160,11 +169,8 @@ some_attr: one
 
 # Nested model description
 nested_model:
-  # Nested attr
-  # multiline description
   nested_attr: some value
   double_nested_model:
-    # Double nested attr description
     double_nested_attr: 2022-01-01 10:30:00
 
 # Some other
@@ -198,6 +204,26 @@ secret_attr: """
 
         self.assertTrue(res_str.startswith(expected_str))
         self.assertNotIn(secret_value, res_str)
+
+    def test_config_paths_includes_all_intermediate_keys(self):
+        adapter = self._nested_config_adapter()
+
+        all_config_paths = list(adapter.config_paths())
+        expected_config_paths = [
+            'some_attr',
+            'nested_model',
+            'nested_model.nested_attr',
+            'nested_model.double_nested_model',
+            'nested_model.double_nested_model.double_nested_attr',
+            'another_attr',
+            'non_nested_no_description',
+            'date_attr',
+        ]
+
+        self.assertEqual(expected_config_paths, all_config_paths)
+
+    def _nested_config_adapter(self):
+        return ClientConfigAdapter(DummyModel())
 
 
 class BaseStrategyConfigMapTest(unittest.TestCase):

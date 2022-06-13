@@ -5,6 +5,7 @@ import re
 import time
 from collections import Awaitable
 from decimal import Decimal
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Callable, Dict, List
 from unittest import TestCase
 from unittest.mock import AsyncMock, PropertyMock, patch
@@ -14,6 +15,8 @@ import ujson
 from aioresponses import aioresponses
 
 import hummingbot.connector.exchange.mexc.mexc_constants as CONSTANTS
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
 from hummingbot.connector.exchange.mexc.mexc_in_flight_order import MexcInFlightOrder
 from hummingbot.connector.exchange.mexc.mexc_order_book import MexcOrderBook
@@ -22,7 +25,6 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.events import OrderCancelledEvent, SellOrderCompletedEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class MexcExchangeTests(TestCase):
@@ -47,10 +49,13 @@ class MexcExchangeTests(TestCase):
         self.log_records = []
         self.resume_test_event = asyncio.Event()
         self._account_name = "hbot"
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.exchange = MexcExchange(mexc_api_key='testAPIKey',
-                                     mexc_secret_key='testSecret',
-                                     trading_pairs=[self.trading_pair])
+        self.exchange = MexcExchange(
+            client_config_map=self.client_config_map,
+            mexc_api_key='testAPIKey',
+            mexc_secret_key='testSecret',
+            trading_pairs=[self.trading_pair])
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
