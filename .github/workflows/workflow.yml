@@ -165,7 +165,7 @@ jobs:
       - name: Run unit test
         run: |
           ls -la
-          cd ../gateway
+          cd ./gateway
           ls -la
           yarn test:unit 
 
