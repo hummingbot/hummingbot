@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from typing import Any, Callable, Dict, List, Optional
 
@@ -37,6 +37,23 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
     @order_book_create_function.setter
     def order_book_create_function(self, func: Callable[[], OrderBook]):
         self._order_book_create_function = func
+
+    @abstractmethod
+    async def get_last_traded_prices(self,
+                                     trading_pairs: List[str],
+                                     domain: Optional[str] = None) -> Dict[str, float]:
+        """
+        Return a dictionary the trading_pair as key and the current price as value for each trading pair passed as
+        parameter.
+        This method is required by the order book tracker, to get the last traded prices when no new public trades
+        are notified by the exchange.
+
+        :param trading_pairs: list of trading pairs to get the prices for
+        :param domain: which domain we are connecting to
+
+        :return: Dictionary of associations between token pair and its latest price
+        """
+        raise NotImplementedError
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         """
@@ -134,10 +151,6 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
                 raise
             except Exception:
                 self.logger().exception("Unexpected error when processing public trade updates from exchange")
-
-    @classmethod
-    def _default_domain(cls):
-        raise NotImplementedError
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         """

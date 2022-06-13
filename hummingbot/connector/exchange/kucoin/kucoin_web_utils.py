@@ -68,6 +68,7 @@ async def get_current_server_time(
         throttler: Optional[AsyncThrottler] = None,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> float:
+    throttler = throttler or create_throttler()
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
     response = await rest_assistant.execute_request(
