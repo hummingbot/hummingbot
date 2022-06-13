@@ -163,7 +163,9 @@ jobs:
         run: yarn --cwd ./gateway build
 
       - name: Run unit test
-        run: yarn --cwd ./gateway test:unit 
+        run: |
+          cd gateway
+          yarn test:unit 
 
       - name: Run unit test coverage
         if: github.event_name == 'pull_request'
