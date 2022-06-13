@@ -10,6 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
@@ -52,8 +54,13 @@ class TestGateIoExchange(unittest.TestCase):
         self.log_records = []
         self.mocking_assistant = NetworkMockingAssistant()
         self.async_tasks: List[asyncio.Task] = []
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.exchange = GateIoExchange(self.api_key, self.api_secret, trading_pairs=[self.trading_pair])
+        self.exchange = GateIoExchange(
+            client_config_map=self.client_config_map,
+            gate_io_api_key=self.api_key,
+            gate_io_secret_key=self.api_secret,
+            trading_pairs=[self.trading_pair])
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)

@@ -4,9 +4,12 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from os import listdir, path
 from pathlib import Path
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from hummingbot.logger.struct_logger import StructLogger, StructLogRecord
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 STRUCT_LOGGER_SET = False
 DEV_STRATEGY_PREFIX = "dev"
@@ -106,6 +109,7 @@ def chdir_to_data_directory():
 
 
 def init_logging(conf_filename: str,
+                 client_config_map: "ClientConfigAdapter",
                  override_log_level: Optional[str] = None,
                  strategy_file_path: str = "hummingbot"):
     import io
@@ -116,7 +120,6 @@ def init_logging(conf_filename: str,
     import pandas as pd
     from ruamel.yaml import YAML
 
-    from hummingbot.client.config.global_config_map import global_config_map
     from hummingbot.logger.struct_logger import StructLogger, StructLogRecord
     global STRUCT_LOGGER_SET
     if not STRUCT_LOGGER_SET:
@@ -138,8 +141,7 @@ def init_logging(conf_filename: str,
         config_dict: Dict = yaml_parser.load(io_stream)
         if override_log_level is not None and "loggers" in config_dict:
             for logger in config_dict["loggers"]:
-                if global_config_map["logger_override_whitelist"].value and \
-                        logger in global_config_map["logger_override_whitelist"].value:
+                if logger in client_config_map.logger_override_whitelist:
                     config_dict["loggers"][logger]["level"] = override_log_level
         logging.config.dictConfig(config_dict)
 

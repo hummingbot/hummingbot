@@ -1,6 +1,5 @@
 from typing import List, Tuple
 
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import (
     CrossExchangeMarketMakingStrategy,
 )
@@ -14,7 +13,7 @@ def start(self):
     taker_market = c_map.taker_market.lower()
     raw_maker_trading_pair = c_map.maker_market_trading_pair
     raw_taker_trading_pair = c_map.taker_market_trading_pair
-    status_report_interval = global_config_map.get("strategy_report_interval").value
+    status_report_interval = self.client_config_map.strategy_report_interval
 
     try:
         maker_trading_pair: str = raw_maker_trading_pair

@@ -7,7 +7,7 @@ from typing import (
     AsyncIterable,
     Dict,
     List,
-    Optional,
+    Optional, TYPE_CHECKING,
 )
 
 import aiohttp
@@ -52,6 +52,9 @@ from hummingbot.core.utils.async_utils import (
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
@@ -101,6 +104,7 @@ cdef class OkexExchange(ExchangeBase):
         return hm_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  okex_api_key: str,
                  okex_secret_key: str,
                  okex_passphrase: str,
@@ -109,7 +113,7 @@ cdef class OkexExchange(ExchangeBase):
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
-        super().__init__()
+        super().__init__(client_config_map)
         # self._account_id = ""
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._data_source_type = order_book_tracker_data_source_type

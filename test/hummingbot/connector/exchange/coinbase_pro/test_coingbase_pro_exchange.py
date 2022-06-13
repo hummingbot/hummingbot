@@ -5,6 +5,8 @@ from typing import Awaitable, Callable, Optional
 from unittest import TestCase
 from unittest.mock import AsyncMock
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_exchange import CoinbaseProExchange
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
@@ -30,8 +32,10 @@ class BitfinexExchangeTests(TestCase):
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
         self.resume_test_event = asyncio.Event()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = CoinbaseProExchange(
+            client_config_map=self.client_config_map,
             coinbase_pro_api_key="testAPIKey",
             coinbase_pro_secret_key="testSecret",
             coinbase_pro_passphrase="testPassphrase",

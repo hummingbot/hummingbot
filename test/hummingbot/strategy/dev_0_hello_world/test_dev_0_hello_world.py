@@ -3,6 +3,8 @@ import unittest
 
 import pandas as pd
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.mock.mock_paper_exchange.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
@@ -22,7 +24,9 @@ class Dev0HelloWorldUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop = asyncio.get_event_loop()
         cls.clock: Clock = Clock(ClockMode.BACKTEST, cls.tick_size, cls.start_timestamp, cls.end_timestamp)
-        cls.market: MockPaperExchange = MockPaperExchange()
+        cls.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         cls.strategy: HelloWorldStrategy = HelloWorldStrategy(
             exchange=cls.market,
             trading_pair=cls.trading_pair,

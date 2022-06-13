@@ -4,7 +4,7 @@ import logging
 import time
 import warnings
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 import pandas as pd
@@ -51,6 +51,9 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
 
@@ -70,13 +73,14 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         return cls._logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  bybit_perpetual_api_key: str = None,
                  bybit_perpetual_secret_key: str = None,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: Optional[str] = None):
 
-        ExchangeBase.__init__(self)
+        ExchangeBase.__init__(self, client_config_map=client_config_map)
         PerpetualTrading.__init__(self)
 
         self._trading_pairs = trading_pairs

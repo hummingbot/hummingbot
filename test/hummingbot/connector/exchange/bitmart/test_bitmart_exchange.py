@@ -3,25 +3,24 @@ import json
 import re
 import unittest
 from decimal import Decimal
-from typing import Dict, Awaitable, List
-from unittest.mock import AsyncMock, patch, MagicMock
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from typing import Awaitable, Dict, List
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.bitmart.bitmart_exchange import BitmartExchange
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bitmart import bitmart_constants as CONSTANTS
-from hummingbot.core.event.event_logger import EventLogger
-
-from hummingbot.connector.trading_rule import TradingRule
-
+from hummingbot.connector.exchange.bitmart.bitmart_exchange import BitmartExchange
 from hummingbot.connector.exchange.bitmart.bitmart_utils import HBOT_BROKER_ID
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
-
 from hummingbot.core.time_iterator import TimeIterator
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BitmartExchangeTests(unittest.TestCase):
@@ -44,8 +43,10 @@ class BitmartExchangeTests(unittest.TestCase):
         self.log_records = []
         self.return_values_queue = asyncio.Queue()
         self.resume_test_event = asyncio.Event()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = BitmartExchange(
+            client_config_map=self.client_config_map,
             bitmart_api_key="someKey",
             bitmart_secret_key="someSecret",
             bitmart_memo="someMemo",

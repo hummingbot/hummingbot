@@ -28,12 +28,12 @@ rate_oracle_pairs: List[str] = []
 KEYFILE_PREFIX = "key_file_"
 KEYFILE_POSTFIX = ".yml"
 ENCYPTED_CONF_POSTFIX = ".json"
-GLOBAL_CONFIG_PATH = str(root_path() / "conf" / "conf_global.yml")
-TRADE_FEES_CONFIG_PATH = root_path() / "conf" / "conf_fee_overrides.yml"
 DEFAULT_LOG_FILE_PATH = root_path() / "logs"
 DEFAULT_ETHEREUM_RPC_URL = "https://mainnet.coinalpha.com/hummingbot-test-node"
 TEMPLATE_PATH = root_path() / "hummingbot" / "templates"
 CONF_DIR_PATH = root_path() / "conf"
+CLIENT_CONFIG_PATH = CONF_DIR_PATH / "conf_client.yml"
+TRADE_FEES_CONFIG_PATH = CONF_DIR_PATH / "conf_fee_overrides.yml"
 STRATEGIES_CONF_DIR_PATH = CONF_DIR_PATH / "strategies"
 CONNECTORS_CONF_DIR_PATH = CONF_DIR_PATH / "connectors"
 CONF_PREFIX = "conf_"
@@ -358,7 +358,9 @@ class AllConnectorSettings:
 
     @classmethod
     def get_exchange_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Exchange}
+        return {
+            cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Exchange
+        }.union(set(PAPER_TRADE_EXCHANGES))
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:

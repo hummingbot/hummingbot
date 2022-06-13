@@ -126,7 +126,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         except FileNotFoundError:
             pass
 
-        self.update_from_config_map()
+        self.get_config_map_execution_mode()
+        self.get_config_map_hanging_orders()
 
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
@@ -415,17 +416,20 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             else:
                 self._avg_vol.sampling_length = volatility_buffer_size
 
-        if self._trading_intensity_buffer_size == 0 or self._trading_intensity_buffer_size != trading_intensity_buffer_size:
+        if (
+            self._trading_intensity_buffer_size == 0
+            or self._trading_intensity_buffer_size != trading_intensity_buffer_size
+        ):
             self._trading_intensity_buffer_size = trading_intensity_buffer_size
-
-            if self._trading_intensity is None:
-                self._trading_intensity = TradingIntensityIndicator(
-                    order_book=self.market_info.order_book,
-                    price_delegate=self._price_delegate,
-                    sampling_length=self._trading_intensity_buffer_size,
-                )
-            else:
+            if self._trading_intensity is not None:
                 self._trading_intensity.sampling_length = trading_intensity_buffer_size
+
+        if self._trading_intensity is None and self.market_info.market.ready:
+            self._trading_intensity = TradingIntensityIndicator(
+                order_book=self.market_info.order_book,
+                price_delegate=self._price_delegate,
+                sampling_length=self._trading_intensity_buffer_size,
+            )
 
         self._ticks_to_be_ready += (ticks_to_be_ready_after - ticks_to_be_ready_before)
         if self._ticks_to_be_ready < 0:
@@ -564,6 +568,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
+        self.update_from_config_map()
         self._last_timestamp = timestamp
 
         self._hanging_orders_tracker.register_events(self.active_markets)
