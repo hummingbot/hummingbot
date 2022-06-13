@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 OPTIONS = {cs.name for cs in AllConnectorSettings.get_connector_settings().values()
-           if not cs.use_ethereum_wallet}.union({"celo"})
+           if not cs.use_ethereum_wallet and not cs.uses_gateway_generic_connector()}.union({"celo"})
 
 
 class ConnectCommand:

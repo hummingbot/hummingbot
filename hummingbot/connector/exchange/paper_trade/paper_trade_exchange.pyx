@@ -465,18 +465,18 @@ cdef class PaperTradeExchange(ExchangeBase):
             from_total_balances=True
         )
 
-        adjusted_order_candidate = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+        adjusted_order_candidate = self._budget_checker.populate_collateral_entries(order_candidate)
 
-        # Base currency acquired, including fees.
-        sold_amount = adjusted_order_candidate.order_collateral.amount
         # Quote currency used, including fees.
+        paid_amount = adjusted_order_candidate.order_collateral.amount
+        # Base currency acquired, including fees.
         acquired_amount = adjusted_order_candidate.potential_returns.amount
 
         # It's not possible to fulfill the order, the possible acquired amount is less than requested
-        if acquired_amount < amount:
+        if paid_amount > quote_balance:
             self.logger().warning(f"Insufficient {quote_asset} balance available for buy order. "
                                   f"{quote_balance} {quote_asset} available vs. "
-                                  f"{sold_amount} {quote_asset} required for the order.")
+                                  f"{paid_amount} {quote_asset} required for the order.")
             self.c_trigger_event(
                 self.MARKET_ORDER_FAILURE_EVENT_TAG,
                 MarketOrderFailureEvent(self._current_timestamp, order_id, OrderType.MARKET)
@@ -485,7 +485,7 @@ cdef class PaperTradeExchange(ExchangeBase):
 
         # The order was successfully executed
         self.c_set_balance(quote_asset,
-                           quote_balance - sold_amount)
+                           quote_balance - paid_amount)
         self.c_set_balance(base_asset,
                            base_balance + acquired_amount)
 
@@ -516,7 +516,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                                    base_asset,
                                    quote_asset,
                                    acquired_amount,
-                                   sold_amount,
+                                   paid_amount,
                                    OrderType.MARKET))
 
     cdef c_execute_sell(self, str order_id, str trading_pair_str, object amount):
@@ -547,7 +547,7 @@ cdef class PaperTradeExchange(ExchangeBase):
             from_total_balances=True
         )
 
-        adjusted_order_candidate = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+        adjusted_order_candidate = self._budget_checker.populate_collateral_entries(order_candidate)
 
         # Base currency used, including fees.
         sold_amount = adjusted_order_candidate.order_collateral.amount
@@ -555,7 +555,7 @@ cdef class PaperTradeExchange(ExchangeBase):
         acquired_amount = adjusted_order_candidate.potential_returns.amount
 
         # It's not possible to fulfill the order, the possible sold amount is less than requested
-        if sold_amount < amount:
+        if sold_amount > base_balance:
             self.logger().warning(f"Insufficient {base_asset} balance available for sell order. "
                                   f"{base_balance} {base_asset} available vs. "
                                   f"{amount} {base_asset} required for the order.")
@@ -659,17 +659,17 @@ cdef class PaperTradeExchange(ExchangeBase):
             from_total_balances=True
         )
 
-        adjusted_order_candidate = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+        adjusted_order_candidate = self._budget_checker.populate_collateral_entries(order_candidate)
 
-        # Base currency acquired, including fees.
-        sold_amount = adjusted_order_candidate.order_collateral.amount
         # Quote currency used, including fees.
+        paid_amount = adjusted_order_candidate.order_collateral.amount
+        # Base currency acquired, including fees.
         acquired_amount = adjusted_order_candidate.potential_returns.amount
 
         # It's not possible to fulfill the order, the possible acquired amount is less than requested
-        if acquired_amount < amount:
+        if paid_amount > quote_balance:
             self.logger().warning(f"Not enough {quote_asset} balance to fill limit buy order on {trading_pair_str}. "
-                                  f"{sold_amount:.8g} {quote_asset} needed vs. "
+                                  f"{paid_amount:.8g} {quote_asset} needed vs. "
                                   f"{quote_balance:.8g} {quote_asset} available.")
 
             self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
@@ -681,7 +681,7 @@ cdef class PaperTradeExchange(ExchangeBase):
 
         # The order was successfully executed
         self.c_set_balance(quote_asset,
-                           quote_balance - sold_amount)
+                           quote_balance - paid_amount)
         self.c_set_balance(base_asset,
                            base_balance + acquired_amount)
 
@@ -720,7 +720,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                 base_asset,
                 quote_asset,
                 acquired_amount,
-                sold_amount,
+                paid_amount,
                 OrderType.LIMIT
             ))
         self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
@@ -751,7 +751,7 @@ cdef class PaperTradeExchange(ExchangeBase):
             from_total_balances=True
         )
 
-        adjusted_order_candidate = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+        adjusted_order_candidate = self._budget_checker.populate_collateral_entries(order_candidate)
 
         # Base currency used, including fees.
         sold_amount = adjusted_order_candidate.order_collateral.amount
@@ -759,7 +759,7 @@ cdef class PaperTradeExchange(ExchangeBase):
         acquired_amount = adjusted_order_candidate.potential_returns.amount
 
         # It's not possible to fulfill the order, the possible sold amount is less than requested
-        if sold_amount < amount:
+        if sold_amount > base_balance:
             self.logger().warning(f"Not enough {base_asset} balance to fill limit sell order on {trading_pair_str}. "
                                   f"{sold_amount:.8g} {base_asset} needed vs. "
                                   f"{base_balance:.8g} {base_asset} available.")

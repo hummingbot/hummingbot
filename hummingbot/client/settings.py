@@ -91,14 +91,24 @@ class GatewayConnectionSetting:
         return f"{connector_spec['connector']}_{connector_spec['chain']}_{connector_spec['network']}"
 
     @staticmethod
-    def get_connector_spec_from_market_name(market_name: str) -> Dict[str, str]:
-        connector_name, chain, network = market_name.split("_")
+    def get_connector_spec(connector_name: str, chain: str, network: str) -> Optional[Dict[str, str]]:
+        connector: Optional[Dict[str, str]] = None
         connector_config: List[Dict[str, str]] = GatewayConnectionSetting.load()
-        matched_specs: List[Dict[str, str]] = [
-            spec for spec in connector_config
-            if spec["connector"] == connector_name and spec["chain"] == chain and spec["network"] == network
-        ]
-        return matched_specs[0]
+        for spec in connector_config:
+            if spec["connector"] == connector_name \
+               and spec["chain"] == chain \
+               and spec["network"] == network:
+                connector = spec
+
+        return connector
+
+    @staticmethod
+    def get_connector_spec_from_market_name(market_name: str) -> Optional[Dict[str, str]]:
+        vals = market_name.split("_")
+        if len(vals) == 3:
+            return GatewayConnectionSetting.get_connector_spec(vals[0], vals[1], vals[2])
+        else:
+            return None
 
     @staticmethod
     def upsert_connector_spec(connector_name: str, chain: str, network: str, trading_type: str, wallet_address: str):
@@ -119,6 +129,21 @@ class GatewayConnectionSetting:
 
         if updated is False:
             connectors_conf.append(new_connector_spec)
+        GatewayConnectionSetting.save(connectors_conf)
+
+    @staticmethod
+    def upsert_connector_spec_tokens(connector_chain_network: str, tokens: str):
+        updated_connector: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+        updated_connector['tokens'] = tokens
+
+        connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
+        for i, c in enumerate(connectors_conf):
+            if c["connector"] == updated_connector['connector'] \
+               and c["chain"] == updated_connector['chain'] \
+               and c["network"] == updated_connector['network']:
+                connectors_conf[i] = updated_connector
+                break
+
         GatewayConnectionSetting.save(connectors_conf)
 
 

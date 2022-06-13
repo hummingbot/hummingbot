@@ -43,8 +43,9 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["create", "config", "connect", "generate-certs", "status", "test-connection", "start", "stop"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["create", "config", "connect", "connector-tokens", "generate-certs", "status", "test-connection", "start", "stop"], ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
+        self._gateway_connector_tokens_completer = WordCompleter(sorted(AllConnectorSettings.get_gateway_evm_amm_connector_names()), ignore_case=True)
         self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._py_file_completer = WordCompleter(file_name_list(str(PMM_SCRIPTS_PATH), "py"))
@@ -154,6 +155,10 @@ class HummingbotCompleter(Completer):
     def _complete_gateway_connect_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway connect ")
+
+    def _complete_gateway_connector_tokens_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway connector-tokens ")
 
     def _complete_gateway_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -273,6 +278,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_connect_arguments(document):
             for c in self._gateway_connect_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_connector_tokens_arguments(document):
+            for c in self._gateway_connector_tokens_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_arguments(document):

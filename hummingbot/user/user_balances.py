@@ -1,12 +1,13 @@
 from decimal import Decimal
 from functools import lru_cache
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ReadOnlyClientConfigAdapter, get_connector_class
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import AllConnectorSettings, gateway_connector_trading_pairs
+from hummingbot.client.settings import AllConnectorSettings, GatewayConnectionSetting, gateway_connector_trading_pairs
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.gateway_config_utils import flatten
 from hummingbot.core.utils.market_price import get_last_price
 
 
@@ -20,10 +21,26 @@ class UserBalances:
         if api_details or conn_setting.uses_gateway_generic_connector():
             connector_class = get_connector_class(exchange)
             init_params = conn_setting.conn_init_parameters(api_details)
+
+            # collect trading pairs from the gateway connector settings
+            trading_pairs: List[str] = gateway_connector_trading_pairs(conn_setting.name)
+
+            # collect unique trading pairs that are for balance reporting only
+            config: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(conn_setting.name)
+            if config is not None:
+                existing_pairs = set(flatten([x.split("-") for x in trading_pairs]))
+
+                other_tokens: Set[str] = set(config.get("tokens", "").split(","))
+                other_tokens.discard("")
+                tokens: List[str] = [t for t in other_tokens if t not in existing_pairs]
+                if tokens != [""]:
+                    trading_pairs.append("-".join(tokens))
+
             read_only_client_config = ReadOnlyClientConfigAdapter.lock_config(client_config_map)
             init_params.update(
                 trading_pairs=gateway_connector_trading_pairs(conn_setting.name),
-                client_config_map=read_only_client_config)
+                client_config_map=read_only_client_config,
+            )
             connector = connector_class(**init_params)
         return connector
 
