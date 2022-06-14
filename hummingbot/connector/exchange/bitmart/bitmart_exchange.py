@@ -232,7 +232,7 @@ class BitmartExchange(ExchangePyBase):
                                               min_order_size=Decimal(str(rule["base_min_size"])),
                                               max_order_size=Decimal(str(rule["base_max_size"])),
                                               min_order_value=Decimal(str(rule["min_buy_amount"])),
-                                              min_base_amount_increment=Decimal(str(rule["quote_increment"])),
+                                              min_base_amount_increment=Decimal(str(rule["base_min_size"])),
                                               min_price_increment=price_step))
                 except Exception:
                     self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
@@ -307,7 +307,7 @@ class BitmartExchange(ExchangePyBase):
             else:
                 await self._process_order_fill_update(order=tracked_order, fill_update=order_fill)
 
-            if not tracked_order.is_done:
+            if tracked_order.is_open:
                 if isinstance(order_update, Exception):
                     self.logger().network(
                         f"Error fetching status update for the order {tracked_order.client_order_id}: {order_update}.",
@@ -354,48 +354,51 @@ class BitmartExchange(ExchangePyBase):
 
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
+            try:
+                event_type = event_message.get("table")
+                execution_data = event_message.get("data", [])
 
-            event_type = event_message.get("table")
-            execution_data = event_message.get("data", [])
+                # Refer to https://developer-pro.bitmart.com/en/spot/#private-order-progress
+                if event_type == CONSTANTS.PRIVATE_ORDER_PROGRESS_CHANNEL_NAME:
+                    for each_event in execution_data:
+                        try:
+                            client_order_id: Optional[str] = each_event.get("client_order_id")
+                            tracked_order = self._order_tracker.fetch_order(client_order_id=client_order_id)
 
-            # Refer to https://developer-pro.bitmart.com/en/spot/#private-order-progress
-            if event_type == CONSTANTS.PRIVATE_ORDER_PROGRESS_CHANNEL_NAME:
-                for each_event in execution_data:
-                    try:
-                        client_order_id: Optional[str] = each_event.get("client_order_id")
-                        tracked_order = self._order_tracker.fetch_order(client_order_id=client_order_id)
+                            if tracked_order is not None:
+                                new_state = CONSTANTS.ORDER_STATE[each_event["state"]]
+                                event_timestamp = int(each_event["ms_t"]) * 1e-3
+                                is_fill_candidate_by_state = new_state in [OrderState.PARTIALLY_FILLED, OrderState.FILLED]
+                                is_fill_candidate_by_amount = tracked_order.executed_amount_base < Decimal(
+                                    each_event["filled_size"])
 
-                        if tracked_order is not None:
-                            new_state = CONSTANTS.ORDER_STATE[each_event["state"]]
-                            event_timestamp = int(each_event["ms_t"]) * 1e-3
-                            is_fill_candidate_by_state = new_state in [OrderState.PARTIALLY_FILLED, OrderState.FILLED]
-                            is_fill_candidate_by_amount = tracked_order.executed_amount_base < Decimal(
-                                each_event["filled_size"])
+                                if is_fill_candidate_by_state and is_fill_candidate_by_amount:
+                                    try:
+                                        trade_fills: Dict[str, Any] = await self._request_order_fills(tracked_order)
+                                        await self._process_order_fill_update(order=tracked_order, fill_update=trade_fills)
+                                    except asyncio.CancelledError:
+                                        raise
+                                    except Exception:
+                                        self.logger().exception("Unexpected error requesting order fills for "
+                                                                f"{tracked_order.client_order_id}")
 
-                            if is_fill_candidate_by_state and is_fill_candidate_by_amount:
-                                try:
-                                    trade_fills: Dict[str, Any] = await self._request_order_fills(tracked_order)
-                                    await self._process_order_fill_update(order=tracked_order, fill_update=trade_fills)
-                                except asyncio.CancelledError:
-                                    raise
-                                except Exception:
-                                    self.logger().exception("Unexpected error requesting order fills for "
-                                                            f"{tracked_order.client_order_id}")
+                                order_update = OrderUpdate(
+                                    trading_pair=tracked_order.trading_pair,
+                                    update_timestamp=event_timestamp,
+                                    new_state=new_state,
+                                    client_order_id=client_order_id,
+                                    exchange_order_id=each_event["order_id"],
+                                )
+                                self._order_tracker.process_order_update(order_update=order_update)
 
-                            order_update = OrderUpdate(
-                                trading_pair=tracked_order.trading_pair,
-                                update_timestamp=event_timestamp,
-                                new_state=new_state,
-                                client_order_id=client_order_id,
-                                exchange_order_id=each_event["order_id"],
-                            )
-                            self._order_tracker.process_order_update(order_update=order_update)
-
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception:
-                        self.logger().exception("Unexpected error in user stream listener loop.")
-                        await self._sleep(5.0)
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception:
+                            self.logger().exception("Unexpected error in user stream listener loop.")
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error in user stream listener loop.")
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
