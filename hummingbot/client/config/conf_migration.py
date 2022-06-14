@@ -101,11 +101,9 @@ def migrate_global_config() -> List[str]:
         del data["template_version"]
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         _migrate_global_config_modes(client_config_map, data)
-        "kraken_api_tier" in data and data.pop("kraken_api_tier")
-        "key_file_path" in data and data.pop("key_file_path")
-        celo_address = data.get("celo_address")
-        if celo_address is not None:
-            data.pop("celo_address")
+        data.pop("kraken_api_tier", None)
+        data.pop("key_file_path", None)
+        celo_address = data.pop("celo_address", None)
         keys = list(data.keys())
         for key in keys:
             if key in client_config_map.keys():
