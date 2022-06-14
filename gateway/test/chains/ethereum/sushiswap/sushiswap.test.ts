@@ -12,6 +12,9 @@ import {
 } from '@sushiswap/sdk';
 import { BigNumber } from 'ethers';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
+import { OverrideConfigs } from '../../../config.util';
+
+const overrideConfigs = new OverrideConfigs();
 
 let ethereum: Ethereum;
 let sushiswap: Sushiswap;
@@ -30,6 +33,9 @@ const DAI = new Token(
 );
 
 beforeAll(async () => {
+  await overrideConfigs.init();
+  await overrideConfigs.updateConfigs();
+
   ethereum = Ethereum.getInstance('kovan');
   await ethereum.init();
   sushiswap = Sushiswap.getInstance('ethereum', 'kovan');
@@ -38,6 +44,11 @@ beforeAll(async () => {
 
 afterEach(() => {
   unpatch();
+});
+
+afterAll(async () => {
+  await ethereum.close();
+  await overrideConfigs.resetConfigs();
 });
 
 const patchFetchData = () => {
