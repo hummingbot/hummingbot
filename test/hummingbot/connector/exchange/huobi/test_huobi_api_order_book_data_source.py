@@ -1,21 +1,20 @@
-import aiohttp
 import asyncio
 import gzip
 import json
 import re
-import ujson
 import unittest
-
-import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
-
-from aioresponses import aioresponses
 from typing import Any, Awaitable, Dict, List
 from unittest.mock import AsyncMock, patch
 
+import aiohttp
+import ujson
+from aioresponses import aioresponses
+
+import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
 from hummingbot.connector.exchange.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class HuobiAPIOrderBookDataSourceUnitTests(unittest.TestCase):
