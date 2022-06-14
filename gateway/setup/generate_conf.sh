@@ -55,6 +55,9 @@ echo "created $HOST_CONF_PATH/server.yml"
 cp "$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../src/templates/uniswap.yml" "$HOST_CONF_PATH/uniswap.yml"
 echo "created $HOST_CONF_PATH/uniswap.yml"
 
+cp "$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../src/templates/traderjoe.yml" "$HOST_CONF_PATH/traderjoe.yml"
+echo "created $HOST_CONF_PATH/traderjoe.yml"
+
 # generate the telemetry file
 echo "enabled: false" > "$HOST_CONF_PATH/telemetry.yml"  # enabled must be prompted
 echo "created $HOST_CONF_PATH/telemetry.yml"
