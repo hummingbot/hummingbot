@@ -55,6 +55,7 @@ class ScriptStrategyBase(StrategyPyBase):
         :param script_name: name of the module where the script class is defined
         """
         script_module = importlib.import_module(f".{script_name}", package=SCRIPT_STRATEGIES_MODULE)
+        script_module = importlib.reload(script_module)
         try:
             script_class = next((member for member_name, member in inspect.getmembers(script_module)
                                  if inspect.isclass(member) and issubclass(member, cls)))
