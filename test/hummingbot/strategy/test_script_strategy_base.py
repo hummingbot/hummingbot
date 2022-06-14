@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pandas as pd
 
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock
 from hummingbot.core.clock_mode import ClockMode
 from hummingbot.core.event.events import OrderType
@@ -68,17 +68,18 @@ class ScriptStrategyBaseTest(unittest.TestCase):
         self.assertEqual({"binance_paper_trade": {"BTC-USDT"}}, loaded_class.markets)
         self.assertEqual(Decimal("100"), loaded_class.buy_quote_amount)
 
-    @patch('hummingbot.strategy.script_strategy_base.importlib.reload')
-    def test_reload_valid_script_class(self, mock_reload):
-        loaded_class = ScriptStrategyBase.load_script_class("dca_example")
+    def test_reload_valid_script_class(self):
+        ScriptStrategyBase.load_script_class("dca_example")
+        script_module = ScriptStrategyBase.script_module
 
-        # Simulate an update of the strategy file: Add a new market
-        loaded_class.markets = {"binance_paper_trade": {"AVAX-USDT", "BTC-USDT"}}
+        # Simulate an update of the strategy file: Add a new pair to market
+        script_module.DCAExample.markets = {"binance_paper_trade": {"AVAX-USDT", "BTC-USDT"}}
 
-        # Mock the actual reload
-        mock_reload.return_value = loaded_class
+        with patch('hummingbot.strategy.script_strategy_base.importlib.reload') as mock_reload:
+            # Mock the actual reload by setting the return value to the modified 'file'
+            mock_reload.return_value = script_module
+            reloaded_class = ScriptStrategyBase.load_script_class("dca_example")
 
-        reloaded_class = ScriptStrategyBase.load_script_class("dca_example")
         self.assertEqual(1, mock_reload.call_count)
 
         self.assertEqual({"binance_paper_trade": {"AVAX-USDT", "BTC-USDT"}}, reloaded_class.markets)

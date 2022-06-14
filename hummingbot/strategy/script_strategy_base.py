@@ -30,7 +30,7 @@ class ScriptStrategyBase(StrategyPyBase):
     # This class member defines connectors and their trading pairs needed for the strategy operation,
     markets: Dict[str, Set[str]]
     script_name: str = None
-    script_module: ModuleType
+    script_module: ModuleType = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -57,7 +57,7 @@ class ScriptStrategyBase(StrategyPyBase):
 
         :param script_name: name of the module where the script class is defined
         """
-        if cls.script_name is not None and cls.script_module and script_name == cls.script_name:
+        if cls.script_name and cls.script_module and script_name == cls.script_name:
             cls.script_module = importlib.reload(cls.script_module)
         else:
             cls.script_name = script_name
