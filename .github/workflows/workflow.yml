@@ -167,8 +167,9 @@ jobs:
             INFURA_KEY: ${{ secrets.INFURA_KEY }}
         run: |
           cd gateway
-          ./setup/generate_conf.sh . $INFURA_KEY
           mkdir conf
+          cp src/templates/* conf
+          sed -i'.bak' -e "/nodeAPIKey:/ s/[^ ][^ ]*$/$INFURA_KEY/" "./conf/ethereum.yml"
           yarn test:unit 
 
       - name: Run unit test coverage
