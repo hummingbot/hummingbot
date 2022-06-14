@@ -2,20 +2,22 @@ import asyncio
 import logging
 from decimal import Decimal
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import aiohttp
 
 import hummingbot.client.settings  # noqa
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
-from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
-from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.rate_oracle.utils import find_rate
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
+    from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 
 
 class RateOracleSource(Enum):
@@ -239,13 +241,13 @@ class RateOracle(NetworkBase):
         :return: A dictionary of trading pairs and prices
         """
         results = {}
+        connector = cls._binance_connector_without_private_keys(domain=domain)
         client = await cls._http_client()
         async with client.request("GET", url) as resp:
             records = await resp.json()
             for record in records:
                 try:
-                    trading_pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
-                        record["symbol"], domain=domain)
+                    trading_pair = await connector.trading_pair_associated_to_exchange_symbol(symbol=record["symbol"])
                 except KeyError:
                     # Ignore results for which their symbols is not tracked by the Binance connector
                     continue
@@ -270,13 +272,13 @@ class RateOracle(NetworkBase):
         :return A dictionary of trading pairs and prices
         """
         results = {}
+        connector = cls._kucoin_connector_without_private_keys()
         client = await cls._http_client()
         async with client.request("GET", cls.kucoin_price_url) as resp:
             records = await resp.json(content_type=None)
             for record in records["data"]["ticker"]:
                 try:
-                    pair = await KucoinAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
-                        record["symbolName"])
+                    pair = await connector.trading_pair_associated_to_exchange_symbol(record["symbolName"])
                 except KeyError:
                     # Ignore results for which their symbols is not tracked by the connector
                     continue
@@ -375,3 +377,25 @@ class RateOracle(NetworkBase):
         except Exception:
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
+
+    @classmethod
+    def _binance_connector_without_private_keys(cls, domain: str) -> 'BinanceExchange':
+        from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
+
+        return BinanceExchange(
+            binance_api_key="",
+            binance_api_secret="",
+            trading_pairs=[],
+            trading_required=False,
+            domain=domain)
+
+    @classmethod
+    def _kucoin_connector_without_private_keys(cls) -> 'KucoinExchange':
+        from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
+
+        return KucoinExchange(
+            kucoin_api_key="",
+            kucoin_passphrase="",
+            kucoin_secret_key="",
+            trading_pairs=[],
+            trading_required=False)

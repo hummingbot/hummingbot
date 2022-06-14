@@ -2,8 +2,7 @@ import asyncio
 import json
 import re
 import unittest
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
-from typing import Any, Awaitable, Dict, List
+from typing import Any, Awaitable, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses.core import aioresponses
@@ -12,6 +11,7 @@ from bidict import bidict
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 import hummingbot.connector.exchange.coinflex.coinflex_web_utils as web_utils
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -190,32 +190,6 @@ class CoinflexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 self.data_source.get_last_traded_prices(trading_pairs=[self.trading_pair],
                                                         throttler=self.throttler)
             )
-
-    @aioresponses()
-    def test_get_all_mid_prices(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.domain)
-
-        mock_response: List[Dict[str, Any]] = [
-            {
-                # Truncated Response
-                "marketCode": self.ex_trading_pair,
-                "last": "100",
-            },
-            {
-                # Truncated Response for unrecognized pair
-                "marketCode": "BCC-BTC",
-                "last": "99",
-            }
-        ]
-
-        mock_api.get(url, body=json.dumps(mock_response))
-
-        result: Dict[str, float] = self.async_run_with_timeout(
-            self.data_source.get_all_mid_prices()
-        )
-
-        self.assertEqual(1, len(result))
-        self.assertEqual(100, result[self.trading_pair])
 
     @aioresponses()
     def test_fetch_trading_pairs(self, mock_api):

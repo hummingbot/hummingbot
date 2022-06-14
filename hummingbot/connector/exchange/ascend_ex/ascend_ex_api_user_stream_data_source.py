@@ -8,7 +8,7 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import build_api_factory, get_ws_url_private
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse, WSJSONRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -37,8 +37,8 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
     ):
         super().__init__()
         self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
-        self._api_factory = api_factory or build_api_factory(auth=self._ascend_ex_auth)
         self._throttler = throttler or self._get_throttler_instance()
+        self._api_factory = api_factory or build_api_factory(throttler=throttler, auth=self._ascend_ex_auth)
         self._rest_assistant: Optional[RESTAssistant] = None
         self._ws_assistant: Optional[WSAssistant] = None
         self._trading_pairs = trading_pairs or []
@@ -88,7 +88,7 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 url = f"{get_ws_url_private(accountGroup)}/{CONSTANTS.STREAM_PATH_URL}"
                 await ws.connect(ws_url=url, ws_headers=headers, ping_timeout=self.HEARTBEAT_PING_INTERVAL)
 
-                subscribe_request: WSRequest = WSRequest(payload)
+                subscribe_request: WSJSONRequest = WSJSONRequest(payload)
                 async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
                     await ws.send(subscribe_request)
 
