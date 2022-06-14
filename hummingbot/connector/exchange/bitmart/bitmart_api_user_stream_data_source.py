@@ -15,9 +15,6 @@ if TYPE_CHECKING:
 
 
 class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
-    MAX_RETRIES = 20
-    MESSAGE_TIMEOUT = 10.0
-    PING_TIMEOUT = 2.0
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -33,10 +30,6 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._trading_pairs = trading_pairs
         self._connector = connector
         self._api_factory = api_factory
-        self._rest_assistant = None
-        self._ws_assistant = None
-        self._current_listen_key = None
-        self._listen_for_user_stream_task = None
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
@@ -95,6 +88,8 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     json_data = json.loads(decompressed_data)
                 else:
                     json_data = decompressed_data
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 self.logger().warning(f"Invalid event message received through the order book data source "
                                       f"connection ({decompressed_data})")

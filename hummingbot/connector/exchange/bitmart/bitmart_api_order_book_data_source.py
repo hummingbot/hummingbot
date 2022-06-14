@@ -7,7 +7,6 @@ from hummingbot.connector.exchange.bitmart import (
     bitmart_utils as utils,
     bitmart_web_utils as web_utils,
 )
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -29,17 +28,13 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  connector: 'BitmartExchange',
                  api_factory: WebAssistantsFactory):
         super().__init__(trading_pairs)
-        self._connector = connector
+        self._connector: BitmartExchange = connector
         self._api_factory = api_factory
 
-    @classmethod
-    def _default_domain(cls):
-        return ""
-
-    @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        return throttler
+    async def get_last_traded_prices(self,
+                                     trading_pairs: List[str],
+                                     domain: Optional[str] = None) -> Dict[str, float]:
+        return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
