@@ -16,7 +16,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -311,7 +311,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         payload = {
                             "ping": int(ping_time * 1e3)
                         }
-                        ping_request = WSRequest(payload=payload)
+                        ping_request = WSJSONRequest(payload=payload)
                         await ws.send(request=ping_request)
                         self._last_ws_message_sent_timestamp = ping_time
             except asyncio.CancelledError:
@@ -380,7 +380,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         "binary": False
                     }
                 }
-                subscribe_trade_request: WSRequest = WSRequest(payload=trade_payload)
+                subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
 
                 depth_payload = {
                     "topic": "diffDepth",
@@ -390,7 +390,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         "binary": False
                     }
                 }
-                subscribe_orderbook_request: WSRequest = WSRequest(payload=depth_payload)
+                subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=depth_payload)
 
                 await ws.send(subscribe_trade_request)
                 await ws.send(subscribe_orderbook_request)
