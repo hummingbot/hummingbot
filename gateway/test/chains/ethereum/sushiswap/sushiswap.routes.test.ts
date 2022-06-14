@@ -5,13 +5,18 @@ import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 import { Sushiswap } from '../../../../src/connectors/sushiswap/sushiswap';
 import { AmmRoutes } from '../../../../src/amm/amm.routes';
 import { patch, unpatch } from '../../../services/patch';
+import { OverrideConfigs } from '../../../config.util';
 import { gasCostInEthString } from '../../../../src/services/base';
 
+const overrideConfigs = new OverrideConfigs();
 let app: Express;
 let ethereum: Ethereum;
 let sushiswap: Sushiswap;
 
 beforeAll(async () => {
+  await overrideConfigs.init();
+  await overrideConfigs.updateConfigs();
+
   app = express();
   app.use(express.json());
   ethereum = Ethereum.getInstance('kovan');
@@ -23,6 +28,11 @@ beforeAll(async () => {
 
 afterEach(() => {
   unpatch();
+});
+
+afterAll(async () => {
+  await ethereum.close();
+  await overrideConfigs.resetConfigs();
 });
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
