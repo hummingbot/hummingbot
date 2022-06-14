@@ -88,6 +88,11 @@ afterEach(() => {
   unpatch();
 });
 
+afterAll(async () => {
+  await ethereum.close();
+  await overrideConfigs.resetConfigs();
+});
+
 const patchPoolState = () => {
   patch(uniswapLP, 'getPoolContract', () => {
     return {

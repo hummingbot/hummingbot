@@ -47,6 +47,11 @@ afterEach(() => {
   unpatch();
 });
 
+afterAll(async () => {
+  await ethereum.close();
+  await overrideConfigs.resetConfigs();
+});
+
 const patchTrade = (key: string, error?: Error) => {
   patch(uniswap.alphaRouter.route, key, () => {
     if (error) return [];
