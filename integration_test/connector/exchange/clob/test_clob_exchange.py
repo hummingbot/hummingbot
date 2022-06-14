@@ -193,8 +193,6 @@ class ExchangeClient(object):
     async def start(self):
         self.set_trading_pair("ETH", "USDT")
 
-        # self.exchange = get_binance(self)
-        # self.exchange = get_clob(self)
         self.exchange = get_clob(self)
         self.exchange._time_synchronizer.add_time_offset_ms_sample(0)
         self.exchange._user_stream_tracker._user_stream = PrintingQueue()

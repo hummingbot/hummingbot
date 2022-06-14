@@ -37,7 +37,7 @@ class CLOBUserStreamDataSourceUnitTests(unittest.TestCase):
         self.listening_task: Optional[asyncio.Task] = None
         self.mocking_assistant = NetworkMockingAssistant()
 
-        self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS_RULES)
         self.mock_time_provider = MagicMock()
         self.mock_time_provider.time.return_value = 1000
 

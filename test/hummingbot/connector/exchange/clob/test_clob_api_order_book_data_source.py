@@ -47,7 +47,7 @@ class CLOBAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(1000)
 
-        self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS_RULES)
         self.data_source = CLOBAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
                                                       throttler=self.throttler,
                                                       domain=self.domain,

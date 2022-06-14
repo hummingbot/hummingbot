@@ -71,8 +71,8 @@ ORDER_STATE = {
 DIFF_EVENT_TYPE = "depthUpdate"
 TRADE_EVENT_TYPE = "trade"
 
-# TODO check value!!!
-RATE_LIMITS = [
+# TODO check values!!!
+RATE_LIMITS_RULES = [
     # Pools
     RateLimit(limit_id=REQUEST_WEIGHT, limit=1200, time_interval=ONE_MINUTE),
     RateLimit(limit_id=ORDERS, limit=10, time_interval=ONE_SECOND),

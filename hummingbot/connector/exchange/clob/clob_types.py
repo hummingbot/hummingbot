@@ -1,0 +1,10 @@
+from enum import Enum
+
+
+class OrderStatus(Enum):
+    OPEN = 'OPEN',
+    CANCELED = 'CANCELED',
+    FILLED = 'FILLED',
+    CREATION_PENDING = 'CREATION_PENDING',
+    CANCELATION_PENDING = 'CANCELATION_PENDING',
+    UNKNOWN = 'UNKNOWN'
