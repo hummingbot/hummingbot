@@ -28,8 +28,8 @@ const DAI = new Token(
 );
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
+  overrideConfigs.init();
+  overrideConfigs.updateConfigs();
 
   ethereum = Ethereum.getInstance('kovan');
   patchEVMNonceManager(ethereum.nonceManager);
@@ -49,12 +49,12 @@ afterEach(() => {
 
 afterAll(async () => {
   await ethereum.close();
-  await overrideConfigs.resetConfigs();
+  overrideConfigs.resetConfigs();
 });
 
-const patchTrade = (key: string, error?: Error) => {
-  patch(uniswap.alphaRouter.route, key, () => {
-    if (error) return [];
+const patchTrade = (error?: Error) => {
+  patch(uniswap.alphaRouter, 'route', () => {
+    if (error) return;
     const WETH_DAI = new Pair(
       CurrencyAmount.fromRawAmount(WETH, '2000000000000000000'),
       CurrencyAmount.fromRawAmount(DAI, '1000000000000000000')
@@ -101,7 +101,7 @@ const patchTrade = (key: string, error?: Error) => {
 
 describe('verify Uniswap estimateSellTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
-    patchTrade('bestTradeExactIn');
+    patchTrade();
 
     const expectedTrade = await uniswap.estimateSellTrade(
       WETH,
@@ -113,7 +113,7 @@ describe('verify Uniswap estimateSellTrade', () => {
   });
 
   it('Should throw an error if no pair is available', async () => {
-    patchTrade('bestTradeExactIn', new Error('error getting trade'));
+    patchTrade(new Error('error getting trade'));
 
     await expect(async () => {
       await uniswap.estimateSellTrade(WETH, DAI, BigNumber.from(1));
@@ -123,7 +123,7 @@ describe('verify Uniswap estimateSellTrade', () => {
 
 describe('verify Uniswap estimateBuyTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
-    patchTrade('bestTradeExactOut');
+    patchTrade();
 
     const expectedTrade = await uniswap.estimateBuyTrade(
       WETH,
@@ -135,7 +135,7 @@ describe('verify Uniswap estimateBuyTrade', () => {
   });
 
   it('Should return an error if no pair is available', async () => {
-    patchTrade('bestTradeExactOut', new Error('error getting trade'));
+    patchTrade(new Error('error getting trade'));
 
     await expect(async () => {
       await uniswap.estimateBuyTrade(WETH, DAI, BigNumber.from(1));

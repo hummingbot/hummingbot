@@ -23,8 +23,8 @@ const overrideConfigs = new OverrideConfigs();
 let eth: Ethereum;
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
+  overrideConfigs.init();
+  overrideConfigs.updateConfigs();
 
   eth = Ethereum.getInstance('kovan');
   patchEVMNonceManager(eth.nonceManager);
@@ -41,7 +41,7 @@ afterEach(() => {
 
 afterAll(async () => {
   await eth.close();
-  await overrideConfigs.resetConfigs();
+  overrideConfigs.resetConfigs();
 });
 
 const patchGetWallet = () => {

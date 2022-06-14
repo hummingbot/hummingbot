@@ -13,8 +13,8 @@ let avalanche: Avalanche;
 let harmony: Harmony;
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
+  overrideConfigs.init();
+  overrideConfigs.updateConfigs();
 
   eth = Ethereum.getInstance('kovan');
   patchEVMNonceManager(eth.nonceManager);
@@ -41,7 +41,7 @@ afterAll(async () => {
   await eth.close();
   await avalanche.close();
   await harmony.close();
-  await overrideConfigs.resetConfigs();
+  overrideConfigs.resetConfigs();
 });
 
 describe('GET /network/status', () => {
