@@ -2,6 +2,7 @@ import importlib
 import inspect
 import logging
 from decimal import Decimal
+from types import ModuleType
 from typing import Any, Dict, List, Set
 
 import numpy as np
@@ -28,6 +29,8 @@ class ScriptStrategyBase(StrategyPyBase):
 
     # This class member defines connectors and their trading pairs needed for the strategy operation,
     markets: Dict[str, Set[str]]
+    script_name: str = None
+    script_module: ModuleType
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -54,9 +57,13 @@ class ScriptStrategyBase(StrategyPyBase):
 
         :param script_name: name of the module where the script class is defined
         """
-        script_module = importlib.import_module(f".{script_name}", package=SCRIPT_STRATEGIES_MODULE)
+        if cls.script_name is not None and cls.script_module and script_name == cls.script_name:
+            cls.script_module = importlib.reload(cls.script_module)
+        else:
+            cls.script_name = script_name
+            cls.script_module = importlib.import_module(f".{cls.script_name}", package=SCRIPT_STRATEGIES_MODULE)
         try:
-            script_class = next((member for member_name, member in inspect.getmembers(script_module)
+            script_class = next((member for member_name, member in inspect.getmembers(cls.script_module)
                                  if inspect.isclass(member) and issubclass(member, cls)))
         except StopIteration:
             raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of ScriptStrategyBase")

@@ -1,11 +1,12 @@
 import unittest
 from decimal import Decimal
 from typing import List
+from unittest.mock import patch
 
 import pandas as pd
 
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock
 from hummingbot.core.clock_mode import ClockMode
 from hummingbot.core.event.events import OrderType
@@ -66,6 +67,22 @@ class ScriptStrategyBaseTest(unittest.TestCase):
 
         self.assertEqual({"binance_paper_trade": {"BTC-USDT"}}, loaded_class.markets)
         self.assertEqual(Decimal("100"), loaded_class.buy_quote_amount)
+
+    @patch('hummingbot.strategy.script_strategy_base.importlib.reload')
+    def test_reload_valid_script_class(self, mock_reload):
+        loaded_class = ScriptStrategyBase.load_script_class("dca_example")
+
+        # Simulate an update of the strategy file: Add a new market
+        loaded_class.markets = {"binance_paper_trade": {"AVAX-USDT", "BTC-USDT"}}
+
+        # Mock the actual reload
+        mock_reload.return_value = loaded_class
+
+        reloaded_class = ScriptStrategyBase.load_script_class("dca_example")
+        self.assertEqual(1, mock_reload.call_count)
+
+        self.assertEqual({"binance_paper_trade": {"AVAX-USDT", "BTC-USDT"}}, reloaded_class.markets)
+        self.assertEqual(Decimal("100"), reloaded_class.buy_quote_amount)
 
     def test_load_script_class_raises_exception_for_non_existing_script(self):
         self.assertRaises(ImportError, ScriptStrategyBase.load_script_class, "non_existing_script")
