@@ -11,10 +11,11 @@ from typing import Dict, List
 
 import base58
 from eth_account import Account
-from solana.keypair import Keypair
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import DEFAULT_KEY_FILE_PATH, KEYFILE_POSTFIX, KEYFILE_PREFIX
+
+from .solana.keypair import Keypair
 
 
 def get_key_file_path() -> str:
