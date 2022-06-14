@@ -27,8 +27,8 @@ const overrideConfigs = new OverrideConfigs();
 let harmony: Harmony;
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
+  overrideConfigs.init();
+  overrideConfigs.updateConfigs();
 
   harmony = Harmony.getInstance('testnet');
   patchEVMNonceManager(harmony.nonceManager);
@@ -45,7 +45,7 @@ afterEach(() => {
 
 afterAll(async () => {
   await harmony.close();
-  await overrideConfigs.resetConfigs();
+  overrideConfigs.resetConfigs();
 });
 
 const zeroAddress =

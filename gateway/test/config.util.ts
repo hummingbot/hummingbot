@@ -16,7 +16,7 @@ export class OverrideConfigs {
     );
   }
 
-  async init(): Promise<void> {
+  init(): void {
     if (!this.#initialized) {
       this.#testNonceDbPath = this.nonceDbPath + '.test';
       this.#testTransactionDbPath = this.transactionDbPath + '.test';
@@ -35,7 +35,7 @@ export class OverrideConfigs {
     );
   }
 
-  async resetConfigs(): Promise<void> {
+  resetConfigs(): void {
     ConfigManagerV2.getInstance().set('database.nonceDbPath', this.nonceDbPath);
     ConfigManagerV2.getInstance().set(
       'database.transactionDbPath',

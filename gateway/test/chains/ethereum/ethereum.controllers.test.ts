@@ -25,8 +25,8 @@ const overrideConfigs = new OverrideConfigs();
 let eth: Ethereum;
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
+  overrideConfigs.init();
+  overrideConfigs.updateConfigs();
 
   eth = Ethereum.getInstance('kovan');
 
@@ -45,7 +45,7 @@ afterEach(() => {
 
 afterAll(async () => {
   await eth.close();
-  await overrideConfigs.resetConfigs();
+  overrideConfigs.resetConfigs();
 });
 
 const zeroAddress =

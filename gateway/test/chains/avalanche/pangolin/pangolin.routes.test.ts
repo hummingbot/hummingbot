@@ -11,8 +11,8 @@ let avalanche: Avalanche;
 let pangolin: Pangolin;
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
+  overrideConfigs.init();
+  overrideConfigs.updateConfigs();
 
   avalanche = Avalanche.getInstance('fuji');
   patchEVMNonceManager(avalanche.nonceManager);
@@ -32,7 +32,7 @@ afterEach(() => {
 
 afterAll(async () => {
   await avalanche.close();
-  await overrideConfigs.resetConfigs();
+  overrideConfigs.resetConfigs();
 });
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';

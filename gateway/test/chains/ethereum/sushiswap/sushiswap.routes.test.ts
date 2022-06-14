@@ -14,8 +14,8 @@ let ethereum: Ethereum;
 let sushiswap: Sushiswap;
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
+  overrideConfigs.init();
+  overrideConfigs.updateConfigs();
 
   app = express();
   app.use(express.json());
@@ -32,7 +32,7 @@ afterEach(() => {
 
 afterAll(async () => {
   await ethereum.close();
-  await overrideConfigs.resetConfigs();
+  overrideConfigs.resetConfigs();
 });
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';

@@ -16,8 +16,8 @@ let harmony: Harmony;
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
 
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
+  overrideConfigs.init();
+  overrideConfigs.updateConfigs();
   avalanche = Avalanche.getInstance('fuji');
   eth = Ethereum.getInstance('kovan');
   harmony = Harmony.getInstance('testnet');
@@ -31,7 +31,7 @@ afterAll(async () => {
   await avalanche.close();
   await eth.close();
   await harmony.close();
-  await overrideConfigs.resetConfigs();
+  overrideConfigs.resetConfigs();
 });
 
 afterEach(() => unpatch());

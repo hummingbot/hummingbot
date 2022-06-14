@@ -22,14 +22,14 @@ let avalanche: Avalanche;
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
+  overrideConfigs.init();
+  overrideConfigs.updateConfigs();
 
   avalanche = Avalanche.getInstance('fuji');
 });
 
 afterAll(async () => {
-  await overrideConfigs.resetConfigs();
+  overrideConfigs.resetConfigs();
   await avalanche.close();
 });
 

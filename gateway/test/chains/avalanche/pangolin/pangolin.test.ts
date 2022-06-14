@@ -35,8 +35,8 @@ const WAVAX = new Token(
 );
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
+  overrideConfigs.init();
+  overrideConfigs.updateConfigs();
 
   avalanche = Avalanche.getInstance('fuji');
   patchEVMNonceManager(avalanche.nonceManager);
@@ -56,7 +56,7 @@ afterEach(() => {
 
 afterAll(async () => {
   await avalanche.close();
-  await overrideConfigs.resetConfigs();
+  overrideConfigs.resetConfigs();
 });
 
 const patchFetchPairData = () => {
