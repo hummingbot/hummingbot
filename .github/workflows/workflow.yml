@@ -169,7 +169,8 @@ jobs:
           cd gateway
           mkdir conf
           cp src/templates/* conf
-          sed -i'.bak' -e "/nodeAPIKey:/ s/[^ ][^ ]*$/$INFURA_KEY/" "./conf/ethereum.yml"
+          sed -i'.bak' -e "/nodeAPIKey:/ s/[^ ][^ ]*$/'$INFURA_KEY'/" "./conf/ethereum.yml"
+          less ./conf/ethereum..yml
           yarn test:unit 
 
       - name: Run unit test coverage
