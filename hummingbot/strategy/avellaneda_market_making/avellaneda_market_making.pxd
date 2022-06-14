@@ -1,12 +1,14 @@
 # distutils: language=c++
 
 from libc.stdint cimport int64_t
+from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity cimport TradingIntensityIndicator
 from hummingbot.strategy.strategy_base cimport StrategyBase
 
 
 cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     cdef:
         object _market_info
+        object _price_delegate
         object _minimum_spread
         object _order_amount
         double _order_refresh_time
@@ -54,11 +56,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         object _optimal_ask
         str _debug_csv_path
         object _avg_vol
-        object _trading_intensity
+        int _trading_intensity_buffer_size
+        TradingIntensityIndicator _trading_intensity
         bint _should_wait_order_cancel_confirmation
 
     cdef object c_get_mid_price(self)
-    cdef object c_get_order_book_snapshot(self)
     cdef _create_proposal_based_on_order_levels(self)
     cdef _create_proposal_based_on_order_override(self)
     cdef _create_basic_proposal(self)

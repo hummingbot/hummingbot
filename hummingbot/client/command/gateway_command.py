@@ -1,75 +1,52 @@
 #!/usr/bin/env python
-import aiohttp
 import asyncio
-from contextlib import contextmanager
-import docker
 import itertools
-import json
-import pandas as pd
-from typing import (
-    Dict,
-    Any,
-    TYPE_CHECKING,
-    List,
-    Generator,
-)
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+import pandas as pd
+
+import docker
+from hummingbot.client.command.gateway_api_manager import Chain, GatewayChainApiManager, begin_placeholder_mode
+from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
 from hummingbot.client.settings import (
     GATEWAY_CONNECTORS,
     GLOBAL_CONFIG_PATH,
-    GatewayConnectionSetting
+    AllConnectorSettings,
+    GatewayConnectionSetting,
 )
+from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.gateway import (
-    docker_ipc,
-    docker_ipc_with_generator,
-    get_gateway_container_name,
-    get_gateway_paths,
     GATEWAY_DOCKER_REPO,
     GATEWAY_DOCKER_TAG,
     GatewayPaths,
+    docker_ipc,
+    docker_ipc_with_generator,
     get_default_gateway_port,
+    get_gateway_container_name,
+    get_gateway_paths,
     start_gateway,
-    stop_gateway
+    stop_gateway,
 )
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.status_monitor import Status
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
-    search_configs,
     build_config_dict_display,
     build_connector_display,
+    build_connector_tokens_display,
     build_wallet_display,
     native_tokens,
+    search_configs,
 )
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
-from hummingbot.client.config.config_helpers import (
-    save_to_yml,
-    refresh_trade_fees_config,
-)
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.security import Security
-from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.client.ui.completer import load_completer
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-@contextmanager
-def begin_placeholder_mode(hb: "HummingbotApplication") -> Generator["HummingbotApplication", None, None]:
-    hb.app.clear_input()
-    hb.placeholder_mode = True
-    hb.app.hide_input = True
-    try:
-        yield hb
-    finally:
-        hb.app.to_stop_config = False
-        hb.placeholder_mode = False
-        hb.app.hide_input = False
-        hb.app.change_prompt(prompt=">>> ")
-
-
-class GatewayCommand:
+class GatewayCommand(GatewayChainApiManager):
     def create_gateway(self):
         safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
 
@@ -85,6 +62,12 @@ class GatewayCommand:
     def gateway_stop(self):
         safe_ensure_future(stop_gateway(), loop=self.ev_loop)
 
+    def gateway_connector_tokens(self, connector_chain_network: Optional[str], new_tokens: Optional[str]):
+        if connector_chain_network is not None and new_tokens is not None:
+            safe_ensure_future(self._update_gateway_connector_tokens(connector_chain_network, new_tokens), loop=self.ev_loop)
+        else:
+            safe_ensure_future(self._show_gateway_connector_tokens(connector_chain_network), loop=self.ev_loop)
+
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
 
@@ -92,12 +75,12 @@ class GatewayCommand:
         safe_ensure_future(self._test_connection(), loop=self.ev_loop)
 
     def gateway_config(self,
-                       key: List[str],
+                       key: Optional[str] = None,
                        value: str = None):
         if value:
-            safe_ensure_future(self._update_gateway_configuration(key[0], value), loop=self.ev_loop)
+            safe_ensure_future(self._update_gateway_configuration(key, value), loop=self.ev_loop)
         else:
-            safe_ensure_future(self._show_gateway_configuration(key[0]), loop=self.ev_loop)
+            safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
 
     @staticmethod
     async def check_gateway_image(docker_repo: str, docker_tag: str) -> bool:
@@ -107,7 +90,7 @@ class GatewayCommand:
     async def _test_connection(self):
         # test that the gateway is running
         if await GatewayHttpClient.get_instance().ping_gateway():
-            self.notify("\nSuccesfully pinged gateway.")
+            self.notify("\nSuccessfully pinged gateway.")
         else:
             self.notify("\nUnable to ping gateway.")
 
@@ -141,47 +124,28 @@ class GatewayCommand:
             self,       # type: HummingbotApplication
             container_id: str, conf_path: str = "/usr/src/app/conf"
     ):
-        with begin_placeholder_mode(self):
-            while True:
-                node_api_key: str = await self.app.prompt(prompt="Enter Infura API Key (required for Ethereum node, "
-                                                          "if you do not have one, make an account at infura.io):  >>> ")
-                self.app.clear_input()
-                if self.app.to_stop_config:
-                    self.app.to_stop_config = False
-                    return
-                try:
-                    # Verifies that the Infura API Key/Project ID is valid by sending a request
-                    async with aiohttp.ClientSession() as tmp_client:
-                        headers = {"Content-Type": "application/json"}
-                        data = {
-                            "jsonrpc": "2.0",
-                            "id": 1,
-                            "method": "eth_blockNumber",
-                            "params": []
-                        }
-                        try:
-                            resp = await tmp_client.post(url=f"https://mainnet.infura.io/v3/{node_api_key}",
-                                                         data=json.dumps(data),
-                                                         headers=headers)
-                            if resp.status != 200:
-                                self.notify("Error occured verifying Infura Node API Key. Please check your API Key and try again.")
-                                continue
-                        except Exception:
-                            raise
+        infura_api_key: Optional[str] = await self._get_api_key(Chain.ETHEREUM)
 
-                    exec_info = await docker_ipc(method_name="exec_create",
-                                                 container=container_id,
-                                                 cmd=f"./setup/generate_conf.sh {conf_path} {node_api_key}",
-                                                 user="hummingbot")
+        try:
+            # generate_conf alters the ethereum.yml file if a second value is
+            # passed to generate_conf.sh
+            if infura_api_key is None:
+                cmd: str = f"./setup/generate_conf.sh {conf_path}"
+            else:
+                cmd: str = f"./setup/generate_conf.sh {conf_path} {infura_api_key}"
+            exec_info = await docker_ipc(method_name="exec_create",
+                                         container=container_id,
+                                         cmd=cmd,
+                                         user="hummingbot")
 
-                    await docker_ipc(method_name="exec_start",
-                                     exec_id=exec_info["Id"],
-                                     detach=True)
-                    return
-                except asyncio.CancelledError:
-                    raise
-                except Exception:
-                    raise
+            await docker_ipc(method_name="exec_start",
+                             exec_id=exec_info["Id"],
+                             detach=True)
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            raise
 
     async def _create_gateway(self):
         gateway_paths: GatewayPaths = get_gateway_paths()
@@ -319,7 +283,7 @@ class GatewayCommand:
         except Exception:
             self.notify("\nError: Gateway configuration update failed. See log file for more details.")
 
-    async def _show_gateway_configuration(self, key: str):
+    async def _show_gateway_configuration(self, key: Optional[str] = None):
         host = global_config_map['gateway_api_host'].value
         port = global_config_map['gateway_api_port'].value
         try:
@@ -496,3 +460,45 @@ class GatewayCommand:
 
                 # Reload completer here to include newly added gateway connectors
                 self.app.input_field.completer = load_completer(self)
+
+    async def _show_gateway_connector_tokens(
+            self,           # type: HummingbotApplication
+            connector_chain_network: str = None
+    ):
+        """
+        Display connector tokens that hummingbot will report balances for
+        """
+        if connector_chain_network is None:
+            gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
+            if len(gateway_connections_conf) < 1:
+                self.notify("No existing connection.\n")
+            else:
+                connector_df: pd.DataFrame = build_connector_tokens_display(gateway_connections_conf)
+                self.notify(connector_df.to_string(index=False))
+        else:
+            conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+            if conf is not None:
+                connector_df: pd.DataFrame = build_connector_tokens_display([conf])
+                self.notify(connector_df.to_string(index=False))
+            else:
+                self.notify(f"There is no gateway connection for {connector_chain_network}.\n")
+
+    async def _update_gateway_connector_tokens(
+            self,           # type: HummingbotApplication
+            connector_chain_network: str,
+            new_tokens: str,
+    ):
+        """
+        Allow the user to input tokens whose balances they want to monitor are.
+        These are not tied to a strategy, rather to the connector-chain-network
+        tuple. This has no influence on what tokens the user can use with a
+        connector-chain-network and a particular strategy. This is only for
+        report balances.
+        """
+        conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+
+        if conf is None:
+            self.notify(f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
+        else:
+            GatewayConnectionSetting.upsert_connector_spec_tokens(connector_chain_network, new_tokens)
+            self.notify(f"The 'balance' command will now report token balances {new_tokens} for '{connector_chain_network}'.")
