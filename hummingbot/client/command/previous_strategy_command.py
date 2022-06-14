@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from hummingbot.client.config.config_helpers import parse_config_default_to_text, parse_cvar_value
 from hummingbot.client.config.config_validators import validate_bool
@@ -29,7 +29,7 @@ class PreviousCommand:
 
     async def prompt_for_previous_strategy(
         self,  # type: HummingbotApplication
-        file_name,
+        file_name: str,
     ):
         self.app.clear_input()
         self.placeholder_mode = True
@@ -60,8 +60,8 @@ class PreviousCommand:
     async def prompt_answer(
         self,  # type: HummingbotApplication
         config: ConfigVar,
-        input_value=None,
-        assign_default=True,
+        input_value: Optional[str] = None,
+        assign_default: bool = True,
     ):
 
         if input_value is None:

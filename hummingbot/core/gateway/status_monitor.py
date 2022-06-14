@@ -64,11 +64,13 @@ class StatusMonitor:
             self._monitor_task.cancel()
             self._monitor_task = None
 
-    async def wait_for_online_status(self, max_tries=30):
+    async def wait_for_online_status(self, max_tries: int = 30):
         """
         Wait for gateway status to go online with a max number of tries. If it
         is online before time is up, it returns early, otherwise it returns the
         current status after the max number of tries.
+
+        :param max_tries: maximum number of retries (default is 30)
         """
         while True:
             if self._current_status is Status.ONLINE or max_tries <= 0:

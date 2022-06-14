@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import asyncio
 import logging
 from typing import Any, Dict, List, Optional
@@ -7,16 +6,18 @@ import ujson
 
 import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
 from hummingbot.connector.exchange.bitmart.bitmart_order_book import BitmartOrderBook
-from hummingbot.connector.exchange.bitmart.bitmart_utils import convert_from_exchange_trading_pair, \
-    convert_to_exchange_trading_pair, \
-    convert_snapshot_message_to_order_book_row, \
-    build_api_factory, \
-    decompress_ws_message
+from hummingbot.connector.exchange.bitmart.bitmart_utils import (
+    build_api_factory,
+    convert_from_exchange_trading_pair,
+    convert_snapshot_message_to_order_book_row,
+    convert_to_exchange_trading_pair,
+    decompress_ws_message,
+)
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -42,7 +43,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  api_factory: Optional[WebAssistantsFactory] = None):
         super().__init__(trading_pairs)
         self._throttler = throttler or self._get_throttler_instance()
-        self._api_factory = api_factory or build_api_factory()
+        self._api_factory = api_factory or build_api_factory(throttler=throttler)
         self._rest_assistant = None
         self._snapshot_msg: Dict[str, any] = {}
 
@@ -66,7 +67,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 method=RESTMethod.GET,
                 url=f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL}",
             )
-            rest_assistant = await build_api_factory().get_rest_assistant()
+            rest_assistant = await build_api_factory(throttler=throttler).get_rest_assistant()
             response = await rest_assistant.call(request=request, timeout=10)
 
             response_json = await response.json()
@@ -85,7 +86,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 method=RESTMethod.GET,
                 url=f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_TRADING_PAIRS_PATH_URL}",
             )
-            rest_assistant = await build_api_factory().get_rest_assistant()
+            rest_assistant = await build_api_factory(throttler=throttler).get_rest_assistant()
             response = await rest_assistant.call(request=request, timeout=10)
 
             if response.status == 200:
@@ -110,7 +111,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 url=f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_ORDER_BOOK_PATH_URL}?size=200&symbol="
                     f"{convert_to_exchange_trading_pair(trading_pair)}",
             )
-            rest_assistant = await build_api_factory().get_rest_assistant()
+            rest_assistant = await build_api_factory(throttler=throttler).get_rest_assistant()
             response = await rest_assistant.call(request=request, timeout=10)
 
             if response.status != 200:
@@ -158,7 +159,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     self.logger().info("BitMart WebSocket already connected.")
 
                 for trading_pair in self._trading_pairs:
-                    ws_message: WSRequest = WSRequest({
+                    ws_message: WSJSONRequest = WSJSONRequest({
                         "op": "subscribe",
                         "args": [f"spot/trade:{convert_to_exchange_trading_pair(trading_pair)}"]
                     })
@@ -220,7 +221,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                  ping_timeout=self.PING_TIMEOUT)
 
                 for trading_pair in self._trading_pairs:
-                    ws_message: WSRequest = WSRequest({
+                    ws_message: WSJSONRequest = WSJSONRequest({
                         "op": "subscribe",
                         "args": [f"spot/depth400:{convert_to_exchange_trading_pair(trading_pair)}"]
                     })
