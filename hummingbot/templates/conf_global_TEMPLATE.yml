@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 35
+template_version: 36
 
 # Exchange configs
 
@@ -40,6 +40,12 @@ bittrex_secret_key: null
 blocktane_api_key: null
 blocktane_api_secret: null
 
+bybit_api_key: null
+bybit_api_secret: null
+
+bybit_testnet_api_key: null
+bybit_testnet_api_secret: null
+
 coinbase_pro_api_key: null
 coinbase_pro_secret_key: null
 coinbase_pro_passphrase: null
@@ -48,6 +54,11 @@ coinflex_api_key: null
 coinflex_api_secret: null
 coinflex_test_api_key: null
 coinflex_test_api_secret: null
+
+coinflex_perpetual_api_key: null
+coinflex_perpetual_api_secret: null
+coinflex_perpetual_testnet_api_key: null
+coinflex_perpetual_testnet_api_secret: null
 
 coinzoom_api_key: null
 coinzoom_secret_key: null
@@ -297,3 +308,6 @@ error-label: "#FF0000"
 
 # tabulate table format style (https://github.com/astanin/python-tabulate#table-format)
 tables_format: 'psql'
+
+# previously imported strategy
+previous_strategy:

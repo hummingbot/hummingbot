@@ -5,7 +5,7 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTRequest, RESTMethod
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
@@ -99,7 +99,6 @@ async def api_request(path: str,
         is_auth_required=is_auth_required,
         throttler_limit_id=limit_id if limit_id else path
     )
-
     async with throttler.execute_task(limit_id=limit_id if limit_id else path):
         response = await rest_assistant.call(request=request, timeout=timeout)
 
@@ -113,8 +112,7 @@ async def api_request(path: str,
                     raise IOError(f"The request to Binance failed. Error: {error_response}. Request: {request}")
                 else:
                     raise IOError(f"Error executing request {method.name} {path}. "
-                                  f"HTTP status is {response.status}. "
-                                  f"Error: {error_response}")
+                                  f"HTTP status is {response.status}.")
 
         return await response.json()
 
@@ -131,5 +129,4 @@ async def get_current_server_time(
         domain=domain,
         method=RESTMethod.GET)
     server_time = response["serverTime"]
-
     return server_time
