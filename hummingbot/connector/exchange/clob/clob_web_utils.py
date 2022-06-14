@@ -54,7 +54,7 @@ def build_api_factory_without_time_synchronizer_pre_processor() -> WebAssistants
 
 
 def create_throttler() -> AsyncThrottler:
-    return AsyncThrottler(CONSTANTS.RATE_LIMITS)
+    return AsyncThrottler(CONSTANTS.RATE_LIMITS_RULES)
 
 
 async def api_request(path: str,

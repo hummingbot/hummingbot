@@ -1,13 +1,17 @@
 from decimal import Decimal
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, cast
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.clob import clob_constants as constant
+from hummingbot.connector.exchange.clob.clob_api_order_book_data_source import CLOBAPIOrderBookDataSource
+from hummingbot.connector.exchange.clob.clob_api_user_stream_data_source import CLOBAPIUserStreamDataSource
+from hummingbot.connector.exchange.clob.clob_types import OrderStatus
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, DeductedFromReturnsTradeFee
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
@@ -39,7 +43,7 @@ class CLOBExchange(ExchangePyBase):
 
     @property
     def rate_limits_rules(self):
-        return constant.RATE_LIMITS
+        return constant.RATE_LIMITS_RULES
 
     @property
     def client_order_id_max_length(self):
@@ -58,7 +62,7 @@ class CLOBExchange(ExchangePyBase):
         return constant.CHECK_NETWORK_REQUEST_PATH
 
     def supported_order_types(self):
-        # TODO Include IoC and post only?!!!
+        # TODO Include IoC and Post Only?!!!
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     async def _place_order(
@@ -76,21 +80,20 @@ class CLOBExchange(ExchangePyBase):
         if order_type not in [OrderType.LIMIT]:
             raise ValueError(f'Unrecognized order type "{order_type}".')
 
-        parameters = {
-            "id": order_id,
-            "marketName": trading_pair,
-            "ownerAddress": "",  # TODO fix!!!
-            "payerAddress": "",  # TODO fix!!!
-            "side": trade_type.name,
-            "price": price,
-            "amount": amount,
-            "type": order_type,
-        }
-
-        created_order = await self._api_post(
-            path_url=constant.ORDER_PATH_URL,
-            data=parameters,
-            is_auth_required=True
+        created_order = await GatewayHttpClient.get_instance().clob_post_orders(
+            chain="",  # TODO fix!!!
+            network="",  # TODO fix!!!
+            connector="",  # TODO fix!!!
+            order={
+                "id": order_id,
+                "marketName": trading_pair,
+                "ownerAddress": "",  # TODO fix!!!
+                "payerAddress": "",  # TODO fix!!!
+                "side": trade_type.name,
+                "price": price,
+                "amount": amount,
+                "type": order_type,
+            }
         )
 
         client_order_id = str(created_order["id"])
@@ -103,21 +106,22 @@ class CLOBExchange(ExchangePyBase):
         order_id: str,
         trading_pair: str
     ) -> bool:
-        parameters = {
-            "id": id,
-            "marketName": trading_pair,
-            "ownerAddress": "",  # TODO fix!!!
-        }
-
-        canceled_order = await self._api_delete(
-            path_url=constant.ORDER_PATH_URL,
-            params=parameters,
-            is_auth_required=True
+        canceled_order = await GatewayHttpClient.get_instance().clob_delete_orders(
+            chain="",  # TODO fix!!!
+            network="",  # TODO fix!!!
+            connector="",  # TODO fix!!!
+            owner_address="",  # TODO fix!!!
+            order={
+                "id": order_id,
+                "marketName": trading_pair,
+                "ownerAddress": "",  # TODO fix!!!
+            }
         )
 
-        # TODO handle order not found and cancelation_pending state.
-        if canceled_order.get("status") == "CANCELED":
+        if canceled_order.get("status") == OrderStatus.CANCELED:
             return True
+        elif canceled_order.get("status") == OrderStatus.CANCELATION_PENDING:
+            self.logger().warning(f"""The cancelation of the order "{order_id}" was submitted but it wasn't possible to confirm its success.""")
 
         return False
 
@@ -130,13 +134,17 @@ class CLOBExchange(ExchangePyBase):
         amount: Decimal,
         price: Decimal = s_decimal_NaN,
         is_maker: Optional[bool] = None
-    ) -> TradeFeeBase:  # TODO check this return type, it is different from abstract (AddedToCostTradeFee)!!!
+    ) -> AddedToCostTradeFee:
         is_maker = order_type is OrderType.LIMIT_MAKER
 
-        return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
+        # TODO check if this cast will work properly!!!
+        return cast(DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker)), AddedToCostTradeFee)
 
     async def _update_trading_fees(self):
-        # TODO binance is not implementing this, should we implement it?!!!
+        """
+        Update fees information from the exchange
+        """
+        # TODO binance is not implementing this method, should we implement it?!!!
         pass
 
     def _user_stream_event_listener(self):
@@ -161,13 +169,29 @@ class CLOBExchange(ExchangePyBase):
         raise NotImplementedError()
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        raise NotImplementedError()
+        # TODO check if all the parameters are needed!!!
+        return CLOBAPIOrderBookDataSource(
+            trading_pairs=self._trading_pairs,
+            domain=self.domain,
+            api_factory=self._web_assistants_factory,
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+        )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        raise NotImplementedError()
+        # TODO check if all the parameters are needed!!!
+        return CLOBAPIUserStreamDataSource(
+            auth=self._auth,
+            trading_pairs=self._trading_pairs,
+            domain=self.domain,
+            api_factory=self._web_assistants_factory,
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+        )
 
     def c_stop_tracking_order(self, order_id):
-        raise NotImplementedError()
+        # TODO binance is not implementing this method, should we implement it?!!!
+        pass
 
     async def _status_polling_loop_fetch_updates(self):
         # TODO do we need to override this method?!!!
