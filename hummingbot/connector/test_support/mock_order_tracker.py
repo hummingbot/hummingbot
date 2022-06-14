@@ -1,5 +1,5 @@
 import asyncio
-from typing import List, Dict
+from typing import Dict, List
 
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSource
