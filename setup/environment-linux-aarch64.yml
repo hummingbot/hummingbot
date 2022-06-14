@@ -38,6 +38,7 @@ dependencies:
     - appdirs==1.4.3
     - async-timeout==3.0.1
     - asyncssh==2.7.2
+    - base58==2.1.1
     - cachetools==4.0.0
     - cryptography==2.8
     - cython==3.0a7
@@ -54,9 +55,11 @@ dependencies:
     - eth-utils==1.10.0
     - ethsnarks-loopring==0.1.5
     - flake8==3.7.9
+    - graphviz==0.20
     - hexbytes==0.2.0
     - importlib-metadata==0.23
     - mypy-extensions==0.4.3
+    - objgraph==3.5.0
     - pre-commit==2.18.1
     - psutil==5.7.2
     - ptpython==3.0.20
@@ -70,7 +73,7 @@ dependencies:
     - setuptools==50.3.2
     - signalr-client-aio==0.0.1.6.2
     - simplejson==3.17.2
-    - solana==0.24.0
+    - solders==0.1.4
     - web3==5.23.0
     - websockets==9.1
     - yarl==1.4.2
