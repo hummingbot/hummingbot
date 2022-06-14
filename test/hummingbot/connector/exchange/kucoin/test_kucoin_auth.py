@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
 
 
 class KucoinAuthTests(TestCase):
@@ -118,7 +118,7 @@ class KucoinAuthTests(TestCase):
 
     def test_no_auth_added_to_wsrequest(self):
         payload = {"param1": "value_param_1"}
-        request = WSRequest(payload=payload, is_auth_required=True)
+        request = WSJSONRequest(payload=payload, is_auth_required=True)
 
         self.async_run_with_timeout(self.auth.ws_authenticate(request))
 

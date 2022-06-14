@@ -9,8 +9,8 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 import aiohttp
 from async_timeout import timeout
 
-from hummingbot.connector.exchange.wazirx import wazirx_constants as CONSTANTS
-from hummingbot.connector.exchange.wazirx import wazirx_utils
+from hummingbot.connector.exchange.wazirx import wazirx_constants as CONSTANTS, wazirx_utils
+from hummingbot.connector.exchange.wazirx.wazirx_api_order_book_data_source import WazirxAPIOrderBookDataSource
 from hummingbot.connector.exchange.wazirx.wazirx_auth import WazirxAuth
 from hummingbot.connector.exchange.wazirx.wazirx_in_flight_order import WazirxInFlightOrder
 from hummingbot.connector.exchange.wazirx.wazirx_order_book_tracker import WazirxOrderBookTracker
@@ -75,7 +75,7 @@ class WazirxExchange(ExchangeBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._wazirx_auth = WazirxAuth(wazirx_api_key, wazirx_secret_key)
-        self._order_book_tracker = WazirxOrderBookTracker(trading_pairs=trading_pairs)
+        self._set_order_book_tracker(WazirxOrderBookTracker(trading_pairs=trading_pairs))
         self._user_stream_tracker = WazirxUserStreamTracker(self._wazirx_auth, trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
@@ -96,7 +96,7 @@ class WazirxExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -112,7 +112,7 @@ class WazirxExchange(ExchangeBase):
         A dictionary of statuses of various connector's components.
         """
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
@@ -181,7 +181,7 @@ class WazirxExchange(ExchangeBase):
         It starts tracking order book, polling trading rules,
         updating statuses and tracking user data.
         """
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
 
         if self._trading_required:
@@ -193,7 +193,7 @@ class WazirxExchange(ExchangeBase):
         """
         This function is required by NetworkIterator base class and is called automatically.
         """
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -364,9 +364,9 @@ class WazirxExchange(ExchangeBase):
         return Decimal(trading_rule.min_base_amount_increment)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -881,3 +881,14 @@ class WazirxExchange(ExchangeBase):
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await WazirxAPIOrderBookDataSource.fetch_trading_pairs(throttler=self._throttler)
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await WazirxAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            throttler=self._throttler,
+            shared_client=self._shared_client)
