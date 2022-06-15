@@ -156,17 +156,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-
 
+      - name: Install hardhat and start node.
+        run: |
+            yarn --cwd ./gateway  add --dev hardhat
+            yarn --cwd ./gateway hardhat node
+
       - name: Install Dependencies
         run: yarn --cwd ./gateway install
 
       - name: Build project
         run: yarn --cwd ./gateway build
 
-      - name: Run unit test
+      - name: Setup config and run unit test
         run: |
           cd gateway
           mkdir conf db
           cp src/templates/* conf
+          sed -i 's/kovan.infura.io\/v3\//127.0.0.1:8545\//g' ./conf/ethereum.yml
           yarn test:unit 
 
       - name: Run unit test coverage
