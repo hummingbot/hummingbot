@@ -38,7 +38,7 @@ jobs:
     name: Hummingbot build + stable tests
     needs: check
     if: github.event.pull_request.draft == false && needs.check.outputs.run_client == 'true'
-    runs-on: "ubuntu-latest"
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v2
@@ -133,7 +133,8 @@ jobs:
     name: Gateway build + unit tests
     needs: check
     if: github.event.pull_request.draft == false && needs.check.outputs.run_gateway == 'true'
-    runs-on: "ubuntu-latest"
+    runs-on: ubuntu-latest
+    environment: gateway
 
     steps:
       - name: Checkout commit
