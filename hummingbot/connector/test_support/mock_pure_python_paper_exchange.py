@@ -1,4 +1,4 @@
-from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 
 
 class MockPurePythonPaperExchange(MockPaperExchange):
