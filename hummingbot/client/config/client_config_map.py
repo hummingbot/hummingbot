@@ -401,8 +401,8 @@ class PMMScriptEnabledMode(PMMScriptMode):
         pmm_script_iterator = PMMScriptIterator(
             pmm_script_file,
             markets,
-            self.strategy,
-            queue_check_interval=0.1
+            strategy,
+            queue_check_interval=0.1,
         )
         return pmm_script_iterator
 
