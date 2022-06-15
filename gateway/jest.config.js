@@ -27,6 +27,8 @@ module.exports = {
     'test/chains/ethereum/sushiswap/sushiswap.routes.test.ts',
     'test/chains/ethereum/uniswap/uniswap.lp.routes.test.ts',
     'test/network/network.routes.test.ts',
+    'test/chains/ethereum/ethereum.routes.test.ts',
+    'test/chains/avalanche/pangolin/pangolin.routes.test.ts',
   ],
   setupFilesAfterEnv: ['<rootDir>/test/setupTests.js'],
   globalSetup: '<rootDir>/test/setup.ts',
