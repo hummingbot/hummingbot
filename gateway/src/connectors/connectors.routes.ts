@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../services/error-handler';
 import { PangolinConfig } from './pangolin/pangolin.config';
+import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
 import { OpenoceanConfig } from './openocean/openocean.config';
@@ -15,7 +16,12 @@ export namespace ConnectorsRoutes {
         connectors: [
           {
             name: 'uniswap',
-            trading_type: UniswapConfig.config.tradingTypes('v2'),
+            trading_type: UniswapConfig.config.tradingTypes('swap'),
+            available_networks: UniswapConfig.config.availableNetworks,
+          },
+          {
+            name: 'uniswapLP',
+            trading_type: UniswapConfig.config.tradingTypes('LP'),
             available_networks: UniswapConfig.config.availableNetworks,
           },
           {
@@ -27,6 +33,11 @@ export namespace ConnectorsRoutes {
             name: 'openocean',
             trading_type: OpenoceanConfig.config.tradingTypes,
             available_networks: OpenoceanConfig.config.availableNetworks,
+          },
+          {
+            name: 'sushiswap',
+            trading_type: SushiswapConfig.config.tradingTypes,
+            available_networks: SushiswapConfig.config.availableNetworks,
           },
           {
             name: 'traderjoe',

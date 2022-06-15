@@ -2,20 +2,21 @@ import asyncio
 import logging
 import time
 from collections import defaultdict
-from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional
 
 from bidict import bidict
 
-import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
-from hummingbot.connector.exchange.coinflex import coinflex_utils, coinflex_web_utils as web_utils
+from hummingbot.connector.exchange.coinflex import (
+    coinflex_constants as CONSTANTS,
+    coinflex_utils,
+    coinflex_web_utils as web_utils,
+)
 from hummingbot.connector.exchange.coinflex.coinflex_order_book import CoinflexOrderBook
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -40,7 +41,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._domain = domain
         self._throttler = throttler
-        self._api_factory = api_factory or web_utils.build_api_factory()
+        self._api_factory = api_factory or web_utils.build_api_factory(throttler=self._throttler)
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
     @classmethod
@@ -88,35 +89,6 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             results[t_pair] = float(matched_ticker[0]["last"])
 
         return results
-
-    @classmethod
-    @async_ttl_cache(ttl=2, maxsize=1)
-    async def get_all_mid_prices(cls, domain=CONSTANTS.DEFAULT_DOMAIN) -> Dict[str, Decimal]:
-        """
-        Returns the mid price of all trading pairs, obtaining the information from the exchange. This functionality is
-        required by the market price strategy.
-        :param domain: Domain to use for the connection with the exchange
-        :return: Dictionary with the trading pair as key, and the mid price as value
-        """
-
-        response = await web_utils.api_request(
-            path=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
-            domain=domain,
-            method=RESTMethod.GET,
-            logger=cls.logger(),
-        )
-
-        ret_val = {}
-        for record in response:
-            try:
-                pair = await CoinflexAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
-                    symbol=record["marketCode"],
-                    domain=domain)
-                ret_val[pair] = Decimal(record.get("last", "0"))
-            except KeyError:
-                # Ignore results for pairs that are not tracked
-                continue
-        return ret_val
 
     @classmethod
     def trading_pair_symbol_map_ready(cls, domain: str = CONSTANTS.DEFAULT_DOMAIN):
@@ -408,7 +380,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "op": "subscribe",
                 "args": trade_params + depth_params,
             }
-            subscribe_request: WSRequest = WSRequest(payload=payload)
+            subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
             await ws.send(subscribe_request)
 

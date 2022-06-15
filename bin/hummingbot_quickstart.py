@@ -8,14 +8,12 @@ import os
 import pwd
 import subprocess
 from pathlib import Path
-from typing import (
-    Coroutine,
-    List,
-)
+from typing import Coroutine, List
 
 import path_util  # noqa: F401
 
-from bin.hummingbot import detect_available_port, UIStartListener
+from bin.docker_connection import fork_and_start
+from bin.hummingbot import UIStartListener, detect_available_port
 from hummingbot import init_logging
 from hummingbot.client.config.config_helpers import (
     all_configs_complete,
@@ -26,14 +24,13 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.settings import AllConnectorSettings, CONF_FILE_PATH
+from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
 from hummingbot.client.ui import login_prompt
+from hummingbot.client.ui.style import load_style
 from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.gateway import start_existing_gateway_container
 from hummingbot.core.management.console import start_management_console
 from hummingbot.core.utils.async_utils import safe_gather
-
-from bin.docker_connection import fork_and_start
 
 
 class CmdlineParser(argparse.ArgumentParser):
@@ -132,8 +129,9 @@ def main():
         args.config_password = os.environ["CONFIG_PASSWORD"]
 
     # If no password is given from the command line, prompt for one.
+    asyncio.get_event_loop().run_until_complete(read_system_configs_from_yml())
     if args.config_password is None:
-        if not login_prompt():
+        if not login_prompt(style=load_style()):
             return
 
     asyncio.get_event_loop().run_until_complete(quick_start(args))
