@@ -10,6 +10,10 @@ def _rjust_pubkey(raw: bytes) -> bytes:
     return raw.rjust(Pubkey.LENGTH, b"\0")
 
 
+"""
+Because the Solana library conflicts with dydx-python and dydx-v2-python libraries,
+    we need to copy the implementation of this class as a workaround.
+"""
 class PublicKey:
     """The public key of a keypair.
 

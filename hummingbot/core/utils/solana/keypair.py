@@ -3,11 +3,15 @@ from __future__ import annotations
 
 from typing import Optional
 
-import publickey
 import solders.keypair
 from solders.signature import Signature
 
+from hummingbot.core.utils.solana import publickey
 
+"""
+Because the Solana library conflicts with dydx-python and dydx-v2-python libraries,
+    we need to copy the implementation of this class as a workaround.
+"""
 class Keypair:
     """An account keypair used for signing transactions.
 
