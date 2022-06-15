@@ -5,7 +5,8 @@ export namespace DefiraConfig {
     allowedSlippage: () => string;
     gasLimit: () => number;
     ttl: () => number;
-    uniswapV2RouterAddress: (network: string) => string;
+    routerAddress: (network: string) => string;
+    initCodeHash: (network: string) => string;
     tradingTypes: Array<string>;
     availableNetworks: Array<AvailableNetworks>;
   }
@@ -15,9 +16,13 @@ export namespace DefiraConfig {
       ConfigManagerV2.getInstance().get(`defira.versions.v2.allowedSlippage`),
     gasLimit: () => ConfigManagerV2.getInstance().get(`defira.gasLimit`),
     ttl: () => ConfigManagerV2.getInstance().get(`defira.ttl`),
-    uniswapV2RouterAddress: (network: string) =>
+    routerAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(
         `defira.contractAddresses.${network}.routerAddress`
+      ),
+    initCodeHash: (network: string) =>
+      ConfigManagerV2.getInstance().get(
+        `defira.contractAddresses.${network}.initCodeHash`
       ),
     tradingTypes: ['EVM_AMM'],
     availableNetworks: [
