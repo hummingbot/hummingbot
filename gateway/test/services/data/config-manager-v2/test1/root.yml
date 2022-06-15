@@ -6,6 +6,9 @@ configurations:
   $namespace ethereum:
     configurationPath: ethereum.yml
     schemaPath: ethereum-schema.json
+  $namespace defira:
+    configurationPath: defira.yml
+    schemaPath: defira-schema.json
   $namespace logging:
     configurationPath: logging.yml
     schemaPath: logging-schema.json
