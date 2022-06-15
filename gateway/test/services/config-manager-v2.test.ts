@@ -44,6 +44,7 @@ describe('Configuration manager v2 tests', () => {
   it('loading a valid configuration root', (done) => {
     expect(configManager.get('ssl.caCertificatePath')).toBeDefined();
     expect(configManager.get('ethereum.networks')).toBeDefined();
+    expect(configManager.get('defira.contractAddresses')).toBeDefined();
     done();
   });
 
@@ -57,17 +58,17 @@ describe('Configuration manager v2 tests', () => {
     expect(() => {
       new ConfigManagerV2(path.join(tempDirPath, 'test1/invalid-root-4.yml'));
     }).toThrow();
-    expect(() => {
-      new ConfigManagerV2(
-        path.join(tempDirPath, 'test1/invalid-root-defira.yml')
-      );
-    }).toThrow();
     done();
   });
 
   it('loading an invalid config file', (done) => {
     expect(() => {
       new ConfigManagerV2(path.join(tempDirPath, 'test1/invalid-root-2.yml'));
+    }).toThrow();
+    expect(() => {
+      new ConfigManagerV2(
+        path.join(tempDirPath, 'test1/invalid-root-defira.yml')
+      );
     }).toThrow();
     done();
   });
@@ -78,6 +79,11 @@ describe('Configuration manager v2 tests', () => {
     expect(
       configManager.get('ethereum.networks.kovan.nativeCurrencySymbol')
     ).toEqual('ETH');
+    expect(
+      configManager.get('defira.contractAddresses.testnet.initCodeHash')
+    ).toEqual(
+      '0x7224a10f5f94e12d3973f5ef0f63a558539a93e1eef47935934ffc4d741b4b9f' // noqa: mock
+    );
     done();
   });
 
