@@ -15,9 +15,6 @@ import {
 } from '../../../src/services/error-handler';
 
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
-import { OverrideConfigs } from '../../config.util';
-
-const overrideConfigs = new OverrideConfigs();
 let avalanche: Avalanche;
 let eth: Ethereum;
 let harmony: Harmony;
@@ -25,8 +22,6 @@ let harmony: Harmony;
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
 
-  overrideConfigs.init();
-  overrideConfigs.updateConfigs();
   avalanche = Avalanche.getInstance('fuji');
   eth = Ethereum.getInstance('kovan');
   harmony = Harmony.getInstance('testnet');
@@ -40,7 +35,6 @@ afterAll(async () => {
   await avalanche.close();
   await eth.close();
   await harmony.close();
-  overrideConfigs.resetConfigs();
 });
 
 afterEach(() => unpatch());

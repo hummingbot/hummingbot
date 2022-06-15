@@ -4,18 +4,12 @@ import request from 'supertest';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 import { UniswapLP } from '../../../../src/connectors/uniswap/uniswap.lp';
 import { AmmLiquidityRoutes } from '../../../../src/amm/amm.routes';
-import { OverrideConfigs } from '../../../config.util';
 import { patch, unpatch } from '../../../services/patch';
-
-const overrideConfigs = new OverrideConfigs();
 let app: Express;
 let ethereum: Ethereum;
 let uniswap: UniswapLP;
 
 beforeAll(async () => {
-  overrideConfigs.init();
-  overrideConfigs.updateConfigs();
-
   app = express();
   app.use(express.json());
   ethereum = Ethereum.getInstance('kovan');
@@ -31,7 +25,6 @@ afterEach(() => {
 
 afterAll(async () => {
   await ethereum.close();
-  overrideConfigs.resetConfigs();
 });
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';

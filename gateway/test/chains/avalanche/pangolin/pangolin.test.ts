@@ -14,10 +14,7 @@ import {
 } from '@pangolindex/sdk';
 import { BigNumber } from 'ethers';
 import { Avalanche } from '../../../../src/chains/avalanche/avalanche';
-import { OverrideConfigs } from '../../../config.util';
 import { patchEVMNonceManager } from '../../../evm.nonce.mock';
-
-const overrideConfigs = new OverrideConfigs();
 let avalanche: Avalanche;
 let pangolin: Pangolin;
 
@@ -35,9 +32,6 @@ const WAVAX = new Token(
 );
 
 beforeAll(async () => {
-  overrideConfigs.init();
-  overrideConfigs.updateConfigs();
-
   avalanche = Avalanche.getInstance('fuji');
   patchEVMNonceManager(avalanche.nonceManager);
   await avalanche.init();
@@ -56,7 +50,6 @@ afterEach(() => {
 
 afterAll(async () => {
   await avalanche.close();
-  overrideConfigs.resetConfigs();
 });
 
 const patchFetchPairData = () => {

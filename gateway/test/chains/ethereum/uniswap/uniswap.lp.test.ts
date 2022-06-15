@@ -5,10 +5,7 @@ import { BigNumber, Transaction, Wallet } from 'ethers';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 import { UniswapLP } from '../../../../src/connectors/uniswap/uniswap.lp';
 import { patch, unpatch } from '../../../services/patch';
-import { OverrideConfigs } from '../../../config.util';
 import { patchEVMNonceManager } from '../../../evm.nonce.mock';
-
-const overrideConfigs = new OverrideConfigs();
 let ethereum: Ethereum;
 let uniswapLP: UniswapLP;
 let wallet: Wallet;
@@ -65,9 +62,6 @@ const DAI_USDC_POOL = new uniV3.Pool(
 );
 
 beforeAll(async () => {
-  overrideConfigs.init();
-  overrideConfigs.updateConfigs();
-
   ethereum = Ethereum.getInstance('kovan');
   patchEVMNonceManager(ethereum.nonceManager);
   await ethereum.init();
@@ -90,7 +84,6 @@ afterEach(() => {
 
 afterAll(async () => {
   await ethereum.close();
-  overrideConfigs.resetConfigs();
 });
 
 const patchPoolState = () => {
