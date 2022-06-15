@@ -162,12 +162,6 @@ jobs:
       - name: Build project
         run: yarn --cwd ./gateway build
 
-      - name: Create .env file
-        run: |
-          cat << EOF >> .env
-          GENERATE_SOURCEMAP=false
-          EOF
-
       - name: Run unit test
         env:
             INFURA_KEY: ${{ secrets.INFURA_KEY }}
