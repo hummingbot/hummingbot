@@ -7,7 +7,7 @@ from typing import Awaitable
 from urllib.parse import urlencode
 
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
 
 
 class BinancePerpetualAuthUnitTests(unittest.TestCase):
@@ -77,10 +77,10 @@ class BinancePerpetualAuthUnitTests(unittest.TestCase):
         self.assertEqual(signed_request.data["signature"], self._get_signature_from_test_payload())
 
     def test_ws_authenticate(self):
-        request: WSRequest = WSRequest(
+        request: WSJSONRequest = WSJSONRequest(
             payload={"TEST": "SOME_TEST_PAYLOAD"}, throttler_limit_id="TEST_LIMIT_ID", is_auth_required=True
         )
 
-        signed_request: WSRequest = self.async_run_with_timeout(self.auth.ws_authenticate(request))
+        signed_request: WSJSONRequest = self.async_run_with_timeout(self.auth.ws_authenticate(request))
 
         self.assertEqual(request, signed_request)
