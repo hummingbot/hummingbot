@@ -41,18 +41,17 @@ class ActiveKillSwitch(KillSwitch):
     async def check_profitability_loop(self):
         while True:
             try:
-                if self._kill_switch_enabled:
-                    self._profitability: Decimal = await self._hummingbot_application.calculate_profitability()
+                self._profitability: Decimal = await self._hummingbot_application.calculate_profitability()
 
-                    # Stop the bot if losing too much money, or if gained a certain amount of profit
-                    if (self._profitability <= self._kill_switch_rate < Decimal("0.0")) or \
-                            (self._profitability >= self._kill_switch_rate > Decimal("0.0")):
-                        self.logger().info("Kill switch threshold reached. Stopping the bot...")
-                        self._hummingbot_application.notify(f"\n[Kill switch triggered]\n"
-                                                            f"Current profitability "
-                                                            f"is {self._profitability}. Stopping the bot...")
-                        self._hummingbot_application.stop()
-                        break
+                # Stop the bot if losing too much money, or if gained a certain amount of profit
+                if (self._profitability <= self._kill_switch_rate < Decimal("0.0")) or \
+                        (self._profitability >= self._kill_switch_rate > Decimal("0.0")):
+                    self.logger().info("Kill switch threshold reached. Stopping the bot...")
+                    self._hummingbot_application.notify(f"\n[Kill switch triggered]\n"
+                                                        f"Current profitability "
+                                                        f"is {self._profitability}. Stopping the bot...")
+                    self._hummingbot_application.stop()
+                    break
 
             except asyncio.CancelledError:
                 raise
