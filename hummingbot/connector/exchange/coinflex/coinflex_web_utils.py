@@ -83,8 +83,8 @@ def websocket_url(domain: str = CONSTANTS.DEFAULT_DOMAIN,
     return CONSTANTS.WSS_URL.format(subdomain_prefix, local_endpoint_api_version)
 
 
-def build_api_factory(auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory(auth=auth, rest_pre_processors=[CoinflexRESTPreProcessor()])
+def build_api_factory(throttler: AsyncThrottler, auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory(throttler=throttler, auth=auth, rest_pre_processors=[CoinflexRESTPreProcessor()])
     return api_factory
 
 
@@ -290,7 +290,7 @@ async def api_request(path: str,
 
     # If api_factory is not provided a default one is created
     # The default instance has no authentication capabilities and all authenticated requests will fail
-    api_factory = api_factory or build_api_factory()
+    api_factory = api_factory or build_api_factory(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
 
     request = CoinflexRESTRequest(

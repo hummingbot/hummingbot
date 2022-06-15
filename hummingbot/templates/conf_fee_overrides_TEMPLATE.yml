@@ -3,7 +3,7 @@
 ########################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 12
+template_version: 13
 
 # Example of the fields that can be specified to override the `TradeFeeFactory` default settings.
 # If the field is missing or the value is left blank, the default value will be used.
@@ -218,12 +218,12 @@ ndax_testnet_maker_percent_fee:
 ndax_testnet_percent_fee_token:
 ndax_testnet_taker_fixed_fees:
 ndax_testnet_taker_percent_fee:
-okex_buy_percent_fee_deducted_from_returns:
-okex_maker_fixed_fees:
-okex_maker_percent_fee:
-okex_percent_fee_token:
-okex_taker_fixed_fees:
-okex_taker_percent_fee:
+okx_buy_percent_fee_deducted_from_returns:
+okx_maker_fixed_fees:
+okx_maker_percent_fee:
+okx_percent_fee_token:
+okx_taker_fixed_fees:
+okx_taker_percent_fee:
 probit_buy_percent_fee_deducted_from_returns:
 probit_kr_buy_percent_fee_deducted_from_returns:
 probit_kr_maker_fixed_fees:

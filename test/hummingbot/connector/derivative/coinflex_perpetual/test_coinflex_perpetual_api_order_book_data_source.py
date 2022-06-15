@@ -4,7 +4,6 @@ import re
 import unittest
 from datetime import datetime
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Dict, List
 from unittest.mock import AsyncMock, patch
 
@@ -16,6 +15,7 @@ from hummingbot.connector.derivative.coinflex_perpetual import coinflex_perpetua
 from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_api_order_book_data_source import (
     CoinflexPerpetualAPIOrderBookDataSource,
 )
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
