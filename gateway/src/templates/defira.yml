@@ -12,7 +12,7 @@ ttl: 600
 contractAddresses:
   mainnet: 
     routerAddress: '0x3C8BF7e25EbfAaFb863256A4380A8a93490d8065'
-    # initCodeHash: '0x8e129668eb66a23d5dbb072b9b801a6ca1147df379e11546ad4ac19e28557e6c'
+    initCodeHash: '0x8e129668eb66a23d5dbb072b9b801a6ca1147df379e11546ad4ac19e28557e6c'
   testnet:
     routerAddress: '0xA5C5D1fd1Fd07F95359E2bde419CB5B2cdC622A9'
     initCodeHash: '0x7224a10f5f94e12d3973f5ef0f63a558539a93e1eef47935934ffc4d741b4b9f'
