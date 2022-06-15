@@ -16,7 +16,7 @@
           },
           "required": [
             "routerAddress",
-            "initCodeHash",
+            "initCodeHash"
           ],
           "additionalProperties": false
         }
