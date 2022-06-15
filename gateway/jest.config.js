@@ -25,6 +25,7 @@ module.exports = {
     'test/services/wallet/wallet.routes.test.ts',
     'test/chains/harmony/harmony.routes.test.ts',
     'test/chains/ethereum/sushiswap/sushiswap.routes.test.ts',
+    'test/chains/ethereum/uniswap/uniswap.routes.test.ts',
     'test/chains/ethereum/uniswap/uniswap.lp.routes.test.ts',
     'test/network/network.routes.test.ts',
     'test/chains/ethereum/ethereum.routes.test.ts',
