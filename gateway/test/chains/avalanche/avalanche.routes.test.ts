@@ -14,22 +14,15 @@ import * as transactionSuccesfulReceipt from '../ethereum//fixtures/transaction-
 import * as transactionOutOfGas from '../ethereum//fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from '../ethereum/fixtures/transaction-out-of-gas-receipt.json';
 import { Avalanche } from '../../../src/chains/avalanche/avalanche';
-import { OverrideConfigs } from '../../config.util';
-
-const overrideConfigs = new OverrideConfigs();
 let avalanche: Avalanche;
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 
 beforeAll(async () => {
-  overrideConfigs.init();
-  overrideConfigs.updateConfigs();
-
   avalanche = Avalanche.getInstance('fuji');
 });
 
 afterAll(async () => {
-  overrideConfigs.resetConfigs();
   await avalanche.close();
 });
 

@@ -4,18 +4,12 @@ import { patch, unpatch } from '../services/patch';
 import { Ethereum } from '../../src/chains/ethereum/ethereum';
 import { Harmony } from '../../src/chains/harmony/harmony';
 import { Avalanche } from '../../src/chains/avalanche/avalanche';
-import { OverrideConfigs } from '../config.util';
 import { patchEVMNonceManager } from '../evm.nonce.mock';
-
-const overrideConfigs = new OverrideConfigs();
 let eth: Ethereum;
 let avalanche: Avalanche;
 let harmony: Harmony;
 
 beforeAll(async () => {
-  overrideConfigs.init();
-  overrideConfigs.updateConfigs();
-
   eth = Ethereum.getInstance('kovan');
   patchEVMNonceManager(eth.nonceManager);
   await eth.init();
@@ -41,7 +35,6 @@ afterAll(async () => {
   await eth.close();
   await avalanche.close();
   await harmony.close();
-  overrideConfigs.resetConfigs();
 });
 
 describe('GET /network/status', () => {

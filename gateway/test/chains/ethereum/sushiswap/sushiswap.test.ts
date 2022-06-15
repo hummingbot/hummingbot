@@ -12,10 +12,7 @@ import {
 } from '@sushiswap/sdk';
 import { BigNumber } from 'ethers';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
-import { OverrideConfigs } from '../../../config.util';
 import { patchEVMNonceManager } from '../../../evm.nonce.mock';
-
-const overrideConfigs = new OverrideConfigs();
 
 let ethereum: Ethereum;
 let sushiswap: Sushiswap;
@@ -34,9 +31,6 @@ const DAI = new Token(
 );
 
 beforeAll(async () => {
-  overrideConfigs.init();
-  overrideConfigs.updateConfigs();
-
   ethereum = Ethereum.getInstance('kovan');
   patchEVMNonceManager(ethereum.nonceManager);
   await ethereum.init();
@@ -55,7 +49,6 @@ afterEach(() => {
 
 afterAll(async () => {
   await ethereum.close();
-  overrideConfigs.resetConfigs();
 });
 
 const patchFetchData = () => {

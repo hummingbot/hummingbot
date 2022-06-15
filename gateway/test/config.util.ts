@@ -1,6 +1,6 @@
 import { ConfigManagerV2 } from '../src/services/config-manager-v2';
 
-export class OverrideConfigs {
+class OverrideConfigs {
   public nonceDbPath: string;
   public transactionDbPath: string;
   #testNonceDbPath: string = '';
@@ -43,3 +43,5 @@ export class OverrideConfigs {
     );
   }
 }
+
+export const DBPathOverride = new OverrideConfigs();
