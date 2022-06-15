@@ -158,8 +158,9 @@ jobs:
 
       - name: Install hardhat and start node.
         run: |
-            yarn --cwd ./gateway  add --dev hardhat
-            yarn --cwd ./gateway hardhat node
+            mkdir hardhat && cd hardhat && npm init
+            yarn add --dev hardhat
+            yarn hardhat node
 
       - name: Install Dependencies
         run: yarn --cwd ./gateway install
