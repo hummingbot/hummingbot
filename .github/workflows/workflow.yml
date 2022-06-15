@@ -159,6 +159,7 @@ jobs:
       - name: Install hardhat and start node.
         run: |
             mkdir hardhat && cd hardhat && npm init -y
+            touch hardhat.config.js
             yarn add --dev hardhat
             yarn hardhat node
 
