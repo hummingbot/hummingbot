@@ -161,7 +161,7 @@ jobs:
             mkdir hardhat && cd hardhat && npm init -y
             touch hardhat.config.js
             yarn add --dev hardhat
-            yarn hardhat node
+            yarn hardhat node &
 
       - name: Install Dependencies
         run: yarn --cwd ./gateway install
