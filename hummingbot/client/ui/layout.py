@@ -1,4 +1,4 @@
-from os.path import join, realpath, dirname
+from os.path import dirname, join, realpath
 from typing import Dict
 
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -22,7 +22,6 @@ from hummingbot.client.settings import MAXIMUM_LOG_PANE_LINE_COUNT, MAXIMUM_OUTP
 from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea, FormattedTextLexer
 from hummingbot.core.gateway.status_monitor import Status as GatewayStatus
-
 
 HEADER = """
                                                 *,.
@@ -211,9 +210,10 @@ def get_strategy_file():
 def get_gateway_status():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
-    gateway_status = "ON" if hb._gateway_monitor.current_status is GatewayStatus.ONLINE else "OFF"
+    gateway_status = "RUNNING" if hb._gateway_monitor.current_status is GatewayStatus.ONLINE else "STOPPED"
+    gateway_conn_status = hb._gateway_monitor.current_connector_conn_status.name
     style = "class:log-field"
-    return [(style, f"Gateway: {gateway_status}")]
+    return [(style, f"Gateway: {gateway_status}, {gateway_conn_status}")]
 
 
 def generate_layout(input_field: TextArea,

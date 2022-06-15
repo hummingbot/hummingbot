@@ -16,6 +16,12 @@ import { EvmTxStorage } from './evm.tx-storage';
 import fse from 'fs-extra';
 import { ConfigManagerCertPassphrase } from './config-manager-cert-passphrase';
 import { logger } from './logger';
+import {
+  HttpException,
+  INVALID_NONCE_ERROR_MESSAGE,
+  INVALID_NONCE_ERROR_CODE,
+} from './error-handler';
+import { ReferenceCountingCloseable } from './refcounting-closeable';
 
 // information about an Ethereum token
 export interface TokenInfo {
@@ -43,11 +49,13 @@ export class EthereumBase {
   public chainId;
   public rpcUrl;
   public gasPriceConstant;
+  private _gasLimit;
   public tokenListSource: string;
   public tokenListType: TokenListType;
   public cache: NodeCache;
-  private _nonceManager: EVMNonceManager;
-  private _txStorage: EvmTxStorage;
+  private readonly _refCountingHandle: string;
+  private readonly _nonceManager: EVMNonceManager;
+  private readonly _txStorage: EvmTxStorage;
 
   constructor(
     chainName: string,
@@ -55,7 +63,10 @@ export class EthereumBase {
     rpcUrl: string,
     tokenListSource: string,
     tokenListType: TokenListType,
-    gasPriceConstant: number
+    gasPriceConstant: number,
+    gasLimit: number,
+    nonceDbPath: string,
+    transactionDbPath: string
   ) {
     this._provider = new providers.StaticJsonRpcProvider(rpcUrl);
     this.chainName = chainName;
@@ -64,10 +75,16 @@ export class EthereumBase {
     this.gasPriceConstant = gasPriceConstant;
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
-    this._nonceManager = new EVMNonceManager(chainName, chainId);
-    this._nonceManager.init(this.provider);
+
+    this._refCountingHandle = ReferenceCountingCloseable.createHandle();
+    this._nonceManager = new EVMNonceManager(chainName, chainId, nonceDbPath);
+    this._nonceManager.declareOwnership(this._refCountingHandle);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
-    this._txStorage = new EvmTxStorage('transactions.level');
+    this._gasLimit = gasLimit;
+    this._txStorage = EvmTxStorage.getInstance(
+      transactionDbPath,
+      this._refCountingHandle
+    );
   }
 
   ready(): boolean {
@@ -76,6 +93,10 @@ export class EthereumBase {
 
   public get provider() {
     return this._provider;
+  }
+
+  public get gasLimit() {
+    return this._gasLimit;
   }
 
   public events() {
@@ -95,6 +116,8 @@ export class EthereumBase {
   async init(): Promise<void> {
     if (!this.ready() && !this._initializing) {
       this._initializing = true;
+      await this._nonceManager.init(this.provider);
+
       this._initPromise = this.loadTokens(
         this.tokenListSource,
         this.tokenListType
@@ -284,7 +307,20 @@ export class EthereumBase {
         '.'
     );
     if (!nonce) {
-      nonce = await this.nonceManager.getNonce(wallet.address);
+      nonce = await this.nonceManager.getNextNonce(wallet.address);
+    } else {
+      const isValid: boolean = await this.nonceManager.isValidNonce(
+        wallet.address,
+        nonce
+      );
+
+      if (!isValid) {
+        throw new HttpException(
+          500,
+          INVALID_NONCE_ERROR_MESSAGE + nonce,
+          INVALID_NONCE_ERROR_CODE
+        );
+      }
     }
     const params: any = {
       gasLimit: '100000',
@@ -332,5 +368,10 @@ export class EthereumBase {
     logger.info(response);
 
     return response;
+  }
+
+  async close() {
+    await this._nonceManager.close(this._refCountingHandle);
+    await this._txStorage.close(this._refCountingHandle);
   }
 }

@@ -29,7 +29,8 @@
     "network": { "type": "string" },
     "autoGasPrice": { "type": "boolean" },
     "manualGasPrice": { "type": "integer" },
-    "gasPricerefreshTime": { "type": "integer" }
+    "gasPricerefreshTime": { "type": "integer" },
+    "gasLimit": { "type": "integer" }
   },
   "additionalProperties": false
 }

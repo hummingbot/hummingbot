@@ -1,23 +1,23 @@
 import asyncio
-import pandas as pd
-
 from typing import TYPE_CHECKING, Optional
 
-from hummingbot.client.settings import AllConnectorSettings, GLOBAL_CONFIG_PATH
+import pandas as pd
 
-from hummingbot.client.config.security import Security
-from hummingbot.client.ui.interface_utils import format_df_for_printout
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.user.user_balances import UserBalances
 from hummingbot.client.config.config_helpers import save_to_yml
-from hummingbot.connector.other.celo.celo_cli import CeloCLI
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
+from hummingbot.client.settings import GLOBAL_CONFIG_PATH, AllConnectorSettings
+from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_status import get_connector_status
+from hummingbot.connector.other.celo.celo_cli import CeloCLI
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.user.user_balances import UserBalances
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 OPTIONS = {cs.name for cs in AllConnectorSettings.get_connector_settings().values()
-           if not cs.use_ethereum_wallet}.union({"celo"})
+           if not cs.use_ethereum_wallet and not cs.uses_gateway_generic_connector()}.union({"celo"})
 
 
 class ConnectCommand:
