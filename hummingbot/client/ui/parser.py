@@ -95,13 +95,18 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     gateway_create_parser.set_defaults(func=hummingbot.create_gateway)
 
     gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")
-    gateway_config_parser.add_argument("key", nargs=1, default=None, help="Name of the parameter you want to view/change")
+    gateway_config_parser.add_argument("key", nargs="?", default=None, help="Name of the parameter you want to view/change")
     gateway_config_parser.add_argument("value", nargs="?", default=None, help="New value for the parameter")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
     gateway_connect_parser = gateway_subparsers.add_parser("connect", help="Create/view connection info for gateway connector")
     gateway_connect_parser.add_argument("connector", nargs="?", default=None, help="Name of connector you want to create a profile for")
     gateway_connect_parser.set_defaults(func=hummingbot.gateway_connect)
+
+    gateway_connector_tokens_parser = gateway_subparsers.add_parser("connector-tokens", help="Report token balances for gateway connectors")
+    gateway_connector_tokens_parser.add_argument("connector_chain_network", nargs="?", default=None, help="Name of connector you want to edit reported tokens for")
+    gateway_connector_tokens_parser.add_argument("new_tokens", nargs="?", default=None, help="Report balance of these tokens")
+    gateway_connector_tokens_parser.set_defaults(func=hummingbot.gateway_connector_tokens)
 
     gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create ssl certifcate for gateway")
     gateway_cert_parser.set_defaults(func=hummingbot.generate_certs)

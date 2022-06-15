@@ -7,15 +7,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.kucoin import (
-    kucoin_constants as CONSTANTS,
-    kucoin_web_utils as web_utils,
-)
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS, kucoin_web_utils as web_utils
 from hummingbot.connector.exchange.kucoin.kucoin_api_user_stream_data_source import KucoinAPIUserStreamDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
@@ -47,17 +44,19 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
             self.api_passphrase,
             self.api_secret_key,
             time_provider=self.mock_time_provider)
-        self.time_synchronizer = TimeSynchronizer()
-        self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        self.api_factory = web_utils.build_api_factory(
-            throttler=self.throttler,
-            time_synchronizer=self.time_synchronizer,
-            auth=self.auth)
+        self.connector = KucoinExchange(
+            kucoin_api_key="",
+            kucoin_passphrase="",
+            kucoin_secret_key="",
+            trading_pairs=[],
+            trading_required=False)
 
         self.data_source = KucoinAPIUserStreamDataSource(
-            throttler=self.throttler,
-            api_factory=self.api_factory)
+            auth=self.auth,
+            trading_pairs=[self.trading_pair],
+            connector=self.connector,
+            api_factory=self.connector._web_assistants_factory)
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
@@ -96,20 +95,12 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
         }
         return listen_key
 
-    def test_last_recv_time(self):
-        # Initial last_recv_time
-        self.assertEqual(0, self.data_source.last_recv_time)
-
-        ws_assistant = self.async_run_with_timeout(self.data_source._get_ws_assistant())
-        ws_assistant._connection._last_recv_time = 1000
-        self.assertEqual(1000, self.data_source.last_recv_time)
-
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.kucoin.kucoin_web_utils.next_message_id")
     def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, mock_api, id_mock, ws_connect_mock):
         id_mock.side_effect = [1, 2]
-        url = web_utils.rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
 
         resp = {
             "code": "200000",
@@ -181,7 +172,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_get_listen_key_successful_with_user_update_event(self, mock_api, mock_ws):
-        url = web_utils.rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = self.get_listen_key_mock()
@@ -224,7 +215,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_does_not_queue_pong_payload(self, mock_api, mock_ws):
-        url = web_utils.rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = self.get_listen_key_mock()
@@ -251,7 +242,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
     def test_listen_for_user_stream_connection_failed(self, mock_api, sleep_mock, mock_ws):
-        url = web_utils.rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = self.get_listen_key_mock()
@@ -268,13 +259,13 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged("ERROR",
-                            "Unexpected error occurred when listening to user streams. Retrying in 5 seconds..."))
+                            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
     def test_listen_for_user_stream_iter_message_throws_exception(self, mock_api, sleep_mock, mock_ws):
-        url = web_utils.rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = self.get_listen_key_mock()
@@ -293,7 +284,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                "Unexpected error occurred when listening to user streams. Retrying in 5 seconds..."))
+                "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -309,7 +300,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
 
         id_mock.side_effect = [1, 2, 3, 4]
         time_mock.side_effect = [1000, 1100, 1101, 1102]  # Simulate first ping interval is already due
-        url = web_utils.rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
 
         resp = {
             "code": "200000",

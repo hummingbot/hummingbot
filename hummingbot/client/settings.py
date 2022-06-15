@@ -1,19 +1,17 @@
-"""
-Define ConnectorSetting class (contains metadata about the exchanges hummingbot can interact with), and a function to
-generate a dictionary of exchange names to ConnectorSettings.
-"""
-
 import importlib
 import json
 from decimal import Decimal
 from enum import Enum
-from os import scandir, DirEntry
-from os.path import join, realpath, exists
-from typing import Any, Dict, List, NamedTuple, Optional, Set, Union, cast
+from os import DirEntry, scandir
+from os.path import exists, join, realpath
+from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Set, Union, cast
 
 from hummingbot import get_strategy_list, root_path
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+
+if TYPE_CHECKING:
+    from hummingbot.connector.connector_base import ConnectorBase
 
 # Global variables
 required_exchanges: List[str] = []
@@ -82,14 +80,24 @@ class GatewayConnectionSetting:
         return f"{connector_spec['connector']}_{connector_spec['chain']}_{connector_spec['network']}"
 
     @staticmethod
-    def get_connector_spec_from_market_name(market_name: str) -> Dict[str, str]:
-        connector_name, chain, network = market_name.split("_")
+    def get_connector_spec(connector_name: str, chain: str, network: str) -> Optional[Dict[str, str]]:
+        connector: Optional[Dict[str, str]] = None
         connector_config: List[Dict[str, str]] = GatewayConnectionSetting.load()
-        matched_specs: List[Dict[str, str]] = [
-            spec for spec in connector_config
-            if spec["connector"] == connector_name and spec["chain"] == chain and spec["network"] == network
-        ]
-        return matched_specs[0]
+        for spec in connector_config:
+            if spec["connector"] == connector_name \
+               and spec["chain"] == chain \
+               and spec["network"] == network:
+                connector = spec
+
+        return connector
+
+    @staticmethod
+    def get_connector_spec_from_market_name(market_name: str) -> Optional[Dict[str, str]]:
+        vals = market_name.split("_")
+        if len(vals) == 3:
+            return GatewayConnectionSetting.get_connector_spec(vals[0], vals[1], vals[2])
+        else:
+            return None
 
     @staticmethod
     def upsert_connector_spec(connector_name: str, chain: str, network: str, trading_type: str, wallet_address: str):
@@ -110,6 +118,21 @@ class GatewayConnectionSetting:
 
         if updated is False:
             connectors_conf.append(new_connector_spec)
+        GatewayConnectionSetting.save(connectors_conf)
+
+    @staticmethod
+    def upsert_connector_spec_tokens(connector_chain_network: str, tokens: str):
+        updated_connector: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+        updated_connector['tokens'] = tokens
+
+        connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
+        for i, c in enumerate(connectors_conf):
+            if c["connector"] == updated_connector['connector'] \
+               and c["chain"] == updated_connector['chain'] \
+               and c["network"] == updated_connector['network']:
+                connectors_conf[i] = updated_connector
+                break
+
         GatewayConnectionSetting.save(connectors_conf)
 
 
@@ -185,6 +208,19 @@ class ConnectorSetting(NamedTuple):
             return self.parent_name
         else:
             return self.name
+
+    def non_trading_connector_instance_with_default_configuration(
+            self,
+            trading_pairs: Optional[List[str]] = None) -> 'ConnectorBase':
+        trading_pairs = trading_pairs or []
+        connector_class = getattr(importlib.import_module(self.module_path()), self.class_name())
+        args = {key: (config.value or "") for key, config in self.config_keys.items()}
+        args = self.conn_init_parameters(args)
+        args = self.add_domain_parameter(args)
+        args.update(trading_pairs=trading_pairs, trading_required=False)
+        connector = connector_class(**args)
+
+        return connector
 
 
 class AllConnectorSettings:
