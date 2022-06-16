@@ -3,12 +3,13 @@ import asyncio
 import logging
 import time
 import traceback
+from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
 import aiohttp
 import pandas as pd
 
-import hummingbot.connector.exchange.digifinex.digifinex_constants as constants
+import hummingbot.connector.exchange.digifinex.digifinex_constants as CONSTANTS
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -40,12 +41,13 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._trading_pairs: List[str] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
+        self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         result = {}
         async with aiohttp.ClientSession() as client:
-            resp = await client.get(f"{constants.REST_URL}/ticker")
+            resp = await client.get(f"{CONSTANTS.REST_URL}/ticker")
             resp_json = await resp.json()
             for t_pair in trading_pairs:
                 last_trade = [o["last"] for o in resp_json["ticker"] if o["symbol"] ==
@@ -57,7 +59,7 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
         async with aiohttp.ClientSession() as client:
-            async with client.get(f"{constants.REST_URL}/ticker", timeout=10) as response:
+            async with client.get(f"{CONSTANTS.REST_URL}/ticker", timeout=10) as response:
                 if response.status == 200:
                     from hummingbot.connector.exchange.digifinex.digifinex_utils import (
                         convert_from_exchange_trading_pair,
@@ -77,13 +79,13 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         async with aiohttp.ClientSession() as client:
             orderbook_response = await client.get(
-                f"{constants.REST_URL}/order_book?limit=150&symbol="
+                f"{CONSTANTS.REST_URL}/order_book?limit=150&symbol="
                 f"{digifinex_utils.convert_to_exchange_trading_pair(trading_pair)}"
             )
 
             if orderbook_response.status != 200:
                 raise IOError(
-                    f"Error fetching OrderBook for {trading_pair} at {constants.EXCHANGE_NAME}. "
+                    f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
                     f"HTTP status is {orderbook_response.status}."
                 )
 
@@ -109,72 +111,96 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Listen for trades using websocket trade channel
         """
+        message_queue: asyncio.Queue = self._message_queue[CONSTANTS.ORDER_BOOK_TRADE_CHANNEL]
         while True:
             try:
-                ws = DigifinexWebsocket()
-                await ws.connect()
-
-                await ws.subscribe("trades", list(map(
-                    lambda pair: f"{digifinex_utils.convert_to_ws_trading_pair(pair)}",
-                    self._trading_pairs
-                )))
-
-                async for response in ws.on_message():
-                    params = response["params"]
-                    symbol = params[2]
-                    for trade in params[1]:
-                        trade_timestamp: int = trade["time"]
-                        trade_msg: OrderBookMessage = DigifinexOrderBook.trade_message_from_exchange(
-                            trade,
-                            trade_timestamp,
-                            metadata={"trading_pair": digifinex_utils.convert_from_ws_trading_pair(symbol)}
-                        )
-                        output.put_nowait(trade_msg)
-
+                ws_message = await message_queue.get()
+                data = ws_message["params"]
+                symbol = data[2]
+                for trade in data[1]:
+                    trade_timestamp: int = trade["time"]
+                    trade_msg: OrderBookMessage = DigifinexOrderBook.trade_message_from_exchange(
+                        trade,
+                        trade_timestamp,
+                        metadata={"trading_pair": digifinex_utils.convert_from_ws_trading_pair(symbol)}
+                    )
+                    output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
-            except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
-                await asyncio.sleep(5.0)
-            finally:
-                await ws.disconnect()
+            except Exception as e:
+                self.logger().error(
+                    f"Unexpected error parsing orderbook depth message. ({str(e)})",
+                    exc_info=True,
+                )
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         Listen for orderbook diffs using websocket book channel
         """
+        message_queue: asyncio.Queue = self._message_queue[CONSTANTS.ORDER_BOOK_DEPTH_CHANNEL]
+        while True:
+            try:
+                ws_message = await message_queue.get()
+                data = ws_message["params"]
+                symbol = data[2]
+                order_book_data = data[1]
+                timestamp: float = time.time()
+
+                if data[0] is True:
+                    orderbook_msg: OrderBookMessage = DigifinexOrderBook.snapshot_message_from_exchange(
+                        order_book_data,
+                        timestamp,
+                        metadata={"trading_pair": digifinex_utils.convert_from_ws_trading_pair(symbol)}
+                    )
+                else:
+                    orderbook_msg: OrderBookMessage = DigifinexOrderBook.diff_message_from_exchange(
+                        order_book_data,
+                        timestamp,
+                        metadata={"trading_pair": digifinex_utils.convert_from_ws_trading_pair(symbol)}
+                    )
+                output.put_nowait(orderbook_msg)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(
+                    f"Unexpected error parsing orderbook depth message. ({str(e)})",
+                    exc_info=True,
+                )
+
+    async def _subscribe_channels(self, websocket: DigifinexWebsocket):
+        try:
+            await websocket.subscribe("depth", list(map(
+                lambda pair: f"{digifinex_utils.convert_to_ws_trading_pair(pair)}",
+                self._trading_pairs
+            )))
+            await websocket.subscribe("trades", list(map(
+                lambda pair: f"{digifinex_utils.convert_to_ws_trading_pair(pair)}",
+                self._trading_pairs
+            )))
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().error(f"Unexpected error occured subscribing to Digifinex public channels. ({str(e)})")
+            raise
+
+    async def listen_for_subscriptions(self):
         while True:
             try:
                 ws = DigifinexWebsocket()
                 await ws.connect()
-
-                await ws.subscribe("depth", list(map(
-                    lambda pair: f"{digifinex_utils.convert_to_ws_trading_pair(pair)}",
-                    self._trading_pairs
-                )))
+                await self._subscribe_channels(ws)
 
                 async for response in ws.on_message():
-                    if response is None or 'params' not in response:
+                    if response is None or "params" not in response or "method" not in response:
                         continue
 
-                    params = response["params"]
-                    symbol = params[2]
-                    order_book_data = params[1]
-                    timestamp: float = time.time()
-
-                    if params[0] is True:
-                        orderbook_msg: OrderBookMessage = DigifinexOrderBook.snapshot_message_from_exchange(
-                            order_book_data,
-                            timestamp,
-                            metadata={"trading_pair": digifinex_utils.convert_from_ws_trading_pair(symbol)}
-                        )
+                    channel = response["method"]
+                    if channel == CONSTANTS.ORDER_BOOK_DEPTH_CHANNEL:
+                        self._message_queue[CONSTANTS.ORDER_BOOK_DEPTH_CHANNEL].put_nowait(response)
+                    elif channel == CONSTANTS.ORDER_BOOK_TRADE_CHANNEL:
+                        self._message_queue[CONSTANTS.ORDER_BOOK_TRADE_CHANNEL].put_nowait(response)
                     else:
-                        orderbook_msg: OrderBookMessage = DigifinexOrderBook.diff_message_from_exchange(
-                            order_book_data,
-                            timestamp,
-                            metadata={"trading_pair": digifinex_utils.convert_from_ws_trading_pair(symbol)}
-                        )
-                    output.put_nowait(orderbook_msg)
+                        continue
 
             except asyncio.CancelledError:
                 raise
@@ -198,7 +224,7 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for trading_pair in self._trading_pairs:
                     try:
                         snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
-                        snapshot_timestamp: int = snapshot["date"]
+                        snapshot_timestamp: int = time.time()
                         snapshot_msg: OrderBookMessage = DigifinexOrderBook.snapshot_message_from_exchange(
                             snapshot,
                             snapshot_timestamp,
