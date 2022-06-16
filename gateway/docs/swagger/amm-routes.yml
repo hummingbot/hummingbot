@@ -54,7 +54,7 @@ paths:
           name: 'body'
           required: true
           schema:
-            $ref: '#/definitions/NetworkSelectionRequest'
+            $ref: '#/definitions/ConnectorSelectionRequest'
       responses:
         '200':
           schema:

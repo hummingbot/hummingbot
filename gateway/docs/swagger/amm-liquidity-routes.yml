@@ -34,11 +34,11 @@ paths:
           name: 'body'
           required: true
           schema:
-            $ref: '#/definitions/LiquidityAddRequest'
+            $ref: '#/definitions/AddLiquidityRequest'
       responses:
         '200':
           schema:
-            $ref: '#/definitions/LiquidityAddResponse'
+            $ref: '#/definitions/AddLiquidityResponse'
   /amm/liquidity/remove:
     post:
       tags:
@@ -54,11 +54,11 @@ paths:
           name: 'body'
           required: true
           schema:
-            $ref: '#/definitions/LiquidityRemoveRequest'
+            $ref: '#/definitions/RemoveLiquidityRequest'
       responses:
         '200':
           schema:
-            $ref: '#/definitions/LiquidityRemoveResponse'
+            $ref: '#/definitions/RemoveLiquidityResponse'
   /amm/liquidity/collect-fees:
     post:
       tags:
