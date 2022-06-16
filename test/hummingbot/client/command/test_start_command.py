@@ -1,4 +1,5 @@
 import asyncio
+import sys
 import unittest
 from copy import deepcopy
 from pathlib import Path
@@ -23,6 +24,7 @@ class StartCommandTest(unittest.TestCase):
         self.async_run_with_timeout(read_system_configs_from_yml())
 
         self.app = HummingbotApplication()
+        self.app.strategy_file_name = "dca_example"
 
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
@@ -70,31 +72,33 @@ class StartCommandTest(unittest.TestCase):
 
     # Test a call with a standard Lite Strategy script initializing markets in the class
     def test_start_script_strategy_default(self):
+        if 'scripts.dca_example' in sys.modules:
+            del sys.modules['scripts.dca_example']
+
         class_wo_initialize: ModuleType = ScriptStrategyBase.load_script_class("dca_example")
 
-        with patch.object(HummingbotApplication, 'strategy_file_name') as strategy_file_name:
-            with patch.object(ScriptStrategyBase, 'load_script_class') as load_script_class:
-                load_script_class.return_value = class_wo_initialize
-                with patch.object(HummingbotApplication, '_initialize_markets') as initialize_markets:
-                    self.app.start_script_strategy()
+        with patch.object(ScriptStrategyBase, 'load_script_class') as load_script_class:
+            load_script_class.return_value = class_wo_initialize
+            with patch.object(HummingbotApplication, '_initialize_markets') as initialize_markets:
+                self.app.start_script_strategy()
 
-        self.assertEqual(strategy_file_name.call_args_list, [])
-        self.assertEqual(load_script_class.call_args_list, [call(strategy_file_name)])
+        self.assertEqual(load_script_class.call_args_list, [call(self.app.strategy_file_name)])
         self.assertEqual(initialize_markets.call_args_list, [call([('binance_paper_trade', ['BTC-USDT'])])])
         self.assertEqual(self.app.strategy.markets, {'binance_paper_trade': {'BTC-USDT'}})
 
     # Test a call with a Lite Strategy script providing the initialize_from_yml method (overriding the base method)
-    def test_start_script_strategy_confg(self):
+    def test_start_script_strategy_config(self):
+        if 'scripts.dca_example' in sys.modules:
+            del sys.modules['scripts.dca_example']
+
         class_w_initialize: ModuleType = ScriptStrategyBase.load_script_class("dca_example")
 
         with patch.object(ScriptStrategyBase, 'initialize_from_yml', create=True) as initialize_from_yml:
             initialize_from_yml.return_value = {'kucoin': {'ALGO-ETH', 'ALGO-USDT', 'AVAX-USDT', 'AVAX-BTC'}}
-            with patch.object(HummingbotApplication, 'strategy_file_name') as strategy_file_name:
-                with patch.object(ScriptStrategyBase, 'load_script_class') as load_script_class:
-                    load_script_class.return_value = class_w_initialize
-                    with patch.object(HummingbotApplication, '_initialize_markets'):
-                        self.app.start_script_strategy()
+            with patch.object(ScriptStrategyBase, 'load_script_class') as load_script_class:
+                load_script_class.return_value = class_w_initialize
+                with patch.object(HummingbotApplication, '_initialize_markets'):
+                    self.app.start_script_strategy()
 
-        self.assertEqual(strategy_file_name.call_args_list, [])
-        self.assertEqual(load_script_class.call_args_list, [call(strategy_file_name)])
+        self.assertEqual(load_script_class.call_args_list, [call(self.app.strategy_file_name)])
         self.assertEqual(self.app.strategy.markets, {'kucoin': {'ALGO-ETH', 'ALGO-USDT', 'AVAX-USDT', 'AVAX-BTC'}})
