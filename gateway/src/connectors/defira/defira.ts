@@ -106,7 +106,6 @@ export class Defira implements Uniswapish {
 
   /**
    * Lazily computed factory address.
-   * TODO: pass this value into the defira-sdk Fetcher to remove dependency on hard-coded contract address
    */
   public get factory(): Promise<string> {
     // boilerplate to support async getter
@@ -196,7 +195,6 @@ export class Defira implements Uniswapish {
       `Fetching pair data for ${baseToken.address}-${quoteToken.address}.`
     );
 
-    // TODO: replace fetcher which returns defira-sdk Pair instead of this uniswap-sdk Pair
     const pair: DefiraPair = await DefiraFetcher.fetchPairData(
       quoteToken,
       baseToken,
