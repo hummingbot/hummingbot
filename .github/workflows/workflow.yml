@@ -177,7 +177,6 @@ jobs:
           sed -i 's/kovan.infura.io\/v3\//127.0.0.1:8545\//g' ./conf/ethereum.yml
           sed -i 's/speedy-nodes-nyc.moralis.io\/{}\/avalanche/\testnet/127.0.0.1:8545\//g' ./conf/avalanche.yml
           sed -i 's/api.s0.b.hmny.io/127.0.0.1:8545\//g' ./conf/harmony.yml
-          sed -i -e "/customRpcUrl:/ s/[^ ][^ ]*$/http:\/\/127.0.0.1:8545/" ./conf/solana.yml
           yarn test:unit 
 
       - name: Run unit test coverage
