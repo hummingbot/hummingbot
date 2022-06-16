@@ -23,12 +23,18 @@ import {
   Trade as TradePangolin,
   Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
+import { Trade as DefiraTrade } from '@zuzu-cat/defira-sdk';
 
 export type Tokenish = Token | TokenPangolin | UniswapCoreToken;
 export type UniswapishTrade =
   | Trade
   | TradePangolin
-  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
+  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
+  | DefiraTrade<
+      UniswapCoreToken,
+      UniswapCoreToken,
+      TradeType.EXACT_INPUT | TradeType.EXACT_OUTPUT
+    >;
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
