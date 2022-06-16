@@ -1,14 +1,16 @@
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_validators import (
-    validate_exchange,
-    validate_market_trading_pair,
-    validate_decimal,
-    validate_bool
-)
-from hummingbot.client.config.config_helpers import parse_cvar_value
-import hummingbot.client.settings as settings
 from decimal import Decimal
 from typing import Optional
+
+import hummingbot.client.settings as settings
+from hummingbot.client.config.config_helpers import parse_cvar_value
+from hummingbot.client.config.config_validators import (
+    validate_bool,
+    validate_connector,
+    validate_decimal,
+    validate_int,
+    validate_market_trading_pair,
+)
+from hummingbot.client.config.config_var import ConfigVar
 
 
 def maker_trading_pair_prompt():
@@ -84,16 +86,16 @@ cross_exchange_market_making_config_map = {
                           ),
     "maker_market": ConfigVar(
         key="maker_market",
-        prompt="Enter your maker spot connector >>> ",
+        prompt="Enter your maker spot connector (Exchange) >>> ",
         prompt_on_new=True,
-        validator=validate_exchange,
+        validator=validate_connector,
         on_validated=lambda value: settings.required_exchanges.append(value),
     ),
     "taker_market": ConfigVar(
         key="taker_market",
-        prompt="Enter your taker spot connector >>> ",
+        prompt="Enter your taker connector (Exchange/AMM) >>> ",
         prompt_on_new=True,
-        validator=validate_exchange,
+        validator=validate_connector,
         on_validated=taker_market_on_validated,
     ),
     "maker_market_trading_pair": ConfigVar(
@@ -234,5 +236,22 @@ cross_exchange_market_making_config_map = {
         default=Decimal("5"),
         type_str="decimal",
         validator=lambda v: validate_decimal(v, Decimal(0), Decimal(100), inclusive=True)
+    ),
+    "debug_price_shim": ConfigVar(
+        key="debug_price_shim",
+        prompt="Do you want to enable the debug price shim for integration tests? If you don't know what this does "
+               "you should keep it disabled. >>> ",
+        default=False,
+        validator=validate_bool,
+        type_str="bool"
+    ),
+    "gateway_transaction_cancel_interval": ConfigVar(
+        key="gateway_transaction_cancel_interval",
+        prompt="After what time should blockchain transactions be cancelled if they are not included in a block? "
+               "(this only affects decentralized exchanges) (Enter time in seconds) >>> ",
+        prompt_on_new=True,
+        default=600,
+        validator=lambda v: validate_int(v, min_value=1, inclusive=True),
+        type_str="int"
     )
 }

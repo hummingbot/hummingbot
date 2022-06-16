@@ -2,7 +2,7 @@
 ###   Cross exchange market making strategy config   ###
 ########################################################
 
-template_version: 6
+template_version: 7
 strategy: null
 
 # The following configuations are only required for the
@@ -79,6 +79,13 @@ taker_to_maker_quote_conversion_rate: null
 # The submitted order price will be adjusted higher (by percentage value) for buy orders
 # and lower for sell orders. (Enter 1 for 1%)
 slippage_buffer: null
+
+# A flag (true/false), if true would enable a price shim feature on the AMM connector to allow developer to simulate
+# different prices on the AMM market. This is used for development and testing purpose only.
+debug_price_shim: null
+
+# After how many seconds should blockchain transactions be cancelled if they are not included in a block?
+gateway_transaction_cancel_interval: null
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/cross-exchange-market-making/#configuration-parameters
