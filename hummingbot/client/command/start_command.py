@@ -180,6 +180,11 @@ class StartCommand(GatewayChainApiManager):
 
     def start_script_strategy(self):
         script_strategy = ScriptStrategyBase.load_script_class(self.strategy_file_name)
+
+        # If there is a method allowing initialization from a file, we apply it
+        if hasattr(script_strategy, 'initialize_from_yml') and callable(getattr(script_strategy, 'initialize_from_yml')):
+            script_strategy.markets = script_strategy.initialize_from_yml()
+
         markets_list = []
         for conn, pairs in script_strategy.markets.items():
             markets_list.append((conn, list(pairs)))
