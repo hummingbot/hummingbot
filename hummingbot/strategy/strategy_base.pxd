@@ -24,6 +24,7 @@ cdef class StrategyBase(TimeIterator):
         EventListener _sb_range_position_update_listener
         EventListener _sb_range_position_update_failure_listener
         EventListener _sb_range_position_fee_collected_listener
+        EventListener _sb_range_position_closed_listener
         bint _sb_delegate_lock
         public OrderTracker _sb_order_tracker
 
