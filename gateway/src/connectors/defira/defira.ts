@@ -48,7 +48,7 @@ export class Defira implements Uniswapish {
     this._ttl = DefiraConfig.config.ttl();
     this._routerAbi = routerAbi.abi;
     this._gasLimit = DefiraConfig.config.gasLimit();
-    this._router = config.uniswapV2RouterAddress(network);
+    this._router = config.routerAddress(network);
   }
 
   public static getInstance(chain: string, network: string): Defira {
