@@ -371,13 +371,12 @@ class KucoinExchangeTests(unittest.TestCase):
             trading_pairs=[self.trading_pair, "BTC-USDT"]
         )
 
-        KucoinAPIOrderBookDataSource._trading_pair_symbol_map = {
-            CONSTANTS.DEFAULT_DOMAIN: bidict(
-                {self.trading_pair: self.trading_pair,
-                 "BTC-USDT": "BTC-USDT"})
-        }
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({
+                self.trading_pair: self.trading_pair,
+                "BTC-USDT": "BTC-USDT"}))
 
-        url = web_utils.rest_url(CONSTANTS.FEE_PATH_URL)
+        url = web_utils.public_rest_url(CONSTANTS.FEE_PATH_URL)
         regex_url = re.compile(f"^{url}")
         resp = {"data": [
             {"symbol": self.trading_pair,
