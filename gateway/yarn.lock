@@ -499,7 +499,7 @@
   dependencies:
     "@ethersproject/bignumber" "^5.6.2"
 
-"@ethersproject/contracts@5.6.2":
+"@ethersproject/contracts@5.6.2", "@ethersproject/contracts@^5.6.2":
   version "5.6.2"
   resolved "https://registry.yarnpkg.com/@ethersproject/contracts/-/contracts-5.6.2.tgz#20b52e69ebc1b74274ff8e3d4e508de971c287bc"
   integrity sha512-hguUA57BIKi6WY0kHvZp6PwPlWF87MCeB4B7Z7AbUpTxfFXFdn/3b0GmjZPagIHS+3yhcBJDnuEfU4Xz+Ks/8g==
@@ -610,7 +610,7 @@
   dependencies:
     "@ethersproject/logger" "^5.6.0"
 
-"@ethersproject/providers@5.6.8":
+"@ethersproject/providers@5.6.8", "@ethersproject/providers@^5.6.8":
   version "5.6.8"
   resolved "https://registry.yarnpkg.com/@ethersproject/providers/-/providers-5.6.8.tgz#22e6c57be215ba5545d3a46cf759d265bb4e879d"
   integrity sha512-Wf+CseT/iOJjrGtAOf3ck9zS7AgPmr2fZ3N97r4+YXN3mBePTG2/bJ8DApl9mVwYL+RpYbNxMEkEp4mPGdwG/w==
@@ -1908,9 +1908,11 @@
 
 "@zuzu-cat/defira-sdk@https://github.com/zuzu-cat/defira-sdk.git":
   version "3.0.1"
-  resolved "https://github.com/zuzu-cat/defira-sdk.git#6d72591d83a808186dcc18dbc8163238538b2335"
+  resolved "https://github.com/zuzu-cat/defira-sdk.git#a321cca14ef748628b79bc44624f444cabc04457"
   dependencies:
     "@ethersproject/address" "^5.0.0"
+    "@ethersproject/contracts" "^5.6.2"
+    "@ethersproject/providers" "^5.6.8"
     "@ethersproject/solidity" "^5.0.0"
     "@uniswap/sdk-core" "^3.0.0-alpha.3"
     "@zuzu-cat/defira-sdk-core" "https://github.com/zuzu-cat/defira-sdk-core.git"

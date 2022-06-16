@@ -4,6 +4,7 @@ import { Harmony } from '../chains/harmony/harmony';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { Pangolin } from '../connectors/pangolin/pangolin';
 import { Ethereumish } from './common-interfaces';
+import { Defira } from '../connectors/defira/defira';
 
 export async function getChain(chain: string, network: string) {
   let chainInstance: Ethereumish;
@@ -28,6 +29,8 @@ export async function getConnector(
     connectorInstance = Uniswap.getInstance(chain, network);
   else if (chain === 'avalanche' && connector === 'pangolin')
     connectorInstance = Pangolin.getInstance(chain, network);
+  else if (chain === 'harmony' && connector === 'defira')
+    connectorInstance = Defira.getInstance(chain, network);
   else throw new Error('unsupported chain or connector');
   if (!connectorInstance.ready()) {
     await connectorInstance.init();
