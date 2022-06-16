@@ -13,15 +13,14 @@ import {
   ContractTransaction,
 } from '@ethersproject/contracts';
 import {
-  Fetcher,
-  Percent,
-  Router,
-  Token,
-  TokenAmount,
-  Trade,
-  Pair,
+  Router as DefiraRouter,
+  Pair as DefiraPair,
   SwapParameters,
-} from '@uniswap/sdk';
+  Trade as DefiraTrade,
+  Fetcher as DefiraFetcher,
+} from '@zuzu-cat/defira-sdk';
+
+import { Percent, Token, CurrencyAmount, TradeType } from '@uniswap/sdk-core';
 import { BigNumber, Transaction, Wallet } from 'ethers';
 import { logger } from '../../services/logger';
 import { percentRegexp } from '../../services/config-manager-v2';
@@ -33,7 +32,9 @@ export class Defira implements Uniswapish {
   private harmony: Harmony;
   private _chain: string;
   private _router: string;
+  private _factory: string | null;
   private _routerAbi: ContractInterface;
+  private _initCodeHash: string;
   private _gasLimit: number;
   private _ttl: number;
   private chainId;
@@ -45,10 +46,12 @@ export class Defira implements Uniswapish {
     const config = DefiraConfig.config;
     this.harmony = Harmony.getInstance(network);
     this.chainId = this.harmony.chainId;
-    this._ttl = DefiraConfig.config.ttl();
+    this._ttl = config.ttl();
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = DefiraConfig.config.gasLimit();
+    this._gasLimit = config.gasLimit();
     this._router = config.routerAddress(network);
+    this._initCodeHash = config.initCodeHash(network);
+    this._factory = null;
   }
 
   public static getInstance(chain: string, network: string): Defira {
@@ -73,9 +76,9 @@ export class Defira implements Uniswapish {
   }
 
   public async init() {
-    if (this._chain == 'ethereum' && !this.harmony.ready())
+    if (this._chain == 'harmony' && !this.harmony.ready())
       throw new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('HMY'),
         SERVICE_UNITIALIZED_ERROR_CODE
       );
     for (const token of this.harmony.storedTokenList) {
@@ -99,6 +102,31 @@ export class Defira implements Uniswapish {
    */
   public get router(): string {
     return this._router;
+  }
+
+  /**
+   * Lazily computed factory address.
+   */
+  public get factory(): Promise<string> {
+    // boilerplate to support async getter
+    return (async () => {
+      if (!this._factory) {
+        const routerContract = new Contract(
+          this.router,
+          this.routerAbi,
+          this.harmony.provider
+        );
+        this._factory = await routerContract.factory();
+      }
+      return this._factory as string;
+    })();
+  }
+
+  /**
+   * Init code hash of Defira DEX Pair contract, used to compute individual pair addresses without network lookups
+   */
+  public get initCodeHash(): string {
+    return this._initCodeHash;
   }
 
   /**
@@ -158,28 +186,29 @@ export class Defira implements Uniswapish {
     amount: BigNumber,
     allowedSlippage?: string
   ): Promise<ExpectedTrade> {
-    const nativeTokenAmount: TokenAmount = new TokenAmount(
+    const baseTokenAmount = CurrencyAmount.fromRawAmount(
       baseToken,
       amount.toString()
     );
+
     logger.info(
       `Fetching pair data for ${baseToken.address}-${quoteToken.address}.`
     );
 
-    const pair: Pair = await Fetcher.fetchPairData(
-      baseToken,
+    const pair: DefiraPair = await DefiraFetcher.fetchPairData(
       quoteToken,
+      baseToken,
+      await this.factory,
+      this.initCodeHash,
       this.harmony.provider
     );
-    const trades: Trade[] = Trade.bestTradeExactIn(
-      [pair],
-      nativeTokenAmount,
-      quoteToken,
-      { maxHops: 1 }
-    );
+    const trades: DefiraTrade<Token, Token, TradeType.EXACT_INPUT>[] =
+      DefiraTrade.bestTradeExactIn([pair], baseTokenAmount, quoteToken, {
+        maxHops: 1,
+      });
     if (!trades || trades.length === 0) {
       throw new UniswapishPriceError(
-        `priceSwapIn: no trade pair found for ${baseToken} to ${quoteToken}.`
+        `priceSwapIn: no trade pair found for ${baseToken.address} to ${quoteToken.address}.`
       );
     }
     logger.info(
@@ -209,24 +238,24 @@ export class Defira implements Uniswapish {
     amount: BigNumber,
     allowedSlippage?: string
   ): Promise<ExpectedTrade> {
-    const nativeTokenAmount: TokenAmount = new TokenAmount(
+    const baseTokenAmount = CurrencyAmount.fromRawAmount(
       baseToken,
       amount.toString()
     );
     logger.info(
       `Fetching pair data for ${quoteToken.address}-${baseToken.address}.`
     );
-    const pair: Pair = await Fetcher.fetchPairData(
+    const pair: DefiraPair = await DefiraFetcher.fetchPairData(
       quoteToken,
       baseToken,
+      await this.factory,
+      this.initCodeHash,
       this.harmony.provider
     );
-    const trades: Trade[] = Trade.bestTradeExactOut(
-      [pair],
-      quoteToken,
-      nativeTokenAmount,
-      { maxHops: 1 }
-    );
+    const trades: DefiraTrade<Token, Token, TradeType.EXACT_OUTPUT>[] =
+      DefiraTrade.bestTradeExactOut([pair], quoteToken, baseTokenAmount, {
+        maxHops: 1,
+      });
     if (!trades || trades.length === 0) {
       throw new UniswapishPriceError(
         `priceSwapOut: no trade pair found for ${quoteToken.address} to ${baseToken.address}.`
@@ -260,7 +289,11 @@ export class Defira implements Uniswapish {
    */
   async executeTrade(
     wallet: Wallet,
-    trade: Trade,
+    trade: DefiraTrade<
+      Token,
+      Token,
+      TradeType.EXACT_INPUT | TradeType.EXACT_OUTPUT
+    >,
     gasPrice: number,
     defiraRouter: string,
     ttl: number,
@@ -271,7 +304,7 @@ export class Defira implements Uniswapish {
     maxPriorityFeePerGas?: BigNumber,
     allowedSlippage?: string
   ): Promise<Transaction> {
-    const result: SwapParameters = Router.swapCallParameters(trade, {
+    const result: SwapParameters = DefiraRouter.swapCallParameters(trade, {
       ttl,
       recipient: wallet.address,
       allowedSlippage: this.getAllowedSlippage(allowedSlippage),
