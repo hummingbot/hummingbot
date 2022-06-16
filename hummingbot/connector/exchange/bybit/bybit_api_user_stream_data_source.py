@@ -9,7 +9,7 @@ from hummingbot.connector.exchange.bybit.bybit_auth import BybitAuth
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import WSRequest
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -73,14 +73,16 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self._last_ws_message_sent_timestamp = self._time()
                 while True:
                     try:
-                        seconds_until_next_ping = CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL - (self._time() - self._last_ws_message_sent_timestamp)
-                        await asyncio.wait_for(self._process_ws_messages(ws=ws, output=output), timeout=seconds_until_next_ping)
+                        seconds_until_next_ping = (CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL -
+                                                   (self._time() - self._last_ws_message_sent_timestamp))
+                        await asyncio.wait_for(
+                            self._process_ws_messages(ws=ws, output=output), timeout=seconds_until_next_ping)
                     except asyncio.TimeoutError:
                         ping_time = self._time()
                         payload = {
                             "ping": int(ping_time * 1e3)
                         }
-                        ping_request = WSRequest(payload=payload)
+                        ping_request = WSJSONRequest(payload=payload)
                         await ws.send(request=ping_request)
                         self._last_ws_message_sent_timestamp = ping_time
             except asyncio.CancelledError:
@@ -97,7 +99,7 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         Sends the authentication message.
         :param ws: the websocket assistant used to connect to the exchange
         """
-        auth_message: WSRequest = WSRequest(payload=self._auth.generate_ws_authentication_message())
+        auth_message: WSJSONRequest = WSJSONRequest(payload=self._auth.generate_ws_authentication_message())
         await ws.send(auth_message)
 
     async def _process_ws_messages(self, ws: WSAssistant, output: asyncio.Queue):
