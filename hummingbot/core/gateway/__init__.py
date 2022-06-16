@@ -1,19 +1,20 @@
-import aioprocessing
+import os
+import platform
 from dataclasses import dataclass
 from decimal import Decimal
-import os
 from pathlib import Path
-from typing import Optional, Any, Dict, AsyncIterable, List
+from typing import Any, AsyncIterable, Dict, List, Optional
+
+import aioprocessing
 
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils import detect_available_port
-
 
 _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
-GATEWAY_DOCKER_TAG: str = "20220401-arm" if os.uname().machine in {"arm64", "aarch64"} else "20220329"
+GATEWAY_DOCKER_TAG: str = "20220401-arm" if platform.machine() in {"arm64", "aarch64"} else "20220329"
 S_DECIMAL_0: Decimal = Decimal(0)
 
 
