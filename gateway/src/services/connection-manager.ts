@@ -28,7 +28,7 @@ type ConnectorType<T> = T extends Uniswapish ? Uniswapish : UniswapLPish;
 export async function getConnector<T>(
   chain: string,
   network: string,
-  connector: string | undefined
+  connector: string
 ): Promise<ConnectorType<T>> {
   let connectorInstance: Uniswapish | UniswapLPish;
   if (chain === 'ethereum' && connector === 'uniswap') {
