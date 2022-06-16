@@ -16,6 +16,7 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 
 class CLOBExchange(ExchangePyBase):
+
     def __init__(
         self,
         trading_pairs: Optional[List[str]] = None,
@@ -39,7 +40,8 @@ class CLOBExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        pass
+        # TODO do we need to override this method?!!!
+        raise NotImplementedError
 
     @property
     def rate_limits_rules(self):
@@ -157,16 +159,20 @@ class CLOBExchange(ExchangePyBase):
         pass
 
     def _format_trading_rules(self):
-        raise NotImplementedError()
+        # TODO do we need to override this method?!!!
+        raise NotImplementedError
 
     def _update_order_status(self):
-        raise NotImplementedError()
+        # TODO do we need to override this method?!!!
+        raise NotImplementedError
 
     def _update_balances(self):
-        raise NotImplementedError()
+        # TODO do we need to override this method?!!!
+        raise NotImplementedError
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
-        raise NotImplementedError()
+        # TODO do we need to override this method?!!!
+        raise NotImplementedError
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         # TODO check if all the parameters are needed!!!
@@ -181,7 +187,6 @@ class CLOBExchange(ExchangePyBase):
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         # TODO check if all the parameters are needed!!!
         return CLOBAPIUserStreamDataSource(
-            auth=self._auth,
             trading_pairs=self._trading_pairs,
             domain=self.domain,
             api_factory=self._web_assistants_factory,
