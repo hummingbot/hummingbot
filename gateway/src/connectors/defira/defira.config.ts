@@ -13,7 +13,7 @@ export namespace DefiraConfig {
 
   export const config: NetworkConfig = {
     allowedSlippage: () =>
-      ConfigManagerV2.getInstance().get(`defira.versions.v2.allowedSlippage`),
+      ConfigManagerV2.getInstance().get(`defira.allowedSlippage`),
     gasLimit: () => ConfigManagerV2.getInstance().get(`defira.gasLimit`),
     ttl: () => ConfigManagerV2.getInstance().get(`defira.ttl`),
     routerAddress: (network: string) =>
