@@ -46,9 +46,9 @@ export class Defira implements Uniswapish {
     const config = DefiraConfig.config;
     this.harmony = Harmony.getInstance(network);
     this.chainId = this.harmony.chainId;
-    this._ttl = DefiraConfig.config.ttl();
+    this._ttl = config.ttl();
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = DefiraConfig.config.gasLimit();
+    this._gasLimit = config.gasLimit();
     this._router = config.routerAddress(network);
     this._initCodeHash = config.initCodeHash(network);
     this._factory = null;
@@ -199,7 +199,8 @@ export class Defira implements Uniswapish {
       quoteToken,
       baseToken,
       await this.factory,
-      this.initCodeHash
+      this.initCodeHash,
+      this.harmony.provider
     );
     const trades: DefiraTrade<Token, Token, TradeType.EXACT_INPUT>[] =
       DefiraTrade.bestTradeExactIn([pair], baseTokenAmount, quoteToken, {
@@ -207,7 +208,7 @@ export class Defira implements Uniswapish {
       });
     if (!trades || trades.length === 0) {
       throw new UniswapishPriceError(
-        `priceSwapIn: no trade pair found for ${baseToken} to ${quoteToken}.`
+        `priceSwapIn: no trade pair found for ${baseToken.address} to ${quoteToken.address}.`
       );
     }
     logger.info(
