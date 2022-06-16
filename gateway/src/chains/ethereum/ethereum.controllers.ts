@@ -17,15 +17,18 @@ import {
 } from '../../services/error-handler';
 import { tokenValueToString } from '../../services/base';
 import { TokenInfo } from '../../services/ethereum-base';
+import { getConnector } from '../../services/connection-manager';
 
 import {
-  PollRequest,
-  PollResponse,
   CustomTransactionReceipt,
   CustomTransaction,
   CustomTransactionResponse,
 } from './ethereum.requests';
-import { Ethereumish } from '../../services/common-interfaces';
+import {
+  Ethereumish,
+  UniswapLPish,
+  Uniswapish,
+} from '../../services/common-interfaces';
 import {
   NonceRequest,
   NonceResponse,
@@ -37,6 +40,8 @@ import {
   CancelResponse,
 } from '../../evm/evm.requests';
 import {
+  PollRequest,
+  PollResponse,
   BalanceRequest,
   BalanceResponse,
 } from '../../network/network.requests';
@@ -381,6 +386,19 @@ export async function poll(
             OUT_OF_GAS_ERROR_MESSAGE,
             OUT_OF_GAS_ERROR_CODE
           );
+        }
+      }
+      // decode logs
+      if (req.connector) {
+        try {
+          const connector: Uniswapish | UniswapLPish = await getConnector(
+            req.chain,
+            req.network,
+            req.connector
+          );
+          txReceipt.logs = connector.abiDecoder?.decodeLogs(txReceipt.logs);
+        } catch (e) {
+          logger.error(e);
         }
       }
     }

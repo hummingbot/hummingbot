@@ -46,14 +46,14 @@ export class Uniswap implements Uniswapish {
     const config = UniswapConfig.config;
     this.ethereum = Ethereum.getInstance(network);
     this.chainId = this.ethereum.chainId;
-    this._ttl = UniswapConfig.config.ttl(2);
+    this._ttl = UniswapConfig.config.ttl;
     this._maximumHops = UniswapConfig.config.maximumHops;
     this._alphaRouter = new AlphaRouter({
       chainId: this.chainId,
       provider: this.ethereum.provider,
     });
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = this.ethereum.gasLimit;
+    this._gasLimit = UniswapConfig.config.gasLimit;
     this._router = config.uniswapV3SmartOrderRouterAddress(network);
   }
 
@@ -154,7 +154,7 @@ export class Uniswap implements Uniswapish {
       return new Percent(fractionSplit[0], fractionSplit[1]);
     }
 
-    const allowedSlippage = UniswapConfig.config.allowedSlippage(2);
+    const allowedSlippage = UniswapConfig.config.allowedSlippage;
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(

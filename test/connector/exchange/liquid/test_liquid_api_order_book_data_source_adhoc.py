@@ -1,16 +1,16 @@
 import asyncio
-import aiohttp
 import concurrent
 import inspect
-from mock import patch
+from test.connector.exchange.liquid.fixture_liquid import FixtureLiquid
 from unittest import TestCase
 
-from test.connector.exchange.liquid.fixture_liquid import FixtureLiquid
-from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.connector.exchange.liquid.liquid_order_book_message import LiquidOrderBookMessage
-from hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
+import aiohttp
+from mock import patch
 
+from hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
+from hummingbot.connector.exchange.liquid.liquid_order_book_message import LiquidOrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 
 PATCH_BASE_PATH = \
     'hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source.LiquidAPIOrderBookDataSource.{method}'
@@ -148,7 +148,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         self.assertEqual(len(snapshot['sell_price_levels']), 20)
         # TODO: need to test exception handling when inputs are invalid
 
-    @patch(PATCH_BASE_PATH.format(method='get_snapshot'))
+    @patch(PATCH_BASE_PATH.format(method='_request_order_book_snapshot'))
     @patch(PATCH_BASE_PATH.format(method='get_trading_pairs'))
     def test_get_tracking_pairs(self, mock_get_trading_pairs, mock_get_snapshot):
         """
@@ -174,7 +174,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         loop = asyncio.get_event_loop()
 
         # Mock Future() object return value as the request response
-        # For this particular test, the return value from get_snapshot is not relevant, therefore
+        # For this particular test, the return value from _request_order_book_snapshot is not relevant, therefore
         # setting it with a random snapshot from fixture
         f = asyncio.Future()
         f.set_result(FixtureLiquid.SNAPSHOT_2)
@@ -206,7 +206,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         for trading_pair, order_book_tracker_entry in zip(mocked_trading_pairs, tracking_pairs.values()):
             self.assertEqual(order_book_tracker_entry.trading_pair, trading_pair)
 
-    @patch(PATCH_BASE_PATH.format(method='get_snapshot'))
+    @patch(PATCH_BASE_PATH.format(method='_request_order_book_snapshot'))
     @patch(PATCH_BASE_PATH.format(method='get_trading_pairs'))
     def test_listen_for_order_book_snapshots(self, mock_get_trading_pairs, mock_get_snapshot):
         """
