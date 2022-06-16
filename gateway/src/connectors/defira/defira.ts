@@ -186,7 +186,7 @@ export class Defira implements Uniswapish {
     amount: BigNumber,
     allowedSlippage?: string
   ): Promise<ExpectedTrade> {
-    const nativeTokenAmount = CurrencyAmount.fromRawAmount(
+    const baseTokenAmount = CurrencyAmount.fromRawAmount(
       baseToken,
       amount.toString()
     );
@@ -202,7 +202,7 @@ export class Defira implements Uniswapish {
       this.initCodeHash
     );
     const trades: DefiraTrade<Token, Token, TradeType.EXACT_INPUT>[] =
-      DefiraTrade.bestTradeExactIn([pair], nativeTokenAmount, quoteToken, {
+      DefiraTrade.bestTradeExactIn([pair], baseTokenAmount, quoteToken, {
         maxHops: 1,
       });
     if (!trades || trades.length === 0) {
@@ -237,7 +237,7 @@ export class Defira implements Uniswapish {
     amount: BigNumber,
     allowedSlippage?: string
   ): Promise<ExpectedTrade> {
-    const nativeTokenAmount = CurrencyAmount.fromRawAmount(
+    const baseTokenAmount = CurrencyAmount.fromRawAmount(
       baseToken,
       amount.toString()
     );
@@ -252,7 +252,7 @@ export class Defira implements Uniswapish {
       this.harmony.provider
     );
     const trades: DefiraTrade<Token, Token, TradeType.EXACT_OUTPUT>[] =
-      DefiraTrade.bestTradeExactOut([pair], quoteToken, nativeTokenAmount, {
+      DefiraTrade.bestTradeExactOut([pair], quoteToken, baseTokenAmount, {
         maxHops: 1,
       });
     if (!trades || trades.length === 0) {
