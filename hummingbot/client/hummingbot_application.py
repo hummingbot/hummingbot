@@ -31,7 +31,7 @@ from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
-from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
+from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 
@@ -68,7 +68,7 @@ class HummingbotApplication(*commands):
         self.strategy_name: str = None
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
-        self.market_pair: Optional[CrossExchangeMarketPair] = None
+        self.market_pair: Optional[MakerTakerMarketPair] = None
         self.market_trading_pair_tuples: List[MarketTradingPairTuple] = []
         self.clock: Optional[Clock] = None
         self.market_trading_pairs_map = {}
