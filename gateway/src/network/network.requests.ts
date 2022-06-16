@@ -1,4 +1,5 @@
 import {
+  ConnectorSelectionRequest,
   CustomTransactionReceipt,
   CustomTransactionResponse,
   NetworkSelectionRequest,
@@ -18,7 +19,7 @@ export interface BalancesResponse {
   balances: Record<string, string>; // the balance should be a string encoded number
 }
 
-export interface PollRequest extends NetworkSelectionRequest {
+export interface PollRequest extends ConnectorSelectionRequest {
   txHash: string;
 }
 

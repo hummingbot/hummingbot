@@ -21,6 +21,7 @@ export interface Config {
   nodeAPIKey: string;
   nativeCurrencySymbol: string;
   manualGasPrice: number;
+  gasLimit: number;
 }
 
 export namespace EthereumConfig {
@@ -65,5 +66,6 @@ export function getEthereumConfig(
     manualGasPrice: ConfigManagerV2.getInstance().get(
       chainName + '.manualGasPrice'
     ),
+    gasLimit: ConfigManagerV2.getInstance().get(chainName + '.gasLimit'),
   };
 }
