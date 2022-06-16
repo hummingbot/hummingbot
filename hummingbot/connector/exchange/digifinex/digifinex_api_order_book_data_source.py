@@ -2,21 +2,24 @@
 import asyncio
 import logging
 import time
-import aiohttp
 import traceback
-import pandas as pd
-import hummingbot.connector.exchange.digifinex.digifinex_constants as constants
+from typing import Any, Dict, List, Optional
 
-from typing import Optional, List, Dict, Any
+import aiohttp
+import pandas as pd
+
+import hummingbot.connector.exchange.digifinex.digifinex_constants as constants
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
+
 from . import digifinex_utils
 from .digifinex_active_order_tracker import DigifinexActiveOrderTracker
 from .digifinex_order_book import DigifinexOrderBook
 from .digifinex_websocket import DigifinexWebsocket
+
 # from .digifinex_utils import ms_timestamp_to_s
 
 
@@ -56,8 +59,9 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             async with client.get(f"{constants.REST_URL}/ticker", timeout=10) as response:
                 if response.status == 200:
-                    from hummingbot.connector.exchange.digifinex.digifinex_utils import \
-                        convert_from_exchange_trading_pair
+                    from hummingbot.connector.exchange.digifinex.digifinex_utils import (
+                        convert_from_exchange_trading_pair,
+                    )
                     try:
                         data: Dict[str, Any] = await response.json()
                         return [convert_from_exchange_trading_pair(item["symbol"]) for item in data["ticker"]]
@@ -156,7 +160,7 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     params = response["params"]
                     symbol = params[2]
                     order_book_data = params[1]
-                    timestamp: int = int(time.time())
+                    timestamp: float = time.time()
 
                     if params[0] is True:
                         orderbook_msg: OrderBookMessage = DigifinexOrderBook.snapshot_message_from_exchange(
