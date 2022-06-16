@@ -7,10 +7,11 @@ from datetime import datetime
 from unittest import TestCase
 from unittest.mock import patch
 
+from typing_extensions import Awaitable
+
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
 from hummingbot.connector.exchange.coinflex.coinflex_web_utils import CoinflexRESTRequest
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-from typing_extensions import Awaitable
 
 
 class CoinflexAuthTests(TestCase):
@@ -42,7 +43,7 @@ class CoinflexAuthTests(TestCase):
         request = CoinflexRESTRequest(method=RESTMethod.GET, endpoint="", params=params, is_auth_required=True)
         configured_request = self.async_run_with_timeout(auth.rest_authenticate(request))
 
-        str_timestamp = datetime.fromtimestamp(now).isoformat()
+        str_timestamp = datetime.utcfromtimestamp(now).isoformat()
         nonce = int(now * 1e3)
 
         encoded_params = "&".join([f"{key}={value}" for key, value in full_params.items()])

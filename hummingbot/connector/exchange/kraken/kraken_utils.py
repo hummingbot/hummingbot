@@ -1,19 +1,12 @@
+from typing import Any, Dict, List, Optional, Tuple
+
 import hummingbot.connector.exchange.kraken.kraken_constants as CONSTANTS
-
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-)
-
-from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
+from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-
 
 CENTRALIZED = True
 
@@ -207,6 +200,6 @@ KEYS = {
 }
 
 
-def build_api_factory() -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory()
+def build_api_factory(throttler: AsyncThrottler) -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory(throttler=throttler)
     return api_factory
