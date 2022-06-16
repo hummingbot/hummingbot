@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 from urllib.parse import urlencode
 
 from hummingbot.connector.exchange.bybit.bybit_auth import BybitAuth
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
 
 
 class BybitAuthTests(TestCase):
@@ -91,7 +91,7 @@ class BybitAuthTests(TestCase):
 
     def test_no_auth_added_to_wsrequest(self):
         payload = {"param1": "value_param_1"}
-        request = WSRequest(payload=payload, is_auth_required=True)
+        request = WSJSONRequest(payload=payload, is_auth_required=True)
         self.async_run_with_timeout(self.auth.ws_authenticate(request))
         self.assertEqual(payload, request.payload)
 
