@@ -22,8 +22,8 @@ import {
 
 import {
   Percent,
-  Token as DefiraToken,
-  CurrencyAmount as DefiraTokenAmount,
+  Token,
+  CurrencyAmount,
   TradeType,
 } from '@uniswap/sdk-core';
 import { BigNumber, Transaction, Wallet } from 'ethers';
@@ -42,7 +42,7 @@ export class Defira implements Uniswapish {
   private _gasLimit: number;
   private _ttl: number;
   private chainId;
-  private tokenList: Record<string, DefiraToken> = {};
+  private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
   private constructor(chain: string, network: string) {
@@ -74,7 +74,7 @@ export class Defira implements Uniswapish {
    *
    * @param address Token address
    */
-  public getTokenByAddress(address: string): DefiraToken {
+  public getTokenByAddress(address: string): Token {
     return this.tokenList[address];
   }
 
@@ -85,7 +85,7 @@ export class Defira implements Uniswapish {
         SERVICE_UNITIALIZED_ERROR_CODE
       );
     for (const token of this.harmony.storedTokenList) {
-      this.tokenList[token.address] = new DefiraToken(
+      this.tokenList[token.address] = new Token(
         this.chainId,
         token.address,
         token.decimals,
@@ -171,12 +171,12 @@ export class Defira implements Uniswapish {
    * @param amount Amount of `baseToken` to put into the transaction
    */
   async estimateSellTrade(
-    baseToken: DefiraToken,
-    quoteToken: DefiraToken,
+    baseToken: Token,
+    quoteToken: Token,
     amount: BigNumber,
     allowedSlippage?: string
   ): Promise<ExpectedTrade> {
-    const nativeTokenAmount = DefiraTokenAmount.fromRawAmount(baseToken, amount.toString());
+    const nativeTokenAmount = CurrencyAmount.fromRawAmount(baseToken, amount.toString());
 
     logger.info(
       `Fetching pair data for ${baseToken.address}-${quoteToken.address}.`
@@ -222,12 +222,12 @@ export class Defira implements Uniswapish {
    * @param amount Amount of `baseToken` desired from the transaction
    */
   async estimateBuyTrade(
-    quoteToken: DefiraToken,
-    baseToken: DefiraToken,
+    quoteToken: Token,
+    baseToken: Token,
     amount: BigNumber,
     allowedSlippage?: string
   ): Promise<ExpectedTrade> {
-    const nativeTokenAmount = DefiraTokenAmount.fromRawAmount(baseToken, amount.toString())
+    const nativeTokenAmount = CurrencyAmount.fromRawAmount(baseToken, amount.toString())
     logger.info(
       `Fetching pair data for ${quoteToken.address}-${baseToken.address}.`
     );
