@@ -53,6 +53,7 @@ ENABLE_CONNECTION_TRACING = False
 
 
 class RESTConnection(hummingbot.core.web_assistant.connections.rest_connection.RESTConnection):
+
     def __init__(self, aiohttp_client_session: aiohttp.ClientSession):
         if ENABLE_CONNECTION_TRACING:
             request_tracing = aiohttp.TraceConfig()
