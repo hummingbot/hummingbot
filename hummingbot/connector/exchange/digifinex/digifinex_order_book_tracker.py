@@ -2,18 +2,19 @@
 import asyncio
 import bisect
 import logging
-import hummingbot.connector.exchange.digifinex.digifinex_constants as constants
 import time
-
 from collections import defaultdict, deque
-from typing import Optional, Dict, List, Deque
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.connector.exchange.digifinex.digifinex_order_book_message import DigifinexOrderBookMessage
+from typing import Deque, Dict, List, Optional
+
+import hummingbot.connector.exchange.digifinex.digifinex_constants as constants
 from hummingbot.connector.exchange.digifinex.digifinex_active_order_tracker import DigifinexActiveOrderTracker
 from hummingbot.connector.exchange.digifinex.digifinex_api_order_book_data_source import DigifinexAPIOrderBookDataSource
 from hummingbot.connector.exchange.digifinex.digifinex_order_book import DigifinexOrderBook
+from hummingbot.connector.exchange.digifinex.digifinex_order_book_message import DigifinexOrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 
 
 class DigifinexOrderBookTracker(OrderBookTracker):
@@ -108,3 +109,13 @@ class DigifinexOrderBookTracker(OrderBookTracker):
                     app_warning_msg="Unexpected error processing order book messages. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)
+
+    def start(self):
+        super().start()
+        self._order_book_stream_listener_task = safe_ensure_future(
+            self._data_source.listen_for_subscriptions()
+        )
+
+    def stop(self):
+        self._order_book_stream_listener_task and self._order_book_stream_listener_task.cancel()
+        super().stop()
