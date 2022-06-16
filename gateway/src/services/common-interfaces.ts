@@ -217,7 +217,7 @@ export interface UniswapLPish {
   /**
    * Default gas limit for swap transactions.
    */
-  gasLimit: number;
+  gasEstimate: number;
 
   /**
    * Default time-to-live for swap transactions, in seconds.

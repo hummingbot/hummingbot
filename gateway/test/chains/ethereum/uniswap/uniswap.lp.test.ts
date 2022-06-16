@@ -200,7 +200,7 @@ describe('verify UniswapLP Nft functions', () => {
     patchPoolState();
 
     expect(uniswapLP.ready()).toEqual(true);
-    expect(uniswapLP.gasLimit).toBeGreaterThan(0);
+    expect(uniswapLP.gasEstimate).toBeGreaterThan(0);
     expect(typeof uniswapLP.getContract('nft', ethereum.provider)).toEqual(
       'object'
     );

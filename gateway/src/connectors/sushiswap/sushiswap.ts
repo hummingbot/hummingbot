@@ -39,7 +39,7 @@ export class Sushiswap implements Uniswapish {
   private _chain: string;
   private _router: string;
   private _routerAbi: ContractInterface;
-  private _gasLimit: number;
+  private _gasEstimate: number;
   private _ttl: number;
   private chainId;
   private tokenList: Record<string, Token> = {};
@@ -52,7 +52,7 @@ export class Sushiswap implements Uniswapish {
     this.chainId = this.ethereum.chainId;
     this._ttl = SushiswapConfig.config.ttl;
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = SushiswapConfig.config.gasLimit;
+    this._gasEstimate = SushiswapConfig.config.gasEstimate;
     this._router = config.sushiswapRouterAddress(network);
   }
 
@@ -116,8 +116,8 @@ export class Sushiswap implements Uniswapish {
   /**
    * Default gas limit for swap transactions.
    */
-  public get gasLimit(): number {
-    return this._gasLimit;
+  public get gasEstimate(): number {
+    return this._gasEstimate;
   }
 
   /**
