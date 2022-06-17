@@ -1,6 +1,7 @@
 import fs from 'fs';
 import fsp from 'fs/promises';
 import fse from 'fs-extra';
+import os from 'os';
 import path from 'path';
 import {
   deepCopy,
@@ -19,7 +20,7 @@ describe('Configuration manager v2 tests', () => {
   beforeEach(async () => {
     // Create a temp dir in project
     tempDirPath = await fsp.mkdtemp(
-      path.join(__dirname, '../../config-manager-v2-unit-test')
+      path.join(os.tmpdir(), 'config-manager-v2-unit-test')
     );
     tempDirPath = fse.realpathSync(tempDirPath);
 
