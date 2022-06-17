@@ -420,11 +420,13 @@ class GateIoExchange(ExchangePyBase):
             self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
             return
 
+        flat_fees = [TokenAmount(amount=Decimal(trade["fee"]), token=trade["fee_currency"])] if Decimal(
+            trade["fee"]) > 0 else []
         # When GT token is used to pay fee 'gt_fee' is provided by the API
-        if 'gt_fee' in trade and Decimal(trade["gt_fee"]) > 0:
-            flat_fees = [TokenAmount(amount=Decimal(trade["gt_fee"]), token='GT')]
-        else:
-            flat_fees = [TokenAmount(amount=Decimal(trade["fee"]), token=trade["fee_currency"])]
+        if "gt_fee" in trade and Decimal(trade["gt_fee"]) > 0:
+            flat_fees.append(TokenAmount(amount=Decimal(trade["gt_fee"]), token="GT"))
+        if "point_fee" in trade and Decimal(trade["point_fee"]) > 0:
+            flat_fees.append(TokenAmount(amount=Decimal(trade["point_fee"]), token="POINTS"))
 
         fee = TradeFeeBase.new_spot_fee(
             fee_schema=self.trade_fee_schema(),

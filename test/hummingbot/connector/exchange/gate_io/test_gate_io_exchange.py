@@ -1404,7 +1404,7 @@ class TestGateIoExchange(unittest.TestCase):
             )
         )
 
-    def test__process_trade_message(self):
+    def test__process_trade_message_gt(self):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1442,6 +1442,16 @@ class TestGateIoExchange(unittest.TestCase):
             ]
         }
 
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [filled_event_message, asyncio.CancelledError]
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+        except asyncio.CancelledError:
+            pass
+
+        # Testing fee in GT
         self.exchange._process_trade_message(trade=filled_event_message["result"][0])
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
@@ -1449,6 +1459,153 @@ class TestGateIoExchange(unittest.TestCase):
             TokenAmount(
                 "GT",
                 Decimal(filled_event_message["result"][0]["gt_fee"]))],
+            fill_event.trade_fee.flat_fees)
+
+    def test__process_trade_message_points(self):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders["OID1"]
+
+        filled_event_message = {
+            "time": 1605176741,
+            "channel": "spot.usertrades",
+            "event": "update",
+            "result": [
+                {
+                    "id": 5736713,
+                    "user_id": 1000001,
+                    "order_id": "EOID1",
+                    "currency_pair": self.ex_trading_pair,
+                    "create_time": 1605176741,
+                    "create_time_ms": "1605176741123.456",
+                    "side": TradeType.BUY.name.lower(),
+                    "amount": str(Decimal("1")),
+                    "role": "taker",
+                    "price": "10035.00000000",
+                    "fee": "0",
+                    "fee_currency": self.quote_asset,
+                    "point_fee": "0.12",
+                    "gt_fee": "0",
+                    "text": order.client_order_id
+                }
+            ]
+        }
+
+        self.exchange._process_trade_message(trade=filled_event_message["result"][0])
+
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual([
+            TokenAmount(
+                "POINTS",
+                Decimal(filled_event_message["result"][0]["point_fee"]))],
+            fill_event.trade_fee.flat_fees)
+
+    def test__process_trade_message_quote(self):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders["OID1"]
+
+        filled_event_message = {
+            "time": 1605176741,
+            "channel": "spot.usertrades",
+            "event": "update",
+            "result": [
+                {
+                    "id": 5736713,
+                    "user_id": 1000001,
+                    "order_id": "EOID1",
+                    "currency_pair": self.ex_trading_pair,
+                    "create_time": 1605176741,
+                    "create_time_ms": "1605176741123.456",
+                    "side": TradeType.BUY.name.lower(),
+                    "amount": str(Decimal("1")),
+                    "role": "taker",
+                    "price": "10035.00000000",
+                    "fee": "0.23",
+                    "fee_currency": self.quote_asset,
+                    "point_fee": "0",
+                    "gt_fee": "0",
+                    "text": order.client_order_id
+                }
+            ]
+        }
+
+        self.exchange._process_trade_message(trade=filled_event_message["result"][0])
+
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual([
+            TokenAmount(
+                filled_event_message["result"][0]["fee_currency"],
+                Decimal(filled_event_message["result"][0]["fee"]))],
+            fill_event.trade_fee.flat_fees)
+
+    def test__process_trade_message_all(self):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders["OID1"]
+
+        filled_event_message = {
+            "time": 1605176741,
+            "channel": "spot.usertrades",
+            "event": "update",
+            "result": [
+                {
+                    "id": 5736713,
+                    "user_id": 1000001,
+                    "order_id": "EOID1",
+                    "currency_pair": self.ex_trading_pair,
+                    "create_time": 1605176741,
+                    "create_time_ms": "1605176741123.456",
+                    "side": TradeType.BUY.name.lower(),
+                    "amount": str(Decimal("1")),
+                    "role": "taker",
+                    "price": "10035.00000000",
+                    "fee": "0.23",
+                    "fee_currency": self.quote_asset,
+                    "point_fee": "0.1",
+                    "gt_fee": "0.12",
+                    "text": order.client_order_id
+                }
+            ]
+        }
+
+        self.exchange._process_trade_message(trade=filled_event_message["result"][0])
+
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual([
+            TokenAmount(
+                filled_event_message["result"][0]["fee_currency"],
+                Decimal(filled_event_message["result"][0]["fee"])),
+            TokenAmount(
+                "GT",
+                Decimal(filled_event_message["result"][0]["gt_fee"])),
+            TokenAmount(
+                "POINTS",
+                Decimal(filled_event_message["result"][0]["point_fee"]))],
             fill_event.trade_fee.flat_fees)
 
     def test_user_stream_balance_update(self):
