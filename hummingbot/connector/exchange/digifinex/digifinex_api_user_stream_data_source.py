@@ -2,7 +2,9 @@
 
 import asyncio
 import logging
-from typing import Any, AsyncIterable, List, Optional
+from typing import List, Optional
+
+from aiohttp import ClientConnectionError
 
 from hummingbot.connector.exchange.digifinex import digifinex_utils
 from hummingbot.connector.exchange.digifinex.digifinex_global import DigifinexGlobal
@@ -39,36 +41,6 @@ class DigifinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             return self._ws.last_recv_time
         return -1
 
-    async def _listen_to_orders_trades_balances(self) -> AsyncIterable[Any]:
-        """
-        Subscribe to active orders via web socket
-        """
-
-        try:
-            self._ws = DigifinexWebsocket(self._global.auth)
-            await self._ws.connect()
-
-            trading_pairs: List[str] = [digifinex_utils.convert_to_ws_trading_pair(pair)
-                                        for pair in self._trading_pairs]
-            await self._ws.subscribe("order", trading_pairs)
-
-            currencies = list()
-            for trade_pair in self._trading_pairs:
-                trade_pair_currencies = trade_pair.split('-')
-                currencies.extend(trade_pair_currencies)
-            await self._ws.subscribe("balance", currencies)
-            async for msg in self._ws.iter_messages():
-                if (msg.get("result") is None):
-                    continue
-                yield msg
-
-        except Exception as e:
-            self.logger().exception(e)
-            raise e
-        finally:
-            await self._ws.disconnect()
-            await asyncio.sleep(5)
-
     async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         *required
@@ -79,12 +51,31 @@ class DigifinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         while True:
             try:
-                async for msg in self._listen_to_orders_trades_balances():
+                self._ws = DigifinexWebsocket(self._global.auth)
+                await self._ws.connect()
+
+                trading_pairs: List[str] = [digifinex_utils.convert_to_ws_trading_pair(pair)
+                                            for pair in self._trading_pairs]
+                currencies = list()
+                for trade_pair in self._trading_pairs:
+                    trade_pair_currencies = trade_pair.split('-')
+                    currencies.extend(trade_pair_currencies)
+
+                await self._ws.subscribe("order", trading_pairs)
+                await self._ws.subscribe("balance", currencies)
+
+                async for msg in self._ws.iter_messages():
+                    if msg is None or "params" not in msg or "method" not in msg:
+                        continue
                     output.put_nowait(msg)
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except ClientConnectionError:
+                self.logger().warning("Attemping re-connection with Websocket Private Channels...")
+            except Exception as e:
                 self.logger().error(
-                    "Unexpected error with Digifinex WebSocket connection. " "Retrying after 30 seconds...", exc_info=True
+                    f"Unexpected error with WebSocket connection. {str(e)}",
+                    exc_info=True
                 )
-                await asyncio.sleep(30.0)
+                await self._sleep(5.0)
+                await self._ws.disconnect()
