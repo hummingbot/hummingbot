@@ -8,36 +8,49 @@ on:
     types: [ready_for_review, opened, synchronize, reopened]
 
 jobs:
-  check:
+  run_client:
     name: Check files
     outputs:
-      run_client: ${{ steps.check_files.outputs.run_client }}
-      run_gateway: ${{ steps.check_files.outputs.run_gateway }}
+      is_set: ${{ steps.check_files.outputs.is_set }}
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+      - uses: technote-space/get-diff-action@v6
         with:
-          fetch-depth: 2
-
-      - name: check modified files
+          PATTERNS: |
+            **/*.+(py|pyx|pyd)
+      - name: Check if client files are modified
         id: check_files
+        if: env.GIT_DIFF
         run: |
-          git diff --name-only HEAD^ HEAD > files.txt
-          while IFS= read -r file
-          do
-            if [[ $file = gateway/* ]]; then
-              echo "::set-output name=run_gateway::true"
-            else
-              echo "::set-output name=run_client::true"
-            fi
-          done < files.txt
+          echo ${{ env.GIT_DIFF }}
+          echo "::set-output name=is_set::true"
+
+  run_gateway:
+    name: Check files
+    outputs:
+      is_set: ${{ steps.check_files.outputs.is_set }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: technote-space/get-diff-action@v6
+        with:
+          PATTERNS:  |
+            gateway/**/*.+(ts|js|yml)
+            !Dockerfile
+      - name: Check if gateway files are modified
+        id: check_files
+        if: env.GIT_DIFF
+        run: |
+          echo ${{ env.GIT_DIFF }}
+          echo "::set-output name=is_set::true"
 
   build_hummingbot:
     name: Hummingbot build + stable tests
-    needs: check
-    if: github.event.pull_request.draft == false && needs.check.outputs.run_client == 'true'
+    needs: run_client
+    if: github.event.pull_request.draft == false && needs.run_client.outputs.is_set == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -131,8 +144,8 @@ jobs:
         shell: bash
   build_gateway:
     name: Gateway build + unit tests
-    needs: check
-    if: github.event.pull_request.draft == false && needs.check.outputs.run_gateway == 'true'
+    needs: run_gateway
+    if: github.event.pull_request.draft == false && needs.run_gateway.outputs.is_set == 'true'
     runs-on: ubuntu-latest
 
     steps:
