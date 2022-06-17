@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from collections import defaultdict, deque
 from decimal import Decimal
@@ -138,8 +137,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         self._has_unhedged_market_fill = False
         self._last_taker_buy_price = None
         self._last_taker_sell_price = None
-
-        self._ev_loop = asyncio.get_event_loop()
 
         self._main_task = None
         self._gateway_quotes_task = None
