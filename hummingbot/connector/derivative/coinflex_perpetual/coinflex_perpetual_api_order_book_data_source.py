@@ -18,7 +18,7 @@ from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -39,7 +39,7 @@ class CoinflexPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._domain = domain
         self._throttler = throttler
-        self._api_factory: WebAssistantsFactory = api_factory or web_utils.build_api_factory()
+        self._api_factory: WebAssistantsFactory = api_factory or web_utils.build_api_factory(throttler=self._throttler)
         self._funding_info: Dict[str, FundingInfo] = {}
 
         self._message_queue: Dict[int, asyncio.Queue] = defaultdict(asyncio.Queue)
@@ -356,7 +356,7 @@ class CoinflexPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "op": "subscribe",
                 "args": trade_params + depth_params,
             }
-            subscribe_request: WSRequest = WSRequest(payload=payload)
+            subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
             await ws.send(subscribe_request)
 

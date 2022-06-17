@@ -2,21 +2,12 @@ import asyncio
 import copy
 import logging
 import math
-
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Tuple,
-)
+from typing import Dict, List, Optional, Tuple
 
 from hummingbot.core.api_throttler.async_request_context_base import AsyncRequestContextBase
-from hummingbot.core.api_throttler.data_types import (
-    RateLimit,
-    TaskLog
-)
+from hummingbot.core.api_throttler.data_types import RateLimit, TaskLog
 from hummingbot.logger.logger import HummingbotLogger
 
 
@@ -74,15 +65,17 @@ class AsyncThrottlerBase(ABC):
 
     def get_related_limits(self, limit_id: str) -> Tuple[RateLimit, List[Tuple[RateLimit, int]]]:
         rate_limit: Optional[RateLimit] = self._id_to_limit_map.get(limit_id, None)
+        linked_limits: List[RateLimit] = [] if rate_limit is None else rate_limit.linked_limits
 
         related_limits = [(self._id_to_limit_map[limit_weight_pair.limit_id], limit_weight_pair.weight)
-                          for limit_weight_pair in rate_limit.linked_limits
+                          for limit_weight_pair in linked_limits
                           if limit_weight_pair.limit_id in self._id_to_limit_map]
         # Append self as part of the related_limits
-        related_limits.append((rate_limit, rate_limit.weight))
+        if rate_limit is not None:
+            related_limits.append((rate_limit, rate_limit.weight))
 
         return rate_limit, related_limits
 
     @abstractmethod
-    def execute_task(self, limit_ids: List[str]) -> AsyncRequestContextBase:
+    def execute_task(self, limit_id: str) -> AsyncRequestContextBase:
         raise NotImplementedError
