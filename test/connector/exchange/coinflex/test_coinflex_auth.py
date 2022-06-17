@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import asyncio
 import logging
 import os
@@ -10,8 +9,7 @@ from typing import Any, Dict
 from async_timeout import timeout
 
 import conf
-import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
-from hummingbot.connector.exchange.coinflex import coinflex_utils
+from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS, coinflex_utils
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
 from hummingbot.connector.exchange.coinflex.coinflex_web_utils import (
     CoinflexRESTRequest,
@@ -19,7 +17,7 @@ from hummingbot.connector.exchange.coinflex.coinflex_web_utils import (
     build_api_factory,
 )
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTResponse, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTResponse, WSJSONRequest
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
@@ -39,7 +37,7 @@ class TestAuth(unittest.TestCase):
         cls._auth = CoinflexAuth(
             api_key=api_key,
             secret_key=secret_key)
-        cls._api_factory = build_api_factory(auth=cls._auth)
+        cls._api_factory = build_api_factory(throttler=cls._throttler, auth=cls._auth)
 
     async def rest_auth(self) -> RESTResponse:
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -67,13 +65,13 @@ class TestAuth(unittest.TestCase):
         ws = await self._api_factory.get_ws_assistant()
         await ws.connect(ws_url=coinflex_utils.websocket_url(domain=self._domain), ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
         async with timeout(30):
-            await ws.send(WSRequest({}, is_auth_required=True))
+            await ws.send(WSJSONRequest({}, is_auth_required=True))
             payload = {
                 "op": "subscribe",
                 "args": CONSTANTS.WS_CHANNELS["USER_STREAM"],
                 "tag": 101
             }
-            await ws.send(WSRequest(payload=payload))
+            await ws.send(WSJSONRequest(payload=payload))
             async for response in ws.iter_messages():
                 if all(x in response.data for x in ["channel", "success", "event"]):
                     if response.data["channel"] == "balance:all":
