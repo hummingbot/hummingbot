@@ -596,3 +596,35 @@ class Fixture:
             "last_updated": "2022-03-22T18:12:18.127Z"
         },
     ]
+
+    GateIo = [
+        {
+            "currency_pair": "GT_USDT",
+            "last": "0.49876",
+            "high_24h": "0.52271",
+            "low_24h": "0.48598",
+            "base_volume": "122140",
+            "quote_volume": "122140",
+            "lowest_ask": "0.52567",
+            "highest_bid": "0.49013",
+            "change_percentage": "-2.05",
+            "etf_net_value": "2.46316141",
+            "etf_pre_net_value": "2.43201848",
+            "etf_pre_timestamp": 1611244800,
+            "etf_leverage": "2.2803019447281203"
+        },
+        {
+            "currency_pair": "KCS_BTC",
+            "last": "0.0001816",
+            "high_24h": "0.00018315",
+            "low_24h": "0.0001658",
+            "base_volume": "14595.7",
+            "quote_volume": "14595.7",
+            "lowest_ask": "",
+            "highest_bid": "",
+            "etf_net_value": "2.46316141",
+            "etf_pre_net_value": "2.43201848",
+            "etf_pre_timestamp": 1611244800,
+            "etf_leverage": "2.2803019447281203"
+        },
+    ]

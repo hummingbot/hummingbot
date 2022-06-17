@@ -45,6 +45,11 @@ class RateOracleTest(unittest.TestCase):
             {"SHA-USDT": "SHA-USDT",
              "LOOM-BTC": "LOOM-BTC",
              }))
+        cls._gate_io_connector = RateOracle._gate_io_connector_without_private_keys()
+        cls._gate_io_connector._set_trading_pair_symbol_map(bidict(
+            {"GT_USDT": "GT-USDT",
+             "KCS_BTC": "KCS-BTC",
+             }))
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -58,6 +63,7 @@ class RateOracleTest(unittest.TestCase):
         RateOracle.get_kucoin_prices.cache_clear()
         RateOracle.get_ascend_ex_prices.cache_clear()
         RateOracle.get_coingecko_prices.cache_clear()
+        RateOracle.get_gate_io_prices.cache_clear()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -235,4 +241,15 @@ class RateOracleTest(unittest.TestCase):
         mock_api.get(regex_url, body=json.dumps(Fixture.AscendEx), repeat=True)
 
         prices = self.async_run_with_timeout(RateOracle.get_ascend_ex_prices())
+        self._assert_rate_dict(prices)
+
+    @aioresponses()
+    @patch("hummingbot.core.rate_oracle.rate_oracle.RateOracle._gate_io_connector_without_private_keys")
+    def test_get_gate_io_prices(self, mock_api, connector_creator_mock):
+        connector_creator_mock.side_effect = [self._gate_io_connector]
+        url = RateOracle.gate_io_price_url
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps(Fixture.GateIo), repeat=True)
+
+        prices = self.async_run_with_timeout(RateOracle.get_gate_io_prices())
         self._assert_rate_dict(prices)

@@ -17,6 +17,7 @@ from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
     from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
+    from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
     from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 
 
@@ -28,6 +29,7 @@ class RateOracleSource(Enum):
     coingecko = 1
     kucoin = 2
     ascend_ex = 3
+    gate_io = 4
 
 
 class RateOracle(NetworkBase):
@@ -53,6 +55,7 @@ class RateOracle(NetworkBase):
     coingecko_supported_vs_tokens_url = "https://api.coingecko.com/api/v3/simple/supported_vs_currencies"
     kucoin_price_url = "https://api.kucoin.com/api/v1/market/allTickers"
     ascend_ex_price_url = "https://ascendex.com/api/pro/v1/ticker"
+    gate_io_price_url = "https://api.gateio.ws/api/v4/spot/tickers"
 
     coingecko_token_categories = [
         "cryptocurrency",
@@ -204,6 +207,8 @@ class RateOracle(NetworkBase):
             return await cls.get_kucoin_prices()
         elif cls.source == RateOracleSource.ascend_ex:
             return await cls.get_ascend_ex_prices()
+        elif cls.source == RateOracleSource.gate_io:
+            return await cls.get_gate_io_prices()
         else:
             raise NotImplementedError
 
@@ -305,6 +310,34 @@ class RateOracle(NetworkBase):
 
     @classmethod
     @async_ttl_cache(ttl=30, maxsize=1)
+    async def get_gate_io_prices(cls) -> Dict[str, Decimal]:
+        """
+        Fetches GateIO prices from their ticker endpoint.
+        :return A dictionary of trading pairs and prices
+        """
+        results = {}
+        connector = cls._gate_io_connector_without_private_keys()
+        client = await cls._http_client()
+        async with client.request("GET", cls.gate_io_price_url) as resp:
+            records = await resp.json(content_type=None)
+            for record in records:
+                try:
+                    pair = await connector.trading_pair_associated_to_exchange_symbol(symbol=record["currency_pair"])
+                except KeyError:
+                    # Ignore results for which their symbols is not tracked by the connector
+                    continue
+
+                if str(record["lowest_ask"]) == '' or str(record["highest_bid"]) == '':
+                    # Ignore results for which the order book is empty
+                    continue
+
+                if Decimal(str(record["lowest_ask"])) > 0 and Decimal(str(record["highest_bid"])) > 0:
+                    results[pair] = (Decimal(str(record["lowest_ask"])) + Decimal(
+                        str(record["highest_bid"]))) / Decimal("2")
+        return results
+
+    @classmethod
+    @async_ttl_cache(ttl=30, maxsize=1)
     async def get_coingecko_prices(cls, vs_currency: str) -> Dict[str, Decimal]:
         """
         Fetches CoinGecko prices for the top 1000 token (order by market cap), each API query returns 250 results,
@@ -397,5 +430,15 @@ class RateOracle(NetworkBase):
             kucoin_api_key="",
             kucoin_passphrase="",
             kucoin_secret_key="",
+            trading_pairs=[],
+            trading_required=False)
+
+    @classmethod
+    def _gate_io_connector_without_private_keys(cls) -> 'GateIoExchange':
+        from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
+
+        return GateIoExchange(
+            gate_io_api_key="",
+            gate_io_secret_key="",
             trading_pairs=[],
             trading_required=False)
