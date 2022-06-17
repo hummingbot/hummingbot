@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json
 from collections import OrderedDict
 from typing import Any, Dict
 from urllib.parse import urlencode
@@ -22,7 +23,7 @@ class BinanceAuth(AuthBase):
         :param request: the request to be configured for authenticated interaction
         """
         if request.method == RESTMethod.POST:
-            request.data = self.add_auth_to_params(params=request.data)
+            request.data = self.add_auth_to_params(params=json.loads(request.data))
         else:
             request.params = self.add_auth_to_params(params=request.params)
 
