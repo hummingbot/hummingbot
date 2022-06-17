@@ -2,15 +2,15 @@
 import asyncio
 import copy
 import logging
+import time
 import zlib
 from asyncio import InvalidStateError
-from typing import Any, AsyncIterable, List, Optional
+from typing import Any, AsyncIterable, Dict, List, Optional
 
+import aiohttp
 import ujson
-import websockets
-from websockets.exceptions import ConnectionClosed
 
-import hummingbot.connector.exchange.digifinex.digifinex_constants as CONSTANTS
+from hummingbot.connector.exchange.digifinex import digifinex_constants as CONSTANTS
 from hummingbot.connector.exchange.digifinex.digifinex_auth import DigifinexAuth
 from hummingbot.connector.exchange.digifinex.digifinex_utils import RequestId
 from hummingbot.logger import HummingbotLogger
@@ -34,7 +34,13 @@ class DigifinexWebsocket(RequestId):
         self._auth: Optional[DigifinexAuth] = auth
         self._isPrivate = True if self._auth is not None else False
         self._WS_URL = CONSTANTS.WSS_PRIVATE_URL if self._isPrivate else CONSTANTS.WSS_PUBLIC_URL
-        self._client: Optional[websockets.WebSocketClientProtocol] = None
+        self._client: aiohttp.ClientSession = aiohttp.ClientSession()
+        self._websocket: Optional[aiohttp.ClientWebSocketResponse] = None
+        self._last_recv_time: float = 0
+
+    @property
+    def last_recv_time(self):
+        return self._last_recv_time
 
     # connect to exchange
     async def connect(self):
@@ -43,10 +49,8 @@ class DigifinexWebsocket(RequestId):
         self.disconnect_future = asyncio.Future()
 
         try:
-            self._client = await websockets.connect(self._WS_URL)
+            self._websocket = await aiohttp.ClientSession().ws_connect(self._WS_URL)
 
-            # if auth class was passed into websocket class
-            # we need to emit authenticated requests
             if self._isPrivate:
                 await self.login()
                 self.tasks.append(asyncio.create_task(self._ping_loop()))
@@ -56,23 +60,27 @@ class DigifinexWebsocket(RequestId):
             self.logger().error(f"Websocket error: '{str(e)}'", exc_info=True)
 
     async def login(self):
-        self.login_msg_id = await self._emit("server.auth", self._auth.generate_ws_signature())
-        msg = await self._messages()
-        if msg is None:
+        self.login_msg_id = await self.request("server.auth", self._auth.generate_ws_signature())
+        raw_bytes = await self._websocket.receive_bytes()
+        parse_msg = self.parse_message(raw_bytes)
+        self._last_recv_time = self._time()
+        if parse_msg is None:
             raise ConnectionError('websocket auth failed: connection closed unexpectedly')
-        if msg.get('error') is not None:
-            raise ConnectionError(f'websocket auth failed: {msg}')
+        if parse_msg.get('error') is not None:
+            raise ConnectionError(f'websocket auth failed: {parse_msg}')
 
     # disconnect from exchange
     async def disconnect(self):
+        if self._websocket is None:
+            return
         if self._client is None:
             return
-
+        await self._websocket.close()
         await self._client.close()
         if not self.disconnect_future.done:
             self.disconnect_future.result(True)
-        if len(self.tasks) > 0:
-            await asyncio.wait(self.tasks)
+        for task in self.tasks:
+            task.cancel()
 
     async def _ping_loop(self):
         while True:
@@ -81,68 +89,30 @@ class DigifinexWebsocket(RequestId):
                 _ = disconnected
                 break
             except asyncio.TimeoutError:
-                await self._emit('server.ping', [])
-                # msg = await self._messages() # concurrent read not allowed
+                await self.request('server.ping', [])
 
-    # receive & parse messages
-    async def _messages(self) -> Any:
-        try:
-            success = False
-            while True:
-                try:
-                    raw_msg_bytes: bytes = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    inflated_msg: bytes = zlib.decompress(raw_msg_bytes)
-                    raw_msg = ujson.loads(inflated_msg)
-
-                    err = raw_msg.get('error')
-                    if err is not None:
-                        raise ConnectionError(raw_msg)
-                    elif raw_msg.get('result') == 'pong':
-                        continue    # ignore ping response
-
-                    success = True
-                    return raw_msg
-                except asyncio.TimeoutError:
-                    await asyncio.wait_for(self._client.ping(), timeout=self.PING_TIMEOUT)
-        except asyncio.TimeoutError:
-            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
-        except ConnectionClosed:
-            return
-        except Exception:
-            self.logger().exception('digifinex.websocket._messages', stack_info=True)
-            raise
-        finally:
-            if not success:
-                await self.disconnect()
-
-    # emit messages
-    async def _emit(self, method: str, data: Optional[Any] = {}) -> int:
-        id = self.generate_request_id()
+    async def request(self, method: str, data: Optional[Any] = {}) -> int:
+        request_id = self.generate_request_id()
 
         payload = {
-            "id": id,
+            "id": request_id,
             "method": method,
             "params": copy.deepcopy(data),
         }
 
-        req = ujson.dumps(payload)
-        self.logger().network(req)   # todo remove log
-        await self._client.send(req)
+        self.logger().network(payload)
+        await self._websocket.send_str(ujson.dumps(payload))
 
-        return id
-
-    # request via websocket
-    async def request(self, method: str, data: Optional[Any] = {}) -> int:
-        return await self._emit(method, data)
+        return request_id
 
     # subscribe to a method
     async def subscribe(self, category: str, channels: List[str]) -> int:
-        id = await self.request(category + ".subscribe", channels)
-        msg = await self._messages()
-        if msg.get('error') is not None:
-            raise ConnectionError(f'subscribe {category} {channels} failed: {msg}')
-        return id
+        request_id = await self.request(category + ".subscribe", channels)
+        raw_msg: bytes = await self._websocket.receive_bytes()
+        parse_msg = self.parse_message(raw_msg)
+        if parse_msg.get('error') is not None:
+            raise ConnectionError(f'subscribe {category} {channels} failed: {parse_msg}')
+        return request_id
 
     # unsubscribe to a method
     async def unsubscribe(self, channels: List[str]) -> int:
@@ -150,10 +120,22 @@ class DigifinexWebsocket(RequestId):
             "channels": channels
         })
 
-    # listen to messages by method
-    async def on_message(self) -> AsyncIterable[Any]:
+    def parse_message(self, raw_bytes: bytes) -> Dict[str, Any]:
+        return ujson.loads(zlib.decompress(raw_bytes))
+
+    async def iter_messages(self) -> AsyncIterable[Any]:
         while True:
-            msg = await self._messages()
-            if msg is None:
+            raw_bytes: aiohttp.WSMessage = await self._websocket.receive_bytes()
+            parse_msg: Dict[str, Any] = self.parse_message(raw_bytes)
+
+            err = parse_msg.get('error')
+            if err is not None:
+                raise ConnectionError(parse_msg)
+            elif parse_msg.get('result') == 'pong':
                 continue
-            yield msg
+
+            self._last_recv_time = self._time()
+            yield parse_msg
+
+    def _time(self) -> float:
+        return time.time()
