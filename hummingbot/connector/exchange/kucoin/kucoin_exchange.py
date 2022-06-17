@@ -1,6 +1,8 @@
 import asyncio
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.kucoin import (
@@ -15,12 +17,13 @@ from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
@@ -76,8 +79,20 @@ class KucoinExchange(ExchangePyBase):
         return CONSTANTS.SYMBOLS_PATH_URL
 
     @property
+    def trading_pairs_request_path(self):
+        return CONSTANTS.SYMBOLS_PATH_URL
+
+    @property
     def check_network_request_path(self):
         return CONSTANTS.SERVER_TIME_PATH_URL
+
+    @property
+    def trading_pairs(self):
+        return self._trading_pairs
+
+    @property
+    def is_cancel_request_in_exchange_synchronous(self) -> bool:
+        return True
 
     def supported_order_types(self):
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
@@ -92,19 +107,18 @@ class KucoinExchange(ExchangePyBase):
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return KucoinAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
-            domain=self.domain,
+            connector=self,
             api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
+            domain=self.domain,
         )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return KucoinAPIUserStreamDataSource(
             auth=self._auth,
             trading_pairs=self._trading_pairs,
-            domain=self.domain,
+            connector=self,
             api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
+            domain=self.domain,
         )
 
     def _get_fee(self,
@@ -135,13 +149,20 @@ class KucoinExchange(ExchangePyBase):
             )
         return fee
 
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        mapping = bidict()
+        for symbol_data in filter(utils.is_pair_information_valid, exchange_info.get("data", [])):
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseCurrency"],
+                                                                        quote=symbol_data["quoteCurrency"])
+        self._set_trading_pair_symbol_map(mapping)
+
     async def _place_order(self,
                            order_id: str,
                            trading_pair: str,
                            amount: Decimal,
                            trade_type: TradeType,
                            order_type: OrderType,
-                           price: Decimal) -> (str, float):
+                           price: Decimal) -> Tuple[str, float]:
         path_url = CONSTANTS.ORDERS_PATH_URL
         side = trade_type.name.lower()
         order_type_str = "market" if order_type == OrderType.MARKET else "limit"
@@ -149,11 +170,7 @@ class KucoinExchange(ExchangePyBase):
             "size": str(amount),
             "clientOid": order_id,
             "side": side,
-            "symbol": await KucoinAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
-                trading_pair=trading_pair,
-                domain=self._domain,
-                api_factory=self._web_assistants_factory,
-                throttler=self._throttler),
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
             "type": order_type_str,
         }
         if order_type is OrderType.LIMIT:
@@ -169,8 +186,9 @@ class KucoinExchange(ExchangePyBase):
         )
         return str(exchange_order_id["data"]["orderId"]), self.current_timestamp
 
-    async def _place_cancel(self, order_id, tracked_order):
-        """ This implementation specific function is called by _cancel, and returns True if successful
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        """
+        This implementation specific function is called by _cancel, and returns True if successful
         """
         exchange_order_id = await tracked_order.get_exchange_order_id()
         cancel_result = await self._api_delete(
@@ -289,11 +307,7 @@ class KucoinExchange(ExchangePyBase):
         for info in raw_trading_pair_info["data"]:
             if utils.is_pair_information_valid(info):
                 try:
-                    trading_pair = await KucoinAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
-                        symbol=info.get("symbol"),
-                        domain=self._domain,
-                        api_factory=self._web_assistants_factory,
-                        throttler=self._throttler)
+                    trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=info.get("symbol"))
                     trading_rules.append(
                         TradingRule(trading_pair=trading_pair,
                                     min_order_size=Decimal(info["baseMinSize"]),
@@ -308,12 +322,8 @@ class KucoinExchange(ExchangePyBase):
         return trading_rules
 
     async def _update_trading_fees(self):
-        trading_symbols = [await self._orderbook_ds.exchange_symbol_associated_to_pair(
-            trading_pair=trading_pair,
-            domain=self._domain,
-            api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer) for trading_pair in self._trading_pairs]
+        trading_symbols = [await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                           for trading_pair in self._trading_pairs]
         params = {"symbols": ",".join(trading_symbols)}
         resp = await self._api_get(
             path_url=CONSTANTS.FEE_PATH_URL,
@@ -322,13 +332,7 @@ class KucoinExchange(ExchangePyBase):
         )
         fees_json = resp["data"]
         for fee_json in fees_json:
-            trading_pair = await self._orderbook_ds.trading_pair_associated_to_exchange_symbol(
-                symbol=fee_json["symbol"],
-                domain=self._domain,
-                api_factory=self._web_assistants_factory,
-                throttler=self._throttler,
-                time_synchronizer=self._time_synchronizer,
-            )
+            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=fee_json["symbol"])
             self._trading_fees[trading_pair] = fee_json
 
     async def _update_order_status(self):
@@ -393,3 +397,16 @@ class KucoinExchange(ExchangePyBase):
                         new_state=new_state,
                     )
                     self._order_tracker.process_order_update(update)
+
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
+        params = {
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        }
+
+        resp_json = await self._api_request(
+            path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            method=RESTMethod.GET,
+            params=params
+        )
+
+        return float(resp_json["data"]["price"])
