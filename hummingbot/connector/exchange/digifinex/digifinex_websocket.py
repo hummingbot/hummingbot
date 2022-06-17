@@ -4,7 +4,6 @@ import copy
 import logging
 import time
 import zlib
-from asyncio import InvalidStateError
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
@@ -44,16 +43,10 @@ class DigifinexWebsocket(RequestId):
 
     # connect to exchange
     async def connect(self):
-        if self.disconnect_future is not None:
-            raise InvalidStateError('already connected')
-        self.disconnect_future = asyncio.Future()
-
         try:
             self._websocket = await aiohttp.ClientSession().ws_connect(self._WS_URL)
-
             if self._isPrivate:
                 await self.login()
-                self.tasks.append(asyncio.create_task(self._ping_loop()))
 
             return self._client
         except Exception as e:
@@ -77,19 +70,16 @@ class DigifinexWebsocket(RequestId):
             return
         await self._websocket.close()
         await self._client.close()
-        if not self.disconnect_future.done:
-            self.disconnect_future.result(True)
         for task in self.tasks:
             task.cancel()
 
-    async def _ping_loop(self):
-        while True:
-            try:
-                disconnected = await asyncio.wait_for(self.disconnect_future, 30)
-                _ = disconnected
-                break
-            except asyncio.TimeoutError:
-                await self.request('server.ping', [])
+    async def ping(self):
+        try:
+            await self.request("server.ping", [])
+        except Exception:
+            self.logger().error("Error occurred sending ping request.",
+                                exc_info=True)
+            raise
 
     async def request(self, method: str, data: Optional[Any] = {}) -> int:
         request_id = self.generate_request_id()
@@ -125,17 +115,25 @@ class DigifinexWebsocket(RequestId):
 
     async def iter_messages(self) -> AsyncIterable[Any]:
         while True:
-            raw_bytes: aiohttp.WSMessage = await self._websocket.receive_bytes()
-            parse_msg: Dict[str, Any] = self.parse_message(raw_bytes)
+            try:
+                ws_msg: aiohttp.WSMessage = await asyncio.wait_for(self._websocket.receive(), timeout=300)
 
-            err = parse_msg.get('error')
-            if err is not None:
-                raise ConnectionError(parse_msg)
-            elif parse_msg.get('result') == 'pong':
-                continue
+                if ws_msg.type == aiohttp.WSMsgType.BINARY:
+                    raw_msg: bytes = ws_msg.data
+                    parse_msg: Dict[str, Any] = self.parse_message(raw_msg)
+                    err = parse_msg.get('error')
+                    if err is not None:
+                        raise ConnectionError(parse_msg)
+                    elif parse_msg.get('result') == 'pong':
+                        continue
+                elif ws_msg.type == aiohttp.WSMsgType.CLOSED:
+                    self.logger().warning("Websocket server closed the connection")
+                    raise aiohttp.ClientConnectionError("Websocket server closed the connection")
 
-            self._last_recv_time = self._time()
-            yield parse_msg
+                self._last_recv_time = self._time()
+                yield parse_msg
+            except asyncio.TimeoutError:
+                await self.ping()
 
     def _time(self) -> float:
         return time.time()

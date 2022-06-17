@@ -2,12 +2,10 @@
 import asyncio
 import logging
 import time
-import traceback
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
 import aiohttp
-import pandas as pd
 
 import hummingbot.connector.exchange.digifinex.digifinex_constants as CONSTANTS
 from hummingbot.core.data_type.order_book import OrderBook
@@ -20,8 +18,6 @@ from . import digifinex_utils
 from .digifinex_active_order_tracker import DigifinexActiveOrderTracker
 from .digifinex_order_book import DigifinexOrderBook
 from .digifinex_websocket import DigifinexWebsocket
-
-# from .digifinex_utils import ms_timestamp_to_s
 
 
 class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -42,6 +38,7 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._trading_pairs: List[str] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
+        self._ws: Optional[DigifinexWebsocket] = None
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
@@ -182,72 +179,37 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_subscriptions(self):
         while True:
             try:
-                ws = DigifinexWebsocket()
-                await ws.connect()
+                self._ws = DigifinexWebsocket()
+                await self._ws.connect()
                 trading_pairs: List[str] = [digifinex_utils.convert_to_ws_trading_pair(pair)
                                             for pair in self._trading_pairs]
-                await ws.subscribe("depth", trading_pairs)
-                await ws.subscribe("trades", trading_pairs)
+                await self._ws.subscribe("depth", trading_pairs)
+                await self._ws.subscribe("trades", trading_pairs)
 
-                async for response in ws.iter_messages():
-                    if response is None or "params" not in response or "method" not in response:
+                async for msg in self._ws.iter_messages():
+                    if msg is None or "params" not in msg or "method" not in msg:
                         continue
 
-                    channel = response["method"]
+                    channel = msg["method"]
                     if channel == CONSTANTS.ORDER_BOOK_DEPTH_CHANNEL:
-                        self._message_queue[CONSTANTS.ORDER_BOOK_DEPTH_CHANNEL].put_nowait(response)
+                        self._message_queue[CONSTANTS.ORDER_BOOK_DEPTH_CHANNEL].put_nowait(msg)
                     elif channel == CONSTANTS.ORDER_BOOK_TRADE_CHANNEL:
-                        self._message_queue[CONSTANTS.ORDER_BOOK_TRADE_CHANNEL].put_nowait(response)
-                    else:
-                        continue
+                        self._message_queue[CONSTANTS.ORDER_BOOK_TRADE_CHANNEL].put_nowait(msg)
 
             except asyncio.CancelledError:
                 raise
+            except aiohttp.ClientConnectionError:
+                self.logger().warning("Attemping re-connection with Websocket Public channels...")
             except Exception as e:
                 self.logger().error(
                     f"Unexpected error with WebSocket connection. {str(e)}",
                     exc_info=True
                 )
-                await self._sleep(30.0)
             finally:
-                await ws.disconnect()
+                self._ws and await self._ws.disconnect()
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         Listen for orderbook snapshots by fetching orderbook
         """
-        while True:
-            try:
-                for trading_pair in self._trading_pairs:
-                    try:
-                        snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
-                        snapshot_timestamp: int = time.time()
-                        snapshot_msg: OrderBookMessage = DigifinexOrderBook.snapshot_message_from_exchange(
-                            snapshot,
-                            snapshot_timestamp,
-                            metadata={"trading_pair": trading_pair}
-                        )
-                        output.put_nowait(snapshot_msg)
-                        self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                        # Be careful not to go above API rate limits.
-                        await asyncio.sleep(5.0)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as e:
-                        self.logger().network(
-                            f"Unexpected error with WebSocket connection: {e}",
-                            exc_info=True,
-                            app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
-                                            "Check network connection.\n"
-                                            + traceback.format_exc()
-                        )
-                        await asyncio.sleep(5.0)
-                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                delta: float = next_hour.timestamp() - time.time()
-                await asyncio.sleep(delta)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
-                await asyncio.sleep(5.0)
+        pass
