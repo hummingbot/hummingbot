@@ -375,12 +375,14 @@ class GatewayHttpClient:
             connector: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "network/poll", {
+        request = {
             "chain": chain,
             "network": network,
-            "connector": connector,
             "txHash": transaction_hash
-        }, fail_silently=fail_silently)
+        }
+        if connector:
+            request["connector"] = connector
+        return await self.api_request("post", "network/poll", request, fail_silently=fail_silently)
 
     async def get_evm_nonce(
             self,
