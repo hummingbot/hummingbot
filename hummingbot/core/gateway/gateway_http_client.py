@@ -31,6 +31,7 @@ class GatewayError(Enum):
     ServiceUnitialized = 1010
     UnknownChainError = 1011
     PriceFailed = 1012
+    InvalidNonceError = 1013
     UnknownError = 1099
 
 
@@ -117,6 +118,8 @@ class GatewayHttpClient:
                 self.logger().network("The trade on gateway has failed.")
             elif error_code == GatewayError.PriceFailed.value:
                 self.logger().network("The price query on gateway has failed.")
+            elif error_code == GatewayError.InvalidNonceError.value:
+                self.logger().network("The nonce was invalid.")
             elif error_code == GatewayError.ServiceUnitialized.value:
                 self.logger().network("Some values was uninitialized. Please contact dev@hummingbot.io ")
             elif error_code == GatewayError.SwapPriceExceedsLimitPrice.value:
@@ -288,7 +291,7 @@ class GatewayHttpClient:
             address: str,
             token: str,
             spender: str,
-            nonce: int,
+            nonce: Optional[int] = None,
             max_fee_per_gas: Optional[int] = None,
             max_priority_fee_per_gas: Optional[int] = None
     ) -> Dict[str, Any]:
@@ -297,9 +300,10 @@ class GatewayHttpClient:
             "network": network,
             "address": address,
             "token": token,
-            "spender": spender,
-            "nonce": nonce
+            "spender": spender
         }
+        if nonce is not None:
+            request_payload["nonce"] = nonce
         if max_fee_per_gas is not None:
             request_payload["maxFeePerGas"] = str(max_fee_per_gas)
         if max_priority_fee_per_gas is not None:
@@ -404,7 +408,7 @@ class GatewayHttpClient:
             side: TradeType,
             amount: Decimal,
             price: Decimal,
-            nonce: int,
+            nonce: Optional[int] = None,
             max_fee_per_gas: Optional[int] = None,
             max_priority_fee_per_gas: Optional[int] = None
     ) -> Dict[str, Any]:
@@ -422,6 +426,8 @@ class GatewayHttpClient:
             "nonce": nonce,
             "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }
+        if nonce is not None:
+            request_payload["nonce"] = int(nonce)
         if max_fee_per_gas is not None:
             request_payload["maxFeePerGas"] = str(max_fee_per_gas)
         if max_priority_fee_per_gas is not None:
