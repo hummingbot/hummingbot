@@ -2,22 +2,18 @@
 import asyncio
 import copy
 import logging
-import websockets
 import zlib
-import ujson
 from asyncio import InvalidStateError
-import hummingbot.connector.exchange.digifinex.digifinex_constants as constants
-# from hummingbot.core.utils.async_utils import safe_ensure_future
+from typing import Any, AsyncIterable, List, Optional
 
-
-from typing import Optional, AsyncIterable, Any, List
+import ujson
+import websockets
 from websockets.exceptions import ConnectionClosed
-from hummingbot.logger import HummingbotLogger
+
+import hummingbot.connector.exchange.digifinex.digifinex_constants as CONSTANTS
 from hummingbot.connector.exchange.digifinex.digifinex_auth import DigifinexAuth
 from hummingbot.connector.exchange.digifinex.digifinex_utils import RequestId
-
-# reusable websocket class
-# ToDo: We should eventually remove this class, and instantiate web socket connection normally (see Binance for example)
+from hummingbot.logger import HummingbotLogger
 
 
 class DigifinexWebsocket(RequestId):
@@ -25,7 +21,7 @@ class DigifinexWebsocket(RequestId):
     PING_TIMEOUT = 10.0
     _logger: Optional[HummingbotLogger] = None
     disconnect_future: asyncio.Future = None
-    tasks: [asyncio.Task] = []
+    tasks: List[asyncio.Task] = []
     login_msg_id: int = 0
 
     @classmethod
@@ -37,7 +33,7 @@ class DigifinexWebsocket(RequestId):
     def __init__(self, auth: Optional[DigifinexAuth] = None):
         self._auth: Optional[DigifinexAuth] = auth
         self._isPrivate = True if self._auth is not None else False
-        self._WS_URL = constants.WSS_PRIVATE_URL if self._isPrivate else constants.WSS_PUBLIC_URL
+        self._WS_URL = CONSTANTS.WSS_PRIVATE_URL if self._isPrivate else CONSTANTS.WSS_PUBLIC_URL
         self._client: Optional[websockets.WebSocketClientProtocol] = None
 
     # connect to exchange
@@ -97,13 +93,6 @@ class DigifinexWebsocket(RequestId):
                     raw_msg_bytes: bytes = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
                     inflated_msg: bytes = zlib.decompress(raw_msg_bytes)
                     raw_msg = ujson.loads(inflated_msg)
-                    # if "method" in raw_msg and raw_msg["method"] == "server.ping":
-                    #     payload = {"id": raw_msg["id"], "method": "public/respond-heartbeat"}
-                    #     safe_ensure_future(self._client.send(ujson.dumps(payload)))
-                    # self.logger().debug(inflated_msg)
-                    # method = raw_msg.get('method')
-                    # if method not in ['depth.update', 'trades.update']:
-                    #     self.logger().network(inflated_msg)
 
                     err = raw_msg.get('error')
                     if err is not None:
@@ -166,7 +155,5 @@ class DigifinexWebsocket(RequestId):
         while True:
             msg = await self._messages()
             if msg is None:
-                return
-            if 'pong' in str(msg):
-                _ = int(0)
+                continue
             yield msg
