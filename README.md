@@ -11,11 +11,11 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 
 ## Connector status
 
-![GREEN](https://via.placeholder.com/15/008000/?text=+) GREEN - Connector is working properly and safe to use.
+:white_check_mark: GREEN - Connector is working properly and safe to use.
 
-![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) YELLOW - Connector is either new or has one or more issues.
+:warning: YELLOW - Connector is either new or has one or more issues.
 
-![RED](https://via.placeholder.com/15/f03c15/?text=+) RED - Connector is broken and unusable.
+:x: RED - Connector is broken and unusable.
 
 
 | logo | id | name | ver | doc | status | referral |
@@ -57,20 +57,22 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 
 
 
-
 ## Supported decentralized exchanges
 
 | logo | id | name | ver | doc| maintainer | status |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| <img src="assets/loopring-logo.jpg" alt="Loopring" width="90" /> | loopring | [Loopring](https://loopring.io/) | 3 | [API](https://docs3.loopring.io/en/) | | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/loopring-logo.jpg" alt="Loopring" width="90" /> | loopring | [Loopring](https://loopring.io/) | 3 | [API](https://docs3.loopring.io/en/) | | :warning: |
 
 
 ## Supported protocol exchanges
 | logo | id | name | ver | doc| status |
 |:---:|:---:|:---:|:---:|:---:|:--:|
-| <img src="assets/balancer-logo.jpg" alt="Balancer" width="90" /> | balancer | [Balancer](https://balancer.finance/) | * | [SDK](https://docs.balancer.finance/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
-| <img src="assets/celo-logo.jpg" alt="Celo" width="90" /> | celo | [Celo](https://celo.org/) | * | [SDK](https://celo.org/developers) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
-| <img src="assets/uniswap-logo.jpg" alt="Uniswap" width="90" /> | uniswap | [Uniswap](https://uniswap.org/) | 2 | [SDK](https://uniswap.org/docs/v2/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/balancer-logo.jpg" alt="Balancer" width="90" /> | balancer | [Balancer](https://balancer.finance/) | * | [SDK](https://docs.balancer.finance/) | :white_check_mark: |
+| <img src="assets/celo-logo.jpg" alt="Celo" width="90" /> | celo | [Celo](https://celo.org/) | * | [SDK](https://celo.org/developers) | :warning: |
+| <img src="assets/perpetual_protocol-logo.jpg" alt="Perpetual Protocol" width="90" /> | perpetual_finance | [Perpetual Protocol](https://perp.fi/) | * | [SDK](https://docs.perp.fi/) | :warning: |
+| <img src="assets/terra-logo.jpg" alt="Terra" width="90" /> | terra | [Terra](https://terra.money/) | * | [SDK](https://docs.terra.money/) | :warning: |
+| <img src="assets/uniswap-logo.jpg" alt="Uniswap" width="90" /> | uniswap | [Uniswap](https://uniswap.org/) | 2 | [SDK](https://docs.uniswap.org/sdk/2.0.0/) | :warning: |
+| <img src="assets/uniswap_v3-logo.jpg" alt="Uniswap v3" width="90" /> | uniswap v3 | [Uniswap v3](https://uniswap.org/) | 3 | [SDK](https://docs.uniswap.org/sdk/introduction) | :warning: |
 
 
 
@@ -99,9 +101,9 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 ## Contributions
 
 We welcome contributions from the community:
-- Code and documentation contributions via [pull requests](https://github.com/CoinAlpha/hummingbot/pulls)
-- Bug reports and feature requests through [Github issues](https://github.com/CoinAlpha/hummingbot/issues)
-- When contributing, please review the [contributing guidelines](CONTRIBUTING.md)
+- Code and documentation contributions via [pull requests](../../pulls)
+- Bug reports and feature requests through [GitHub issues](../../issues)
+- When contributing, please review the [contributing guidelines](./CONTRIBUTING.md)
 
 ## About us
 
@@ -113,4 +115,4 @@ Hummingbot was created and is maintained by CoinAlpha, Inc. We are [a global tea
 ## Legal
 
 - **License**: Hummingbot is licensed under [Apache 2.0](./LICENSE).
-- **Data collection**: read important information regarding [Hummingbot Data Collection](DATA_COLLECTION.md).
+- **Data collection**: read important information regarding [Hummingbot Data Collection](./DATA_COLLECTION.md).
