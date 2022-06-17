@@ -9,7 +9,7 @@ on:
 
 jobs:
   run_client:
-    name: Check files
+    name: Check if client files changed
     outputs:
       is_set: ${{ steps.check_files.outputs.is_set }}
     runs-on: ubuntu-latest
@@ -19,7 +19,8 @@ jobs:
       - uses: technote-space/get-diff-action@v6
         with:
           PATTERNS: |
-            **/*.+(py|pyx|pyd)
+            **/*.+(py|pyx|pyd|yml)
+            !gateway/**
       - name: Check if client files are modified
         id: check_files
         if: env.GIT_DIFF
@@ -28,7 +29,7 @@ jobs:
           echo "::set-output name=is_set::true"
 
   run_gateway:
-    name: Check files
+    name: Check if gateway files changed
     outputs:
       is_set: ${{ steps.check_files.outputs.is_set }}
     runs-on: ubuntu-latest
