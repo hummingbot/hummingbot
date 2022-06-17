@@ -30,8 +30,8 @@ class GatewayError(Enum):
     SwapPriceLowerThanLimitPrice = 1009
     ServiceUnitialized = 1010
     UnknownChainError = 1011
-    PriceFailed = 1012
-    InvalidNonceError = 1013
+    InvalidNonceError = 1012
+    PriceFailed = 1013
     UnknownError = 1099
 
 
@@ -160,27 +160,30 @@ class GatewayHttpClient:
                 response = await client.post(url, json=params)
             else:
                 raise ValueError(f"Unsupported request method {method}")
-            parsed_response = await response.json()
-            if response.status != 200 and \
-               not response.status != 504 and \
-               not fail_silently and \
-               not self.is_timeout_error(parsed_response):
-                self.log_error_codes(parsed_response)
+            if not fail_silently and response.status == 504:
+                self.logger().network(f"The network call to {url} has timed out.")
+            else:
+                parsed_response = await response.json()
+                if response.status != 200 and \
+                   not fail_silently and \
+                   not self.is_timeout_error(parsed_response):
+                    self.log_error_codes(parsed_response)
 
-                if "error" in parsed_response:
-                    raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response['error']}")
-                else:
-                    raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response}")
+                    if "error" in parsed_response:
+                        raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response['error']}")
+                    else:
+                        raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response}")
 
         except Exception as e:
-            fail_silently = self.is_timeout_error(e)
-
             if not fail_silently:
-                self.logger().network(
-                    e,
-                    exc_info=True,
-                    app_warning_msg=f"Failed to call {url}."
-                )
+                if self.is_timeout_error(e):
+                    self.logger().network(f"The network call to {url} has timed out.")
+                else:
+                    self.logger().network(
+                        e,
+                        exc_info=True,
+                        app_warning_msg=f"Call to {url} failed. See logs for more details."
+                    )
                 raise e
 
         return parsed_response
@@ -192,7 +195,7 @@ class GatewayHttpClient:
         because it uses many different libraries to communicate with the
         chains with their own idiosyncracies and they do not necessarilly
         return HTTP status code 504 when there is a timeout error. It is
-        easiest to search for the word 'timeout' in the error.
+        easier to rely on the presence of the word 'timeout' in the error.
         """
         error_string = str(e)
         if re.search('timeout', error_string, re.IGNORECASE):
