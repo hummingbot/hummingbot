@@ -5,6 +5,7 @@ from collections import deque
 from decimal import Decimal
 from typing import Union
 
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
@@ -22,7 +23,6 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
-from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 
 
 class MockPyStrategy(StrategyPyBase):
