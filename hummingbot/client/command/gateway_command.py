@@ -35,6 +35,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display,
     build_connector_display,
+    build_connector_tokens_display,
     build_wallet_display,
     native_tokens,
     search_configs,
@@ -60,6 +61,12 @@ class GatewayCommand(GatewayChainApiManager):
 
     def gateway_stop(self):
         safe_ensure_future(stop_gateway(), loop=self.ev_loop)
+
+    def gateway_connector_tokens(self, connector_chain_network: Optional[str], new_tokens: Optional[str]):
+        if connector_chain_network is not None and new_tokens is not None:
+            safe_ensure_future(self._update_gateway_connector_tokens(connector_chain_network, new_tokens), loop=self.ev_loop)
+        else:
+            safe_ensure_future(self._show_gateway_connector_tokens(connector_chain_network), loop=self.ev_loop)
 
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
@@ -453,3 +460,45 @@ class GatewayCommand(GatewayChainApiManager):
 
                 # Reload completer here to include newly added gateway connectors
                 self.app.input_field.completer = load_completer(self)
+
+    async def _show_gateway_connector_tokens(
+            self,           # type: HummingbotApplication
+            connector_chain_network: str = None
+    ):
+        """
+        Display connector tokens that hummingbot will report balances for
+        """
+        if connector_chain_network is None:
+            gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
+            if len(gateway_connections_conf) < 1:
+                self.notify("No existing connection.\n")
+            else:
+                connector_df: pd.DataFrame = build_connector_tokens_display(gateway_connections_conf)
+                self.notify(connector_df.to_string(index=False))
+        else:
+            conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+            if conf is not None:
+                connector_df: pd.DataFrame = build_connector_tokens_display([conf])
+                self.notify(connector_df.to_string(index=False))
+            else:
+                self.notify(f"There is no gateway connection for {connector_chain_network}.\n")
+
+    async def _update_gateway_connector_tokens(
+            self,           # type: HummingbotApplication
+            connector_chain_network: str,
+            new_tokens: str,
+    ):
+        """
+        Allow the user to input tokens whose balances they want to monitor are.
+        These are not tied to a strategy, rather to the connector-chain-network
+        tuple. This has no influence on what tokens the user can use with a
+        connector-chain-network and a particular strategy. This is only for
+        report balances.
+        """
+        conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+
+        if conf is None:
+            self.notify(f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
+        else:
+            GatewayConnectionSetting.upsert_connector_spec_tokens(connector_chain_network, new_tokens)
+            self.notify(f"The 'balance' command will now report token balances {new_tokens} for '{connector_chain_network}'.")

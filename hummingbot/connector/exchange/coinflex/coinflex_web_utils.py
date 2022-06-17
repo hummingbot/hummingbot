@@ -2,16 +2,12 @@ import asyncio
 import logging
 import random
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Dict,
-    Mapping,
-    Optional,
-)
+from typing import Any, Dict, Mapping, Optional
 from urllib.parse import urlencode
 
-import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 import ujson
+
+import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import EndpointRESTRequest, RESTMethod, RESTResponse
@@ -28,12 +24,12 @@ def public_rest_url(path_url: str = "",
     """
     Creates a full URL for provided public REST endpoint
     :param path_url: a public REST endpoint
-    :param host: the CoinFLEX host to connect to ("live" or "test"). The default value is "live"
+    :param host: the CoinFLEX host to connect to
     :return: the full URL to the endpoint
     """
     local_domain_api_version = domain_api_version or CONSTANTS.PUBLIC_API_VERSION
     local_endpoint_api_version = endpoint_api_version or CONSTANTS.PUBLIC_API_VERSION
-    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "test" else local_domain_api_version
+    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "coinflex_test" else local_domain_api_version
     endpoint = "" if not len(path_url) else f"/{path_url}"
     if only_hostname:
         return CONSTANTS.REST_URL.format(subdomain_prefix)
@@ -48,12 +44,12 @@ def private_rest_url(path_url: str = "",
     """
     Creates a full URL for provided private REST endpoint
     :param path_url: a private REST endpoint
-    :param host: the CoinFLEX host to connect to ("live" or "test"). The default value is "live"
+    :param host: the CoinFLEX host to connect to
     :return: the full URL to the endpoint
     """
     local_domain_api_version = domain_api_version or CONSTANTS.PRIVATE_API_VERSION
     local_endpoint_api_version = endpoint_api_version or CONSTANTS.PRIVATE_API_VERSION
-    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "test" else local_domain_api_version
+    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "coinflex_test" else local_domain_api_version
     endpoint = "" if not len(path_url) else f"/{path_url}"
     if only_hostname:
         return CONSTANTS.REST_URL.format(subdomain_prefix)
@@ -66,7 +62,7 @@ def private_rest_auth_path(path_url: str,
     """
     Creates an auth URL path for provided private REST endpoint
     :param path_url: a private REST endpoint
-    :param host: the CoinFLEX host to connect to ("live" or "test"). The default value is "live"
+    :param host: the CoinFLEX host to connect to
     :return: the auth URL path for the endpoint
     """
     local_endpoint_api_version = endpoint_api_version or CONSTANTS.PRIVATE_API_VERSION
@@ -78,17 +74,17 @@ def websocket_url(domain: str = CONSTANTS.DEFAULT_DOMAIN,
                   endpoint_api_version: str = None) -> str:
     """
     Creates a full URL for provided public REST endpoint
-    :param host: the CoinFLEX host to connect to (either "live" or "test"). Default value is "live"
+    :param host: the CoinFLEX host to connect to
     :return: the full URL to the endpoint
     """
     local_domain_api_version = domain_api_version or CONSTANTS.PUBLIC_API_VERSION
     local_endpoint_api_version = endpoint_api_version or CONSTANTS.PUBLIC_API_VERSION
-    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "test" else local_domain_api_version
+    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "coinflex_test" else local_domain_api_version
     return CONSTANTS.WSS_URL.format(subdomain_prefix, local_endpoint_api_version)
 
 
-def build_api_factory(auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory(auth=auth, rest_pre_processors=[CoinflexRESTPreProcessor()])
+def build_api_factory(throttler: AsyncThrottler, auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory(throttler=throttler, auth=auth, rest_pre_processors=[CoinflexRESTPreProcessor()])
     return api_factory
 
 
@@ -140,8 +136,6 @@ class CoinflexRESTRequest(EndpointRESTRequest):
         if self.endpoint is None:
             raise ValueError("No endpoint specified. Cannot build auth url.")
         uri = private_rest_auth_path(self.endpoint, self.domain, endpoint_api_version=self.endpoint_api_version)
-        if not self.should_use_data and self.params and self.endpoint_api_version != "v2.1":
-            return f"{uri}?{urlencode(self.params)}"
         return uri
 
     @property
@@ -296,7 +290,7 @@ async def api_request(path: str,
 
     # If api_factory is not provided a default one is created
     # The default instance has no authentication capabilities and all authenticated requests will fail
-    api_factory = api_factory or build_api_factory()
+    api_factory = api_factory or build_api_factory(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
 
     request = CoinflexRESTRequest(
