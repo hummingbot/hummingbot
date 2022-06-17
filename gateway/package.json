@@ -41,7 +41,7 @@
     "@uniswap/v3-core": "^1.0.0",
     "@uniswap/v3-periphery": "^1.1.1",
     "@uniswap/v3-sdk": "^3.7.0",
-    "@zuzu-cat/defira-sdk": "https://github.com/zuzu-cat/defira-sdk.git",
+    "@zuzu-cat/defira-sdk": "https://github.com/zuzu-cat/defira-sdk.git#07a43b1b0be0d21e686ac98fad262c1cac3eb9c7",
     "abi-decoder": "^2.4.0",
     "add": "^2.0.6",
     "ajv": "^8.6.3",
