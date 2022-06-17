@@ -952,7 +952,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                                                                  size)
             else:
                 try:
-                    taker_price = taker_market.get_price_for_quote_volume(
+                    taker_price = taker_market.c_get_price_for_quote_volume(
                         taker_trading_pair, True, taker_balance_in_quote
                     ).result_price
                 except ZeroDivisionError:
@@ -1339,7 +1339,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                                                                  True,
                                                                  size)
             else:
-                taker_price = taker_market.get_price_for_quote_volume(
+                taker_price = taker_market.c_get_price_for_quote_volume(
                     taker_trading_pair, True, quote_asset_amount
                 ).result_price
             adjusted_taker_price = taker_price * taker_slippage_adjustment_factor
