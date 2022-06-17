@@ -169,7 +169,7 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _subscribe_channels(self, websocket: DigifinexWebsocket):
         try:
-            trading_pairs: List[str] = [digifinex_utils.convert_from_ws_trading_pair(pair)
+            trading_pairs: List[str] = [digifinex_utils.convert_to_ws_trading_pair(pair)
                                         for pair in self._trading_pairs]
             await websocket.subscribe("depth", trading_pairs)
             await websocket.subscribe("trades", trading_pairs)
@@ -184,9 +184,12 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 ws = DigifinexWebsocket()
                 await ws.connect()
-                await self._subscribe_channels(ws)
+                trading_pairs: List[str] = [digifinex_utils.convert_to_ws_trading_pair(pair)
+                                            for pair in self._trading_pairs]
+                await ws.subscribe("depth", trading_pairs)
+                await ws.subscribe("trades", trading_pairs)
 
-                async for response in ws.on_message():
+                async for response in ws.iter_messages():
                     if response is None or "params" not in response or "method" not in response:
                         continue
 
@@ -200,14 +203,12 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             except asyncio.CancelledError:
                 raise
-            except Exception:
-                self.logger().network(
-                    "Unexpected error with WebSocket connection.",
-                    exc_info=True,
-                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
-                                    "Check network connection."
+            except Exception as e:
+                self.logger().error(
+                    f"Unexpected error with WebSocket connection. {str(e)}",
+                    exc_info=True
                 )
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
             finally:
                 await ws.disconnect()
 

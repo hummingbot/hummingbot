@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 
-import time
 import asyncio
 import logging
-from typing import Optional, List, AsyncIterable, Any
+from typing import Any, AsyncIterable, List, Optional
+
+from hummingbot.connector.exchange.digifinex import digifinex_utils
 from hummingbot.connector.exchange.digifinex.digifinex_global import DigifinexGlobal
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
+
 # from .digifinex_auth import DigifinexAuth
 from hummingbot.connector.exchange.digifinex.digifinex_websocket import DigifinexWebsocket
-from hummingbot.connector.exchange.digifinex import digifinex_utils
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.logger import HummingbotLogger
 
 
 class DigifinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -29,12 +30,14 @@ class DigifinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
-        self._last_recv_time: float = 0
+        self._ws: Optional[DigifinexWebsocket] = None
         super().__init__()
 
     @property
     def last_recv_time(self) -> float:
-        return self._last_recv_time
+        if self._ws:
+            return self._ws.last_recv_time
+        return -1
 
     async def _listen_to_orders_trades_balances(self) -> AsyncIterable[Any]:
         """
@@ -42,54 +45,28 @@ class DigifinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         try:
-            ws = DigifinexWebsocket(self._global.auth)
-            await ws.connect()
-            await ws.subscribe("order", list(map(
-                               lambda pair: f"{digifinex_utils.convert_to_ws_trading_pair(pair)}",
-                               self._trading_pairs
-                               )))
+            self._ws = DigifinexWebsocket(self._global.auth)
+            await self._ws.connect()
 
-            currencies = set()
+            trading_pairs: List[str] = [digifinex_utils.convert_to_ws_trading_pair(pair)
+                                        for pair in self._trading_pairs]
+            await self._ws.subscribe("order", trading_pairs)
+
+            currencies = list()
             for trade_pair in self._trading_pairs:
                 trade_pair_currencies = trade_pair.split('-')
-                currencies.update(trade_pair_currencies)
-            await ws.subscribe("balance", currencies)
-
-            balance_snapshot = await self._global.rest_api.get_balance()
-            # {
-            #   "code": 0,
-            #   "list": [
-            #     {
-            #       "currency": "BTC",
-            #       "free": 4723846.89208129,
-            #       "total": 0
-            #     }
-            #   ]
-            # }
-            yield {'method': 'balance.update', 'params': balance_snapshot['list']}
-            self._last_recv_time = time.time()
-
-            # await ws.subscribe(["user.order", "user.trade", "user.balance"])
-            async for msg in ws.on_message():
-                # {
-                # 	"method": "balance.update",
-                # 	"params": [{
-                # 		"currency": "USDT",
-                # 		"free": "99944652.8478545303601106",
-                # 		"total": "99944652.8478545303601106",
-                # 		"used": "0.0000000000"
-                # 	}],
-                # 	"id": null
-                # }
-                yield msg
-                self._last_recv_time = time.time()
+                currencies.extend(trade_pair_currencies)
+            await self._ws.subscribe("balance", currencies)
+            async for msg in self._ws.iter_messages():
                 if (msg.get("result") is None):
                     continue
+                yield msg
+
         except Exception as e:
             self.logger().exception(e)
             raise e
         finally:
-            await ws.disconnect()
+            await self._ws.disconnect()
             await asyncio.sleep(5)
 
     async def listen_for_user_stream(self, output: asyncio.Queue):
