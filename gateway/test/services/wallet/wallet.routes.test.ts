@@ -6,7 +6,9 @@ import { Avalanche } from '../../../src/chains/avalanche/avalanche';
 import { Harmony } from '../../../src/chains/harmony/harmony';
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 import { GetWalletResponse } from '../../../src/services/wallet/wallet.requests';
+import { OverrideConfigs } from '../../config.util';
 
+const overrideConfigs = new OverrideConfigs();
 let avalanche: Avalanche;
 let eth: Ethereum;
 let harmony: Harmony;
@@ -14,16 +16,23 @@ let harmony: Harmony;
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
 
+  await overrideConfigs.init();
+  await overrideConfigs.updateConfigs();
   avalanche = Avalanche.getInstance('fuji');
-
   eth = Ethereum.getInstance('kovan');
-
   harmony = Harmony.getInstance('testnet');
 });
 
 beforeEach(() =>
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a')
 );
+
+afterAll(async () => {
+  await avalanche.close();
+  await eth.close();
+  await harmony.close();
+  await overrideConfigs.resetConfigs();
+});
 
 afterEach(() => unpatch());
 

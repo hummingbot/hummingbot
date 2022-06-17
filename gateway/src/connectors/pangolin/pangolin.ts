@@ -43,7 +43,7 @@ export class Pangolin implements Uniswapish {
     this._router = config.routerAddress(network);
     this._ttl = config.ttl;
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = config.gasLimit;
+    this._gasLimit = this.avalanche.gasLimit;
   }
 
   public static getInstance(chain: string, network: string): Pangolin {
@@ -266,7 +266,7 @@ export class Pangolin implements Uniswapish {
 
     const contract = new Contract(pangolinRouter, abi, wallet);
     if (!nonce) {
-      nonce = await this.avalanche.nonceManager.getNonce(wallet.address);
+      nonce = await this.avalanche.nonceManager.getNextNonce(wallet.address);
     }
     let tx;
     if (maxFeePerGas || maxPriorityFeePerGas) {
