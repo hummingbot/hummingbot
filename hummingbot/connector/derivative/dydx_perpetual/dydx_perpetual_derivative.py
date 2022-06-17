@@ -10,15 +10,20 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 from dateutil.parser import parse as dateparse
 from dydx3.errors import DydxApiError
 
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_api_order_book_data_source import (
+    DydxPerpetualAPIOrderBookDataSource,
+)
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import DydxPerpetualAuth
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper import DydxPerpetualClientWrapper
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_in_flight_order import DydxPerpetualInFlightOrder
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tracker import \
-    DydxPerpetualOrderBookTracker
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tracker import (
+    DydxPerpetualOrderBookTracker,
+)
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import \
-    DydxPerpetualUserStreamTracker
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import (
+    DydxPerpetualUserStreamTracker,
+)
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_utils import build_api_factory
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.exchange_base import ExchangeBase
@@ -26,13 +31,7 @@ from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import (
-    OrderType,
-    PositionAction,
-    PositionMode,
-    PositionSide,
-    TradeType
-)
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -146,10 +145,10 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         PerpetualTrading.__init__(self)
         self._real_time_balance_update = True
         self._api_factory = build_api_factory()
-        self._order_book_tracker = DydxPerpetualOrderBookTracker(
+        self._set_order_book_tracker(DydxPerpetualOrderBookTracker(
             trading_pairs=trading_pairs,
             api_factory=self._api_factory,
-        )
+        ))
         self._tx_tracker = DydxPerpetualDerivativeTransactionTracker(self)
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
@@ -163,7 +162,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             api_secret=dydx_perpetual_api_secret,
             passphrase=dydx_perpetual_passphrase,
             account_number=dydx_perpetual_account_number,
-            stark_private_key=dydx_perpetual_stark_private_key,
+            stark_private_key=None if dydx_perpetual_stark_private_key == "" else dydx_perpetual_stark_private_key,
             ethereum_address=dydx_perpetual_ethereum_address,
         )
         # State
@@ -197,7 +196,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "order_books_initialized": len(self.order_book_tracker.order_books) > 0,
             "account_balances": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
             "funding_info_available": len(self._funding_info) > 0 if self._trading_required else True,
@@ -211,10 +210,10 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     def get_order_book(self, trading_pair: str):
-        order_books = self._order_book_tracker.order_books
+        order_books = self.order_book_tracker.order_books
         if trading_pair not in order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return order_books[trading_pair]
@@ -619,7 +618,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     async def start_network(self):
         await self.stop_network()
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
@@ -633,7 +632,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._last_poll_timestamp = 0
         self._poll_notifier.clear()
 
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._polling_update_task is not None:
             self._polling_update_task.cancel()
             self._polling_update_task = None
@@ -1317,3 +1316,14 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
     def get_sell_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await DydxPerpetualAPIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await DydxPerpetualAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            domain=self._domain
+        )
