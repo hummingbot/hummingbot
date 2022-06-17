@@ -169,14 +169,10 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _subscribe_channels(self, websocket: DigifinexWebsocket):
         try:
-            await websocket.subscribe("depth", list(map(
-                lambda pair: f"{digifinex_utils.convert_to_ws_trading_pair(pair)}",
-                self._trading_pairs
-            )))
-            await websocket.subscribe("trades", list(map(
-                lambda pair: f"{digifinex_utils.convert_to_ws_trading_pair(pair)}",
-                self._trading_pairs
-            )))
+            trading_pairs: List[str] = [digifinex_utils.convert_from_ws_trading_pair(pair)
+                                        for pair in self._trading_pairs]
+            await websocket.subscribe("depth", trading_pairs)
+            await websocket.subscribe("trades", trading_pairs)
         except asyncio.CancelledError:
             raise
         except Exception as e:
