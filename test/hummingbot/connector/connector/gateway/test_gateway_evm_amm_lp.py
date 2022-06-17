@@ -140,7 +140,7 @@ class GatewayEVMAMMLPConnectorUnitTest(unittest.TestCase):
                 "0x27d7a7156bd0afc73092602da67774aa3319adbc72213122d65480e482ce0a8b"        # noqa: mock
             ),
         ]
-        fake_records: List[GatewayInFlightLPOrder] = [
+        """fake_records: List[GatewayInFlightLPOrder] = [
             create_approval_record(
                 "COIN1",
                 "0x273a720fdc92554c47f409f4f74d3c262937451ccdbaddfd8d0185a9e3c64dd1"        # noqa: mock
@@ -149,14 +149,14 @@ class GatewayEVMAMMLPConnectorUnitTest(unittest.TestCase):
                 "COIN3",
                 "0x27d7a7156bd0afc73092602da67774aa3319adbc72213122d65480e482ce0a8a"        # noqa: mock
             ),
-        ]
+        ]"""
 
         event_logger: EventLogger = EventLogger()
         self._connector.add_listener(TokenApprovalEvent.ApprovalSuccessful, event_logger)
         self._connector.add_listener(TokenApprovalEvent.ApprovalFailed, event_logger)
 
         try:
-            await self._connector.update_token_approval_status(successful_records + fake_records)
+            await self._connector.update_token_approval_status(successful_records)
             self.assertEqual(2, len(event_logger.event_log))
             self.assertEqual(
                 {"uniswapLP_COIN1", "uniswapLP_COIN3"},
