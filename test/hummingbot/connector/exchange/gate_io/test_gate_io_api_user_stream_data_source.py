@@ -1,16 +1,16 @@
 import asyncio
 import json
 import unittest
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
 
-from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS, gate_io_web_utils as web_utils
-from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source import GateIoAPIUserStreamDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
+from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
@@ -46,27 +46,25 @@ class TestGateIoAPIUserStreamDataSource(unittest.TestCase):
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        self.api_factory = web_utils.build_api_factory(
-            throttler=self.throttler,
-            time_synchronizer=self.time_synchronizer,
-            auth=self.auth)
+        self.connector = GateIoExchange(
+            gate_io_api_key="",
+            gate_io_secret_key="",
+            trading_pairs=[],
+            trading_required=False)
+        self.connector._web_assistants_factory._auth = self.auth
+
         self.data_source = GateIoAPIUserStreamDataSource(
             self.auth,
             trading_pairs=[self.trading_pair],
-            api_factory=self.api_factory,
-            throttler=self.throttler,
-            time_synchronizer=self.time_synchronizer)
+            connector=self.connector,
+            api_factory=self.connector._web_assistants_factory)
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
-        GateIoAPIOrderBookDataSource._trading_pair_symbol_map = {
-            CONSTANTS.DEFAULT_DOMAIN: bidict(
-                {self.ex_trading_pair: self.trading_pair})
-        }
+        self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
     def tearDown(self) -> None:
-        GateIoAPIOrderBookDataSource._trading_pair_symbol_map = {}
         self.listening_task and self.listening_task.cancel()
         super().tearDown()
 
@@ -80,14 +78,6 @@ class TestGateIoAPIUserStreamDataSource(unittest.TestCase):
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
-
-    def test_last_recv_time(self):
-        # Initial last_recv_time
-        self.assertEqual(0, self.data_source.last_recv_time)
-
-        ws_assistant = self.async_run_with_timeout(self.data_source._get_ws_assistant())
-        ws_assistant._connection._last_recv_time = 1000
-        self.assertEqual(1000, self.data_source.last_recv_time)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source.GateIoAPIUserStreamDataSource"
@@ -274,7 +264,7 @@ class TestGateIoAPIUserStreamDataSource(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged("ERROR",
-                            "Unexpected error occurred when listening to user streams. Retrying in 5 seconds..."))
+                            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
@@ -292,4 +282,4 @@ class TestGateIoAPIUserStreamDataSource(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                "Unexpected error occurred when listening to user streams. Retrying in 5 seconds..."))
+                "Unexpected error while listening to user stream. Retrying after 5 seconds..."))

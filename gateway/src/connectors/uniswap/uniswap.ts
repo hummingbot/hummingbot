@@ -53,7 +53,7 @@ export class Uniswap implements Uniswapish {
       provider: this.ethereum.provider,
     });
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = this.ethereum.gasLimit;
+    this._gasLimit = UniswapConfig.config.gasLimit;
     this._router = config.uniswapV3SmartOrderRouterAddress(network);
   }
 

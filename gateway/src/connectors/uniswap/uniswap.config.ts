@@ -7,7 +7,7 @@ export namespace UniswapConfig {
     ttl: (version: number) => number;
     uniswapV3SmartOrderRouterAddress: (network: string) => string;
     uniswapV3NftManagerAddress: (network: string) => string;
-    tradingTypes: (network: string) => Array<string>;
+    tradingTypes: (type: string) => Array<string>;
     availableNetworks: Array<AvailableNetworks>;
   }
 
@@ -27,8 +27,9 @@ export namespace UniswapConfig {
       ConfigManagerV2.getInstance().get(
         `uniswap.contractAddresses.${network}.uniswapV3NftManagerAddress`
       ),
-    tradingTypes: (network: string) =>
-      network === 'v2' ? ['EVM_AMM'] : ['EVM_Range_AMM'],
+    tradingTypes: (type: string) => {
+      return type === 'swap' ? ['EVM_AMM'] : ['EVM_Range_AMM'];
+    },
     availableNetworks: [
       {
         chain: 'ethereum',

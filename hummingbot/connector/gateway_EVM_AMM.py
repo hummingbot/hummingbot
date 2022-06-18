@@ -141,7 +141,7 @@ class GatewayEVMAMM(ConnectorBase):
         return self._wallet_address
 
     @staticmethod
-    async def fetch_trading_pairs(chain: str, network: str) -> List[str]:
+    async def all_trading_pairs(chain: str, network: str) -> List[str]:
         """
         Calls the tokens endpoint on Gateway.
         """
@@ -306,7 +306,7 @@ class GatewayEVMAMM(ConnectorBase):
             **request_args
         )
 
-        transaction_hash: Optional[str] = resp.get("approval").get("hash")
+        transaction_hash: Optional[str] = resp.get("approval", {}).get("hash")
         nonce: Optional[int] = resp.get("nonce")
         if transaction_hash is not None and nonce is not None:
             tracked_order = self._order_tracker.fetch_order(client_order_id=approval_id)

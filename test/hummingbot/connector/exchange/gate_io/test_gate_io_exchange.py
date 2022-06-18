@@ -3,7 +3,6 @@ import json
 import re
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -12,8 +11,8 @@ from bidict import bidict
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
-from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -65,13 +64,9 @@ class TestGateIoExchange(unittest.TestCase):
 
         self._initialize_event_loggers()
 
-        GateIoAPIOrderBookDataSource._trading_pair_symbol_map = {
-            CONSTANTS.DEFAULT_DOMAIN: bidict(
-                {self.ex_trading_pair: self.trading_pair})
-        }
+        self.exchange._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
     def tearDown(self) -> None:
-        GateIoAPIOrderBookDataSource._trading_pair_symbol_map = {}
         for task in self.async_tasks:
             task.cancel()
         super().tearDown()
@@ -170,13 +165,13 @@ class TestGateIoExchange(unittest.TestCase):
 
     def get_in_flight_order(self, client_order_id: str, exchange_order_id: str = "someExchId") -> InFlightOrder:
         order = InFlightOrder(
-            client_order_id,
-            exchange_order_id,
-            self.trading_pair,
-            OrderType.LIMIT,
-            TradeType.BUY,
+            client_order_id=client_order_id,
+            exchange_order_id=exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
             price=Decimal("5.1"),
-            # TODO amount=Decimal("1"),
+            amount=Decimal("1"),
             creation_timestamp=1640001112.0
         )
         return order
@@ -267,10 +262,92 @@ class TestGateIoExchange(unittest.TestCase):
             )
         }
 
-    @patch("hummingbot.connector.exchange.gate_io.gate_io_web_utils.retry_sleep_time")
     @aioresponses()
-    def test_check_network_not_connected(self, retry_sleep_time_mock, mock_api):
-        retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
+    def test_all_trading_pairs(self, mock_api):
+        self.exchange._set_trading_pair_symbol_map(None)
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.SYMBOL_PATH_URL}"
+        resp = [
+            {
+                "id": f"{self.base_asset}_{self.quote_asset}",
+                "base": self.base_asset,
+                "quote": self.quote_asset,
+                "fee": "0.2",
+                "min_base_amount": "0.001",
+                "min_quote_amount": "1.0",
+                "amount_precision": 3,
+                "precision": 6,
+                "trade_status": "tradable",
+                "sell_start": 1516378650,
+                "buy_start": 1516378650
+            },
+            {
+                "id": "SOME_PAIR",
+                "base": "SOME",
+                "quote": "PAIR",
+                "fee": "0.2",
+                "min_base_amount": "0.001",
+                "min_quote_amount": "1.0",
+                "amount_precision": 3,
+                "precision": 6,
+                "trade_status": "untradable",
+                "sell_start": 1516378650,
+                "buy_start": 1516378650
+            }
+        ]
+        mock_api.get(url, body=json.dumps(resp))
+
+        ret = self.async_run_with_timeout(coroutine=self.exchange.all_trading_pairs())
+
+        self.assertEqual(1, len(ret))
+        self.assertIn(self.trading_pair, ret)
+        self.assertNotIn("SOME-PAIR", ret)
+
+    @aioresponses()
+    def test_all_trading_pairs_does_not_raise_exception(self, mock_api):
+        self.exchange._set_trading_pair_symbol_map(None)
+
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.SYMBOL_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, exception=Exception)
+
+        result: Dict[str] = self.async_run_with_timeout(self.exchange.all_trading_pairs())
+
+        self.assertEqual(0, len(result))
+
+    @aioresponses()
+    def test_get_last_traded_prices(self, mock_api):
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = [
+            {
+                "currency_pair": f"{self.base_asset}_{self.quote_asset}",
+                "last": "0.2959",
+                "lowest_ask": "0.295918",
+                "highest_bid": "0.295898",
+                "change_percentage": "-1.72",
+                "base_volume": "78497066.828007",
+                "quote_volume": "23432064.936692",
+                "high_24h": "0.309372",
+                "low_24h": "0.286827",
+            }
+        ]
+        mock_api.get(regex_url, body=json.dumps(resp))
+
+        ret = self.async_run_with_timeout(
+            coroutine=self.exchange.get_last_traded_prices(trading_pairs=[self.trading_pair])
+        )
+
+        ticker_requests = [(key, value) for key, value in mock_api.requests.items()
+                           if key[1].human_repr().startswith(url)]
+
+        request_params = ticker_requests[0][1][0].kwargs["params"]
+        self.assertEqual(self.ex_trading_pair, request_params["currency_pair"])
+
+        self.assertEqual(ret[self.trading_pair], float(resp[0]["last"]))
+
+    @aioresponses()
+    def test_check_network_not_connected(self, mock_api):
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.NETWORK_CHECK_PATH_URL}"
         resp = ""
         for i in range(CONSTANTS.API_MAX_RETRIES + 1):
@@ -358,7 +435,7 @@ class TestGateIoExchange(unittest.TestCase):
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_CREATE_PATH_URL}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         resp = self.get_order_create_response_mock()
-        mock_api.post(regex_url, body=json.dumps(resp))
+        mock_api.post(regex_url, body=json.dumps(resp), status=201)
 
         order_id = "someId"
         self.async_run_with_timeout(
@@ -520,7 +597,7 @@ class TestGateIoExchange(unittest.TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None, misc_updates={})"
+                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 
@@ -868,7 +945,8 @@ class TestGateIoExchange(unittest.TestCase):
             self._is_logged(
                 "WARNING",
                 f"Failed to fetch order status updates for order {order.client_order_id}. "
-                f"Response: Error executing request GET spot/orders/{order.exchange_order_id}. "
+                f"Response: Error executing request GET "
+                f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_STATUS_PATH_URL.format(order_id=order.exchange_order_id)}. "
                 f"HTTP status is 404. Error: "
             )
         )
@@ -1397,7 +1475,7 @@ class TestGateIoExchange(unittest.TestCase):
         )
 
     def test_initial_status_dict(self):
-        GateIoAPIOrderBookDataSource._trading_pair_symbol_map = {}
+        self.exchange._set_trading_pair_symbol_map(None)
 
         status_dict = self.exchange.status_dict
 

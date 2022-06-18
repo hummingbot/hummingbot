@@ -5,7 +5,6 @@ import json
 import re
 import time
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Callable, NamedTuple, Optional
 from unittest import TestCase
 from unittest.mock import AsyncMock, PropertyMock, patch
@@ -17,6 +16,7 @@ from bidict import bidict
 from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS, coinflex_web_utils
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.connector.exchange.coinflex.coinflex_exchange import CoinflexExchange
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -620,7 +620,7 @@ class CoinflexExchangeTests(TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None, misc_updates={})"
+                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 
@@ -672,7 +672,7 @@ class CoinflexExchangeTests(TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None, misc_updates={})"
+                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 
@@ -847,8 +847,7 @@ class CoinflexExchangeTests(TestCase):
         expected_error = (
             f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
             f" update_timestamp={'1640780000.0'}, new_state={repr(OrderState.FAILED)}, "
-            f"client_order_id='{order.client_order_id}', exchange_order_id=None, "
-            "misc_updates={})")
+            f"client_order_id='{order.client_order_id}', exchange_order_id=None, misc_updates=None)")
 
         self.assertTrue(self._is_logged("INFO", expected_error))
 
@@ -1103,7 +1102,7 @@ class CoinflexExchangeTests(TestCase):
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
                 f" update_timestamp={int(order_status['data'][0]['orderClosedTimestamp']) * 1e-3}, new_state={repr(OrderState.FAILED)}, "
                 f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
-                "misc_updates={})")
+                "misc_updates=None)")
         )
 
     @aioresponses()

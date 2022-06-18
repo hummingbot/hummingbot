@@ -1,10 +1,13 @@
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Mapping, Optional
 
 import aiohttp
 import ujson
+
+if TYPE_CHECKING:
+    from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
 
 
 class RESTMethod(Enum):
@@ -116,11 +119,30 @@ class RESTResponse:
         return text_
 
 
+class WSRequest(ABC):
+    @abstractmethod
+    async def send_with_connection(self, connection: 'WSConnection'):
+        return NotImplemented
+
+
 @dataclass
-class WSRequest:
+class WSJSONRequest(WSRequest):
     payload: Mapping[str, Any]
     throttler_limit_id: Optional[str] = None
     is_auth_required: bool = False
+
+    async def send_with_connection(self, connection: 'WSConnection'):
+        await connection._send_json(payload=self.payload)
+
+
+@dataclass
+class WSPlainTextRequest(WSRequest):
+    payload: str
+    throttler_limit_id: Optional[str] = None
+    is_auth_required: bool = False
+
+    async def send_with_connection(self, connection: 'WSConnection'):
+        await connection._send_plain_text(payload=self.payload)
 
 
 @dataclass
