@@ -1,16 +1,16 @@
 import asyncio
 import json
-
+from typing import Any, Awaitable, Dict
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
-from typing import Dict, Any, Awaitable
+
 from aioresponses import aioresponses
 
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker import AscendExUserStreamTracker
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class AscendExUserStreamTrackerTests(TestCase):

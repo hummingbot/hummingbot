@@ -3,7 +3,6 @@ import functools
 import re
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Callable, Dict, List, NamedTuple, Optional
 from unittest.mock import AsyncMock, patch
 
@@ -19,6 +18,7 @@ from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_api_o
 )
 from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_derivative import CoinflexPerpetualDerivative
 from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_utils import get_new_client_order_id
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
@@ -1023,8 +1023,8 @@ class CoinflexPerpetualDerivativeUnitTest(unittest.TestCase):
         expected_err = (
             f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
             f" update_timestamp={int(order_status['data'][0]['orderClosedTimestamp']) * 1e-3}, new_state={repr(OrderState.FAILED)}, "
-            f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}',"
-            " misc_updates={})"
+            f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
+            "misc_updates=None)"
         )
         self.assertTrue(self._is_logged("INFO", expected_err))
 

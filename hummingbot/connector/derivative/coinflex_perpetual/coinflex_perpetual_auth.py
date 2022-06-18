@@ -81,7 +81,7 @@ class CoinflexPerpetualAuth(AuthBase):
     def _generate_signature(self,
                             timestamp: str,
                             nonce: int,
-                            request: WSRequest) -> str:
+                            request: CoinflexPerpetualRESTRequest) -> str:
 
         payload = '{}\n{}\n{}\n{}\n{}\n{}'.format(timestamp,
                                                   nonce,

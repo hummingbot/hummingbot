@@ -6,8 +6,8 @@ import { CurrencyAmount, Percent, TradeType, Token } from '@uniswap/sdk-core';
 import { Pair, Route } from '@uniswap/v2-sdk';
 import { Trade } from '@uniswap/router-sdk';
 import { BigNumber, utils } from 'ethers';
-import { OverrideConfigs } from '../../../config.util';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
+import { OverrideConfigs } from '../../../config.util';
 import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 
 const overrideConfigs = new OverrideConfigs();
