@@ -1,0 +1,10 @@
+{
+  "address": "$ETH_ADDRESS",
+  "quote": "1ETH",
+  "base": "ONE74",
+  "amount": "1",
+  "side": "BUY",
+  "chain": "harmony",
+  "network": "testnet",
+  "connector": "defira"
+}

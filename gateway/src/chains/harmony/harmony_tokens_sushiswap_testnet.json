@@ -18,6 +18,14 @@
       "logoURI": "https://assets.coingecko.com/coins/images/4344/small/Y88JAze.png"
     },
     {
+      "name": "Wrapped ONE",
+      "address": "0x7466d7d0C21Fa05F32F5a0Fa27e12bdC06348Ce2",
+      "symbol": "WONE74",
+      "decimals": 18,
+      "chainId": 1666700000,
+      "logoURI": "https://assets.coingecko.com/coins/images/4344/small/Y88JAze.png"
+    },
+    {
       "chainId": 1666700000,
       "address": "0x0E80905676226159cC3FF62B1876C907C91F7395",
       "symbol": "1BUSD",
