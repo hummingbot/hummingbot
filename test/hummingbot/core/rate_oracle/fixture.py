@@ -627,4 +627,18 @@ class Fixture:
             "etf_pre_timestamp": 1611244800,
             "etf_leverage": "2.2803019447281203"
         },
+        {
+            "currency_pair": "FAKE_BTC",
+            "last": "0.0001816",
+            "high_24h": "0.00018315",
+            "low_24h": "0.0001658",
+            "base_volume": "14595.7",
+            "quote_volume": "14595.7",
+            "lowest_ask": "",
+            "highest_bid": "",
+            "etf_net_value": "2.46316141",
+            "etf_pre_net_value": "2.43201848",
+            "etf_pre_timestamp": 1611244800,
+            "etf_leverage": "2.2803019447281203"
+        },
     ]
