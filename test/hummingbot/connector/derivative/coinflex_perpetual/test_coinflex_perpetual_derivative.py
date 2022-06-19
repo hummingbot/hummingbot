@@ -3,7 +3,6 @@ import functools
 import re
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Callable, Dict, List, NamedTuple, Optional
 from unittest.mock import AsyncMock, patch
 
@@ -19,6 +18,7 @@ from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_api_o
 )
 from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_derivative import CoinflexPerpetualDerivative
 from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_utils import get_new_client_order_id
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState

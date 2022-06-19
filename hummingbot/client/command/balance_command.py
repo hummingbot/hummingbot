@@ -9,7 +9,7 @@ from hummingbot.client.config.config_helpers import save_to_yml
 from hummingbot.client.config.config_validators import validate_decimal, validate_exchange
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.client.settings import GLOBAL_CONFIG_PATH
+from hummingbot.client.settings import GLOBAL_CONFIG_PATH, AllConnectorSettings
 from hummingbot.connector.other.celo.celo_cli import CeloCLI
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -101,7 +101,7 @@ class BalanceCommand:
 
         for exchange, bals in all_ex_bals.items():
             self.notify(f"\n{exchange}:")
-            df, allocated_total = await self.exchange_balances_extra_df(bals, all_ex_avai_bals.get(exchange, {}))
+            df, allocated_total = await self.exchange_balances_extra_df(exchange, bals, all_ex_avai_bals.get(exchange, {}))
             if df.empty:
                 self.notify("You have no balance on this exchange.")
             else:
@@ -130,17 +130,28 @@ class BalanceCommand:
                 self.notify(f"\ncelo CLI Error: {str(e)}")
 
     async def exchange_balances_extra_df(self,  # type: HummingbotApplication
+                                         exchange: str,
                                          ex_balances: Dict[str, Decimal],
                                          ex_avai_balances: Dict[str, Decimal]):
+        conn_setting = AllConnectorSettings.get_connector_settings()[exchange]
         total_col_name = f"Total ({RateOracle.global_token_symbol})"
         allocated_total = Decimal("0")
         rows = []
         for token, bal in ex_balances.items():
             avai = Decimal(ex_avai_balances.get(token.upper(), 0)) if ex_avai_balances is not None else Decimal(0)
-            if bal == Decimal(0):
-                allocated = "0%"
+            # show zero balances if it is a gateway connector (the user manually
+            # chose to show those values with 'gateway connector-tokens')
+            if conn_setting.uses_gateway_generic_connector():
+                if bal == Decimal(0):
+                    allocated = "0%"
+                else:
+                    allocated = f"{(bal - avai) / bal:.0%}"
             else:
+                # the exchange is CEX. Only show balance if non-zero.
+                if bal == Decimal(0):
+                    continue
                 allocated = f"{(bal - avai) / bal:.0%}"
+
             rate = await RateOracle.global_rate(token)
             rate = Decimal("0") if rate is None else rate
             global_value = rate * bal
