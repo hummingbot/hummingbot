@@ -344,6 +344,14 @@
       "symbol": "stONE",
       "decimals": 18,
       "logoURI": "https://raw.githubusercontent.com/sushiswap/assets/master/blockchains/harmony/assets/0x22D62b19b7039333ad773b7185BB61294F3AdC19/logo.png"
+    },
+    {
+      "chainId": 1666600000,
+      "address": "0x2A719aF848bf365489E548BE5edbEC1D65858e59",
+      "symbol": "FIRA",
+      "name": "Fira",
+      "decimals": 18,
+      "logoURI": "https://d2w69usg89gc0q.cloudfront.net/tokens/FIRA.png"
     }
   ]
 }
