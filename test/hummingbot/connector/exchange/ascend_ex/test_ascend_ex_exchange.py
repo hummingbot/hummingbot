@@ -17,21 +17,16 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import (
     AscendExOrder,
     AscendExTradingRule,
 )
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    MarketEvent,
-    MarketOrderFailureEvent,
-    OrderFilledEvent,
-)
+from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketEvent, MarketOrderFailureEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class TestAscendExExchange(unittest.TestCase):
