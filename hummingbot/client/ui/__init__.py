@@ -127,5 +127,5 @@ def login_prompt(style: Style = default_dialog_style):
             title='Error',
             text=err_msg,
             style=style).run()
-        return login_prompt()
+        return login_prompt(style)
     return True
