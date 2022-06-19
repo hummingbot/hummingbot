@@ -881,3 +881,22 @@ class BybitExchange(ExchangeBase):
 
     async def _sleep(self, delay: float):
         await asyncio.sleep(delay)
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await BybitAPIOrderBookDataSource.fetch_trading_pairs(
+            domain=self._domain,
+            throttler=self._throttler,
+            api_factory=self._api_factory,
+            time_synchronizer=self._time_synchronizer,
+        )
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await BybitAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            domain=self._domain,
+            api_factory=self._api_factory,
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+        )
