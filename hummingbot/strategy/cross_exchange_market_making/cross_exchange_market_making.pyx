@@ -903,8 +903,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         if is_bid:
             # Maker buy
             # Taker sell
-            taker_slippage_adjustment_factor = Decimal("1") - self._slippage_buffer
-
             maker_balance_in_quote = maker_market.get_available_balance(market_pair.maker.quote_asset)
 
             taker_balance = taker_market.get_available_balance(market_pair.taker.base_asset) * \
@@ -923,9 +921,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     assert size == s_decimal_zero
                     return s_decimal_zero
 
-            # Add slippage
-            taker_price *= taker_slippage_adjustment_factor
-
             # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
                 taker_price *= self.market_conversion_rate()
@@ -938,8 +933,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         else:
             # Maker sell
             # Taker buy
-            taker_slippage_adjustment_factor = Decimal("1") + self._slippage_buffer
-
             maker_balance = maker_market.get_available_balance(market_pair.maker.base_asset)
 
             taker_balance_in_quote = taker_market.get_available_balance(market_pair.taker.quote_asset) * \
@@ -957,9 +950,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 except ZeroDivisionError:
                     assert size == s_decimal_zero
                     return s_decimal_zero
-
-            # Add slippage
-            taker_price *= taker_slippage_adjustment_factor
 
             # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
