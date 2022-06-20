@@ -47,7 +47,6 @@
     "ajv": "^8.6.3",
     "app-root-path": "^3.0.0",
     "axios": "^0.21.1",
-    "big.js": "6.1.1",
     "body-parser": "^1.19.0",
     "bs58": "^4.0.1",
     "copyfiles": "^2.4.1",
@@ -74,7 +73,7 @@
   "devDependencies": {
     "@connectis/diff-test-coverage": "^1.5.1",
     "@types/app-root-path": "^1.2.4",
-    "@types/big.js": "6.1.2",
+    "@types/big.js": "^6.1.2",
     "@types/bs58": "^4.0.1",
     "@types/express": "^4.17.12",
     "@types/jest": "^27.4.1",

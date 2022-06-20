@@ -225,9 +225,7 @@ export class Perp implements Perpish {
     tickerSymbol: string,
     minBaseAmount: string
   ): Promise<Transaction> {
-    console.log(this.getAllowedSlippage().toString());
-    const slippage = new Big(this.getAllowedSlippage());
-    //console.log(minBaseAmount);
+    const slippage = new Big(this.getAllowedSlippage().toString());
     const amountInput = new Big(minBaseAmount);
     const side = isLong ? PositionSide.LONG : PositionSide.SHORT;
     const isAmountInputBase = false; // we are not using base token to open position.
@@ -249,7 +247,7 @@ export class Perp implements Perpish {
    * @returns An ethers transaction object.
    */
   async closePosition(tickerSymbol: string): Promise<Transaction> {
-    const slippage = new Big(this.getAllowedSlippage());
+    const slippage = new Big(this.getAllowedSlippage().toString());
     const clearingHouse = this._perp.clearingHouse as ClearingHouse;
     const positions = this._perp.positions as Positions;
     const position = await positions.getTakerPositionByTickerSymbol(
