@@ -422,7 +422,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         """
         Returns True if there is no outstanding unfilled order.
         """
-        # outstanding_orders = self.market_info_to_active_orders.get(self._market_info, [])
         for market_pair in self._market_pairs.values():
             if self._has_unhedged_market_fill:
                 return False
@@ -585,12 +584,12 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 self._hedge_filled_maker_order_task = safe_ensure_future(
                     self.hedge_filled_maker_order(order_filled_event)
                 )
+                # Cancell all leftover active maker orders
+                for _, limit_order in self.active_limit_orders:
+                    self.cancel_order(None, limit_order.client_order_id)
             else:
                 # Maker order filled, Taker hedge order filled
                 self._has_unhedged_market_fill = False
-                # Cancell all leftover active orders
-                for _, limit_order in self.active_limit_orders:
-                    self.cancel_order(None, limit_order.client_order_id)
 
     def did_complete_buy_order(self, order_completed_event: BuyOrderCompletedEvent):
         """
