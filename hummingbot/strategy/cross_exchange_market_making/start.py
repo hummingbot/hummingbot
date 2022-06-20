@@ -77,12 +77,12 @@ def start(self):
         )
 
     strategy_logging_options = (
-        CrossExchangeMarketMakingStrategy.OPTION_LOG_CREATE_ORDER
-        | CrossExchangeMarketMakingStrategy.OPTION_LOG_ADJUST_ORDER
-        | CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_FILLED
-        | CrossExchangeMarketMakingStrategy.OPTION_LOG_REMOVING_ORDER
-        | CrossExchangeMarketMakingStrategy.OPTION_LOG_STATUS_REPORT
-        | CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_HEDGED
+        CrossExchangeMarketMakingStrategy.OPTION_LOG_CREATE_ORDER,
+        CrossExchangeMarketMakingStrategy.OPTION_LOG_ADJUST_ORDER,
+        CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_FILLED,
+        CrossExchangeMarketMakingStrategy.OPTION_LOG_REMOVING_ORDER,
+        CrossExchangeMarketMakingStrategy.OPTION_LOG_STATUS_REPORT,
+        CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_HEDGED
     )
     self.strategy = CrossExchangeMarketMakingStrategy()
     self.strategy.init_params(

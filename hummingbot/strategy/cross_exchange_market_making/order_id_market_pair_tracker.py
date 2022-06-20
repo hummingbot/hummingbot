@@ -1,9 +1,7 @@
 from collections import OrderedDict
 from decimal import Decimal
 
-from hummingbot.core.time_iterator import TimeIterator
-
-NaN = float("nan")
+s_float_nan = float("nan")
 
 
 class OrderIDMarketPairTrackingItem:
@@ -11,10 +9,10 @@ class OrderIDMarketPairTrackingItem:
         self.order_id = order_id
         self.exchange = exchange
         self.market_pair = market_pair
-        self.expiry_timestamp = NaN
+        self.expiry_timestamp = s_float_nan
 
 
-class OrderIDMarketPairTracker(TimeIterator):
+class OrderIDMarketPairTracker():
     def __init__(self, expiry_timeout: Decimal = 3 * 60):
         super().__init__()
 
