@@ -145,7 +145,7 @@ export class Uniswap implements Uniswapish {
       return new Percent(fractionSplit[0], fractionSplit[1]);
     }
 
-    const allowedSlippage = UniswapConfig.config.allowedSlippage;
+    const allowedSlippage = UniswapConfig.config.allowedSlippage(2);
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(

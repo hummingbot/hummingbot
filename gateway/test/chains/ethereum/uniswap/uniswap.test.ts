@@ -2,13 +2,12 @@ jest.useFakeTimers();
 import { Uniswap } from '../../../../src/connectors/uniswap/uniswap';
 import { patch, unpatch } from '../../../services/patch';
 import { UniswapishPriceError } from '../../../../src/services/error-handler';
-import { CurrencyAmount, TradeType, Token, Percent } from '@uniswap/sdk-core';
+import { CurrencyAmount, Percent, TradeType, Token } from '@uniswap/sdk-core';
 import { Pair, Route } from '@uniswap/v2-sdk';
 import { Trade } from '@uniswap/router-sdk';
 import { BigNumber, utils } from 'ethers';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 import { OverrideConfigs } from '../../../config.util';
-
 import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 
 const overrideConfigs = new OverrideConfigs();

@@ -715,7 +715,7 @@ class AbstractExchangeConnectorTests:
                     "INFO",
                     f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                     f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                    f"client_order_id='{order_id}', exchange_order_id=None)"
+                    f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
                 )
             )
 
@@ -763,7 +763,7 @@ class AbstractExchangeConnectorTests:
                     "INFO",
                     f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                     f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                    f"client_order_id='{order_id}', exchange_order_id=None)"
+                    f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
                 )
             )
 

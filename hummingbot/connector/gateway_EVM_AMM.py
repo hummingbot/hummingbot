@@ -306,7 +306,7 @@ class GatewayEVMAMM(ConnectorBase):
             **request_args
         )
 
-        transaction_hash: Optional[str] = resp.get("approval").get("hash")
+        transaction_hash: Optional[str] = resp.get("approval", {}).get("hash")
         nonce: Optional[int] = resp.get("nonce")
         if transaction_hash is not None and nonce is not None:
             tracked_order = self._order_tracker.fetch_order(client_order_id=approval_id)

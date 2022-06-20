@@ -38,7 +38,7 @@ class OrderUpdate(NamedTuple):
     new_state: OrderState
     client_order_id: Optional[str] = None
     exchange_order_id: Optional[str] = None
-    misc_updates: Dict[str, Any] = {}
+    misc_updates: Optional[Dict[str, Any]] = None
 
 
 class TradeUpdate(NamedTuple):
