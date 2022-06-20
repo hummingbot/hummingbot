@@ -324,7 +324,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         return "\n".join(lines)
 
     def start(self, clock: Clock, timestamp: float):
-        StrategyPyBase.start(self, clock, timestamp)
+        super().start(self, clock, timestamp)
         self._last_timestamp = timestamp
 
     def tick(self, timestamp: float):
