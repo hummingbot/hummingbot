@@ -49,13 +49,12 @@ export type UniswapishTrade =
   | Trade<Currency, Currency, TradeType>
   | TradePangolin
   | TradeTraderjoe
-  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
   | SushiswapTrade<
       SushiToken,
       SushiToken,
       SushiTradeType.EXACT_INPUT | SushiTradeType.EXACT_OUTPUT
     >
-  | Trade<Currency, Currency, TradeType>;
+  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
