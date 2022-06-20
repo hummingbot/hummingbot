@@ -1391,9 +1391,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             bid_size = await self.get_market_making_size(market_pair, True)
 
             if bid_size > s_decimal_zero:
-
                 bid_price = await self.get_market_making_price(market_pair, True, bid_size)
-
                 if not Decimal.is_nan(bid_price):
                     effective_hedging_price = await self.calculate_effective_hedging_price(
                         market_pair,
@@ -1410,6 +1408,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                             f"Current hedging price: {effective_hedging_price:.8f} {market_pair.maker.quote_asset} "
                             f"(Rate adjusted: {effective_hedging_price_adjusted:.8f} {market_pair.taker.quote_asset})."
                         )
+                    self.place_order(market_pair, True, True, bid_size, bid_price)
                 else:
                     if self.OPTION_LOG_NULL_ORDER_SIZE in self._logging_options:
                         self.log_with_clock(
@@ -1447,6 +1446,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                             f"Current hedging price: {effective_hedging_price:.8f} {market_pair.maker.quote_asset} "
                             f"(Rate adjusted: {effective_hedging_price_adjusted:.8f} {market_pair.taker.quote_asset})."
                         )
+                    self.place_order(market_pair, False, True, ask_size, ask_price)
                 else:
                     if self.OPTION_LOG_NULL_ORDER_SIZE in self._logging_options:
                         self.log_with_clock(
