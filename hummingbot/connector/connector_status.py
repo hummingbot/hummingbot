@@ -17,6 +17,7 @@ connector_status = {
     'bybit_perpetual_testnet': 'green',
     'celo': 'yellow',
     'coinbase_pro': 'yellow',
+    'coinex': 'red',
     'coinflex': 'green',
     'coinflex_test': 'green',
     'coinzoom': 'yellow',
