@@ -1001,8 +1001,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         if is_bid:
             # Maker buy
             # Taker sell
-            taker_slippage_adjustment_factor = Decimal("1") - self._slippage_buffer
-
             if not Decimal.is_nan(top_bid_price):
                 # Calculate the next price above top bid
                 price_quantum = maker_market.get_order_price_quantum(
@@ -1015,7 +1013,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
                                                                  False,
                                                                  size)
-                taker_price *= taker_slippage_adjustment_factor
             else:
                 try:
                     taker_price = taker_market.get_vwap_for_volume(taker_trading_pair, False, size).result_price
@@ -1047,8 +1044,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         else:
             # Maker sell
             # Taker buy
-            taker_slippage_adjustment_factor = Decimal("1") + self._slippage_buffer
-
             if not Decimal.is_nan(top_ask_price):
                 # Calculate the next price below top ask
                 price_quantum = maker_market.get_order_price_quantum(
@@ -1061,7 +1056,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
                                                                  True,
                                                                  size)
-                taker_price *= taker_slippage_adjustment_factor
             else:
                 try:
                     taker_price = taker_market.get_vwap_for_volume(taker_trading_pair, True, size).result_price
@@ -1111,8 +1105,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         if is_bid:
             # Maker buy
             # Taker sell
-            taker_slippage_adjustment_factor = Decimal("1") - self._slippage_buffer
-
             if self.is_gateway_market(market_pair.taker):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
                                                                  False,
@@ -1123,8 +1115,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 except ZeroDivisionError:
                     return None
 
-            taker_price *= taker_slippage_adjustment_factor
-
             # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
                 taker_price *= self.market_conversion_rate()
@@ -1133,8 +1123,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         else:
             # Maker sell
             # Taker buy
-            taker_slippage_adjustment_factor = Decimal("1") + self._slippage_buffer
-
             if self.is_gateway_market(market_pair.taker):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
                                                                  False,
@@ -1144,8 +1132,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     taker_price = taker_market.get_vwap_for_volume(taker_trading_pair, True, size).result_price
                 except ZeroDivisionError:
                     return None
-
-            taker_price *= taker_slippage_adjustment_factor
 
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
                 taker_price *= self.market_conversion_rate()
