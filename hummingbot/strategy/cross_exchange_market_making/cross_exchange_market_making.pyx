@@ -920,10 +920,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     assert size == s_decimal_zero
                     return s_decimal_zero
 
-            # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
-            if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
-                taker_price *= self.market_conversion_rate()
-
             maker_balance = maker_balance_in_quote / taker_price
             order_amount = min(maker_balance, taker_balance, size)
 
@@ -949,10 +945,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 except ZeroDivisionError:
                     assert size == s_decimal_zero
                     return s_decimal_zero
-
-            # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
-            if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
-                taker_price *= self.market_conversion_rate()
 
             taker_balance = taker_balance_in_quote / taker_price
             order_amount = min(maker_balance, taker_balance, size)
