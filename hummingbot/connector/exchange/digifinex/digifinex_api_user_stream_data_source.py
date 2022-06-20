@@ -30,7 +30,6 @@ class DigifinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def __init__(self, _global: DigifinexGlobal, trading_pairs: Optional[List[str]] = []):
         self._global: DigifinexGlobal = _global
         self._trading_pairs = trading_pairs
-        self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._ws: Optional[DigifinexWebsocket] = None
         super().__init__()
@@ -77,5 +76,5 @@ class DigifinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     f"Unexpected error with WebSocket connection. {str(e)}",
                     exc_info=True
                 )
-                await self._sleep(5.0)
+            finally:
                 await self._ws.disconnect()

@@ -1,12 +1,11 @@
 import math
 from typing import Dict, List
 
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_tracking_nonce_low_res
-from . import digifinex_constants as Constants
-
-from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_tracking_nonce_low_res
 
+from . import digifinex_constants as Constants
 
 CENTRALIZED = True
 
@@ -45,16 +44,8 @@ def ms_timestamp_to_s(ms: int) -> int:
     return math.floor(ms / 1e3)
 
 
-# Request ID class
-class RequestId:
-    """
-    Generate request ids
-    """
-    _request_id: int = 0
-
-    @classmethod
-    def generate_request_id(cls) -> int:
-        return get_tracking_nonce()
+def generate_request_id() -> int:
+    return get_tracking_nonce()
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
