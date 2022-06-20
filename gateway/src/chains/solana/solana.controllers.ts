@@ -9,9 +9,9 @@ import {
   SolanaTokenResponse,
 } from './solana.requests';
 import { Solanaish } from './solana';
-import { PublicKey } from '@solana/web3.js';
+import {Keypair, PublicKey} from '@solana/web3.js';
 import {
-  HttpException,
+  HttpException, LOAD_WALLET_ERROR_CODE, LOAD_WALLET_ERROR_MESSAGE,
   TOKEN_NOT_SUPPORTED_ERROR_CODE,
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
 } from '../../services/error-handler';
@@ -21,7 +21,16 @@ export async function balances(
   req: SolanaBalanceRequest
 ): Promise<SolanaBalanceResponse | string> {
   const initTime = Date.now();
-  const wallet = await solanaish.getKeypair(req.address);
+  let wallet: Keypair;
+  try {
+    wallet = await solanaish.getKeypair(req.address);
+  } catch (err) {
+    throw new HttpException(
+      500,
+      LOAD_WALLET_ERROR_MESSAGE + err,
+      LOAD_WALLET_ERROR_CODE
+    );
+  }
   const balances = await solanaish.getBalances(wallet);
   const filteredBalances = toSolanaBalances(balances, req.tokenSymbols);
   if (Object.keys(filteredBalances).length === 0) {

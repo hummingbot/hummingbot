@@ -7,8 +7,8 @@ import { Solana } from '../../../src/chains/solana/solana';
 import { Serum } from '../../../src/connectors/serum/serum';
 import { sleep } from '../../../src/connectors/serum/serum.helpers';
 import { IMap, Market } from '../../../src/connectors/serum/serum.types';
-import { default as config } from '../../../test/connectors/serum/fixtures/config';
-import { getNewCandidateOrdersTemplates } from '../../../test/connectors/serum/fixtures/helpers';
+import { default as config } from '../../../test/chains/solana/serum/fixtures/config';
+import { getNewCandidateOrdersTemplates } from '../../../test/chains/solana/serum/fixtures/helpers';
 import { unpatch } from '../../../test/services/patch';
 
 jest.setTimeout(30 * 60 * 1000);

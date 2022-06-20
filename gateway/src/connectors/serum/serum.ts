@@ -618,10 +618,10 @@ export class Serum {
     marketsInformation = marketsInformation.filter(
       (item) =>
         !item.deprecated &&
-        (this.config.markets.blacklist.length
+        (this.config.markets.blacklist?.length
           ? !this.config.markets.blacklist.includes(item.name)
           : true) &&
-        (this.config.markets.whiteList.length
+        (this.config.markets.whiteList?.length
           ? this.config.markets.whiteList.includes(item.name)
           : true)
     );

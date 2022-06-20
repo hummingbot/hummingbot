@@ -7,9 +7,9 @@ import {
   Transaction,
 } from '@solana/web3.js';
 import bs58 from 'bs58';
-import { Solana } from '../../../../../src/chains/solana/solana';
-import { Serum } from '../../../../../src/connectors/serum/serum';
-import { getNotNullOrThrowError } from '../../../../../src/connectors/serum/serum.helpers';
+import { Solana } from '../../../../../../src/chains/solana/solana';
+import { Serum } from '../../../../../../src/connectors/serum/serum';
+import { getNotNullOrThrowError } from '../../../../../../src/connectors/serum/serum.helpers';
 import {
   CreateOrdersRequest,
   IMap,
@@ -18,11 +18,11 @@ import {
   SerumOpenOrders,
   SerumOrder,
   SerumOrderParams,
-} from '../../../../../src/connectors/serum/serum.types';
-import { patch } from '../../../../services/patch';
-import { default as config } from '../config';
+} from '../../../../../../src/connectors/serum/serum.types';
+import { patch } from '../../../../../services/patch';
+import config from '../config';
 import { convertToSerumOpenOrders, getNewSerumOrders } from '../helpers';
-import { default as data } from './data';
+import data from './data';
 
 const disablePatches = false;
 
@@ -75,7 +75,8 @@ const patches = (solana: Solana, serum: Serum) => {
         _programId: PublicKey,
         _layoutOverride?: any
       ) => {
-        return data.get(`serum/market/${address}`);
+        const d = data.get(`serum/market/${address.toBase58()}`);
+        return d;
       }
     );
   });

@@ -190,7 +190,7 @@ export const validateToken: Validator = mkValidator(
 export const validateAmount: Validator = mkValidator(
   'amount',
   invalidAmountError,
-  (val) => typeof val === 'string' && isNaturalNumberString(val),
+  (val) => val === undefined || (typeof val === 'string' && isNaturalNumberString(val)),
   true
 );
 

@@ -2,8 +2,8 @@ import { MARKETS } from '@project-serum/serum';
 import BN from 'bn.js';
 import { StatusCodes } from 'http-status-codes';
 import 'jest-extended';
-import { Solana } from '../../../src/chains/solana/solana';
-import { Serum } from '../../../src/connectors/serum/serum';
+import { Solana } from '../../../../src/chains/solana/solana';
+import { Serum } from '../../../../src/connectors/serum/serum';
 import {
   cancelOrders,
   createOrders,
@@ -14,8 +14,8 @@ import {
   getOrders,
   getTickers,
   settleFunds,
-} from '../../../src/connectors/serum/serum.controllers';
-import { getNotNullOrThrowError } from '../../../src/connectors/serum/serum.helpers';
+} from '../../../../src/connectors/serum/serum.controllers';
+import { getNotNullOrThrowError } from '../../../../src/connectors/serum/serum.helpers';
 import {
   CancelOrderResponse,
   CreateOrderResponse,
@@ -27,9 +27,9 @@ import {
   GetTickerResponse,
   OrderSide,
   OrderStatus,
-} from '../../../src/connectors/serum/serum.types';
-import { HttpException } from '../../../src/services/error-handler';
-import { unpatch } from '../../services/patch';
+} from '../../../../src/connectors/serum/serum.types';
+import { HttpException } from '../../../../src/services/error-handler';
+import { unpatch } from '../../../services/patch';
 import { default as config } from './fixtures/config';
 import { getNewCandidateOrdersTemplates } from './fixtures/helpers';
 import { default as patchesCreator } from './fixtures/patches/patches';

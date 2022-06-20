@@ -1,10 +1,10 @@
 import { PublicKey } from '@solana/web3.js';
 import BN from 'bn.js';
-import { convertOrderSideToSerumSide } from '../../../../src/connectors/serum/serum.convertors';
+import { convertOrderSideToSerumSide } from '../../../../../src/connectors/serum/serum.convertors';
 import {
   getNotNullOrThrowError,
   getRandonBN,
-} from '../../../../src/connectors/serum/serum.helpers';
+} from '../../../../../src/connectors/serum/serum.helpers';
 import {
   CreateOrdersRequest,
   OrderBook,
@@ -12,7 +12,7 @@ import {
   OrderType,
   SerumOpenOrders,
   SerumOrder,
-} from '../../../../src/connectors/serum/serum.types';
+} from '../../../../../src/connectors/serum/serum.types';
 import { default as config } from './config';
 
 const marketNames = ['SOL/USDT', 'SOL/USDC'];
