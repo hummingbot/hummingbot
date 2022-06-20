@@ -15,6 +15,8 @@ module.exports = {
     'conf/migration/migrations.js',
     'src/chains/solana/solana.ts',
     'src/connectors/uniswap/uniswap.config.ts',
+    'test/*',
+    'src/connectors/serum/serum.config.ts'
   ],
   modulePathIgnorePatterns: ['<rootDir>/dist/'],
   setupFilesAfterEnv: ['<rootDir>/test/setupTests.js'],

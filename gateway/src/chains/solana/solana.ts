@@ -47,7 +47,7 @@ export class Solana implements Solanaish {
   private _tokenAddressMap: Record<string, TokenInfo> = {};
   private _keypairs: Record<string, Keypair> = {};
 
-  private static _instances: Map<string, Solana> = new Map<string, Solana>();
+  private static _instances: { [name: string]: Solana };
 
   private _requestCount: number;
   private readonly _connection: Connection;
@@ -108,14 +108,17 @@ export class Solana implements Solanaish {
 
   @Cache(caches.instances, { isCachedForever: true })
   public static getInstance(network: string): Solana {
-    const solana = new Solana(network);
+    if (Solana._instances === undefined) {
+      Solana._instances = {};
+    }
+    if (!(network in Solana._instances)) {
+      Solana._instances[network] = new Solana(network);
+    }
 
-    this._instances.set(network, solana);
-
-    return solana;
+    return Solana._instances[network];
   }
 
-  public static getConnectedInstances(): Map<string, Solana> {
+  public static getConnectedInstances(): { [name: string]: Solana } {
     return this._instances;
   }
 
@@ -548,5 +551,11 @@ export class Solana implements Solanaish {
   // returns the current block number
   async getCurrentBlockNumber(): Promise<number> {
     return await this.connection.getSlot('processed');
+  }
+
+  async close() {
+    if (this._cluster in Solana._instances) {
+      delete Solana._instances[this._cluster];
+    }
   }
 }

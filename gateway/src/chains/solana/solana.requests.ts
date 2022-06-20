@@ -1,8 +1,9 @@
 import { TransactionResponse } from '@solana/web3.js';
+import {NetworkSelectionRequest} from "../../services/common-interfaces";
 
 export type SolanaTransactionResponse = TransactionResponse;
 
-export interface SolanaBalanceRequest {
+export interface SolanaBalanceRequest extends NetworkSelectionRequest {
   address: string; // the user's Solana address as Base58
   tokenSymbols: string[]; // a list of token symbol
 }
@@ -14,7 +15,7 @@ export interface SolanaBalanceResponse {
   balances: Record<string, string>; // the balance should be a string encoded number
 }
 
-export interface SolanaTokenRequest {
+export interface SolanaTokenRequest extends NetworkSelectionRequest {
   address: string; // the user's Solana address as Base58
   token: string; // the token symbol the spender will be approved for
 }
@@ -28,7 +29,7 @@ export interface SolanaTokenResponse {
   amount?: string;
 }
 
-export interface SolanaPollRequest {
+export interface SolanaPollRequest extends NetworkSelectionRequest {
   txHash: string;
 }
 

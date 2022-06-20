@@ -19,15 +19,15 @@ import { Connection, PublicKey } from '@solana/web3.js';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Solana } from '../../../src/chains/solana/solana';
+import { Solana } from '../../../../src/chains/solana/solana';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Serum } from '../../../src/connectors/serum/serum';
-import { SerumMarket } from '../../../src/connectors/serum/serum.types';
+import { Serum } from '../../../../src/connectors/serum/serum';
+import { SerumMarket } from '../../../../src/connectors/serum/serum.types';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import { unpatch } from '../../services/patch';
+import { unpatch } from '../../../services/patch';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

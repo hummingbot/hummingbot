@@ -8,7 +8,6 @@ import { TransactionResponseStatusCode } from '../../../src/chains/solana/solana
 import { patch, unpatch } from '../../services/patch';
 import { tokenSymbols, txHash } from '../../services/validators.test';
 import getOrCreateAssociatedTokenAccountData from './fixtures/getOrCreateAssociatedTokenAccount';
-import { default as config } from './fixtures/getSolanaConfig';
 import getTokenAccountData from './fixtures/getTokenAccount';
 import * as getTokenListData from './fixtures/getTokenList.json';
 import * as getTransactionData from './fixtures/getTransaction.json';
@@ -16,7 +15,7 @@ import { privateKey, publicKey } from './solana.validators.test';
 
 let solana: Solana;
 beforeAll(async () => {
-  solana = await Solana.getInstance(config.solana.network);
+  solana = await Solana.getInstance("devnet");
   solana.getTokenList = jest
     .fn()
     .mockReturnValue([
@@ -29,6 +28,10 @@ beforeAll(async () => {
 });
 
 afterEach(() => unpatch());
+
+afterAll(async () => {
+  await solana.close();
+});
 
 const patchGetKeypair = () => {
   patch(solana, 'getKeypair', (pubkey: string) => {
@@ -48,6 +51,10 @@ describe('GET /solana', () => {
       .expect((res) => expect(res.body.rpcUrl).toBe(solana.rpcUrl));
   });
 });
+
+//const patchGetSolBalance = () => {
+//  patch(solana, 'getSolBalance', () => ({ value: 1, decimals: 3 }));
+//};
 
 const patchGetBalances = () => {
   patch(solana, 'getBalances', () => {
@@ -270,7 +277,7 @@ describe('POST /solana/token', () => {
 
 const CurrentBlockNumber = 112646487;
 const patchGetCurrentBlockNumber = () => {
-  patch(solana, 'getCurrentBlockNumber', () => CurrentBlockNumber);
+  patch(solana.connection, 'getCurrentBlockNumber', () => CurrentBlockNumber);
 };
 
 const patchGetTransaction = () => {
