@@ -1,9 +1,4 @@
-import {
-  InitializationError,
-  SERVICE_UNITIALIZED_ERROR_CODE,
-  SERVICE_UNITIALIZED_ERROR_MESSAGE,
-  UniswapishPriceError,
-} from '../../services/error-handler';
+import { UniswapishPriceError } from '../../services/error-handler';
 import { SushiswapConfig } from './sushiswap.config';
 import routerAbi from './sushiswap_router.json';
 
@@ -16,7 +11,6 @@ import {
   CurrencyAmount,
   Trade,
   Pair,
-  // Currency,
   SwapParameters,
   TradeType,
 } from '@sushiswap/sdk';
@@ -36,7 +30,6 @@ import { logger } from '../../services/logger';
 export class Sushiswap implements Uniswapish {
   private static _instances: { [name: string]: Sushiswap };
   private ethereum: Ethereum;
-  private _chain: string;
   private _router: string;
   private _routerAbi: ContractInterface;
   private _gasLimit: number;
@@ -45,8 +38,7 @@ export class Sushiswap implements Uniswapish {
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
-  private constructor(chain: string, network: string) {
-    this._chain = chain;
+  private constructor(network: string) {
     const config = SushiswapConfig.config;
     this.ethereum = Ethereum.getInstance(network);
     this.chainId = this.ethereum.chainId;
@@ -61,7 +53,7 @@ export class Sushiswap implements Uniswapish {
       Sushiswap._instances = {};
     }
     if (!(chain + network in Sushiswap._instances)) {
-      Sushiswap._instances[chain + network] = new Sushiswap(chain, network);
+      Sushiswap._instances[chain + network] = new Sushiswap(network);
     }
 
     return Sushiswap._instances[chain + network];
@@ -78,11 +70,9 @@ export class Sushiswap implements Uniswapish {
   }
 
   public async init() {
-    if (this._chain == 'ethereum' && !this.ethereum.ready())
-      throw new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
-        SERVICE_UNITIALIZED_ERROR_CODE
-      );
+    if (!this.ethereum.ready()) {
+      await this.ethereum.init();
+    }
     for (const token of this.ethereum.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
