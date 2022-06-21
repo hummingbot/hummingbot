@@ -69,7 +69,7 @@ class KucoinAuth(AuthBase):
         path_url = f"/api{request.url.split('/api')[-1]}"
         if request.params:
             sorted_params = self.keysort(request.params)
-            query_string_components = urlencode(sorted_params)
+            query_string_components = urlencode(sorted_params, safe=',')
             path_url = f"{path_url}?{query_string_components}"
 
         if request.data is not None:
