@@ -6,6 +6,7 @@ from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.connector.gateway_price_shim import GatewayPriceShim
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import (
     CrossExchangeMarketMakingStrategy,
+    LogOption,
 )
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import (
     cross_exchange_market_making_config_map as xemm_map,
@@ -77,12 +78,12 @@ def start(self):
         )
 
     strategy_logging_options = (
-        CrossExchangeMarketMakingStrategy.OPTION_LOG_CREATE_ORDER,
-        CrossExchangeMarketMakingStrategy.OPTION_LOG_ADJUST_ORDER,
-        CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_FILLED,
-        CrossExchangeMarketMakingStrategy.OPTION_LOG_REMOVING_ORDER,
-        CrossExchangeMarketMakingStrategy.OPTION_LOG_STATUS_REPORT,
-        CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_HEDGED
+        LogOption.CREATE_ORDER,
+        LogOption.ADJUST_ORDER,
+        LogOption.MAKER_ORDER_FILLED,
+        LogOption.REMOVING_ORDER,
+        LogOption.STATUS_REPORT,
+        LogOption.MAKER_ORDER_HEDGED
     )
     self.strategy = CrossExchangeMarketMakingStrategy()
     self.strategy.init_params(
