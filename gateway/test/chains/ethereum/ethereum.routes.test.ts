@@ -12,20 +12,14 @@ import {
   OUT_OF_GAS_ERROR_MESSAGE,
   UNKNOWN_ERROR_MESSAGE,
 } from '../../../src/services/error-handler';
-import { OverrideConfigs } from '../../config.util';
 import { patchEVMNonceManager } from '../../evm.nonce.mock';
 import * as transactionSuccesful from './fixtures/transaction-succesful.json';
 import * as transactionSuccesfulReceipt from './fixtures/transaction-succesful-receipt.json';
 import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-receipt.json';
-
-const overrideConfigs = new OverrideConfigs();
 let eth: Ethereum;
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
-
   eth = Ethereum.getInstance('kovan');
   patchEVMNonceManager(eth.nonceManager);
   await eth.init();
@@ -41,7 +35,6 @@ afterEach(() => {
 
 afterAll(async () => {
   await eth.close();
-  await overrideConfigs.resetConfigs();
 });
 
 const patchGetWallet = () => {
