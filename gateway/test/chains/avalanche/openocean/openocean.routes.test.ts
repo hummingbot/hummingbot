@@ -6,7 +6,6 @@ import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 let avalanche: Avalanche;
 let openocean: Openocean;
 
-const address: string = '0x00000000000000000000000000000000000';
 const privateKey =
   '0000000000000000000000000000000000000000000000000000000000000002'; // noqa: mock
 
@@ -104,67 +103,5 @@ describe('POST /amm/price', () => {
       })
       .set('Accept', 'application/json')
       .expect(500);
-  });
-});
-
-describe('POST /amm/trade', () => {
-  it('should return 200 for BUY', async () => {
-    await request(gatewayApp)
-      .post(`/amm/trade`)
-      .send({
-        chain: 'avalanche',
-        network: 'avalanche',
-        connector: 'openocean',
-        quote: 'USDC',
-        base: 'sAVAX',
-        amount: '10000',
-        address,
-        side: 'BUY',
-        nonce: 21,
-      })
-      .set('Accept', 'application/json')
-      .expect(200)
-      .then((res: any) => {
-        expect(res.body.nonce).toEqual(21);
-      });
-  });
-
-  it('should return 200 for BUY without nonce parameter', async () => {
-    await request(gatewayApp)
-      .post(`/amm/trade`)
-      .send({
-        chain: 'avalanche',
-        network: 'avalanche',
-        connector: 'openocean',
-        quote: 'USDC',
-        base: 'sAVAX',
-        amount: '10000',
-        address,
-        side: 'BUY',
-      })
-      .set('Accept', 'application/json')
-      .expect(200);
-  });
-
-  it('should return 200 for SELL', async () => {
-    await request(gatewayApp)
-      .post(`/amm/trade`)
-      .send({
-        chain: 'avalanche',
-        network: 'avalanche',
-        connector: 'openocean',
-        quote: 'USDC',
-        base: 'sAVAX',
-        amount: '0.001',
-        address,
-        side: 'SELL',
-        nonce: 21,
-      })
-      .set('Accept', 'application/json')
-      .expect(200)
-      .then((res: any) => {
-        console.log(res.body);
-        expect(res.body.nonce).toEqual(21);
-      });
   });
 });
