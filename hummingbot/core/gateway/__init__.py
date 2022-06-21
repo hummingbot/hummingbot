@@ -151,6 +151,8 @@ async def detect_existing_gateway_container() -> Optional[Dict[str, Any]]:
 async def start_existing_gateway_container():
     container_info: Optional[Dict[str, Any]] = await detect_existing_gateway_container()
     if container_info is not None and container_info["State"] != "running":
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+        HummingbotApplication.main_application().logger().info("Starting existing Gateway container...")
         await docker_ipc("start", get_gateway_container_name())
 
 
