@@ -372,9 +372,8 @@ export class Openocean implements Uniswapish {
     logger.info(
       `executeTrade ${openoceanRouter}-${ttl}-${abi}-${gasPrice}-${gasLimit}-${nonce}-${maxFeePerGas}-${maxPriorityFeePerGas}.`
     );
-
-    const inToken = this.getTokenByCurrency(trade.route.input);
-    const outToken = this.getTokenByCurrency(trade.route.output);
+    const inToken: any = trade.route.input;
+    const outToken: any = trade.route.output;
     let swapRes;
     try {
       swapRes = await axios.get(
