@@ -1,19 +1,17 @@
-"""
-Define ConnectorSetting class (contains metadata about the exchanges hummingbot can interact with), and a function to
-generate a dictionary of exchange names to ConnectorSettings.
-"""
-
 import importlib
 import json
 from decimal import Decimal
 from enum import Enum
 from os import DirEntry, scandir
 from os.path import exists, join, realpath
-from typing import Any, Dict, List, NamedTuple, Optional, Set, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Set, Union, cast
 
 from hummingbot import get_strategy_list, root_path
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+
+if TYPE_CHECKING:
+    from hummingbot.connector.connector_base import ConnectorBase
 
 # Global variables
 required_exchanges: List[str] = []
@@ -210,6 +208,19 @@ class ConnectorSetting(NamedTuple):
             return self.parent_name
         else:
             return self.name
+
+    def non_trading_connector_instance_with_default_configuration(
+            self,
+            trading_pairs: Optional[List[str]] = None) -> 'ConnectorBase':
+        trading_pairs = trading_pairs or []
+        connector_class = getattr(importlib.import_module(self.module_path()), self.class_name())
+        args = {key: (config.value or "") for key, config in self.config_keys.items()}
+        args = self.conn_init_parameters(args)
+        args = self.add_domain_parameter(args)
+        args.update(trading_pairs=trading_pairs, trading_required=False)
+        connector = connector_class(**args)
+
+        return connector
 
 
 class AllConnectorSettings:
