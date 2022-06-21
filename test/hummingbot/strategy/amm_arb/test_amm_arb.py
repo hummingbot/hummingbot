@@ -59,6 +59,10 @@ class MockAMM(ConnectorBase):
     def connector_name(self):
         return "uniswap"
 
+    @property
+    def status_dict(self):
+        return {"Balance": False}
+
     async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         if is_buy:
             return self._buy_prices[trading_pair]
@@ -410,3 +414,9 @@ class AmmArbUnitTest(unittest.TestCase):
         self.assertEqual(2, len(self.strategy.tracked_limit_orders))
         self.strategy.set_order_failed(new_amm_1_order.client_order_id)
         self.assertEqual(2, len(self.strategy.tracked_limit_orders))
+
+    @async_test(loop=ev_loop)
+    async def test_market_ready(self):
+        self.amm_1.ready = False
+        await asyncio.sleep(10)
+        self.assertFalse(self.strategy._all_markets_ready)
