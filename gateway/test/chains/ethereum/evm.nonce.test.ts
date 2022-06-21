@@ -27,6 +27,7 @@ describe('unitiated EVMNodeService', () => {
   let nonceManager: EVMNonceManager;
 
   beforeAll(async () => {
+    jest.useFakeTimers();
     dbPath = await fsp.mkdtemp(
       path.join(os.tmpdir(), '/evm-nonce1.test.level')
     );
@@ -132,6 +133,7 @@ describe('EVMNodeService', () => {
     patchGetTransactionCount();
 
     await nonceManager.commitNonce(exampleAddress, 8);
+    jest.advanceTimersByTime(300000);
     await nonceManager.mergeNonceFromEVMNode(exampleAddress);
     const nonce = await nonceManager.getNonce(exampleAddress);
     await expect(nonce).toEqual(11);
@@ -141,6 +143,7 @@ describe('EVMNodeService', () => {
     patchGetTransactionCount();
 
     await nonceManager.commitNonce(exampleAddress, 20);
+    jest.advanceTimersByTime(300000);
     await nonceManager.mergeNonceFromEVMNode(exampleAddress);
     const nonce = await nonceManager.getNonce(exampleAddress);
     await expect(nonce).toEqual(11);
@@ -177,24 +180,27 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
     await nonceManager2.close(handle);
     fs.rmSync(dbPath, { force: true, recursive: true });
   });
-  it('commitNonce with a provided txNonce should increase the nonce by 1', async () => {
+  it('commitNonce with a provided txNonce should increase to external nonce', async () => {
     if (nonceManager1._provider) {
-      patch(nonceManager1._provider, 'getTransactionCount', () => 1);
+      patch(nonceManager1._provider, 'getTransactionCount', () => 11);
     }
     if (nonceManager2._provider) {
-      patch(nonceManager2._provider, 'getTransactionCount', () => 13);
+      patch(nonceManager2._provider, 'getTransactionCount', () => 24);
     }
 
     await nonceManager1.commitNonce(exampleAddress, 10);
+    jest.advanceTimersByTime(300000);
     const nonce1 = await nonceManager1.getNonce(exampleAddress);
     await expect(nonce1).toEqual(11);
 
     await nonceManager2.commitNonce(exampleAddress, 23);
+    jest.advanceTimersByTime(300000);
     const nonce2 = await nonceManager2.getNonce(exampleAddress);
     await expect(nonce2).toEqual(24);
 
     await nonceManager1.commitNonce(exampleAddress, 11);
+    jest.advanceTimersByTime(300000);
     const nonce3 = await nonceManager1.getNonce(exampleAddress);
-    await expect(nonce3).toEqual(12);
+    await expect(nonce3).toEqual(11);
   });
 });
