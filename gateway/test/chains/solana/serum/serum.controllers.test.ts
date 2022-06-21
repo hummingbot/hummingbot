@@ -1,3 +1,7 @@
+// TODO move files to the gateway/test/chains/solana folder!!!
+// TODO https://hummingbot.org/developers/gateway/building-gateway-connectors/#8-add-connector-tests!!!
+// TODO create documentation?(https://hummingbot.org/developers/gateway/building-gateway-connectors/#10-create-connector-documentation-page)!!!
+// TODO https://hummingbot.org/developers/gateway/building-gateway-connectors/#11-add-documentation-page-to-index!!!
 import { MARKETS } from '@project-serum/serum';
 import BN from 'bn.js';
 import { StatusCodes } from 'http-status-codes';
