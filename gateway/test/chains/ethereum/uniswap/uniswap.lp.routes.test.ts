@@ -5,7 +5,6 @@ import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 import { UniswapLP } from '../../../../src/connectors/uniswap/uniswap.lp';
 import { AmmLiquidityRoutes } from '../../../../src/amm/amm.routes';
 import { patch, unpatch } from '../../../services/patch';
-
 let app: Express;
 let ethereum: Ethereum;
 let uniswap: UniswapLP;
@@ -22,6 +21,10 @@ beforeAll(async () => {
 
 afterEach(() => {
   unpatch();
+});
+
+afterAll(async () => {
+  await ethereum.close();
 });
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
