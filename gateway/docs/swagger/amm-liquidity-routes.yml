@@ -59,7 +59,7 @@ paths:
         '200':
           schema:
             $ref: '#/definitions/LiquidityRemoveResponse'
-  /amm/liquidity/collect-fees:
+  /amm/liquidity/collect_fees:
     post:
       tags:
         - 'amm/liquidity'
