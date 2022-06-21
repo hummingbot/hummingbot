@@ -128,6 +128,14 @@ class AmmArbStrategy(StrategyPyBase):
         self._order_id_side_map: Dict[str, ArbProposalSide] = {}
 
     @property
+    def all_markets_ready(self) -> bool:
+        return self._all_markets_ready
+
+    @all_markets_ready.setter
+    def all_markets_ready(self, value: bool):
+        self._all_markets_ready = value
+
+    @property
     def min_profitability(self) -> Decimal:
         return self._min_profitability
 
@@ -161,11 +169,14 @@ class AmmArbStrategy(StrategyPyBase):
         Clock tick entry point, is run every second (on normal tick setting).
         :param timestamp: current tick timestamp
         """
-        if not self._all_markets_ready:
-            self._all_markets_ready = all([market.ready for market in self.active_markets])
-            if not self._all_markets_ready:
-                unready_markets = ', '.join([market.name for market in self.active_markets if market.ready is False])
-                self.logger().warning(f"Markets are not ready ({unready_markets}). Please wait...")
+        if not self.all_markets_ready:
+            self.all_markets_ready = all([market.ready for market in self.active_markets])
+            if not self.all_markets_ready:
+                if int(timestamp) % 10 == 0:  # prevent spamming by logging every 10 secs
+                    unready_markets = [market for market in self.active_markets if market.ready is False]
+                    for market in unready_markets:
+                        msg = ', '.join([k for k, v in market.status_dict.items() if v is False])
+                        self.logger().warning(f"{market.name} not ready: waiting for {msg}.")
                 return
             else:
                 self.logger().info("Markets are ready. Trading started.")

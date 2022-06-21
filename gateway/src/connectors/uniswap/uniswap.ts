@@ -39,7 +39,7 @@ export class Uniswap implements Uniswapish {
     const config = UniswapConfig.config;
     this.ethereum = Ethereum.getInstance(network);
     this.chainId = this.ethereum.chainId;
-    this._ttl = UniswapConfig.config.ttl;
+    this._ttl = UniswapConfig.config.ttl(2);
     this._maximumHops = UniswapConfig.config.maximumHops;
     this._alphaRouter = new AlphaRouter({
       chainId: this.chainId,
