@@ -110,7 +110,7 @@ describe('Test EVMNonceManager', () => {
 
     const nonce2 = await evmNonceManager.getNonce(address1);
 
-    expect(nonce2).toEqual(13);
+    expect(nonce2).toEqual(12);
   });
 
   it('commits to the same address on different chains should have separate nonce values', async () => {
@@ -159,7 +159,7 @@ describe('Test EVMNonceManager', () => {
     const ethereumNonce1 = await ethereumNonceManager.getNonce(address1);
     const avalancheNonce1 = await avalancheNonceManager.getNonce(address1);
 
-    expect(ethereumNonce1).toEqual(13); // exists from previous test
+    expect(ethereumNonce1).toEqual(12); // exists from previous test
     expect(avalancheNonce1).toEqual(51);
 
     await ethereumNonceManager.commitNonce(address1, ethereumNonce1);
@@ -168,7 +168,7 @@ describe('Test EVMNonceManager', () => {
     const ethereumNonce2 = await ethereumNonceManager.getNonce(address1);
     const avalancheNonce2 = await avalancheNonceManager.getNonce(address1);
 
-    expect(ethereumNonce2).toEqual(14);
-    expect(avalancheNonce2).toEqual(52);
+    expect(ethereumNonce2).toEqual(12);
+    expect(avalancheNonce2).toEqual(51);
   });
 });
