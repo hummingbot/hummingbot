@@ -4,13 +4,14 @@ from decimal import Decimal
 from enum import Enum
 from functools import lru_cache
 from math import ceil, floor
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, cast
 
 import pandas as pd
 
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -24,7 +25,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
@@ -442,15 +443,14 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         return True
 
     async def apply_gateway_transaction_cancel_interval(self):
-        gateway_connectors = (
-            market_pair.taker.market for market_pair in self._market_pairs.values() if self.is_gateway_market(market_pair.taker)
-        )
-
-        cancel_tasks = [connector.cancel_outdated_orders(
-            self._gateway_transaction_cancel_interval
-        ) for connector in gateway_connectors]
-
-        await safe_gather(*cancel_tasks)
+        # XXX (martin_kou): Concurrent cancellations are not supported before the nonce architecture is fixed.
+        # See: https://app.shortcut.com/coinalpha/story/24553/nonce-architecture-in-current-amm-trade-and-evm-approve-apis-is-incorrect-and-causes-trouble-with-concurrent-requests
+        gateway_connectors: List[GatewayEVMAMM] = []
+        for market_pair in self._market_pairs.values():
+            if self.is_gateway_market(market_pair.taker):
+                gateway_connectors.append(cast(GatewayEVMAMM, market_pair.taker.market))
+        for gateway in gateway_connectors:
+            await gateway.cancel_outdated_orders(self._gateway_transaction_cancel_interval)
 
     def has_active_taker_order(self, market_pair: MarketTradingPairTuple):
         market_orders = self._sb_order_tracker.get_market_orders()
@@ -554,7 +554,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         market_pair = self._market_pair_tracker.get_market_pair_from_order_id(order_id)
 
         # Make sure to only hedge limit orders.
-        if market_pair is not None and order_id in self._maker_order_ids:
+        if market_pair is not None and order_id not in self._taker_order_ids:
             limit_order_record = self._sb_order_tracker.get_shadow_limit_order(order_id)
             order_fill_record = (limit_order_record, order_filled_event)
 
@@ -586,7 +586,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                         f"{order_filled_event.amount} {market_pair.maker.base_asset} filled."
                     )
 
-            # Call c_check_and_hedge_orders() to emit the orders on the taker side.
+            # Call check_and_hedge_orders() to emit the orders on the taker side.
             try:
                 await self.check_and_hedge_orders(market_pair)
             except Exception:
@@ -602,7 +602,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 self.check_and_hedge_orders(market_pair)
             )
 
-        # Remove the cancelled taker order
+        # Remove the cancelled, failed or expired taker order
         self._taker_order_ids.remove(order_event.order)
 
     def did_fill_order(self, order_filled_event: OrderFilledEvent):
@@ -614,17 +614,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 self._hedge_maker_order_task = safe_ensure_future(
                     self.hedge_filled_maker_order(order_filled_event)
                 )
-            # Cancel all leftover active maker orders
-            for _, limit_order in self.active_maker_limit_orders:
-                self.cancel_order(None, limit_order.client_order_id)
-            # Remove the completed maker order
-            self._maker_order_ids.remove(order_filled_event.order_id)
-
-        if order_filled_event.order_id in self._taker_order_ids:
-            # Maker order filled, Taker hedge order filled
-            self._has_unhedged_market_fill = False
-            # Remove the completed taker order
-            self._taker_order_ids.remove(order_filled_event.order)
 
     def did_cancel_order(self, order_canceled_event: OrderCancelledEvent):
         if order_canceled_event.order_id in self._taker_order_ids:
@@ -659,7 +648,12 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     f"Maker BUY order ({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) is filled."
                 )
-            else:
+                # Remove the completed maker order
+                self._maker_order_ids.remove(order_id)
+                # Cancel all leftover active maker orders
+                for _, limit_order in self.active_maker_limit_orders:
+                    self.cancel_order(None, limit_order.client_order_id)
+            if order_id in self._taker_order_ids:
                 self.log_with_clock(
                     logging.INFO,
                     f"({market_pair.taker.trading_pair}) Taker buy order {order_id} for "
@@ -669,6 +663,10 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     f"Taker BUY order ({order_completed_event.base_asset_amount} {order_completed_event.base_asset} "
                     f"{order_completed_event.quote_asset}) is filled."
                 )
+                # Remove the completed taker order
+                self._taker_order_ids.remove(order_id)
+                # Maker order filled, Taker hedge order filled
+                self._has_unhedged_market_fill = False
 
     def did_complete_sell_order(self, order_completed_event: SellOrderCompletedEvent):
         """
@@ -691,7 +689,12 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     f"Maker sell order ({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) is filled."
                 )
-            else:
+                # Remove the completed maker order
+                self._maker_order_ids.remove(order_id)
+                # Cancel all leftover active maker orders
+                for _, limit_order in self.active_maker_limit_orders:
+                    self.cancel_order(None, limit_order.client_order_id)
+            if order_id in self._taker_order_ids:
                 self.log_with_clock(
                     logging.INFO,
                     f"({market_pair.taker.trading_pair}) Taker sell order {order_id} for "
@@ -702,6 +705,10 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     f"Taker SELL order ({order_completed_event.base_asset_amount} {order_completed_event.base_asset} "
                     f"{order_completed_event.quote_asset}) is filled."
                 )
+                # Remove the completed taker order
+                self._taker_order_ids.remove(order_id)
+                # Maker order filled, Taker hedge order filled
+                self._has_unhedged_market_fill = False
 
     async def check_if_price_has_drifted(self, market_pair: MakerTakerMarketPair, active_order: LimitOrder):
         """
