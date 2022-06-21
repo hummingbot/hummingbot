@@ -6,7 +6,6 @@ import { Sushiswap } from '../../../../src/connectors/sushiswap/sushiswap';
 import { AmmRoutes } from '../../../../src/amm/amm.routes';
 import { patch, unpatch } from '../../../services/patch';
 import { gasCostInEthString } from '../../../../src/services/base';
-
 let app: Express;
 let ethereum: Ethereum;
 let sushiswap: Sushiswap;
@@ -23,6 +22,10 @@ beforeAll(async () => {
 
 afterEach(() => {
   unpatch();
+});
+
+afterAll(async () => {
+  await ethereum.close();
 });
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';

@@ -18,7 +18,7 @@
     "test": "jest --verbose",
     "test:debug": "node --inspect node_modules/.bin/jest --watch --runInBand",
     "test:unit": "jest --verbose --forceExit ./test/",
-    "test:cov": "jest --coverage --forceExit ./test/",
+    "test:cov": "jest -w 2 --coverage --forceExit ./test/",
     "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts"
   },
   "dependencies": {
