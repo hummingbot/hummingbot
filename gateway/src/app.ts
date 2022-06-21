@@ -85,6 +85,8 @@ gatewayApp.get(
       sushiswap: SushiswapConfig.config.availableNetworks,
       traderjoe: TraderjoeConfig.config.availableNetworks,
       serum: SerumConfig.config.availableNetworks,
+      // TODO should we include clob somewhere?!!!
+      // TODO https://hummingbot.org/developers/gateway/building-gateway-connectors/#7-add-connector-to-gateway-list!!!
     });
   })
 );
