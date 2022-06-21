@@ -606,9 +606,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         self._taker_order_ids.remove(order_event.order)
 
     def did_fill_order(self, order_filled_event: OrderFilledEvent):
-        print("did_fill_order 0")
         if order_filled_event.order_id in self._maker_order_ids:
-            print("did_fill_order 1 maker")
             # Maker order filled, submit Taker hedge order
             self._has_unhedged_market_fill = True
 
@@ -623,7 +621,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             self._maker_order_ids.remove(order_filled_event.order_id)
 
         if order_filled_event.order_id in self._taker_order_ids:
-            print("did_fill_order 1 taker")
             # Maker order filled, Taker hedge order filled
             self._has_unhedged_market_fill = False
             # Remove the completed taker order
@@ -646,7 +643,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         Output log message when a bid order (on maker side or taker side) is completely taken.
         :param order_completed_event: event object
         """
-        print("did_complete_buy_order")
         order_id = order_completed_event.order_id
         market_pair = self._market_pair_tracker.get_market_pair_from_order_id(order_id)
 
@@ -679,7 +675,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         Output log message when a ask order (on maker side or taker side) is completely taken.
         :param order_completed_event: event object
         """
-        print("did_complete_sell_order")
         order_id = order_completed_event.order_id
         market_pair = self._market_pair_tracker.get_market_pair_from_order_id(order_id)
 
