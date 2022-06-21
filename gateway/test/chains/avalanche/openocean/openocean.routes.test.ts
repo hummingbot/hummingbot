@@ -2,6 +2,7 @@ import request from 'supertest';
 import { gatewayApp } from '../../../../src/app';
 import { Avalanche } from '../../../../src/chains/avalanche/avalanche';
 import { Openocean } from '../../../../src/connectors/openocean/openocean';
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 let avalanche: Avalanche;
 let openocean: Openocean;
 
@@ -11,6 +12,7 @@ const privateKey =
 
 beforeAll(async () => {
   avalanche = Avalanche.getInstance('avalanche');
+  patchEVMNonceManager(avalanche.nonceManager);
   await avalanche.init();
   openocean = Openocean.getInstance('avalanche', 'avalanche');
   await openocean.init();
