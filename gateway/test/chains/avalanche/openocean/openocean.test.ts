@@ -1,19 +1,14 @@
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
+
 jest.useFakeTimers();
-import {
-  Openocean,
-  newFakeTrade,
-} from '../../../../src/connectors/openocean/openocean';
-import {
-  HttpException,
-  UniswapishPriceError,
-} from '../../../../src/services/error-handler';
-import { Token, Trade } from '@uniswap/sdk';
-import { BigNumber, Wallet } from 'ethers';
+import { Openocean } from '../../../../src/connectors/openocean/openocean';
+import { UniswapishPriceError } from '../../../../src/services/error-handler';
+import { Token } from '@uniswap/sdk';
+import { BigNumber } from 'ethers';
 import { Avalanche } from '../../../../src/chains/avalanche/avalanche';
 
 let avalanche: Avalanche;
 let openocean: Openocean;
-let wallet: Wallet;
 
 const USDC = new Token(
   43114,
@@ -36,11 +31,8 @@ const bDAI = new Token(
 
 beforeAll(async () => {
   avalanche = Avalanche.getInstance('avalanche');
+  patchEVMNonceManager(avalanche.nonceManager);
   await avalanche.init();
-  wallet = new Wallet(
-    '0000000000000000000000000000000000000000000000000000000000000002', // noqa: mock
-    avalanche.provider
-  );
   openocean = Openocean.getInstance('avalanche', 'avalanche');
   await openocean.init();
 });
@@ -86,49 +78,5 @@ describe('verify Openocean estimateBuyTrade', () => {
         BigNumber.from((10 ** bDAI.decimals).toString())
       );
     }).rejects.toThrow(UniswapishPriceError);
-  });
-});
-
-describe('verify Openocean executeTrade', () => {
-  it('Should return an Transaction when available', async () => {
-    const quoteTrade = await openocean.estimateSellTrade(
-      USDC,
-      WAVAX,
-      BigNumber.from((10 ** USDC.decimals).toString())
-    );
-    const gasPrice = avalanche.gasPrice;
-    const expectedTrade = await openocean.executeTrade(
-      wallet,
-      quoteTrade.trade as Trade,
-      gasPrice,
-      openocean.router,
-      0,
-      openocean.routerAbi,
-      0,
-      10
-    );
-    expect(expectedTrade).toHaveProperty('nonce');
-  });
-
-  it('Should return an error if no nonce is available', async () => {
-    const trade = newFakeTrade(
-      USDC,
-      bDAI,
-      BigNumber.from((10 ** USDC.decimals).toString()),
-      BigNumber.from((10 ** bDAI.decimals).toString())
-    );
-    const gasPrice = avalanche.gasPrice;
-    await expect(async () => {
-      await openocean.executeTrade(
-        wallet,
-        trade,
-        gasPrice,
-        openocean.router,
-        0,
-        openocean.routerAbi,
-        0,
-        10
-      );
-    }).rejects.toThrow(HttpException);
   });
 });
