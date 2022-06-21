@@ -153,9 +153,12 @@ export class Ethereum extends EthereumBase implements Ethereumish {
    */
   async getGasPriceFromEthereumNode(): Promise<number> {
     const baseFee: BigNumber = await this.provider.getGasPrice();
-    const priorityFee: BigNumber = BigNumber.from(
-      await this.provider.send('eth_maxPriorityFeePerGas', [])
-    );
+    let priorityFee: BigNumber = BigNumber.from('0');
+    if (this._chain === 'mainnet') {
+      priorityFee = BigNumber.from(
+        await this.provider.send('eth_maxPriorityFeePerGas', [])
+      );
+    }
     return baseFee.add(priorityFee).toNumber() * 1e-9;
   }
 
