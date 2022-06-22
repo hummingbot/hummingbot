@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import logging
 from abc import ABC, abstractmethod
 from decimal import Decimal
@@ -133,6 +134,11 @@ class ExchangePyBase(ExchangeBase, ABC):
         raise NotImplementedError
 
     @property
+    @abstractmethod
+    def is_trading_required(self) -> bool:
+        raise NotImplementedError
+
+    @property
     def order_books(self) -> Dict[str, OrderBook]:
         return self.order_book_tracker.order_books
 
@@ -156,10 +162,10 @@ class ExchangePyBase(ExchangeBase, ABC):
         return {
             "symbols_mapping_initialized": self.trading_pair_symbol_map_ready(),
             "order_books_initialized": self.order_book_tracker.ready,
-            "account_balance": not self._trading_required or len(self._account_balances) > 0,
-            "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
+            "account_balance": not self.is_trading_required or len(self._account_balances) > 0,
+            "trading_rule_initialized": len(self._trading_rules) > 0 if self.is_trading_required else True,
             "user_stream_initialized":
-                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
+                self._user_stream_tracker.data_source.last_recv_time > 0 if self.is_trading_required else True,
         }
 
     @property
@@ -444,6 +450,11 @@ class ExchangePyBase(ExchangeBase, ABC):
                                   f" size {trading_rule.min_order_size}. The order will not be created.")
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
+        if price is not None and amount * price < trading_rule.min_notional_size:
+            self.logger().warning(f"{trade_type.name.title()} order notional {amount * price} is lower than the "
+                                  f"minimum notional size {trading_rule.min_notional_size}. "
+                                  "The order will not be created.")
+            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
 
         try:
             exchange_order_id, update_timestamp = await self._place_order(
@@ -622,7 +633,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
-        if self._trading_required:
+        if self.is_trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
@@ -827,6 +838,13 @@ class ExchangePyBase(ExchangeBase, ABC):
             self._update_order_status(),
         )
 
+    async def _update_all_balances(self):
+        await self._update_balances()
+        if not self.real_time_balance_update:
+            # This is only required for exchanges that do not provide balance update notifications through websocket
+            self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self.in_flight_orders.items()}
+            self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+
     # Methods tied to specific API data formats
     #
     @abstractmethod
@@ -838,7 +856,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]):
+    def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         raise NotImplementedError
 
     @abstractmethod
