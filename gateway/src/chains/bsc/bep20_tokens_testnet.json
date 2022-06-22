@@ -1,0 +1,20 @@
+{
+  "name": "testnet",
+  "tokens": [
+    {
+      "symbol": "WBNB",
+      "address": "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
+      "decimals": 18
+    },
+    {
+      "symbol": "BUSD",
+      "address": "0x615446C0Fd5eA8A5FD7fb763f3FC2C58774474F3",
+      "decimals": 18
+    },
+    {
+      "symbol": "USDT",
+      "address": " 0x7ef95a0fee0dd31b22626fa2e10ee6a223f8a684",
+      "decimals": 18
+    }
+  ]
+}

@@ -137,6 +137,14 @@ describe('validateChain', () => {
     ).toEqual([]);
   });
 
+  it('valid when chain is bsc', () => {
+    expect(
+      validateChain({
+        chain: 'bsc',
+      })
+    ).toEqual([]);
+  });
+
   it('valid when chain is solana', () => {
     expect(
       validateChain({

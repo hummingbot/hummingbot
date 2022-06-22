@@ -23,6 +23,14 @@ configurations:
   $namespace polygon:
     configurationPath: polygon.yml
     schemaPath: ethereum-schema.json
+
+  $namespace bsc:
+    configurationPath: bsc.yml
+    schemaPath: bsc-schema.json
+  
+  $namespace pancakeswap:
+    configurationPath: pancakeswap.yml
+    schemaPath: pancakeswap-schema.json
     
   $namespace ethereumGasStation:
     configurationPath: ethereum-gas-station.yml

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler } from '../services/error-handler';
+import { PancakeswapConfig } from './pancakeswap/pancakeswap.config';
 import { PangolinConfig } from './pangolin/pangolin.config';
 import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
@@ -37,6 +38,11 @@ export namespace ConnectorsRoutes {
             name: 'traderjoe',
             trading_type: TraderjoeConfig.config.tradingTypes,
             available_networks: TraderjoeConfig.config.availableNetworks,
+          },
+          {
+            name: 'pancakeswap',
+            trading_type: PancakeswapConfig.config.tradingTypes,
+            available_networks: PancakeswapConfig.config.availableNetworks,
           },
         ],
       });

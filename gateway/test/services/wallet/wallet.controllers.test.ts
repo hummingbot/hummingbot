@@ -16,11 +16,13 @@ import {
 
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 import { OverrideConfigs } from '../../config.util';
+import { BSC } from '../../../src/chains/bsc/bsc';
 
 const overrideConfigs = new OverrideConfigs();
 let avalanche: Avalanche;
 let eth: Ethereum;
 let harmony: Harmony;
+let bsc: BSC;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
@@ -28,6 +30,7 @@ beforeAll(async () => {
   await overrideConfigs.init();
   await overrideConfigs.updateConfigs();
   avalanche = Avalanche.getInstance('fuji');
+  bsc = BSC.getInstance('testnet');
   eth = Ethereum.getInstance('kovan');
   harmony = Harmony.getInstance('testnet');
 });
@@ -38,6 +41,7 @@ beforeEach(() =>
 
 afterAll(async () => {
   await avalanche.close();
+  await bsc.close();
   await eth.close();
   await harmony.close();
   await overrideConfigs.resetConfigs();
@@ -120,6 +124,32 @@ describe('addWallet and getWallets', () => {
 
     const addresses: string[][] = wallets
       .filter((wallet) => wallet.chain === 'avalanche')
+      .map((wallet) => wallet.walletAddresses);
+
+    expect(addresses[0]).toContain(oneAddress);
+  });
+
+  it('add an BSC wallet', async () => {
+    patch(bsc, 'getWallet', () => {
+      return {
+        address: oneAddress,
+      };
+    });
+
+    patch(bsc, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await addWallet({
+      privateKey: onePrivateKey,
+      chain: 'bsc',
+      network: 'testnet',
+    });
+
+    const wallets = await getWallets();
+
+    const addresses: string[][] = wallets
+      .filter((wallet) => wallet.chain === 'bsc')
       .map((wallet) => wallet.walletAddresses);
 
     expect(addresses[0]).toContain(oneAddress);

@@ -41,7 +41,7 @@ export const validatePrivateKey: Validator = mkBranchingValidator(
 );
 
 export const invalidChainError: string =
-  'chain must be "ethereum", "solana", "avalanche" or "harmony"';
+  'chain must be "ethereum", "solana", "avalanche" or "harmony" or "bsc"';
 
 export const invalidNetworkError: string =
   'expected a string for the network key';
@@ -55,6 +55,7 @@ export const validateChain: Validator = mkValidator(
     typeof val === 'string' &&
     (val === 'ethereum' ||
       val === 'avalanche' ||
+      val === 'bsc' ||
       val === 'polygon' ||
       val === 'solana' ||
       val === 'harmony')

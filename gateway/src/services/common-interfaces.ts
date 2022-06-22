@@ -24,6 +24,12 @@ import {
   Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
 import {
+  Token as TokenPancakeswap,
+  CurrencyAmount as CurrencyAmountPancakeswap,
+  Trade as TradePancakeswap,
+  Fraction as PancakeswapFraction,
+} from '@pancakeswap/sdk';
+import {
   Trade as SushiswapTrade,
   Token as SushiToken,
   CurrencyAmount as sushiCurrencyAmount,
@@ -41,11 +47,13 @@ import {
 export type Tokenish =
   | Token
   | TokenPangolin
+  | TokenPancakeswap
   | TokenTraderjoe
   | UniswapCoreToken
   | SushiToken;
 export type UniswapishTrade =
   | TradePangolin
+  | TradePancakeswap
   | TradeTraderjoe
   | SushiswapTrade<
       SushiToken,
@@ -56,12 +64,14 @@ export type UniswapishTrade =
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
+  | CurrencyAmountPancakeswap
   | UniswapCoreCurrencyAmount<Currency>
   | CurrencyAmountTraderjoe
   | sushiCurrencyAmount<SushiCurrency | SushiToken>;
 export type Fractionish =
   | UniswapFraction
   | PangolinFraction
+  | PancakeswapFraction
   | TraderjoeFraction
   | SushiFraction;
 

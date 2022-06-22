@@ -19,6 +19,7 @@ import {
   UNKNOWN_CHAIN_ERROR_CODE,
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../error-handler';
+import { BSC } from '../../chains/bsc/bsc';
 
 const walletPath = './conf/wallets';
 
@@ -48,6 +49,10 @@ export async function addWallet(
     const avalanche = Avalanche.getInstance(req.network);
     address = avalanche.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await avalanche.encrypt(req.privateKey, passphrase);
+  } else if (req.chain === 'bsc') {
+    const bsc = BSC.getInstance(req.network);
+    address = bsc.getWalletFromPrivateKey(req.privateKey).address;
+    encryptedPrivateKey = await bsc.encrypt(req.privateKey, passphrase);
   } else if (req.chain === 'polygon') {
     const polygon = Polygon.getInstance(req.network);
     address = polygon.getWalletFromPrivateKey(req.privateKey).address;

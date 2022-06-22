@@ -6,11 +6,13 @@ import { Harmony } from '../../src/chains/harmony/harmony';
 import { Avalanche } from '../../src/chains/avalanche/avalanche';
 import { OverrideConfigs } from '../config.util';
 import { patchEVMNonceManager } from '../evm.nonce.mock';
+import { BSC } from '../../src/chains/bsc/bsc';
 
 const overrideConfigs = new OverrideConfigs();
 let eth: Ethereum;
 let avalanche: Avalanche;
 let harmony: Harmony;
+let bsc: BSC;
 
 beforeAll(async () => {
   await overrideConfigs.init();
@@ -24,6 +26,10 @@ beforeAll(async () => {
   patchEVMNonceManager(avalanche.nonceManager);
   await avalanche.init();
 
+  bsc = BSC.getInstance('testnet');
+  patchEVMNonceManager(bsc.nonceManager);
+  await bsc.init();
+
   harmony = Harmony.getInstance('testnet');
   await harmony.init();
 });
@@ -31,6 +37,7 @@ beforeAll(async () => {
 beforeEach(() => {
   patchEVMNonceManager(eth.nonceManager);
   patchEVMNonceManager(avalanche.nonceManager);
+  patchEVMNonceManager(bsc.nonceManager);
 });
 
 afterEach(async () => {
@@ -40,6 +47,7 @@ afterEach(async () => {
 afterAll(async () => {
   await eth.close();
   await avalanche.close();
+  await bsc.close();
   await harmony.close();
   await overrideConfigs.resetConfigs();
 });
@@ -117,6 +125,30 @@ describe('GET /network/status', () => {
       .expect((res) => expect(res.body.currentBlockNumber).toBeDefined());
   });
 
+  it('should return 200 when asking for avalance network status', async () => {
+    patch(bsc, 'chain', () => {
+      return 'testnet';
+    });
+    patch(bsc, 'rpcUrl', 'http://...');
+    patch(bsc, 'chainId', 20);
+    patch(bsc, 'getCurrentBlockNumber', () => {
+      return 2;
+    });
+
+    await request(gatewayApp)
+      .get(`/network/status`)
+      .query({
+        chain: 'bsc',
+        network: 'testnet',
+      })
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.chain).toBe('testnet'))
+      .expect((res) => expect(res.body.chainId).toBeDefined())
+      .expect((res) => expect(res.body.rpcUrl).toBeDefined())
+      .expect((res) => expect(res.body.currentBlockNumber).toBeDefined());
+  });
+
   it('should return 200 when requesting network status without specifying', async () => {
     patch(eth, 'getCurrentBlockNumber', () => {
       return 212;
@@ -124,6 +156,9 @@ describe('GET /network/status', () => {
 
     patch(avalanche, 'getCurrentBlockNumber', () => {
       return 204;
+    });
+    patch(bsc, 'getCurrentBlockNumber', () => {
+      return 230;
     });
     patch(harmony, 'getCurrentBlockNumber', () => {
       return 100;

@@ -1,0 +1,18 @@
+networks:
+  mainnet:
+    chainID: 56
+    nodeURL: https://bsc-dataseed.binance.org/
+    tokenListType: URL
+    nativeCurrencySymbol: BNB
+    tokenListSource: >-
+      https://gateway.pinata.cloud/ipfs/QmdKy1K5TMzSHncLzUXUJdvKi1tHRmJocDRfmCXxW5mshS
+    gasPriceRefreshInterval: 60
+  testnet:
+    chainID: 97
+    nodeURL: https://data-seed-prebsc-1-s1.binance.org:8545/
+    tokenListType: FILE
+    tokenListSource: src/chains/bsc/bep20_tokens_testnet.json
+    nativeCurrencySymbol: BNB
+    gasPriceRefreshInterval: 60
+nodeAPIKey: ''
+manualGasPrice: 110

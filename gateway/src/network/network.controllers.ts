@@ -5,6 +5,7 @@ import {
   TokensResponse,
 } from './network.requests';
 import { Avalanche } from '../chains/avalanche/avalanche';
+import { BSC } from '../chains/bsc/bsc';
 import { Ethereum } from '../chains/ethereum/ethereum';
 import { Harmony } from '../chains/harmony/harmony';
 import { Polygon } from '../chains/polygon/polygon';
@@ -32,6 +33,8 @@ export async function getStatus(
       connections.push(Avalanche.getInstance(req.network as string));
     } else if (req.chain === 'harmony') {
       connections.push(Harmony.getInstance(req.network as string));
+    } else if (req.chain === 'bsc') {
+      connections.push(BSC.getInstance(req.network as string));
     } else if (req.chain === 'ethereum') {
       connections.push(Ethereum.getInstance(req.network as string));
     } else if (req.chain === 'polygon') {
@@ -47,6 +50,10 @@ export async function getStatus(
     const avalancheConnections = Avalanche.getConnectedInstances();
     connections = connections.concat(
       avalancheConnections ? Object.values(avalancheConnections) : []
+    );
+    const bscConnections = BSC.getConnectedInstances();
+    connections = connections.concat(
+      bscConnections ? Object.values(bscConnections) : []
     );
     const harmonyConnections = Harmony.getConnectedInstances();
     connections = connections.concat(
@@ -89,6 +96,8 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
       connection = Avalanche.getInstance(req.network);
     } else if (req.chain === 'harmony') {
       connection = Harmony.getInstance(req.network);
+    } else if (req.chain === 'bsc') {
+      connection = BSC.getInstance(req.network);
     } else if (req.chain === 'ethereum') {
       connection = Ethereum.getInstance(req.network);
     } else if (req.chain === 'polygon') {

@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 class Chain(Enum):
     ETHEREUM = 0
     AVALANCHE = 1
+    BSC = 2
 
     @staticmethod
     def from_str(label: str) -> "Chain":
@@ -22,6 +23,8 @@ class Chain(Enum):
             return Chain.ETHEREUM
         elif label == "avalanche":
             return Chain.AVALANCHE
+        elif label == "bsc":
+            return Chain.BSC
         else:
             raise NotImplementedError
 
@@ -29,7 +32,9 @@ class Chain(Enum):
     def to_str(chain: "Chain") -> str:
         if chain == Chain.ETHEREUM:
             return "ethereum"
-        else:
+        elif chain == Chain.BSC:
+            return "bsc"
+        elif chain == Chain.AVALANCHE:
             return "avalanche"
 
 

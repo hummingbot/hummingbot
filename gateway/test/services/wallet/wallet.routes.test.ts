@@ -7,10 +7,12 @@ import { Harmony } from '../../../src/chains/harmony/harmony';
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 import { GetWalletResponse } from '../../../src/services/wallet/wallet.requests';
 import { OverrideConfigs } from '../../config.util';
+import { BSC } from '../../../src/chains/bsc/bsc';
 
 const overrideConfigs = new OverrideConfigs();
 let avalanche: Avalanche;
 let eth: Ethereum;
+let bsc: BSC;
 let harmony: Harmony;
 
 beforeAll(async () => {
@@ -20,6 +22,7 @@ beforeAll(async () => {
   await overrideConfigs.updateConfigs();
   avalanche = Avalanche.getInstance('fuji');
   eth = Ethereum.getInstance('kovan');
+  bsc = BSC.getInstance('testnet');
   harmony = Harmony.getInstance('testnet');
 });
 
@@ -29,6 +32,7 @@ beforeEach(() =>
 
 afterAll(async () => {
   await avalanche.close();
+  await bsc.close();
   await eth.close();
   await harmony.close();
   await overrideConfigs.resetConfigs();
@@ -109,6 +113,29 @@ describe('POST /wallet/add', () => {
       .expect(200);
   });
 
+  it('return 200 for well formed bsc request', async () => {
+    patch(bsc, 'getWalletFromPrivateKey', () => {
+      return {
+        address: twoAddress,
+      };
+    });
+
+    patch(bsc, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await request(gatewayApp)
+      .post(`/wallet/add`)
+      .send({
+        privateKey: twoPrivateKey,
+        chain: 'bsc',
+        network: 'testnet',
+      })
+
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+
   it('return 200 for well formed harmony request', async () => {
     patch(harmony, 'getWalletFromPrivateKey', () => {
       return {
@@ -140,6 +167,24 @@ describe('POST /wallet/add', () => {
     });
 
     patch(avalanche, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await request(gatewayApp)
+      .post(`/wallet/add`)
+      .send({})
+      .expect('Content-Type', /json/)
+      .expect(404);
+  });
+
+  it('return 404 for ill-formed bsc request', async () => {
+    patch(bsc, 'getWalletFromPrivateKey', () => {
+      return {
+        address: twoAddress,
+      };
+    });
+
+    patch(bsc, 'encrypt', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
