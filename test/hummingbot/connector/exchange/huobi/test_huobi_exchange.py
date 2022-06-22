@@ -207,7 +207,6 @@ class HuobiExchangeTests(TestCase):
             "source": "spot-api",
             "orderPrice": "10000",
             "orderSize": "1",
-            "clientOrderId": "OID1",
             "orderCreateTime": 998787897878,
             "orderStatus": "partial-filled"
         }
