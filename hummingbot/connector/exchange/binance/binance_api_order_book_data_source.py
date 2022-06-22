@@ -102,10 +102,6 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             )
             raise
 
-    @classmethod
-    def _default_domain(cls):
-        return CONSTANTS.DEFAULT_DOMAIN
-
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         await ws.connect(ws_url=CONSTANTS.WSS_URL.format(self._domain),
