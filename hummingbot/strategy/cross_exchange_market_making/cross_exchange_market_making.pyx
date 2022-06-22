@@ -1501,7 +1501,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
     def stop_tracking_market_order(self, market_trading_pair_tuple, order_id: str):
         self._market_pair_tracker.stop_tracking_order_id(order_id)
-        StrategyPyBase.stop_tracking_market_order(self, market_trading_pair_tuple, order_id)
+        self.stop_tracking_market_order(self, market_trading_pair_tuple, order_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
