@@ -4,7 +4,7 @@ import os
 import time
 from decimal import Decimal
 from math import ceil, floor, isnan
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,8 @@ import pandas as pd
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.clock cimport Clock
+
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.core.data_type.common import (
     OrderType,
     PriceType,
@@ -28,11 +30,9 @@ from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_confi
     DailyBetweenTimesModel,
     FromDateToDateModel,
     MultiOrderLevelModel,
-    SingleOrderLevelModel,
     TrackHangingOrdersModel,
 )
 from hummingbot.strategy.conditional_execution_state import (
-    ConditionalExecutionState,
     RunAlwaysExecutionState,
     RunInTimeConditionalExecutionState
 )
@@ -71,7 +71,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return pmm_logger
 
     def init_params(self,
-                    config_map: AvellanedaMarketMakingConfigMap,
+                    config_map: Union[AvellanedaMarketMakingConfigMap, ClientConfigAdapter],
                     market_info: MarketTradingPairTuple,
                     logging_options: int = OPTION_LOG_ALL,
                     status_report_interval: float = 900,

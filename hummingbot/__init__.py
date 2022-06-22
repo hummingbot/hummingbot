@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, List, Optional
 from hummingbot.logger.struct_logger import StructLogger, StructLogRecord
 
 if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter as _ClientConfigAdapter
 
 STRUCT_LOGGER_SET = False
 DEV_STRATEGY_PREFIX = "dev"
@@ -109,7 +109,7 @@ def chdir_to_data_directory():
 
 
 def init_logging(conf_filename: str,
-                 client_config_map: "ClientConfigAdapter",
+                 client_config_map: "_ClientConfigAdapter",
                  override_log_level: Optional[str] = None,
                  strategy_file_path: str = "hummingbot"):
     import io

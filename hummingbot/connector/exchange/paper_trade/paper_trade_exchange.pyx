@@ -159,7 +159,7 @@ cdef class PaperTradeExchange(ExchangeBase):
         exchange_name: str,
     ):
         order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
-        self._order_book_tracker = order_book_tracker
+        self._set_order_book_tracker(order_book_tracker)
         self._budget_checker = BudgetChecker(exchange=self)
         super(ExchangeBase, self).__init__(client_config_map)
         self._exchange_name = exchange_name
@@ -178,10 +178,6 @@ cdef class PaperTradeExchange(ExchangeBase):
         self._trade_volume_metric_collector = DummyMetricsCollector()
 
     @property
-    def order_book_tracker(self) -> OrderBookTracker:
-        return self._order_book_tracker
-
-    @property
     def budget_checker(self) -> BudgetChecker:
         return self._budget_checker
 
@@ -191,7 +187,7 @@ cdef class PaperTradeExchange(ExchangeBase):
         return f"{order_side}://" + trading_pair + "/" + "".join([f"{val:02x}" for val in vals])
 
     def init_paper_trade_market(self):
-        for trading_pair_str, order_book in self._order_book_tracker.order_books.items():
+        for trading_pair_str, order_book in self.order_book_tracker.order_books.items():
             assert type(order_book) is CompositeOrderBook
             base_asset, quote_asset = self.split_trading_pair(trading_pair_str)
             self._trading_pairs[self._target_market.convert_from_exchange_trading_pair(trading_pair_str)] = TradingPair(trading_pair_str, base_asset, quote_asset)
@@ -218,17 +214,17 @@ cdef class PaperTradeExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, CompositeOrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "order_books_initialized": self._order_book_tracker and len(self._order_book_tracker.order_books) > 0
+            "order_books_initialized": self.order_book_tracker and len(self.order_book_tracker.order_books) > 0
         }
 
     @property
     def ready(self):
-        if not self._order_book_tracker.ready:
+        if not self.order_book_tracker.ready:
             return False
         if all(self.status_dict.values()):
             if not self._paper_trade_market_initialized:
@@ -298,10 +294,10 @@ cdef class PaperTradeExchange(ExchangeBase):
 
     async def start_network(self):
         await self.stop_network()
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
 
     async def stop_network(self):
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
 
     async def check_network(self) -> NetworkStatus:
         return NetworkStatus.CONNECTED

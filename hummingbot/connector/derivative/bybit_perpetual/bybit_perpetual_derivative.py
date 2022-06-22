@@ -100,11 +100,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._throttler = self._get_throttler_instance()
         self._auth: BybitPerpetualAuth = BybitPerpetualAuth(api_key=bybit_perpetual_api_key,
                                                             secret_key=bybit_perpetual_secret_key)
-        self._order_book_tracker = BybitPerpetualOrderBookTracker(
+        self._set_order_book_tracker(BybitPerpetualOrderBookTracker(
             session=self._aiohttp_client(),
             throttler=self._throttler,
             trading_pairs=trading_pairs,
-            domain=domain)
+            domain=domain))
         self._user_stream_tracker = BybitPerpetualUserStreamTracker(self._auth, domain=domain)
         self._budget_checker = PerpetualBudgetChecker(self)
 
@@ -138,12 +138,12 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         A dictionary of statuses of various exchange's components. Used to determine if the connector is ready
         """
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": not self._trading_required or len(self._account_balances) > 0,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized": not self._trading_required
             or self._user_stream_tracker.data_source.last_recv_time > 0,
-            "funding_info": self._order_book_tracker.is_funding_info_initialized()
+            "funding_info": self.order_book_tracker.is_funding_info_initialized()
         }
 
     @property
@@ -157,7 +157,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -265,7 +265,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             return []
 
     async def start_network(self):
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -276,7 +276,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def stop_network(self):
         self._status_poll_notifier = asyncio.Event()
         self._funding_fee_poll_notifier = asyncio.Event()
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
 
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
@@ -318,7 +318,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         return [OrderType.LIMIT, OrderType.MARKET]
 
     async def _trading_pair_symbol(self, trading_pair: str) -> str:
-        return await self._order_book_tracker.trading_pair_symbol(trading_pair)
+        return await self.order_book_tracker.trading_pair_symbol(trading_pair)
 
     async def _api_request(self,
                            method: str,
@@ -407,9 +407,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         return Decimal(trading_rule.min_base_amount_increment)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def start_tracking_order(
         self,
@@ -1294,11 +1294,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         Note: This function should NOT be called when the connector is not yet ready.
         :param: trading_pair: The specified trading pair.
         """
-        if trading_pair in self._order_book_tracker.data_source.funding_info:
-            return self._order_book_tracker.data_source.funding_info[trading_pair]
+        if trading_pair in self.order_book_tracker.data_source.funding_info:
+            return self.order_book_tracker.data_source.funding_info[trading_pair]
         else:
             self.logger().error(f"Funding Info for {trading_pair} not found. Proceeding to fetch using REST API.")
-            safe_ensure_future(self._order_book_tracker.data_source.get_funding_info(trading_pair))
+            safe_ensure_future(self.order_book_tracker.data_source.get_funding_info(trading_pair))
             return None
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
@@ -1308,6 +1308,18 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
     def get_sell_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
+
+    async def trading_pair_symbol_map(self):
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await OrderBookDataSource.trading_pair_symbol_map(domain=self._domain)
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await OrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            domain=self._domain,
+            throttler=self._throttler,
+        )
 
     def _get_throttler_instance(self) -> AsyncThrottler:
         if self._trading_pairs is not None:

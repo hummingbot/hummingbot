@@ -6,10 +6,12 @@ from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
 
-import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
-import hummingbot.connector.exchange.coinflex.coinflex_web_utils as web_utils
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange.coinflex import coinflex_utils
+from hummingbot.connector.exchange.coinflex import (
+    coinflex_constants as CONSTANTS,
+    coinflex_utils,
+    coinflex_web_utils as web_utils,
+)
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
 from hummingbot.connector.exchange.coinflex.coinflex_order_book_tracker import CoinflexOrderBookTracker
@@ -59,12 +61,12 @@ class CoinflexExchange(ExchangeBase):
             api_key=coinflex_api_key,
             secret_key=coinflex_api_secret)
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._api_factory = web_utils.build_api_factory(auth=self._auth)
-        self._order_book_tracker = CoinflexOrderBookTracker(
+        self._api_factory = web_utils.build_api_factory(throttler=self._throttler, auth=self._auth)
+        self._set_order_book_tracker(CoinflexOrderBookTracker(
             trading_pairs=trading_pairs,
             domain=domain,
             api_factory=self._api_factory,
-            throttler=self._throttler)
+            throttler=self._throttler))
         self._user_stream_tracker = CoinflexUserStreamTracker(
             auth=self._auth,
             domain=domain,
@@ -99,7 +101,7 @@ class CoinflexExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -133,10 +135,6 @@ class CoinflexExchange(ExchangeBase):
         return delay
 
     @property
-    def order_book_tracker(self) -> CoinflexOrderBookTracker:
-        return self._order_book_tracker
-
-    @property
     def user_stream_tracker(self) -> CoinflexUserStreamTracker:
         return self._user_stream_tracker
 
@@ -149,7 +147,7 @@ class CoinflexExchange(ExchangeBase):
         return {
             "symbols_mapping_initialized": CoinflexAPIOrderBookDataSource.trading_pair_symbol_map_ready(
                 domain=self._domain),
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized": self._user_stream_tracker.data_source.last_recv_time > 0,
@@ -182,7 +180,7 @@ class CoinflexExchange(ExchangeBase):
         - The polling loop to update order status and balance status using REST API (backup for main update process)
         - The background task to process the events received through the user stream tracker (websocket connection)
         """
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -199,7 +197,7 @@ class CoinflexExchange(ExchangeBase):
         self._last_timestamp = 0
         self._poll_notifier = asyncio.Event()
 
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._user_stream_tracker_task is not None:
@@ -257,9 +255,9 @@ class CoinflexExchange(ExchangeBase):
         Returns the current order book for a particular market
         :param trading_pair: the pair of tokens for which the order book should be retrieved
         """
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def start_tracking_order(self,
                              order_id: str,
@@ -1015,3 +1013,19 @@ class CoinflexExchange(ExchangeBase):
             endpoint_api_version=endpoint_api_version,
             disable_retries=disable_retries
         )
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await CoinflexAPIOrderBookDataSource.fetch_trading_pairs(
+            domain=self._domain,
+            throttler=self._throttler,
+            api_factory=self._api_factory,
+        )
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await CoinflexAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            domain=self._domain,
+            api_factory=self._api_factory,
+            throttler=self._throttler)

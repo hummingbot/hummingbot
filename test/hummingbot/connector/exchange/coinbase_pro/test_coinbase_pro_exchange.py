@@ -3,7 +3,6 @@ import json
 import re
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Dict, List
 
 from aioresponses import aioresponses
@@ -12,6 +11,7 @@ from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.coinbase_pro import coinbase_pro_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_exchange import CoinbaseProExchange
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.event.event_logger import EventLogger

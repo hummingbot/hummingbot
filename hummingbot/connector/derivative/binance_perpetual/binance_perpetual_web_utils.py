@@ -38,12 +38,14 @@ def build_api_factory(
         time_provider: Optional[Callable] = None,
         auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
 
+    throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
     time_provider = time_provider or (lambda: get_current_server_time(
         throttler=throttler,
         domain=domain,
     ))
     api_factory = WebAssistantsFactory(
+        throttler=throttler,
         auth=auth,
         rest_pre_processors=[
             TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider),
@@ -52,8 +54,10 @@ def build_api_factory(
     return api_factory
 
 
-def build_api_factory_without_time_synchronizer_pre_processor() -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory(rest_pre_processors=[BinancePerpetualRESTPreProcessor()])
+def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory(
+        throttler=throttler,
+        rest_pre_processors=[BinancePerpetualRESTPreProcessor()])
     return api_factory
 
 
@@ -116,7 +120,8 @@ async def get_current_server_time(
         throttler: Optional[AsyncThrottler] = None,
         domain: str = CONSTANTS.DOMAIN,
 ) -> float:
-    api_factory = build_api_factory_without_time_synchronizer_pre_processor()
+    throttler = throttler or create_throttler()
+    api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     response = await api_request(
         path=CONSTANTS.SERVER_TIME_PATH_URL,
         api_factory=api_factory,

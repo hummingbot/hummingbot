@@ -64,7 +64,7 @@ class PureMarketMakingStartTest(unittest.TestCase):
     def _initialize_markets(self, market_names):
         pass
 
-    def _notify(self, message):
+    def notify(self, message):
         self.notifications.append(message)
 
     def logger(self):

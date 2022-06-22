@@ -9,6 +9,7 @@ import aiohttp
 import ujson
 
 from hummingbot.connector.exchange.probit import probit_constants as CONSTANTS, probit_utils
+from hummingbot.connector.exchange.probit.probit_api_order_book_data_source import ProbitAPIOrderBookDataSource
 from hummingbot.connector.exchange.probit.probit_auth import ProbitAuth
 from hummingbot.connector.exchange.probit.probit_in_flight_order import ProbitInFlightOrder
 from hummingbot.connector.exchange.probit.probit_order_book_tracker import ProbitOrderBookTracker
@@ -80,9 +81,9 @@ class ProbitExchange(ExchangeBase):
         self._trading_pairs = trading_pairs
         self._shared_client = aiohttp.ClientSession()
         self._probit_auth = ProbitAuth(probit_api_key, probit_secret_key, domain=domain)
-        self._order_book_tracker = ProbitOrderBookTracker(
+        self._set_order_book_tracker(ProbitOrderBookTracker(
             trading_pairs=trading_pairs, domain=domain, shared_client=self._shared_client
-        )
+        ))
         self._user_stream_tracker = ProbitUserStreamTracker(
             self._probit_auth, trading_pairs, domain, self._shared_client
         )
@@ -107,7 +108,7 @@ class ProbitExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -123,7 +124,7 @@ class ProbitExchange(ExchangeBase):
         A dictionary of statuses of various connector's components.
         """
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
@@ -192,7 +193,7 @@ class ProbitExchange(ExchangeBase):
         It starts tracking order book, polling trading rules,
         updating statuses and tracking user data.
         """
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -203,7 +204,7 @@ class ProbitExchange(ExchangeBase):
         """
         This function is required by NetworkIterator base class and is called automatically.
         """
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -372,9 +373,9 @@ class ProbitExchange(ExchangeBase):
         return Decimal(trading_rule.min_base_amount_increment)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -954,3 +955,17 @@ class ProbitExchange(ExchangeBase):
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await ProbitAPIOrderBookDataSource.fetch_trading_pairs(
+            domain=self._domain,
+            client=self._shared_client,
+        )
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await ProbitAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            domain=self._domain,
+            client=self._shared_client)

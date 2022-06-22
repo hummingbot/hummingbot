@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, Tuple
 from pydantic import Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest
@@ -42,16 +43,19 @@ class AscendExRESTPreProcessor(RESTPreProcessorBase):
         return request
 
 
-def build_api_factory(auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
+def build_api_factory(throttler: AsyncThrottler, auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
     """
     Builds an API factory with custom REST preprocessors
 
+    :param throttler: throttler instance to enforce rate limits
     :param auth: authentication class for private requests
 
     :return: API factory
     """
-    api_factory = WebAssistantsFactory(auth=auth,
-                                       rest_pre_processors=[AscendExRESTPreProcessor()])
+    api_factory = WebAssistantsFactory(
+        throttler=throttler,
+        auth=auth,
+        rest_pre_processors=[AscendExRESTPreProcessor()])
     return api_factory
 
 

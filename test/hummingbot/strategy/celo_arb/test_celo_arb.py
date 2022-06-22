@@ -10,8 +10,8 @@ from nose.plugins.attrib import attr
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.connector.mock.mock_paper_exchange.mock_paper_exchange import MockPaperExchange
 from hummingbot.connector.other.celo.celo_cli import CeloCLI
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent

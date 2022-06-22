@@ -12,7 +12,7 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.connector.mock.mock_paper_exchange.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder

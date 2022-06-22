@@ -4,7 +4,6 @@ import json
 import re
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 from unittest.mock import AsyncMock, patch
 
@@ -20,6 +19,7 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_ord
     BinancePerpetualAPIOrderBookDataSource,
 )
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState

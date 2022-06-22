@@ -2,6 +2,7 @@
 from pydantic import Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 CENTRALIZED = True
@@ -14,7 +15,7 @@ DEFAULT_FEES = [0.05, 0.2]
 
 
 def build_api_factory() -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory()
+    api_factory = WebAssistantsFactory(throttler=AsyncThrottler(rate_limits=[]))
     return api_factory
 
 

@@ -5,7 +5,6 @@ import json
 import re
 import time
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Callable, NamedTuple, Optional
 from unittest import TestCase
 from unittest.mock import AsyncMock, PropertyMock, patch
@@ -19,6 +18,7 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS, coinflex_web_utils
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.connector.exchange.coinflex.coinflex_exchange import CoinflexExchange
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.cancellation_result import CancellationResult

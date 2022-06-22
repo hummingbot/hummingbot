@@ -85,10 +85,10 @@ liquid_secret_key = os.getenv("LIQUID_SECRET_KEY")
 kraken_api_key = os.getenv("KRAKEN_API_KEY")
 kraken_secret_key = os.getenv("KRAKEN_SECRET_KEY")
 
-# OKEx Test
-okex_api_key = os.getenv("OKEX_API_KEY")
-okex_secret_key = os.getenv("OKEX_SECRET_KEY")
-okex_passphrase = os.getenv("OKEX_PASSPHRASE")
+# OKX Test
+okx_api_key = os.getenv("OKX_API_KEY")
+okx_secret_key = os.getenv("OKX_SECRET_KEY")
+okx_passphrase = os.getenv("OKX_PASSPHRASE")
 
 # BitMart Test
 bitmart_api_key = os.getenv("BITMART_API_KEY")

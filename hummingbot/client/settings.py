@@ -1,8 +1,3 @@
-"""
-Define ConnectorSetting class (contains metadata about the exchanges hummingbot can interact with), and a function to
-generate a dictionary of exchange names to ConnectorSettings.
-"""
-
 import importlib
 import json
 from decimal import Decimal
@@ -16,6 +11,7 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
+    from hummingbot.connector.connector_base import ConnectorBase
 
 # Global variables
 required_exchanges: Set[str] = set()
@@ -53,6 +49,7 @@ PAPER_TRADE_EXCHANGES = [  # todo: fix after global config map refactor
     "kucoin_paper_trade",
     "ascend_ex_paper_trade",
     "gate_io_paper_trade",
+    "mock_paper_exchange",
 ]
 
 
@@ -223,6 +220,31 @@ class ConnectorSetting(NamedTuple):
         else:
             return self.name
 
+    def non_trading_connector_instance_with_default_configuration(
+            self,
+            trading_pairs: Optional[List[str]] = None) -> 'ConnectorBase':
+        from hummingbot.client.config.config_helpers import ClientConfigAdapter
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+
+        trading_pairs = trading_pairs or []
+        connector_class = getattr(importlib.import_module(self.module_path()), self.class_name())
+        if isinstance(self.config_keys, Dict):
+            kwargs = {key: (config.value or "") for key, config in self.config_keys.items()}  # legacy
+        else:
+            kwargs = {
+                traverse_item.attr: traverse_item.value or ""
+                for traverse_item
+                in ClientConfigAdapter(self.config_keys).traverse()
+                if traverse_item.attr != "connector"
+            }
+        kwargs = self.conn_init_parameters(kwargs)
+        kwargs = self.add_domain_parameter(kwargs)
+        kwargs.update(trading_pairs=trading_pairs, trading_required=False)
+        kwargs["client_config_map"] = HummingbotApplication.main_application().client_config_map
+        connector = connector_class(**kwargs)
+
+        return connector
+
 
 class AllConnectorSettings:
     all_connector_settings: Dict[str, ConnectorSetting] = {}
@@ -349,8 +371,7 @@ class AllConnectorSettings:
                 cast(DirEntry, f) for f in scandir(type_dir.path)
                 if f.is_dir() and exists(join(f.path, "__init__.py"))
             ]
-            connector_names.extend(
-                [connector_dir.name for connector_dir in connector_dirs])
+            connector_names.extend([connector_dir.name for connector_dir in connector_dirs])
         return connector_names
 
     @classmethod

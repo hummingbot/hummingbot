@@ -5,6 +5,7 @@ from pydantic import Field, SecretStr
 import hummingbot.connector.exchange.kraken.kraken_constants as CONSTANTS
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -211,6 +212,6 @@ class KrakenConfigMap(BaseConnectorConfigMap):
 KEYS = KrakenConfigMap.construct()
 
 
-def build_api_factory() -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory()
+def build_api_factory(throttler: AsyncThrottler) -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory(throttler=throttler)
     return api_factory
