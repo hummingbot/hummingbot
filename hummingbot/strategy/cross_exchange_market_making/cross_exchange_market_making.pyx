@@ -291,14 +291,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             else:
                 markets_df = self.market_status_data_frame([market_pair.maker])
                 # Market status for gateway
-                if self._last_taker_buy_price is None:
-                    bid_price = ""
-                else:
-                    bid_price = self._last_taker_buy_price
-                if self._last_taker_sell_price is None:
-                    ask_price = ""
-                else:
-                    ask_price = self._last_taker_sell_price
+                bid_price = "" if self._last_taker_buy_price is None else self._last_taker_buy_price
+                ask_price = "" if self._last_taker_sell_price is None else self._last_taker_sell_price
                 if self._last_taker_buy_price is not None and self._last_taker_sell_price is not None:
                     mid_price = (self._last_taker_buy_price + self._last_taker_sell_price) / 2
                 else:
