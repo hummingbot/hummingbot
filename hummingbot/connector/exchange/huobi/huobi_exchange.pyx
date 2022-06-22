@@ -14,14 +14,15 @@ import ujson
 from libc.stdint cimport int64_t
 
 import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
+from hummingbot.connector.exchange.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
 from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 from hummingbot.connector.exchange.huobi.huobi_in_flight_order import HuobiInFlightOrder
 from hummingbot.connector.exchange.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
 from hummingbot.connector.exchange.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
 from hummingbot.connector.exchange.huobi.huobi_utils import (
+    BROKER_ID,
     build_api_factory,
     convert_to_exchange_trading_pair,
-    BROKER_ID,
 )
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.connector.exchange_base import ExchangeBase
@@ -46,10 +47,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
@@ -120,10 +118,10 @@ cdef class HuobiExchange(ExchangeBase):
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
         self._api_factory = build_api_factory()
-        self._order_book_tracker = HuobiOrderBookTracker(
+        self._set_order_book_tracker(HuobiOrderBookTracker(
             trading_pairs=trading_pairs,
             api_factory=self._api_factory,
-        )
+        ))
         self._poll_notifier = asyncio.Event()
         self._rest_assistant = None
         self._status_polling_task = None
@@ -141,12 +139,8 @@ cdef class HuobiExchange(ExchangeBase):
         return "huobi"
 
     @property
-    def order_book_tracker(self) -> HuobiOrderBookTracker:
-        return self._order_book_tracker
-
-    @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -190,7 +184,7 @@ cdef class HuobiExchange(ExchangeBase):
 
     async def start_network(self):
         self._stop_network()
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
         if self._trading_required:
@@ -199,7 +193,7 @@ cdef class HuobiExchange(ExchangeBase):
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
 
     def _stop_network(self):
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -674,7 +668,7 @@ cdef class HuobiExchange(ExchangeBase):
     def status_dict(self) -> Dict[str, bool]:
         return {
             "account_id_initialized": self._account_id != "" if self._trading_required else True,
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0
         }
@@ -1037,3 +1031,11 @@ cdef class HuobiExchange(ExchangeBase):
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await HuobiAPIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await HuobiAPIOrderBookDataSource.get_last_traded_prices(trading_pairs=trading_pairs)

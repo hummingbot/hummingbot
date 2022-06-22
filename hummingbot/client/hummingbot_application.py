@@ -71,7 +71,7 @@ class HummingbotApplication(*commands):
         )
 
         # This is to start fetching trading pairs for auto-complete
-        TradingPairFetcher.get_instance()
+        TradingPairFetcher.get_instance(self.client_config_map)
         self.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self.markets: Dict[str, ExchangeBase] = {}
         # strategy file name and name get assigned value after import or create command

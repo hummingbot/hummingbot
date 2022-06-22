@@ -4,7 +4,6 @@ import json
 import re
 import time
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Callable, Dict, List
 from unittest import TestCase
 from unittest.mock import AsyncMock, PropertyMock, patch
@@ -22,6 +21,7 @@ from hummingbot.connector.exchange.ndax.ndax_in_flight_order import (
     NdaxInFlightOrderNotCreated,
 )
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
@@ -808,7 +808,7 @@ class NdaxExchangeTests(TestCase):
             "")
 
         # Simulate _trading_pair_id_map initialized.
-        self.exchange._order_book_tracker.data_source._trading_pair_id_map.update({
+        self.exchange.order_book_tracker.data_source._trading_pair_id_map.update({
             self.trading_pair: 5
         })
 
@@ -900,7 +900,7 @@ class NdaxExchangeTests(TestCase):
             "")
 
         # Simulate _trading_pair_id_map initialized.
-        self.exchange._order_book_tracker.data_source._trading_pair_id_map.update({
+        self.exchange.order_book_tracker.data_source._trading_pair_id_map.update({
             self.trading_pair: 5
         })
 
@@ -930,7 +930,7 @@ class NdaxExchangeTests(TestCase):
         })
 
         # Simulate _trading_pair_id_map initialized.
-        self.exchange._order_book_tracker.data_source._trading_pair_id_map.update({
+        self.exchange.order_book_tracker.data_source._trading_pair_id_map.update({
             self.trading_pair: 5
         })
         self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._update_order_status())
@@ -1141,7 +1141,7 @@ class NdaxExchangeTests(TestCase):
 
     def test_get_order_book_for_valid_trading_pair(self):
         dummy_order_book = NdaxOrderBook()
-        self.exchange._order_book_tracker.order_books["BTC-USDT"] = dummy_order_book
+        self.exchange.order_book_tracker.order_books["BTC-USDT"] = dummy_order_book
         self.assertEqual(dummy_order_book, self.exchange.get_order_book("BTC-USDT"))
 
     def test_get_order_book_for_invalid_trading_pair_raises_error(self):
@@ -1471,7 +1471,7 @@ class NdaxExchangeTests(TestCase):
         })
 
         # Simulate _trading_pair_id_map initialized.
-        self.exchange._order_book_tracker.data_source._trading_pair_id_map.update({
+        self.exchange.order_book_tracker.data_source._trading_pair_id_map.update({
             self.trading_pair: 5
         })
 
@@ -1702,7 +1702,7 @@ class NdaxExchangeTests(TestCase):
 
         # Simulate all components initialized
         self.exchange._account_id = 1
-        self.exchange._order_book_tracker._order_books_initialized.set()
+        self.exchange.order_book_tracker._order_books_initialized.set()
         self.exchange._account_balances = {
             self.base_asset: Decimal(str(10.0))
         }
@@ -1716,7 +1716,7 @@ class NdaxExchangeTests(TestCase):
 
         # Simulate all components but account_id not initialized
         self.exchange._account_id = None
-        self.exchange._order_book_tracker._order_books_initialized.set()
+        self.exchange.order_book_tracker._order_books_initialized.set()
         self.exchange._account_balances = {}
         self._simulate_trading_rules_initialized()
         self.exchange._user_stream_tracker.data_source._last_recv_time = 0
@@ -1728,7 +1728,7 @@ class NdaxExchangeTests(TestCase):
 
         # Simulate all components but account_id not initialized
         self.exchange._account_id = None
-        self.exchange._order_book_tracker._order_books_initialized.set()
+        self.exchange.order_book_tracker._order_books_initialized.set()
         self.exchange._account_balances = {}
         self._simulate_trading_rules_initialized()
         self.exchange._user_stream_tracker.data_source._last_recv_time = 0

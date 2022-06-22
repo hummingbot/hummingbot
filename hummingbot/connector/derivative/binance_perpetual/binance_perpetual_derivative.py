@@ -8,9 +8,11 @@ from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
 
-import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_utils as web_utils
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
+from hummingbot.connector.derivative.binance_perpetual import (
+    binance_perpetual_web_utils as web_utils,
+    constants as CONSTANTS,
+)
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
     BinancePerpetualAPIOrderBookDataSource,
 )
@@ -108,12 +110,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 throttler=self._throttler,
                 api_factory=self._api_factory,
                 time_synchronizer=self._binance_time_synchronizer))
-        self._order_book_tracker = BinancePerpetualOrderBookTracker(
+        self._set_order_book_tracker(BinancePerpetualOrderBookTracker(
             trading_pairs=trading_pairs,
             domain=self._domain,
             throttler=self._throttler,
             api_factory=self._api_factory,
-            time_synchronizer=self._binance_time_synchronizer)
+            time_synchronizer=self._binance_time_synchronizer))
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._next_funding_fee_timestamp = self.get_next_funding_timestamp()
@@ -138,7 +140,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def ready(self):
@@ -153,12 +155,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         sd = {
             "symbols_mapping_initialized": BinancePerpetualAPIOrderBookDataSource.trading_pair_symbol_map_ready(
                 domain=self._domain),
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "position_mode": self.position_mode,
             "user_stream_initialized": self._user_stream_tracker.data_source.last_recv_time > 0,
-            "funding_info_initialized": self._order_book_tracker.is_funding_info_initialized(),
+            "funding_info_initialized": self.order_book_tracker.is_funding_info_initialized(),
         }
         return sd
 
@@ -199,7 +201,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         This function is required by the NetworkIterator base class and is called automatically.
         It starts tracking order books, polling trading rules, updating statuses, and tracking user data.
         """
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             await self._get_position_mode()
@@ -542,7 +544,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         trading_pair:
             The pair for which the order book should be obtained
         """
-        order_books: dict = self._order_book_tracker.order_books
+        order_books: dict = self.order_book_tracker.order_books
         if trading_pair not in order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return order_books[trading_pair]
@@ -553,11 +555,11 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         Note: This function should NOT be called when the connector is not yet ready.
         :param: trading_pair: The specified trading pair.
         """
-        if trading_pair in self._order_book_tracker.data_source.funding_info:
-            return self._order_book_tracker.data_source.funding_info[trading_pair]
+        if trading_pair in self.order_book_tracker.data_source.funding_info:
+            return self.order_book_tracker.data_source.funding_info[trading_pair]
         else:
             self.logger().error(f"Funding Info for {trading_pair} not found. Proceeding to fetch using REST API.")
-            safe_ensure_future(self._order_book_tracker.data_source.get_funding_info(trading_pair))
+            safe_ensure_future(self.order_book_tracker.data_source.get_funding_info(trading_pair))
             return None
 
     def get_next_funding_timestamp(self):
@@ -594,7 +596,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._poll_notifier = asyncio.Event()
         self._funding_fee_poll_notifier = asyncio.Event()
 
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._user_stream_tracker_task is not None:
@@ -1389,6 +1391,21 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         except Exception:
             self.logger().exception("Error requesting time from Binance server")
             raise
+
+    async def trading_pair_symbol_map(self):
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await BinancePerpetualAPIOrderBookDataSource.trading_pair_symbol_map(
+            domain=self._domain,
+            throttler=self._throttler,
+            api_factory=self._api_factory,
+            time_synchronizer=self._binance_time_synchronizer)
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await BinancePerpetualAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            domain=self._domain
+        )
 
     async def _sleep(self, delay: float):
         await asyncio.sleep(delay)

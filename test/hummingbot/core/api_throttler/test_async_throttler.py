@@ -220,3 +220,8 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
             self.ev_loop.run_until_complete(
                 asyncio.wait_for(context.acquire(), 1.0)
             )
+
+    def test_within_capacity_returns_true_for_throttler_without_configured_limits(self):
+        throttler = AsyncThrottler(rate_limits=[])
+        context = throttler.execute_task(limit_id="test_limit_id")
+        self.assertTrue(context.within_capacity())

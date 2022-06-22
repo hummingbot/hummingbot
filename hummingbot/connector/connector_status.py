@@ -41,7 +41,7 @@ connector_status = {
     'mexc': 'yellow',
     'ndax': 'yellow',
     'ndax_testnet': 'yellow',
-    'okex': 'green',
+    'okx': 'green',
     'perpetual_finance': 'yellow',
     'probit': 'yellow',
     'probit_kr': 'yellow',

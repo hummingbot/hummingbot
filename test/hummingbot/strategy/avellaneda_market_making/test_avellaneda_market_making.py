@@ -10,8 +10,9 @@ import pandas as pd
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.client.settings import PAPER_TRADE_EXCHANGES
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.connector.mock.mock_paper_exchange.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -110,6 +111,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 self.trading_pair.split("-")[0], 6, 6, 6, 6
             )
         )
+        PAPER_TRADE_EXCHANGES.append("mock_paper_exchange")
 
         self.price_delegate = OrderBookAssetPriceDelegate(self.market_info.market, self.trading_pair)
 

@@ -3,7 +3,6 @@ import json
 import re
 import time
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Dict
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
@@ -20,6 +19,7 @@ from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_b
 )
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_derivative import BybitPerpetualDerivative
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
@@ -1091,16 +1091,16 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertFalse(self.connector.ready)
 
         self._simulate_trading_rules_initialized()
-        self.connector._order_book_tracker._order_books_initialized.set()
+        self.connector.order_book_tracker._order_books_initialized.set()
         self.connector._user_stream_tracker.data_source._last_recv_time = 1
         self.connector._account_balances["USDT"] = Decimal(10000)
-        self.connector._order_book_tracker.data_source._funding_info[self.trading_pair] = FundingInfo(
+        self.connector.order_book_tracker.data_source._funding_info[self.trading_pair] = FundingInfo(
             trading_pair=self.trading_pair,
             index_price=Decimal(1),
             mark_price=Decimal(1),
             next_funding_utc_timestamp=time.time(),
             rate=Decimal(1))
-        self.connector._order_book_tracker.data_source._funding_info[self.non_linear_trading_pair] = FundingInfo(
+        self.connector.order_book_tracker.data_source._funding_info[self.non_linear_trading_pair] = FundingInfo(
             trading_pair=self.trading_pair,
             index_price=Decimal(1),
             mark_price=Decimal(1),
@@ -1119,8 +1119,8 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.assertFalse(local_connector.ready)
 
-        local_connector._order_book_tracker._order_books_initialized.set()
-        local_connector._order_book_tracker.data_source._funding_info[self.trading_pair] = FundingInfo(
+        local_connector.order_book_tracker._order_books_initialized.set()
+        local_connector.order_book_tracker.data_source._funding_info[self.trading_pair] = FundingInfo(
             trading_pair=self.trading_pair,
             index_price=Decimal(1),
             mark_price=Decimal(1),
@@ -2037,7 +2037,7 @@ class BybitPerpetualDerivativeTests(TestCase):
 
     def test_get_order_book_for_valid_trading_pair(self):
         dummy_order_book = BybitPerpetualOrderBook()
-        self.connector._order_book_tracker.order_books["BTC-USDT"] = dummy_order_book
+        self.connector.order_book_tracker.order_books["BTC-USDT"] = dummy_order_book
         self.assertEqual(dummy_order_book, self.connector.get_order_book("BTC-USDT"))
 
     def test_get_order_book_for_invalid_trading_pair_raises_error(self):
@@ -2731,7 +2731,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             next_funding_utc_timestamp=int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()),
             rate=(Decimal('-15') * Decimal(1e-6)),
         )
-        self.connector._order_book_tracker.data_source._funding_info = {
+        self.connector.order_book_tracker.data_source._funding_info = {
             "BTC-USD": expected_funding_info
         }
 
