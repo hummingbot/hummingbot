@@ -372,6 +372,7 @@ class KucoinExchangeTests(unittest.TestCase):
     @aioresponses()
     def test_fee_request_for_multiple_pairs(self, mocked_api):
         self.exchange = KucoinExchange(
+            self.client_config_map,
             self.api_key,
             self.api_passphrase,
             self.api_secret_key,
