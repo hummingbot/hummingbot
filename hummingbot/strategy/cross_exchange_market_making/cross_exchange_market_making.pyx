@@ -1475,7 +1475,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                                                                order_type=order_type, price=price,
                                                                expiration_seconds=expiration_seconds)
         else:
-            order_id = StrategyPyBase.sell_with_specific_market(self, market_info, amount,
+            order_id = self.sell_with_specific_market(self, market_info, amount,
                                                                 order_type=order_type, price=price,
                                                                 expiration_seconds=expiration_seconds)
         self._sb_order_tracker.add_create_order_pending(order_id)
