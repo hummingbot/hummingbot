@@ -655,7 +655,7 @@ describe('POST /amm/estimateGas', () => {
         expect(res.body.network).toEqual('kovan');
         expect(res.body.gasPrice).toEqual(100);
         expect(res.body.gasCost).toEqual(
-          gasCostInEthString(100, uniswap.gasLimit)
+          gasCostInEthString(100, ethereum.gasLimit)
         );
       });
   });
