@@ -101,6 +101,10 @@ class GateIoExchange(ExchangePyBase):
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
         return True
 
+    @property
+    def is_trading_required(self) -> bool:
+        return self._trading_required
+
     def supported_order_types(self):
         return [OrderType.LIMIT]
 
@@ -126,7 +130,7 @@ class GateIoExchange(ExchangePyBase):
             domain=self.domain,
         )
 
-    async def _format_trading_rules(self, raw_trading_pair_info: Dict[str, Any]) -> Dict[str, TradingRule]:
+    async def _format_trading_rules(self, raw_trading_pair_info: Dict[str, Any]) -> List[TradingRule]:
         """
         Converts json API response into a dictionary of trading rules.
 

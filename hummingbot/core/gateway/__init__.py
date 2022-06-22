@@ -154,6 +154,8 @@ async def detect_existing_gateway_container(client_config_map: "ClientConfigAdap
 async def start_existing_gateway_container(client_config_map: "ClientConfigAdapter"):
     container_info: Optional[Dict[str, Any]] = await detect_existing_gateway_container(client_config_map)
     if container_info is not None and container_info["State"] != "running":
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+        HummingbotApplication.main_application().logger().info("Starting existing Gateway container...")
         await docker_ipc("start", get_gateway_container_name(client_config_map))
 
 
