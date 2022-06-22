@@ -7,14 +7,13 @@ from typing import Any, Dict, List, Optional
 
 import aiohttp
 
-import hummingbot.connector.exchange.digifinex.digifinex_constants as CONSTANTS
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 
-from . import digifinex_utils
+from . import digifinex_constants as CONSTANTS, digifinex_utils
 from .digifinex_active_order_tracker import DigifinexActiveOrderTracker
 from .digifinex_order_book import DigifinexOrderBook
 from .digifinex_websocket import DigifinexWebsocket
@@ -58,12 +57,9 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             async with client.get(f"{CONSTANTS.REST_URL}/ticker", timeout=10) as response:
                 if response.status == 200:
-                    from hummingbot.connector.exchange.digifinex.digifinex_utils import (
-                        convert_from_exchange_trading_pair,
-                    )
                     try:
                         data: Dict[str, Any] = await response.json()
-                        return [convert_from_exchange_trading_pair(item["symbol"]) for item in data["ticker"]]
+                        return [digifinex_utils.convert_from_exchange_trading_pair(item["symbol"]) for item in data["ticker"]]
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
@@ -212,4 +208,8 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Listen for orderbook snapshots by fetching orderbook
         """
+        # NOTE: DigiFinex WS Server is periodically (~1min) closing the ws connection. This forces us to reconnect to
+        #       the orderbook channel. Considering that we receive an orderbook snapshot every time we subscribe to the
+        #       orderbook channel, this task would not be neccesary.
+        #       Essentially, we have a snapshot message every minute or so.
         pass
