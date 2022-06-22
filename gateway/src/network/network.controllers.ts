@@ -62,8 +62,6 @@ export async function getStatus(
     );
   }
 
-  console.log(connections);
-
   for (const connection of connections) {
     chain = connection.chain;
     chainId = connection.chainId;
