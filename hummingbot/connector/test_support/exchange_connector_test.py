@@ -156,6 +156,11 @@ class AbstractExchangeConnectorTests:
 
         @property
         @abstractmethod
+        def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
+            raise NotImplementedError
+
+        @property
+        @abstractmethod
         def expected_partial_fill_price(self) -> Decimal:
             raise NotImplementedError
 
@@ -1325,7 +1330,8 @@ class AbstractExchangeConnectorTests:
                 self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
             )
 
-        def test_user_stream_update_for_order_full_fill(self):
+        @aioresponses()
+        def test_user_stream_update_for_order_full_fill(self, mock_api):
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
                 order_id="OID1",
@@ -1344,12 +1350,17 @@ class AbstractExchangeConnectorTests:
             mock_queue = AsyncMock()
             event_messages = []
             if trade_event:
-                event_messages.append((trade_event))
+                event_messages.append(trade_event)
             if order_event:
                 event_messages.append(order_event)
             event_messages.append(asyncio.CancelledError)
             mock_queue.get.side_effect = event_messages
             self.exchange._user_stream_tracker._user_stream = mock_queue
+
+            if self.is_order_fill_http_update_executed_during_websocket_order_event_processing:
+                self.configure_full_fill_trade_response(
+                    order=order,
+                    mock_api=mock_api)
 
             try:
                 self.async_run_with_timeout(self.exchange._user_stream_event_listener())
@@ -1390,21 +1401,22 @@ class AbstractExchangeConnectorTests:
             )
 
         def test_user_stream_balance_update(self):
-            self.exchange._set_current_timestamp(1640780000)
+            if self.exchange.real_time_balance_update:
+                self.exchange._set_current_timestamp(1640780000)
 
-            balance_event = self.balance_event_websocket_update
+                balance_event = self.balance_event_websocket_update
 
-            mock_queue = AsyncMock()
-            mock_queue.get.side_effect = [balance_event, asyncio.CancelledError]
-            self.exchange._user_stream_tracker._user_stream = mock_queue
+                mock_queue = AsyncMock()
+                mock_queue.get.side_effect = [balance_event, asyncio.CancelledError]
+                self.exchange._user_stream_tracker._user_stream = mock_queue
 
-            try:
-                self.async_run_with_timeout(self.exchange._user_stream_event_listener())
-            except asyncio.CancelledError:
-                pass
+                try:
+                    self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+                except asyncio.CancelledError:
+                    pass
 
-            self.assertEqual(Decimal("10"), self.exchange.available_balances[self.base_asset])
-            self.assertEqual(Decimal("15"), self.exchange.get_balance(self.base_asset))
+                self.assertEqual(Decimal("10"), self.exchange.available_balances[self.base_asset])
+                self.assertEqual(Decimal("15"), self.exchange.get_balance(self.base_asset))
 
         def test_user_stream_raises_cancel_exception(self):
             self.exchange._set_current_timestamp(1640780000)
