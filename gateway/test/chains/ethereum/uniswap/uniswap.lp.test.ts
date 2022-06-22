@@ -80,6 +80,10 @@ beforeAll(async () => {
   await uniswapLP.init();
 });
 
+beforeEach(() => {
+  patchEVMNonceManager(ethereum.nonceManager);
+});
+
 afterEach(() => {
   unpatch();
 });
