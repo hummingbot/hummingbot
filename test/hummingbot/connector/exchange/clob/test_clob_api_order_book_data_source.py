@@ -478,7 +478,7 @@ class CLOBAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
-        self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[CONSTANTS.TRADE_MESSAGES_QUEUE_KEY] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -496,7 +496,7 @@ class CLOBAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[CONSTANTS.TRADE_MESSAGES_QUEUE_KEY] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -515,7 +515,7 @@ class CLOBAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [self._trade_update_event(), asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[CONSTANTS.TRADE_MESSAGES_QUEUE_KEY] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -533,7 +533,7 @@ class CLOBAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
-        self.data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[CONSTANTS.DIFF_MESSAGES_QUEUE_KEY] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -551,7 +551,7 @@ class CLOBAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[CONSTANTS.DIFF_MESSAGES_QUEUE_KEY] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -570,7 +570,7 @@ class CLOBAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [self._order_diff_event(), asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[CONSTANTS.DIFF_MESSAGES_QUEUE_KEY] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 

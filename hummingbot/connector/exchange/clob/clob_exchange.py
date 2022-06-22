@@ -1,13 +1,13 @@
 from decimal import Decimal
-from typing import List, Optional, Tuple, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.clob import clob_constants as constant
+from hummingbot.connector.exchange.clob import clob_constants as constant, clob_web_utils as web_utils
 from hummingbot.connector.exchange.clob.clob_api_order_book_data_source import CLOBAPIOrderBookDataSource
 from hummingbot.connector.exchange.clob.clob_api_user_stream_data_source import CLOBAPIUserStreamDataSource
-from hummingbot.connector.exchange.clob.clob_types import OrderStatus
+from hummingbot.connector.exchange.clob.clob_types import OrderSide, OrderStatus, OrderType
 from hummingbot.connector.exchange_py_base import ExchangePyBase
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType as HummingbotOrderType, TradeType as HummingbotOrderSide
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, DeductedFromReturnsTradeFee
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -26,6 +26,7 @@ class CLOBExchange(ExchangePyBase):
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+
         super().__init__()
 
     @property
@@ -33,7 +34,7 @@ class CLOBExchange(ExchangePyBase):
         return self._domain
 
     def name(self):
-        if self._domain == "com":
+        if self._domain == constant.DEFAULT_DOMAIN:
             return "clob"
         else:
             return f"clob_{self._domain}"
@@ -41,7 +42,7 @@ class CLOBExchange(ExchangePyBase):
     @property
     def authenticator(self):
         # TODO do we need to override this method?!!!
-        raise NotImplementedError
+        pass
 
     @property
     def rate_limits_rules(self):
@@ -64,39 +65,40 @@ class CLOBExchange(ExchangePyBase):
         return constant.CHECK_NETWORK_REQUEST_PATH
 
     def supported_order_types(self):
-        # TODO Include IoC and Post Only?!!!
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        # TODO Should we include IoC and Post Only?!!!
+        # TODO How about OrderType.LIMIT_MAKER?!!!
+        return [OrderType.LIMIT]
 
     async def _place_order(
         self,
         order_id: str,
         trading_pair: str,
         amount: Decimal,
-        trade_type: TradeType,
-        order_type: OrderType,
+        trade_type: HummingbotOrderType,
+        order_type: HummingbotOrderSide,
         price: Decimal
     ) -> Tuple[str, float]:
-        if trade_type not in [TradeType.BUY, TradeType.SELL]:
-            raise ValueError(f'Unrecognized order side "{trade_type}".')
-
-        if order_type not in [OrderType.LIMIT]:
-            raise ValueError(f'Unrecognized order type "{order_type}".')
+        order_type = OrderType.from_hummingbot(trade_type)
+        order_side = OrderSide.from_hummingbot(order_type)
 
         created_order = await GatewayHttpClient.get_instance().clob_post_orders(
-            chain="",  # TODO fix!!!
-            network="",  # TODO fix!!!
-            connector="",  # TODO fix!!!
+            chain="solana",  # TODO fix!!!
+            network="mainnet-beta",  # TODO fix!!!
+            connector="serum",  # TODO fix!!!
             order={
                 "id": order_id,
                 "marketName": trading_pair,
                 "ownerAddress": "",  # TODO fix!!!
                 "payerAddress": "",  # TODO fix!!!
-                "side": trade_type.name,
+                "side": order_side,
                 "price": price,
                 "amount": amount,
                 "type": order_type,
             }
         )
+
+        if created_order.get("status") == OrderStatus.CREATION_PENDING:
+            self.logger().warning(f"""The creation of the order "{order_id}" was submitted but it wasn't possible to confirm if it succeeded or not.""")
 
         client_order_id = str(created_order["id"])
         transaction_time = 0.0  # TODO fix!!!
@@ -109,21 +111,20 @@ class CLOBExchange(ExchangePyBase):
         trading_pair: str
     ) -> bool:
         canceled_order = await GatewayHttpClient.get_instance().clob_delete_orders(
-            chain="",  # TODO fix!!!
-            network="",  # TODO fix!!!
-            connector="",  # TODO fix!!!
-            owner_address="",  # TODO fix!!!
+            chain="solana",  # TODO fix!!!
+            network="mainnet-beta",  # TODO fix!!!
+            connector="serum",  # TODO fix!!!
             order={
                 "id": order_id,
                 "marketName": trading_pair,
-                "ownerAddress": "",  # TODO fix!!!
+                "ownerAddress": "FMosjpvtAxwL6GFDSL31o9pU5somKjifbkt32bEgLddf"  # TODO fix!!!
             }
         )
 
         if canceled_order.get("status") == OrderStatus.CANCELED:
             return True
         elif canceled_order.get("status") == OrderStatus.CANCELATION_PENDING:
-            self.logger().warning(f"""The cancelation of the order "{order_id}" was submitted but it wasn't possible to confirm its success.""")
+            self.logger().warning(f"""The cancelation of the order "{order_id}" was submitted but it wasn't possible to confirm if it succeeded or not.""")
 
         return False
 
@@ -131,8 +132,8 @@ class CLOBExchange(ExchangePyBase):
         self,
         base_currency: str,
         quote_currency: str,
-        order_type: OrderType,
-        order_side: TradeType,
+        order_type: HummingbotOrderType,
+        order_side: HummingbotOrderSide,
         amount: Decimal,
         price: Decimal = s_decimal_NaN,
         is_maker: Optional[bool] = None
@@ -172,7 +173,12 @@ class CLOBExchange(ExchangePyBase):
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         # TODO do we need to override this method?!!!
-        raise NotImplementedError
+        return web_utils.build_api_factory(
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            domain=self._domain,
+            auth=self._auth
+        )
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         # TODO check if all the parameters are needed!!!
@@ -180,18 +186,16 @@ class CLOBExchange(ExchangePyBase):
             trading_pairs=self._trading_pairs,
             domain=self.domain,
             api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
         )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         # TODO check if all the parameters are needed!!!
         return CLOBAPIUserStreamDataSource(
+            auth=self._auth,
             trading_pairs=self._trading_pairs,
-            domain=self.domain,
+            connector=self,
             api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
+            domain=self.domain,
         )
 
     def c_stop_tracking_order(self, order_id):
@@ -202,3 +206,19 @@ class CLOBExchange(ExchangePyBase):
         # TODO do we need to override this method?!!!
         # await self._update_order_fills_from_trades()
         await super()._status_polling_loop_fetch_updates()
+
+    @property
+    def trading_pairs_request_path(self):
+        return constant.TRADING_PAIRS_REQUEST_PATH
+
+    @property
+    def trading_pairs(self):
+        return self._trading_pairs
+
+    @property
+    def is_cancel_request_in_exchange_synchronous(self) -> bool:
+        return True
+
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        # TODO fix!!!
+        pass

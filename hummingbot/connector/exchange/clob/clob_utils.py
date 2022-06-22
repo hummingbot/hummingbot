@@ -14,16 +14,6 @@ DEFAULT_FEES = TradeFeeSchema(
     buy_percent_fee_deducted_from_returns=True
 )
 
-
-def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
-    """
-    Verifies if a trading pair is enabled to operate with based on its exchange information
-    :param exchange_info: the exchange information for a trading pair
-    :return: True if the trading pair is enabled, False otherwise
-    """
-    return exchange_info.get("status", None) == "TRADING" and "SPOT" in exchange_info.get("permissions", list())
-
-
 KEYS = {
     "clob_api_key":
         ConfigVar(key="clob_api_key",
@@ -39,7 +29,9 @@ KEYS = {
                   is_connect_key=True),
 }
 
+
 OTHER_DOMAINS = ["clob_us"]
+
 OTHER_DOMAINS_PARAMETER = {"clob_us": "us"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"clob_us": "BTC-USDT"}
 OTHER_DOMAINS_DEFAULT_FEES = {"clob_us": [0.1, 0.1]}
@@ -57,3 +49,16 @@ OTHER_DOMAINS_KEYS = {"clob_us": {
                   is_secure=True,
                   is_connect_key=True),
 }}
+
+
+def convert_trading_pair(trading_pair: str):
+    return trading_pair.replace('-', '/')
+
+
+def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its exchange information
+    :param exchange_info: the exchange information for a trading pair
+    :return: True if the trading pair is enabled, False otherwise
+    """
+    return exchange_info.get("status", None) == "TRADING" and "SPOT" in exchange_info.get("permissions", list())

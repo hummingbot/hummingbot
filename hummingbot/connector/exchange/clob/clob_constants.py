@@ -2,12 +2,15 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 # TODO check value!!!
-DEFAULT_DOMAIN = "com"
+DEFAULT_DOMAIN = "default"
 
 # TODO check value!!!
-CLIENT_ORDER_ID_PREFIX = "x-XEKWYICX"
+DEFAULT_CONNECTOR = "serum"
+
+# TODO check value, should it be a number?!!!
+CLIENT_ORDER_ID_PREFIX = "CLOB"
 # TODO check value!!!
-MAX_CLIENT_ORDER_ID_LENGTH = 36
+MAX_CLIENT_ORDER_ID_LENGTH = 50
 
 # Base URL
 REST_URL = "https://api.clob.{}/api/"
@@ -19,9 +22,11 @@ PRIVATE_API_VERSION = "v3"
 # Public API endpoints or CLOBClient function
 TICKER_PRICE_CHANGE_PATH_URL = "/ticker/24hr"
 # TODO check value!!!
-TRADING_RULES_REQUEST_PATH = "/exchangeInfo"
+TRADING_RULES_REQUEST_PATH = None
 # TODO check value!!!
-CHECK_NETWORK_REQUEST_PATH = "/ping"
+TRADING_PAIRS_REQUEST_PATH = None
+# TODO check value!!!
+CHECK_NETWORK_REQUEST_PATH = "/clob"
 SNAPSHOT_PATH_URL = "/depth"
 SERVER_TIME_PATH_URL = "/time"
 
@@ -68,8 +73,10 @@ ORDER_STATE = {
 }
 
 # Websocket event types
-DIFF_EVENT_TYPE = "depthUpdate"
-TRADE_EVENT_TYPE = "trade"
+# TODO check value!!!
+DIFF_MESSAGES_QUEUE_KEY = "depthUpdate"
+# TODO check value!!!
+TRADE_MESSAGES_QUEUE_KEY = "trade"
 
 # TODO check values!!!
 RATE_LIMITS_RULES = [

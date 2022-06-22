@@ -41,7 +41,7 @@ class ExchangePyBase(ExchangeBase, ABC):
     TICK_INTERVAL_LIMIT = 60.0
 
     def __init__(self):
-        super().__init__()
+        # super().__init__()
 
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
