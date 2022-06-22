@@ -103,6 +103,7 @@ class TelegramNotifier(NotifierBase):
     def stop(self) -> None:
         if self._started or self._updater.running:
             self._updater.stop()
+            self._started = False
         if self._send_msg_task:
             self._send_msg_task.cancel()
 
