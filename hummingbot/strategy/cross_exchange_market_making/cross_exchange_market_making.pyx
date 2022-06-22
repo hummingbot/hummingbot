@@ -1488,7 +1488,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
     def cancel_order(self, market_pair: MakerTakerMarketPair, order_id: str):
         market_trading_pair_tuple = self._sb_order_tracker.get_market_pair_from_order_id(order_id)
-        StrategyPyBase.cancel_order(self, market_trading_pair_tuple, order_id)
+        self.cancel_order(self, market_trading_pair_tuple, order_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
