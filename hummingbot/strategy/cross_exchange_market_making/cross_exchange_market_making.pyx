@@ -1132,7 +1132,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # Taker buy
             if self.is_gateway_market(market_pair.taker):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
-                                                                 False,
+                                                                 True,
                                                                  size)
             else:
                 try:
