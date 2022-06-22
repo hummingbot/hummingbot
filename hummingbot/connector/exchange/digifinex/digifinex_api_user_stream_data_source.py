@@ -55,13 +55,13 @@ class DigifinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                 trading_pairs: List[str] = [digifinex_utils.convert_to_ws_trading_pair(pair)
                                             for pair in self._trading_pairs]
-                currencies = list()
+                currencies = set()
                 for trade_pair in self._trading_pairs:
                     trade_pair_currencies = trade_pair.split('-')
-                    currencies.extend(trade_pair_currencies)
+                    currencies.update(trade_pair_currencies)
 
                 await self._ws.subscribe("order", trading_pairs)
-                await self._ws.subscribe("balance", currencies)
+                await self._ws.subscribe("balance", list(currencies))
 
                 async for msg in self._ws.iter_messages():
                     if msg is None or "params" not in msg or "method" not in msg:
@@ -77,4 +77,4 @@ class DigifinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     exc_info=True
                 )
             finally:
-                await self._ws.disconnect()
+                self._ws and await self._ws.disconnect()
