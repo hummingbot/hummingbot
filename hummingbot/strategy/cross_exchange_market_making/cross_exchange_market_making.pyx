@@ -1471,7 +1471,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         if not self._active_order_canceling:
             expiration_seconds = self._limit_order_min_expiration
         if is_buy:
-            order_id = StrategyPyBase.buy_with_specific_market(self, market_info, amount,
+            order_id = self.buy_with_specific_market(self, market_info, amount,
                                                                order_type=order_type, price=price,
                                                                expiration_seconds=expiration_seconds)
         else:
