@@ -9,6 +9,8 @@ import {
 import axios from 'axios';
 // import fs from 'fs/promises';
 import { promises as fs } from 'fs';
+import path from 'path';
+import { rootPath } from '../paths';
 import { TokenListType, TokenValue, walletPath } from './base';
 import { EVMNonceManager } from './evm.nonce';
 import NodeCache from 'node-cache';
@@ -77,12 +79,16 @@ export class EthereumBase {
     this.tokenListType = tokenListType;
 
     this._refCountingHandle = ReferenceCountingCloseable.createHandle();
-    this._nonceManager = new EVMNonceManager(chainName, chainId, nonceDbPath);
+    this._nonceManager = new EVMNonceManager(
+      chainName,
+      chainId,
+      this.resolveDBPath(nonceDbPath)
+    );
     this._nonceManager.declareOwnership(this._refCountingHandle);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
     this._gasLimit = gasLimit;
     this._txStorage = EvmTxStorage.getInstance(
-      transactionDbPath,
+      this.resolveDBPath(transactionDbPath),
       this._refCountingHandle
     );
   }
@@ -97,6 +103,13 @@ export class EthereumBase {
 
   public get gasLimit() {
     return this._gasLimit;
+  }
+
+  public resolveDBPath(oldPath: string): string {
+    if (oldPath.charAt(0) === '/') return oldPath;
+    const dbDir: string = path.join(rootPath(), 'db/');
+    fse.mkdirSync(dbDir, { recursive: true });
+    return path.join(dbDir, oldPath);
   }
 
   public events() {

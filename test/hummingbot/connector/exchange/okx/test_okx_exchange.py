@@ -1,7 +1,6 @@
 import json
 import re
 from decimal import Decimal
-from test.hummingbot.connector.exchange_connector_test import AbstractExchangeConnectorTests
 from typing import Any, Callable, List, Optional, Tuple
 from unittest.mock import patch
 
@@ -12,6 +11,7 @@ from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.okx import okx_constants as CONSTANTS, okx_web_utils as web_utils
 from hummingbot.connector.exchange.okx.okx_exchange import OkxExchange
+from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
@@ -448,6 +448,10 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
         return True
+
+    @property
+    def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
+        return False
 
     def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
         return f"{base_token}-{quote_token}"
