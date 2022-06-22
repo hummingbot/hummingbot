@@ -1,6 +1,7 @@
 import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 
 jest.useFakeTimers();
+jest.setTimeout(30000);
 import { Openocean } from '../../../../src/connectors/openocean/openocean';
 import { UniswapishPriceError } from '../../../../src/services/error-handler';
 import { Token } from '@uniswap/sdk';

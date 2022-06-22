@@ -9,6 +9,8 @@ let openocean: Openocean;
 const privateKey =
   '0000000000000000000000000000000000000000000000000000000000000002'; // noqa: mock
 
+jest.setTimeout(30000);
+
 beforeAll(async () => {
   avalanche = Avalanche.getInstance('avalanche');
   patchEVMNonceManager(avalanche.nonceManager);
