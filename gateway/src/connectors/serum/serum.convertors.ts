@@ -158,9 +158,6 @@ export const convertToJsonIfNeeded = (input: any): any => {
 
   if (IMap.isMap(input)) output = input.toJS();
 
-  // TODO remove!!!
-  console.log(JSON.stringify(output));
-
   return output;
 };
 

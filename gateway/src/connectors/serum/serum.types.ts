@@ -68,7 +68,7 @@ export enum OrderType {
 
 export enum TickerSource {
   NOMIMCS = 'nomics',
-  ALEPPH = 'aleph',
+  ALEPH = 'aleph',
 }
 
 export interface Market {

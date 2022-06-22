@@ -118,7 +118,6 @@ async def proceed(question):
 
 def get_clob(ec):
     exchange = CLOBExchange(
-        # TODO use creds?!!!
         trading_pairs=[ec.pair],
     )
 
