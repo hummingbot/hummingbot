@@ -632,7 +632,7 @@ cdef class HuobiExchange(ExchangeBase):
 
     async def _process_trade_event(self, trade_event: Dict[str, Any]):
         order_id = trade_event["orderId"]
-        client_order_id = trade_event["clientOrderId"]
+        client_order_id = trade_event.get("clientOrderId")
         execute_price = Decimal(trade_event["tradePrice"])
         execute_amount_diff = Decimal(trade_event["tradeVolume"])
 
