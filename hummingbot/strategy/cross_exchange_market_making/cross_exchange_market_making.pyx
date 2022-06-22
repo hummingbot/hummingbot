@@ -552,7 +552,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             limit_order_record = self._sb_order_tracker.get_shadow_limit_order(order_id)
             order_fill_record = (limit_order_record, order_filled_event)
 
-            # Store the limit order fill event in a map, s.t. it can be processed in c_check_and_hedge_orders()
+            # Store the limit order fill event in a map, s.t. it can be processed in check_and_hedge_orders()
             # later.
             if order_filled_event.trade_type is TradeType.BUY:
                 if market_pair not in self._order_fill_buy_events:
