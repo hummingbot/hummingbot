@@ -268,7 +268,6 @@ export class Traderjoe implements Uniswapish {
       nonce = await this.avalanche.nonceManager.getNonce(wallet.address);
     }
     let tx;
-    console.log(result);
     if (maxFeePerGas || maxPriorityFeePerGas) {
       tx = await contract[result.methodName](...result.args, {
         gasLimit: gasLimit,
