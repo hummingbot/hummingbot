@@ -2,7 +2,7 @@
 ###   Cross exchange market making strategy config   ###
 ########################################################
 
-template_version: 7
+template_version: 8
 strategy: null
 
 # The following configuations are only required for the
@@ -73,6 +73,11 @@ taker_to_maker_base_conversion_rate: null
 # e.g. if maker quote asset is USD, taker is DAI and 1 USD is worth 1.25 DAI, "
 # the conversion rate is 0.8 (1 / 1.25)
 taker_to_maker_quote_conversion_rate: null
+
+# The conversion rate for gas token value of the taker exchange to maker base asset value.
+# e.g. if maker base asset is USD, gas token is DAI and 1 USD is worth 1.25 DAI, "
+# the conversion rate is 0.8 (1 / 1.25)
+gas_to_maker_base_conversion_rate: null
 
 # A buffer for which to adjust order price for higher chance of the order getting filled.
 # Since we hedge on markets a slippage is acceptable rather than having the transaction get rejected.
