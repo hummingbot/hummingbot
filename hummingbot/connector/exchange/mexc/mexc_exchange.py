@@ -8,6 +8,7 @@ import aiohttp
 import ujson
 
 from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS
+from hummingbot.connector.exchange.mexc.mexc_api_order_book_data_source import MexcAPIOrderBookDataSource
 from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
 from hummingbot.connector.exchange.mexc.mexc_in_flight_order import MexcInFlightOrder
 from hummingbot.connector.exchange.mexc.mexc_order_book_tracker import MexcOrderBookTracker
@@ -16,7 +17,7 @@ from hummingbot.connector.exchange.mexc.mexc_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     num_to_increment,
-    ws_order_status_convert_to_str
+    ws_order_status_convert_to_str,
 )
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.trading_rule import TradingRule
@@ -98,8 +99,8 @@ class MexcExchange(ExchangeBase):
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
-        self._order_book_tracker = MexcOrderBookTracker(
-            throttler=self._throttler, trading_pairs=trading_pairs, shared_client=self._shared_client)
+        self._set_order_book_tracker(MexcOrderBookTracker(
+            throttler=self._throttler, trading_pairs=trading_pairs, shared_client=self._shared_client))
         self._poll_notifier = asyncio.Event()
         self._poll_interval = poll_interval
         self._status_polling_task = None
@@ -118,12 +119,8 @@ class MexcExchange(ExchangeBase):
         return "mexc"
 
     @property
-    def order_book_tracker(self) -> MexcOrderBookTracker:
-        return self._order_book_tracker
-
-    @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -185,7 +182,7 @@ class MexcExchange(ExchangeBase):
         updating statuses and tracking user data.
         """
         await self.stop_network()
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
 
         if self._trading_required:
@@ -195,7 +192,7 @@ class MexcExchange(ExchangeBase):
             await self._update_balances()
 
     async def stop_network(self):
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -586,7 +583,7 @@ class MexcExchange(ExchangeBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "acount_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0
         }
@@ -859,9 +856,9 @@ class MexcExchange(ExchangeBase):
         return cancellation_results
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def start_tracking_order(self,
                              order_id: str,
@@ -944,3 +941,14 @@ class MexcExchange(ExchangeBase):
             fee += Decimal(order['fee'])
             fee_currency = order['fee_currency']
         return fee, fee_currency
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await MexcAPIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await MexcAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            throttler=self._throttler,
+            shared_client=self._shared_client)
