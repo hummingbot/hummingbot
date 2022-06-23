@@ -8,6 +8,8 @@ from async_timeout import timeout
 from libc.stdint cimport int64_t
 
 from hummingbot.connector.exchange.coinbase_pro import coinbase_pro_constants as CONSTANTS
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_order_book_data_source import \
+    CoinbaseProAPIOrderBookDataSource
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order cimport CoinbaseProInFlightOrder
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order import CoinbaseProInFlightOrder
@@ -97,7 +99,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         self._trading_required = trading_required
         auth = CoinbaseProAuth(coinbase_pro_api_key, coinbase_pro_secret_key, coinbase_pro_passphrase)
         self._web_assistants_factory = build_coinbase_pro_web_assistant_factory(auth)
-        self._order_book_tracker = CoinbaseProOrderBookTracker(trading_pairs, self._web_assistants_factory)
+        self._set_order_book_tracker(CoinbaseProOrderBookTracker(trading_pairs, self._web_assistants_factory))
         self._user_stream_tracker = CoinbaseProUserStreamTracker(
             trading_pairs=trading_pairs,
             web_assistants_factory=self._web_assistants_factory,
@@ -135,7 +137,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         Get mapping of all the order books that are being tracked.
         :return: Dict[trading_pair : OrderBook]
         """
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -145,7 +147,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         This is used by `ready` method below to determine if a market is ready for trading.
         """
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True
         }
@@ -226,7 +228,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         Async function used by NetworkBase class to handle when a single market goes online
         """
         self._stop_network()
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
@@ -237,7 +239,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         """
         Synchronous function that handles when a single market goes offline
         """
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._user_stream_tracker_task is not None:
@@ -1069,3 +1071,11 @@ cdef class CoinbaseProExchange(ExchangeBase):
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await CoinbaseProAPIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await CoinbaseProAPIOrderBookDataSource.get_last_traded_prices(trading_pairs=trading_pairs)

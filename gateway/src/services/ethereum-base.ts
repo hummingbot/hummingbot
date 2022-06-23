@@ -9,6 +9,8 @@ import {
 import axios from 'axios';
 // import fs from 'fs/promises';
 import { promises as fs } from 'fs';
+import path from 'path';
+import { rootPath } from '../paths';
 import { TokenListType, TokenValue, walletPath } from './base';
 import { EVMNonceManager } from './evm.nonce';
 import NodeCache from 'node-cache';
@@ -16,6 +18,11 @@ import { EvmTxStorage } from './evm.tx-storage';
 import fse from 'fs-extra';
 import { ConfigManagerCertPassphrase } from './config-manager-cert-passphrase';
 import { logger } from './logger';
+import {
+  HttpException,
+  INVALID_NONCE_ERROR_MESSAGE,
+  INVALID_NONCE_ERROR_CODE,
+} from './error-handler';
 import { ReferenceCountingCloseable } from './refcounting-closeable';
 
 // information about an Ethereum token
@@ -72,12 +79,16 @@ export class EthereumBase {
     this.tokenListType = tokenListType;
 
     this._refCountingHandle = ReferenceCountingCloseable.createHandle();
-    this._nonceManager = new EVMNonceManager(chainName, chainId, nonceDbPath);
+    this._nonceManager = new EVMNonceManager(
+      chainName,
+      chainId,
+      this.resolveDBPath(nonceDbPath)
+    );
     this._nonceManager.declareOwnership(this._refCountingHandle);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
     this._gasLimit = gasLimit;
     this._txStorage = EvmTxStorage.getInstance(
-      transactionDbPath,
+      this.resolveDBPath(transactionDbPath),
       this._refCountingHandle
     );
   }
@@ -92,6 +103,13 @@ export class EthereumBase {
 
   public get gasLimit() {
     return this._gasLimit;
+  }
+
+  public resolveDBPath(oldPath: string): string {
+    if (oldPath.charAt(0) === '/') return oldPath;
+    const dbDir: string = path.join(rootPath(), 'db/');
+    fse.mkdirSync(dbDir, { recursive: true });
+    return path.join(dbDir, oldPath);
   }
 
   public events() {
@@ -302,7 +320,20 @@ export class EthereumBase {
         '.'
     );
     if (!nonce) {
-      nonce = await this.nonceManager.getNonce(wallet.address);
+      nonce = await this.nonceManager.getNextNonce(wallet.address);
+    } else {
+      const isValid: boolean = await this.nonceManager.isValidNonce(
+        wallet.address,
+        nonce
+      );
+
+      if (!isValid) {
+        throw new HttpException(
+          500,
+          INVALID_NONCE_ERROR_MESSAGE + nonce,
+          INVALID_NONCE_ERROR_CODE
+        );
+      }
     }
     const params: any = {
       gasLimit: '100000',
