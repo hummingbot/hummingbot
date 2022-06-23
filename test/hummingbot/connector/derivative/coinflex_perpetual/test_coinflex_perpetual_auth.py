@@ -49,7 +49,7 @@ class CoinflexPerpetualAuthUnitTests(unittest.TestCase):
         request = web_utils.CoinflexPerpetualRESTRequest(method=RESTMethod.GET, endpoint="", params=params, is_auth_required=True)
         configured_request = self.async_run_with_timeout(self.auth.rest_authenticate(request))
 
-        str_timestamp = datetime.fromtimestamp(now).isoformat()
+        str_timestamp = datetime.utcfromtimestamp(now).isoformat()
         nonce = int(now * 1e3)
 
         encoded_params = "&".join([f"{key}={value}" for key, value in full_params.items()])
