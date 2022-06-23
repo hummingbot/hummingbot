@@ -263,7 +263,7 @@ export async function trade(
       uniswapish.router,
       uniswapish.ttl,
       uniswapish.routerAbi,
-      uniswapish.gasLimit,
+      gasLimit,
       req.nonce,
       maxFeePerGasBigNumber,
       maxPriorityFeePerGasBigNumber,
@@ -329,7 +329,7 @@ export async function trade(
       uniswapish.router,
       uniswapish.ttl,
       uniswapish.routerAbi,
-      uniswapish.gasLimit,
+      gasLimit,
       req.nonce,
       maxFeePerGasBigNumber,
       maxPriorityFeePerGasBigNumber
