@@ -8,7 +8,7 @@ from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_auth impo
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import WSRequest
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -68,7 +68,10 @@ class BitmexPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 signature = await self._auth.generate_ws_signature(str(expires))
                 auth_payload = {"op": "authKeyExpires", "args": [API_KEY, expires, signature]}
 
-                auth_request: WSRequest = WSRequest(auth_payload)
+                auth_request: WSJSONRequest = WSJSONRequest(
+                    payload=auth_payload,
+                    is_auth_required=False
+                )
                 await ws.send(auth_request)
                 # await ws.ping()  # to update last_recv_timestamp
 
@@ -78,7 +81,10 @@ class BitmexPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 # margin - Updates on your current account balance and margin requirements
                 # wallet - Bitcoin address balance data, including total deposits & withdrawals
                 subscribe_payload = {"op": "subscribe", "args": ["position", "order", "margin", "wallet"]}
-                subscribe_request: WSRequest = WSRequest(subscribe_payload)
+                subscribe_request: WSJSONRequest = WSJSONRequest(
+                    payload=subscribe_payload,
+                    is_auth_required=False
+                )
                 await ws.send(subscribe_request)
 
                 async for msg in ws.iter_messages():
