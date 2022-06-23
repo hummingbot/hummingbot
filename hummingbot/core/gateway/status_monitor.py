@@ -86,21 +86,26 @@ class StatusMonitor:
                         gateway_connectors = await GatewayHttpClient.get_instance().get_connectors(fail_silently=True)
                         GATEWAY_CONNECTORS.clear()
                         GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
-
                         await self.update_gateway_config_key_list()
+                        self.logger().info("Connection to Gateway established.")
                     elif self._current_connector_conn_status is Status.OFFLINE:
                         gateway_connectors_status = await GatewayHttpClient.get_instance().get_gateway_status(fail_silently=True)
                         self._current_connector_conn_status = Status.ONLINE \
                             if any([status["currentBlockNumber"] > 0 for status in gateway_connectors_status]) else Status.OFFLINE
                     self._current_status = Status.ONLINE
                 else:
-                    self._current_status = Status.OFFLINE
-                    self._current_connector_conn_status = Status.OFFLINE
+                    if self._current_status is Status.ONLINE:
+                        self.logger().info("Connection to Gateway lost...")
+                        self._current_status = Status.OFFLINE
+                        self._current_connector_conn_status = Status.OFFLINE
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unable to find Gateway service. Please check that Gateway service is online. ")
-                self._current_status = Status.OFFLINE
+                """
+                We wouldn't be changing any status here because whatever error happens here would have been a result of manipulation data from
+                the try block. They wouldn't be as a result of http related error because they're expected to fail silently.
+                """
+                pass
             await asyncio.sleep(POLL_INTERVAL)
 
     async def _fetch_gateway_configs(self) -> Dict[str, Any]:

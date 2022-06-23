@@ -1,7 +1,7 @@
 jest.useFakeTimers();
 import { Sushiswap } from '../../../../src/connectors/sushiswap/sushiswap';
 import { patch, unpatch } from '../../../services/patch';
-import { UniswapishPriceError } from '../../../../src/services/error-handler';
+import { UniswapishPriceError as SushiswapishPriceError } from '../../../../src/services/error-handler';
 import {
   Token,
   CurrencyAmount,
@@ -12,6 +12,7 @@ import {
 } from '@sushiswap/sdk';
 import { BigNumber } from 'ethers';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 
 let ethereum: Ethereum;
 let sushiswap: Sushiswap;
@@ -31,13 +32,23 @@ const DAI = new Token(
 
 beforeAll(async () => {
   ethereum = Ethereum.getInstance('kovan');
+  patchEVMNonceManager(ethereum.nonceManager);
   await ethereum.init();
+
   sushiswap = Sushiswap.getInstance('ethereum', 'kovan');
   await sushiswap.init();
 });
 
+beforeEach(() => {
+  patchEVMNonceManager(ethereum.nonceManager);
+});
+
 afterEach(() => {
   unpatch();
+});
+
+afterAll(async () => {
+  await ethereum.close();
 });
 
 const patchFetchData = () => {
@@ -86,11 +97,11 @@ describe('verify Sushiswap estimateSellTrade', () => {
 
     await expect(async () => {
       await sushiswap.estimateSellTrade(WETH, DAI, BigNumber.from(1));
-    }).rejects.toThrow(UniswapishPriceError);
+    }).rejects.toThrow(SushiswapishPriceError);
   });
 });
 
-describe('verify Uniswap estimateBuyTrade', () => {
+describe('verify sushiswap estimateBuyTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchData();
     patchTrade('bestTradeExactOut');
@@ -110,7 +121,7 @@ describe('verify Uniswap estimateBuyTrade', () => {
 
     await expect(async () => {
       await sushiswap.estimateBuyTrade(WETH, DAI, BigNumber.from(1));
-    }).rejects.toThrow(UniswapishPriceError);
+    }).rejects.toThrow(SushiswapishPriceError);
   });
 });
 

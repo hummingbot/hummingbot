@@ -6,18 +6,12 @@ import { Uniswap } from '../../../../src/connectors/uniswap/uniswap';
 import { AmmRoutes } from '../../../../src/amm/amm.routes';
 import { patch, unpatch } from '../../../services/patch';
 import { gasCostInEthString } from '../../../../src/services/base';
-import { OverrideConfigs } from '../../../config.util';
 import { patchEVMNonceManager } from '../../../evm.nonce.mock';
-
-const overrideConfigs = new OverrideConfigs();
 let app: Express;
 let ethereum: Ethereum;
 let uniswap: Uniswap;
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
-
   app = express();
   app.use(express.json());
 
@@ -40,7 +34,6 @@ afterEach(() => {
 
 afterAll(async () => {
   await ethereum.close();
-  await overrideConfigs.resetConfigs();
 });
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
