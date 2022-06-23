@@ -245,14 +245,14 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
 
   async mergeNonceFromEVMNode(
     ethAddress: string,
-    intializationPhase = false
+    intializationPhase: boolean = false
   ): Promise<void> {
     /*
     Retrieves and saves the nonce from the last successful transaction from the EVM node.
     If time period of the last stored nonce exceeds the localNonceTTL, we update the nonce using the getTransactionCount
     call.
     */
-    if (intializationPhase || (this.#initialized && this._provider != null)) {
+    if (this._provider != null && (intializationPhase || this.#initialized)) {
       const mergeExpiryTimestamp: number = this.#addressToNonce[ethAddress]
         ? this.#addressToNonce[ethAddress].expiry
         : -1;
