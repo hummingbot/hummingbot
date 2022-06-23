@@ -2,7 +2,6 @@ import asyncio
 import json
 import re
 from decimal import Decimal
-from test.hummingbot.connector.exchange_connector_test import AbstractExchangeConnectorTests
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from unittest.mock import AsyncMock, patch
 
@@ -11,6 +10,7 @@ from aioresponses.core import RequestCall
 
 from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
+from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -375,6 +375,10 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
     @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
+        return False
+
+    @property
+    def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
         return False
 
     @property
