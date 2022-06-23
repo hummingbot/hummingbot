@@ -574,7 +574,10 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         return_val: list = []
         for rule in exchange_info_list:
             try:
+                if rule["symbol"][-4:] == "_ETH":
+                    continue
                 trading_pair = combine_to_hb_trading_pair(rule["rootSymbol"], rule["quoteCurrency"])
+
                 if trading_pair in self._trading_pairs:
                     size_currency_type = await utils.get_trading_pair_size_currency(rule['symbol'])
                     self._trading_pair_to_size_type[trading_pair] = size_currency_type
@@ -587,7 +590,6 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                             min_order_size /= multiplier
                         tick_size = Decimal(str(rule.get("tickSize")))
                         collateral_token = rule["settlCurrency"].upper()  # not a typo
-
                         return_val.append(
                             TradingRule(
                                 trading_pair,
@@ -603,7 +605,6 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         min_notional_size = Decimal(str(rule.get("lotSize")))
                         tick_size = Decimal(str(rule.get("tickSize")))
                         collateral_token = rule["settlCurrency"].upper()  # not a typo
-
                         return_val.append(
                             TradingRule(
                                 trading_pair,
