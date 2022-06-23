@@ -7,7 +7,6 @@ import {
   Wallet,
 } from 'ethers';
 import axios from 'axios';
-// import fs from 'fs/promises';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { rootPath } from '../paths';
@@ -88,6 +87,7 @@ export class EthereumBase {
       this.resolveDBPath(transactionDbPath),
       this._refCountingHandle
     );
+    this._txStorage.declareOwnership(this._refCountingHandle);
   }
 
   ready(): boolean {
@@ -127,6 +127,7 @@ export class EthereumBase {
     if (!this.ready() && !this._initializing) {
       this._initializing = true;
       await this._nonceManager.init(this.provider);
+      await this._txStorage.init();
 
       await this.loadTokens(this.tokenListSource, this.tokenListType);
       this._ready = true;
