@@ -127,7 +127,6 @@ export class EthereumBase {
     if (!this.ready() && !this._initializing) {
       this._initializing = true;
       await this._nonceManager.init(this.provider);
-      await this._txStorage.init();
 
       await this.loadTokens(this.tokenListSource, this.tokenListType);
       this._ready = true;
