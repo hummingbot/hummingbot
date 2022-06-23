@@ -21,7 +21,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.web_assistant.connections.data_types import WSRequest
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -41,7 +41,7 @@ class BitmexPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         api_factory: Optional[WebAssistantsFactory] = None,
     ):
         super().__init__(trading_pairs)
-        self._api_factory: WebAssistantsFactory = WebAssistantsFactory()
+        self._api_factory: WebAssistantsFactory = WebAssistantsFactory(throttler)
         self._api_factory: WebAssistantsFactory = api_factory or web_utils.build_api_factory()
         self._ws_assistant: Optional[WSAssistant] = None
         self._order_book_create_function = lambda: OrderBook()
@@ -122,7 +122,7 @@ class BitmexPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             api_factory: WebAssistantsFactory = None
     ) -> Mapping[str, str]:
         if not cls.trading_pair_symbol_map_ready(domain=domain):
-            api_factory = WebAssistantsFactory()
+            api_factory = WebAssistantsFactory(throttler)
             async with cls._mapping_initialization_lock:
                 # Check condition again (could have been initialized while waiting for the lock to be released)
                 if not cls.trading_pair_symbol_map_ready(domain=domain):
@@ -352,7 +352,10 @@ class BitmexPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "op": "subscribe",
                 "args": params,
             }
-            subscribe_request: WSRequest = WSRequest(payload)
+            subscribe_request: WSJSONRequest = WSJSONRequest(
+                payload=payload,
+                is_auth_required=False
+            )
             await ws.send(subscribe_request)
 
         return ws

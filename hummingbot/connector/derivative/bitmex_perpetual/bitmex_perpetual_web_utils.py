@@ -32,7 +32,9 @@ def wss_url(endpoint: str, domain: str = "bitmex_perpetual"):
 def build_api_factory(
         auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
 
+    throttler = create_throttler()
     api_factory = WebAssistantsFactory(
+        throttler=throttler,
         auth=auth,
         rest_pre_processors=[
             BitmexPerpetualRESTPreProcessor(),
