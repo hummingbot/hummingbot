@@ -5,7 +5,6 @@ import re
 import time
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 from unittest.mock import AsyncMock, patch
 
@@ -21,6 +20,7 @@ from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_api_order
 )
 from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_derivative import BitmexPerpetualDerivative
 from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_status import BitmexPerpetualOrderStatus
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder

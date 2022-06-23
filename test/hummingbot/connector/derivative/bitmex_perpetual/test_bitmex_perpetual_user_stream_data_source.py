@@ -1,6 +1,5 @@
 import asyncio
 import unittest
-from test.hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Dict, Optional
 from unittest.mock import AsyncMock, patch
 
@@ -12,6 +11,7 @@ from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_auth impo
 from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_user_stream_data_source import (
     BitmexPerpetualUserStreamDataSource,
 )
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
