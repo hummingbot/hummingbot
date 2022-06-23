@@ -1141,6 +1141,7 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         if not (len(self._token_multiplier) > 0):
             await self._initialize_token_decimals()
         asset_name = data['currency'].upper()
+        asset_name = "ETH" if asset_name == "GWEI" else asset_name
         total_balance = Decimal(str(data['amount']))
         pending_credit = Decimal(str(data['pendingCredit']))
         pending_debit = Decimal(str(data['pendingDebit']))
