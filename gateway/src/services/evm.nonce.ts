@@ -236,20 +236,23 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
 
       await Promise.all(
         Object.keys(this.#addressToNonce).map(async (address) => {
-          await this.mergeNonceFromEVMNode(address);
+          await this.mergeNonceFromEVMNode(address, true);
         })
       );
       this.#initialized = true;
     }
   }
 
-  async mergeNonceFromEVMNode(ethAddress: string): Promise<void> {
+  async mergeNonceFromEVMNode(
+    ethAddress: string,
+    intializationPhase = false
+  ): Promise<void> {
     /*
     Retrieves and saves the nonce from the last successful transaction from the EVM node.
     If time period of the last stored nonce exceeds the localNonceTTL, we update the nonce using the getTransactionCount
     call.
     */
-    if (this.#initialized && this._provider != null) {
+    if (intializationPhase || (this.#initialized && this._provider != null)) {
       const mergeExpiryTimestamp: number = this.#addressToNonce[ethAddress]
         ? this.#addressToNonce[ethAddress].expiry
         : -1;
