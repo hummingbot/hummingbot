@@ -149,7 +149,7 @@ class GatewayEVMAMM(ConnectorBase):
         return self._wallet_address
 
     @staticmethod
-    async def fetch_trading_pairs(chain: str, network: str) -> List[str]:
+    async def all_trading_pairs(chain: str, network: str) -> List[str]:
         """
         Calls the tokens endpoint on Gateway.
         """

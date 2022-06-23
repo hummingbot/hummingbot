@@ -1,13 +1,17 @@
 import asyncio
 import json
 from unittest import TestCase
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_user_stream_data_source import BybitPerpetualUserStreamDataSource
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import BybitPerpetualWebSocketAdaptor
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_user_stream_data_source import (
+    BybitPerpetualUserStreamDataSource,
+)
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import (
+    BybitPerpetualWebSocketAdaptor,
+)
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BybitPerpetualUserStreamDataSourceTests(TestCase):

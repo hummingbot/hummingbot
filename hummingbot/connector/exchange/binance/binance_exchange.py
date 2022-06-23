@@ -1,6 +1,8 @@
 import asyncio
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.binance import (
@@ -13,7 +15,7 @@ from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source i
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import TradeFillOrderDetails
+from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -21,6 +23,7 @@ from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, Tok
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
@@ -88,8 +91,24 @@ class BinanceExchange(ExchangePyBase):
         return CONSTANTS.EXCHANGE_INFO_PATH_URL
 
     @property
+    def trading_pairs_request_path(self):
+        return CONSTANTS.EXCHANGE_INFO_PATH_URL
+
+    @property
     def check_network_request_path(self):
         return CONSTANTS.PING_PATH_URL
+
+    @property
+    def trading_pairs(self):
+        return self._trading_pairs
+
+    @property
+    def is_cancel_request_in_exchange_synchronous(self) -> bool:
+        return True
+
+    @property
+    def is_trading_required(self) -> bool:
+        return self._trading_required
 
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
@@ -98,26 +117,23 @@ class BinanceExchange(ExchangePyBase):
         return web_utils.build_api_factory(
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
-            domain=self.domain,
+            domain=self._domain,
             auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return BinanceAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
+            connector=self,
             domain=self.domain,
-            api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-        )
+            api_factory=self._web_assistants_factory)
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return BinanceAPIUserStreamDataSource(
             auth=self._auth,
             trading_pairs=self._trading_pairs,
-            domain=self.domain,
+            connector=self,
             api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
+            domain=self.domain,
         )
 
     def _get_fee(self,
@@ -137,18 +153,13 @@ class BinanceExchange(ExchangePyBase):
                            amount: Decimal,
                            trade_type: TradeType,
                            order_type: OrderType,
-                           price: Decimal) -> (str, float):
+                           price: Decimal) -> Tuple[str, float]:
         order_result = None
         amount_str = f"{amount:f}"
         price_str = f"{price:f}"
         type_str = BinanceExchange.binance_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
-        symbol = await self._orderbook_ds.exchange_symbol_associated_to_pair(
-            trading_pair=trading_pair,
-            domain=self._domain,
-            api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer)
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         api_params = {"symbol": symbol,
                       "side": side_str,
                       "quantity": amount_str,
@@ -166,13 +177,8 @@ class BinanceExchange(ExchangePyBase):
         transact_time = order_result["transactTime"] * 1e-3
         return (o_id, transact_time)
 
-    async def _place_cancel(self, order_id, tracked_order):
-        symbol = await self._orderbook_ds.exchange_symbol_associated_to_pair(
-            trading_pair=tracked_order.trading_pair,
-            domain=self._domain,
-            api_factory=self._web_assistants_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer)
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         api_params = {
             "symbol": symbol,
             "origClientOrderId": order_id,
@@ -215,12 +221,7 @@ class BinanceExchange(ExchangePyBase):
         retval = []
         for rule in filter(binance_utils.is_exchange_information_valid, trading_pair_rules):
             try:
-                trading_pair = await self._orderbook_ds.trading_pair_associated_to_exchange_symbol(
-                    symbol=rule.get("symbol"),
-                    domain=self._domain,
-                    api_factory=self._web_assistants_factory,
-                    throttler=self._throttler,
-                    time_synchronizer=self._time_synchronizer)
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
                 filters = rule.get("filters")
                 price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
                 lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]
@@ -316,7 +317,7 @@ class BinanceExchange(ExchangePyBase):
                 raise
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)
 
     async def _update_order_fills_from_trades(self):
         """
@@ -341,15 +342,10 @@ class BinanceExchange(ExchangePyBase):
                 order_by_exchange_id_map[order.exchange_order_id] = order
 
             tasks = []
-            trading_pairs = self._order_book_tracker._trading_pairs
+            trading_pairs = self.trading_pairs
             for trading_pair in trading_pairs:
                 params = {
-                    "symbol": await self._orderbook_ds.exchange_symbol_associated_to_pair(
-                        trading_pair=trading_pair,
-                        domain=self._domain,
-                        api_factory=self._web_assistants_factory,
-                        throttler=self._throttler,
-                        time_synchronizer=self._time_synchronizer)
+                    "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                 }
                 if self._last_poll_timestamp > 0:
                     params["startTime"] = query_time
@@ -433,12 +429,7 @@ class BinanceExchange(ExchangePyBase):
             tasks = [self._api_get(
                 path_url=CONSTANTS.ORDER_PATH_URL,
                 params={
-                    "symbol": await self._orderbook_ds.exchange_symbol_associated_to_pair(
-                        trading_pair=o.trading_pair,
-                        domain=self._domain,
-                        api_factory=self._web_assistants_factory,
-                        throttler=self._throttler,
-                        time_synchronizer=self._time_synchronizer),
+                    "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=o.trading_pair),
                     "origClientOrderId": o.client_order_id},
                 is_auth_required=True) for o in tracked_orders]
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
@@ -493,3 +484,23 @@ class BinanceExchange(ExchangePyBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        mapping = bidict()
+        for symbol_data in filter(binance_utils.is_exchange_information_valid, exchange_info["symbols"]):
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseAsset"],
+                                                                        quote=symbol_data["quoteAsset"])
+        self._set_trading_pair_symbol_map(mapping)
+
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
+        params = {
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        }
+
+        resp_json = await self._api_request(
+            method=RESTMethod.GET,
+            path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            params=params
+        )
+
+        return float(resp_json["lastPrice"])

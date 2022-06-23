@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
 import io
-from logging import Logger as PythonLogger
 import os
-import time
 import sys
+import time
 import traceback
-from typing import Optional
+from logging import Logger as PythonLogger
+from typing import Optional, Type
+
 import pandas as pd
 
 from .application_warning import ApplicationWarning
@@ -32,6 +33,10 @@ class HummingbotLogger(PythonLogger):
         super().__init__(name)
 
     @staticmethod
+    def logger_name_for_class(model_class: Type):
+        return f"{model_class.__module__}.{model_class.__qualname__}"
+
+    @staticmethod
     def is_testing_mode() -> bool:
         return any(tools in arg
                    for tools in TESTING_TOOLS
@@ -47,6 +52,7 @@ class HummingbotLogger(PythonLogger):
 
     def network(self, log_msg: str, app_warning_msg: Optional[str] = None, *args, **kwargs):
         from hummingbot.client.hummingbot_application import HummingbotApplication
+
         from . import NETWORK
 
         self.log(NETWORK, log_msg, *args, **kwargs)

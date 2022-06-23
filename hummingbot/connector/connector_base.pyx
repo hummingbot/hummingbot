@@ -1,3 +1,4 @@
+import asyncio
 import time
 from decimal import Decimal
 from typing import Dict, List, Set, Tuple
@@ -229,7 +230,7 @@ cdef class ConnectorBase(NetworkIterator):
         Cancels all in-flight orders and waits for cancellation results.
         Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
         :param timeout_seconds: The timeout at which the operation will be canceled.
-        :returns List of CancellationResult which indicates whether each order is successfully cancelled.
+        :returns List of CancellationResult which indicates whether each order is successfully canceled.
         """
         raise NotImplementedError
 
@@ -457,6 +458,14 @@ cdef class ConnectorBase(NetworkIterator):
             self._trade_fee_schema = TradeFeeSchemaLoader.configured_schema_for_exchange(exchange_name=self.name)
         return self._trade_fee_schema
 
+    async def all_trading_pairs(self) -> List[str]:
+        """
+        List of all trading pairs supported by the connector
+
+        :return: List of trading pair symbols in the Hummingbot format
+        """
+        raise NotImplementedError
+
     async def _update_balances(self):
         """
         Update local balances requesting the latest information from the exchange.
@@ -469,3 +478,9 @@ cdef class ConnectorBase(NetworkIterator):
         :return: The machine time (time.time())
         """
         return time.time()
+
+    async def _sleep(self, delay: float):
+        """
+        Method created to enable tests to prevent processes from sleeping
+        """
+        await asyncio.sleep(delay)
