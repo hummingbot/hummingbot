@@ -37,7 +37,6 @@ def build_api_factory(
         auth=auth,
         rest_pre_processors=[
             BitmexRESTPreProcessor(),
-        
         ])
     return api_factory
 
