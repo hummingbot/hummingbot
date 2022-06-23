@@ -79,6 +79,11 @@ def update_oracle_settings(value: str):
         settings.rate_oracle_pairs = []
 
 
+def is_taker_gateway():
+    taker_market = cross_exchange_market_making_config_map.get("taker_market").value
+    return taker_market in settings.AllConnectorSettings.get_gateway_evm_amm_connector_names()
+
+
 cross_exchange_market_making_config_map = {
     "strategy": ConfigVar(key="strategy",
                           prompt="",
@@ -228,6 +233,16 @@ cross_exchange_market_making_config_map = {
         validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
         type_str="decimal"
     ),
+    "gas_to_maker_base_conversion_rate": ConfigVar(
+        key="gas_to_maker_base_conversion_rate",
+        prompt="Enter conversion rate for gas token value of taker gateway exchange to maker base asset value, e.g. "
+               "if maker base asset is USD and the gas token is DAI, 1 DAI is valued at 1.25 USD, "
+               "the conversion rate is 1.25 >>> ",
+        default=Decimal("1"),
+        required_if=lambda: is_taker_gateway(),
+        validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
+        type_str="decimal"
+    ),
     "slippage_buffer": ConfigVar(
         key="slippage_buffer",
         prompt="How much buffer do you want to add to the price to account for slippage for taker orders "
@@ -242,6 +257,7 @@ cross_exchange_market_making_config_map = {
         prompt="Do you want to enable the debug price shim for integration tests? If you don't know what this does "
                "you should keep it disabled. >>> ",
         default=False,
+        required_if=lambda: is_taker_gateway(),
         validator=validate_bool,
         type_str="bool"
     ),
@@ -251,6 +267,7 @@ cross_exchange_market_making_config_map = {
                "(this only affects decentralized exchanges) (Enter time in seconds) >>> ",
         prompt_on_new=True,
         default=600,
+        required_if=lambda: is_taker_gateway(),
         validator=lambda v: validate_int(v, min_value=1, inclusive=True),
         type_str="int"
     )

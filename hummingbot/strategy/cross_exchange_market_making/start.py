@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import List, Tuple, cast
 
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.connector.gateway_price_shim import GatewayPriceShim
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import (
@@ -35,6 +36,7 @@ def start(self):
     use_oracle_conversion_rate = xemm_map.get("use_oracle_conversion_rate").value
     taker_to_maker_base_conversion_rate = xemm_map.get("taker_to_maker_base_conversion_rate").value
     taker_to_maker_quote_conversion_rate = xemm_map.get("taker_to_maker_quote_conversion_rate").value
+    gas_to_maker_base_conversion_rate = xemm_map.get("gas_to_maker_base_conversion_rate").value
     slippage_buffer = xemm_map.get("slippage_buffer").value / Decimal("100")
     debug_price_shim = xemm_map.get("debug_price_shim").value
     gateway_transaction_cancel_interval = xemm_map.get("gateway_transaction_cancel_interval").value
@@ -66,16 +68,17 @@ def start(self):
     self.market_trading_pair_tuples = [maker_market_trading_pair_tuple, taker_market_trading_pair_tuple]
     self.market_pair = MakerTakerMarketPair(maker=maker_market_trading_pair_tuple, taker=taker_market_trading_pair_tuple)
 
-    if debug_price_shim:
-        amm_connector: GatewayEVMAMM = cast(GatewayEVMAMM, taker_market)
-        GatewayPriceShim.get_instance().patch_prices(
-            maker_market,
-            maker_trading_pair,
-            amm_connector.connector_name,
-            amm_connector.chain,
-            amm_connector.network,
-            taker_trading_pair
-        )
+    if taker_market in AllConnectorSettings.get_gateway_evm_amm_connector_names():
+        if debug_price_shim:
+            amm_connector: GatewayEVMAMM = cast(GatewayEVMAMM, taker_market)
+            GatewayPriceShim.get_instance().patch_prices(
+                maker_market,
+                maker_trading_pair,
+                amm_connector.connector_name,
+                amm_connector.chain,
+                amm_connector.network,
+                taker_trading_pair
+            )
 
     strategy_logging_options = (
         LogOption.CREATE_ORDER,
@@ -104,6 +107,7 @@ def start(self):
         use_oracle_conversion_rate=use_oracle_conversion_rate,
         taker_to_maker_base_conversion_rate=taker_to_maker_base_conversion_rate,
         taker_to_maker_quote_conversion_rate=taker_to_maker_quote_conversion_rate,
+        gas_to_maker_base_conversion_rate=gas_to_maker_base_conversion_rate,
         slippage_buffer=slippage_buffer,
         gateway_transaction_cancel_interval=gateway_transaction_cancel_interval,
         hb_app_notification=True,

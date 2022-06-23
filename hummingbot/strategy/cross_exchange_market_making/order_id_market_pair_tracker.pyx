@@ -30,9 +30,6 @@ cdef class OrderIDMarketPairTracker(TimeIterator):
         TimeIterator.c_tick(self, timestamp)
         self.c_check_and_expire_tracking_items()
 
-    def tick(self, timestamp: float):
-        self.c_tick(timestamp)
-
     cdef object c_get_market_pair_from_order_id(self, str order_id):
         cdef:
             OrderIDMarketPairTrackingItem item = self._order_id_to_tracking_item.get(order_id)
