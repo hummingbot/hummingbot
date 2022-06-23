@@ -10,7 +10,6 @@ module.exports = {
     'src/services/telemetry-transport.ts',
     'src/chains/ethereum/ethereum.ts',
     'src/chains/ethereum/uniswap/uniswap.ts',
-    'src/chains/ethereum/uniswap/uniswap.lp.helper.ts',
     'src/chains/avalanche/avalanche.ts',
     'src/chains/avalanche/pangolin/pangolin.ts',
     'conf/migration/migrations.js',
