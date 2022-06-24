@@ -920,14 +920,23 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # Taker buy
             taker_slippage_adjustment_factor = Decimal("1") + self._slippage_buffer
 
+            if self.is_gateway_market(market_pair.taker):
+                taker_price = await market_pair.taker.market.get_order_price(
+                    taker_trading_pair,
+                    True,
+                    sell_fill_quantity * base_rate
+                )
+            else:
+                taker_price = taker_market.get_price_for_volume(
+                    taker_trading_pair,
+                    True,
+                    sell_fill_quantity * base_rate
+                ).result_price
+
             hedged_order_quantity = min(
                 sell_fill_quantity * base_rate,
                 taker_market.get_available_balance(market_pair.taker.quote_asset) /
-                taker_market.get_price_for_volume(
-                    taker_trading_pair,
-                    True,
-                    sell_fill_quantity * base_rate).result_price *
-                self._order_size_taker_balance_factor
+                taker_price * self._order_size_taker_balance_factor
             )
             quantized_hedge_amount = taker_market.quantize_order_amount(
                 taker_trading_pair,
