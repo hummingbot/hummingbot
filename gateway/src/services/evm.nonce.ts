@@ -365,7 +365,7 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
     let newNonce = null;
     const now: number = new Date().getTime();
     if (this.#initialized) {
-      if (this.#addressToPendingNonces[ethAddress]) {
+      if (this.#addressToPendingNonces[ethAddress].length > 0) {
         await this.mergeNonceFromEVMNode(ethAddress);
 
         const pendingNonces: NonceInfo[] =
