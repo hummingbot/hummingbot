@@ -365,7 +365,7 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
     let newNonce = null;
     const now: number = new Date().getTime();
     if (this.#initialized) {
-      if (this.#addressToPendingNonces[ethAddress].length > 0) {
+      if (this.#addressToPendingNonces[ethAddress]) {
         await this.mergeNonceFromEVMNode(ethAddress);
 
         const pendingNonces: NonceInfo[] =
@@ -378,7 +378,10 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
             break;
           }
         }
-        if (newNonce === null) {
+        if (
+          newNonce === null &&
+          this.#addressToPendingNonces[ethAddress].length > 0
+        ) {
           // All pending nonce have yet to expire.
           // Use last entry in pendingNonce to determine next nonce.
           newNonce = new NonceInfo(
