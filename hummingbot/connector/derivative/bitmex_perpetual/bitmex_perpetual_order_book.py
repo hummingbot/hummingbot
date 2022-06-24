@@ -24,7 +24,7 @@ class BitmexPerpetualOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": msg["update_id"],
+            "update_id": timestamp,
             "bids": msg["bids"],
             "asks": msg["asks"]
         }, timestamp=timestamp)
