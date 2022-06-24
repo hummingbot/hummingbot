@@ -1,16 +1,12 @@
-from dataclasses import dataclass
-from decimal import Decimal
 import logging
 import time
-from typing import (
-    Optional,
-    Dict,
-    NamedTuple,
-    cast,
-)
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import Dict, NamedTuple, Optional, cast
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.logger.logger import HummingbotLogger
+
 from .exchange_base import ExchangeBase
 
 

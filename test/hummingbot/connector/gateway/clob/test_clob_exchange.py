@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.connector.exchange.clob import clob_constants as CONSTANTS, clob_web_utils as web_utils
-from hummingbot.connector.exchange.clob.clob_api_order_book_data_source import CLOBAPIOrderBookDataSource
-from hummingbot.connector.exchange.clob.clob_exchange import CLOBExchange
+from hummingbot.connector.gateway.clob import clob_constants as CONSTANTS, clob_web_utils as web_utils
+from hummingbot.connector.gateway.clob.clob_api_order_book_data_source import CLOBAPIOrderBookDataSource
+from hummingbot.connector.gateway.clob.clob_exchange import CLOBExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult

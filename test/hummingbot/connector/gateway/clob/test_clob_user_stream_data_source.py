@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.clob import clob_constants as CONSTANTS, clob_web_utils as web_utils
-from hummingbot.connector.exchange.clob.clob_api_user_stream_data_source import CLOBAPIUserStreamDataSource
-from hummingbot.connector.exchange.clob.clob_auth import CLOBAuth
+from hummingbot.connector.gateway.clob import clob_constants as CONSTANTS, clob_web_utils as web_utils
+from hummingbot.connector.gateway.clob.clob_api_user_stream_data_source import CLOBAPIUserStreamDataSource
+from hummingbot.connector.gateway.clob.clob_auth import CLOBAuth
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 

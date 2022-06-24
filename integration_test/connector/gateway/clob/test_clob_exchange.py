@@ -10,7 +10,7 @@ import aiohttp
 
 import hummingbot.core.web_assistant.connections.rest_connection
 import hummingbot.logger.logger
-from hummingbot.connector.exchange.clob.clob_exchange import CLOBExchange
+from hummingbot.connector.gateway.clob.clob_exchange import CLOBExchange
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger.logger import HummingbotLogger
 

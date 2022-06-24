@@ -10,7 +10,8 @@ from typing import Any, Dict, List, Optional, Set, Type, Union, cast
 from async_timeout import timeout
 
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.connector.gateway.amm.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.connector.gateway.amm.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -37,8 +38,6 @@ from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
-
-from .gateway_price_shim import GatewayPriceShim
 
 s_logger = None
 s_decimal_0 = Decimal("0")

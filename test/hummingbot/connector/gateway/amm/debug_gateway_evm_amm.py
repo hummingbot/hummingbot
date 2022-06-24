@@ -7,31 +7,30 @@ This is included for record only - if you need to run this to collect another ba
 change the wallet address and transaction hashes.
 """
 
-from bin import path_util       # noqa: F401
-
 import asyncio
+import time
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from os.path import join, realpath
-import time
-from typing import List, Generator, Optional
+from test.mock.http_recorder import HttpRecorder
+from typing import Generator, List, Optional
 
+from bin import path_util  # noqa: F401
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
-from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.connector.gateway.amm.gateway_EVM_AMM import GatewayEVMAMM
+from hummingbot.connector.gateway.amm.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
-    OrderType,
-    TradeType,
-    MarketEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
+    MarketEvent,
     OrderFilledEvent,
+    OrderType,
+    SellOrderCreatedEvent,
+    TradeType,
 )
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from test.mock.http_recorder import HttpRecorder
 
 s_decimal_0 = Decimal(0)
 gateway_http_client: GatewayHttpClient = GatewayHttpClient.get_instance()

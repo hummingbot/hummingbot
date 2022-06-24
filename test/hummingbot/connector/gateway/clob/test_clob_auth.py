@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 from typing_extensions import Awaitable
 
-from hummingbot.connector.exchange.clob.clob_auth import CLOBAuth
+from hummingbot.connector.gateway.clob.clob_auth import CLOBAuth
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 
 
