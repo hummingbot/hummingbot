@@ -2,8 +2,8 @@ import asyncio
 import time
 from typing import Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.clob import clob_constants as constant
-from hummingbot.connector.exchange.clob.clob_order_book import CLOBOrderBook
+from hummingbot.connector.gateway.clob import clob_constants as constant
+from hummingbot.connector.gateway.clob.clob_order_book import CLOBOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient

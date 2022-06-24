@@ -1,7 +1,7 @@
 import unittest
 
-import hummingbot.connector.exchange.clob.clob_constants as CONSTANTS
-from hummingbot.connector.exchange.clob import clob_web_utils as web_utils
+import hummingbot.connector.gateway.clob.clob_constants as CONSTANTS
+from hummingbot.connector.gateway.clob import clob_web_utils as web_utils
 
 
 class CLOBUtilTestCases(unittest.TestCase):

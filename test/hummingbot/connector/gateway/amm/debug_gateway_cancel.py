@@ -1,29 +1,28 @@
 #!/usr/bin/env python
 
-from bin import path_util        # noqa: F401
-
 import asyncio
+import time
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from os.path import realpath, join
-import time
-from typing import Optional, Generator
+from os.path import join, realpath
+from test.mock.http_recorder import HttpRecorder
+from typing import Generator, Optional
 
+from bin import path_util  # noqa: F401
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
+from hummingbot.connector.gateway.amm.gateway_EVM_AMM import GatewayEVMAMM
+from hummingbot.connector.gateway.amm.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
-    TradeType,
     MarketEvent,
-    TokenApprovalEvent,
     OrderCancelledEvent,
     TokenApprovalCancelledEvent,
+    TokenApprovalEvent,
+    TradeType,
 )
-from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from test.mock.http_recorder import HttpRecorder
 
 WALLET_ADDRESS = "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92"
 NETWORK = "ropsten"

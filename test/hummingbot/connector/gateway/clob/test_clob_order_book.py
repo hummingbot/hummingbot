@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from hummingbot.connector.exchange.clob.clob_order_book import CLOBOrderBook
+from hummingbot.connector.gateway.clob.clob_order_book import CLOBOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 

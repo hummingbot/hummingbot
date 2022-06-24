@@ -2,11 +2,11 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.clob import clob_constants as constant, clob_web_utils as web_utils
-from hummingbot.connector.exchange.clob.clob_api_order_book_data_source import CLOBAPIOrderBookDataSource
-from hummingbot.connector.exchange.clob.clob_api_user_stream_data_source import CLOBAPIUserStreamDataSource
-from hummingbot.connector.exchange.clob.clob_types import OrderSide, OrderStatus, OrderType
 from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.gateway.clob import clob_constants as constant, clob_web_utils as web_utils
+from hummingbot.connector.gateway.clob.clob_api_order_book_data_source import CLOBAPIOrderBookDataSource
+from hummingbot.connector.gateway.clob.clob_api_user_stream_data_source import CLOBAPIUserStreamDataSource
+from hummingbot.connector.gateway.clob.clob_types import OrderSide, OrderStatus, OrderType
 from hummingbot.core.data_type.common import OrderType as HummingbotOrderType, TradeType as HummingbotOrderSide
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, DeductedFromReturnsTradeFee

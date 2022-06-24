@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses.core import aioresponses
 from bidict import bidict
 
-import hummingbot.connector.exchange.clob.clob_constants as CONSTANTS
-import hummingbot.connector.exchange.clob.clob_web_utils as web_utils
-from hummingbot.connector.exchange.clob.clob_api_order_book_data_source import CLOBAPIOrderBookDataSource
+import hummingbot.connector.gateway.clob.clob_constants as CONSTANTS
+import hummingbot.connector.gateway.clob.clob_web_utils as web_utils
+from hummingbot.connector.gateway.clob.clob_api_order_book_data_source import CLOBAPIOrderBookDataSource
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
