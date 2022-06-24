@@ -236,7 +236,7 @@ class GatewayEVMAMM(ConnectorBase):
         for order in self.approval_orders:
             if token in order.client_order_id:
                 return order.is_pending_approval
-        return True
+        return False
 
     async def get_chain_info(self):
         """
@@ -294,31 +294,41 @@ class GatewayEVMAMM(ConnectorBase):
         """
         approval_id: str = self.create_approval_order_id(token_symbol)
 
+        self.logger().info(f"Innitiating approval for {token_symbol}.")
+
         self.start_tracking_order(order_id=approval_id,
                                   trading_pair=token_symbol,
                                   is_approval=True)
-        resp: Dict[str, Any] = await GatewayHttpClient.get_instance().approve_token(
-            self.chain,
-            self.network,
-            self.address,
-            token_symbol,
-            self.connector_name,
-            **request_args
-        )
-
-        transaction_hash: Optional[str] = resp.get("approval", {}).get("hash")
-        nonce: Optional[int] = resp.get("nonce")
-        if transaction_hash is not None and nonce is not None:
-            tracked_order = self._order_tracker.fetch_order(client_order_id=approval_id)
-            tracked_order.update_exchange_order_id(transaction_hash)
-            tracked_order.nonce = nonce
-            self.logger().info(
-                f"Maximum {token_symbol} approval for {self.connector_name} contract sent, hash: {transaction_hash}."
+        try:
+            resp: Dict[str, Any] = await GatewayHttpClient.get_instance().approve_token(
+                self.chain,
+                self.network,
+                self.address,
+                token_symbol,
+                self.connector_name,
+                **request_args
             )
-            return tracked_order
-        else:
+
+            transaction_hash: Optional[str] = resp.get("approval", {}).get("hash")
+            nonce: Optional[int] = resp.get("nonce")
+            if transaction_hash is not None and nonce is not None:
+                tracked_order = self._order_tracker.fetch_order(client_order_id=approval_id)
+                tracked_order.update_exchange_order_id(transaction_hash)
+                tracked_order.nonce = nonce
+                self.logger().info(
+                    f"Maximum {token_symbol} approval for {self.connector_name} contract sent, hash: {transaction_hash}."
+                )
+                return tracked_order
+            else:
+                self.stop_tracking_order(approval_id)
+                self.logger().info(f"Approval for {token_symbol} on {self.connector_name} failed.")
+                return None
+        except Exception:
             self.stop_tracking_order(approval_id)
-            self.logger().info(f"Approval for {token_symbol} on {self.connector_name} failed.")
+            self.logger().error(
+                f"Error submitting approval order for {token_symbol} on {self.connector_name}-{self.network}.",
+                exc_info=True
+            )
             return None
 
     async def update_allowances(self):
@@ -797,8 +807,12 @@ class GatewayEVMAMM(ConnectorBase):
         """
         Checks if all tokens have allowance (an amount approved)
         """
+        allowances_available = all(amount > s_decimal_0 for amount in self._allowances.values())
+        if not allowances_available and self._auto_approve_task is not None and self._auto_approve_task.done():
+            # we need to attempt approval
+            self._auto_approve_task = safe_ensure_future(self.auto_approve())
         return ((len(self._allowances.values()) == len(self._tokens)) and
-                (all(amount > s_decimal_0 for amount in self._allowances.values())))
+                (allowances_available))
 
     @property
     def status_dict(self) -> Dict[str, bool]:
