@@ -159,7 +159,7 @@ class GatewayEVMAMM(ConnectorBase):
     def approval_orders(self) -> List[GatewayInFlightOrder]:
         return [
             approval_order
-            for approval_order in self._order_tracker.all_orders.values()
+            for approval_order in self._order_tracker.active_orders.values()
             if approval_order.is_approval_request
         ]
 
