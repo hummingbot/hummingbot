@@ -1,8 +1,8 @@
 import asyncio
 from typing import List
 
-from hummingbot.connector.gateway.clob import clob_constants as constant
-from hummingbot.connector.gateway.clob.clob_auth import CLOBAuth
+from hummingbot.connector.gateway.clob.backup import clob_constants as constant
+from hummingbot.connector.gateway.clob.backup.clob_auth import CLOBAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant

@@ -1,6 +1,6 @@
 from typing import Any, Callable, Dict, Optional
 
-import hummingbot.connector.gateway.clob.clob_constants as CONSTANTS
+import hummingbot.connector.gateway.clob.backup.clob_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler

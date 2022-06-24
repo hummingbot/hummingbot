@@ -1,5 +1,5 @@
 # TODO remove this file!!!
-from hummingbot.connector.gateway.clob.clob_exchange import CLOBExchange
+from hummingbot.connector.gateway.clob.backup.clob_exchange import CLOBExchange
 
 
 def test_01():

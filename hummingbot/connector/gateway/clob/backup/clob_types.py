@@ -60,13 +60,3 @@ class OrderSide(Enum):
             return HummingBotOrderSide.SELL
         else:
             raise ValueError(f'Unrecognized order side "{self}".')
-
-
-class Chain(Enum):
-    SOLANA = 'solana'
-
-
-class Connector(Enum):
-    def __int__(self, chain: Chain, connector: str):
-        self.chain = chain
-        self.connector = connector
