@@ -1,6 +1,6 @@
 import unittest
 
-from hummingbot.connector.gateway.clob import clob_utils as utils
+from hummingbot.connector.gateway.clob.backup import clob_utils as utils
 
 
 class CLOBUtilTestCases(unittest.TestCase):

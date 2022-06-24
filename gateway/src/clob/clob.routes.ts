@@ -36,6 +36,7 @@ import {
   ClobPostSettleFundsResponse,
 } from './clob.requests';
 
+// TODO add a new endpoints to retrieve the network tokens?!!!
 export namespace ClobRoutes {
   export const router = Router();
 

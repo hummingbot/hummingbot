@@ -4,77 +4,75 @@ import itertools
 import logging
 import time
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.gateway import gateway_http_client
 from hummingbot.core.network_iterator import NetworkStatus
+
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
-s_logger = None
-s_decimal_0 = Decimal("0")
-s_decimal_NaN = Decimal("nan")
-logging.basicConfig(level=METRICS_LOG_LEVEL)
+ZERO = Decimal("0")
+NaN = Decimal("nan")
 
 
 class GatewayBase(ConnectorBase):
     """
-    Defines basic functions common to connectors that interact with DEXes through Gateway.
+    Defines basic functions common to connectors that interact with DEXes through the Gateway.
     """
 
     API_CALL_TIMEOUT = 10.0
     POLL_INTERVAL = 1.0
     UPDATE_BALANCE_INTERVAL = 30.0
 
+    _logger: HummingbotLogger
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(cls.__name__)
-        return s_logger
+        if cls._logger is None:
+            logging.basicConfig(level=METRICS_LOG_LEVEL)
+            cls._logger = cast(HummingbotLogger, logging.getLogger(cls.__name__))
 
-    def __init__(self,
-                 connector_name: str,
-                 chain: str,
-                 network: str,
-                 wallet_address: str,
-                 trading_pairs: List[str],
-                 trading_required: bool = True
-                 ):
+        return cls._logger
+
+    def __init__(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        wallet_address: str,
+        trading_pairs: List[str],
+        is_trading_required: bool = True
+    ):
         """
         :param trading_pairs: a list of trading pairs
-        :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
+        :param is_trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
         super().__init__()
-        self._connector_name = connector_name
+
         self._chain = chain
         self._network = network
-        self._wallet_address = wallet_address
+        self._connector = connector
+        self._address = wallet_address
         self._trading_pairs = trading_pairs
+        self._is_trading_required = is_trading_required
+
         self._tokens = set()
-        [self._tokens.update(set(trading_pair.split("-"))) for trading_pair in trading_pairs]
-        self._trading_required = trading_required
+        [self._tokens.update(set(trading_pair.split("-"))) for trading_pair in self._trading_pairs]
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._last_poll_timestamp = 0.0
         self._last_balance_poll_timestamp = time.time()
-        self._in_flight_orders = {}
+        self._in_flight_orders: Dict[str, InFlightOrderBase] = {}
         self._chain_info = {}
         self._status_polling_task = None
         self._init_task = None
         self._get_chain_info_task = None
         self._poll_notifier = None
-
-    @property
-    def connector_name(self):
-        """
-        This returns the name of connector/protocol to be connected to on Gateway.
-        """
-        return self._connector_name
 
     @property
     def chain(self):
@@ -85,32 +83,20 @@ class GatewayBase(ConnectorBase):
         return self._network
 
     @property
-    def address(self):
-        return self._wallet_address
+    def connector(self):
+        return self._connector
 
-    async def init_connector(self):
-        """
-        Function to prepare the wallet, which was connected. For Ethereum this might include approving allowances,
-        for Solana the initialization of token accounts. If finished, should set self.ready = True.
-        """
-        raise NotImplementedError
+    @property
+    def address(self):
+        return self._address
+
+    @property
+    def in_flight_orders(self) -> Dict[str, InFlightOrderBase]:
+        return self._in_flight_orders
 
     @property
     def ready(self):
         return all(self.status_dict.values())
-
-    async def get_chain_info(self):
-        """
-        Calls the base endpoint of the connector on Gateway to know basic info about chain being used.
-        """
-        try:
-            self._chain_info = await gateway_http_client.get_network_status(chain=self.chain, network=self.network)
-        except Exception as e:
-            self.logger().network(
-                "Error fetching chain info",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
 
     @staticmethod
     async def fetch_trading_pairs(chain: str, network: str) -> List[str]:
@@ -118,7 +104,7 @@ class GatewayBase(ConnectorBase):
         Calls the tokens endpoint on Gateway.
         """
         try:
-            tokens = await gateway_http_client.get_tokens(chain, network)
+            tokens = await GatewayHttpClient.get_tokens(chain, network)
             token_symbols = [t["symbol"] for t in tokens["tokens"]]
             trading_pairs = []
             for base, quote in itertools.permutations(token_symbols, 2):
@@ -126,6 +112,26 @@ class GatewayBase(ConnectorBase):
             return trading_pairs
         except Exception:
             return []
+
+    async def initialize(self):
+        """
+        Function to prepare the wallet, which was connected. For Ethereum this might include approving allowances,
+        for Solana the initialization of token accounts. If finished, should set self.ready = True.
+        """
+        raise NotImplementedError
+
+    async def get_chain_info(self):
+        """
+        Calls the base endpoint of the connector on Gateway to know basic info about chain being used.
+        """
+        try:
+            self._chain_info = await GatewayHttpClient.get_network_status(chain=self.chain, network=self.network)
+        except Exception as e:
+            self.logger().network(
+                "Error fetching chain info",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )
 
     async def get_gateway_status(self):
         """
@@ -148,9 +154,9 @@ class GatewayBase(ConnectorBase):
             del self._in_flight_orders[order_id]
 
     async def start_network(self):
-        if self._trading_required:
+        if self._is_trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._init_task = safe_ensure_future(self.init_connector())
+            self._init_task = safe_ensure_future(self.initialize())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
     async def stop_network(self):
@@ -166,7 +172,7 @@ class GatewayBase(ConnectorBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            if await gateway_http_client.ping_gateway():
+            if await GatewayHttpClient.ping_gateway():
                 return NetworkStatus.CONNECTED
         except asyncio.CancelledError:
             raise
@@ -213,7 +219,7 @@ class GatewayBase(ConnectorBase):
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
-            resp_json: Dict[str, Any] = await gateway_http_client.get_balances(
+            resp_json: Dict[str, Any] = await GatewayHttpClient.get_balances(
                 self.chain, self.network, self.address, list(self._tokens) + [self._native_currency]
             )
             for token, bal in resp_json["balances"].items():
@@ -229,11 +235,13 @@ class GatewayBase(ConnectorBase):
             self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
             self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
-    async def _api_request(self,
-                           method: str,
-                           path_url: str,
-                           params: Dict[str, Any] = {},
-                           throttler: Optional[AsyncThrottler] = None) -> Dict[str, Any]:
+    async def _api_request(
+        self,
+        method: str,
+        path_url: str,
+        params: Dict[str, Any] = {},
+        throttler: Optional[AsyncThrottler] = None
+    ) -> Dict[str, Any]:
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
@@ -243,7 +251,3 @@ class GatewayBase(ConnectorBase):
         """
         params['address'] = self.wallet_address
         return await self.api_request(method, path_url, params, throttler)
-
-    @property
-    def in_flight_orders(self) -> Dict[str, InFlightOrderBase]:
-        return self._in_flight_orders
