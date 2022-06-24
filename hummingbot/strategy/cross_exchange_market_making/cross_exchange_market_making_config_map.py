@@ -84,6 +84,10 @@ def is_taker_gateway():
     return taker_market in settings.AllConnectorSettings.get_gateway_evm_amm_connector_names()
 
 
+def is_rate_oracle():
+    return cross_exchange_market_making_config_map.get("use_oracle_conversion_rate").value
+
+
 cross_exchange_market_making_config_map = {
     "strategy": ConfigVar(key="strategy",
                           prompt="",
@@ -221,6 +225,8 @@ cross_exchange_market_making_config_map = {
                "if maker base asset is USD and the taker is DAI, 1 DAI is valued at 1.25 USD, "
                "the conversion rate is 1.25 >>> ",
         default=Decimal("1"),
+        prompt_on_new=True,
+        required_if=lambda: not is_rate_oracle(),
         validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
         type_str="decimal"
     ),
@@ -230,6 +236,8 @@ cross_exchange_market_making_config_map = {
                "if maker quote asset is USD and the taker is DAI, 1 DAI is valued at 1.25 USD, "
                "the conversion rate is 1.25 >>> ",
         default=Decimal("1"),
+        prompt_on_new=True,
+        required_if=lambda: not is_rate_oracle(),
         validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
         type_str="decimal"
     ),
@@ -239,7 +247,8 @@ cross_exchange_market_making_config_map = {
                "if maker base asset is USD and the gas token is DAI, 1 DAI is valued at 1.25 USD, "
                "the conversion rate is 1.25 >>> ",
         default=Decimal("1"),
-        required_if=lambda: is_taker_gateway(),
+        prompt_on_new=True,
+        required_if=lambda: is_taker_gateway() and not is_rate_oracle(),
         validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
         type_str="decimal"
     ),
