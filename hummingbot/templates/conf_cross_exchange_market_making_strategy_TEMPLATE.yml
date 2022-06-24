@@ -2,7 +2,7 @@
 ###   Cross exchange market making strategy config   ###
 ########################################################
 
-template_version: 8
+template_version: 7
 strategy: null
 
 # The following configuations are only required for the
