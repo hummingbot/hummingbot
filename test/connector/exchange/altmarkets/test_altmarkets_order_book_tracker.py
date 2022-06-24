@@ -1,21 +1,20 @@
-#!/usr/bin/env python
-import sys
-import math
-import time
 import asyncio
 import logging
+import math
+import time
 import unittest
-from os.path import join, realpath
-from typing import Dict, Optional, List
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
+from typing import Dict, List, Optional
+
+from hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source import (
+    AltmarketsAPIOrderBookDataSource,
+)
 from hummingbot.connector.exchange.altmarkets.altmarkets_order_book_tracker import AltmarketsOrderBookTracker
-from hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source import AltmarketsAPIOrderBookDataSource
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
-
-sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 

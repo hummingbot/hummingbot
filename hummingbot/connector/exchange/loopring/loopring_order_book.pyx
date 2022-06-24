@@ -8,14 +8,14 @@ from typing import (
 import ujson
 from aiokafka import ConsumerRecord
 
-from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.loopring.loopring_order_book_message import LoopringOrderBookMessage
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType,
 )
-from hummingbot.core.event.events import TradeType
+from hummingbot.logger import HummingbotLogger
 
 _dob_logger = None
 

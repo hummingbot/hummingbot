@@ -1,8 +1,6 @@
-#!/usr/bin/env python
-
 from hummingbot.strategy.dev_2_perform_trade import PerformTradeStrategy
 from hummingbot.strategy.dev_2_perform_trade.dev_2_perform_trade_config_map import dev_2_perform_trade_config_map
-from hummingbot.core.event.events import PriceType
+from hummingbot.core.data_type.common import PriceType
 
 
 def start(self):
@@ -36,5 +34,5 @@ def start(self):
             hb_app_notification=True,
         )
     except Exception as e:
-        self._notify(str(e))
+        self.notify(str(e))
         self.logger().error("Unknown error during initialization.", exc_info=True)

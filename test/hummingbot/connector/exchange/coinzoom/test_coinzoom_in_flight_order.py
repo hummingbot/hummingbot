@@ -2,7 +2,7 @@ from decimal import Decimal
 from unittest import TestCase
 
 from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import CoinzoomInFlightOrder
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class CoinzoomInFlightOrderTests(TestCase):

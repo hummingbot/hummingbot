@@ -3,16 +3,8 @@ import logging
 import os
 import time
 from decimal import Decimal
-from math import (
-    ceil,
-    floor,
-    isnan,
-)
-from typing import (
-    Dict,
-    List,
-    Tuple,
-)
+from math import ceil, floor, isnan
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -20,14 +12,18 @@ import pandas as pd
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.common import (
+    OrderType,
+    PriceType,
+    TradeType
+)
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import map_df_to_str
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
-from hummingbot.strategy.conditional_execution_state import RunAlwaysExecutionState
+from hummingbot.strategy.conditional_execution_state import ConditionalExecutionState, RunAlwaysExecutionState
 from hummingbot.strategy.data_types import (
     PriceSize,
     Proposal,
@@ -37,6 +33,7 @@ from hummingbot.strategy.hanging_orders_tracker import (
     HangingOrdersTracker,
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.strategy.order_tracker cimport OrderTracker
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.utils import order_age
@@ -95,6 +92,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     ):
         self._sb_order_tracker = OrderTracker()
         self._market_info = market_info
+        self._price_delegate = OrderBookAssetPriceDelegate(market_info.market, market_info.trading_pair)
         self._order_amount = order_amount
         self._order_optimization_enabled = order_optimization_enabled
         self._order_refresh_time = order_refresh_time
@@ -125,7 +123,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self.c_add_markets([market_info.market])
         self._ticks_to_be_ready = max(volatility_buffer_size, trading_intensity_buffer_size)
         self._avg_vol = InstantVolatilityIndicator(sampling_length=volatility_buffer_size)
-        self._trading_intensity = TradingIntensityIndicator(trading_intensity_buffer_size)
+        self._trading_intensity_buffer_size = trading_intensity_buffer_size
+        self._trading_intensity = None      # Wait for network to be initialized
         self._last_sampling_timestamp = 0
         self._alpha = None
         self._kappa = None
@@ -136,7 +135,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._start_time = start_time
         self._end_time = end_time
         self._min_spread = min_spread
-        self._latest_parameter_calculation_vol = s_decimal_zero
         self._reservation_price = s_decimal_zero
         self._optimal_spread = s_decimal_zero
         self._optimal_ask = s_decimal_zero
@@ -152,14 +150,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
-
-    @property
-    def latest_parameter_calculation_vol(self):
-        return self._latest_parameter_calculation_vol
-
-    @latest_parameter_calculation_vol.setter
-    def latest_parameter_calculation_vol(self, value):
-        self._latest_parameter_calculation_vol = value
 
     @property
     def min_spread(self):
@@ -383,13 +373,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return self.c_get_mid_price()
 
     cdef object c_get_mid_price(self):
-        return self._market_info.get_mid_price()
-
-    def get_order_book_snapshot(self) -> float:
-        return self.c_get_order_book_snapshot()
-
-    cdef object c_get_order_book_snapshot(self):
-        return self._market_info.order_book.snapshot
+        return self._price_delegate.get_price_by_type(PriceType.MidPrice)
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
@@ -428,7 +412,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def pure_mm_assets_df(self, to_show_current_pct: bool) -> pd.DataFrame:
         market, trading_pair, base_asset, quote_asset = self._market_info
-        price = self._market_info.get_mid_price()
+        price = self._price_delegate.get_price_by_type(PriceType.MidPrice)
         base_balance = float(market.get_balance(base_asset))
         quote_balance = float(market.get_balance(quote_asset))
         available_base_balance = float(market.get_available_balance(base_asset))
@@ -469,11 +453,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     level = no_sells - lvl_sell
                     lvl_sell += 1
             spread = 0 if price == 0 else abs(order.price - price) / price
-            age = "n/a"
-            # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-            if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time() - (order.creation_timestamp / 1e6)),
-                                   unit='s').strftime('%H:%M:%S')
+            age = pd.Timestamp(order_age(order, self._current_timestamp), unit='s').strftime('%H:%M:%S')
+
             amount_orig = self._order_amount
             if is_hanging_order:
                 amount_orig = float(order.quantity)
@@ -606,6 +587,12 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
                                           f"making may be dangerous when markets or networks are unstable.")
 
+            if self._trading_intensity is None:
+                self._trading_intensity = TradingIntensityIndicator(
+                    order_book=self.market_info.order_book,
+                    price_delegate=self._price_delegate,
+                    sampling_length=self._trading_intensity_buffer_size)
+
             self.c_collect_market_variables(timestamp)
             if self.c_is_algorithm_ready():
                 if self._create_timestamp <= self._current_timestamp:
@@ -627,7 +614,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     if self._ticks_to_be_ready % 5 == 0:
                         self.logger().info(f"Calculating volatility, estimating order book liquidity ... {self._ticks_to_be_ready} ticks to fill buffers")
                 else:
-                    self.logger().info(f"Calculating volatility, estimating order book liquidity ... no change tick")
+                    self.logger().info(f"Calculating volatility, estimating order book liquidity ... no trades tick")
         finally:
             self._last_timestamp = timestamp
 
@@ -661,9 +648,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._last_sampling_timestamp = timestamp
 
         price = self.get_price()
-        snapshot = self.get_order_book_snapshot()
         self._avg_vol.add_sample(price)
-        self._trading_intensity.add_sample(snapshot)
+        self._trading_intensity.calculate(timestamp)
         # Calculate adjustment factor to have 0.01% of inventory resolution
         base_balance = market.get_balance(base_asset)
         quote_balance = market.get_balance(quote_asset)
@@ -684,12 +670,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def get_volatility(self):
         vol = Decimal(str(self._avg_vol.current_value))
-        if vol == s_decimal_zero:
-            if self._latest_parameter_calculation_vol != s_decimal_zero:
-                vol = Decimal(str(self._latest_parameter_calculation_vol))
-            else:
-                # Default value at start time if price has no activity
-                vol = Decimal(str(self.c_get_spread() / 2))
         return vol
 
     cdef c_measure_order_book_liquidity(self):
@@ -736,8 +716,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 # Avellaneda-Stoikov for an infinite timespan
                 # The equations in the paper for this contain a few mistakes
                 # - the units don't align with the rest of the paper
-                # - volatility cancells itself out completely
-                # - the risk factor gets partially cancelled
+                # - volatility cancels itself out completely
+                # - the risk factor gets partially canceled
                 # The proposed solution is to use the same equation as for the constrained timespan but with
                 # a fixed time left
                 time_left_fraction = 1
@@ -1215,7 +1195,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         cdef:
             list active_orders = self.active_non_hanging_orders
         for order in active_orders:
-            if order_age(order) > self._max_order_age:
+            if order_age(order, self._current_timestamp) > self._max_order_age:
                 self.c_cancel_order(self._market_info, order.client_order_id)
 
     cdef c_cancel_active_orders(self, object proposal):

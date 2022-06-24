@@ -1,5 +1,4 @@
 import asyncio
-
 from decimal import Decimal
 from typing import (
     Any,
@@ -8,7 +7,7 @@ from typing import (
 )
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import (
+from hummingbot.core.data_type.common import (
     OrderType,
     TradeType
 )

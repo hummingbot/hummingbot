@@ -2,7 +2,7 @@ from decimal import Decimal
 from unittest import TestCase
 
 from hummingbot.connector.exchange.kraken.kraken_in_flight_order import KrakenInFlightOrder
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class KrakenInFlightOrderTests(TestCase):

@@ -6,16 +6,14 @@ from unittest.mock import patch
 from sqlalchemy import create_engine
 
 from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
     OrderFilledEvent,
-    OrderType,
-    PositionAction,
     SellOrderCreatedEvent,
-    TradeType
 )
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
@@ -244,10 +242,8 @@ class MarketsRecorderTests(TestCase):
             order_id=create_event.order_id,
             base_asset=self.base,
             quote_asset=self.quote,
-            fee_asset=self.base,
             base_asset_amount=create_event.amount,
             quote_asset_amount=create_event.amount * create_event.price,
-            fee_amount=Decimal(0),
             order_type=create_event.type)
 
         recorder._did_complete_order(MarketEvent.BuyOrderCompleted.value, self, complete_event)

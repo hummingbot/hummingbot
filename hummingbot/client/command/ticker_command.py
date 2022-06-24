@@ -1,10 +1,11 @@
+import threading
+from typing import TYPE_CHECKING
+
 import pandas as pd
 
 from hummingbot.client.ui.interface_utils import format_df_for_printout
+from hummingbot.core.data_type.common import PriceType
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.event.events import PriceType
-from typing import TYPE_CHECKING
-import threading
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -25,11 +26,11 @@ class TickerCommand:
                           exchange: str = None,
                           market: str = None):
         if len(self.markets.keys()) == 0:
-            self._notify("\n This command can only be used while a strategy is running")
+            self.notify("\n This command can only be used while a strategy is running")
             return
         if exchange is not None:
             if exchange not in self.markets:
-                self._notify("\n Please select a valid exchange from the running strategy")
+                self.notify("\n Please select a valid exchange from the running strategy")
                 return
             market_connector = self.markets[exchange]
         else:
@@ -37,7 +38,7 @@ class TickerCommand:
         if market is not None:
             market = market.upper()
             if market not in market_connector.order_books:
-                self._notify("\n Please select a valid trading pair from the running strategy")
+                self.notify("\n Please select a valid trading pair from the running strategy")
                 return
             trading_pair, order_book = market, market_connector.order_books[market]
         else:
@@ -60,6 +61,6 @@ class TickerCommand:
             self.app.live_updates = True
             while self.app.live_updates:
                 await self.cls_display_delay(get_ticker() + "\n\n Press escape key to stop update.", 1)
-            self._notify("Stopped live ticker display update.")
+            self.notify("Stopped live ticker display update.")
         else:
-            self._notify(get_ticker())
+            self.notify(get_ticker())

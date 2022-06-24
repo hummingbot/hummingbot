@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
+import logging as _logging
 import os
+
 from hummingbot.client.config.global_config_map import connector_keys
 
-import logging as _logging
 _logger = _logging.getLogger(__name__)
 
 master_host = "***REMOVED***"
@@ -90,10 +91,10 @@ liquid_secret_key = os.getenv("LIQUID_SECRET_KEY")
 kraken_api_key = os.getenv("KRAKEN_API_KEY")
 kraken_secret_key = os.getenv("KRAKEN_SECRET_KEY")
 
-# OKEx Test
-okex_api_key = os.getenv("OKEX_API_KEY")
-okex_secret_key = os.getenv("OKEX_SECRET_KEY")
-okex_passphrase = os.getenv("OKEX_PASSPHRASE")
+# OKX Test
+okx_api_key = os.getenv("OKX_API_KEY")
+okx_secret_key = os.getenv("OKX_SECRET_KEY")
+okx_passphrase = os.getenv("OKX_PASSPHRASE")
 
 # BitMart Test
 bitmart_api_key = os.getenv("BITMART_API_KEY")
@@ -124,6 +125,10 @@ wazirx_secret_key = os.getenv("WAZIRX_SECRET_KEY")
 # AltMarkets.io Test
 altmarkets_api_key = os.getenv("ALTMARKETS_API_KEY")
 altmarkets_secret_key = os.getenv("ALTMARKETS_SECRET_KEY")
+
+# CoinFLEX Test
+coinflex_api_key = os.getenv("COINFLEX_API_KEY")
+coinflex_api_secret = os.getenv("COINFLEX_API_SECRET")
 
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")

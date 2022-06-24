@@ -1,8 +1,8 @@
 from unittest import TestCase
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.core.event.events import TradeType
 
 
 class BybitPerpetualOrderBookTests(TestCase):

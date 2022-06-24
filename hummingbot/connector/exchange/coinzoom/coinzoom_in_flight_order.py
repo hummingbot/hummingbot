@@ -7,10 +7,7 @@ from typing import (
 )
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 s_decimal_0 = Decimal(0)
 
@@ -42,7 +39,7 @@ class CoinzoomInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"FILLED", "CANCELLED", "REJECTED"}
+        return self.last_state in {"FILLED", "CANCELED", "REJECTED"}
 
     @property
     def is_failure(self) -> bool:
@@ -50,7 +47,7 @@ class CoinzoomInFlightOrder(InFlightOrderBase):
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"CANCELLED"}
+        return self.last_state in {"CANCELED"}
 
     @property
     def is_local(self) -> bool:
@@ -103,7 +100,7 @@ class CoinzoomInFlightOrder(InFlightOrderBase):
                 'price': 5000,
                 'quantity': 0.001,
                 'executionType': 'CANCEL',
-                'orderStatus': 'CANCELLED',
+                'orderStatus': 'CANCELED',
                 'lastQuantity': 0,
                 'leavesQuantity': 0,
                 'cumulativeQuantity': 0,

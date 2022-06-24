@@ -1,16 +1,13 @@
+import asyncio
 from decimal import Decimal
 from typing import (
     Any,
     Dict,
     Optional,
 )
-import asyncio
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 s_decimal_0 = Decimal(0)
 

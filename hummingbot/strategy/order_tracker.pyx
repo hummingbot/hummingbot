@@ -89,11 +89,10 @@ cdef class OrderTracker(TimeIterator):
         return self._tracked_limit_orders
 
     @property
-    def tracked_limit_orders_data_frame(self) -> List[pd.DataFrame]:
+    def tracked_limit_orders_data_frame(self) -> pd.DataFrame:
         limit_orders = [
             [market_trading_pair_tuple.market.display_name, market_trading_pair_tuple.trading_pair, order_id,
              order.quantity,
-             "n/a" if "//" in order.client_order_id else
              pd.Timestamp(order.creation_timestamp / 1e6, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S')
              ]
             for market_trading_pair_tuple, order_map in self._tracked_limit_orders.items()
@@ -154,7 +153,7 @@ cdef class OrderTracker(TimeIterator):
 
     cdef bint c_check_and_track_cancel(self, str order_id):
         """
-        :param order_id: the order id to be cancelled
+        :param order_id: the order id to be canceled
         :return: True if there's no existing in flight cancel for the order id, False otherwise.
         """
         cdef:

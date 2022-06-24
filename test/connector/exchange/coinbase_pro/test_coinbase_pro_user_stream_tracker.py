@@ -1,29 +1,24 @@
-#!/usr/bin/env python
-
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-
-import logging
-import time
 import asyncio
 import contextlib
+import logging
+import time
+import unittest
 from decimal import Decimal
 from typing import Optional
-import unittest
+
 import conf
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_exchange import CoinbaseProAuth, CoinbaseProExchange
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_exchange import CoinbaseProExchange, CoinbaseProAuth
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
-from hummingbot.core.event.events import OrderType
 
 
 class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):

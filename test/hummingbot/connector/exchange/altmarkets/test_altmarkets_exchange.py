@@ -18,11 +18,11 @@ from hummingbot.connector.exchange.altmarkets.altmarkets_utils import (
     get_new_client_order_id,
 )
 from hummingbot.connector.trading_rule import TradingRule
-
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import MarketEvent, TradeType, OrderType
+from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.time_iterator import TimeIterator
 

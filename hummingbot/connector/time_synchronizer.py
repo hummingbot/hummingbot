@@ -2,7 +2,6 @@ import asyncio
 import logging
 import statistics
 import time
-
 from collections import deque
 from typing import Awaitable, Deque
 
@@ -52,6 +51,7 @@ class TimeSynchronizer:
         """
         Executes the time_provider passed as parameter to obtain the current time, and adds a new sample in the
         internal list.
+
         :param time_provider: Awaitable object that returns the current time
         """
         try:
@@ -66,6 +66,19 @@ class TimeSynchronizer:
         except Exception:
             self.logger().network("Error getting server time.", exc_info=True,
                                   app_warning_msg="Could not refresh server time. Check network connection.")
+
+    async def update_server_time_if_not_initialized(self, time_provider: Awaitable):
+        """
+        Executes the time_provider passed as parameter to obtain the current time, and adds a new sample in the
+        internal list, ONLY if the current instance has not been updated yet.
+
+        :param time_provider: Awaitable object that returns the current time
+        """
+        if not self._time_offset_ms:
+            await self.update_server_time_offset_with_time_provider(time_provider)
+        else:
+            # This is done to avoid the warning message from asyncio framework saying a coroutine was not awaited
+            time_provider.close()
 
     def _current_seconds_counter(self):
         return time.perf_counter()

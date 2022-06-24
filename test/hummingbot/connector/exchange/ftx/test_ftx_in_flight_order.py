@@ -3,7 +3,7 @@ from decimal import Decimal
 from unittest import TestCase
 
 from hummingbot.connector.exchange.ftx.ftx_in_flight_order import FtxInFlightOrder
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class FtxInFlightOrderTests(TestCase):

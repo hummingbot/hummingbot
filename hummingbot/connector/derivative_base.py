@@ -1,7 +1,7 @@
 from decimal import Decimal
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.core.event.events import PositionMode
 
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.core.data_type.common import PositionMode
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")

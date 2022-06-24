@@ -1,22 +1,20 @@
 import asyncio
 import datetime
-
-import pandas as pd
-import psutil
 from decimal import Decimal
 from typing import (
     List,
+    Optional,
     Set,
     Tuple,
-    Optional,
 )
 
+import pandas as pd
+import psutil
 from tabulate import tabulate
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.model.trade_fill import TradeFill
-
 
 s_decimal_0 = Decimal("0")
 
@@ -79,7 +77,7 @@ async def start_trade_monitor(trade_monitor):
                             for market, symbol in market_info:
                                 cur_trades = [t for t in trades if t.market == market and t.symbol == symbol]
                                 cur_balances = await hb.get_current_balances(market)
-                                perf = await PerformanceMetrics.create(market, symbol, cur_trades, cur_balances)
+                                perf = await PerformanceMetrics.create(symbol, cur_trades, cur_balances)
                                 return_pcts.append(perf.return_pct)
                                 pnls.append(perf.total_pnl)
                             avg_return = sum(return_pcts) / len(return_pcts) if len(return_pcts) > 0 else s_decimal_0

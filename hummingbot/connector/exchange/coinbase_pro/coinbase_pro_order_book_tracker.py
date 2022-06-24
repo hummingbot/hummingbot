@@ -15,7 +15,7 @@ from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book import C
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.core.event.events import TradeType
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 

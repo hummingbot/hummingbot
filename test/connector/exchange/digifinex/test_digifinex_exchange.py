@@ -1,45 +1,39 @@
-# print('__file__={0:<35} | __name__={1:<20} | __package__={2:<20}'.format(__file__,__name__,str(__package__)))
-import os
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 import asyncio
-import logging
-from decimal import Decimal
-import unittest
 import contextlib
-import time
-from typing import List
-# from unittest import mock
-import conf
+import logging
 import math
+import os
+import time
+import unittest
+from decimal import Decimal
+from os.path import join, realpath
+from typing import List
 
-from test.connector.exchange.digifinex import fixture
+import conf
+from hummingbot.connector.exchange.digifinex.digifinex_exchange import DigifinexExchange
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.core.utils.async_utils import safe_gather, safe_ensure_future
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    OrderCancelledEvent
 )
+from hummingbot.core.utils.async_utils import safe_gather, safe_ensure_future
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+from hummingbot.model.market_state import MarketState
+from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType
 )
-from hummingbot.model.market_state import MarketState
-from hummingbot.model.order import Order
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.connector.exchange.digifinex.digifinex_exchange import DigifinexExchange
-# from hummingbot.connector.exchange.digifinex.digifinex_constants import WSS_PUBLIC_URL, WSS_PRIVATE_URL
-# from test.integration.humming_web_app import HummingWebApp
-# from test.integration.humming_ws_server import HummingWsServerFactory
+from test.connector.exchange.digifinex import fixture
 
 # API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 API_MOCK_ENABLED = False
@@ -204,7 +198,7 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
     def _cancel_order(self, cl_order_id):
         self.connector.cancel(self.trading_pair, cl_order_id)
         # if API_MOCK_ENABLED:
-        #     data = fixture.WS_ORDER_CANCELLED.copy()
+        #     data = fixture.WS_ORDER_CANCELED.copy()
         #     data["result"]["data"][0]["client_oid"] = cl_order_id
         #     HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data, delay=0.1)
 
@@ -232,8 +226,6 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
         self.assertEqual("USDT", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
-        # todo: get fee
-        # self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.event_logger.event_log]))
 
@@ -318,7 +310,7 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
         price = self.connector.quantize_order_price(self.trading_pair, price)
         amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0001"))
         cl_order_id = self._place_order(True, amount, OrderType.LIMIT_MAKER, price, 1, None, None,
-                                        fixture.WS_ORDER_CANCELLED)
+                                        fixture.WS_ORDER_CANCELED)
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
@@ -326,7 +318,7 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
         price = self.connector.quantize_order_price(self.trading_pair, price)
         amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0001"))
         cl_order_id = self._place_order(False, amount, OrderType.LIMIT_MAKER, price, 2, None, None,
-                                        fixture.WS_ORDER_CANCELLED)
+                                        fixture.WS_ORDER_CANCELED)
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
@@ -343,12 +335,12 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
         self.ev_loop.run_until_complete(asyncio.sleep(1))
         asyncio.ensure_future(self.connector.cancel_all(3))
         # if API_MOCK_ENABLED:
-        #     data = fixture.WS_ORDER_CANCELLED.copy()
+        #     data = fixture.WS_ORDER_CANCELED.copy()
         #     data["result"]["data"][0]["client_oid"] = buy_id
         #     data["result"]["data"][0]["order_id"] = 1
         #     HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data, delay=0.1)
         #     self.ev_loop.run_until_complete(asyncio.sleep(1))
-        #     data = fixture.WS_ORDER_CANCELLED.copy()
+        #     data = fixture.WS_ORDER_CANCELED.copy()
         #     data["result"]["data"][0]["client_oid"] = sell_id
         #     data["result"]["data"][0]["order_id"] = 2
         #     HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data, delay=0.11)

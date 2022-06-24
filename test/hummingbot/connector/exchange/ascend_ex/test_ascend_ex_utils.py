@@ -10,13 +10,6 @@ class AscendExUtilsTests(TestCase):
     def _get_ms_timestamp(self):
         return 1633084102569
 
-    @patch('hummingbot.connector.exchange.ascend_ex.ascend_ex_utils.get_tracking_nonce')
-    def test_gen_client_order_id(self, nonce_provider_mock):
-        nonce_provider_mock.return_value = int(1e15)
-        self.assertEqual("HMBot-BBTCUSD1000000000000000", utils.gen_client_order_id(True, "BTC-USDT"))
-        nonce_provider_mock.return_value = int(1e15) + 1
-        self.assertEqual("HMBot-SETHUSD1000000000000001", utils.gen_client_order_id(False, "ETH-USDT"))
-
     def test_gen_exchange_order_id(self):
         with mock.patch('hummingbot.connector.exchange.ascend_ex.ascend_ex_utils.get_ms_timestamp') as get_ms_timestamp_mock:
             timestamp = self._get_ms_timestamp()
@@ -29,14 +22,6 @@ class AscendExUtilsTests(TestCase):
 
             self.assertEqual('HMBot17c3b65d7a9jklmnop1234p5678', order_id[0])
             self.assertEqual(1633084102569, order_id[1])
-
-    def test_convert_to_exchange_trading_pair(self):
-        trading_pair = "BTC-USDT"
-        self.assertEqual("BTC/USDT", utils.convert_to_exchange_trading_pair(trading_pair))
-
-    def test_convert_from_exchange_trading_pair(self):
-        trading_pair = "BTC/USDT"
-        self.assertEqual("BTC-USDT", utils.convert_from_exchange_trading_pair(trading_pair))
 
     def test_rest_api_url_private(self):
         account_id = "1234"

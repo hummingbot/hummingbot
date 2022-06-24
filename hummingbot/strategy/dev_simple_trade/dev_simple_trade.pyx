@@ -16,10 +16,7 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
+from hummingbot.core.data_type.common import OrderType, TradeType
 from libc.stdint cimport int64_t
 from hummingbot.core.data_type.order_book cimport OrderBook
 from datetime import datetime
@@ -63,7 +60,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
         :param market_infos: list of market trading pairs
         :param order_type: type of order to place
         :param order_price: price to place the order at
-        :param cancel_order_wait_time: how long to wait before cancelling an order
+        :param cancel_order_wait_time: how long to wait before canceling an order
         :param is_buy: if the order is to buy
         :param time_delay: how long to wait between placing trades
         :param order_amount: qty of the order to place

@@ -1,27 +1,12 @@
-#!/usr/bin/env python
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
+import unittest
 
 import pandas as pd
-# from typing import (
-#    List,
-#    Dict,
-#    Tuple)
-import unittest
-# from hummingsim.backtest.backtest_market import BacktestMarket
-# from hummingsim.backtest.ddex_order_book_loader import DDEXOrderBookLoader
-# from hummingsim.backtest.market import Market
-# from hummingsim.strategy.unit_test_strategy import UnitTestStrategy
+
 from hummingbot.core.clock import (
     ClockMode,
     Clock
 )
-from hummingbot.core.event.events import (
-    # MarketEvent,
-    # OrderFilledEvent,
-    TradeType,
-)
-# from hummingbot.core.event.event_listener import EventListener
+from hummingbot.core.data_type.common import TradeType
 
 
 # class CompositeOrderBookTestStrategy(UnitTestStrategy):

@@ -49,7 +49,7 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self):
         return self._last_recv_time
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         while True:
             try:
                 ws_key: str = await get_ws_api_key()

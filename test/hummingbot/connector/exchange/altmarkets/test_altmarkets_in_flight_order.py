@@ -2,7 +2,7 @@ from decimal import Decimal
 from unittest import TestCase
 
 from hummingbot.connector.exchange.altmarkets.altmarkets_in_flight_order import AltmarketsInFlightOrder
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class AltmarketsInFlightOrderTests(TestCase):

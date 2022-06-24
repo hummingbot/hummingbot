@@ -121,10 +121,8 @@ class TradeFill(HummingbotBase):
         for trade in trades:
 
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-            age = "n/a"
-            if "//" not in trade.order_id:
-                age = pd.Timestamp(int(trade.timestamp / 1e3 - trade.order.creation_timestamp / 1e3),
-                                   unit='s').strftime('%H:%M:%S')
+            age = pd.Timestamp(int(trade.timestamp / 1e3 - trade.order.creation_timestamp / 1e3),
+                               unit='s').strftime('%H:%M:%S')
             data.append([
                 trade.exchange_trade_id,
                 datetime.fromtimestamp(int(trade.timestamp / 1e3)).strftime("%Y-%m-%d %H:%M:%S"),

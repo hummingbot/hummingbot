@@ -6,8 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
 from hummingbot.connector.exchange.altmarkets.altmarkets_websocket import AltmarketsWebsocket
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
-
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
@@ -35,9 +34,9 @@ class AltmarketsWebsocketTests(TestCase):
         self.async_run_with_timeout(websocket.unsubscribe(message))
 
         sent_requests = self.mocking_assistant.text_messages_sent_through_websocket(ws_connect_mock.return_value)
-        sent_subscribe_message = json.loads(sent_requests[0])
         expected_subscribe_message = {"event": "subscribe", "id": 1234567899, "streams": ['btcusdt.trades']}
-        self.assertEquals(expected_subscribe_message, sent_subscribe_message)
-        sent_unsubscribe_message = json.loads(sent_requests[1])
+        self.assertTrue(any(
+            (expected_subscribe_message == json.loads(sent_request) for sent_request in sent_requests)))
         expected_unsubscribe_message = {"event": "unsubscribe", "id": 1234567899, "streams": ['btcusdt.trades']}
-        self.assertEquals(expected_unsubscribe_message, sent_unsubscribe_message)
+        self.assertTrue(any(
+            (expected_unsubscribe_message == json.loads(sent_request) for sent_request in sent_requests)))

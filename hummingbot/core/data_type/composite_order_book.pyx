@@ -2,18 +2,14 @@
 # distutils: sources=hummingbot/core/cpp/OrderBookEntry.cpp
 
 from typing import Iterator
+
+from cython.operator cimport address as ref, dereference as deref, postincrement as inc
+from hummingbot.core.data_type.OrderBookEntry cimport OrderBookEntry
 from libcpp.set cimport set
-from cython.operator cimport(
-    postincrement as inc,
-    dereference as deref,
-    address as ref
-)
 from libcpp.vector cimport vector
 
-from hummingbot.core.event.events import TradeType
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.OrderBookEntry cimport OrderBookEntry
-
 
 cdef class CompositeOrderBook(OrderBook):
     """

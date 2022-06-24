@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 cdef class BittrexInFlightOrder(InFlightOrderBase):
@@ -37,11 +37,11 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"CANCELLED", "FAILURE"}
+        return self.last_state in {"CANCELED", "FAILURE"}
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"CANCELLED"}
+        return self.last_state in {"CANCELED"}
 
     @property
     def order_type_description(self) -> str:
