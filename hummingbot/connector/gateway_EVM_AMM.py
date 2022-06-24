@@ -47,7 +47,7 @@ s_decimal_NaN = Decimal("nan")
 
 class GatewayEVMAMM(ConnectorBase):
     """
-    Defines basic funtions common to connectors that interract with Gateway.
+    Defines basic functions common to connectors that interact with the Gateway.
     """
 
     API_CALL_TIMEOUT = 10.0
@@ -87,7 +87,7 @@ class GatewayEVMAMM(ConnectorBase):
                  ):
         """
         :param connector_name: name of connector on gateway
-        :param chain: refers to a block chain, e.g. ethereum or avalanche
+        :param chain: refers to a blockchain, e.g. ethereum or avalanche
         :param network: refers to a network of a particular blockchain e.g. mainnet or kovan
         :param wallet_address: the address of the eth wallet which has been added on gateway
         :param trading_pairs: a list of trading pairs
