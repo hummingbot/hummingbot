@@ -947,7 +947,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                               sum([r.amount for _, r in sell_fill_records]))
 
             maker_order_ids = [r.order_id for _, r in sell_fill_records]
-            maker_exchange_trade_ids = [r.exchange_trade_id for _, r in buy_fill_records]
+            maker_exchange_trade_ids = [r.exchange_trade_id for _, r in sell_fill_records]
 
             if len(maker_order_ids) != 1 or len(maker_exchange_trade_ids) != 1:
                 self.logger().error("Multiple sell maker orders fills")
