@@ -11,8 +11,9 @@ ttl: 300
 
 contractAddresses:
   mainnet:
-      routerAddress: '0x24ad62502d1C652Cc7684081169D04896aC20f30'
-  testnet:
-      routerAddress: '0x24ad62502d1C652Cc7684081169D04896aC20f30'
+    routerAddress: '0x9014B937069918bd319f80e8B3BB4A2cf6FAA5F7'
+    initCodeHash: '0xf1c21a825f13eff153022ddea53156462dd79972b6f88adf06f79ca8b042c3c1'
+#  testnet:
+#      routerAddress: '0x24ad62502d1C652Cc7684081169D04896aC20f30'
 #   hardhat:
 #       routerAddress: '0x017096690dceADb10dB4926196AA56BB4b4C2629'
