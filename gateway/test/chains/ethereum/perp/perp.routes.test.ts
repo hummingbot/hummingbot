@@ -2,8 +2,10 @@ import express from 'express';
 import { Express } from 'express-serve-static-core';
 import request from 'supertest';
 import { Big } from 'big.js';
+import { MarketStatus } from '@perp/sdk-curie';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 import { Perp } from '../../../../src/connectors/perp/perp';
+
 import { PerpAmmRoutes } from '../../../../src/amm/amm.routes';
 import { patch, unpatch } from '../../../services/patch';
 import { gasCostInEthString } from '../../../../src/services/base';
@@ -11,7 +13,7 @@ import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 
 let app: Express;
 let ethereum: Ethereum;
-let perp: Perp;
+let perp: Perp, perp2: Perp;
 
 beforeAll(async () => {
   app = express();
@@ -22,13 +24,19 @@ beforeAll(async () => {
   await ethereum.init();
 
   perp = Perp.getInstance('ethereum', 'optimism');
-  await perp.init();
+  perp2 = Perp.getInstance('ethereum', 'optimism', address);
 
   app.use('/amm/perp', PerpAmmRoutes.router);
 });
 
 beforeEach(() => {
   patchEVMNonceManager(ethereum.nonceManager);
+  patch(perp, 'ready', () => {
+    return true;
+  });
+  patch(perp2, 'ready', () => {
+    return true;
+  });
 });
 
 afterEach(() => {
@@ -41,36 +49,26 @@ afterAll(async () => {
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 
-const patchGetWallet = () => {
-  patch(ethereum, 'getWallet', () => {
-    return {
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
-    };
-  });
-};
-
-const patchInit = () => {
-  patch(perp, 'init', async () => {
-    return;
-  });
-};
-
 const patchGasPrice = () => {
   patch(ethereum, 'gasPrice', () => 100);
 };
 
 const patchMarket = () => {
-  patch(perp.perp, 'marketMap', () => {
+  patch(perp.perp, 'markets', () => {
     return {
-      getPrices() {
+      getMarket() {
         return {
-          markPrice: new Big('1'),
-          indexPrice: new Big('2'),
-          indexTwapPrice: new Big('3'),
+          getPrices() {
+            return {
+              markPrice: new Big('1'),
+              indexPrice: new Big('2'),
+              indexTwapPrice: new Big('3'),
+            };
+          },
+          async getStatus() {
+            return MarketStatus.ACTIVE;
+          },
         };
-      },
-      getStatus() {
-        return true;
       },
       get marketMap() {
         return {
@@ -99,39 +97,35 @@ const patchCH = () => {
       createPositionDraft() {
         return;
       },
-      openPosition() {
+      async openPosition() {
         return {
-          type: 2,
-          chainId: 42,
-          nonce: 115,
-          maxPriorityFeePerGas: { toString: () => '106000000000' },
-          maxFeePerGas: { toString: () => '106000000000' },
-          gasPrice: { toString: () => null },
-          gasLimit: { toString: () => '100000' },
-          to: '0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa',
-          value: { toString: () => '0' },
-          data: '0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', // noqa: mock
-          accessList: [],
-          hash: '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9', // noqa: mock
-          v: 0,
-          r: '0xbeb9aa40028d79b9fdab108fcef5de635457a05f3a254410414c095b02c64643', // noqa: mock
-          s: '0x5a1506fa4b7f8b4f3826d8648f27ebaa9c0ee4bd67f569414b8cd8884c073100', // noqa: mock
-          from: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
-          confirmations: 0,
+          transaction: {
+            type: 2,
+            chainId: 42,
+            nonce: 115,
+            maxPriorityFeePerGas: { toString: () => '106000000000' },
+            maxFeePerGas: { toString: () => '106000000000' },
+            gasPrice: { toString: () => null },
+            gasLimit: { toString: () => '100000' },
+            to: '0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa',
+            value: { toString: () => '0' },
+            data: '0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', // noqa: mock
+            accessList: [],
+            hash: '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9', // noqa: mock
+            v: 0,
+            r: '0xbeb9aa40028d79b9fdab108fcef5de635457a05f3a254410414c095b02c64643', // noqa: mock
+            s: '0x5a1506fa4b7f8b4f3826d8648f27ebaa9c0ee4bd67f569414b8cd8884c073100', // noqa: mock
+            from: address,
+            confirmations: 0,
+          },
         };
       },
     };
   });
 };
 
-const patchGetNonce = () => {
-  patch(ethereum.nonceManager, 'getNonce', () => 21);
-};
-
 describe('POST /amm/perp/market-prices', () => {
   it('should return 200 with right parameter', async () => {
-    patchInit();
-    patchGasPrice();
     patchMarket();
 
     await request(app)
@@ -140,7 +134,7 @@ describe('POST /amm/perp/market-prices', () => {
         chain: 'ethereum',
         network: 'optimism',
         connector: 'perp',
-        quote: 'DAI',
+        quote: 'USD',
         base: 'WETH',
       })
       .set('Accept', 'application/json')
@@ -153,8 +147,6 @@ describe('POST /amm/perp/market-prices', () => {
   });
 
   it('should return 500 with wrong paramters', async () => {
-    patchInit();
-    patchGasPrice();
     patchMarket();
 
     await request(app)
@@ -162,7 +154,7 @@ describe('POST /amm/perp/market-prices', () => {
       .send({
         chain: 'ethereum',
         network: 'optimism',
-        connector: 'perp',
+        connector: 'perpp',
         quote: '1234',
         base: 'WETH',
       })
@@ -173,8 +165,6 @@ describe('POST /amm/perp/market-prices', () => {
 
 describe('POST /amm/perp/market-status', () => {
   it('should return 200 with right parameter', async () => {
-    patchInit();
-    patchGasPrice();
     patchMarket();
 
     await request(app)
@@ -183,7 +173,7 @@ describe('POST /amm/perp/market-status', () => {
         chain: 'ethereum',
         network: 'optimism',
         connector: 'perp',
-        quote: 'DAI',
+        quote: 'USD',
         base: 'WETH',
       })
       .set('Accept', 'application/json')
@@ -194,8 +184,6 @@ describe('POST /amm/perp/market-status', () => {
   });
 
   it('should return 500 with wrong paramters', async () => {
-    patchInit();
-    patchGasPrice();
     patchMarket();
 
     await request(app)
@@ -203,7 +191,7 @@ describe('POST /amm/perp/market-status', () => {
       .send({
         chain: 'ethereum',
         network: 'optimism',
-        connector: 'perp',
+        connector: 'perpp',
         quote: '1234',
         base: 'WETH',
       })
@@ -214,8 +202,6 @@ describe('POST /amm/perp/market-status', () => {
 
 describe('POST /amm/perp/pairs', () => {
   it('should return list of available pairs', async () => {
-    patchInit();
-    patchGasPrice();
     patchMarket();
 
     await request(app)
@@ -228,17 +214,14 @@ describe('POST /amm/perp/pairs', () => {
       .set('Accept', 'application/json')
       .expect(200)
       .then((res: any) => {
-        expect(res.body.isActive).toEqual(true);
+        expect(res.body.pairs).toEqual(['AAVEUSD', 'WETHUSD', 'WBTCUSD']);
       });
   });
 });
 
 describe('POST /amm/perp/position', () => {
-  it('should return list of available pairs', async () => {
-    patchInit();
-    patchGasPrice();
+  it('should return a default object of a perp position', async () => {
     patchPosition();
-    patchGetWallet();
 
     await request(app)
       .post(`/amm/perp/position`)
@@ -246,7 +229,7 @@ describe('POST /amm/perp/position', () => {
         chain: 'ethereum',
         network: 'optimism',
         connector: 'perp',
-        quote: 'DAI',
+        quote: 'USD',
         base: 'WETH',
         address: address,
       })
@@ -265,12 +248,9 @@ describe('POST /amm/perp/position', () => {
 
 describe('POST /amm/perp/open and /amm/perp/close', () => {
   it('open should return with hash', async () => {
-    patchInit();
     patchGasPrice();
     patchPosition();
     patchCH();
-    patchGetWallet();
-    patchGetNonce();
 
     await request(app)
       .post(`/amm/perp/open`)
@@ -278,7 +258,7 @@ describe('POST /amm/perp/open and /amm/perp/close', () => {
         chain: 'ethereum',
         network: 'optimism',
         connector: 'perp',
-        quote: 'DAI',
+        quote: 'USD',
         base: 'WETH',
         amount: '0.01',
         side: 'LONG',
@@ -287,17 +267,14 @@ describe('POST /amm/perp/open and /amm/perp/close', () => {
       .set('Accept', 'application/json')
       .expect(200)
       .then((res: any) => {
-        expect(res.body).toHaveProperty('hash');
+        expect(res.body).toHaveProperty('txHash');
+        expect(res.body.nonce).toEqual(115);
       });
   });
 
   it('close should return error', async () => {
-    patchInit();
-    patchGasPrice();
     patchPosition();
     patchCH();
-    patchGetWallet();
-    patchGetNonce();
 
     await request(app)
       .post(`/amm/perp/close`)
@@ -305,7 +282,7 @@ describe('POST /amm/perp/open and /amm/perp/close', () => {
         chain: 'ethereum',
         network: 'optimism',
         connector: 'perp',
-        quote: 'DAI',
+        quote: 'USD',
         base: 'WETH',
         address: address,
       })
@@ -316,11 +293,10 @@ describe('POST /amm/perp/open and /amm/perp/close', () => {
 
 describe('POST /amm/perp/estimateGas', () => {
   it('should return 200 with right parameter', async () => {
-    patchInit();
     patchGasPrice();
 
     await request(app)
-      .post('/amm//perp/estimateGas')
+      .post('/amm/perp/estimateGas')
       .send({
         chain: 'ethereum',
         network: 'optimism',
@@ -338,11 +314,10 @@ describe('POST /amm/perp/estimateGas', () => {
   });
 
   it('should return 500 for invalid connector', async () => {
-    patchInit();
     patchGasPrice();
 
     await request(app)
-      .post('/amm/estimateGas')
+      .post('/amm/perp/estimateGas')
       .send({
         chain: 'ethereum',
         network: 'optimism',
