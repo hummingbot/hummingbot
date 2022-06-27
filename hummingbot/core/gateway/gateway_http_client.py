@@ -346,7 +346,7 @@ class GatewayHttpClient:
             address: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "evm/nonce", {
+        return await self.api_request("post", "evm/nextNonce", {
             "chain": chain,
             "network": network,
             "address": address

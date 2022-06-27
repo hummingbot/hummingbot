@@ -362,16 +362,17 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
     Retrieves the next available nonce for a given wallet address.
     This function will automatically increment the leading Nonce of the given wallet address.
     */
-    let newNonce = null;
-    let numberOfPendingNonce = 0;
-    const now: number = new Date().getTime();
 
-    if (this.#addressToPendingNonces[ethAddress] instanceof Array)
-      numberOfPendingNonce = this.#addressToPendingNonces[ethAddress].length;
     if (this.#initialized) {
-      if (numberOfPendingNonce > 0) {
-        await this.mergeNonceFromEVMNode(ethAddress);
+      await this.mergeNonceFromEVMNode(ethAddress);
 
+      let newNonce = null;
+      let numberOfPendingNonce = 0;
+      const now: number = new Date().getTime();
+
+      if (this.#addressToPendingNonces[ethAddress] instanceof Array)
+        numberOfPendingNonce = this.#addressToPendingNonces[ethAddress].length;
+      if (numberOfPendingNonce > 0) {
         const pendingNonces: NonceInfo[] =
           this.#addressToPendingNonces[ethAddress];
 
@@ -386,9 +387,7 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
           // All pending nonce have yet to expire.
           // Use last entry in pendingNonce to determine next nonce.
           newNonce = new NonceInfo(
-            this.#addressToPendingNonces[ethAddress][
-              this.#addressToPendingNonces[ethAddress].length - 1
-            ].nonce + 1,
+            pendingNonces[pendingNonces.length - 1].nonce + 1,
             now + this._pendingNonceTTL
           );
           this.#addressToPendingNonces[ethAddress].push(newNonce);
