@@ -1046,3 +1046,6 @@ class BitmexExchange(ExchangeBase):
 
     async def _sleep(self, delay: float):
         await asyncio.sleep(delay)
+
+    async def all_trading_pairs(self) -> List[str]:
+        return await BitmexAPIOrderBookDataSource.fetch_trading_pairs()
