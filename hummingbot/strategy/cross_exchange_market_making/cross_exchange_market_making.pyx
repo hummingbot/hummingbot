@@ -1687,7 +1687,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 self.logger().warning(f"Placing an order on market {str(market_info.market.name)} "
                                       f"failed with the following error: {str(e)}")
         self._sb_order_tracker.add_create_order_pending(order_id)
-        self._market_pair_tracker.start_tracking_order_id(order_id, market_info.market, market_info)
+        self._market_pair_tracker.start_tracking_order_id(order_id, market_info.market, market_pair)
         if is_maker:
             self._maker_to_taker_order_ids[order_id] = []
         else:
