@@ -1671,13 +1671,21 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         if not self._active_order_canceling:
             expiration_seconds = self._limit_order_min_expiration
         if is_buy:
-            order_id = self.buy_with_specific_market(market_info, amount,
-                                                     order_type=order_type, price=price,
-                                                     expiration_seconds=expiration_seconds)
+            try:
+                order_id = self.buy_with_specific_market(market_info, amount,
+                                                         order_type=order_type, price=price,
+                                                         expiration_seconds=expiration_seconds)
+            except ValueError as e:
+                self.logger().warning(f"Placing an order on market {str(market_info.market.name)} "
+                                      f"failed with the following error: {str(e)}")
         else:
-            order_id = self.sell_with_specific_market(market_info, amount,
-                                                      order_type=order_type, price=price,
-                                                      expiration_seconds=expiration_seconds)
+            try:
+                order_id = self.sell_with_specific_market(market_info, amount,
+                                                          order_type=order_type, price=price,
+                                                          expiration_seconds=expiration_seconds)
+            except ValueError as e:
+                self.logger().warning(f"Placing an order on market {str(market_info.market.name)} "
+                                      f"failed with the following error: {str(e)}")
         self._sb_order_tracker.add_create_order_pending(order_id)
         self._market_pair_tracker.start_tracking_order_id(order_id, market_info.market, market_pair)
         if is_maker:
@@ -1689,7 +1697,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         return order_id
 
     def cancel_order(self, market_pair: MakerTakerMarketPair, order_id: str):
-        market_trading_pair_tuple = self._sb_order_tracker.get_market_pair_from_order_id(order_id)
+        market_trading_pair_tuple = self._market_pair_tracker.get_market_pair_from_order_id(order_id)
         super().cancel_order(market_trading_pair_tuple, order_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
