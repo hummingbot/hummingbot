@@ -819,7 +819,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     f"{order_price:.8g} {market_pair.maker.quote_asset} is now below the suggested order "
                     f"price at {suggested_price}. Going to cancel the old order and create a new one..."
                 )
-            self.cancel_order(market_pair, active_order.client_order_id)
+            self.cancel_maker_order(market_pair, active_order.client_order_id)
             self.log_with_clock(logging.DEBUG,
                                 f"Current {'buy' if is_buy else 'sell'} order price={order_price}, "
                                 f"suggested order price={suggested_price}")
@@ -1409,7 +1409,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     f"{order_price:.8g} {market_pair.maker.quote_asset} is no longer profitable. "
                     f"Removing the order."
                 )
-            self.cancel_order(market_pair, active_order.client_order_id)
+            self.cancel_maker_order(market_pair, active_order.client_order_id)
             return False
 
         transaction_fee = 0
@@ -1474,7 +1474,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     f"{order_price:.8g} {market_pair.maker.quote_asset} is no longer profitable. "
                     f"Removing the order."
                 )
-            self.cancel_order(market_pair, active_order.client_order_id)
+            self.cancel_maker_order(market_pair, active_order.client_order_id)
             return False
         return True
 
@@ -1543,7 +1543,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     f"is now less than the current active order amount ({active_order.quantity:.8g}). "
                     f"Going to adjust the order."
                 )
-            self.cancel_order(market_pair, active_order.client_order_id)
+            self.cancel_maker_order(market_pair, active_order.client_order_id)
             return False
         return True
 
@@ -1696,9 +1696,9 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             self._ongoing_hedging[maker_exchange_trade_id] = order_id
         return order_id
 
-    def cancel_order(self, market_pair: MakerTakerMarketPair, order_id: str):
+    def cancel_maker_order(self, market_pair: MakerTakerMarketPair, order_id: str):
         market_trading_pair_tuple = self._market_pair_tracker.get_market_pair_from_order_id(order_id)
-        super().cancel_order(market_trading_pair_tuple, order_id)
+        super().cancel_order(market_trading_pair_tuple.maker, order_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
