@@ -1181,5 +1181,8 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             self.logger().warning(f"{e}")
             raise e
 
+    async def all_trading_pairs(self) -> List[str]:
+        return await BitmexPerpetualAPIOrderBookDataSource.fetch_trading_pairs()
+
     async def _sleep(self, delay: float):
         await asyncio.sleep(delay)
