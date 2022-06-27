@@ -264,7 +264,7 @@ export class Sushiswap implements Uniswapish {
     });
     const contract: Contract = new Contract(sushswapRouter, abi, wallet);
     if (nonce === undefined) {
-      nonce = await this.ethereum.nonceManager.getNonce(wallet.address);
+      nonce = await this.ethereum.nonceManager.getNextNonce(wallet.address);
     }
     let tx: ContractTransaction;
     if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
