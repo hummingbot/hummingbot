@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
 
 s_float_nan = float("nan")
 
@@ -55,7 +55,7 @@ cdef class OrderIDMarketPairTracker(TimeIterator):
     cdef c_start_tracking_order_id(self, str order_id, object exchange, object market_pair):
         self._order_id_to_tracking_item[order_id] = OrderIDMarketPairTrackingItem(order_id, exchange, market_pair)
 
-    def start_tracking_order_id(self, order_id: str, exchange: ExchangeBase, market_pair: MarketTradingPairTuple):
+    def start_tracking_order_id(self, order_id: str, exchange: ExchangeBase, market_pair: MakerTakerMarketPair):
         self.c_start_tracking_order_id(order_id, exchange, market_pair)
 
     cdef c_stop_tracking_order_id(self, str order_id):
