@@ -228,9 +228,10 @@ class ConnectorSetting(NamedTuple):
 
         trading_pairs = trading_pairs or []
         connector_class = getattr(importlib.import_module(self.module_path()), self.class_name())
+        kwargs = {}
         if isinstance(self.config_keys, Dict):
             kwargs = {key: (config.value or "") for key, config in self.config_keys.items()}  # legacy
-        else:
+        elif self.config_keys is not None:
             kwargs = {
                 traverse_item.attr: traverse_item.value or ""
                 for traverse_item
