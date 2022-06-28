@@ -28,12 +28,15 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager], style: Style):
         show_welcome(style)
         password = input_dialog(
             title="Set Password",
-            text="Create a password to protect your sensitive data. "
-                 "This password is not shared with us nor with anyone else, so please store it securely."
-                 "\n\nIf you have used hummingbot before and already have secure configs stored,"
-                 " input your previous password in this prompt, then run the scripts/conf_migration_script.py script"
-                 " to migrate your existing secure configs to the new management system."
-                 "\n\nEnter your new password:",
+            text="""
+    Create a password to protect your sensitive data.
+    This password is not shared with us nor with anyone else, so please store it securely.
+
+    If you have used hummingbot before and already have secure configs stored,
+    input your previous password in this prompt. The next step will automatically
+    migrate your existing configs.
+
+    Enter your new password:""",
             password=True,
             style=style).run()
         if password is None:
