@@ -63,7 +63,12 @@ class OrderSide(Enum):
 
 
 class Chain(Enum):
-    SOLANA = 'solana'
+    SOLANA = ('solana', 'SOL')
+    ETHEREUM = ('ethereum', 'ETH')
+
+    def __init__(self, chain: str, native_currency: str):
+        self.chain = chain
+        self.native_currency = native_currency
 
 
 class Connector(Enum):
