@@ -207,6 +207,7 @@ export interface PerpCreateTakerRequest extends NetworkSelectionRequest {
   address: string;
   amount?: string;
   side?: PerpSide;
+  allowedSlippage?: string;
   nonce?: number;
 }
 

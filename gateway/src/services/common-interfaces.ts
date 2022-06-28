@@ -395,7 +395,8 @@ export interface Perpish {
   openPosition(
     isLong: boolean,
     tickerSymbol: string,
-    minBaseAmount: string
+    minBaseAmount: string,
+    allowedSlippage?: string
   ): Promise<Transaction>;
 
   /**
@@ -403,7 +404,10 @@ export interface Perpish {
    * @param tickerSymbol The market on which we want to close position.
    * @returns An ethers transaction object.
    */
-  closePosition(tickerSymbol: string): Promise<Transaction>;
+  closePosition(
+    tickerSymbol: string,
+    allowedSlippage?: string
+  ): Promise<Transaction>;
 }
 
 export interface Ethereumish extends EthereumBase {

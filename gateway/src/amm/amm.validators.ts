@@ -249,6 +249,7 @@ export const validatePerpOpenTradeRequest: RequestValidator =
     validateAddress,
     validatePerpSide,
     validateNonce,
+    validateAllowedSlippage,
   ]);
 
 export const validatePerpCloseTradeRequest: RequestValidator =
@@ -260,6 +261,7 @@ export const validatePerpCloseTradeRequest: RequestValidator =
     validateBase,
     validateAddress,
     validateNonce,
+    validateAllowedSlippage,
   ]);
 
 export const validateEstimateGasRequest: RequestValidator = mkRequestValidator([
