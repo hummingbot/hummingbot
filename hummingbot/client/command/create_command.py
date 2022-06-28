@@ -159,6 +159,8 @@ class CreateCommand:
         if input_value is None:
             prompt = await model.get_client_prompt(config)
             if prompt is not None:
+                default = model.get_default(config) or ""
+                self.app.set_text(default)
                 prompt = f"{prompt} >>> "
                 client_data = model.get_client_data(config)
                 input_value = await self.app.prompt(prompt=prompt, is_password=client_data.is_secure)
