@@ -8,7 +8,8 @@ import aiohttp
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from hummingbot.core.event.events import PositionSide, TradeType
+from hummingbot.core.data_type.common import PositionSide
+from hummingbot.core.event.events import TradeType
 from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.logger import HummingbotLogger
 
@@ -442,8 +443,8 @@ class GatewayHttpClient:
             "chain": chain,
             "network": network,
             "connector": connector,
-            "base_asset": base_asset,
-            "quote_asset": quote_asset,
+            "base": base_asset,
+            "quote": quote_asset,
         }, fail_silently=fail_silently)
 
     async def get_perp_market_price(
@@ -457,10 +458,10 @@ class GatewayHttpClient:
             side: PositionSide,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        if side not in [PositionSide.LONG, TradeType.SHORT]:
+        if side not in [PositionSide.LONG, PositionSide.SHORT]:
             raise ValueError("Only LONG and SHORT order prices are supported.")
 
-        return await self.api_request("post", "amm/perp/price", {
+        return await self.api_request("post", "amm/perp/market-prices", {
             "chain": chain,
             "network": network,
             "connector": connector,
@@ -476,18 +477,18 @@ class GatewayHttpClient:
             chain: str,
             network: str,
             connector: str,
+            address: str,
             base_asset: str,
             quote_asset: str,
-            address: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         return await self.api_request("post", "amm/perp/position", {
             "chain": chain,
             "network": network,
             "connector": connector,
+            "address": address,
             "base": base_asset,
             "quote": quote_asset,
-            "address": address,
         }, fail_silently=fail_silently)
 
     async def amm_perp_open(
@@ -505,7 +506,9 @@ class GatewayHttpClient:
             max_fee_per_gas: Optional[int] = None,
             max_priority_fee_per_gas: Optional[int] = None
     ) -> Dict[str, Any]:
-        # XXX(martin_kou): The amount is always output with 18 decimal places.
+        if side not in [PositionSide.LONG, PositionSide.SHORT]:
+            raise ValueError("Only LONG and SHORT order prices are supported.")
+
         request_payload: Dict[str, Any] = {
             "chain": chain,
             "network": network,
