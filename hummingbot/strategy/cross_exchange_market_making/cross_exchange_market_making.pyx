@@ -161,7 +161,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         self._main_task = None
         self._gateway_quotes_task = None
         self._cancel_outdated_orders_task = None
-        self._hedge_maker_order_task = None
+        self._hedge_maker_order_tasks = []
         self._gateway_transaction_cancel_interval = gateway_transaction_cancel_interval
 
         self._last_conv_rates_logged = 0
@@ -636,15 +636,22 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             except Exception:
                 self.log_with_clock(logging.ERROR, "Unexpected error.", exc_info=True)
 
+    def hedge_tasks_cleanup(self):
+        hedge_maker_order_tasks = []
+        for task in self._hedge_maker_order_tasks:
+            if not task.done():
+                hedge_maker_order_tasks += [task]
+        self._hedge_maker_order_tasks = hedge_maker_order_tasks
+
     def handle_unfilled_taker_order(self, order_event):
         order_id = order_event.order_id
         market_pair = self._market_pair_tracker.get_market_pair_from_order_id(order_id)
 
         # Resubmit hedging order
-        if self._hedge_maker_order_task is None or self._hedge_maker_order_task.done():
-            self._hedge_maker_order_task = safe_ensure_future(
-                self.check_and_hedge_orders(market_pair)
-            )
+        self.hedge_tasks_cleanup()
+        self._hedge_maker_order_tasks += [safe_ensure_future(
+            self.check_and_hedge_orders(market_pair)
+        )]
 
         # Remove the cancelled, failed or expired taker order
         del self._taker_to_maker_order_ids[order_event.order_id]
@@ -663,10 +670,10 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
                 self._maker_to_hedging_trades[order_id] += [exchange_trade_id]
 
-                if self._hedge_maker_order_task is None or self._hedge_maker_order_task.done():
-                    self._hedge_maker_order_task = safe_ensure_future(
-                        self.hedge_filled_maker_order(order_filled_event)
-                    )
+                self.hedge_tasks_cleanup()
+                self._hedge_maker_order_task = safe_ensure_future(
+                    self.hedge_filled_maker_order(order_filled_event)
+                )
 
     def did_cancel_order(self, order_canceled_event: OrderCancelledEvent):
         if order_canceled_event.order_id in self._taker_to_maker_order_ids.keys():
@@ -732,8 +739,11 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                         del self._maker_to_taker_order_ids[maker_order_id]
                         del self._maker_to_hedging_trades[maker_order_id]
 
-                maker_exchange_trade_id = self._ongoing_hedging.inverse[order_id]
-                del self._ongoing_hedging[maker_exchange_trade_id]
+                try:
+                    maker_exchange_trade_id = self._ongoing_hedging.inverse[order_id]
+                    del self._ongoing_hedging[maker_exchange_trade_id]
+                except KeyError:
+                    self.logger().warning(f"Ongoing hedging not found for order id {order_id}")
 
     def did_complete_sell_order(self, order_completed_event: SellOrderCompletedEvent):
         """
@@ -788,8 +798,11 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                         del self._maker_to_taker_order_ids[maker_order_id]
                         del self._maker_to_hedging_trades[maker_order_id]
 
-                maker_exchange_trade_id = self._ongoing_hedging.inverse[order_id]
-                del self._ongoing_hedging[maker_exchange_trade_id]
+                try:
+                    maker_exchange_trade_id = self._ongoing_hedging.inverse[order_id]
+                    del self._ongoing_hedging[maker_exchange_trade_id]
+                except KeyError:
+                    self.logger().warning(f"Ongoing hedging not found for order id {order_id}")
 
     async def check_if_price_has_drifted(self, market_pair: MakerTakerMarketPair, active_order: LimitOrder):
         """
@@ -1114,7 +1127,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     assert size == s_decimal_zero
                     return s_decimal_zero
 
-            taker_balance = taker_balance_in_quote / taker_price
+            taker_slippage_adjustment_factor = Decimal("1") + self._slippage_buffer
+            taker_balance = taker_balance_in_quote / (taker_price * taker_slippage_adjustment_factor)
             order_amount = min(maker_balance, taker_balance, size)
 
             return maker_market.quantize_order_amount(market_pair.maker.trading_pair, Decimal(order_amount))
