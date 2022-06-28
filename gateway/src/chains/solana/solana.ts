@@ -35,8 +35,6 @@ const caches = {
   instances: new CacheContainer(new MemoryStorage()),
 };
 
-export type Solanaish = Solana;
-
 export class Solana implements Solanaish {
   public rpcUrl;
   public transactionLamports;
@@ -559,3 +557,6 @@ export class Solana implements Solanaish {
     }
   }
 }
+
+export type Solanaish = Solana;
+export const Solanaish = Solana;

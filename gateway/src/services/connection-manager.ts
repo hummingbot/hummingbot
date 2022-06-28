@@ -1,19 +1,19 @@
 import { Ethereum } from '../chains/ethereum/ethereum';
 import { Avalanche } from '../chains/avalanche/avalanche';
 import { Harmony } from '../chains/harmony/harmony';
-import { Solana } from '../chains/solana/solana';
+import { Solana, Solanaish } from '../chains/solana/solana';
 import { Polygon } from '../chains/polygon/polygon';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { Pangolin } from '../connectors/pangolin/pangolin';
 import { Serum } from '../connectors/serum/serum';
-import { Uniswapish, UniswapLPish } from './common-interfaces';
+import { Ethereumish, Uniswapish, UniswapLPish } from './common-interfaces';
 import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Sushiswap } from '../connectors/sushiswap/sushiswap';
 import { Serumish } from '../connectors/serum/serum';
 
 export async function getChain(chain: string, network: string) {
-  let chainInstance: any;
+  let chainInstance: Ethereumish | Solanaish;
 
   if (chain === 'ethereum') chainInstance = Ethereum.getInstance(network);
   else if (chain === 'avalanche')

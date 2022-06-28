@@ -26,13 +26,14 @@ import {
 } from '../connectors/uniswap/uniswap.controllers';
 import { getChain, getConnector } from '../services/connection-manager';
 import {
+  Ethereumish,
   NetworkSelectionRequest,
   Uniswapish,
   UniswapLPish,
 } from '../services/common-interfaces';
 
 export async function price(req: PriceRequest): Promise<PriceResponse> {
-  const chain = await getChain(req.chain, req.network);
+  const chain = (await getChain(req.chain, req.network)) as Ethereumish;
   const connector: Uniswapish = (await getConnector(
     req.chain,
     req.network,
@@ -42,7 +43,7 @@ export async function price(req: PriceRequest): Promise<PriceResponse> {
 }
 
 export async function trade(req: TradeRequest): Promise<TradeResponse> {
-  const chain = await getChain(req.chain, req.network);
+  const chain = (await getChain(req.chain, req.network)) as Ethereumish;
   const connector: Uniswapish = (await getConnector(
     req.chain,
     req.network,
@@ -54,7 +55,7 @@ export async function trade(req: TradeRequest): Promise<TradeResponse> {
 export async function addLiquidity(
   req: AddLiquidityRequest
 ): Promise<AddLiquidityResponse> {
-  const chain = await getChain(req.chain, req.network);
+  const chain = (await getChain(req.chain, req.network)) as Ethereumish;
   const connector: UniswapLPish = (await getConnector(
     req.chain,
     req.network,
@@ -66,7 +67,7 @@ export async function addLiquidity(
 export async function reduceLiquidity(
   req: RemoveLiquidityRequest
 ): Promise<RemoveLiquidityResponse> {
-  const chain = await getChain(req.chain, req.network);
+  const chain = (await getChain(req.chain, req.network)) as Ethereumish;
   const connector: UniswapLPish = <UniswapLPish>(
     ((await getConnector(
       req.chain,
@@ -80,7 +81,7 @@ export async function reduceLiquidity(
 export async function collectFees(
   req: CollectEarnedFeesRequest
 ): Promise<RemoveLiquidityResponse> {
-  const chain = await getChain(req.chain, req.network);
+  const chain = (await getChain(req.chain, req.network)) as Ethereumish;
   const connector: UniswapLPish = <UniswapLPish>(
     ((await getConnector(
       req.chain,
@@ -94,7 +95,7 @@ export async function collectFees(
 export async function positionInfo(
   req: PositionRequest
 ): Promise<PositionResponse> {
-  const chain = await getChain(req.chain, req.network);
+  const chain = (await getChain(req.chain, req.network)) as Ethereumish;
   const connector: UniswapLPish = <UniswapLPish>(
     ((await getConnector(
       req.chain,
@@ -108,7 +109,7 @@ export async function positionInfo(
 export async function poolPrice(
   req: PoolPriceRequest
 ): Promise<PoolPriceResponse> {
-  const chain = await getChain(req.chain, req.network);
+  const chain = (await getChain(req.chain, req.network)) as Ethereumish;
   const connector: UniswapLPish = <UniswapLPish>(
     ((await getConnector(
       req.chain,
@@ -122,7 +123,7 @@ export async function poolPrice(
 export async function estimateGas(
   req: NetworkSelectionRequest
 ): Promise<EstimateGasResponse> {
-  const chain = await getChain(req.chain, req.network);
+  const chain = (await getChain(req.chain, req.network)) as Ethereumish;
   const connector: Uniswapish = <Uniswapish>(
     ((await getConnector(req.chain, req.network, req.connector)) as Uniswapish)
   );
