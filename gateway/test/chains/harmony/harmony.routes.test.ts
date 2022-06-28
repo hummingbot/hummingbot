@@ -14,16 +14,10 @@ import * as transactionSuccesfulReceipt from '../ethereum/fixtures/transaction-s
 import * as transactionOutOfGas from '../ethereum/fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from '../ethereum/fixtures/transaction-out-of-gas-receipt.json';
 import { Harmony } from '../../../src/chains/harmony/harmony';
-import { OverrideConfigs } from '../../config.util';
 import { patchEVMNonceManager } from '../../evm.nonce.mock';
-
-const overrideConfigs = new OverrideConfigs();
 let harmony: Harmony;
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
-
   harmony = Harmony.getInstance('testnet');
   patchEVMNonceManager(harmony.nonceManager);
   await harmony.init();
@@ -39,7 +33,6 @@ afterEach(() => {
 
 afterAll(async () => {
   await harmony.close();
-  await overrideConfigs.resetConfigs();
 });
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
