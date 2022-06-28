@@ -434,16 +434,16 @@ class GatewayHttpClient:
             chain: str,
             network: str,
             connector: str,
-            quote: str,
-            base: str,
+            base_asset: str,
+            quote_asset: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         return await self.api_request("post", "amm/perp/market-status", {
             "chain": chain,
             "network": network,
             "connector": connector,
-            "quote": quote,
-            "base": base,
+            "base_asset": base_asset,
+            "quote_asset": quote_asset,
         }, fail_silently=fail_silently)
 
     async def get_perp_market_price(
@@ -476,8 +476,8 @@ class GatewayHttpClient:
             chain: str,
             network: str,
             connector: str,
-            quote: str,
-            base: str,
+            base_asset: str,
+            quote_asset: str,
             address: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
@@ -485,8 +485,8 @@ class GatewayHttpClient:
             "chain": chain,
             "network": network,
             "connector": connector,
-            "quote": quote,
-            "base": base,
+            "base": base_asset,
+            "quote": quote_asset,
             "address": address,
         }, fail_silently=fail_silently)
 
