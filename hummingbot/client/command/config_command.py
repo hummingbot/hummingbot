@@ -237,7 +237,7 @@ class ConfigCommand:
                 elif key == "inventory_price":
                     await self.inventory_price_prompt(config_map, input_value)
                 else:
-                    await self.prompt_a_config(config_map, key, input_value)
+                    await self.prompt_a_config(config_map, key, input_value, assign_default=False)
                 if self.app.to_stop_config:
                     self.app.to_stop_config = False
                     return

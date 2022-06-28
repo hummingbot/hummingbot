@@ -208,7 +208,10 @@ class ClientConfigAdapter:
         return self._hb_config.__fields__[attr_name].field_info.description
 
     def get_default(self, attr_name: str) -> Any:
-        return self._hb_config.__fields__[attr_name].field_info.default
+        default = self._hb_config.__fields__[attr_name].field_info.default
+        if isinstance(default, type(Ellipsis)):
+            default = None
+        return default
 
     def get_type(self, attr_name: str) -> Type:
         return self._hb_config.__fields__[attr_name].type_

@@ -150,6 +150,7 @@ class CreateCommand:
         model: ClientConfigAdapter,
         config: str,
         input_value=None,
+        assign_default=True,
     ):
         config_path = config.split(".")
         while len(config_path) != 1:
@@ -159,9 +160,10 @@ class CreateCommand:
         if input_value is None:
             prompt = await model.get_client_prompt(config)
             if prompt is not None:
-                default = model.get_default(config)
-                default = str(default) if default is not None else ""
-                self.app.set_text(default)
+                if assign_default:
+                    default = model.get_default(config)
+                    default = str(default) if default is not None else ""
+                    self.app.set_text(default)
                 prompt = f"{prompt} >>> "
                 client_data = model.get_client_data(config)
                 input_value = await self.app.prompt(prompt=prompt, is_password=client_data.is_secure)
