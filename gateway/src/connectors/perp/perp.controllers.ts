@@ -129,10 +129,14 @@ export async function createTakerOrder(
     tx = await perpish.openPosition(
       req.side === 'LONG' ? true : false,
       `${req.base}${req.quote}`,
-      req.amount as string
+      req.amount as string,
+      req.allowedSlippage
     );
   } else {
-    tx = await perpish.closePosition(`${req.base}${req.quote}`);
+    tx = await perpish.closePosition(
+      `${req.base}${req.quote}`,
+      req.allowedSlippage
+    );
   }
 
   await ethereumish.txStorage.saveTx(
