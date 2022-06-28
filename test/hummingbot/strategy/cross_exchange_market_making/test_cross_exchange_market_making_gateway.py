@@ -3,6 +3,7 @@ import unittest
 from decimal import Decimal
 from math import ceil
 from typing import List, Union
+from unittest.mock import patch
 
 import pandas as pd
 from aiounittest import async_test
@@ -340,9 +341,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         )
 
     @async_test(loop=ev_loop)
-    @unittest.mock.patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
-                         "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
-    @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
+    @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
+           "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
+    @patch.object(MockAMM, "cancel_outdated_orders")
     async def test_both_sides_profitable(self,
                                          cancel_outdated_orders_func: unittest.mock.AsyncMock,
                                          _: unittest.mock.Mock):
@@ -379,9 +380,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         # self.assertAlmostEqual(Decimal("3.0"), taker_fill.amount)
 
     @async_test(loop=ev_loop)
-    @unittest.mock.patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
-                         "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
-    @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
+    @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
+           "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
+    @patch.object(MockAMM, "cancel_outdated_orders")
     async def test_top_depth_tolerance(self,
                                        cancel_outdated_orders_func: unittest.mock.AsyncMock,
                                        _: unittest.mock.Mock):  # TODO
@@ -449,9 +450,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0151"), ask_order.price)
 
     @async_test(loop=ev_loop)
-    @unittest.mock.patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
-                         "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
-    @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
+    @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
+           "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
+    @patch.object(MockAMM, "cancel_outdated_orders")
     async def test_market_became_wider(self,
                                        cancel_outdated_orders_func: unittest.mock.AsyncMock,
                                        _: unittest.mock.Mock):
@@ -517,9 +518,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0151"), ask_order.price)
 
     @async_test(loop=ev_loop)
-    @unittest.mock.patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
-                         "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
-    @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
+    @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
+           "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
+    @patch.object(MockAMM, "cancel_outdated_orders")
     async def test_market_became_narrower(self,
                                           cancel_outdated_orders_func: unittest.mock.AsyncMock,
                                           _: unittest.mock.Mock):
@@ -547,9 +548,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0553"), ask_order.price)
 
     @async_test(loop=ev_loop)
-    @unittest.mock.patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
-                         "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
-    @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
+    @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
+           "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
+    @patch.object(MockAMM, "cancel_outdated_orders")
     async def test_order_fills_after_cancellation(self,
                                                   cancel_outdated_orders_func: unittest.mock.AsyncMock,
                                                   _: unittest.mock.Mock):  # TODO
@@ -646,9 +647,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         # self.assertAlmostEqual(Decimal("3.0"), taker_fill2.amount)
 
     @async_test(loop=ev_loop)
-    @unittest.mock.patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
-                         "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
-    @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
+    @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
+           "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
+    @patch.object(MockAMM, "cancel_outdated_orders")
     async def test_with_conversion(self,
                                    cancel_outdated_orders_func: unittest.mock.AsyncMock,
                                    _: unittest.mock.Mock):
@@ -678,9 +679,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("2.7821"), round(ask_order.quantity, 4))
 
     @async_test(loop=ev_loop)
-    @unittest.mock.patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
-                         "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
-    @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
+    @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
+           "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
+    @patch.object(MockAMM, "cancel_outdated_orders")
     async def test_maker_price(self, cancel_outdated_orders_func: unittest.mock.AsyncMock, _: unittest.mock.Mock):
         buy_taker_price: Decimal = round(await self.strategy.calculate_effective_hedging_price(self.market_pair, False, 3), 4)
         sell_taker_price: Decimal = round(await self.strategy.calculate_effective_hedging_price(self.market_pair, True, 3), 4)
@@ -701,9 +702,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
 
     @async_test(loop=ev_loop)
-    @unittest.mock.patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
-                         "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
-    @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
+    @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
+           "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
+    @patch.object(MockAMM, "cancel_outdated_orders")
     async def test_with_adjust_orders_enabled(self,
                                               cancel_outdated_orders_func: unittest.mock.AsyncMock,
                                               _: unittest.mock.Mock):
@@ -742,9 +743,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("3"), round(ask_order.quantity, 4))
 
     @async_test(loop=ev_loop)
-    @unittest.mock.patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
-                         "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
-    @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
+    @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
+           "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
+    @patch.object(MockAMM, "cancel_outdated_orders")
     async def test_with_adjust_orders_disabled(self, cancel_outdated_orders_func: unittest.mock.AsyncMock, _: unittest.mock.Mock):
         self.clock.remove_iterator(self.strategy)
         self.clock.remove_iterator(self.maker_market)
@@ -791,9 +792,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("3"), round(ask_order.quantity, 4))
 
     @async_test(loop=ev_loop)
-    @unittest.mock.patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
-                         "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
-    @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
+    @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
+           "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
+    @patch.object(MockAMM, "cancel_outdated_orders")
     async def test_price_and_size_limit_calculation(self,
                                                     cancel_outdated_orders_func: unittest.mock.AsyncMock,
                                                     _: unittest.mock.Mock):
@@ -815,9 +816,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual((Decimal("1.0553"), Decimal("3")), (ask_price, ask_size))
 
     @async_test(loop=ev_loop)
-    @unittest.mock.patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
-                         "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
-    @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
+    @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
+           "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
+    @patch.object(MockAMM, "cancel_outdated_orders")
     async def test_price_and_size_limit_calculation_with_slippage_buffer(self,
                                                                          cancel_outdated_orders_func: unittest.mock.AsyncMock,
                                                                          _: unittest.mock.Mock):
@@ -878,9 +879,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.3125"), slippage_ask_price)  # price = ask_VWAP(2.2857) * profitability = 1.05 * 1.25
 
     @async_test(loop=ev_loop)
-    @unittest.mock.patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
-                         "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
-    @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
+    @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
+           "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
+    @patch.object(MockAMM, "cancel_outdated_orders")
     async def test_check_if_sufficient_balance_adjusts_including_slippage(self,
                                                                           cancel_outdated_orders_func: unittest.mock.AsyncMock,
                                                                           _: unittest.mock.Mock):
@@ -973,9 +974,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal(str(round(active_ask.quantity - asks_quantum, 2))), new_active_ask.quantity)
 
     @async_test(loop=ev_loop)
-    @unittest.mock.patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
-                         "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
-    @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
+    @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
+           "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
+    @patch.object(MockAMM, "cancel_outdated_orders")
     async def test_empty_maker_orderbook(self,
                                          cancel_outdated_orders_func: unittest.mock.AsyncMock,
                                          _: unittest.mock.Mock):
