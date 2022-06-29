@@ -20,12 +20,7 @@ import {
 } from '../../../../src/connectors/serum/serum.types';
 import { unpatch } from '../../../services/patch';
 import { default as config } from './fixtures/config';
-import { getNewCandidateOrdersTemplates } from './fixtures/helpers';
-
-interface OrderPair {
-  candidate: CreateOrdersRequest;
-  order: GetOrderResponse;
-}
+import { getNewCandidateOrdersTemplates, getOrderPairsFromCandidateOrders, CreateOrderData } from './fixtures/helpers';
 
 let app: Express;
 // let serum: Serum;
@@ -61,10 +56,7 @@ const marketName = targetMarkets[0];
 // const orderIds = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
 const candidateOrders = getNewCandidateOrdersTemplates(10, 0);
-const orderPairs: OrderPair[] = candidateOrders.map((candidate) => {
-  candidate,
-  order: candidate
-});
+const executedOrders: CreateOrderData[] = getOrderPairsFromCandidateOrders(candidateOrders)
 
 describe(`/serum`, () => {
   describe(`GET /serum`, () => {
@@ -781,15 +773,15 @@ describe(`/serum/orders`, () => {
     });
 
     describe('Single order', () => {
-      let target: OrderPair;
+      let target: CreateOrderData;
 
       beforeAll(async () => {
-        target = candidateOrders[0];
+        target = executedOrders[0];
       });
 
       it('Get a specific order by its id and owner address', async () => {
-        const orderId = target.order.id;
-        const ownerAddress = target.order.ownerAddress;
+        const orderId = target.response.id;
+        const ownerAddress = target.response.ownerAddress;
 
         await request(app)
           .get(`/serum/orders`)
@@ -812,9 +804,9 @@ describe(`/serum/orders`, () => {
       });
 
       it('Get a specific order by its id, owner address and market name', async () => {
-        const orderId = target.order.id;
-        const marketName = target.order.marketName;
-        const ownerAddress = target.order.ownerAddress;
+        const orderId = target.response.id;
+        const marketName = target.response.marketName;
+        const ownerAddress = target.response.ownerAddress;
 
         await request(app)
           .get(`/serum/orders`)
@@ -838,8 +830,8 @@ describe(`/serum/orders`, () => {
       });
 
       it('Get a specific order by its exchange id and owner address', async () => {
-        const exchangeId = target.order.exchangeId;
-        const ownerAddress = target.order.ownerAddress;
+        const exchangeId = target.response.exchangeId;
+        const ownerAddress = target.response.ownerAddress;
 
         await request(app)
           .get(`/serum/orders`)
@@ -862,9 +854,9 @@ describe(`/serum/orders`, () => {
       });
 
       it('Get a specific order by its exchange id, owner address and market name', async () => {
-        const exchangeId = target.order.exchangeId;
-        const marketName = target.order.marketName;
-        const ownerAddress = target.order.ownerAddress;
+        const exchangeId = target.response.exchangeId;
+        const marketName = target.response.marketName;
+        const ownerAddress = target.response.ownerAddress;
 
         await request(app)
           .get(`/serum/orders`)
@@ -888,8 +880,8 @@ describe(`/serum/orders`, () => {
       });
 
       it('Fail when trying to get an order without informing its owner address', async () => {
-        const exchangeId = target.order.exchangeId;
-        const marketName = target.order.marketName;
+        const exchangeId = target.response.exchangeId;
+        const marketName = target.response.marketName;
 
         await request(app)
           .get(`/serum/orders`)
@@ -908,15 +900,15 @@ describe(`/serum/orders`, () => {
             expect(response.error).not.toBeFalsy();
             if (response.error) {
               expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
-                `No owner address provided for order "${target.order.id} / ${target.order.exchangeId}".`
+                `No owner address provided for order "${target.response.id} / ${target.response.exchangeId}".`
               );
             }
           });
       });
 
       it('Fail when trying to get an order without informing its id and exchange id', async () => {
-        const marketName = target.order.marketName;
-        const ownerAddress = target.order.ownerAddress;
+        const marketName = target.response.marketName;
+        const ownerAddress = target.response.ownerAddress;
 
         await request(app)
           .get(`/serum/orders`)
@@ -942,8 +934,8 @@ describe(`/serum/orders`, () => {
       });
 
       it('Fail when trying to get a non existing order', async () => {
-        const orderId = target.order.id;
-        const ownerAddress = target.order.ownerAddress;
+        const orderId = target.response.id;
+        const ownerAddress = target.response.ownerAddress;
 
         await request(app)
           .get(`/serum/orders`)
@@ -970,10 +962,10 @@ describe(`/serum/orders`, () => {
     });
 
     describe('Multiple orders', () => {
-      let targets: OrderPair[];
+      let targets: CreateOrderData[];
 
       beforeAll(async () => {
-        targets = candidateOrders.slice(0, 3);
+        targets = executedOrders.slice(0, 3);
       });
 
       it('Get a map of orders by their ids and owner addresses', async () => {
@@ -984,8 +976,8 @@ describe(`/serum/orders`, () => {
             network: config.serum.network,
             connector: config.serum.connector,
             orders: targets.map((item) => ({
-              id: item.order.id,
-              ownerAddress: item.order.ownerAddress,
+              id: item.response.id,
+              ownerAddress: item.response.ownerAddress,
             })),
           })
           .set('Accept', 'application/json')
@@ -996,18 +988,18 @@ describe(`/serum/orders`, () => {
             );
 
             for (const [orderId, order] of orders) {
-              const found = targets.find((item) => item.order.id === orderId);
+              const found = targets.find((item) => item.response.id === orderId);
 
               expect(found).not.toBeUndefined();
               expect(order.id).toEqual(orderId);
               expect(order.exchangeId).toBeGreaterThan(0);
-              expect(order.marketName).toEqual(found?.order.marketName);
-              expect(order.ownerAddress).toEqual(found?.order.ownerAddress);
-              expect(order.price).toEqual(found?.order.price);
-              expect(order.amount).toEqual(found?.order.amount);
-              expect(order.side).toEqual(found?.order.side);
+              expect(order.marketName).toEqual(found?.response.marketName);
+              expect(order.ownerAddress).toEqual(found?.response.ownerAddress);
+              expect(order.price).toEqual(found?.response.price);
+              expect(order.amount).toEqual(found?.response.amount);
+              expect(order.side).toEqual(found?.response.side);
               expect(order.status).toEqual(OrderStatus.OPEN);
-              expect(order.type).toEqual(found?.order.type);
+              expect(order.type).toEqual(found?.response.type);
               expect(order.fee).toBeGreaterThanOrEqual(0);
             }
           });
@@ -1021,9 +1013,9 @@ describe(`/serum/orders`, () => {
             network: config.serum.network,
             connector: config.serum.connector,
             orders: targets.map((item) => ({
-              id: item.order.id,
-              ownerAddress: item.order.ownerAddress,
-              marketName: item.order.marketName,
+              id: item.response.id,
+              ownerAddress: item.response.ownerAddress,
+              marketName: item.response.marketName,
             })),
           })
           .set('Accept', 'application/json')
@@ -1034,18 +1026,18 @@ describe(`/serum/orders`, () => {
             );
 
             for (const [orderId, order] of orders) {
-              const found = targets.find((item) => item.order.id === orderId);
+              const found = targets.find((item) => item.response.id === orderId);
 
               expect(found).not.toBeUndefined();
               expect(order.id).toEqual(orderId);
               expect(order.exchangeId).toBeGreaterThan(0);
-              expect(order.marketName).toEqual(found?.order.marketName);
-              expect(order.ownerAddress).toEqual(found?.order.ownerAddress);
-              expect(order.price).toEqual(found?.order.price);
-              expect(order.amount).toEqual(found?.order.amount);
-              expect(order.side).toEqual(found?.order.side);
+              expect(order.marketName).toEqual(found?.response.marketName);
+              expect(order.ownerAddress).toEqual(found?.response.ownerAddress);
+              expect(order.price).toEqual(found?.response.price);
+              expect(order.amount).toEqual(found?.response.amount);
+              expect(order.side).toEqual(found?.response.side);
               expect(order.status).toEqual(OrderStatus.OPEN);
-              expect(order.type).toEqual(found?.order.type);
+              expect(order.type).toEqual(found?.response.type);
               expect(order.fee).toBeGreaterThanOrEqual(0);
             }
           });
@@ -1059,8 +1051,8 @@ describe(`/serum/orders`, () => {
             network: config.serum.network,
             connector: config.serum.connector,
             orders: targets.map((item) => ({
-              exchangeId: item.order.exchangeId,
-              ownerAddress: item.order.ownerAddress,
+              exchangeId: item.response.exchangeId,
+              ownerAddress: item.response.ownerAddress,
             })),
           })
           .set('Accept', 'application/json')
@@ -1071,18 +1063,18 @@ describe(`/serum/orders`, () => {
             );
 
             for (const [orderId, order] of orders) {
-              const found = targets.find((item) => item.order.id === orderId);
+              const found = targets.find((item) => item.response.id === orderId);
 
               expect(found).not.toBeUndefined();
               expect(order.id).toEqual(orderId);
               expect(order.exchangeId).toBeGreaterThan(0);
-              expect(order.marketName).toEqual(found?.order.marketName);
-              expect(order.ownerAddress).toEqual(found?.order.ownerAddress);
-              expect(order.price).toEqual(found?.order.price);
-              expect(order.amount).toEqual(found?.order.amount);
-              expect(order.side).toEqual(found?.order.side);
+              expect(order.marketName).toEqual(found?.response.marketName);
+              expect(order.ownerAddress).toEqual(found?.response.ownerAddress);
+              expect(order.price).toEqual(found?.response.price);
+              expect(order.amount).toEqual(found?.response.amount);
+              expect(order.side).toEqual(found?.response.side);
               expect(order.status).toEqual(OrderStatus.OPEN);
-              expect(order.type).toEqual(found?.order.type);
+              expect(order.type).toEqual(found?.response.type);
               expect(order.fee).toBeGreaterThanOrEqual(0);
             }
           });
@@ -1096,9 +1088,9 @@ describe(`/serum/orders`, () => {
             network: config.serum.network,
             connector: config.serum.connector,
             orders: targets.map((item) => ({
-              exchangeId: item.order.exchangeId,
-              ownerAddress: item.order.ownerAddress,
-              marketName: item.order.marketName,
+              exchangeId: item.response.exchangeId,
+              ownerAddress: item.response.ownerAddress,
+              marketName: item.response.marketName,
             })),
           })
           .set('Accept', 'application/json')
@@ -1109,18 +1101,18 @@ describe(`/serum/orders`, () => {
             );
 
             for (const [orderId, order] of orders) {
-              const found = targets.find((item) => item.order.id === orderId);
+              const found = targets.find((item) => item.response.id === orderId);
 
               expect(found).not.toBeUndefined();
               expect(order.id).toEqual(orderId);
               expect(order.exchangeId).toBeGreaterThan(0);
-              expect(order.marketName).toEqual(found?.order.marketName);
-              expect(order.ownerAddress).toEqual(found?.order.ownerAddress);
-              expect(order.price).toEqual(found?.order.price);
-              expect(order.amount).toEqual(found?.order.amount);
-              expect(order.side).toEqual(found?.order.side);
+              expect(order.marketName).toEqual(found?.response.marketName);
+              expect(order.ownerAddress).toEqual(found?.response.ownerAddress);
+              expect(order.price).toEqual(found?.response.price);
+              expect(order.amount).toEqual(found?.response.amount);
+              expect(order.side).toEqual(found?.response.side);
               expect(order.status).toEqual(OrderStatus.OPEN);
-              expect(order.type).toEqual(found?.order.type);
+              expect(order.type).toEqual(found?.response.type);
               expect(order.fee).toBeGreaterThanOrEqual(0);
             }
           });
@@ -1134,8 +1126,8 @@ describe(`/serum/orders`, () => {
             network: config.serum.network,
             connector: config.serum.connector,
             orders: targets.map((item) => ({
-              exchangeId: item.order.exchangeId,
-              marketName: item.order.marketName,
+              exchangeId: item.response.exchangeId,
+              marketName: item.response.marketName,
             })),
           })
           .set('Accept', 'application/json')
@@ -1144,7 +1136,7 @@ describe(`/serum/orders`, () => {
             expect(response.error).not.toBeFalsy();
             if (response.error) {
               expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
-                `No owner address provided for order "${targets[0].order.id} / ${targets[0].order.exchangeId}".`
+                `No owner address provided for order "${targets[0].response.id} / ${targets[0].response.exchangeId}".`
               );
             }
           });

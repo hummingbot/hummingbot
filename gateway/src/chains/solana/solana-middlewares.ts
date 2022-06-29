@@ -6,7 +6,7 @@ export const verifySolanaIsAvailable = async (
   _res: Response,
   next: NextFunction
 ) => {
-  const solana = Solana.getInstance(req.body.chain);
+  const solana = Solana.getInstance(req.body.network);
   if (!solana.ready) {
     await solana.init();
   }
