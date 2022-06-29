@@ -386,6 +386,11 @@ export interface Perpish {
   getPositions(tickerSymbol: string): Promise<PerpPosition | undefined>;
 
   /**
+   * Attempts to return balance of a connected acct
+   */
+  getAccountValue(): Promise<Big>;
+
+  /**
    * Given the necessary parameters, open a position.
    * @param isLong Will create a long position if true, else a short pos will be created.
    * @param tickerSymbol the market to create position on.

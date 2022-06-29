@@ -269,4 +269,13 @@ export class Perp implements Perpish {
     return (await clearingHouse.closePosition(position as Position, slippage))
       .transaction;
   }
+
+  /**
+   * Function for getting account value
+   * @returns account value
+   */
+  async getAccountValue(): Promise<Big> {
+    const clearingHouse = this._perp.clearingHouse as ClearingHouse;
+    return await clearingHouse.getAccountValue();
+  }
 }
