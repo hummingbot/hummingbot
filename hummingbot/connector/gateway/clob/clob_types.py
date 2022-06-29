@@ -11,15 +11,23 @@ class OrderStatus(Enum):
     CANCELATION_PENDING = 'CANCELATION_PENDING',
     UNKNOWN = 'UNKNOWN'
 
-    # TODO implement!!!
     @staticmethod
-    def from_hummingbot():
-        raise NotImplementedError
+    def from_hummingbot(target: str):
+        if target == 'OPEN':
+            return OrderStatus.OPEN
+        elif target == 'CANCELED':
+            return OrderStatus.CANCELED
+        else:
+            raise ValueError(f"Unknown order status: {target}")
 
-    # TODO implement!!!
     @staticmethod
-    def to_hummingbot():
-        raise NotImplementedError
+    def to_hummingbot(self):
+        if self == OrderStatus.OPEN:
+            return 'OPEN'
+        elif self == OrderStatus.CANCELED:
+            return 'CANCELED'
+        else:
+            raise ValueError(f"Unknown order status: {self}")
 
 
 class OrderType(Enum):
