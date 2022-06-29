@@ -1,7 +1,10 @@
-import {PublicKey} from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import BN from 'bn.js';
-import {convertOrderSideToSerumSide} from '../../../../../src/connectors/serum/serum.convertors';
-import {getNotNullOrThrowError, getRandonBN,} from '../../../../../src/connectors/serum/serum.helpers';
+import { convertOrderSideToSerumSide } from '../../../../../src/connectors/serum/serum.convertors';
+import {
+  getNotNullOrThrowError,
+  getRandonBN,
+} from '../../../../../src/connectors/serum/serum.helpers';
 import {
   CreateOrderResponse,
   CreateOrdersRequest,
@@ -12,15 +15,13 @@ import {
   SerumOpenOrders,
   SerumOrder,
 } from '../../../../../src/connectors/serum/serum.types';
-import {default as config} from './config';
-import {randomUUID} from "crypto";
-
+import { default as config } from './config';
+import { randomUUID } from 'crypto';
 
 export interface CreateOrderData {
   request: CreateOrdersRequest;
   response: CreateOrderResponse;
 }
-
 
 const marketNames = ['SOL/USDT', 'SOL/USDC'];
 
@@ -115,18 +116,17 @@ export const getOrderPairsFromCandidateOrders = (
   orderCandidates: CreateOrdersRequest[]
 ): CreateOrderData[] => {
   return orderCandidates.map((request) => {
-      return {
-        request: request,
-        response: {
-          ...request,
-          exchangeId: randomUUID(),
-          fee: 0.01,
-          status: OrderStatus.OPEN,
-          signature: randomUUID()
-        }
-      }
-    }
-  )
+    return {
+      request: request,
+      response: {
+        ...request,
+        exchangeId: randomUUID(),
+        fee: 0.01,
+        status: OrderStatus.OPEN,
+        signature: randomUUID(),
+      },
+    };
+  });
 };
 
 export const getNewSerumOrders = (
