@@ -1,5 +1,5 @@
 jest.useFakeTimers();
-import { Pangolin } from '../../../../src/connectors/pangolin/pangolin';
+import { Traderjoe } from '../../../../src/connectors/traderjoe/traderjoe';
 import { patch, unpatch } from '../../../services/patch';
 import { UniswapishPriceError } from '../../../../src/services/error-handler';
 import {
@@ -11,12 +11,12 @@ import {
   TokenAmount,
   Trade,
   TradeType,
-} from '@pangolindex/sdk';
+} from '@traderjoe-xyz/sdk';
 import { BigNumber } from 'ethers';
 import { Avalanche } from '../../../../src/chains/avalanche/avalanche';
 import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 let avalanche: Avalanche;
-let pangolin: Pangolin;
+let traderjoe: Traderjoe;
 
 const WETH = new Token(
   43114,
@@ -36,8 +36,8 @@ beforeAll(async () => {
   patchEVMNonceManager(avalanche.nonceManager);
   await avalanche.init();
 
-  pangolin = Pangolin.getInstance('avalanche', 'fuji');
-  await pangolin.init();
+  traderjoe = Traderjoe.getInstance('avalanche', 'fuji');
+  await traderjoe.init();
 });
 
 beforeEach(() => {
@@ -82,12 +82,12 @@ const patchTrade = (key: string, error?: Error) => {
   });
 };
 
-describe('verify Pangolin estimateSellTrade', () => {
+describe('verify Traderjoe estimateSellTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
     patchTrade('bestTradeExactIn');
 
-    const expectedTrade = await pangolin.estimateSellTrade(
+    const expectedTrade = await traderjoe.estimateSellTrade(
       WETH,
       WAVAX,
       BigNumber.from(1)
@@ -101,17 +101,17 @@ describe('verify Pangolin estimateSellTrade', () => {
     patchTrade('bestTradeExactIn', new Error('error getting trade'));
 
     await expect(async () => {
-      await pangolin.estimateSellTrade(WETH, WAVAX, BigNumber.from(1));
+      await traderjoe.estimateSellTrade(WETH, WAVAX, BigNumber.from(1));
     }).rejects.toThrow(UniswapishPriceError);
   });
 });
 
-describe('verify Pangolin estimateBuyTrade', () => {
+describe('verify Traderjoe estimateBuyTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
     patchTrade('bestTradeExactOut');
 
-    const expectedTrade = await pangolin.estimateBuyTrade(
+    const expectedTrade = await traderjoe.estimateBuyTrade(
       WETH,
       WAVAX,
       BigNumber.from(1)
@@ -125,24 +125,24 @@ describe('verify Pangolin estimateBuyTrade', () => {
     patchTrade('bestTradeExactOut', new Error('error getting trade'));
 
     await expect(async () => {
-      await pangolin.estimateBuyTrade(WETH, WAVAX, BigNumber.from(1));
+      await traderjoe.estimateBuyTrade(WETH, WAVAX, BigNumber.from(1));
     }).rejects.toThrow(UniswapishPriceError);
   });
 });
 
 describe('getAllowedSlippage', () => {
   it('return value of string when not null', () => {
-    const allowedSlippage = pangolin.getAllowedSlippage('3/100');
+    const allowedSlippage = traderjoe.getAllowedSlippage('3/100');
     expect(allowedSlippage).toEqual(new Percent('3', '100'));
   });
 
   it('return value from config when string is null', () => {
-    const allowedSlippage = pangolin.getAllowedSlippage();
+    const allowedSlippage = traderjoe.getAllowedSlippage();
     expect(allowedSlippage).toEqual(new Percent('1', '100'));
   });
 
   it('return value from config when string is malformed', () => {
-    const allowedSlippage = pangolin.getAllowedSlippage('yo');
+    const allowedSlippage = traderjoe.getAllowedSlippage('yo');
     expect(allowedSlippage).toEqual(new Percent('1', '100'));
   });
 });

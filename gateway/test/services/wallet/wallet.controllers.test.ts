@@ -13,12 +13,9 @@ import {
   UNKNOWN_CHAIN_ERROR_CODE,
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../../../src/services/error-handler';
-
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
-import { OverrideConfigs } from '../../config.util';
 import { BSC } from '../../../src/chains/bsc/bsc';
 
-const overrideConfigs = new OverrideConfigs();
 let avalanche: Avalanche;
 let eth: Ethereum;
 let harmony: Harmony;
@@ -27,8 +24,6 @@ let bsc: BSC;
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
 
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
   avalanche = Avalanche.getInstance('fuji');
   bsc = BSC.getInstance('testnet');
   eth = Ethereum.getInstance('kovan');
@@ -44,7 +39,6 @@ afterAll(async () => {
   await bsc.close();
   await eth.close();
   await harmony.close();
-  await overrideConfigs.resetConfigs();
 });
 
 afterEach(() => unpatch());

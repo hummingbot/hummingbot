@@ -30,7 +30,7 @@ class ClientOrderTracker:
 
     MAX_CACHE_SIZE = 1000
     CACHED_ORDER_TTL = 30.0  # seconds
-    ORDER_NOT_FOUND_COUNT_LIMIT = 3
+    ORDER_NOT_FOUND_COUNT_LIMIT = 10
     TRADE_FILLS_WAIT_TIMEOUT = 5  # seconds
 
     @classmethod

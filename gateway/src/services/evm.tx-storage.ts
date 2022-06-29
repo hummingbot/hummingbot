@@ -12,6 +12,10 @@ export class EvmTxStorage extends ReferenceCountingCloseable {
     this.localStorage = LocalStorage.getInstance(dbPath, this.handle);
   }
 
+  public async init(): Promise<void> {
+    await this.localStorage.init();
+  }
+
   // pass in a date, then store it as a POSIX timestamp
   public async saveTx(
     chain: string,
