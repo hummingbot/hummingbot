@@ -38,17 +38,9 @@ import {
   Trade as TradeTraderjoe,
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
-// TODO fix!!!
-// import {
-//   TradeType,
-//   Currency,
-//   CurrencyAmount as UniswapCoreCurrencyAmount,
-//   Token as UniswapCoreToken,
-//   Fraction as UniswapFraction,
-// } from '@project-serum/serum';
 
-// TODO do we need to include clob/solana/serum although their routes are different?!!!
-// TODO Check this link https://hummingbot.org/developers/gateway/building-gateway-connectors/#5-add-sdk-classes-to-uniswapish-interface!!!
+// TODO Check the possibility to have clob/solana/serum equivalents here
+//  Check this link https://hummingbot.org/developers/gateway/building-gateway-connectors/#5-add-sdk-classes-to-uniswapish-interface
 export type Tokenish =
   | Token
   | TokenPangolin
