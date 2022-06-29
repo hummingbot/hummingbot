@@ -24,5 +24,9 @@ def convert_order_side(hummingbot_order_side: HummingbotOrderSide) -> OrderSide:
 def convert_order_type(hummingbot_order_type: HummingbotOrderType) -> OrderType:
     if hummingbot_order_type == HummingbotOrderType.LIMIT:
         return OrderType.LIMIT
+    elif hummingbot_order_type == HummingbotOrderType.LIMIT_MAKER:
+        return OrderType.POST_ONLY
+    elif hummingbot_order_type == HummingbotOrderType.MARKET:
+        return OrderType.IOC
     else:
-        raise ValueError(f'Unrecognized order type "{hummingbot_order_type}".')
+        raise ValueError(f'Order type "{hummingbot_order_type}" incompatible with CLOB connector.')
