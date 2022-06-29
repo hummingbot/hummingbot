@@ -37,6 +37,8 @@ class HummingbotCompleter(Completer):
         self._exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_connector_settings().keys()), ignore_case=True)
         self._spot_exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
         self._exchange_amm_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(AllConnectorSettings.get_gateway_evm_amm_connector_names())), ignore_case=True)
+        self._exchange_clob_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(
+            AllConnectorSettings.get_gateway_clob_connector_names())), ignore_case=True)
         self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"], ignore_case=True)
         self._derivative_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
         self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names().difference(AllConnectorSettings.get_derivative_dex_names()), ignore_case=True)
@@ -46,7 +48,12 @@ class HummingbotCompleter(Completer):
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
         self._gateway_completer = WordCompleter(["create", "config", "connect", "connector-tokens", "generate-certs", "status", "test-connection", "start", "stop"], ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
-        self._gateway_connector_tokens_completer = WordCompleter(sorted(AllConnectorSettings.get_gateway_evm_amm_connector_names()), ignore_case=True)
+        self._gateway_connector_tokens_completer = WordCompleter(
+            sorted([
+                *AllConnectorSettings.get_gateway_evm_amm_connector_names(),
+                *AllConnectorSettings.get_gateway_clob_connector_names()
+            ]), ignore_case=True
+        )
         self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._py_file_completer = WordCompleter(file_name_list(PMM_SCRIPTS_PATH, "py"))
@@ -137,6 +144,9 @@ class HummingbotCompleter(Completer):
 
     def _complete_exchange_amm_connectors(self, document: Document) -> bool:
         return "(Exchange/AMM)" in self.prompt_text
+
+    def _complete_exchange_clob_connectors(self, document: Document) -> bool:
+        return "(Exchange/CLOB)" in self.prompt_text
 
     def _complete_spot_exchanges(self, document: Document) -> bool:
         return "spot" in self.prompt_text
@@ -256,6 +266,17 @@ class HummingbotCompleter(Completer):
                 for c in self._exchange_amm_completer.get_completions(document, complete_event):
                     yield c
 
+        elif self._complete_exchange_clob_connectors(document):
+            if self._complete_spot_exchanges(document):
+                for c in self._spot_exchange_completer.get_completions(document, complete_event):
+                    yield c
+            elif self._complete_derivatives(document):
+                for c in self._derivative_exchange_completer.get_completions(document, complete_event):
+                    yield c
+            else:
+                for c in self._exchange_clob_completer.get_completions(document, complete_event):
+                    yield c
+
         elif self._complete_spot_exchanges(document):
             for c in self._spot_exchange_completer.get_completions(document, complete_event):
                 yield c
@@ -306,6 +327,9 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_derivatives(document):
             if "(Exchange/AMM)" in self.prompt_text:
+                for c in self._derivative_completer.get_completions(document, complete_event):
+                    yield c
+            elif "(Exchange/CLOB)" in self.prompt_text:
                 for c in self._derivative_completer.get_completions(document, complete_event):
                     yield c
             else:

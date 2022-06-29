@@ -58,8 +58,10 @@ class UserBalances:
     @lru_cache(maxsize=10)
     def is_gateway_market(exchange_name: str) -> bool:
         return (
-            exchange_name in AllConnectorSettings.get_gateway_evm_amm_connector_names()
-            or exchange_name in AllConnectorSettings.get_gateway_clob_connector_names()
+            exchange_name in [
+                *AllConnectorSettings.get_gateway_evm_amm_connector_names(),
+                *AllConnectorSettings.get_gateway_clob_connector_names()
+            ]
         )
 
     def __init__(self):

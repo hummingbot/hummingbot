@@ -361,7 +361,6 @@ class AllConnectorSettings:
     def get_eth_wallet_connector_names(cls) -> Set[str]:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.use_ethereum_wallet}
 
-    # TODO Add CLOB to the same places where this is used!!!
     @classmethod
     def get_gateway_evm_amm_connector_names(cls) -> Set[str]:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.EVM_AMM}

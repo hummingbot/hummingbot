@@ -1,17 +1,14 @@
-from hummingbot.client.config.config_var import ConfigVar
+from decimal import Decimal
+
 from hummingbot.client.config.config_validators import (
-    validate_market_trading_pair,
+    validate_bool,
     validate_connector,
     validate_decimal,
-    validate_bool,
-    validate_int
+    validate_int,
+    validate_market_trading_pair,
 )
-from hummingbot.client.settings import (
-    required_exchanges,
-    requried_connector_trading_pairs,
-    AllConnectorSettings,
-)
-from decimal import Decimal
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.settings import AllConnectorSettings, required_exchanges, requried_connector_trading_pairs
 
 
 def exchange_on_validated(value: str) -> None:
@@ -63,7 +60,7 @@ amm_arb_config_map = {
         default="amm_arb"),
     "connector_1": ConfigVar(
         key="connector_1",
-        prompt="Enter your first connector (Exchange/AMM) >>> ",
+        prompt="Enter your first connector (Exchange/AMM / Exchange/CLOB) >>> ",
         prompt_on_new=True,
         validator=validate_connector,
         on_validated=exchange_on_validated),
@@ -75,7 +72,7 @@ amm_arb_config_map = {
         on_validated=market_1_on_validated),
     "connector_2": ConfigVar(
         key="connector_2",
-        prompt="Enter your second connector (Exchange/AMM) >>> ",
+        prompt="Enter your second connector (Exchange/AMM / Exchange/CLOB) >>> ",
         prompt_on_new=True,
         validator=validate_connector,
         on_validated=exchange_on_validated),
@@ -103,7 +100,10 @@ amm_arb_config_map = {
         prompt="How much buffer do you want to add to the price to account for slippage for orders on the first market "
                "(Enter 1 for 1%)? >>> ",
         prompt_on_new=True,
-        default=lambda: Decimal(1) if amm_arb_config_map["connector_1"].value in AllConnectorSettings.get_gateway_evm_amm_connector_names() else Decimal(0),
+        default=lambda: Decimal(1) if amm_arb_config_map["connector_1"].value in [
+            *AllConnectorSettings.get_gateway_evm_amm_connector_names(),
+            *AllConnectorSettings.get_gateway_clob_connector_names()
+        ] else Decimal(0),
         validator=lambda v: validate_decimal(v),
         type_str="decimal"),
     "market_2_slippage_buffer": ConfigVar(
@@ -111,7 +111,10 @@ amm_arb_config_map = {
         prompt="How much buffer do you want to add to the price to account for slippage for orders on the second market"
                " (Enter 1 for 1%)? >>> ",
         prompt_on_new=True,
-        default=lambda: Decimal(1) if amm_arb_config_map["connector_2"].value in AllConnectorSettings.get_gateway_evm_amm_connector_names() else Decimal(0),
+        default=lambda: Decimal(1) if amm_arb_config_map["connector_2"].value in [
+            *AllConnectorSettings.get_gateway_evm_amm_connector_names(),
+            *AllConnectorSettings.get_gateway_clob_connector_names(),
+        ] else Decimal(0),
         validator=lambda v: validate_decimal(v),
         type_str="decimal"),
     "concurrent_orders_submission": ConfigVar(
