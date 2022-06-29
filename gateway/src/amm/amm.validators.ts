@@ -223,6 +223,13 @@ export const validatePerpPositionRequest: RequestValidator = mkRequestValidator(
   ]
 );
 
+export const validatePerpBalanceRequest: RequestValidator = mkRequestValidator([
+  validateConnector,
+  validateChain,
+  validateNetwork,
+  validateAddress,
+]);
+
 export const validatePerpMarketStatusRequest: RequestValidator =
   mkRequestValidator([
     validateConnector,
