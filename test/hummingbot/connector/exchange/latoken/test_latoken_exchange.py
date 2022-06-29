@@ -866,7 +866,8 @@ class LatokenExchangeTests(TestCase):
                 "INFO",
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
                 f" update_timestamp={float(order_status['timestamp'])* 1e-3}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}')")
+                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
+                "misc_updates=None)")
         )
 
     @aioresponses()
