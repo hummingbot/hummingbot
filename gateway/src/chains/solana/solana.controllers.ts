@@ -33,13 +33,6 @@ export async function balances(
   }
   const balances = await solanaish.getBalances(wallet);
   const filteredBalances = toSolanaBalances(balances, req.tokenSymbols);
-  if (Object.keys(filteredBalances).length === 0) {
-    throw new HttpException(
-      500,
-      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.tokenSymbols,
-      TOKEN_NOT_SUPPORTED_ERROR_CODE
-    );
-  }
 
   return {
     network: solanaish.network,
@@ -52,14 +45,19 @@ export async function balances(
 const toSolanaBalances = (
   balances: Record<string, TokenValue>,
   tokenSymbols: string[]
-): Record<string, string> => {
+): Record<string, string | null> => {
   const filteredBalancesKeys = Object.keys(balances).filter((symbol) =>
     tokenSymbols.includes(symbol)
   );
-  const solanaBalances: Record<string, string> = {};
+  const solanaBalances: Record<string, string | null> = {};
 
   filteredBalancesKeys.forEach(
-    (symbol) => (solanaBalances[symbol] = tokenValueToString(balances[symbol]))
+    (symbol) => {
+      if(balances[symbol] !== undefined)
+        solanaBalances[symbol] = tokenValueToString(balances[symbol])
+      else
+        solanaBalances[symbol] = null
+    }
   );
 
   return solanaBalances;
@@ -108,7 +106,7 @@ export async function token(
       await solanaish.getSplBalance(walletAddress, mintAddress)
     );
   } catch (err) {
-    amount = undefined;
+    amount = null;
   }
 
   return {
@@ -146,7 +144,7 @@ export async function getOrCreateTokenAccount(
     const a = await solanaish.getSplBalance(wallet.publicKey, mintAddress);
     amount = tokenValueToString(a);
   } catch (err) {
-    amount = undefined;
+    amount = null;
   }
 
   return {

@@ -52,7 +52,7 @@ INFINITY = Decimal("Infinity")
 NaN = Decimal("nan")
 
 
-class GatewayCLOB(ExchangePyBase):
+class GatewaySOLCLOB(ExchangePyBase):
     """
     Defines basic functions common to connectors that interact with the Gateway.
     """
@@ -172,7 +172,7 @@ class GatewayCLOB(ExchangePyBase):
 
             return trading_pairs
         except (Exception,):
-            GatewayCLOB.logger().warning(f"""No trading paris found for {chain}/{network}.""")
+            GatewaySOLCLOB.logger().warning(f"""No trading paris found for {chain}/{network}.""")
 
             return []
 
@@ -183,7 +183,7 @@ class GatewayCLOB(ExchangePyBase):
     # Added for compatibility
     @staticmethod
     def is_amm_order(in_flight_order: GatewayInFlightOrder) -> bool:
-        return GatewayCLOB.is_order(in_flight_order)
+        return GatewaySOLCLOB.is_order(in_flight_order)
 
     @staticmethod
     def is_approval_order(in_flight_order: GatewayInFlightOrder) -> bool:
@@ -573,7 +573,6 @@ class GatewayCLOB(ExchangePyBase):
                 tracked_order.gas_price = gas_price
                 tracked_order.last_state = "OPEN"
             if transaction_hash is not None:
-                tracked_order.nonce = nonce
                 tracked_order.fee_asset = self._native_currency
                 tracked_order.executed_amount_base = amount
                 tracked_order.executed_amount_quote = amount * price
@@ -845,7 +844,7 @@ class GatewayCLOB(ExchangePyBase):
                 self.stop_tracking_order(tracked_order.client_order_id)
 
     def get_taker_order_type(self):
-        return OrderType.LIMIT
+        return OrderType.MARKET
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
         return Decimal((await GatewayHttpClient.get_instance().clob_get_markets(
@@ -895,9 +894,6 @@ class GatewayCLOB(ExchangePyBase):
             self._auto_approve_task = None
         if self._get_chain_information_task is not None:
             self._get_chain_information_task.cancel()
-            self._get_chain_information_task = None
-        if self._get_gas_estimate_task is not None:
-            self._get_gas_estimate_task.cancel()
             self._get_chain_information_task = None
         if self._get_markets_task is not None:
             self._get_markets_task.cancel()
