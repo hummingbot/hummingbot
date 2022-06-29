@@ -73,7 +73,10 @@ export namespace NetworkRoutes {
           res
             .status(200)
             .json(
-              await solanaControllers.balances(chain as Solanaish, req.body)
+              (await solanaControllers.balances(
+                chain as Solanaish,
+                req.body
+              )) as BalanceResponse
             );
         } else {
           res
@@ -98,13 +101,9 @@ export namespace NetworkRoutes {
         const chain = await getChain(req.body.chain, req.body.network);
 
         if (req.body.chain == 'solana') {
-          res.status(200).json(
-            // TODO check if this cast is correct!!!
-            (await solanaControllers.poll(
-              chain as Solanaish,
-              req.body
-            )) as PollResponse
-          );
+          res
+            .status(200)
+            .json(await solanaControllers.poll(chain as Solanaish, req.body));
         } else {
           res
             .status(200)
