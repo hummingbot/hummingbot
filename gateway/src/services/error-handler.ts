@@ -38,6 +38,16 @@ export class UniswapishPriceError extends Error {
   }
 }
 
+export class InvalidNonceError extends Error {
+  message: string;
+  errorCode: number;
+  constructor(message: string, errorCode: number) {
+    super(message);
+    this.message = message;
+    this.errorCode = errorCode;
+  }
+}
+
 // Capture errors from an async route, this must wrap any route that uses async.
 // For example, `app.get('/', asyncHandler(async (req, res) -> {...}))`
 export const asyncHandler =

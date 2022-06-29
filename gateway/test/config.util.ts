@@ -1,6 +1,6 @@
 import { ConfigManagerV2 } from '../src/services/config-manager-v2';
 
-class OverrideConfigs {
+export class OverrideConfigs {
   public nonceDbPath: string;
   public transactionDbPath: string;
   #testNonceDbPath: string = '';

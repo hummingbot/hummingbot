@@ -380,7 +380,7 @@ class GatewayHttpClient:
             address: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "evm/nonce", {
+        return await self.api_request("post", "evm/nextNonce", {
             "chain": chain,
             "network": network,
             "address": address
@@ -426,7 +426,6 @@ class GatewayHttpClient:
             "side": side.name,
             "amount": f"{amount:.18f}",
             "limitPrice": str(price),
-            "nonce": nonce,
             "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }
         if nonce is not None:
