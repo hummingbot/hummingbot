@@ -10,8 +10,8 @@ from typing import Any, Dict, List, Optional, Set, Type, Union, cast
 from async_timeout import timeout
 
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.gateway.amm.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.connector.gateway.amm.gateway_price_shim import GatewayPriceShim
+from hummingbot.connector.gateway.amm.evm_in_flight_order import EVMInFlightOrder
+from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -66,7 +66,7 @@ class GatewayEVMAMM(ConnectorBase):
     _last_poll_timestamp: float
     _last_balance_poll_timestamp: float
     _last_est_gas_cost_reported: float
-    _in_flight_orders: Dict[str, GatewayInFlightOrder]
+    _in_flight_orders: Dict[str, EVMInFlightOrder]
     _allowances: Dict[str, Decimal]
     _chain_info: Dict[str, Any]
     _status_polling_task: Optional[asyncio.Task]
@@ -163,15 +163,15 @@ class GatewayEVMAMM(ConnectorBase):
             return []
 
     @staticmethod
-    def is_amm_order(in_flight_order: GatewayInFlightOrder) -> bool:
+    def is_amm_order(in_flight_order: EVMInFlightOrder) -> bool:
         return in_flight_order.client_order_id.split("-")[0] in {"buy", "sell"}
 
     @staticmethod
-    def is_approval_order(in_flight_order: GatewayInFlightOrder) -> bool:
+    def is_approval_order(in_flight_order: EVMInFlightOrder) -> bool:
         return in_flight_order.client_order_id.split("-")[0] == "approve"
 
     @property
-    def approval_orders(self) -> List[GatewayInFlightOrder]:
+    def approval_orders(self) -> List[EVMInFlightOrder]:
         return [
             approval_order
             for approval_order in self._in_flight_orders.values()
@@ -180,7 +180,7 @@ class GatewayEVMAMM(ConnectorBase):
         ]
 
     @property
-    def amm_orders(self) -> List[GatewayInFlightOrder]:
+    def amm_orders(self) -> List[EVMInFlightOrder]:
         return [
             in_flight_order
             for in_flight_order in self._in_flight_orders.values()
@@ -189,7 +189,7 @@ class GatewayEVMAMM(ConnectorBase):
         ]
 
     @property
-    def canceling_orders(self) -> List[GatewayInFlightOrder]:
+    def canceling_orders(self) -> List[EVMInFlightOrder]:
         return [
             cancel_order
             for cancel_order in self._in_flight_orders.values()
@@ -283,7 +283,7 @@ class GatewayEVMAMM(ConnectorBase):
             if amount <= s_decimal_0 and not self.is_pending_approval(token):
                 await self.approve_token(token)
 
-    async def approve_token(self, token_symbol: str, **request_args) -> Optional[GatewayInFlightOrder]:
+    async def approve_token(self, token_symbol: str, **request_args) -> Optional[EVMInFlightOrder]:
         """
         Approves contract as a spender for a token.
         :param token_symbol: token to approve.
@@ -520,7 +520,7 @@ class GatewayEVMAMM(ConnectorBase):
             gas_limit: int = int(order_result.get("gasLimit"))
             gas_cost: Decimal = Decimal(order_result.get("gasCost"))
             gas_price_token: str = order_result.get("gasPriceToken")
-            tracked_order: GatewayInFlightOrder = self._in_flight_orders.get(order_id)
+            tracked_order: EVMInFlightOrder = self._in_flight_orders.get(order_id)
             self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
 
             if tracked_order is not None:
@@ -580,7 +580,7 @@ class GatewayEVMAMM(ConnectorBase):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
-        self._in_flight_orders[order_id] = GatewayInFlightOrder(
+        self._in_flight_orders[order_id] = EVMInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
@@ -599,7 +599,7 @@ class GatewayEVMAMM(ConnectorBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    async def update_token_approval_status(self, tracked_approvals: List[GatewayInFlightOrder]):
+    async def update_token_approval_status(self, tracked_approvals: List[EVMInFlightOrder]):
         """
         Calls REST API to get status update for each in-flight token approval transaction.
         """
@@ -653,7 +653,7 @@ class GatewayEVMAMM(ConnectorBase):
                     )
                 self.stop_tracking_order(tracked_approval.client_order_id)
 
-    async def update_canceling_transactions(self, canceled_tracked_orders: List[GatewayInFlightOrder]):
+    async def update_canceling_transactions(self, canceled_tracked_orders: List[EVMInFlightOrder]):
         """
         Update tracked orders that have a cancel_tx_hash.
         :param canceled_tracked_orders: Canceled tracked_orders (cancel_tx_has is not None).
@@ -712,7 +712,7 @@ class GatewayEVMAMM(ConnectorBase):
                         tracked_order.last_state = "CANCELED"
                     self.stop_tracking_order(tracked_order.client_order_id)
 
-    async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
+    async def update_order_status(self, tracked_orders: List[EVMInFlightOrder]):
         """
         Calls REST API to get status update for each in-flight amm orders.
         """
@@ -940,7 +940,7 @@ class GatewayEVMAMM(ConnectorBase):
         and if the order is not done or already in the cancelling state.
         """
         try:
-            tracked_order: GatewayInFlightOrder = self._in_flight_orders.get(order_id)
+            tracked_order: EVMInFlightOrder = self._in_flight_orders.get(order_id)
             if tracked_order is None:
                 self.logger().error(f"The order {order_id} is not being tracked.")
                 raise ValueError(f"The order {order_id} is not being tracked.")
@@ -983,7 +983,7 @@ class GatewayEVMAMM(ConnectorBase):
         """
         Iterate through all known orders and cancel them if their age is greater than cancel_age.
         """
-        incomplete_orders: List[GatewayInFlightOrder] = [
+        incomplete_orders: List[EVMInFlightOrder] = [
             o for o in self._in_flight_orders.values()
             if not (o.is_done or o.is_cancelling)
         ]
@@ -1022,5 +1022,5 @@ class GatewayEVMAMM(ConnectorBase):
         return sent_cancellations + skipped_cancellations
 
     @property
-    def in_flight_orders(self) -> Dict[str, GatewayInFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, EVMInFlightOrder]:
         return self._in_flight_orders
