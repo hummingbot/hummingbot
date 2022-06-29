@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional, Set, Type, Union, cast
 from async_timeout import timeout
 
 import hummingbot.connector.gateway.clob.clob_constants as constant
-
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.gateway.clob.clob_types import Chain
 from hummingbot.connector.gateway.clob.clob_utils import (
