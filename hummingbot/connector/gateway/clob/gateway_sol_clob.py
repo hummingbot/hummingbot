@@ -51,7 +51,7 @@ ZERO = Decimal("0")
 NaN = Decimal("nan")
 
 
-class GatewayCLOB(ExchangePyBase):
+class GatewaySOLCLOB(ExchangePyBase):
     """
     Defines basic functions common to connectors that interact with the Gateway.
     """
@@ -171,7 +171,7 @@ class GatewayCLOB(ExchangePyBase):
 
             return trading_pairs
         except (Exception,):
-            GatewayCLOB.logger().warning(f"""No trading paris found for {chain}/{network}.""")
+            GatewaySOLCLOB.logger().warning(f"""No trading paris found for {chain}/{network}.""")
 
             return []
 
@@ -182,7 +182,7 @@ class GatewayCLOB(ExchangePyBase):
     # Added for compatibility
     @staticmethod
     def is_amm_order(in_flight_order: GatewayInFlightOrder) -> bool:
-        return GatewayCLOB.is_order(in_flight_order)
+        return GatewaySOLCLOB.is_order(in_flight_order)
 
     @staticmethod
     def is_approval_order(in_flight_order: GatewayInFlightOrder) -> bool:
@@ -581,8 +581,6 @@ class GatewayCLOB(ExchangePyBase):
             )
             transaction_hash: str = order_result.get("signature")
             # TODO check what we do with the non available information!!!
-            nonce: int = order_result.get("nonce")
-            await self._update_nonce(nonce)
             gas_price: Decimal = Decimal(order_result.get("gasPrice"))
             gas_limit: int = int(order_result.get("gasLimit"))
             gas_cost: Decimal = Decimal(order_result.get("gasCost"))
@@ -598,7 +596,6 @@ class GatewayCLOB(ExchangePyBase):
                 tracked_order.gas_price = gas_price
                 tracked_order.last_state = "OPEN"
             if transaction_hash is not None:
-                tracked_order.nonce = nonce
                 tracked_order.fee_asset = self._native_currency
                 tracked_order.executed_amount_base = amount
                 tracked_order.executed_amount_quote = amount * price
@@ -870,7 +867,7 @@ class GatewayCLOB(ExchangePyBase):
                 self.stop_tracking_order(tracked_order.client_order_id)
 
     def get_taker_order_type(self):
-        return OrderType.LIMIT
+        return OrderType.MARKET
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
         # TODO check value, minimumBaseIncrement or tickSize from the market?!!!
@@ -919,9 +916,6 @@ class GatewayCLOB(ExchangePyBase):
         if self._get_chain_information_task is not None:
             self._get_chain_information_task.cancel()
             self._get_chain_information_task = None
-        if self._get_gas_estimate_task is not None:
-            self._get_gas_estimate_task.cancel()
-            self._get_chain_information_task = None
         if self._get_markets_task is not None:
             self._get_markets_task.cancel()
             self._get_markets_task = None
@@ -944,17 +938,6 @@ class GatewayCLOB(ExchangePyBase):
         if time.time() - self._last_poll_timestamp > constant.POLL_INTERVAL:
             if self._poll_notifier is not None and not self._poll_notifier.is_set():
                 self._poll_notifier.set()
-
-    async def _update_nonce(self, new_nonce: Optional[int] = None):
-        """
-        Call the gateway API to get the current nonce for self.address
-        """
-        if not new_nonce:
-            # TODO is it needed to have a new method here?!!!
-            resp_json: Dict[str, Any] = await GatewayHttpClient.get_instance().get_clob_nonce(self.chain, self.network, self.address)
-            new_nonce: int = resp_json.get("nonce")
-
-        self._nonce = new_nonce
 
     async def _status_polling_loop(self):
         await self.update_balances(on_interval=False)
