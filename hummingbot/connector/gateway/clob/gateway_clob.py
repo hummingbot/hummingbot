@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Set, Type, Union, cast
 from async_timeout import timeout
 
 import hummingbot.connector.gateway.clob.clob_constants as constant
-from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.gateway.clob.clob_types import Chain
 from hummingbot.connector.gateway.clob.clob_utils import (
     convert_order_side,
@@ -17,8 +17,8 @@ from hummingbot.connector.gateway.clob.clob_utils import (
     convert_trading_pair,
     convert_trading_pairs,
 )
-from hummingbot.connector.gateway.clob.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.connector.gateway.clob.gateway_price_shim import GatewayPriceShim
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -51,7 +51,7 @@ ZERO = Decimal("0")
 NaN = Decimal("nan")
 
 
-class GatewayCLOB(ConnectorBase):
+class GatewayCLOB(ExchangePyBase):
     """
     Defines basic functions common to connectors that interact with the Gateway.
     """
@@ -79,7 +79,6 @@ class GatewayCLOB(ConnectorBase):
     _get_markets_task: Optional[asyncio.Task]
     _auto_approve_task: Optional[asyncio.Task]
     _poll_notifier: Optional[asyncio.Event]
-    _nonce: Optional[int]
     _native_currency: str
 
     def __init__(
@@ -122,7 +121,6 @@ class GatewayCLOB(ConnectorBase):
         self._auto_approve_task = None
         self._get_gas_estimate_task = None
         self._poll_notifier = None
-        self._nonce: Optional[int] = None
         # self._native_currency = None
         self._network_transaction_fee: Optional[TokenAmount] = None
 
@@ -337,15 +335,21 @@ class GatewayCLOB(ConnectorBase):
         :param token_symbol: token to approve.
         """
         order_id: str = self.create_approval_order_id(token_symbol)
-        # TODO is it needed to have a new method here?!!!
-        resp: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_approve_token(
-            self.chain,
-            self.network,
-            self.address,
-            token_symbol,
-            self.connector,
-            **request_args
-        )
+        if self.chain == "solana":
+            resp: Dict[str, Any] = await GatewayHttpClient.get_instance().solana_post_token(
+                self.network,
+                self.address,
+                token_symbol
+            )
+        else:
+            resp: Dict[str, Any] = await GatewayHttpClient.get_instance().approve_token(
+                self.chain,
+                self.network,
+                self.address,
+                token_symbol,
+                self.connector,
+                **request_args
+            )
         self.start_tracking_order(order_id, None, token_symbol)
 
         if "hash" in resp.get("approval", {}).keys():
