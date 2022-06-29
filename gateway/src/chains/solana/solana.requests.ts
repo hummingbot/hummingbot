@@ -1,5 +1,9 @@
 import { TransactionResponse } from '@solana/web3.js';
-import {NetworkSelectionRequest} from "../../services/common-interfaces";
+import {
+  CustomTransactionReceipt,
+  CustomTransactionResponse,
+  NetworkSelectionRequest,
+} from '../../services/common-interfaces';
 
 export type SolanaTransactionResponse = TransactionResponse;
 
@@ -43,6 +47,8 @@ export interface SolanaPollResponse {
   timestamp: number;
   currentBlock: number;
   txHash: string;
-  txStatus: TransactionResponseStatusCode;
-  txData: SolanaTransactionResponse | null;
+  txStatus: number;
+  txBlock: number;
+  txData: CustomTransactionResponse | null;
+  txReceipt: CustomTransactionReceipt | null;
 }

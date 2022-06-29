@@ -1,4 +1,14 @@
+import { Keypair, PublicKey } from '@solana/web3.js';
+import { getNotNullOrThrowError } from '../../connectors/serum/serum.helpers';
 import { latency, TokenValue, tokenValueToString } from '../../services/base';
+import {
+  HttpException,
+  LOAD_WALLET_ERROR_CODE,
+  LOAD_WALLET_ERROR_MESSAGE,
+  TOKEN_NOT_SUPPORTED_ERROR_CODE,
+  TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
+} from '../../services/error-handler';
+import { Solanaish } from './solana';
 
 import {
   SolanaBalanceRequest,
@@ -8,13 +18,6 @@ import {
   SolanaTokenRequest,
   SolanaTokenResponse,
 } from './solana.requests';
-import { Solanaish } from './solana';
-import {Keypair, PublicKey} from '@solana/web3.js';
-import {
-  HttpException, LOAD_WALLET_ERROR_CODE, LOAD_WALLET_ERROR_MESSAGE,
-  TOKEN_NOT_SUPPORTED_ERROR_CODE,
-  TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
-} from '../../services/error-handler';
 
 export async function balances(
   solanaish: Solanaish,
@@ -51,14 +54,11 @@ const toSolanaBalances = (
   );
   const solanaBalances: Record<string, string | null> = {};
 
-  filteredBalancesKeys.forEach(
-    (symbol) => {
-      if(balances[symbol] !== undefined)
-        solanaBalances[symbol] = tokenValueToString(balances[symbol])
-      else
-        solanaBalances[symbol] = null
-    }
-  );
+  filteredBalancesKeys.forEach((symbol) => {
+    if (balances[symbol] !== undefined)
+      solanaBalances[symbol] = tokenValueToString(balances[symbol]);
+    else solanaBalances[symbol] = null;
+  });
 
   return solanaBalances;
 };
@@ -74,11 +74,13 @@ export async function poll(
 
   return {
     network: solanaish.network,
-    currentBlock,
     timestamp: initTime,
+    currentBlock: currentBlock,
     txHash: req.txHash,
-    txStatus,
-    txData,
+    txStatus: txStatus,
+    txBlock: getNotNullOrThrowError(txData?.slot),
+    txData: getNotNullOrThrowError(txData),
+    txReceipt: null, // TODO check if we get a receipt here
   };
 }
 
