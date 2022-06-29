@@ -48,6 +48,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 ZERO = Decimal("0")
+INFINITY = Decimal("Infinity")
 NaN = Decimal("nan")
 
 
@@ -303,21 +304,7 @@ class GatewayCLOB(ExchangePyBase):
         """
         Gets the gas estimates for the connector.
         """
-        try:
-            response: Dict[Any] = await GatewayHttpClient.get_instance().clob_get_estimate_gas(
-                chain=self.chain, network=self.network, connector=self.connector
-            )
-            self.network_transaction_fee = TokenAmount(
-                response.get("gasPriceToken"), Decimal(response.get("gasCost"))
-            )
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self.logger().network(
-                f"""Error getting gas price estimates for {self.chain}/{self.network}/{self.connector}.""",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
+        self.network_transaction_fee = TokenAmount(Chain.SOLANA.native_currency, constant.FIVE_THOUSAND_LAMPORTS)
 
     async def auto_approve(self):
         """
@@ -379,12 +366,14 @@ class GatewayCLOB(ExchangePyBase):
         :return: A dictionary of token and its allowance.
         """
         ret_val = {}
-        # TODO is it needed to have a new method here?!!!
-        resp: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_allowances(
-            self.chain, self.network, self.address, list(self._tokens), self.connector
+        resp: Dict[str, Any] = await GatewayHttpClient.get_instance().solana_post_balances(
+            self.network, self.address, list(self._tokens)
         )
-        for token, amount in resp["approvals"].items():
-            ret_val[token] = Decimal(str(amount))
+        for token, amount in resp.items():
+            if amount is None:
+                ret_val[token] = ZERO
+            else:
+                ret_val[token] = Decimal(str(INFINITY))
 
         return ret_val
 
@@ -411,7 +400,6 @@ class GatewayCLOB(ExchangePyBase):
 
         # Get the price from gateway price shim for integration tests.
         if not ignore_shim:
-            # TODO check if it is going to work properly!!!
             test_price: Optional[Decimal] = await GatewayPriceShim.get_instance().get_connector_price(
                 self.connector,
                 self.chain,
@@ -422,57 +410,37 @@ class GatewayCLOB(ExchangePyBase):
             )
             if test_price is not None:
                 # Grab the gas price for testnet.
-                try:
-                    # TODO is it needed to have a new method here?!!!
-                    resp: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_price(
-                        self.chain, self.network, self.connector, base, quote, amount, side
-                    )
-                    gas_price_token: str = resp["gasPriceToken"]
-                    gas_cost: Decimal = Decimal(resp["gasCost"])
-                    self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-                except asyncio.CancelledError:
-                    raise
-                except (Exception,):
-                    pass
-                return test_price
+                self.network_transaction_fee = TokenAmount(Chain.SOLANA.native_currency, constant.FIVE_THOUSAND_LAMPORTS)
 
         # Pull the price from gateway.
         try:
-            # TODO is it needed to have a new method here?!!!
-            resp: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_price(
-                self.chain, self.network, self.connector, base, quote, amount, side
+            ticker = await GatewayHttpClient.get_instance().clob_get_tickers(
+                self.chain, self.network, self.connector, market_name=constant.SOL_USDC_MARKET
             )
-            required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
-            if any(item not in resp.keys() for item in required_items):
-                if "info" in resp.keys():
-                    self.logger().info(f"Unable to get price. {resp['info']}")
-                else:
-                    self.logger().info(f"Missing data from price result. Incomplete return result for ({resp.keys()})")
-            else:
-                gas_limit: int = int(resp["gasLimit"])
-                gas_price_token: str = resp["gasPriceToken"]
-                gas_cost: Decimal = Decimal(resp["gasCost"])
-                price: Decimal = Decimal(resp["price"])
-                self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-                exceptions: List[str] = check_transaction_exceptions(
-                    allowances=self._allowances,
-                    balances=self._account_balances,
-                    base_asset=base,
-                    quote_asset=quote,
-                    amount=amount,
-                    side=side,
-                    gas_limit=gas_limit,
-                    gas_cost=gas_cost,
-                    gas_asset=gas_price_token,
-                    swaps_count=len(resp.get("swaps", []))
+            gas_limit: int = constant.FIVE_THOUSAND_LAMPORTS
+            gas_price_token: str = Chain.SOLANA.native_currency
+            gas_cost: Decimal = constant.FIVE_THOUSAND_LAMPORTS
+            price: Decimal = Decimal(ticker["price"])
+            self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
+            exceptions: List[str] = check_transaction_exceptions(
+                allowances=self._allowances,
+                balances=self._account_balances,
+                base_asset=base,
+                quote_asset=quote,
+                amount=amount,
+                side=side,
+                gas_limit=gas_limit,
+                gas_cost=gas_cost,
+                gas_asset=gas_price_token,
+                swaps_count=constant.ZERO
+            )
+            for index in range(len(exceptions)):
+                self.logger().warning(
+                    f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
                 )
-                for index in range(len(exceptions)):
-                    self.logger().warning(
-                        f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
-                    )
 
-                if price is not None and len(exceptions) == 0:
-                    return Decimal(str(price))
+            if price is not None and len(exceptions) == 0:
+                return Decimal(str(price))
 
             # Didn't pass all the checks - no price available.
             return None
@@ -580,14 +548,21 @@ class GatewayCLOB(ExchangePyBase):
                 }
             )
             transaction_hash: str = order_result.get("signature")
-            # TODO check what we do with the non available information!!!
-            nonce: int = order_result.get("nonce")
+            nonce: int = constant.DEFAULT_NONCE
             await self._update_nonce(nonce)
-            gas_price: Decimal = Decimal(order_result.get("gasPrice"))
-            gas_limit: int = int(order_result.get("gasLimit"))
-            gas_cost: Decimal = Decimal(order_result.get("gasCost"))
-            gas_price_token: str = order_result.get("gasPriceToken")
+
             tracked_order: GatewayInFlightOrder = self._in_flight_orders.get(order_id)
+
+            ticker = await GatewayHttpClient.get_instance().clob_get_tickers(
+                self.chain, self.network, self.connector, market_name=constant.SOL_USDC_MARKET
+            )
+
+            gas_price: Decimal = constant.ONE
+            gas_limit: int = constant.FIVE_THOUSAND_LAMPORTS
+            gas_price_token: str = Chain.SOLANA.native_currency
+            gas_cost: Decimal = constant.FIVE_THOUSAND_LAMPORTS
+            price: Decimal = Decimal(ticker["price"])
+
             self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
 
             if tracked_order is not None:
@@ -873,12 +848,14 @@ class GatewayCLOB(ExchangePyBase):
         return OrderType.LIMIT
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
-        # TODO check value, minimumBaseIncrement or tickSize from the market?!!!
-        return Decimal("1e-15")
+        return Decimal((await GatewayHttpClient.get_instance().clob_get_markets(
+            self.chain, self.network, self.connector, name=convert_trading_pair(trading_pair)
+        ))['tickSize'])
 
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
-        # TODO check value, minimumOrderSize from the market?!!!
-        return Decimal("1e-15")
+        return Decimal((await GatewayHttpClient.get_instance().clob_get_markets(
+            self.chain, self.network, self.connector, name=convert_trading_pair(trading_pair)
+        ))['minimumOrderSize'])
 
     @property
     def ready(self):
@@ -946,14 +923,6 @@ class GatewayCLOB(ExchangePyBase):
                 self._poll_notifier.set()
 
     async def _update_nonce(self, new_nonce: Optional[int] = None):
-        """
-        Call the gateway API to get the current nonce for self.address
-        """
-        if not new_nonce:
-            # TODO is it needed to have a new method here?!!!
-            resp_json: Dict[str, Any] = await GatewayHttpClient.get_instance().get_clob_nonce(self.chain, self.network, self.address)
-            new_nonce: int = resp_json.get("nonce")
-
         self._nonce = new_nonce
 
     async def _status_polling_loop(self):
