@@ -624,7 +624,7 @@ class CoinflexExchangeTests(TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='OID1', exchange_order_id=None)"
+                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 
@@ -676,7 +676,7 @@ class CoinflexExchangeTests(TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None)"
+                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 
@@ -851,7 +851,7 @@ class CoinflexExchangeTests(TestCase):
         expected_error = (
             f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
             f" update_timestamp={'1640780000.0'}, new_state={repr(OrderState.FAILED)}, "
-            f"client_order_id='{order.client_order_id}', exchange_order_id=None)")
+            f"client_order_id='{order.client_order_id}', exchange_order_id=None, misc_updates=None)")
 
         self.assertTrue(self._is_logged("INFO", expected_error))
 
@@ -1105,7 +1105,8 @@ class CoinflexExchangeTests(TestCase):
                 "INFO",
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
                 f" update_timestamp={int(order_status['data'][0]['orderClosedTimestamp']) * 1e-3}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}')")
+                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
+                "misc_updates=None)")
         )
 
     @aioresponses()

@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 import asyncio
 import itertools
+import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import pandas as pd
 
-import docker
 from hummingbot.client.command.gateway_api_manager import Chain, GatewayChainApiManager, begin_placeholder_mode
 from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml
 from hummingbot.client.config.security import Security
@@ -127,15 +127,8 @@ class GatewayCommand(GatewayChainApiManager):
             self,       # type: HummingbotApplication
             container_id: str, conf_path: str = "/usr/src/app/conf"
     ):
-        infura_api_key: Optional[str] = await self._get_api_key(Chain.ETHEREUM)
-
         try:
-            # generate_conf alters the ethereum.yml file if a second value is
-            # passed to generate_conf.sh
-            if infura_api_key is None:
-                cmd: str = f"./setup/generate_conf.sh {conf_path}"
-            else:
-                cmd: str = f"./setup/generate_conf.sh {conf_path} {infura_api_key}"
+            cmd: str = f"./setup/generate_conf.sh {conf_path}"
             exec_info = await docker_ipc(method_name="exec_create",
                                          container=container_id,
                                          cmd=cmd,
@@ -242,14 +235,46 @@ class GatewayCommand(GatewayChainApiManager):
         # create Gateway configs
         await self._generate_gateway_confs(container_id=container_info["Id"])
 
-        # Restarts the Gateway container to ensure that Gateway server reloads new configs
-        try:
-            await docker_ipc(method_name="restart",
-                             container=container_info["Id"])
-        except docker.errors.APIError as e:
-            self.notify(f"Error restarting Gateway container. Error: {e}")
+        # get the infura key
+        infura_api_key: Optional[str] = await self._get_api_key(Chain.ETHEREUM)
 
-        self.notify(f"Loaded new configs into Gateway container {container_info['Id']}")
+        # wait about 30 seconds for the gateway to start
+        docker_and_gateway_live = await self.ping_gateway_docker_and_api(30)
+        if not docker_and_gateway_live:
+            self.notify("Error starting Gateway container. If you need the Infura API Key, try updating gateway later.")
+        else:
+            # update the infura_api_key if necessary. Both restart to make the
+            # configs take effect.
+            if infura_api_key is not None:
+                await self._get_gateway_instance().update_config("ethereum.nodeAPIKey", infura_api_key)
+            else:
+                await self._get_gateway_instance().post_restart()
+
+            self.notify(f"Loaded new configs into Gateway container {container_info['Id']}")
+
+    async def ping_gateway_docker_and_api(self, max_wait: int) -> bool:
+        """
+        Try to reach the docker and then the gateway API for up to max_wait seconds
+        """
+        now = int(time.time())
+        docker_live = await self.ping_gateway_docker()
+        while not docker_live:
+            later = int(time.time())
+            if later - now > max_wait:
+                return False
+            await asyncio.sleep(0.5)
+            docker_live = await self.ping_gateway_docker()
+
+        gateway_live = await self._get_gateway_instance().ping_gateway()
+        while not gateway_live:
+            later = int(time.time())
+            if later - now > max_wait:
+                return False
+            await asyncio.sleep(0.5)
+            gateway_live = await self._get_gateway_instance().ping_gateway()
+            later = int(time.time())
+
+        return True
 
     async def ping_gateway_docker(self) -> bool:
         try:
@@ -276,7 +301,10 @@ class GatewayCommand(GatewayChainApiManager):
         if self._gateway_monitor.current_status == Status.ONLINE:
             try:
                 status = await self._get_gateway_instance().get_gateway_status()
-                self.notify(pd.DataFrame(status))
+                if status is None or status == []:
+                    self.notify("There are currently no connectors online.")
+                else:
+                    self.notify(pd.DataFrame(status))
             except Exception:
                 self.notify("\nError: Unable to fetch status of connected Gateway server.")
         else:
