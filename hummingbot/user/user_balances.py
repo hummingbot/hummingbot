@@ -57,8 +57,10 @@ class UserBalances:
     @staticmethod
     @lru_cache(maxsize=10)
     def is_gateway_market(exchange_name: str) -> bool:
-        # TODO: Add Solana!!!
-        return exchange_name in AllConnectorSettings.get_gateway_evm_amm_connector_names()
+        return (
+            exchange_name in AllConnectorSettings.get_gateway_evm_amm_connector_names()
+            or exchange_name in AllConnectorSettings.get_gateway_clob_connector_names()
+        )
 
     def __init__(self):
         if UserBalances.__instance is not None:

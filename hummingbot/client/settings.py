@@ -51,6 +51,7 @@ class ConnectorType(Enum):
     """
 
     EVM_AMM = "EVM_AMM"
+    CLOB = "CLOB"
     Connector = "connector"
     Exchange = "exchange"
     Derivative = "derivative"
@@ -360,9 +361,14 @@ class AllConnectorSettings:
     def get_eth_wallet_connector_names(cls) -> Set[str]:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.use_ethereum_wallet}
 
+    # TODO Add CLOB to the same places where this is used!!!
     @classmethod
     def get_gateway_evm_amm_connector_names(cls) -> Set[str]:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.EVM_AMM}
+
+    @classmethod
+    def get_gateway_clob_connector_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.CLOB}
 
     @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:

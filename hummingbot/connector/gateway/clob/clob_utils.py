@@ -12,11 +12,17 @@ def convert_trading_pairs(hummingbot_trading_pairs: List[str]) -> List[str]:
     return [convert_trading_pair(trading_pair) for trading_pair in hummingbot_trading_pairs]
 
 
-# TODO implement!!!
 def convert_order_side(hummingbot_order_side: HummingbotOrderSide) -> OrderSide:
-    raise NotImplementedError
+    if hummingbot_order_side == HummingbotOrderSide.BUY:
+        return OrderSide.BUY
+    elif hummingbot_order_side == HummingbotOrderSide.SELL:
+        return OrderSide.SELL
+    else:
+        raise ValueError(f'Unrecognized order side "{hummingbot_order_side}".')
 
 
-# TODO implement!!!
 def convert_order_type(hummingbot_order_type: HummingbotOrderType) -> OrderType:
-    raise NotImplementedError
+    if hummingbot_order_type == HummingbotOrderType.LIMIT:
+        return OrderType.LIMIT
+    else:
+        raise ValueError(f'Unrecognized order type "{hummingbot_order_type}".')

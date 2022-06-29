@@ -42,7 +42,7 @@ export async function balances(
   }
 
   return {
-    network: solanaish.cluster,
+    network: solanaish.network,
     timestamp: initTime,
     latency: latency(initTime, Date.now()),
     balances: filteredBalances,
@@ -75,7 +75,7 @@ export async function poll(
   const txStatus = await solanaish.getTransactionStatusCode(txData);
 
   return {
-    network: solanaish.cluster,
+    network: solanaish.network,
     currentBlock,
     timestamp: initTime,
     txHash: req.txHash,
@@ -112,7 +112,7 @@ export async function token(
   }
 
   return {
-    network: solanaish.cluster,
+    network: solanaish.network,
     timestamp: initTime,
     token: req.token,
     mintAddress: mintAddress.toBase58(),
@@ -150,7 +150,7 @@ export async function getOrCreateTokenAccount(
   }
 
   return {
-    network: solanaish.cluster,
+    network: solanaish.network,
     timestamp: initTime,
     token: req.token,
     mintAddress: mintAddress.toBase58(),

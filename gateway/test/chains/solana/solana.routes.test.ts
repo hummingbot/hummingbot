@@ -77,7 +77,7 @@ describe('POST /solana/balances', () => {
       .send({ address: publicKey, tokenSymbols })
       .expect('Content-Type', /json/)
       .expect(200)
-      .expect((res) => expect(res.body.network).toBe(solana.cluster))
+      .expect((res) => expect(res.body.network).toBe(solana.network))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.latency).toBeNumber())
       .expect((res) =>
@@ -115,7 +115,7 @@ describe('GET /solana/token', () => {
       .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
-      .expect((res) => expect(res.body.network).toBe(solana.cluster))
+      .expect((res) => expect(res.body.network).toBe(solana.network))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
       .expect((res) =>
@@ -136,7 +136,7 @@ describe('GET /solana/token', () => {
       .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
-      .expect((res) => expect(res.body.network).toBe(solana.cluster))
+      .expect((res) => expect(res.body.network).toBe(solana.network))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
       .expect((res) =>
@@ -159,7 +159,7 @@ describe('GET /solana/token', () => {
       .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
-      .expect((res) => expect(res.body.network).toBe(solana.cluster))
+      .expect((res) => expect(res.body.network).toBe(solana.network))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
       .expect((res) =>
@@ -205,7 +205,7 @@ describe('POST /solana/token', () => {
       .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
-      .expect((res) => expect(res.body.network).toBe(solana.cluster))
+      .expect((res) => expect(res.body.network).toBe(solana.network))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
       .expect((res) =>
@@ -227,7 +227,7 @@ describe('POST /solana/token', () => {
       .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
-      .expect((res) => expect(res.body.network).toBe(solana.cluster))
+      .expect((res) => expect(res.body.network).toBe(solana.network))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
       .expect((res) =>
@@ -251,7 +251,7 @@ describe('POST /solana/token', () => {
       .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
-      .expect((res) => expect(res.body.network).toBe(solana.cluster))
+      .expect((res) => expect(res.body.network).toBe(solana.network))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
       .expect((res) =>
@@ -294,7 +294,7 @@ describe('POST /solana/poll', () => {
       .send({ txHash })
       .expect('Content-Type', /json/)
       .expect(200)
-      .expect((res) => expect(res.body.network).toBe(solana.cluster))
+      .expect((res) => expect(res.body.network).toBe(solana.network))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.currentBlock).toBe(CurrentBlockNumber))
       .expect((res) => expect(res.body.txHash).toBe(txHash))

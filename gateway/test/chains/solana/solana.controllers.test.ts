@@ -59,7 +59,7 @@ describe('poll', () => {
       network: 'devnet',
       txHash: txHash,
     });
-    expect(n.network).toBe(solana.cluster)
+    expect(n.network).toBe(solana.network)
     expect(n.timestamp).toBeNumber()
     expect(n.currentBlock).toBe(CurrentBlockNumber)
     expect(n.txHash).toBe(txHash)
