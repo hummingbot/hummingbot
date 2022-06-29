@@ -6,6 +6,8 @@ from os import DirEntry, scandir
 from os.path import exists, join, realpath
 from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Set, Union, cast
 
+from pydantic import SecretStr
+
 from hummingbot import get_strategy_list, root_path
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
@@ -233,7 +235,9 @@ class ConnectorSetting(NamedTuple):
             kwargs = {key: (config.value or "") for key, config in self.config_keys.items()}  # legacy
         elif self.config_keys is not None:
             kwargs = {
-                traverse_item.attr: traverse_item.value or ""
+                traverse_item.attr: traverse_item.value.get_secret_value()
+                if isinstance(traverse_item.value, SecretStr)
+                else traverse_item.value or ""
                 for traverse_item
                 in ClientConfigAdapter(self.config_keys).traverse()
                 if traverse_item.attr != "connector"
@@ -361,7 +365,7 @@ class AllConnectorSettings:
     @classmethod
     def get_all_connectors(cls) -> List[str]:
         """Avoids circular import problems introduced by `create_connector_settings`."""
-        connector_names = PAPER_TRADE_EXCHANGES
+        connector_names = PAPER_TRADE_EXCHANGES.copy()
         type_dirs: List[DirEntry] = [
             cast(DirEntry, f) for f in
             scandir(f"{root_path() / 'hummingbot' / 'connector'}")
