@@ -602,7 +602,7 @@ class TestBybitExchange(unittest.TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='OID1', exchange_order_id=None)"
+                f"client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 
@@ -655,7 +655,7 @@ class TestBybitExchange(unittest.TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None)"
+                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 
