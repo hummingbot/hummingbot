@@ -759,7 +759,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         )
         self.tracker.start_tracking_order(order)
 
-        self.tracker._order_not_found_records[order.client_order_id] = 3
+        self.tracker._order_not_found_records[order.client_order_id] = 10
         self.async_run_with_timeout(self.tracker.process_order_not_found(order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.tracker.active_orders)

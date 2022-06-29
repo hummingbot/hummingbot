@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { gatewayApp } from '../../../src/app';
-import { patch, unpatch } from '../../services/patch';
+import { patch, unpatch } from '../patch';
 import { Ethereum } from '../../../src/chains/ethereum/ethereum';
 import { Avalanche } from '../../../src/chains/avalanche/avalanche';
 import { Harmony } from '../../../src/chains/harmony/harmony';

@@ -67,7 +67,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
         cls._patch_stack.enter_context(
             patch(
                 "hummingbot.core.gateway.gateway_http_client.GatewayHttpClient._http_client",
-                return_value=ClientSession()
+                return_value=ClientSession(),
             )
         )
         cls._patch_stack.enter_context(cls._clock)
@@ -79,7 +79,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
         cls._patch_stack.close()
 
     def tearDown(self) -> None:
-        self._connector._in_flight_orders.clear()
+        self._connector._order_tracker.all_orders.clear()
 
     @classmethod
     async def wait_til_ready(cls):
@@ -112,12 +112,12 @@ class GatewayCancelUnitTest(unittest.TestCase):
         connector.add_listener(MarketEvent.OrderCancelled, event_logger)
 
         expected_order_tx_hash_set: Set[str] = {
-            "0x08f410a0d5cd42446fef3faffc14251ccfa3e4388d83f75f3730c05bcba1c5ab",       # noqa: mock
-            "0xe09a9d9593e7ca19205edd3a4ddd1ab1f348dad3ea922ad0ef8efc5c00e3abfb",       # noqa: mock
+            "0x08f410a0d5cd42446fef3faffc14251ccfa3e4388d83f75f3730c05bcba1c5ab",  # noqa: mock
+            "0xe09a9d9593e7ca19205edd3a4ddd1ab1f348dad3ea922ad0ef8efc5c00e3abfb",  # noqa: mock
         }
         expected_cancel_tx_hash_set: Set[str] = {
-            "0xcd03a16f309a01239b8f7c036865f1c413768f2809fd0355400e7595a3860988",       # noqa: mock
-            "0x044eb2c220ec160e157949b0f18f7ba5e36c6e7b115a36e976f92b469f45cab5",       # noqa: mock
+            "0xcd03a16f309a01239b8f7c036865f1c413768f2809fd0355400e7595a3860988",  # noqa: mock
+            "0x044eb2c220ec160e157949b0f18f7ba5e36c6e7b115a36e976f92b469f45cab5",  # noqa: mock
         }
 
         try:
@@ -128,13 +128,13 @@ class GatewayCancelUnitTest(unittest.TestCase):
 
                 self._http_player.replay_timestamp_ms = 1648503304951
                 await connector._create_order(
-                    TradeType.BUY,
-                    GatewayEVMAMM.create_market_order_id(TradeType.BUY, TRADING_PAIR),
-                    TRADING_PAIR,
-                    amount,
-                    buy_price,
+                    trade_type=TradeType.BUY,
+                    order_id=GatewayEVMAMM.create_market_order_id(TradeType.BUY, TRADING_PAIR),
+                    trading_pair=TRADING_PAIR,
+                    amount=amount,
+                    price=buy_price,
                     max_fee_per_gas=MAX_FEE_PER_GAS,
-                    max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
+                    max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS,
                 )
                 self._http_player.replay_timestamp_ms = 1648503309059
                 await connector._create_order(
@@ -144,27 +144,32 @@ class GatewayCancelUnitTest(unittest.TestCase):
                     amount,
                     sell_price,
                     max_fee_per_gas=MAX_FEE_PER_GAS,
-                    max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
+                    max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS,
                 )
-                self.assertEqual(2, len(connector._in_flight_orders))
-                self.assertEqual(expected_order_tx_hash_set,
-                                 set(o.exchange_order_id for o in connector._in_flight_orders.values()))
 
-                for in_flight_order in connector._in_flight_orders.values():
-                    in_flight_order._creation_timestamp = connector.current_timestamp - 86400
+                self._http_player.replay_timestamp_ms = 1648503311238
+                await connector.update_order_status(connector.amm_orders)
+
+                self.assertEqual(2, len(connector.amm_orders))
+                self.assertEqual(expected_order_tx_hash_set, set(o.exchange_order_id for o in connector.amm_orders))
+
+                for in_flight_order in connector.amm_orders:
+                    in_flight_order.creation_timestamp = connector.current_timestamp - 86400
 
                 self._http_player.replay_timestamp_ms = 1648503313675
                 await connector.cancel_outdated_orders(600)
-                self.assertEqual(2, len(connector._in_flight_orders))
-                self.assertTrue(all([o.is_cancelling for o in connector._in_flight_orders.values()]))
-                self.assertEqual(expected_cancel_tx_hash_set,
-                                 set(o.cancel_tx_hash for o in connector._in_flight_orders.values()))
 
                 self._http_player.replay_timestamp_ms = 1648503331511
+                await connector.update_canceling_transactions(connector.amm_orders)
+                # self._http_player.replay_timestamp_ms = 1648503331520
+                # await connector.update_canceling_transactions(connector.amm_orders)
+                self.assertEqual(2, len(connector.amm_orders))
+                self.assertEqual(expected_cancel_tx_hash_set, set(o.cancel_tx_hash for o in connector.amm_orders))
+
                 async with timeout(10):
                     while len(event_logger.event_log) < 2:
                         await event_logger.wait_for(OrderCancelledEvent)
-                self.assertEqual(0, len(connector._in_flight_orders))
+                self.assertEqual(0, len(connector.amm_orders))
         finally:
             connector.remove_listener(MarketEvent.OrderCancelled, event_logger)
 
@@ -175,44 +180,42 @@ class GatewayCancelUnitTest(unittest.TestCase):
         connector.add_listener(TokenApprovalEvent.ApprovalCancelled, event_logger)
 
         expected_evm_approve_tx_hash_set: Set[str] = {
-            "0x7666bb5ba3ecec828e323f20685dfd03a067e7b2830b217363293b166b48a679",       # noqa: mock
-            "0x7291d26447e300bd37260add7ac7db9a745f64c7ee10854695b0a70b0897456f",       # noqa: mock
+            "0x7666bb5ba3ecec828e323f20685dfd03a067e7b2830b217363293b166b48a679",  # noqa: mock
+            "0x7291d26447e300bd37260add7ac7db9a745f64c7ee10854695b0a70b0897456f",  # noqa: mock
         }
         expected_cancel_tx_hash_set: Set[str] = {
-            "0x21b4d0e956241a497cf50d9c5dcefea4ec9fb225a1d11f80477ca434caab30ff",       # noqa: mock
-            "0x7ac85d5a77f28e9317127218c06eb3d70f4c68924a4b5b743fe8faef6d011d11",       # noqa: mock
+            "0x21b4d0e956241a497cf50d9c5dcefea4ec9fb225a1d11f80477ca434caab30ff",  # noqa: mock
+            "0x7ac85d5a77f28e9317127218c06eb3d70f4c68924a4b5b743fe8faef6d011d11",  # noqa: mock
         }
 
         try:
             async with self.run_clock():
                 self._http_player.replay_timestamp_ms = 1648503333290
                 tracked_order_1: GatewayInFlightOrder = await connector.approve_token(
-                    "DAI",
-                    max_fee_per_gas=MAX_FEE_PER_GAS,
-                    max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
+                    "DAI", max_fee_per_gas=MAX_FEE_PER_GAS, max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
                 )
                 self._http_player.replay_timestamp_ms = 1648503337964
                 tracked_order_2: GatewayInFlightOrder = await connector.approve_token(
-                    "WETH",
-                    max_fee_per_gas=MAX_FEE_PER_GAS,
-                    max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
+                    "WETH", max_fee_per_gas=MAX_FEE_PER_GAS, max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
                 )
-                self.assertEqual(2, len(connector._in_flight_orders))
-                self.assertEqual(expected_evm_approve_tx_hash_set,
-                                 set(o.exchange_order_id for o in connector._in_flight_orders.values()))
+                self.assertEqual(2, len(connector.approval_orders))
+                self.assertEqual(
+                    expected_evm_approve_tx_hash_set, set(o.exchange_order_id for o in connector.approval_orders)
+                )
 
                 self._http_player.replay_timestamp_ms = 1648503342513
-                tracked_order_1._creation_timestamp = connector.current_timestamp - 86400
-                tracked_order_2._creation_timestamp = connector.current_timestamp - 86400
+                tracked_order_1.creation_timestamp = connector.current_timestamp - 86400
+                tracked_order_2.creation_timestamp = connector.current_timestamp - 86400
                 await connector.cancel_outdated_orders(600)
-                self.assertEqual(2, len(connector._in_flight_orders))
-                self.assertEqual(expected_cancel_tx_hash_set,
-                                 set(o.cancel_tx_hash for o in connector._in_flight_orders.values()))
+                self.assertEqual(2, len(connector.approval_orders))
+                self.assertEqual(expected_cancel_tx_hash_set, set(o.cancel_tx_hash for o in connector.approval_orders))
 
                 self._http_player.replay_timestamp_ms = 1648503385484
                 async with timeout(10):
                     while len(event_logger.event_log) < 2:
                         await event_logger.wait_for(TokenApprovalCancelledEvent)
-                self.assertEqual(0, len(connector._in_flight_orders))
+                    cancelled_approval_symbols = [e.token_symbol for e in event_logger.event_log]
+                    self.assertIn("DAI", cancelled_approval_symbols)
+                    self.assertIn("WETH", cancelled_approval_symbols)
         finally:
             connector.remove_listener(TokenApprovalEvent.ApprovalCancelled, event_logger)

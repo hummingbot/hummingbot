@@ -58,6 +58,17 @@ export async function nonce(
   return { nonce };
 }
 
+export async function nextNonce(
+  ethereum: Ethereumish,
+  req: NonceRequest
+): Promise<NonceResponse> {
+  // get the address via the public key since we generally use the public
+  // key to interact with gateway and the address is not part of the user config
+  const wallet = await ethereum.getWallet(req.address);
+  const nonce = await ethereum.nonceManager.getNextNonce(wallet.address);
+  return { nonce };
+}
+
 export const getTokenSymbolsToTokens = (
   ethereum: Ethereumish,
   tokenSymbols: Array<string>
