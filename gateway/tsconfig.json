@@ -27,5 +27,5 @@
     "downlevelIteration": true
   },
   "exclude": ["node_modules"],
-  "include": ["src/**/*.ts", "src/**/*.js", "test/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.js", "test/**/*.ts", "integration-test/**/*.js"],
 }
