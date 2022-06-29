@@ -486,6 +486,19 @@ class GatewayHttpClient:
             "connector": connector,
         })
 
+    # TODO fix!!!
+    async def clob_get_estimate_gas(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+    ) -> Dict[str, Any]:
+        return await self.api_request("get", "clob/estimateGas", {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        })
+
     async def clob_get_markets(
         self,
         chain: str,

@@ -88,13 +88,13 @@ class GatewayPriceShim:
         return cls._shared_instance
 
     def patch_prices(
-            self,
-            from_exchange: str,
-            from_trading_pair: str,
-            to_connector_name: str,
-            to_chain: str,
-            to_network: str,
-            to_trading_pair: str
+        self,
+        from_exchange: str,
+        from_trading_pair: str,
+        to_connector_name: str,
+        to_chain: str,
+        to_network: str,
+        to_trading_pair: str
     ):
         key: GatewayPriceShimKey = GatewayPriceShimKey(
             connector_name=to_connector_name,
@@ -112,13 +112,14 @@ class GatewayPriceShim:
         )
 
     def apply_price_delta(
-            self,
-            connector_name: str,
-            chain: str,
-            network: str,
-            trading_pair: str,
-            delta: Decimal,
-            duration_seconds: float = 60):
+        self,
+        connector_name: str,
+        chain: str,
+        network: str,
+        trading_pair: str,
+        delta: Decimal,
+        duration_seconds: float = 60
+    ):
         key: GatewayPriceShimKey = GatewayPriceShimKey(
             connector_name=connector_name,
             chain=chain,
@@ -138,13 +139,14 @@ class GatewayPriceShim:
         )
 
     async def get_connector_price(
-            self,
-            connector_name: str,
-            chain: str,
-            network: str,
-            trading_pair: str,
-            is_buy: bool,
-            amount: Decimal) -> Optional[Decimal]:
+        self,
+        connector_name: str,
+        chain: str,
+        network: str,
+        trading_pair: str,
+        is_buy: bool,
+        amount: Decimal
+    ) -> Optional[Decimal]:
         key: GatewayPriceShimKey = GatewayPriceShimKey(
             connector_name=connector_name,
             chain=chain,

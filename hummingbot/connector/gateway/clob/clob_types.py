@@ -11,10 +11,12 @@ class OrderStatus(Enum):
     CANCELATION_PENDING = 'CANCELATION_PENDING',
     UNKNOWN = 'UNKNOWN'
 
+    # TODO implement!!!
     @staticmethod
     def from_hummingbot():
         raise NotImplementedError
 
+    # TODO implement!!!
     @staticmethod
     def to_hummingbot():
         raise NotImplementedError
