@@ -151,6 +151,8 @@ async def detect_existing_gateway_container() -> Optional[Dict[str, Any]]:
 async def start_existing_gateway_container():
     container_info: Optional[Dict[str, Any]] = await detect_existing_gateway_container()
     if container_info is not None and container_info["State"] != "running":
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+        HummingbotApplication.main_application().logger().info("Starting existing Gateway container...")
         await docker_ipc("start", get_gateway_container_name())
 
 
@@ -164,16 +166,13 @@ async def docker_ipc(method_name: str, *args, **kwargs) -> Any:
         _hummingbot_pipe.send((method_name, args, kwargs))
         data = await _hummingbot_pipe.coro_recv()
         if isinstance(data, Exception):
-            HummingbotApplication.main_application().notify(
-                "\nError: Unable to communicate with docker socket. "
-                "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
             raise data
         return data
 
     except Exception as e:  # unable to communicate with docker socket
         HummingbotApplication.main_application().notify(
-            "\nError: Unable to communicate with docker socket. "
-            "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
+            "Notice: Hummingbot is unable to communicate with Docker. If you need gateway for DeFi,"
+            "\nmake sure Docker is on, then restart Hummingbot. Otherwise, ignore this message.")
         raise e
 
 
@@ -190,15 +189,12 @@ async def docker_ipc_with_generator(method_name: str, *args, **kwargs) -> AsyncI
             if data is None:
                 break
             if isinstance(data, Exception):
-                HummingbotApplication.main_application().notify(
-                    "\nError: Unable to communicate with docker socket. "
-                    "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
                 raise data
             yield data
     except Exception as e:  # unable to communicate with docker socket
         HummingbotApplication.main_application().notify(
-            "\nError: Unable to communicate with docker socket. "
-            "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
+            "Notice: Hummingbot is unable to communicate with Docker. If you need gateway for DeFi,"
+            "\nmake sure Docker is on, then restart Hummingbot. Otherwise, ignore this message.")
         raise e
 
 

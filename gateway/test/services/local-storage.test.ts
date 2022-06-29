@@ -48,7 +48,7 @@ describe('Test local-storage', () => {
 
     expect(db.dbPath).toStrictEqual(dbPath);
 
-    // delete the recentley added key/value pair
+    // delete the recently added key/value pair
     await db.del(testKey);
 
     const results2: Record<string, any> = await db.get((k: string, v: any) => {
