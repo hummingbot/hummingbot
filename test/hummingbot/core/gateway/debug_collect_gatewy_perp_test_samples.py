@@ -10,7 +10,6 @@ the ETH address and nonce numbers.
 import asyncio
 from decimal import Decimal
 from os.path import join, realpath
-from test.mock.http_recorder import HttpRecorder
 
 from bin import path_util  # noqa: F401
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
@@ -20,6 +19,7 @@ from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 
 
 async def main():
+    from test.mock.http_recorder import HttpRecorder
     await read_system_configs_from_yml()
     global_config_map["gateway_api_port"].value = 5000
 
