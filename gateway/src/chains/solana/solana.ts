@@ -53,17 +53,17 @@ export class Solana implements Solanaish {
   private readonly _lamportDecimals: number;
   private readonly _nativeTokenSymbol: string;
   private readonly _tokenProgramAddress: PublicKey;
-  private readonly _cluster: string;
+  private readonly _network: string;
   private readonly _metricsLogInterval: number;
   // there are async values set in the constructor
   private _ready: boolean = false;
   private initializing: boolean = false;
 
   constructor(network?: string) {
-    this._cluster = network || SolanaConfig.config.network.slug;
+    this._network = network || SolanaConfig.config.network.slug;
 
     if (SolanaConfig.config.customRpcUrl == undefined) {
-      switch (this._cluster) {
+      switch (this._network) {
         case 'mainnet-beta':
           this.rpcUrl = 'https://api.mainnet-beta.solana.com';
           break;
@@ -156,7 +156,7 @@ export class Solana implements Solanaish {
   // returns a Tokens for a given list source and list type
   async getTokenList(): Promise<TokenInfo[]> {
     const tokens = await new TokenListProvider().resolve();
-    return tokens.filterByClusterSlug(this._cluster).getList();
+    return tokens.filterByClusterSlug(this._network).getList();
   }
 
   // returns the price of 1 lamport in SOL
@@ -530,8 +530,8 @@ export class Solana implements Solanaish {
     this._requestCount = 0; // reset
   }
 
-  public get cluster(): string {
-    return this._cluster;
+  public get network(): string {
+    return this._network;
   }
 
   public get nativeTokenSymbol(): string {
@@ -552,8 +552,8 @@ export class Solana implements Solanaish {
   }
 
   async close() {
-    if (this._cluster in Solana._instances) {
-      delete Solana._instances[this._cluster];
+    if (this._network in Solana._instances) {
+      delete Solana._instances[this._network];
     }
   }
 }

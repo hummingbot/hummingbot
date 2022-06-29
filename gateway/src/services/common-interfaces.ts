@@ -38,8 +38,8 @@ import {
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
 
-// TODO do we need to include clob/serum although their routes are different?!!!
-// TODO https://hummingbot.org/developers/gateway/building-gateway-connectors/#5-add-sdk-classes-to-uniswapish-interface!!!
+// TODO do we need to include clob/solana/serum although their routes are different?!!!
+// TODO Check this link https://hummingbot.org/developers/gateway/building-gateway-connectors/#5-add-sdk-classes-to-uniswapish-interface!!!
 export type Tokenish =
   | Token
   | TokenPangolin
