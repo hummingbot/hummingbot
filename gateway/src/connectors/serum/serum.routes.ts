@@ -42,7 +42,7 @@ export namespace SerumRoutes {
   export const router = Router();
 
   export const getSolana = async (request: Request) =>
-    await Solana.getInstance(request.body.chain);
+    await Solana.getInstance(request.body.network);
 
   export const getSerum = async (request: Request) =>
     await Serum.getInstance(request.body.chain, request.body.network);
