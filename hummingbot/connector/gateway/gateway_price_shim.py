@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Dict, NamedTuple, Optional, cast
 
+from hummingbot.connector.exchange_base import ExchangeBase
+
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.logger.logger import HummingbotLogger
-
-from .exchange_base import ExchangeBase
 
 
 class GatewayPriceShimKey(NamedTuple):

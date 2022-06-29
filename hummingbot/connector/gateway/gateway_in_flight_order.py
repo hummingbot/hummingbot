@@ -19,7 +19,6 @@ class GatewayInFlightOrder(InFlightOrderBase):
                  price: Decimal,
                  amount: Decimal,
                  creation_timestamp: float,
-                 gas_price: Decimal,
                  initial_state: str = "PENDING_CREATE"):
         super().__init__(
             client_order_id,
@@ -33,8 +32,6 @@ class GatewayInFlightOrder(InFlightOrderBase):
             initial_state,
         )
         self.trade_id_set = set()
-        self._gas_price = gas_price
-        self.nonce = 0
         self._cancel_tx_hash: Optional[str] = None
 
     @property
@@ -70,14 +67,6 @@ class GatewayInFlightOrder(InFlightOrderBase):
     @property
     def is_cancelling(self) -> bool:
         return self.last_state == "CANCELING"
-
-    @property
-    def gas_price(self) -> Decimal:
-        return self._gas_price
-
-    @gas_price.setter
-    def gas_price(self, gas_price: Decimal):
-        self._gas_price = gas_price
 
     @property
     def cancel_tx_hash(self) -> Optional[str]:

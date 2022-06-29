@@ -10,7 +10,7 @@ from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
-from hummingbot.connector.gateway.amm.gateway_price_shim import GatewayPriceShim
+from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
