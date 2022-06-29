@@ -2,7 +2,7 @@ import { Solanaish } from '../chains/solana/solana';
 import { Serumish } from '../connectors/serum/serum';
 import * as serumControllers from '../connectors/serum/serum.controllers';
 import { ResponseWrapper } from '../services/common-interfaces';
-import { getChain, getConnector } from '../services/connection-manager';
+import {getChain, getConnector} from '../services/connection-manager';
 import {
   ClobDeleteOrdersRequest,
   ClobDeleteOrdersResponse,
@@ -32,7 +32,7 @@ import {
 export async function getMarkets(
   request: ClobGetMarketsRequest
 ): Promise<ResponseWrapper<ClobGetMarketsResponse>> {
-  const chain: Solanaish = await getChain(request.chain, request.network);
+  const chain: Solanaish = (await getChain(request.chain, request.network)) as Solanaish;
   const connector: Serumish = (await getConnector(
     request.chain,
     request.network,
@@ -50,7 +50,7 @@ export async function getMarkets(
 export async function getOrderBooks(
   request: ClobGetOrderBooksRequest
 ): Promise<ResponseWrapper<ClobGetOrderBooksResponse>> {
-  const chain: Solanaish = await getChain(request.chain, request.network);
+  const chain: Solanaish = (await getChain(request.chain, request.network)) as Solanaish;
   const connector: Serumish = (await getConnector(
     request.chain,
     request.network,
@@ -68,7 +68,7 @@ export async function getOrderBooks(
 export async function getTickers(
   request: ClobGetTickersRequest
 ): Promise<ResponseWrapper<ClobGetTickersResponse>> {
-  const chain: Solanaish = await getChain(request.chain, request.network);
+  const chain: Solanaish = (await getChain(request.chain, request.network)) as Solanaish;
   const connector: Serumish = (await getConnector(
     request.chain,
     request.network,
@@ -86,7 +86,7 @@ export async function getTickers(
 export async function getOrders(
   request: ClobGetOrdersRequest
 ): Promise<ResponseWrapper<ClobGetOrdersResponse>> {
-  const chain: Solanaish = await getChain(request.chain, request.network);
+  const chain: Solanaish = (await getChain(request.chain, request.network)) as Solanaish;
   const connector: Serumish = (await getConnector(
     request.chain,
     request.network,
@@ -104,7 +104,7 @@ export async function getOrders(
 export async function createOrders(
   request: ClobPostOrdersRequest
 ): Promise<ResponseWrapper<ClobPostOrdersResponse>> {
-  const chain: Solanaish = await getChain(request.chain, request.network);
+  const chain: Solanaish = (await getChain(request.chain, request.network)) as Solanaish;
   const connector: Serumish = (await getConnector(
     request.chain,
     request.network,
@@ -122,7 +122,7 @@ export async function createOrders(
 export async function cancelOrders(
   request: ClobDeleteOrdersRequest
 ): Promise<ResponseWrapper<ClobDeleteOrdersResponse>> {
-  const chain: Solanaish = await getChain(request.chain, request.network);
+  const chain: Solanaish = (await getChain(request.chain, request.network)) as Solanaish;
   const connector: Serumish = (await getConnector(
     request.chain,
     request.network,
@@ -140,7 +140,7 @@ export async function cancelOrders(
 export async function getOpenOrders(
   request: ClobGetOpenOrdersRequest
 ): Promise<ResponseWrapper<ClobGetOpenOrdersResponse>> {
-  const chain: Solanaish = await getChain(request.chain, request.network);
+  const chain: Solanaish = (await getChain(request.chain, request.network)) as Solanaish;
   const connector: Serumish = (await getConnector(
     request.chain,
     request.network,
@@ -158,7 +158,7 @@ export async function getOpenOrders(
 export async function getFilledOrders(
   request: ClobGetFilledOrdersRequest
 ): Promise<ResponseWrapper<ClobGetFilledOrdersResponse>> {
-  const chain: Solanaish = await getChain(request.chain, request.network);
+  const chain: Solanaish = (await getChain(request.chain, request.network)) as Solanaish;
   const connector: Serumish = (await getConnector(
     request.chain,
     request.network,
@@ -178,7 +178,7 @@ export async function getFilledOrders(
 export async function settleFunds(
   request: ClobPostSettleFundsRequest
 ): Promise<ResponseWrapper<ClobPostSettleFundsResponse>> {
-  const chain: Solanaish = await getChain(request.chain, request.network);
+  const chain: Solanaish = (await getChain(request.chain, request.network)) as Solanaish;
   const connector: Serumish = (await getConnector(
     request.chain,
     request.network,

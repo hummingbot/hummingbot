@@ -12,8 +12,10 @@ import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Sushiswap } from '../connectors/sushiswap/sushiswap';
 import { Serumish } from '../connectors/serum/serum';
 
+export type ChainInstance = Ethereumish | Solanaish;
+
 export async function getChain(chain: string, network: string) {
-  let chainInstance: Ethereumish | Solanaish;
+  let chainInstance: ChainInstance;
 
   if (chain === 'ethereum') chainInstance = Ethereum.getInstance(network);
   else if (chain === 'avalanche')

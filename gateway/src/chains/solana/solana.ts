@@ -77,7 +77,7 @@ export class Solana implements Solanaish {
           this.rpcUrl = 'https://api.testnet.solana.com';
           break;
         default:
-          throw new Error('SOLANA_CHAIN not valid');
+          throw new Error(`Solana network "${this._network}" not valid`);
       }
     } else {
       this.rpcUrl = SolanaConfig.config.customRpcUrl;
