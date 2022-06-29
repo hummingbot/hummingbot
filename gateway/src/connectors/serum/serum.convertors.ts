@@ -333,6 +333,7 @@ export const convertToCreateOrderResponse = (
     side: input.side,
     status: input.status,
     type: input.type,
+    signature: input.signature,
   };
 };
 
@@ -352,6 +353,7 @@ export const convertToCancelOrderResponse = (
     side: input.side,
     status: input.status,
     type: input.type,
+    signature: input.signature,
   };
 };
 

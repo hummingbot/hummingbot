@@ -229,6 +229,7 @@ export interface CreateOrderResponse {
   status?: OrderStatus;
   type?: OrderType;
   fee?: number;
+  signature?: string;
 }
 
 export type CreateOrdersResponse =
@@ -260,6 +261,7 @@ export interface CancelOrderResponse {
   status?: OrderStatus;
   type?: OrderType;
   fee?: number;
+  signature?: string;
 }
 
 export type CancelOrdersResponse =
