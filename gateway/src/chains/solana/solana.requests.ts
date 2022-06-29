@@ -12,7 +12,7 @@ export interface SolanaBalanceResponse {
   network: string;
   timestamp: number;
   latency: number;
-  balances: Record<string, string>; // the balance should be a string encoded number
+  balances: Record<string, string | null>; // the balance should be a string encoded number
 }
 
 export interface SolanaTokenRequest extends NetworkSelectionRequest {
@@ -26,7 +26,7 @@ export interface SolanaTokenResponse {
   token: string; // the token symbol the spender will be approved for
   mintAddress: string;
   accountAddress?: string;
-  amount?: string;
+  amount: string | null;
 }
 
 export interface SolanaPollRequest extends NetworkSelectionRequest {

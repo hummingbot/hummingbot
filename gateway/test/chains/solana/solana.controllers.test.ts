@@ -9,6 +9,7 @@ import * as getTokenListData from './fixtures/getTokenList.json';
 import * as getTransactionData from './fixtures/getTransaction.json';
 import { privateKey, publicKey } from './solana.validators.test';
 import {HttpException, LOAD_WALLET_ERROR_CODE, LOAD_WALLET_ERROR_MESSAGE} from "../../../src/services/error-handler";
+import BN from "bn.js";
 
 let solana: Solana;
 beforeAll(async () => {
@@ -89,5 +90,20 @@ describe('balances', () => {
         LOAD_WALLET_ERROR_CODE
       )
     );
+  });
+
+  it('return null if token account not initialized', async () => {
+    patch(solana, 'getBalances', () => {
+      return {'MBS': {value: new BN(100), decimals: 3}}
+    });
+
+    await expect(
+      balances(solana, {
+        chain: 'solana',
+        network: 'devnet',
+        address: publicKey,
+        tokenSymbols: ['MBS', 'DAI'],
+      })
+    ).resolves.toBe({'MBS': 1, 'DAI': null})
   });
 });
