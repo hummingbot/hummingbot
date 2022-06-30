@@ -10,6 +10,7 @@ import { EthereumBase } from './ethereum-base';
 import { Provider } from '@ethersproject/abstract-provider';
 import { CurrencyAmount, Token, Trade as TradeUniswap } from '@uniswap/sdk';
 import { Trade } from '@uniswap/router-sdk';
+import { Trade as UniswapV3Trade } from '@uniswap/v3-sdk';
 import {
   TradeType,
   Currency,
@@ -45,6 +46,7 @@ export type Tokenish =
   | UniswapCoreToken
   | SushiToken;
 export type UniswapishTrade =
+  | Trade<Currency, Currency, TradeType>
   | TradePangolin
   | TradeTraderjoe
   | SushiswapTrade<
@@ -52,8 +54,8 @@ export type UniswapishTrade =
       SushiToken,
       SushiTradeType.EXACT_INPUT | SushiTradeType.EXACT_OUTPUT
     >
-  | TradeUniswap
-  | Trade<Currency, Currency, TradeType>;
+  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
+  | TradeUniswap;
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin

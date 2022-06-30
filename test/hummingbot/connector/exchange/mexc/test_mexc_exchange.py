@@ -14,6 +14,8 @@ import ujson
 from aioresponses import aioresponses
 
 import hummingbot.connector.exchange.mexc.mexc_constants as CONSTANTS
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
 from hummingbot.connector.exchange.mexc.mexc_in_flight_order import MexcInFlightOrder
 from hummingbot.connector.exchange.mexc.mexc_order_book import MexcOrderBook
@@ -47,10 +49,13 @@ class MexcExchangeTests(TestCase):
         self.log_records = []
         self.resume_test_event = asyncio.Event()
         self._account_name = "hbot"
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.exchange = MexcExchange(mexc_api_key='testAPIKey',
-                                     mexc_secret_key='testSecret',
-                                     trading_pairs=[self.trading_pair])
+        self.exchange = MexcExchange(
+            client_config_map=self.client_config_map,
+            mexc_api_key='testAPIKey',
+            mexc_secret_key='testSecret',
+            trading_pairs=[self.trading_pair])
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)

@@ -2,6 +2,8 @@ import unittest
 import unittest.mock
 from decimal import Decimal
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -34,7 +36,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         cls._patcher.stop()
 
     def test_in_flight_asset_balances(self):
-        connector = ConnectorBase()
+        connector = ConnectorBase(client_config_map=ClientConfigAdapter(ClientConfigMap()))
         connector.real_time_balance_update = True
         print(connector._account_balances)
         orders = {

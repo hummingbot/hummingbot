@@ -8,33 +8,20 @@ from .order_id_market_pair_tracker cimport OrderIDMarketPairTracker
 
 cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef:
+        object _config_map
         set _maker_markets
         set _taker_markets
         bint _all_markets_ready
-        bint _active_order_canceling
         bint _adjust_orders_enabled
         dict _anti_hysteresis_timers
-        object _min_profitability
-        object _order_size_taker_volume_factor
-        object _order_size_taker_balance_factor
-        object _order_size_portfolio_ratio_limit
-        object _order_amount
-        object _cancel_order_threshold
-        object _top_depth_tolerance
-        double _anti_hysteresis_duration
-        double _status_report_interval
         double _last_timestamp
-        double _limit_order_min_expiration
+        double _status_report_interval
         dict _order_fill_buy_events
         dict _order_fill_sell_events
         dict _suggested_price_samples
         dict _market_pairs
         int64_t _logging_options
         OrderIDMarketPairTracker _market_pair_tracker
-        bint _use_oracle_conversion_rate
-        object _taker_to_maker_base_conversion_rate
-        object _taker_to_maker_quote_conversion_rate
-        object _slippage_buffer
         bint _hb_app_notification
         list _maker_order_ids
         double _last_conv_rates_logged

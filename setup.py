@@ -1,11 +1,10 @@
-import numpy as np
 import os
 import subprocess
 import sys
 
+import numpy as np
 from setuptools import find_packages, setup
 from setuptools.command.build_ext import build_ext
-
 from Cython.Build import cythonize
 
 is_posix = (os.name == "posix")
@@ -81,6 +80,7 @@ def main():
         "pre-commit",
         "prompt-toolkit",
         "psutil",
+        "pydantic",
         "pyjwt",
         "pyperclip",
         "python-dateutil",
