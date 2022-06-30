@@ -3,7 +3,14 @@ import copy
 import logging
 import time
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import (
+    Any,
+    AsyncIterable,
+    Dict,
+    List,
+    Optional,
+    TYPE_CHECKING,
+)
 
 import aiohttp
 import requests
@@ -44,6 +51,9 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 bm_logger = None
 s_decimal_0 = Decimal(0)
@@ -88,13 +98,14 @@ cdef class FtxExchange(ExchangeBase):
         return bm_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  ftx_secret_key: str,
                  ftx_api_key: str,
                  ftx_subaccount_name: str = None,
                  poll_interval: float = 5.0,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
-        super().__init__()
+        super().__init__(client_config_map)
         self._real_time_balance_update = False
         self._account_available_balances = {}
         self._account_balances = {}

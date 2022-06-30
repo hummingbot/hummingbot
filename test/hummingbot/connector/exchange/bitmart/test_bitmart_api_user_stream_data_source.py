@@ -8,6 +8,8 @@ from aiohttp import WSMsgType
 from bidict import bidict
 
 import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bitmart import bitmart_utils
 from hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source import BitmartAPIUserStreamDataSource
 from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
@@ -33,6 +35,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
         self.mocking_assistant = NetworkMockingAssistant()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.time_synchronizer = MagicMock()
         self.time_synchronizer.time.return_value = 1640001112.223
@@ -44,6 +47,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
             time_provider=self.time_synchronizer)
 
         self.connector = BitmartExchange(
+            client_config_map=self.client_config_map,
             bitmart_api_key="test_api_key",
             bitmart_secret_key="test_secret_key",
             bitmart_memo="test_memo",
