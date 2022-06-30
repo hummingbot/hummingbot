@@ -1,10 +1,9 @@
 import copy
 from decimal import Decimal
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, cast
 
 from async_timeout import timeout
 
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 
@@ -13,7 +12,7 @@ GET_GATEWAY_EX_ORDER_ID_TIMEOUT = 30  # seconds
 s_decimal_0 = Decimal("0")
 
 
-class GatewayInFlightOrder(InFlightOrder):
+class CLOBInFlightOrder(InFlightOrder):
     def __init__(
         self,
         client_order_id: str,
@@ -24,6 +23,7 @@ class GatewayInFlightOrder(InFlightOrder):
         price: Decimal = s_decimal_0,
         amount: Decimal = s_decimal_0,
         exchange_order_id: Optional[str] = None,
+        gas_price: Optional[Decimal] = s_decimal_0,
         initial_state: OrderState = OrderState.PENDING_CREATE,
     ):
         super().__init__(
@@ -37,41 +37,26 @@ class GatewayInFlightOrder(InFlightOrder):
             creation_timestamp=creation_timestamp,
             initial_state=initial_state,
         )
+        self.fee_asset = None
+        self._gas_price = gas_price
+        self._nonce: int = -1
         self._cancel_tx_hash: Optional[str] = None
 
     @property
-    def is_done(self) -> bool:
-        return self.last_state in {"FILLED", "CANCELED", "REJECTED", "EXPIRED"}
+    def gas_price(self) -> Decimal:
+        return self._gas_price
 
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        retval = GatewayInFlightOrder(
-            client_order_id=data["client_order_id"],
-            exchange_order_id=data["exchange_order_id"],
-            trading_pair=data["trading_pair"],
-            order_type=getattr(OrderType, data["order_type"]),
-            trade_type=getattr(TradeType, data["trade_type"]),
-            price=Decimal(data["price"]),
-            amount=Decimal(data["amount"]),
-            initial_state=data["last_state"]
-        )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        return retval
+    @gas_price.setter
+    def gas_price(self, gas_price: Decimal):
+        self._gas_price = gas_price
 
     @property
-    def is_failure(self) -> bool:
-        return self.last_state in {"REJECTED"}
+    def nonce(self) -> int:
+        return self._nonce
 
-    @property
-    def is_cancelled(self) -> bool:
-        return self.last_state in {"CANCELED", "EXPIRED"}
-
-    @property
-    def is_cancelling(self) -> bool:
-        return self.last_state == "CANCELING"
+    @nonce.setter
+    def nonce(self, nonce):
+        self._nonce = nonce
 
     @property
     def cancel_tx_hash(self) -> Optional[str]:
@@ -88,29 +73,32 @@ class GatewayInFlightOrder(InFlightOrder):
         if self.exchange_order_id is None:
             async with timeout(GET_GATEWAY_EX_ORDER_ID_TIMEOUT):
                 await self.exchange_order_id_update_event.wait()
-
         return self.exchange_order_id
 
     @property
     def attributes(self) -> Tuple[Any]:
-        return copy.deepcopy(
-            (
-                self.client_order_id,
-                self.trading_pair,
-                self.order_type,
-                self.trade_type,
-                self.price,
-                self.amount,
-                self.exchange_order_id,
-                self.current_state,
-                self.leverage,
-                self.position,
-                self.executed_amount_base,
-                self.executed_amount_quote,
-                self.creation_timestamp,
-                self.last_update_timestamp,
-                self.cancel_tx_hash,
-            )
+        return cast(
+            copy.deepcopy(
+                (
+                    self.client_order_id,
+                    self.trading_pair,
+                    self.order_type,
+                    self.trade_type,
+                    self.price,
+                    self.amount,
+                    self.exchange_order_id,
+                    self.current_state,
+                    self.leverage,
+                    self.position,
+                    self.executed_amount_base,
+                    self.executed_amount_quote,
+                    self.creation_timestamp,
+                    self.last_update_timestamp,
+                    self.nonce,
+                    self.gas_price,
+                    self.cancel_tx_hash,
+                )
+            ), Tuple[Any]
         )
 
     @property
@@ -154,7 +142,9 @@ class GatewayInFlightOrder(InFlightOrder):
         self.current_state = order_update.new_state
         if self.current_state not in {OrderState.PENDING_CANCEL, OrderState.CANCELED}:
             misc_updates = order_update.misc_updates or {}
+            self.nonce = misc_updates.get("nonce", None)
             self.fee_asset = misc_updates.get("fee_asset", None)
+            self.gas_price = misc_updates.get("gas_price", None)
 
         updated: bool = prev_data != self.attributes
 
@@ -164,13 +154,13 @@ class GatewayInFlightOrder(InFlightOrder):
         return updated
 
     @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> "GatewayInFlightOrder":
+    def from_json(cls, data: Dict[str, Any]) -> "CLOBInFlightOrder":
         """
         Initialize an InFlightOrder using a JSON object
         :param data: JSON data
         :return: Formatted InFlightOrder
         """
-        order = GatewayInFlightOrder(
+        order = CLOBInFlightOrder(
             client_order_id=data["client_order_id"],
             trading_pair=data["trading_pair"],
             order_type=getattr(OrderType, data["order_type"]),
@@ -186,7 +176,9 @@ class GatewayInFlightOrder(InFlightOrder):
         order.order_fills.update(
             {key: TradeUpdate.from_json(value) for key, value in data.get("order_fills", {}).items()}
         )
+        order._nonce = data["nonce"]
         order._cancel_tx_hash = data["cancel_tx_hash"]
+        order._gas_price = Decimal(data["gas_price"])
 
         order.check_filled_condition()
 
@@ -212,5 +204,7 @@ class GatewayInFlightOrder(InFlightOrder):
             "position": self.position.value,
             "creation_timestamp": self.creation_timestamp,
             "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()},
+            "nonce": self._nonce,
             "cancel_tx_hash": self._cancel_tx_hash,
+            "gas_price": str(self._gas_price),
         }
