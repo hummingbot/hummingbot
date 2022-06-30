@@ -8,6 +8,8 @@ import {
 } from 'ethers';
 import axios from 'axios';
 import { promises as fs } from 'fs';
+import path from 'path';
+import { rootPath } from '../paths';
 import { TokenListType, TokenValue, walletPath } from './base';
 import { EVMNonceManager } from './evm.nonce';
 import NodeCache from 'node-cache';
@@ -42,8 +44,6 @@ export class EthereumBase {
   // there are async values set in the constructor
   private _ready: boolean = false;
   private _initializing: boolean = false;
-  private _initPromise: Promise<void> = Promise.resolve();
-
   public chainName;
   public chainId;
   public rpcUrl;
@@ -81,12 +81,17 @@ export class EthereumBase {
     this._gasLimit = gasLimit;
 
     this._refCountingHandle = ReferenceCountingCloseable.createHandle();
-    this._nonceManager = new EVMNonceManager(chainName, chainId, nonceDbPath);
+    this._nonceManager = new EVMNonceManager(
+      chainName,
+      chainId,
+      this.resolveDBPath(nonceDbPath)
+    );
     this._nonceManager.declareOwnership(this._refCountingHandle);
     this._txStorage = EvmTxStorage.getInstance(
-      transactionDbPath,
+      this.resolveDBPath(transactionDbPath),
       this._refCountingHandle
     );
+    this._txStorage.declareOwnership(this._refCountingHandle);
   }
 
   ready(): boolean {
@@ -99,6 +104,13 @@ export class EthereumBase {
 
   public get gasLimit() {
     return this._gasLimit;
+  }
+
+  public resolveDBPath(oldPath: string): string {
+    if (oldPath.charAt(0) === '/') return oldPath;
+    const dbDir: string = path.join(rootPath(), 'db/');
+    fse.mkdirSync(dbDir, { recursive: true });
+    return path.join(dbDir, oldPath);
   }
 
   public events() {
@@ -127,22 +139,13 @@ export class EthereumBase {
     if (!this.ready() && !this._initializing) {
       this._initializing = true;
 
-      this._initPromise = Promise.all([
-        this._nonceManager.init(this.provider),
-        this._txStorage.init(),
-        this.loadTokens(this.tokenListSource, this.tokenListType),
-      ]).then(() => {
-        this._ready = true;
-        this._initializing = false;
-        logger.debug(
-          'ethereum-base init promise complete: ' +
-            this.chainName +
-            '/' +
-            this.chainId
-        );
-      });
+      await this._nonceManager.init(this.provider);
+      await this._txStorage.init();
+      await this.loadTokens(this.tokenListSource, this.tokenListType);
+      this._ready = true;
+      this._initializing = false;
     }
-    return this._initPromise;
+    return;
   }
 
   async loadTokens(
@@ -151,9 +154,11 @@ export class EthereumBase {
   ): Promise<void> {
     this.tokenList = await this.getTokenList(tokenListSource, tokenListType);
     if (this.tokenList) {
-      this.tokenList.forEach(
-        (token: TokenInfo) => (this._tokenMap[token.symbol] = token)
-      );
+      this.tokenList.forEach((token: TokenInfo) => {
+        if (token.chainId === this.chainId) {
+          this._tokenMap[token.symbol] = token;
+        }
+      });
     }
   }
 
@@ -339,7 +344,7 @@ export class EthereumBase {
       }
     }
     const params: any = {
-      gasLimit: '100000',
+      gasLimit: this._gasLimit,
       nonce: nonce,
     };
     if (maxFeePerGas || maxPriorityFeePerGas) {
@@ -349,7 +354,6 @@ export class EthereumBase {
       params.gasPrice = (gasPrice * 1e9).toFixed(0);
     }
     const response = await contract.approve(spender, amount, params);
-    logger.info(response);
     await this.nonceManager.commitNonce(wallet.address, nonce);
     return response;
   }
@@ -357,7 +361,8 @@ export class EthereumBase {
   public getTokenBySymbol(tokenSymbol: string): TokenInfo | undefined {
     return this.tokenList.find(
       (token: TokenInfo) =>
-        token.symbol.toUpperCase() === tokenSymbol.toUpperCase()
+        token.symbol.toUpperCase() === tokenSymbol.toUpperCase() &&
+        token.chainId === this.chainId
     );
   }
 
