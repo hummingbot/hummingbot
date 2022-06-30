@@ -120,7 +120,7 @@ class GatewayCLOB(ConnectorBase):
         self._get_markets_task = None
         self._markets = None
         self._auto_create_token_accounts_task = None
-        self._tokens_accounts = None
+        self._tokens_accounts_created: bool = False
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -313,6 +313,36 @@ class GatewayCLOB(ConnectorBase):
                 exc_info=True,
                 app_warning_msg=str(e)
             )
+
+    async def auto_create_token_accounts(self):
+        """Automatically creates all token accounts required for trading."""
+        if self._trading_required is True:
+            if Chain.SOLANA.chain == self.chain:
+                for token in self._tokens:
+                    await self.get_or_create_token_account(token)
+            else:
+                pass
+
+        self._tokens_accounts_created = True
+
+    async def get_or_create_token_account(self, token: str) -> Union[Dict[str, Any], None]:
+        if Chain.SOLANA == self.chain:
+            response = await GatewayHttpClient.get_instance().solana_post_token(
+                self.network,
+                self.address,
+                token
+            )
+
+            if response.get("accountAddress", None) is None:
+                self.logger().warning(f"""Token account initialization failed (chain: {self.chain}, network: {self.network}, connector: {self.connector}, wallet: "{self._address}" token: "{token}").""")
+
+                return None
+            else:
+                self.logger().info(f"""Token account successfully initialized (chain: {self.chain}, network: {self.network}, connector: {self.connector}, wallet: "{self._address}" token: "{token}", mint_address: "{response['mintAddress']}").""")
+
+                return response
+        else:
+            raise ValueError(f"""Chain "{self.chain}" not supported.""")
 
     async def get_gas_estimate(self):
         """
@@ -998,7 +1028,7 @@ class GatewayCLOB(ConnectorBase):
             "native_currency": self._native_currency is not None,
             "network_transaction_fee": self.network_transaction_fee is not None if self._trading_required else True,
             "markets": self._markets is not None,
-            "token_accounts": self._token_accounts is not None
+            "tokens_accounts_created": self._tokens_accounts_created
         }
 
     async def start_network(self):
@@ -1008,7 +1038,7 @@ class GatewayCLOB(ConnectorBase):
             self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
         self._get_markets_task = safe_ensure_future(self.get_markets())
-        self._auto_create_token_accounts_task = safe_ensure_future(self.auto_create_token_accounts_task())
+        self._auto_create_token_accounts_task = safe_ensure_future(self.auto_create_token_accounts())
 
     async def stop_network(self):
         if self._status_polling_task is not None:
