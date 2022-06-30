@@ -53,7 +53,7 @@ class TickerCommand:
                 float(market_connector.get_price_by_type(trading_pair, PriceType.LastTrade))
             ]]
             ticker_df = pd.DataFrame(data=data, columns=columns)
-            ticker_df_str = format_df_for_printout(ticker_df)
+            ticker_df_str = format_df_for_printout(ticker_df, self.client_config_map.tables_format)
             return f"   Market: {market_connector.name}\n{ticker_df_str}"
 
         if live:

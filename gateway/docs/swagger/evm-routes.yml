@@ -3,7 +3,7 @@ paths:
     post:
       tags:
         - 'evm'
-      summary: 'Get the nonce for the provided private key'
+      summary: 'Get the current nonce for the provided private key'
       operationId: 'nonce'
       consumes:
         - 'application/json'
@@ -20,6 +20,27 @@ paths:
           schema:
             $ref: '#/definitions/NonceResponse'
 
+  /evm/nextNonce:
+    post:
+      tags:
+        - 'evm'
+      summary: 'Get the next nonce for the provided private key'
+      operationId: 'nonce'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/NonceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/NonceResponse'
+            
   /evm/allowances:
     post:
       tags:
