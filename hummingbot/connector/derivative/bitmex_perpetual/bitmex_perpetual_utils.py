@@ -5,8 +5,6 @@ from pydantic import Field, SecretStr
 import hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_web_utils as web_utils
 import hummingbot.connector.derivative.bitmex_perpetual.constants as CONSTANTS
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
-from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.config_var import ConfigVar
 
 CENTRALIZED = True
 
