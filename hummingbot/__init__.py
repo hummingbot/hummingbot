@@ -3,9 +3,13 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from os import listdir, path
-from typing import List, Optional
+from pathlib import Path
+from typing import TYPE_CHECKING, List, Optional
 
 from hummingbot.logger.struct_logger import StructLogger, StructLogRecord
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter as _ClientConfigAdapter
 
 STRUCT_LOGGER_SET = False
 DEV_STRATEGY_PREFIX = "dev"
@@ -20,9 +24,9 @@ _data_path = None
 _cert_path = None
 
 
-def root_path() -> str:
-    from os.path import realpath, join
-    return realpath(join(__file__, "../../"))
+def root_path() -> Path:
+    from os.path import join, realpath
+    return Path(realpath(join(__file__, "../../")))
 
 
 def get_executor() -> ThreadPoolExecutor:
@@ -35,26 +39,20 @@ def get_executor() -> ThreadPoolExecutor:
 def prefix_path() -> str:
     global _prefix_path
     if _prefix_path is None:
-        from os.path import (
-            realpath,
-            join
-        )
+        from os.path import join, realpath
         _prefix_path = realpath(join(__file__, "../../"))
     return _prefix_path
 
 
-def set_prefix_path(path: str):
+def set_prefix_path(p: str):
     global _prefix_path
-    _prefix_path = path
+    _prefix_path = p
 
 
 def data_path() -> str:
     global _data_path
     if _data_path is None:
-        from os.path import (
-            realpath,
-            join
-        )
+        from os.path import join, realpath
         _data_path = realpath(join(prefix_path(), "data"))
 
     import os
@@ -97,8 +95,9 @@ def chdir_to_data_directory():
         # Do nothing.
         return
 
-    import appdirs
     import os
+
+    import appdirs
     app_data_dir: str = appdirs.user_data_dir("Hummingbot", "hummingbot.io")
     os.makedirs(os.path.join(app_data_dir, "logs"), 0o711, exist_ok=True)
     os.makedirs(os.path.join(app_data_dir, "conf"), 0o711, exist_ok=True)
@@ -110,20 +109,18 @@ def chdir_to_data_directory():
 
 
 def init_logging(conf_filename: str,
+                 client_config_map: "_ClientConfigAdapter",
                  override_log_level: Optional[str] = None,
                  strategy_file_path: str = "hummingbot"):
     import io
     import logging.config
     from os.path import join
-    import pandas as pd
     from typing import Dict
+
+    import pandas as pd
     from ruamel.yaml import YAML
 
-    from hummingbot.client.config.global_config_map import global_config_map
-    from hummingbot.logger.struct_logger import (
-        StructLogRecord,
-        StructLogger
-    )
+    from hummingbot.logger.struct_logger import StructLogger, StructLogRecord
     global STRUCT_LOGGER_SET
     if not STRUCT_LOGGER_SET:
         logging.setLogRecordFactory(StructLogRecord)
@@ -144,8 +141,7 @@ def init_logging(conf_filename: str,
         config_dict: Dict = yaml_parser.load(io_stream)
         if override_log_level is not None and "loggers" in config_dict:
             for logger in config_dict["loggers"]:
-                if global_config_map["logger_override_whitelist"].value and \
-                        logger in global_config_map["logger_override_whitelist"].value:
+                if logger in client_config_map.logger_override_whitelist:
                     config_dict["loggers"][logger]["level"] = override_log_level
         logging.config.dictConfig(config_dict)
 

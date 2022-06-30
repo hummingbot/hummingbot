@@ -4,6 +4,7 @@ import { patch, unpatch } from '../../services/patch';
 import { TokenInfo } from '../../../src/services/ethereum-base';
 import {
   nonce,
+  nextNonce,
   getTokenSymbolsToTokens,
   allowances,
   approve,
@@ -58,6 +59,21 @@ describe('nonce', () => {
       address: zeroAddress,
     });
     expect(n).toEqual({ nonce: 2 });
+  });
+
+  it('return next nonce for a wallet', async () => {
+    patch(eth, 'getWallet', () => {
+      return {
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      };
+    });
+    patch(eth.nonceManager, 'getNextNonce', () => 3);
+    const n = await nextNonce(eth, {
+      chain: 'ethereum',
+      network: 'kovan',
+      address: zeroAddress,
+    });
+    expect(n).toEqual({ nonce: 3 });
   });
 });
 

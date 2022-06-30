@@ -6,7 +6,7 @@ allowedSlippage: '2/100'
 gasLimit: 150688
 
 # how long a trade is valid in seconds. After time passes defira will not
-# perform the trade, but the gas will still be sent.
+# perform the trade, but the gas will still be spent.
 ttl: 600
 
 contractAddresses:

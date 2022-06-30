@@ -10,6 +10,7 @@ import { EthereumBase } from './ethereum-base';
 import { Provider } from '@ethersproject/abstract-provider';
 import { CurrencyAmount, Token } from '@uniswap/sdk';
 import { Trade } from '@uniswap/router-sdk';
+import { Trade as UniswapV3Trade } from '@uniswap/v3-sdk';
 import {
   TradeType,
   Currency,
@@ -26,7 +27,7 @@ import {
 import {
   Trade as SushiswapTrade,
   Token as SushiToken,
-  CurrencyAmount as sushiCurrencyAmount,
+  CurrencyAmount as SushiCurrencyAmount,
   TradeType as SushiTradeType,
   Currency as SushiCurrency,
   Fraction as SushiFraction,
@@ -45,27 +46,21 @@ export type Tokenish =
   | TokenTraderjoe
   | UniswapCoreToken
   | SushiToken;
+
 export type UniswapishTrade =
+  | Trade<Currency, Currency, TradeType>
   | TradePangolin
-  | DefiraTrade<
-      UniswapCoreToken,
-      UniswapCoreToken,
-      TradeType.EXACT_INPUT | TradeType.EXACT_OUTPUT
-    >
+  | DefiraTrade<UniswapCoreToken, UniswapCoreToken, TradeType>
   | TradeTraderjoe
-  | SushiswapTrade<
-      SushiToken,
-      SushiToken,
-      SushiTradeType.EXACT_INPUT | SushiTradeType.EXACT_OUTPUT
-    >
-  | Trade<Currency, Currency, TradeType>;
+  | SushiswapTrade<SushiToken, SushiToken, SushiTradeType>
+  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
 
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
   | UniswapCoreCurrencyAmount<Currency>
   | CurrencyAmountTraderjoe
-  | sushiCurrencyAmount<SushiCurrency | SushiToken>;
+  | SushiCurrencyAmount<SushiCurrency | SushiToken>;
 export type Fractionish =
   | UniswapFraction
   | PangolinFraction

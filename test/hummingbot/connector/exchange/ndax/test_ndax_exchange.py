@@ -11,6 +11,8 @@ from unittest.mock import AsyncMock, PropertyMock, patch
 import pandas as pd
 from aioresponses import aioresponses
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
 from hummingbot.connector.exchange.ndax.ndax_in_flight_order import (
@@ -49,8 +51,10 @@ class NdaxExchangeTests(TestCase):
         self.log_records = []
         self.resume_test_event = asyncio.Event()
         self._account_name = "hbot"
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.exchange = NdaxExchange(ndax_uid='001',
+        self.exchange = NdaxExchange(client_config_map=self.client_config_map,
+                                     ndax_uid='001',
                                      ndax_api_key='testAPIKey',
                                      ndax_secret_key='testSecret',
                                      ndax_account_name=self._account_name,
@@ -1650,7 +1654,8 @@ class NdaxExchangeTests(TestCase):
             self.exchange._execute_cancel(self.trading_pair, order.client_order_id)
         )
 
-        self._is_logged("WARNING", f"Order {order.client_order_id} does not seem to be active, will stop tracking order...")
+        self._is_logged("WARNING",
+                        f"Order {order.client_order_id} does not seem to be active, will stop tracking order...")
 
     @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._execute_cancel", new_callable=AsyncMock)
     def test_cancel(self, mock_cancel):

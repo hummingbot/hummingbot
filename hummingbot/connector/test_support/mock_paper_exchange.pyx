@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 
@@ -17,13 +17,22 @@ from hummingbot.core.data_type.order_book import OrderBookRow
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.network_iterator import NetworkStatus
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 
 s_decimal_0 = Decimal("0")
 
 cdef class MockPaperExchange(PaperTradeExchange):
 
-    def __init__(self, trade_fee_schema: Optional[TradeFeeSchema] = None):
-        PaperTradeExchange.__init__(self, MockOrderTracker(), MockPaperExchange, exchange_name="mock")
+    def __init__(self, client_config_map: "ClientConfigAdapter", trade_fee_schema: Optional[TradeFeeSchema] = None):
+        PaperTradeExchange.__init__(
+            self,
+            client_config_map,
+            MockOrderTracker(),
+            MockPaperExchange,
+            exchange_name="mock",
+        )
 
         trade_fee_schema = trade_fee_schema or TradeFeeSchema(
             maker_percent_fee_decimal=Decimal("0"), taker_percent_fee_decimal=Decimal("0")
@@ -45,7 +54,7 @@ cdef class MockPaperExchange(PaperTradeExchange):
 
     @property
     def name(self) -> str:
-        return "MockPaperExchange"
+        return "mock_paper_exchange"
 
     @property
     def display_name(self) -> str:

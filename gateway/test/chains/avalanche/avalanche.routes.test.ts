@@ -10,8 +10,8 @@ import {
   UNKNOWN_ERROR_MESSAGE,
 } from '../../../src/services/error-handler';
 import * as transactionSuccesful from '../ethereum/fixtures/transaction-succesful.json';
-import * as transactionSuccesfulReceipt from '../ethereum//fixtures/transaction-succesful-receipt.json';
-import * as transactionOutOfGas from '../ethereum//fixtures/transaction-out-of-gas.json';
+import * as transactionSuccesfulReceipt from '../ethereum/fixtures/transaction-succesful-receipt.json';
+import * as transactionOutOfGas from '../ethereum/fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from '../ethereum/fixtures/transaction-out-of-gas-receipt.json';
 import { Avalanche } from '../../../src/chains/avalanche/avalanche';
 let avalanche: Avalanche;
