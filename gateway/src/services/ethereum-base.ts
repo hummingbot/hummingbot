@@ -67,9 +67,6 @@ export class EthereumBase {
     nonceDbPath: string,
     transactionDbPath: string
   ) {
-    logger.debug(
-      'ethereum-base constructor called: ' + chainName + '/' + chainId
-    );
     this._provider = new providers.StaticJsonRpcProvider(rpcUrl);
     this.chainName = chainName;
     this.chainId = chainId;
@@ -77,8 +74,6 @@ export class EthereumBase {
     this.gasPriceConstant = gasPriceConstant;
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
-    this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
-    this._gasLimit = gasLimit;
 
     this._refCountingHandle = ReferenceCountingCloseable.createHandle();
     this._nonceManager = new EVMNonceManager(
@@ -87,6 +82,8 @@ export class EthereumBase {
       this.resolveDBPath(nonceDbPath)
     );
     this._nonceManager.declareOwnership(this._refCountingHandle);
+    this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
+    this._gasLimit = gasLimit;
     this._txStorage = EvmTxStorage.getInstance(
       this.resolveDBPath(transactionDbPath),
       this._refCountingHandle
@@ -128,19 +125,9 @@ export class EthereumBase {
   }
 
   async init(): Promise<void> {
-    logger.debug(
-      'ethereum-base init called: ' +
-        this.chainName +
-        '/' +
-        this.chainId +
-        ', ready: ' +
-        this.ready()
-    );
     if (!this.ready() && !this._initializing) {
       this._initializing = true;
-
       await this._nonceManager.init(this.provider);
-      await this._txStorage.init();
       await this.loadTokens(this.tokenListSource, this.tokenListType);
       this._ready = true;
       this._initializing = false;
