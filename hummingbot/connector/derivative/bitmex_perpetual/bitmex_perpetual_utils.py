@@ -1,7 +1,10 @@
 from collections import namedtuple
 
+from pydantic import Field, SecretStr
+
 import hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_web_utils as web_utils
 import hummingbot.connector.derivative.bitmex_perpetual.constants as CONSTANTS
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
 
@@ -14,46 +17,62 @@ EXAMPLE_PAIR = "ETH-XBT"
 DEFAULT_FEES = [0.01, 0.05]
 
 
-KEYS = {
-    "bitmex_perpetual_api_key": ConfigVar(
-        key="bitmex_perpetual_api_key",
-        prompt="Enter your Bitmex Perpetual API key >>> ",
-        required_if=using_exchange("bitmex_perpetual"),
-        is_secure=True,
-        is_connect_key=True,
-    ),
-    "bitmex_perpetual_api_secret": ConfigVar(
-        key="bitmex_perpetual_api_secret",
-        prompt="Enter your Bitmex Perpetual API secret >>> ",
-        required_if=using_exchange("bitmex_perpetual"),
-        is_secure=True,
-        is_connect_key=True,
-    ),
-}
+class BitmexPerpetualConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="bitmex_perpetual", client_data=None)
+    bitmex_perpetual_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Bitmex Perpetual API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    bitmex_perpetual_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Bitmex Perpetual API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+
+KEYS = BitmexPerpetualConfigMap.construct()
 
 OTHER_DOMAINS = ["bitmex_perpetual_testnet"]
 OTHER_DOMAINS_PARAMETER = {"bitmex_perpetual_testnet": "bitmex_perpetual_testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"bitmex_perpetual_testnet": "ETH-XBT"}
 OTHER_DOMAINS_DEFAULT_FEES = {"bitmex_perpetual_testnet": [0.02, 0.04]}
-OTHER_DOMAINS_KEYS = {
-    "bitmex_perpetual_testnet": {
-        # add keys for testnet
-        "bitmex_perpetual_testnet_api_key": ConfigVar(
-            key="bitmex_perpetual_testnet_api_key",
-            prompt="Enter your Bitmex Perpetual testnet API key >>> ",
-            required_if=using_exchange("bitmex_perpetual_testnet"),
+
+
+class BitmexPerpetualTestnetConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="bitmex_perpetual_testnet", client_data=None)
+    bitmex_perpetual_testnet_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Bitmex Perpetual testnet API key",
             is_secure=True,
             is_connect_key=True,
-        ),
-        "bitmex_perpetual_testnet_api_secret": ConfigVar(
-            key="bitmex_perpetual_testnet_api_secret",
-            prompt="Enter your Bitmex Perpetual testnet API secret >>> ",
-            required_if=using_exchange("bitmex_perpetual_testnet"),
+            prompt_on_new=True,
+        )
+    )
+    bitmex_perpetual_testnet_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Bitmex Perpetual testnet API secret",
             is_secure=True,
             is_connect_key=True,
-        ),
-    }
-}
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "bitmex_perpetual"
+
+
+OTHER_DOMAINS_KEYS = {"bitmex_perpetual_testnet": BitmexPerpetualTestnetConfigMap.construct()}
 
 
 TRADING_PAIR_INDICES: dict = {}
