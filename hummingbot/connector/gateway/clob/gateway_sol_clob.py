@@ -85,12 +85,11 @@ class GatewayCLOB(ConnectorBase):
         trading_required: bool = True
     ):
         """
-        :param connector_name: name of connector on gateway
-        :param chain: refers to a blockchain, e.g. ethereum or avalanche
-        :param network: refers to a network of a particular blockchain e.g. mainnet or kovan
-        :param wallet_address: the address of the eth wallet which has been added on gateway
-        :param trading_pairs: a list of trading pairs
-        :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
+        :param connector_name: name of connector on gateway :param chain: refers to a blockchain, e.g. ethereum or
+        avalanche :param network: refers to a network of a particular blockchain e.g. mainnet or kovan :param
+        wallet_address: the address of the eth wallet which has been added on gateway :param trading_pairs: a list of
+        trading pairs :param trading_required: Whether actual trading is needed. Useful for some functionalities or
+            commands like the balance command
         """
         self._client_config = None
         self._connector_name = connector_name
@@ -334,11 +333,19 @@ class GatewayCLOB(ConnectorBase):
             )
 
             if response.get("accountAddress", None) is None:
-                self.logger().warning(f"""Token account initialization failed (chain: {self.chain}, network: {self.network}, connector: {self.connector}, wallet: "{self._address}" token: "{token}").""")
+                self.logger().warning(
+                    f"""Token account initialization failed """
+                    f"""(chain: {self.chain}, network: {self.network}, connector: {self.connector}, """
+                    f""" wallet: "{self.address}" token: "{token}")."""
+                )
 
                 return None
             else:
-                self.logger().info(f"""Token account successfully initialized (chain: {self.chain}, network: {self.network}, connector: {self.connector}, wallet: "{self._address}" token: "{token}", mint_address: "{response['mintAddress']}").""")
+                self.logger().info(
+                    f"""Token account successfully initialized """
+                    f"""(chain: {self.chain}, network: {self.network}, connector: {self.connector}, """
+                    f"""wallet: "{self.address}" token: "{token}", mint_address: "{response['mintAddress']}")."""
+                )
 
                 return response
         else:
@@ -510,7 +517,7 @@ class GatewayCLOB(ConnectorBase):
 
         # Pull the price from gateway.
         try:
-            price: Decimal = None
+            price: Optional[Decimal] = None
             exceptions: List[str] = []
             if Chain.SOLANA == self.chain:
                 ticker = await self._get_gateway_instance().clob_get_tickers(
@@ -531,7 +538,7 @@ class GatewayCLOB(ConnectorBase):
                     gas_limit=gas_limit,
                     gas_cost=gas_cost,
                     gas_asset=gas_price_token,
-                    swaps_count=constant.constant.DECIMAL_ZERO
+                    swaps_count=constant.DECIMAL_ZERO
                 )
             else:
                 resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
@@ -684,7 +691,7 @@ class GatewayCLOB(ConnectorBase):
                     nonce = constant.DEFAULT_NONCE
                     gas_cost = constant.FIVE_THOUSAND_LAMPORTS
                     gas_price_token = Chain.SOLANA.native_currency
-                    gas_price: Decimal = constant.constant.DECIMAL_ONE
+                    gas_price: Decimal = constant.DECIMAL_ONE
                     gas_limit: int = constant.FIVE_THOUSAND_LAMPORTS
 
                     self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
@@ -818,12 +825,14 @@ class GatewayCLOB(ConnectorBase):
             token_symbol: str = self.get_token_symbol_from_approval_order_id(tracked_approval.client_order_id)
             if isinstance(transaction_status, Exception):
                 self.logger().error(
-                    f"Error while trying to approve token {token_symbol} for {self.chain}/{self.network}/{self.connector}: "
+                    f"Error while trying to approve token {token_symbol} for "
+                    f"{self.chain}/{self.network}/{self.connector}: "
                     f"{transaction_status}")
                 continue
             if "txHash" not in transaction_status:
                 self.logger().error(
-                    f"Error while trying to approve token {token_symbol} for {self.chain}/{self.network}/{self.connector}: "
+                    f"Error while trying to approve token {token_symbol} for "
+                    f"{self.chain}/{self.network}/{self.connector}: "
                     "txHash key not found in transaction status.")
                 continue
             if transaction_status["txStatus"] == 1:
@@ -842,7 +851,8 @@ class GatewayCLOB(ConnectorBase):
                     safe_ensure_future(self.update_allowances())
                 else:
                     self.logger().warning(
-                        f"Token approval for {tracked_approval.client_order_id} on {self.chain}/{self.network}/{self.connector} failed."
+                        f"Token approval for {tracked_approval.client_order_id} on "
+                        f"{self.chain}/{self.network}/{self.connector} failed."
                     )
                     tracked_approval.current_state = OrderState.FAILED
                     self.trigger_event(
@@ -895,7 +905,7 @@ class GatewayCLOB(ConnectorBase):
                             self._order_tracker.process_order_update(order_update)
 
                         elif tracked_order.is_approval_request:
-                            order_update: OrderUpdate = OrderUpdate(
+                            OrderUpdate(
                                 trading_pair=tracked_order.trading_pair,
                                 client_order_id=tracked_order.client_order_id,
                                 update_timestamp=self.current_timestamp,
@@ -1080,7 +1090,7 @@ class GatewayCLOB(ConnectorBase):
                 self._poll_notifier.set()
 
     async def _update_nonce(self, new_nonce: Optional[int] = None):
-        if Chain.SOLNA == self.chain:
+        if Chain.SOLANA == self.chain:
             pass
         else:
             if not new_nonce:
@@ -1181,7 +1191,6 @@ class GatewayCLOB(ConnectorBase):
 
             self.logger().info(f"The blockchain transaction for {order_id} with nonce {tracked_order.nonce} has "
                                f"expired. Canceling the order...")
-            resp: Dict[str, Any] = {}
             if Chain.SOLANA == self.chain:
                 resp = await self._get_gateway_instance().clob_delete_orders(
                     self.chain,
