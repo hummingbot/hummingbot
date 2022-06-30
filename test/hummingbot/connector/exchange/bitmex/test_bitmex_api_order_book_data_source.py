@@ -32,6 +32,7 @@ class BitmexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         cls.ex_trading_pair = f"{cls.base_asset}_{cls.quote_asset}"
         cls.domain = "bitmex_testnet"
         utils.TRADING_PAIR_MULTIPLIERS["ETH_USDT"] = utils.TRADING_PAIR_MULTIPLIERS_TUPLE(1000000000, 1000000)
+        utils.TRADING_PAIR_INDICES["ETH_USDT"] = utils.TRADING_PAIR_INDEX(954, 0.05)
 
     def setUp(self) -> None:
         super().setUp()
@@ -260,7 +261,6 @@ class BitmexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_api.get(regex_url, status=200, body=json.dumps(mock_response))
         result = self.async_run_with_timeout(self.data_source.get_new_order_book(trading_pair=self.trading_pair))
         self.assertIsInstance(result, OrderBook)
-        self.assertEqual(2555, result.snapshot_uid)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
@@ -310,6 +310,8 @@ class BitmexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(OrderBookMessageType.TRADE, result.type)
         self.assertTrue(result.has_trade_id)
         self.assertEqual(self.trading_pair, result.content["trading_pair"])
+
+        self.listening_task.cancel()
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_error_raised(self, mock_api):
