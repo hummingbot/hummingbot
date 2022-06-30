@@ -3,8 +3,6 @@
 import logging as _logging
 import os
 
-from hummingbot.client.config.global_config_map import connector_keys
-
 _logger = _logging.getLogger(__name__)
 
 master_host = "***REMOVED***"
@@ -38,10 +36,6 @@ kafka_bootstrap_server = "***REMOVED***"
 
 # whether to enable api mocking in unit test cases
 mock_api_enabled = os.getenv("MOCK_API_ENABLED")
-
-# ALL TEST KEYS
-for key in connector_keys().keys():
-    locals()[key] = os.getenv(key.upper())
 
 """
 # AscendEX Tests
