@@ -1,11 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import { NextFunction, Request, Response, Router } from 'express';
 import * as ethereumControllers from '../chains/ethereum/ethereum.controllers';
-import {
-  validateBalanceRequest,
-  validateChain,
-  validateNetwork,
-} from '../chains/ethereum/ethereum.validators';
 import { Solanaish } from '../chains/solana/solana';
 import * as solanaControllers from '../chains/solana/solana.controllers';
 import { Ethereumish } from '../services/common-interfaces';
@@ -28,14 +23,23 @@ import {
   TokensRequest,
   TokensResponse,
 } from './network.requests';
+import {
+  validateBalanceRequest as validateEthereumBalanceRequest,
+  validateChain as validateEthereumChain,
+  validateNetwork as validateEthereumNetwork,
+} from '../chains/ethereum/ethereum.validators';
+import {
+  validateSolanaBalanceRequest,
+  validateSolanaPollRequest,
+} from '../chains/solana/solana.validators';
 
 export const validatePollRequest: RequestValidator = mkRequestValidator([
   validateTxHash,
 ]);
 
 export const validateTokensRequest: RequestValidator = mkRequestValidator([
-  validateChain,
-  validateNetwork,
+  validateEthereumChain,
+  validateEthereumNetwork,
 ]);
 
 export namespace NetworkRoutes {
@@ -65,11 +69,11 @@ export namespace NetworkRoutes {
         res: Response<BalanceResponse | string, {}>,
         _next: NextFunction
       ) => {
-        validateBalanceRequest(req.body);
-
         const chain = await getChain(req.body.chain, req.body.network);
 
         if (req.body.chain == 'solana') {
+          validateSolanaBalanceRequest(req.body);
+
           res
             .status(200)
             .json(
@@ -79,6 +83,8 @@ export namespace NetworkRoutes {
               )) as BalanceResponse
             );
         } else {
+          validateEthereumBalanceRequest(req.body);
+
           res
             .status(200)
             .json(
@@ -96,15 +102,17 @@ export namespace NetworkRoutes {
         req: Request<{}, {}, PollRequest>,
         res: Response<PollResponse, {}>
       ) => {
-        validatePollRequest(req.body);
-
         const chain = await getChain(req.body.chain, req.body.network);
 
         if (req.body.chain == 'solana') {
+          validateSolanaPollRequest(req.body);
+
           res
             .status(200)
             .json(await solanaControllers.poll(chain as Solanaish, req.body));
         } else {
+          validatePollRequest(req.body);
+
           res
             .status(200)
             .json(
