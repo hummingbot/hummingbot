@@ -1,7 +1,11 @@
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.data_type.common import PositionMode
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
@@ -13,8 +17,8 @@ class DerivativeBase(ExchangeBase):
     DerivativeBase provide extra funtionality in addition to the ExchangeBase for derivative exchanges
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, client_config_map: "ClientConfigAdapter"):
+        super().__init__(client_config_map)
         self._funding_info = {}
         self._account_positions = {}
         self._position_mode = None

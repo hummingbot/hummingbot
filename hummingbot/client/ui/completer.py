@@ -8,18 +8,17 @@ from prompt_toolkit.document import Document
 
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 from hummingbot.client.settings import (
-    CONF_FILE_PATH,
     GATEWAY_CONNECTORS,
     PMM_SCRIPTS_PATH,
     SCRIPT_STRATEGIES_PATH,
     STRATEGIES,
+    STRATEGIES_CONF_DIR_PATH,
     AllConnectorSettings,
 )
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.rate_oracle.rate_oracle import RateOracleSource
 from hummingbot.core.utils.gateway_config_utils import list_gateway_wallets
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
-from hummingbot.core.utils.wallet_setup import list_wallets
 
 
 def file_name_list(path, file_extension):
@@ -32,7 +31,7 @@ class HummingbotCompleter(Completer):
     def __init__(self, hummingbot_application):
         super(HummingbotCompleter, self).__init__()
         self.hummingbot_application = hummingbot_application
-        self._path_completer = WordCompleter(file_name_list(CONF_FILE_PATH, "yml"))
+        self._path_completer = WordCompleter(file_name_list(str(STRATEGIES_CONF_DIR_PATH), "yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
         self._exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_connector_settings().keys()), ignore_case=True)
         self._spot_exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
@@ -56,8 +55,8 @@ class HummingbotCompleter(Completer):
         )
         self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
-        self._py_file_completer = WordCompleter(file_name_list(PMM_SCRIPTS_PATH, "py"))
-        self._script_strategy_completer = WordCompleter(file_name_list(SCRIPT_STRATEGIES_PATH, "py"))
+        self._py_file_completer = WordCompleter(file_name_list(str(PMM_SCRIPTS_PATH), "py"))
+        self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
         self._rate_oracle_completer = WordCompleter([r.name for r in RateOracleSource], ignore_case=True)
         self._gateway_networks = []
         self._list_gateway_wallets_parameters = {"wallets": [], "chain": ""}
@@ -92,10 +91,6 @@ class HummingbotCompleter(Completer):
         return WordCompleter(trading_pairs, ignore_case=True, sentence=True)
 
     @property
-    def _wallet_address_completer(self):
-        return WordCompleter(list_wallets(), ignore_case=True)
-
-    @property
     def _gateway_network_completer(self):
         return WordCompleter(self._gateway_networks, ignore_case=True)
 
@@ -112,7 +107,7 @@ class HummingbotCompleter(Completer):
 
     @property
     def _config_completer(self):
-        config_keys = self.hummingbot_application.config_able_keys()
+        config_keys = self.hummingbot_application.configurable_keys()
         return WordCompleter(config_keys, ignore_case=True)
 
     def _complete_strategies(self, document: Document) -> bool:
@@ -195,9 +190,6 @@ class HummingbotCompleter(Completer):
         return (("path" in self.prompt_text and "file" in self.prompt_text) or
                 "import" in text_before_cursor)
 
-    def _complete_wallet_addresses(self, document: Document) -> bool:
-        return "Which wallet" in self.prompt_text
-
     def _complete_gateway_network(self, document: Document) -> bool:
         return "Which network do you want" in self.prompt_text
 
@@ -241,10 +233,6 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_strategies(document):
             for c in self._strategy_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_wallet_addresses(document):
-            for c in self._wallet_address_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_network(document):

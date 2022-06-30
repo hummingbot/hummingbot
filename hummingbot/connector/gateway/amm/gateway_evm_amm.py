@@ -5,7 +5,7 @@ import logging
 import re
 import time
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Set, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
 
 from async_timeout import timeout
 
@@ -32,6 +32,9 @@ from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -70,6 +73,7 @@ class GatewayEVMAMM(ConnectorBase):
     _native_currency: str
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  connector_name: str,
                  chain: str,
                  network: str,
@@ -87,7 +91,7 @@ class GatewayEVMAMM(ConnectorBase):
         """
         self._connector_name = connector_name
         self._name = "_".join([connector_name, chain, network])
-        super().__init__()
+        super().__init__(client_config_map)
         self._chain = chain
         self._network = network
         self._trading_pairs = trading_pairs
@@ -243,7 +247,7 @@ class GatewayEVMAMM(ConnectorBase):
         Calls the base endpoint of the connector on Gateway to know basic info about chain being used.
         """
         try:
-            self._chain_info = await GatewayHttpClient.get_instance().get_network_status(
+            self._chain_info = await self._get_gateway_instance().get_network_status(
                 chain=self.chain, network=self.network
             )
             if type(self._chain_info) != list:
@@ -262,7 +266,7 @@ class GatewayEVMAMM(ConnectorBase):
         Gets the gas estimates for the connector.
         """
         try:
-            response: Dict[Any] = await GatewayHttpClient.get_instance().amm_estimate_gas(
+            response: Dict[Any] = await self._get_gateway_instance().amm_estimate_gas(
                 chain=self.chain, network=self.network, connector=self.connector_name
             )
             self.network_transaction_fee = TokenAmount(
@@ -300,7 +304,7 @@ class GatewayEVMAMM(ConnectorBase):
                                   trading_pair=token_symbol,
                                   is_approval=True)
         try:
-            resp: Dict[str, Any] = await GatewayHttpClient.get_instance().approve_token(
+            resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(
                 self.chain,
                 self.network,
                 self.address,
@@ -340,7 +344,7 @@ class GatewayEVMAMM(ConnectorBase):
         :return: A dictionary of token and its allowance.
         """
         ret_val = {}
-        resp: Dict[str, Any] = await GatewayHttpClient.get_instance().get_allowances(
+        resp: Dict[str, Any] = await self._get_gateway_instance().get_allowances(
             self.chain, self.network, self.address, list(self._tokens), self.connector_name
         )
         for token, amount in resp["approvals"].items():
@@ -381,7 +385,7 @@ class GatewayEVMAMM(ConnectorBase):
             if test_price is not None:
                 # Grab the gas price for test net.
                 try:
-                    resp: Dict[str, Any] = await GatewayHttpClient.get_instance().get_price(
+                    resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
                         self.chain, self.network, self.connector_name, base, quote, amount, side
                     )
                     gas_price_token: str = resp["gasPriceToken"]
@@ -395,7 +399,7 @@ class GatewayEVMAMM(ConnectorBase):
 
         # Pull the price from gateway.
         try:
-            resp: Dict[str, Any] = await GatewayHttpClient.get_instance().get_price(
+            resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
                 self.chain, self.network, self.connector_name, base, quote, amount, side
             )
             required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
@@ -517,7 +521,7 @@ class GatewayEVMAMM(ConnectorBase):
                                   price=price,
                                   amount=amount)
         try:
-            order_result: Dict[str, Any] = await GatewayHttpClient.get_instance().amm_trade(
+            order_result: Dict[str, Any] = await self._get_gateway_instance().amm_trade(
                 self.chain,
                 self.network,
                 self.connector_name,
@@ -614,7 +618,7 @@ class GatewayEVMAMM(ConnectorBase):
             tracked_approval.get_exchange_order_id() for tracked_approval in tracked_approvals
         ])
         transaction_states: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
-            GatewayHttpClient.get_instance().get_transaction_status(
+            self._get_gateway_instance().get_transaction_status(
                 self.chain,
                 self.network,
                 tx_hash
@@ -673,7 +677,7 @@ class GatewayEVMAMM(ConnectorBase):
             len(canceled_tracked_orders)
         )
         update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
-            GatewayHttpClient.get_instance().get_transaction_status(
+            self._get_gateway_instance().get_transaction_status(
                 self.chain,
                 self.network,
                 tx_hash
@@ -737,7 +741,7 @@ class GatewayEVMAMM(ConnectorBase):
             len(tracked_orders)
         )
         update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
-            GatewayHttpClient.get_instance().get_transaction_status(
+            self._get_gateway_instance().get_transaction_status(
                 self.chain,
                 self.network,
                 tx_hash
@@ -846,7 +850,7 @@ class GatewayEVMAMM(ConnectorBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            if await GatewayHttpClient.get_instance().ping_gateway():
+            if await self._get_gateway_instance().ping_gateway():
                 return NetworkStatus.CONNECTED
         except asyncio.CancelledError:
             raise
@@ -862,6 +866,16 @@ class GatewayEVMAMM(ConnectorBase):
         if time.time() - self._last_poll_timestamp > self.POLL_INTERVAL:
             if self._poll_notifier is not None and not self._poll_notifier.is_set():
                 self._poll_notifier.set()
+
+    async def _update_nonce(self, new_nonce: Optional[int] = None):
+        """
+        Call the gateway API to get the current nonce for self.address
+        """
+        if not new_nonce:
+            resp_json: Dict[str, Any] = await self._get_gateway_instance().get_evm_nonce(self.chain, self.network, self.address)
+            new_nonce: int = resp_json.get("nonce")
+
+        self._nonce = new_nonce
 
     async def _status_polling_loop(self):
         await self.update_balances(on_interval=False)
@@ -893,7 +907,7 @@ class GatewayEVMAMM(ConnectorBase):
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
-            resp_json: Dict[str, Any] = await GatewayHttpClient.get_instance().get_balances(
+            resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
                 self.chain, self.network, self.address, list(self._tokens) + [self._native_currency]
             )
             for token, bal in resp_json["balances"].items():
@@ -944,7 +958,7 @@ class GatewayEVMAMM(ConnectorBase):
 
             self.logger().info(f"The blockchain transaction for {order_id} with nonce {tracked_order.nonce} has "
                                f"expired. Canceling the order...")
-            resp: Dict[str, Any] = await GatewayHttpClient.get_instance().cancel_evm_transaction(
+            resp: Dict[str, Any] = await self._get_gateway_instance().cancel_evm_transaction(
                 self.chain,
                 self.network,
                 self.address,
@@ -1021,3 +1035,7 @@ class GatewayEVMAMM(ConnectorBase):
 
         skipped_cancellations: List[CancellationResult] = [CancellationResult(oid, False) for oid in canceling_id_set]
         return sent_cancellations + skipped_cancellations
+
+    def _get_gateway_instance(self) -> GatewayHttpClient:
+        gateway_instance = GatewayHttpClient.get_instance(self._client_config)
+        return gateway_instance

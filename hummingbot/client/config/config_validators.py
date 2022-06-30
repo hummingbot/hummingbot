@@ -5,7 +5,6 @@ hummingbot ConfigVars.
 """
 
 import time
-
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
@@ -34,7 +33,7 @@ def validate_connector(value: str) -> Optional[str]:
     Restrict valid derivatives to the connector file names
     """
     from hummingbot.client.settings import AllConnectorSettings
-    if value not in AllConnectorSettings.get_connector_settings():
+    if value not in AllConnectorSettings.get_connector_settings() and value != "celo":
         return f"Invalid connector, please choose value from {AllConnectorSettings.get_connector_settings().keys()}"
 
 

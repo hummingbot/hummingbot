@@ -7,6 +7,8 @@ from unittest.mock import patch
 
 from aiounittest import async_test
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType
@@ -36,9 +38,9 @@ s_decimal_0 = Decimal(0)
 
 
 class MockAMM(ConnectorBase):
-    def __init__(self, name):
+    def __init__(self, name, client_config_map: "ClientConfigAdapter"):
         self._name = name
-        super().__init__()
+        super().__init__(client_config_map)
         self._buy_prices = {}
         self._sell_prices = {}
         self._network_transaction_fee = TokenAmount("ETH", s_decimal_0)
@@ -130,12 +132,16 @@ class AmmArbUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.REALTIME)
         self.stack: contextlib.ExitStack = contextlib.ExitStack()
-        self.amm_1: MockAMM = MockAMM("onion")
+        self.amm_1: MockAMM = MockAMM(
+            name="onion",
+            client_config_map=ClientConfigAdapter(ClientConfigMap()))
         self.amm_1.set_balance(BASE_ASSET, 500)
         self.amm_1.set_balance(QUOTE_ASSET, 500)
         self.market_info_1 = MarketTradingPairTuple(self.amm_1, TRADING_PAIR, BASE_ASSET, QUOTE_ASSET)
 
-        self.amm_2: MockAMM = MockAMM("garlic")
+        self.amm_2: MockAMM = MockAMM(
+            name="garlic",
+            client_config_map=ClientConfigAdapter(ClientConfigMap()))
         self.amm_2.set_balance(BASE_ASSET, 500)
         self.amm_2.set_balance(QUOTE_ASSET, 500)
         self.market_info_2 = MarketTradingPairTuple(self.amm_2, TRADING_PAIR, BASE_ASSET, QUOTE_ASSET)

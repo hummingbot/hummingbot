@@ -3,15 +3,17 @@ import re
 import ssl
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import aiohttp
 
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
 class GatewayError(Enum):
@@ -47,15 +49,20 @@ class GatewayHttpClient:
     __instance = None
 
     @staticmethod
-    def get_instance() -> "GatewayHttpClient":
+    def get_instance(client_config_map: Optional["ClientConfigAdapter"] = None) -> "GatewayHttpClient":
         if GatewayHttpClient.__instance is None:
-            GatewayHttpClient()
+            GatewayHttpClient(client_config_map)
         return GatewayHttpClient.__instance
 
-    def __init__(self):
+    def __init__(self, client_config_map: Optional["ClientConfigAdapter"] = None):
+        if client_config_map is None:
+            from hummingbot.client.hummingbot_application import HummingbotApplication
+            client_config_map = HummingbotApplication.main_application().client_config_map
+        api_host = client_config_map.gateway.gateway_api_host
+        api_port = client_config_map.gateway.gateway_api_port
         if GatewayHttpClient.__instance is None:
-            self._base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
-                             f"{global_config_map['gateway_api_port'].value}"
+            self._base_url = f"https://{api_host}:{api_port}"
+        self._client_confi_map = client_config_map
         GatewayHttpClient.__instance = self
 
     @classmethod
@@ -65,27 +72,27 @@ class GatewayHttpClient:
         return cls._ghc_logger
 
     @classmethod
-    def _http_client(cls, re_init: bool = False) -> aiohttp.ClientSession:
+    def _http_client(cls, client_config_map: "ClientConfigAdapter", re_init: bool = False) -> aiohttp.ClientSession:
         """
         :returns Shared client session instance
         """
         if cls._shared_client is None or re_init:
-            cert_path = get_gateway_paths().local_certs_path.as_posix()
+            cert_path = get_gateway_paths(client_config_map).local_certs_path.as_posix()
             ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
             ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
                                     keyfile=f"{cert_path}/client_key.pem",
-                                    password=Security.password)
+                                    password=Security.secrets_manager.password.get_secret_value())
             conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
             cls._shared_client = aiohttp.ClientSession(connector=conn)
         return cls._shared_client
 
     @classmethod
-    def reload_certs(cls):
+    def reload_certs(cls, client_config_map: "ClientConfigAdapter"):
         """
         Re-initializes the aiohttp.ClientSession. This should be called whenever there is any updates to the
         Certificates used to secure a HTTPS connection to the Gateway service.
         """
-        cls._http_client(re_init=True)
+        cls._http_client(client_config_map, re_init=True)
 
     @property
     def base_url(self) -> str:
@@ -147,7 +154,7 @@ class GatewayHttpClient:
         :returns A response in json format.
         """
         url = f"{self.base_url}/{path_url}"
-        client = self._http_client()
+        client = self._http_client(self._client_confi_map)
 
         parsed_response = {}
         try:
