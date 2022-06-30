@@ -10,8 +10,8 @@ from async_timeout import timeout
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.gateway.amm.evm_in_flight_order import EVMInFlightOrder
 from hummingbot.connector.gateway.clob import clob_constants as constant
+from hummingbot.connector.gateway.clob.clob_in_flight_order import CLOBInFlightOrder
 from hummingbot.connector.gateway.clob.clob_types import Chain
 from hummingbot.connector.gateway.clob.clob_utils import (
     convert_order_side,
@@ -19,7 +19,6 @@ from hummingbot.connector.gateway.clob.clob_utils import (
     convert_trading_pair,
     convert_trading_pairs,
 )
-from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
@@ -46,11 +45,6 @@ if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
-ZERO = Decimal("0")
-NaN = Decimal("nan")
-INFINITY = Decimal("infinity")
-
-
 # TODO remove references to the EVM AMM strategy and class.
 class GatewayCLOB(ConnectorBase):
     """
@@ -71,14 +65,14 @@ class GatewayCLOB(ConnectorBase):
     _last_poll_timestamp: float
     _last_balance_poll_timestamp: float
     _last_est_gas_cost_reported: float
-    _in_flight_orders: Dict[str, GatewayInFlightOrder]
+    _in_flight_orders: Dict[str, CLOBInFlightOrder]
     _allowances: Dict[str, Decimal]
     _chain_info: Dict[str, Any]
     _status_polling_task: Optional[asyncio.Task]
     _get_chain_info_task: Optional[asyncio.Task]
     _auto_approve_task: Optional[asyncio.Task]
     _poll_notifier: Optional[asyncio.Event]
-    _native_currency: str
+    _native_currency: Optional[str]
 
     def __init__(
         self,
@@ -149,7 +143,7 @@ class GatewayCLOB(ConnectorBase):
 
     @property
     def address(self):
-        return self._address
+        return self._wallet_address
 
     # Added for compatibility
     @property
@@ -175,41 +169,41 @@ class GatewayCLOB(ConnectorBase):
             return []
 
     @staticmethod
-    def is_order(in_flight_order: GatewayInFlightOrder) -> bool:
+    def is_order(in_flight_order: CLOBInFlightOrder) -> bool:
         return in_flight_order.client_order_id.split("-")[0] in {"buy", "sell"}
 
     # Added for compatibility
     @staticmethod
-    def is_amm_order(in_flight_order: GatewayInFlightOrder) -> bool:
+    def is_amm_order(in_flight_order: CLOBInFlightOrder) -> bool:
         return GatewayCLOB.is_order(in_flight_order)
 
     @staticmethod
-    def is_approval_order(in_flight_order: GatewayInFlightOrder) -> bool:
+    def is_approval_order(in_flight_order: CLOBInFlightOrder) -> bool:
         return in_flight_order.client_order_id.split("-")[0] == "approve"
 
     @property
-    def approval_orders(self) -> List[GatewayInFlightOrder]:
-        return [
+    def approval_orders(self) -> List[CLOBInFlightOrder]:
+        return cast([
             approval_order
             for approval_order in self._order_tracker.active_orders.values()
             if approval_order.is_approval_request
-        ]
+        ], List[CLOBInFlightOrder])
 
     @property
-    def orders(self) -> List[GatewayInFlightOrder]:
-        return [
+    def orders(self) -> List[CLOBInFlightOrder]:
+        return cast([
             in_flight_order
             for in_flight_order in self._order_tracker.active_orders.values()
             if in_flight_order.is_open
-        ]
+        ], List[CLOBInFlightOrder])
 
     # Added for compatibility
     @property
-    def amm_orders(self) -> List[GatewayInFlightOrder]:
+    def amm_orders(self) -> List[CLOBInFlightOrder]:
         return self.orders
 
     @property
-    def canceling_orders(self) -> List[GatewayInFlightOrder]:
+    def canceling_orders(self) -> List[CLOBInFlightOrder]:
         return [
             cancel_order
             for cancel_order in self.orders
@@ -235,8 +229,8 @@ class GatewayCLOB(ConnectorBase):
         self._network_transaction_fee = new_fee
 
     @property
-    def in_flight_orders(self) -> Dict[str, GatewayInFlightOrder]:
-        return self._order_tracker.active_orders
+    def in_flight_orders(self) -> Dict[str, CLOBInFlightOrder]:
+        return cast(self._order_tracker.active_orders, Dict[str, CLOBInFlightOrder])
 
     @property
     def tracking_states(self) -> Dict[str, Any]:
@@ -287,9 +281,9 @@ class GatewayCLOB(ConnectorBase):
             )
             if type(self._chain_info) != list:
                 if self.chain == Chain.SOLANA.chain:
-                    self._native_currency = self._chain_information.get("nativeCurrency", Chain.SOLANA.native_currency)
+                    self._native_currency = self._chain_info.get("nativeCurrency", Chain.SOLANA.native_currency)
                 else:
-                    self._native_currency = self._chain_information.get("nativeCurrency", Chain.ETHEREUM.native_currency)
+                    self._native_currency = self._chain_info.get("nativeCurrency", Chain.ETHEREUM.native_currency)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -329,10 +323,10 @@ class GatewayCLOB(ConnectorBase):
         """
         await self.update_allowances()
         for token, amount in self._allowances.items():
-            if amount <= ZERO and not self.is_pending_approval(token):
+            if amount <= constant.DECIMAL_ZERO and not self.is_pending_approval(token):
                 await self.approve_token(token)
 
-    async def approve_token(self, token_symbol: str, **request_args) -> Optional[GatewayInFlightOrder]:
+    async def approve_token(self, token_symbol: str, **request_args) -> Optional[CLOBInFlightOrder]:
         """
         Approves contract as a spender for a token.
         :param token_symbol: token to approve.
@@ -387,9 +381,9 @@ class GatewayCLOB(ConnectorBase):
         )
         for token, amount in resp.items():
             if amount is None:
-                ret_val[token] = ZERO
+                ret_val[token] = constant.DECIMAL_ZERO
             else:
-                ret_val[token] = Decimal(str(INFINITY))
+                ret_val[token] = Decimal(str(constant.DECIMAL_INFINITY))
 
         return ret_val
 
@@ -448,7 +442,7 @@ class GatewayCLOB(ConnectorBase):
                 gas_limit=gas_limit,
                 gas_cost=gas_cost,
                 gas_asset=gas_price_token,
-                swaps_count=constant.ZERO
+                swaps_count=constant.constant.DECIMAL_ZERO
             )
             for index in range(len(exceptions)):
                 self.logger().warning(
@@ -567,13 +561,13 @@ class GatewayCLOB(ConnectorBase):
             nonce: int = constant.DEFAULT_NONCE
             await self._update_nonce(nonce)
 
-            tracked_order: GatewayInFlightOrder = self._in_flight_orders.get(order_id)
+            tracked_order: CLOBInFlightOrder = self._in_flight_orders.get(order_id)
 
             ticker = await GatewayHttpClient.get_instance().clob_get_tickers(
                 self.chain, self.network, self.connector, market_name=constant.SOL_USDC_MARKET
             )
 
-            gas_price: Decimal = constant.ONE
+            gas_price: Decimal = constant.constant.DECIMAL_ONE
             gas_limit: int = constant.FIVE_THOUSAND_LAMPORTS
             gas_price_token: str = Chain.SOLANA.native_currency
             gas_cost: Decimal = constant.FIVE_THOUSAND_LAMPORTS
@@ -632,16 +626,16 @@ class GatewayCLOB(ConnectorBase):
         exchange_order_id: Optional[str] = None,
         trading_pair: str = "",
         trade_type: TradeType = TradeType.BUY,
-        price: Decimal = ZERO,
-        amount: Decimal = ZERO,
-        gas_price: Decimal = ZERO,
+        price: Decimal = constant.DECIMAL_ZERO,
+        amount: Decimal = constant.DECIMAL_ZERO,
+        gas_price: Decimal = constant.DECIMAL_ZERO,
         is_approval: bool = False
     ):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
         self._order_tracker.start_tracking_order(
-            GatewayInFlightOrder(
+            CLOBInFlightOrder(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
                 trading_pair=trading_pair,
@@ -661,7 +655,7 @@ class GatewayCLOB(ConnectorBase):
         """
         self._order_tracker.stop_tracking_order(client_order_id=order_id)
 
-    async def update_token_approval_status(self, tracked_approvals: List[GatewayInFlightOrder]):
+    async def update_token_approval_status(self, tracked_approvals: List[CLOBInFlightOrder]):
         """
         Calls REST API to get status update for each in-flight token approval transaction.
         """
@@ -715,7 +709,7 @@ class GatewayCLOB(ConnectorBase):
                     )
                 self.stop_tracking_order(tracked_approval.client_order_id)
 
-    async def update_canceling_transactions(self, canceled_tracked_orders: List[GatewayInFlightOrder]):
+    async def update_canceling_transactions(self, canceled_tracked_orders: List[CLOBInFlightOrder]):
         """
         Update tracked orders that have a cancel_tx_hash.
         :param canceled_tracked_orders: Canceled tracked_orders (cancel_tx_has is not None).
@@ -776,7 +770,7 @@ class GatewayCLOB(ConnectorBase):
                                                f"{self.chain}/{self.network}/{self.connector} has been canceled.")
                     self.stop_tracking_order(tracked_order.client_order_id)
 
-    async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
+    async def update_order_status(self, tracked_orders: List[CLOBInFlightOrder]):
         """
         Calls REST API to get status update for each in-flight orders.
         """
@@ -867,7 +861,7 @@ class GatewayCLOB(ConnectorBase):
         Checks if all tokens have allowance (an amount approved)
         """
         return ((len(self._allowances.values()) == len(self._tokens)) and
-                (all(amount > ZERO for amount in self._allowances.values())))
+                (all(amount > constant.DECIMAL_ZERO for amount in self._allowances.values())))
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -996,7 +990,7 @@ class GatewayCLOB(ConnectorBase):
         and if the order is not done or already in the cancelling state.
         """
         try:
-            tracked_order: GatewayInFlightOrder = self._order_tracker.fetch_order(client_order_id=order_id)
+            tracked_order: CLOBInFlightOrder = cast(self._order_tracker.fetch_order(client_order_id=order_id), CLOBInFlightOrder)
             if tracked_order is None:
                 self.logger().error(f"The order {order_id} is not being tracked.")
                 raise ValueError(f"The order {order_id} is not being tracked.")
@@ -1051,7 +1045,7 @@ class GatewayCLOB(ConnectorBase):
         """
         Iterate through all known orders and cancel them if their age is greater than cancel_age.
         """
-        incomplete_orders: List[EVMInFlightOrder] = []
+        incomplete_orders: List[CLOBInFlightOrder] = []
 
         # Incomplete Approval Requests
         incomplete_orders.extend([

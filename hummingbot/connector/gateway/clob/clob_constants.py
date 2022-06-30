@@ -10,3 +10,7 @@ ONE = 1
 ZERO = 0
 SOL_USDC_MARKET = 'SOL/USDC'
 DEFAULT_NONCE = 0
+
+DECIMAL_ZERO = Decimal("0")
+DECIMAL_NaN = Decimal("nan")
+DECIMAL_INFINITY = Decimal("infinity")
