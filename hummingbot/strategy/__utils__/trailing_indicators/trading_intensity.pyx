@@ -14,7 +14,7 @@ from hummingbot.core.data_type.common import (
 )
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.event_listener cimport EventListener
-from hummingbot.core.event.events import TradeType, OrderBookEvent
+from hummingbot.core.event.events import OrderBookEvent
 from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
 
 cdef class TradesForwarder(EventListener):
@@ -60,6 +60,10 @@ cdef class TradingIntensityIndicator:
     def sampling_length(self) -> int:
         return self._sampling_length
 
+    @sampling_length.setter
+    def sampling_length(self, new_len: int):
+        self._sampling_length = new_len
+
     @property
     def last_quotes(self) -> list:
         """A helper method to be used in unit tests"""
@@ -98,7 +102,7 @@ cdef class TradingIntensityIndicator:
         # Store quotes that happened after the latest trade + one before
         if latest_processed_quote_idx is not None:
             self._last_quotes = self._last_quotes[0:latest_processed_quote_idx + 1]
-        
+
         if len(self._trade_samples.keys()) > self._sampling_length:
             timestamps = list(self._trade_samples.keys())
             timestamps.sort()
@@ -118,9 +122,6 @@ cdef class TradingIntensityIndicator:
 
     cdef c_register_trade(self, object trade):
         self._current_trade_sample.append(trade)
-
-    def _estimate_intensity(self):
-        self.c_estimate_intensity()
 
     cdef c_estimate_intensity(self):
         cdef:

@@ -24,6 +24,7 @@ class Status(Enum):
 class StatusMonitor:
     _monitor_task: Optional[asyncio.Task]
     _current_status: Status
+    _current_connector_conn_status: Status
     _sm_logger: Optional[logging.Logger] = None
 
     @classmethod
@@ -35,12 +36,17 @@ class StatusMonitor:
     def __init__(self, app: "HummingbotApplication"):
         self._app = app
         self._current_status = Status.OFFLINE
+        self._current_connector_conn_status = Status.OFFLINE
         self._monitor_task = None
         self._gateway_config_keys: List[str] = []
 
     @property
     def current_status(self) -> Status:
         return self._current_status
+
+    @property
+    def current_connector_conn_status(self) -> Status:
+        return self._current_connector_conn_status
 
     @property
     def gateway_config_keys(self) -> List[str]:
@@ -58,11 +64,13 @@ class StatusMonitor:
             self._monitor_task.cancel()
             self._monitor_task = None
 
-    async def wait_for_online_status(self, max_tries=30):
+    async def wait_for_online_status(self, max_tries: int = 30):
         """
         Wait for gateway status to go online with a max number of tries. If it
         is online before time is up, it returns early, otherwise it returns the
         current status after the max number of tries.
+
+        :param max_tries: maximum number of retries (default is 30)
         """
         while True:
             if self._current_status is Status.ONLINE or max_tries <= 0:
@@ -73,25 +81,36 @@ class StatusMonitor:
     async def _monitor_loop(self):
         while True:
             try:
-                if await asyncio.wait_for(GatewayHttpClient.get_instance().ping_gateway(), timeout=POLL_TIMEOUT):
+                gateway_instance = self._get_gateway_instance()
+                if await asyncio.wait_for(gateway_instance.ping_gateway(), timeout=POLL_TIMEOUT):
                     if self._current_status is Status.OFFLINE:
-                        gateway_connectors = await GatewayHttpClient.get_instance().get_connectors(fail_silently=True)
+                        gateway_connectors = await gateway_instance.get_connectors(fail_silently=True)
                         GATEWAY_CONNECTORS.clear()
                         GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
-
                         await self.update_gateway_config_key_list()
+                        self.logger().info("Connection to Gateway established.")
+                    elif self._current_connector_conn_status is Status.OFFLINE:
+                        gateway_connectors_status = await GatewayHttpClient.get_instance().get_gateway_status(fail_silently=True)
+                        self._current_connector_conn_status = Status.ONLINE \
+                            if any([status["currentBlockNumber"] > 0 for status in gateway_connectors_status]) else Status.OFFLINE
                     self._current_status = Status.ONLINE
                 else:
-                    self._current_status = Status.OFFLINE
+                    if self._current_status is Status.ONLINE:
+                        self.logger().info("Connection to Gateway lost...")
+                        self._current_status = Status.OFFLINE
+                        self._current_connector_conn_status = Status.OFFLINE
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unable to find Gateway service. Please check that Gateway service is online. ")
-                self._current_status = Status.OFFLINE
+                """
+                We wouldn't be changing any status here because whatever error happens here would have been a result of manipulation data from
+                the try block. They wouldn't be as a result of http related error because they're expected to fail silently.
+                """
+                pass
             await asyncio.sleep(POLL_INTERVAL)
 
     async def _fetch_gateway_configs(self) -> Dict[str, Any]:
-        return await GatewayHttpClient.get_instance().get_configuration(fail_silently=False)
+        return await self._get_gateway_instance().get_configuration(fail_silently=False)
 
     async def update_gateway_config_key_list(self):
         try:
@@ -104,3 +123,7 @@ class StatusMonitor:
         except Exception:
             self.logger().error("Error fetching gateway configs. Please check that Gateway service is online. ",
                                 exc_info=True)
+
+    def _get_gateway_instance(self) -> GatewayHttpClient:
+        gateway_instance = GatewayHttpClient.get_instance(self._app.client_config_map)
+        return gateway_instance

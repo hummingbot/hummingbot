@@ -26,7 +26,6 @@ import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 export class Pangolin implements Uniswapish {
   private static _instances: { [name: string]: Pangolin };
   private avalanche: Avalanche;
-  private _chain: string;
   private _router: string;
   private _routerAbi: ContractInterface;
   private _gasLimit: number;
@@ -35,8 +34,7 @@ export class Pangolin implements Uniswapish {
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
-  private constructor(chain: string, network: string) {
-    this._chain = chain;
+  private constructor(network: string) {
     const config = PangolinConfig.config;
     this.avalanche = Avalanche.getInstance(network);
     this.chainId = this.avalanche.chainId;
@@ -51,7 +49,7 @@ export class Pangolin implements Uniswapish {
       Pangolin._instances = {};
     }
     if (!(chain + network in Pangolin._instances)) {
-      Pangolin._instances[chain + network] = new Pangolin(chain, network);
+      Pangolin._instances[chain + network] = new Pangolin(network);
     }
 
     return Pangolin._instances[chain + network];
@@ -68,8 +66,9 @@ export class Pangolin implements Uniswapish {
   }
 
   public async init() {
-    if (this._chain == 'avalanche' && !this.avalanche.ready())
-      throw new Error('Avalanche is not available');
+    if (!this.avalanche.ready()) {
+      await this.avalanche.init();
+    }
     for (const token of this.avalanche.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
@@ -266,7 +265,7 @@ export class Pangolin implements Uniswapish {
 
     const contract = new Contract(pangolinRouter, abi, wallet);
     if (!nonce) {
-      nonce = await this.avalanche.nonceManager.getNonce(wallet.address);
+      nonce = await this.avalanche.nonceManager.getNextNonce(wallet.address);
     }
     let tx;
     if (maxFeePerGas || maxPriorityFeePerGas) {
