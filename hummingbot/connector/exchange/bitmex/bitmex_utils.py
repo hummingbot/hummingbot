@@ -1,7 +1,9 @@
 from collections import namedtuple
+from pydantic import Field, SecretStr
 
 import hummingbot.connector.exchange.bitmex.bitmex_web_utils as web_utils
 import hummingbot.connector.exchange.bitmex.constants as CONSTANTS
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
 
@@ -14,46 +16,65 @@ EXAMPLE_PAIR = "ETH-XBT"
 DEFAULT_FEES = [0.01, 0.05]
 
 
-KEYS = {
-    "bitmex_api_key": ConfigVar(
-        key="bitmex_api_key",
-        prompt="Enter your Bitmex API key >>> ",
-        required_if=using_exchange("bitmex"),
-        is_secure=True,
-        is_connect_key=True,
-    ),
-    "bitmex_api_secret": ConfigVar(
-        key="bitmex_api_secret",
-        prompt="Enter your Bitmex API secret >>> ",
-        required_if=using_exchange("bitmex"),
-        is_secure=True,
-        is_connect_key=True,
-    ),
-}
+class BitmexConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="bitmex", const=True, client_data=None)
+    bitmex_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Bitmex API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    bitmex_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Bitmex API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "bitmex"
+
+
+KEYS = BitmexConfigMap.construct()
 
 OTHER_DOMAINS = ["bitmex_testnet"]
 OTHER_DOMAINS_PARAMETER = {"bitmex_testnet": "bitmex_testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"bitmex_testnet": "ETH-XBT"}
 OTHER_DOMAINS_DEFAULT_FEES = {"bitmex_testnet": [0.02, 0.04]}
-OTHER_DOMAINS_KEYS = {
-    "bitmex_testnet": {
-        # add keys for testnet
-        "bitmex_testnet_api_key": ConfigVar(
-            key="bitmex_testnet_api_key",
-            prompt="Enter your Bitmex testnet API key >>> ",
-            required_if=using_exchange("bitmex_testnet"),
+
+
+class BitmexTestnetConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="bitmex_testnet", const=True, client_data=None)
+    bitmex_testnet_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Bitmex Testnet API key",
             is_secure=True,
             is_connect_key=True,
-        ),
-        "bitmex_testnet_api_secret": ConfigVar(
-            key="bitmex_testnet_api_secret",
-            prompt="Enter your Bitmex testnet API secret >>> ",
-            required_if=using_exchange("bitmex_testnet"),
+            prompt_on_new=True,
+        )
+    )
+    bitmex_testnet_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Bitmex Testnet API secret",
             is_secure=True,
             is_connect_key=True,
-        ),
-    }
-}
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "bitmex_testnet"
+
+
+OTHER_DOMAINS_KEYS = {"bitmex_testnet": BitmexTestnetConfigMap.construct()}
 
 
 TRADING_PAIR_INDICES: dict = {}
