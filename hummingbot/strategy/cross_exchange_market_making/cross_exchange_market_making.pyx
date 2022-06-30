@@ -153,7 +153,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         self._slippage_buffer = slippage_buffer
 
         # Holds ongoing hedging orders mapped to their respective maker fill trades
-        self._ongoing_hedging = bidict({})
+        self._ongoing_hedging = bidict()
 
         self._last_taker_buy_price = None
         self._last_taker_sell_price = None
