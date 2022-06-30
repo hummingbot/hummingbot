@@ -310,7 +310,7 @@ export class Defira implements Uniswapish {
 
     const contract: Contract = new Contract(defiraRouter, abi, wallet);
     if (nonce === undefined) {
-      nonce = await this.harmony.nonceManager.getNonce(wallet.address);
+      nonce = await this.harmony.nonceManager.getNextNonce(wallet.address);
     }
     let tx: ContractTransaction;
     if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
