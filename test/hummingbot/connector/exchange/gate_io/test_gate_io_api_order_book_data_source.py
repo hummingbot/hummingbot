@@ -8,6 +8,8 @@ from unittest.mock import AsyncMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
@@ -34,7 +36,9 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         self.async_tasks: List[asyncio.Task] = []
 
         self.mocking_assistant = NetworkMockingAssistant()
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = GateIoExchange(
+            client_config_map=client_config_map,
             gate_io_api_key="",
             gate_io_secret_key="",
             trading_pairs=[],

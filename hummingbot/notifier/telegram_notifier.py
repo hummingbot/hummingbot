@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from os.path import join, realpath
 from typing import Any, Callable, List, Optional
 
 import pandas as pd
@@ -13,11 +14,12 @@ from telegram.replykeyboardmarkup import ReplyKeyboardMarkup
 from telegram.update import Update
 
 import hummingbot
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.notifier.notifier_base import NotifierBase
+
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 DISABLED_COMMANDS = {
     "connect",             # disabled because telegram can't display secondary prompt
@@ -64,8 +66,8 @@ class TelegramNotifier(NotifierBase):
                  chat_id: str,
                  hb: "hummingbot.client.hummingbot_application.HummingbotApplication") -> None:
         super().__init__()
-        self._token = token or global_config_map.get("telegram_token").value
-        self._chat_id = chat_id or global_config_map.get("telegram_chat_id").value
+        self._token = token
+        self._chat_id = chat_id
         self._updater = Updater(token=token, workers=0)
         self._hb = hb
         self._ev_loop = asyncio.get_event_loop()
@@ -77,6 +79,14 @@ class TelegramNotifier(NotifierBase):
         handles = [MessageHandler(Filters.text, self.handler)]
         for handle in handles:
             self._updater.dispatcher.add_handler(handle)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, self.__class__)
+            and self._token == other._token
+            and self._chat_id == other._chat_id
+            and id(self._hb) == id(other._hb)
+        )
 
     def start(self):
         if not self._started:

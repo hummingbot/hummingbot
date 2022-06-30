@@ -1,31 +1,346 @@
+import contextlib
+import inspect
 import json
 import logging
 import shutil
 from collections import OrderedDict, defaultdict
+from dataclasses import dataclass
+from datetime import date, datetime, time
 from decimal import Decimal
-from os import listdir, unlink
+from os import listdir, scandir, unlink
 from os.path import isfile, join
-from typing import Any, Callable, Dict, List, Optional
+from pathlib import Path, PosixPath
+from typing import Any, Callable, Dict, Generator, List, Optional, Type, Union
 
 import ruamel.yaml
+import yaml
+from pydantic import SecretStr, ValidationError
+from pydantic.fields import FieldInfo
+from pydantic.main import ModelMetaclass, validate_model
+from yaml import SafeDumper
 
-from hummingbot import get_strategy_list
+from hummingbot import get_strategy_list, root_path
+from hummingbot.client.config.client_config_map import ClientConfigMap, CommandShortcutModel
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map, init_fee_overrides_config
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.security import Security
 from hummingbot.client.settings import (
-    CONF_FILE_PATH,
+    CLIENT_CONFIG_PATH,
+    CONF_DIR_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
-    GLOBAL_CONFIG_PATH,
+    CONNECTORS_CONF_DIR_PATH,
+    STRATEGIES_CONF_DIR_PATH,
     TEMPLATE_PATH,
     TRADE_FEES_CONFIG_PATH,
     AllConnectorSettings,
 )
+from hummingbot.connector.other.celo import celo_data_types
 
 # Use ruamel.yaml to preserve order and comments in .yml file
-yaml_parser = ruamel.yaml.YAML()
+yaml_parser = ruamel.yaml.YAML()  # legacy
+
+
+def decimal_representer(dumper: SafeDumper, data: Decimal):
+    return dumper.represent_float(float(data))
+
+
+def enum_representer(dumper: SafeDumper, data: ClientConfigEnum):
+    return dumper.represent_str(str(data))
+
+
+def date_representer(dumper: SafeDumper, data: date):
+    return dumper.represent_date(data)
+
+
+def time_representer(dumper: SafeDumper, data: time):
+    return dumper.represent_str(data.strftime("%H:%M:%S"))
+
+
+def datetime_representer(dumper: SafeDumper, data: datetime):
+    return dumper.represent_datetime(data)
+
+
+def path_representer(dumper: SafeDumper, data: Path):
+    return dumper.represent_str(str(data))
+
+
+def command_shortcut_representer(dumper: SafeDumper, data: CommandShortcutModel):
+    return dumper.represent_dict(data.__dict__)
+
+
+yaml.add_representer(
+    data_type=Decimal, representer=decimal_representer, Dumper=SafeDumper
+)
+yaml.add_multi_representer(
+    data_type=ClientConfigEnum, multi_representer=enum_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=date, representer=date_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=time, representer=time_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=datetime, representer=datetime_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=Path, representer=path_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=PosixPath, representer=path_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=CommandShortcutModel, representer=command_shortcut_representer, Dumper=SafeDumper
+)
+
+
+class ConfigValidationError(Exception):
+    pass
+
+
+@dataclass()
+class ConfigTraversalItem:
+    depth: int
+    config_path: str
+    attr: str
+    value: Any
+    printable_value: str
+    client_field_data: Optional[ClientFieldData]
+    field_info: FieldInfo
+    type_: Type
+
+
+class ClientConfigAdapter:
+    def __init__(self, hb_config: BaseClientModel):
+        self._hb_config = hb_config
+
+    def __getattr__(self, item):
+        value = getattr(self._hb_config, item)
+        if isinstance(value, BaseClientModel):
+            value = ClientConfigAdapter(value)
+        return value
+
+    def __setattr__(self, key, value):
+        if key == "_hb_config":
+            super().__setattr__(key, value)
+        else:
+            try:
+                self._hb_config.__setattr__(key, value)
+            except ValidationError as e:
+                raise ConfigValidationError(retrieve_validation_error_msg(e))
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}.{self._hb_config.__repr__()}"
+
+    def __eq__(self, other):
+        if isinstance(other, ClientConfigAdapter):
+            eq = self._hb_config.__eq__(other._hb_config)
+        else:
+            eq = super().__eq__(other)
+        return eq
+
+    @property
+    def hb_config(self) -> BaseClientModel:
+        return self._hb_config
+
+    @property
+    def title(self) -> str:
+        return self._hb_config.Config.title
+
+    def is_required(self, attr: str) -> bool:
+        return self._hb_config.is_required(attr)
+
+    def keys(self) -> Generator[str, None, None]:
+        return self._hb_config.__fields__.keys()
+
+    def config_paths(self) -> Generator[str, None, None]:
+        return (traversal_item.config_path for traversal_item in self.traverse())
+
+    def traverse(self, secure: bool = True) -> Generator[ConfigTraversalItem, None, None]:
+        """The intended use for this function is to simplify config map traversals in the client code.
+
+        If the field is missing, its value will be set to `None` and its printable value will be set to
+        'MISSING_AND_REQUIRED'.
+        """
+        depth = 0
+        for attr, field in self._hb_config.__fields__.items():
+            field_info = field.field_info
+            type_ = field.type_
+            if hasattr(self, attr):
+                value = getattr(self, attr)
+                printable_value = self._get_printable_value(attr, value, secure)
+                client_field_data = field_info.extra.get("client_data")
+            else:
+                value = None
+                printable_value = "&cMISSING_AND_REQUIRED"
+                client_field_data = self.get_client_data(attr)
+            yield ConfigTraversalItem(
+                depth, attr, attr, value, printable_value, client_field_data, field_info, type_
+            )
+            if isinstance(value, ClientConfigAdapter):
+                for traversal_item in value.traverse():
+                    traversal_item.depth += 1
+                    config_path = f"{attr}.{traversal_item.config_path}"
+                    traversal_item.config_path = config_path
+                    yield traversal_item
+
+    async def get_client_prompt(self, attr_name: str) -> Optional[str]:
+        prompt = None
+        client_data = self.get_client_data(attr_name)
+        if client_data is not None:
+            prompt_fn = client_data.prompt
+            if inspect.iscoroutinefunction(prompt_fn):
+                prompt = await prompt_fn(self._hb_config)
+            else:
+                prompt = prompt_fn(self._hb_config)
+        return prompt
+
+    def is_secure(self, attr_name: str) -> bool:
+        client_data = self.get_client_data(attr_name)
+        secure = client_data is not None and client_data.is_secure
+        return secure
+
+    def get_client_data(self, attr_name: str) -> Optional[ClientFieldData]:
+        return self._hb_config.__fields__[attr_name].field_info.extra.get("client_data")
+
+    def get_description(self, attr_name: str) -> str:
+        return self._hb_config.__fields__[attr_name].field_info.description
+
+    def get_default(self, attr_name: str) -> Any:
+        default = self._hb_config.__fields__[attr_name].field_info.default
+        if isinstance(default, type(Ellipsis)):
+            default = None
+        return default
+
+    def get_type(self, attr_name: str) -> Type:
+        return self._hb_config.__fields__[attr_name].type_
+
+    def generate_yml_output_str_with_comments(self) -> str:
+        fragments_with_comments = [self._generate_title()]
+        self._add_model_fragments(fragments_with_comments)
+        yml_str = "".join(fragments_with_comments)
+        return yml_str
+
+    def validate_model(self) -> List[str]:
+        results = validate_model(type(self._hb_config), json.loads(self._hb_config.json()))
+        conf_dict = results[0]
+        self._decrypt_secrets(conf_dict)
+        for key, value in conf_dict.items():
+            self.setattr_no_validation(key, value)
+        errors = results[2]
+        validation_errors = []
+        if errors is not None:
+            errors = errors.errors()
+            validation_errors = [
+                f"{'.'.join(e['loc'])} - {e['msg']}"
+                for e in errors
+            ]
+        return validation_errors
+
+    def setattr_no_validation(self, attr: str, value: Any):
+        with self._disable_validation():
+            setattr(self, attr, value)
+
+    @contextlib.contextmanager
+    def _disable_validation(self):
+        self._hb_config.Config.validate_assignment = False
+        yield
+        self._hb_config.Config.validate_assignment = True
+
+    def _get_printable_value(self, attr: str, value: Any, secure: bool) -> str:
+        if isinstance(value, ClientConfigAdapter):
+            if self._is_union(self.get_type(attr)):  # it is a union of modes
+                printable_value = value.hb_config.Config.title
+            else:  # it is a collection of settings stored in a submodule
+                printable_value = ""
+        elif isinstance(value, SecretStr) and not secure:
+            printable_value = value.get_secret_value()
+        else:
+            printable_value = str(value)
+        return printable_value
+
+    @staticmethod
+    def _is_union(t: Type) -> bool:
+        is_union = hasattr(t, "__origin__") and t.__origin__ == Union
+        return is_union
+
+    def _dict_in_conf_order(self) -> Dict[str, Any]:
+        d = {}
+        for attr in self._hb_config.__fields__.keys():
+            value = getattr(self, attr)
+            if isinstance(value, ClientConfigAdapter):
+                value = value._dict_in_conf_order()
+            d[attr] = value
+        return d
+
+    def _encrypt_secrets(self, conf_dict: Dict[str, Any]):
+        from hummingbot.client.config.security import Security  # avoids circular import
+        for attr, value in conf_dict.items():
+            attr_type = self._hb_config.__fields__[attr].type_
+            if attr_type == SecretStr:
+                conf_dict[attr] = Security.secrets_manager.encrypt_secret_value(attr, value.get_secret_value())
+
+    def _decrypt_secrets(self, conf_dict: Dict[str, Any]):
+        from hummingbot.client.config.security import Security  # avoids circular import
+        for attr, value in conf_dict.items():
+            attr_type = self._hb_config.__fields__[attr].type_
+            if attr_type == SecretStr:
+                decrypted_value = Security.secrets_manager.decrypt_secret_value(attr, value.get_secret_value())
+                conf_dict[attr] = SecretStr(decrypted_value)
+
+    def _generate_title(self) -> str:
+        title = f"{self._hb_config.Config.title}"
+        title = self._adorn_title(title)
+        return title
+
+    @staticmethod
+    def _adorn_title(title: str) -> str:
+        if title:
+            title = f"###   {title} config   ###"
+            title_len = len(title)
+            title = f"{'#' * title_len}\n{title}\n{'#' * title_len}"
+        return title
+
+    def _add_model_fragments(
+        self,
+        fragments_with_comments: List[str],
+    ):
+
+        fragments_with_comments.append("\n")
+        first_level_conf_items_generator = (item for item in self.traverse() if item.depth == 0)
+
+        for traversal_item in first_level_conf_items_generator:
+            fragments_with_comments.append("\n")
+
+            attr_comment = traversal_item.field_info.description
+            if attr_comment is not None:
+                comment_prefix = f"{' ' * 2 * traversal_item.depth}# "
+                attr_comment = "\n".join(f"{comment_prefix}{c}" for c in attr_comment.split("\n"))
+                fragments_with_comments.append(attr_comment)
+                fragments_with_comments.append("\n")
+
+            attribute = traversal_item.attr
+            value = getattr(self, attribute)
+            if isinstance(value, ClientConfigAdapter):
+                value = value._dict_in_conf_order()
+            conf_as_dictionary = {attribute: value}
+            self._encrypt_secrets(conf_as_dictionary)
+
+            yaml_config = yaml.safe_dump(conf_as_dictionary, sort_keys=False)
+            fragments_with_comments.append(yaml_config)
+
+
+class ReadOnlyClientConfigAdapter(ClientConfigAdapter):
+    def __setattr__(self, key, value):
+        if key == "_hb_config":
+            super().__setattr__(key, value)
+        else:
+            raise AttributeError("Cannot set an attribute on a read-only client adapter")
+
+    @classmethod
+    def lock_config(cls, config_map: ClientConfigMap):
+        return cls(config_map._hb_config)
 
 
 def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
@@ -124,20 +439,20 @@ async def copy_strategy_template(strategy: str) -> str:
     old_path = get_strategy_template_path(strategy)
     i = 0
     new_fname = f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_{i}.yml"
-    new_path = join(CONF_FILE_PATH, new_fname)
+    new_path = STRATEGIES_CONF_DIR_PATH / new_fname
     while isfile(new_path):
         new_fname = f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_{i}.yml"
-        new_path = join(CONF_FILE_PATH, new_fname)
+        new_path = STRATEGIES_CONF_DIR_PATH / new_fname
         i += 1
     shutil.copy(old_path, new_path)
     return new_fname
 
 
-def get_strategy_template_path(strategy: str) -> str:
+def get_strategy_template_path(strategy: str) -> Path:
     """
     Given the strategy name, return its template config `yml` file name.
     """
-    return join(TEMPLATE_PATH, f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_TEMPLATE.yml")
+    return TEMPLATE_PATH / f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_TEMPLATE.yml"
 
 
 def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
@@ -157,17 +472,25 @@ def get_connector_class(connector_name: str) -> Callable:
     return getattr(mod, conn_setting.class_name())
 
 
-def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
+def get_strategy_config_map(
+    strategy: str
+) -> Optional[Union[ClientConfigAdapter, Dict[str, ConfigVar]]]:
     """
     Given the name of a strategy, find and load strategy-specific config map.
     """
     try:
-        cm_key = f"{strategy}_config_map"
-        strategy_module = __import__(f"hummingbot.strategy.{strategy}.{cm_key}",
-                                     fromlist=[f"hummingbot.strategy.{strategy}"])
-        return getattr(strategy_module, cm_key)
+        config_cls = get_strategy_pydantic_config_cls(strategy)
+        if config_cls is None:  # legacy
+            cm_key = f"{strategy}_config_map"
+            strategy_module = __import__(f"hummingbot.strategy.{strategy}.{cm_key}",
+                                         fromlist=[f"hummingbot.strategy.{strategy}"])
+            config_map = getattr(strategy_module, cm_key)
+        else:
+            hb_config = config_cls.construct()
+            config_map = ClientConfigAdapter(hb_config)
     except Exception:
-        return defaultdict()
+        config_map = defaultdict()
+    return config_map
 
 
 def get_strategy_starter_file(strategy: str) -> Callable:
@@ -185,21 +508,19 @@ def get_strategy_starter_file(strategy: str) -> Callable:
         logging.getLogger().error(e, exc_info=True)
 
 
-def load_required_configs(strategy_name) -> OrderedDict:
-    strategy_config_map = get_strategy_config_map(strategy_name)
-    # create an ordered dict where `strategy` is inserted first
-    # so that strategy-specific configs are prompted first and populate required_exchanges
-    return _merge_dicts(strategy_config_map, global_config_map)
-
-
-def strategy_name_from_file(file_path: str) -> str:
-    with open(file_path, encoding='utf-8') as stream:
-        data = yaml_parser.load(stream) or {}
-        strategy = data.get("strategy")
+def strategy_name_from_file(file_path: Path) -> str:
+    data = read_yml_file(file_path)
+    strategy = data.get("strategy")
     return strategy
 
 
-def validate_strategy_file(file_path: str) -> Optional[str]:
+def connector_name_from_file(file_path: Path) -> str:
+    data = read_yml_file(file_path)
+    connector = data["connector"]
+    return connector
+
+
+def validate_strategy_file(file_path: Path) -> Optional[str]:
     if not isfile(file_path):
         return f"{file_path} file does not exist."
     strategy = strategy_name_from_file(file_path)
@@ -210,18 +531,126 @@ def validate_strategy_file(file_path: str) -> Optional[str]:
     return None
 
 
-async def update_strategy_config_map_from_file(yml_path: str) -> str:
-    strategy = strategy_name_from_file(yml_path)
-    config_map = get_strategy_config_map(strategy)
-    template_path = get_strategy_template_path(strategy)
-    await load_yml_into_cm(yml_path, template_path, config_map)
-    return strategy
+def read_yml_file(yml_path: Path) -> Dict[str, Any]:
+    with open(yml_path, "r", encoding="utf-8") as file:
+        data = yaml.safe_load(file) or {}
+    return dict(data)
+
+
+def get_strategy_pydantic_config_cls(strategy_name: str) -> Optional[ModelMetaclass]:
+    pydantic_cm_class = None
+    try:
+        pydantic_cm_pkg = f"{strategy_name}_config_map_pydantic"
+        pydantic_cm_path = root_path() / "hummingbot" / "strategy" / strategy_name / f"{pydantic_cm_pkg}.py"
+        if pydantic_cm_path.exists():
+            pydantic_cm_class_name = f"{''.join([s.capitalize() for s in strategy_name.split('_')])}ConfigMap"
+            pydantic_cm_mod = __import__(f"hummingbot.strategy.{strategy_name}.{pydantic_cm_pkg}",
+                                         fromlist=[f"{pydantic_cm_class_name}"])
+            pydantic_cm_class = getattr(pydantic_cm_mod, pydantic_cm_class_name)
+    except ImportError:
+        logging.getLogger().exception(f"Could not import Pydantic configs for {strategy_name}.")
+    return pydantic_cm_class
+
+
+async def load_strategy_config_map_from_file(yml_path: Path) -> Union[ClientConfigAdapter, Dict[str, ConfigVar]]:
+    strategy_name = strategy_name_from_file(yml_path)
+    config_cls = get_strategy_pydantic_config_cls(strategy_name)
+    if config_cls is None:  # legacy
+        config_map = get_strategy_config_map(strategy_name)
+        template_path = get_strategy_template_path(strategy_name)
+        await load_yml_into_cm_legacy(str(yml_path), str(template_path), config_map)
+    else:
+        config_data = read_yml_file(yml_path)
+        hb_config = config_cls.construct()
+        config_map = ClientConfigAdapter(hb_config)
+        _load_yml_data_into_map(config_data, config_map)
+    return config_map
+
+
+def load_connector_config_map_from_file(yml_path: Path) -> ClientConfigAdapter:
+    config_data = read_yml_file(yml_path)
+    connector_name = connector_name_from_file(yml_path)
+    hb_config = get_connector_hb_config(connector_name)
+    config_map = ClientConfigAdapter(hb_config)
+    _load_yml_data_into_map(config_data, config_map)
+    return config_map
+
+
+def load_client_config_map_from_file() -> ClientConfigAdapter:
+    yml_path = CLIENT_CONFIG_PATH
+    if yml_path.exists():
+        config_data = read_yml_file(yml_path)
+    else:
+        config_data = {}
+    client_config = ClientConfigMap()
+    config_map = ClientConfigAdapter(client_config)
+    config_validation_errors = _load_yml_data_into_map(config_data, config_map)
+
+    if len(config_validation_errors) > 0:
+        all_errors = "\n".join(config_validation_errors)
+        raise ConfigValidationError(f"There are errors in the client global configuration (\n{all_errors})")
+
+    return config_map
+
+
+def get_connector_hb_config(connector_name: str) -> BaseClientModel:
+    if connector_name == "celo":
+        hb_config = celo_data_types.KEYS
+    else:
+        hb_config = AllConnectorSettings.get_connector_config_keys(connector_name)
+    return hb_config
+
+
+def reset_connector_hb_config(connector_name: str):
+    if connector_name == "celo":
+        celo_data_types.KEYS = celo_data_types.KEYS.__class__.construct()
+    else:
+        AllConnectorSettings.reset_connector_config_keys(connector_name)
+
+
+def update_connector_hb_config(connector_config: ClientConfigAdapter):
+    connector_name = connector_config.connector
+    if connector_name == "celo":
+        celo_data_types.KEYS = connector_config.hb_config
+    else:
+        AllConnectorSettings.update_connector_config_keys(connector_config.hb_config)
+
+
+def api_keys_from_connector_config_map(cm: ClientConfigAdapter) -> Dict[str, str]:
+    api_keys = {}
+    for c in cm.traverse():
+        if c.value is not None and c.client_field_data is not None and c.client_field_data.is_connect_key:
+            value = c.value.get_secret_value() if isinstance(c.value, SecretStr) else c.value
+            api_keys[c.attr] = value
+    return api_keys
+
+
+def get_connector_config_yml_path(connector_name: str) -> Path:
+    connector_path = Path(CONNECTORS_CONF_DIR_PATH) / f"{connector_name}.yml"
+    return connector_path
+
+
+def list_connector_configs() -> List[Path]:
+    connector_configs = [
+        Path(f.path) for f in scandir(str(CONNECTORS_CONF_DIR_PATH))
+        if f.is_file() and not f.name.startswith("_") and not f.name.startswith(".")
+    ]
+    return connector_configs
+
+
+def _load_yml_data_into_map(yml_data: Dict[str, Any], cm: ClientConfigAdapter) -> List[str]:
+    for key in cm.keys():
+        if key in yml_data:
+            cm.setattr_no_validation(key, yml_data[key])
+
+    config_validation_errors = cm.validate_model()  # try coercing values to appropriate type
+    return config_validation_errors
 
 
 async def load_yml_into_dict(yml_path: str) -> Dict[str, Any]:
     data = {}
     if isfile(yml_path):
-        with open(yml_path) as stream:
+        with open(yml_path, encoding="utf-8") as stream:
             data = yaml_parser.load(stream) or {}
 
     return dict(data.items())
@@ -229,26 +658,26 @@ async def load_yml_into_dict(yml_path: str) -> Dict[str, Any]:
 
 async def save_yml_from_dict(yml_path: str, conf_dict: Dict[str, Any]):
     try:
-        with open(yml_path, "w+") as stream:
+        with open(yml_path, "w+", encoding="utf-8") as stream:
             data = yaml_parser.load(stream) or {}
             for key in conf_dict:
                 data[key] = conf_dict.get(key)
-            with open(yml_path, "w+") as outfile:
+            with open(yml_path, "w+", encoding="utf-8") as outfile:
                 yaml_parser.dump(data, outfile)
     except Exception as e:
         logging.getLogger().error(f"Error writing configs: {str(e)}", exc_info=True)
 
 
-async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
+async def load_yml_into_cm_legacy(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
     try:
         data = {}
         conf_version = -1
         if isfile(yml_path):
-            with open(yml_path, encoding='utf-8') as stream:
+            with open(yml_path, encoding="utf-8") as stream:
                 data = yaml_parser.load(stream) or {}
                 conf_version = data.get("template_version", 0)
 
-        with open(template_file_path, "r", encoding='utf-8') as template_fd:
+        with open(template_file_path, "r", encoding="utf-8") as template_fd:
             template_data = yaml_parser.load(template_fd)
             template_version = template_data.get("template_version", 0)
 
@@ -261,10 +690,8 @@ async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str,
                 logging.getLogger().error(f"Cannot find corresponding config to key {key} in template.")
                 continue
 
-            # Skip this step since the values are not saved in the yml file
             if cvar.is_secure:
-                cvar.value = Security.decrypted_value(key)
-                continue
+                raise DeprecationWarning("Secure values are no longer supported in legacy configs.")
 
             val_in_file = data.get(key, None)
             if (val_in_file is None or val_in_file == "") and cvar.default is not None:
@@ -289,7 +716,7 @@ async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str,
             # copy the new file template
             shutil.copy(template_file_path, yml_path)
             # save the old variables into the new config file
-            save_to_yml(yml_path, cm)
+            save_to_yml_legacy(yml_path, cm)
     except Exception as e:
         logging.getLogger().error("Error loading configs. Your config file may be corrupt. %s" % (e,),
                                   exc_info=True)
@@ -300,75 +727,85 @@ async def read_system_configs_from_yml():
     Read global config and selected strategy yml files and save the values to corresponding config map
     If a yml file is outdated, it gets reformatted with the new template
     """
-    await load_yml_into_cm(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
-    await load_yml_into_cm(TRADE_FEES_CONFIG_PATH, join(TEMPLATE_PATH, "conf_fee_overrides_TEMPLATE.yml"),
-                           fee_overrides_config_map)
+    await load_yml_into_cm_legacy(
+        str(TRADE_FEES_CONFIG_PATH), str(TEMPLATE_PATH / "conf_fee_overrides_TEMPLATE.yml"), fee_overrides_config_map
+    )
     # In case config maps get updated (due to default values)
     save_system_configs_to_yml()
 
 
 def save_system_configs_to_yml():
-    save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
-    save_to_yml(TRADE_FEES_CONFIG_PATH, fee_overrides_config_map)
+    save_to_yml_legacy(str(TRADE_FEES_CONFIG_PATH), fee_overrides_config_map)
 
 
-async def refresh_trade_fees_config():
+async def refresh_trade_fees_config(client_config_map: ClientConfigAdapter):
     """
     Refresh the trade fees config, after new connectors have been added (e.g. gateway connectors).
     """
     init_fee_overrides_config()
-    await load_yml_into_cm(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
-    save_to_yml(TRADE_FEES_CONFIG_PATH, fee_overrides_config_map)
+    save_to_yml(CLIENT_CONFIG_PATH, client_config_map)
+    save_to_yml_legacy(str(TRADE_FEES_CONFIG_PATH), fee_overrides_config_map)
 
 
-def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
+def save_to_yml_legacy(yml_path: str, cm: Dict[str, ConfigVar]):
     """
     Write current config saved a single config map into each a single yml file
     """
     try:
-        with open(yml_path, encoding='utf-8') as stream:
+        with open(yml_path, encoding="utf-8") as stream:
             data = yaml_parser.load(stream) or {}
             for key in cm:
                 cvar = cm.get(key)
-                if cvar.is_secure:
-                    Security.update_secure_config(key, cvar.value)
-                    if key in data:
-                        data.pop(key)
-                elif type(cvar.value) == Decimal:
+                if type(cvar.value) == Decimal:
                     data[key] = float(cvar.value)
                 else:
                     data[key] = cvar.value
-            with open(yml_path, "w+", encoding='utf-8') as outfile:
+            with open(yml_path, "w+", encoding="utf-8") as outfile:
                 yaml_parser.dump(data, outfile)
     except Exception as e:
         logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
 
 
-async def write_config_to_yml(strategy_name, strategy_file_name):
-    strategy_config_map = get_strategy_config_map(strategy_name)
-    strategy_file_path = join(CONF_FILE_PATH, strategy_file_name)
-    save_to_yml(strategy_file_path, strategy_config_map)
-    save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+def save_to_yml(yml_path: Path, cm: ClientConfigAdapter):
+    try:
+        cm_yml_str = cm.generate_yml_output_str_with_comments()
+        with open(yml_path, "w", encoding="utf-8") as outfile:
+            outfile.write(cm_yml_str)
+    except Exception as e:
+        logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
 
 
-async def create_yml_files():
+def write_config_to_yml(
+    strategy_config_map: Union[ClientConfigAdapter, Dict],
+    strategy_file_name: str,
+    client_config_map: ClientConfigAdapter,
+):
+    strategy_file_path = Path(STRATEGIES_CONF_DIR_PATH) / strategy_file_name
+    if isinstance(strategy_config_map, ClientConfigAdapter):
+        save_to_yml(strategy_file_path, strategy_config_map)
+    else:
+        save_to_yml_legacy(strategy_file_path, strategy_config_map)
+    save_to_yml(CLIENT_CONFIG_PATH, client_config_map)
+
+
+async def create_yml_files_legacy():
     """
     Copy `hummingbot_logs.yml` and `conf_global.yml` templates to the `conf` directory on start up
     """
     for fname in listdir(TEMPLATE_PATH):
         if "_TEMPLATE" in fname and CONF_POSTFIX not in fname:
             stripped_fname = fname.replace("_TEMPLATE", "")
-            template_path = join(TEMPLATE_PATH, fname)
-            conf_path = join(CONF_FILE_PATH, stripped_fname)
+            template_path = str(TEMPLATE_PATH / fname)
+            conf_path = join(CONF_DIR_PATH, stripped_fname)
             if not isfile(conf_path):
                 shutil.copy(template_path, conf_path)
 
             # Only overwrite log config. Updating `conf_global.yml` is handled by `read_configs_from_yml`
             if conf_path.endswith("hummingbot_logs.yml"):
-                with open(template_path, "r", encoding='utf-8') as template_fd:
+                with open(template_path, "r", encoding="utf-8") as template_fd:
                     template_data = yaml_parser.load(template_fd)
                     template_version = template_data.get("template_version", 0)
-                with open(conf_path, "r", encoding='utf-8') as conf_fd:
+                with open(conf_path, "r", encoding="utf-8") as conf_fd:
                     conf_version = 0
                     try:
                         conf_data = yaml_parser.load(conf_fd)
@@ -386,10 +823,10 @@ def default_strategy_file_path(strategy: str) -> str:
     """
     i = 1
     new_fname = f"{CONF_PREFIX}{short_strategy_name(strategy)}_{i}.yml"
-    new_path = join(CONF_FILE_PATH, new_fname)
-    while isfile(new_path):
+    new_path = STRATEGIES_CONF_DIR_PATH / new_fname
+    while new_path.is_file():
         new_fname = f"{CONF_PREFIX}{short_strategy_name(strategy)}_{i}.yml"
-        new_path = join(CONF_FILE_PATH, new_fname)
+        new_path = STRATEGIES_CONF_DIR_PATH / new_fname
         i += 1
     return new_fname
 
@@ -405,29 +842,22 @@ def short_strategy_name(strategy: str) -> str:
         return strategy
 
 
-def all_configs_complete(strategy):
-    strategy_map = get_strategy_config_map(strategy)
-    return config_map_complete(global_config_map) and config_map_complete(strategy_map)
+def all_configs_complete(strategy_config: Union[ClientConfigAdapter, Dict], client_config_map: ClientConfigAdapter):
+    strategy_valid = (
+        config_map_complete_legacy(strategy_config)
+        if isinstance(strategy_config, Dict)
+        else len(strategy_config.validate_model()) == 0
+    )
+    client_config_valid = len(client_config_map.validate_model()) == 0
+    return client_config_valid and strategy_valid
 
 
-def config_map_complete(config_map):
+def config_map_complete_legacy(config_map):
     return not any(c.required and c.value is None for c in config_map.values())
 
 
-def missing_required_configs(config_map):
+def missing_required_configs_legacy(config_map):
     return [c for c in config_map.values() if c.required and c.value is None and not c.is_connect_key]
-
-
-def load_all_secure_values(strategy):
-    strategy_map = get_strategy_config_map(strategy)
-    load_secure_values(global_config_map)
-    load_secure_values(strategy_map)
-
-
-def load_secure_values(config_map):
-    for key, config in config_map.items():
-        if config.is_secure:
-            config.value = Security.decrypted_value(key)
 
 
 def format_config_file_name(file_name):
@@ -454,19 +884,10 @@ def parse_config_default_to_text(config: ConfigVar) -> str:
     return default
 
 
-def secondary_market_conversion_rate(strategy) -> Decimal:
-    config_map = get_strategy_config_map(strategy)
-    if "secondary_to_primary_quote_conversion_rate" in config_map:
-        base_rate = config_map["secondary_to_primary_base_conversion_rate"].value
-        quote_rate = config_map["secondary_to_primary_quote_conversion_rate"].value
-    elif "taker_to_maker_quote_conversion_rate" in config_map:
-        base_rate = config_map["taker_to_maker_base_conversion_rate"].value
-        quote_rate = config_map["taker_to_maker_quote_conversion_rate"].value
-    else:
-        return Decimal("1")
-    return quote_rate / base_rate
+def retrieve_validation_error_msg(e: ValidationError) -> str:
+    return e.errors().pop()["msg"]
 
 
-def save_previous_strategy_value(file_name: str):
-    global_config_map["previous_strategy"].value = file_name
-    save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+def save_previous_strategy_value(file_name: str, client_config_map: ClientConfigAdapter):
+    client_config_map.previous_strategy = file_name
+    save_to_yml(CLIENT_CONFIG_PATH, client_config_map)
