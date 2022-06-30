@@ -2,22 +2,13 @@ jest.useFakeTimers();
 import { Uniswap } from '../../../../src/connectors/uniswap/uniswap';
 import { patch, unpatch } from '../../../services/patch';
 import { UniswapishPriceError } from '../../../../src/services/error-handler';
-import {
-  Fetcher,
-  Pair,
-  Percent,
-  Route,
-  Token,
-  TokenAmount,
-  Trade,
-  TradeType,
-} from '@uniswap/sdk';
-import { OverrideConfigs } from '../../../config.util';
-import { patchEVMNonceManager } from '../../../evm.nonce.mock';
-import { BigNumber } from 'ethers';
+import { CurrencyAmount, Percent, TradeType, Token } from '@uniswap/sdk-core';
+import { Pair, Route } from '@uniswap/v2-sdk';
+import { Trade } from '@uniswap/router-sdk';
+import { BigNumber, utils } from 'ethers';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 
-const overrideConfigs = new OverrideConfigs();
 let ethereum: Ethereum;
 let uniswap: Uniswap;
 
@@ -27,6 +18,7 @@ const WETH = new Token(
   18,
   'WETH'
 );
+
 const DAI = new Token(
   3,
   '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
@@ -35,9 +27,6 @@ const DAI = new Token(
 );
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
-
   ethereum = Ethereum.getInstance('kovan');
   patchEVMNonceManager(ethereum.nonceManager);
   await ethereum.init();
@@ -56,39 +45,57 @@ afterEach(() => {
 
 afterAll(async () => {
   await ethereum.close();
-  await overrideConfigs.resetConfigs();
 });
 
-const patchFetchPairData = () => {
-  patch(Fetcher, 'fetchPairData', () => {
-    return new Pair(
-      new TokenAmount(WETH, '2000000000000000000'),
-      new TokenAmount(DAI, '1000000000000000000')
-    );
-  });
-};
-
-const patchTrade = (key: string, error?: Error) => {
-  patch(Trade, key, () => {
-    if (error) return [];
+const patchTrade = (_key: string, error?: Error) => {
+  patch(uniswap.alphaRouter, 'route', () => {
+    if (error) return false;
     const WETH_DAI = new Pair(
-      new TokenAmount(WETH, '2000000000000000000'),
-      new TokenAmount(DAI, '1000000000000000000')
+      CurrencyAmount.fromRawAmount(WETH, '2000000000000000000'),
+      CurrencyAmount.fromRawAmount(DAI, '1000000000000000000')
     );
-    const DAI_TO_WETH = new Route([WETH_DAI], DAI);
-    return [
-      new Trade(
-        DAI_TO_WETH,
-        new TokenAmount(DAI, '1000000000000000'),
-        TradeType.EXACT_INPUT
+    const DAI_TO_WETH = new Route([WETH_DAI], DAI, WETH);
+    return {
+      quote: CurrencyAmount.fromRawAmount(DAI, '1000000000000000000'),
+      quoteGasAdjusted: CurrencyAmount.fromRawAmount(
+        DAI,
+        '1000000000000000000'
       ),
-    ];
+      estimatedGasUsed: utils.parseEther('100'),
+      estimatedGasUsedQuoteToken: CurrencyAmount.fromRawAmount(
+        DAI,
+        '1000000000000000000'
+      ),
+      estimatedGasUsedUSD: CurrencyAmount.fromRawAmount(
+        DAI,
+        '1000000000000000000'
+      ),
+      gasPriceWei: utils.parseEther('100'),
+      trade: new Trade({
+        v2Routes: [
+          {
+            routev2: DAI_TO_WETH,
+            inputAmount: CurrencyAmount.fromRawAmount(
+              DAI,
+              '1000000000000000000'
+            ),
+            outputAmount: CurrencyAmount.fromRawAmount(
+              WETH,
+              '2000000000000000000'
+            ),
+          },
+        ],
+        v3Routes: [],
+        tradeType: TradeType.EXACT_INPUT,
+      }),
+      route: [],
+      blockNumber: BigNumber.from(5000),
+    };
   });
 };
 
 describe('verify Uniswap estimateSellTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
-    patchFetchPairData();
     patchTrade('bestTradeExactIn');
 
     const expectedTrade = await uniswap.estimateSellTrade(
@@ -101,7 +108,6 @@ describe('verify Uniswap estimateSellTrade', () => {
   });
 
   it('Should throw an error if no pair is available', async () => {
-    patchFetchPairData();
     patchTrade('bestTradeExactIn', new Error('error getting trade'));
 
     await expect(async () => {
@@ -112,7 +118,6 @@ describe('verify Uniswap estimateSellTrade', () => {
 
 describe('verify Uniswap estimateBuyTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
-    patchFetchPairData();
     patchTrade('bestTradeExactOut');
 
     const expectedTrade = await uniswap.estimateBuyTrade(
@@ -125,7 +130,6 @@ describe('verify Uniswap estimateBuyTrade', () => {
   });
 
   it('Should return an error if no pair is available', async () => {
-    patchFetchPairData();
     patchTrade('bestTradeExactOut', new Error('error getting trade'));
 
     await expect(async () => {

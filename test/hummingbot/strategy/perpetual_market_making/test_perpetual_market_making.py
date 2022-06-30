@@ -1,12 +1,15 @@
 from decimal import Decimal
+from test.mock.mock_perp_connector import MockPerpConnector
 from unittest import TestCase
 from unittest.mock import patch
 
 import pandas as pd
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock
 from hummingbot.core.clock_mode import ClockMode
 from hummingbot.core.data_type.common import OrderType, PositionMode, PositionSide, PriceType, TradeType
@@ -20,11 +23,10 @@ from hummingbot.core.event.events import (
     PositionModeChangeEvent,
     SellOrderCompletedEvent,
 )
-from hummingbot.strategy.data_types import Proposal, PriceSize
+from hummingbot.strategy.data_types import PriceSize, Proposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.perpetual_market_making import PerpetualMarketMakingStrategy
 from hummingbot.strategy.strategy_base import StrategyBase
-from test.mock.mock_perp_connector import MockPerpConnector
 
 
 class PerpetualMarketMakingTests(TestCase):
@@ -54,7 +56,9 @@ class PerpetualMarketMakingTests(TestCase):
     def setUp(self):
         super().setUp()
         self.log_records = []
-        self.market: MockPerpConnector = MockPerpConnector(self.trade_fee_schema)
+        self.market: MockPerpConnector = MockPerpConnector(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=self.trade_fee_schema)
         self.market.set_quantization_param(
             QuantizationParams(
                 self.trading_pair,
@@ -702,8 +706,8 @@ class PerpetualMarketMakingTests(TestCase):
         self.assertEqual(1, len(self.strategy.active_sells))
 
         expected_status = ("\n  Markets:"
-                           "\n             Exchange         Market  Best Bid  Best Ask  Ref Price (MidPrice)"
-                           "\n    MockPerpConnector COINALPHA-HBOT      99.5     100.5                   100"
+                           "\n               Exchange         Market  Best Bid  Best Ask  Ref Price (MidPrice)"
+                           "\n    mock_perp_connector COINALPHA-HBOT      99.5     100.5                   100"
                            "\n\n  Assets:"
                            "\n                       HBOT"
                            "\n    Total Balance     50000"
@@ -730,8 +734,8 @@ class PerpetualMarketMakingTests(TestCase):
         self.clock.backtest_til(self.start_timestamp + 1)
 
         expected_status = ("\n  Markets:"
-                           "\n             Exchange         Market  Best Bid  Best Ask  Ref Price (MidPrice)"
-                           "\n    MockPerpConnector COINALPHA-HBOT      99.5     100.5                   100"
+                           "\n               Exchange         Market  Best Bid  Best Ask  Ref Price (MidPrice)"
+                           "\n    mock_perp_connector COINALPHA-HBOT      99.5     100.5                   100"
                            "\n\n  Assets:"
                            "\n                       HBOT"
                            "\n    Total Balance     50000"

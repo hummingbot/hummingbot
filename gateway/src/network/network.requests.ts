@@ -42,8 +42,8 @@ export interface StatusResponse {
   chain: string;
   chainId: number;
   rpcUrl: string;
-  currentBlockNumber: number;
   nativeCurrency: string;
+  currentBlockNumber?: number; // only reachable if connected
 }
 
 export interface TokensRequest {
