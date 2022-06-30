@@ -130,7 +130,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       // divide by 10 to convert it to Gwei
       this._gasPrice = data[EthereumConfig.ethGasStationConfig.gasLevel] / 10;
     } else {
-      const gasPrice = await this.getGasPrice();
+      const gasPrice = await this.getGasPriceFromEthereumNode();
       if (gasPrice !== null) {
         this._gasPrice = gasPrice;
       } else {
