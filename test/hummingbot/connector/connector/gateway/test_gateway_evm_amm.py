@@ -13,6 +13,8 @@ from aiounittest import async_test
 from async_timeout import timeout
 
 from bin import path_util  # noqa: F401
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM, GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
@@ -43,14 +45,17 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
+        GatewayHttpClient.__instance = None
         cls._db_path = realpath(join(__file__, "../fixtures/gateway_evm_amm_fixture.db"))
         cls._http_player = HttpPlayer(cls._db_path)
         cls._clock: Clock = Clock(ClockMode.REALTIME)
+        cls._client_config_map = ClientConfigAdapter(ClientConfigMap())
         cls._connector: GatewayEVMAMM = GatewayEVMAMM(
-            "uniswap",
-            "ethereum",
-            "ropsten",
-            "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
+            client_config_map=cls._client_config_map,
+            connector_name="uniswap",
+            chain="ethereum",
+            network="ropsten",
+            wallet_address="0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
             trading_pairs=["DAI-WETH"],
             trading_required=True
         )
@@ -64,14 +69,17 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
             )
         )
         cls._patch_stack.enter_context(cls._clock)
-        GatewayHttpClient.get_instance().base_url = "https://localhost:5000"
+        GatewayHttpClient.get_instance(client_config_map=cls._client_config_map).base_url = "https://localhost:5000"
         ev_loop.run_until_complete(cls.wait_til_ready())
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls._patch_stack.close()
+        GatewayHttpClient.__instance = None
+        super().tearDownClass()
 
     def setUp(self) -> None:
+        super().setUp()
         self._http_player.replay_timestamp_ms = None
 
     @classmethod
@@ -173,7 +181,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
                 price: Decimal,
                 amount: Decimal,
                 gas_price: Decimal) -> GatewayInFlightOrder:
-            return GatewayInFlightOrder(
+            order: GatewayInFlightOrder = GatewayInFlightOrder(
                 client_order_id=self._connector.create_market_order_id(trade_type, trading_pair),
                 exchange_order_id=tx_hash,
                 trading_pair=trading_pair,
@@ -184,6 +192,9 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
                 gas_price=gas_price,
                 creation_timestamp=self._connector.current_timestamp
             )
+            order.fee_asset = self._connector._native_currency
+            self._connector._order_tracker.start_tracking_order(order)
+            return order
         successful_records: List[GatewayInFlightOrder] = [
             create_order_record(
                 "DAI-WETH",
@@ -210,7 +221,9 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
 
         try:
             await self._connector.update_order_status(successful_records + fake_records)
-            self.assertEqual(1, len(event_logger.event_log))
+            async with timeout(10):
+                while len(event_logger.event_log) < 1:
+                    await event_logger.wait_for(OrderFilledEvent)
             filled_event: OrderFilledEvent = event_logger.event_log[0]
             self.assertEqual(
                 "0xc7287236f64484b476cfbec0fd21bc49d85f8850c8885665003928a122041e18",       # noqa: mock

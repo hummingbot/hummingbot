@@ -4,16 +4,15 @@ from typing import Awaitable, Optional
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.huobi import huobi_constants as CONSTANTS, huobi_utils
 from hummingbot.connector.exchange.huobi.huobi_exchange import HuobiExchange
-from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.connector.utils import get_new_client_order_id
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderFilledEvent,
-)
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 
 
 class HuobiExchangeTests(TestCase):
@@ -34,8 +33,10 @@ class HuobiExchangeTests(TestCase):
 
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = HuobiExchange(
+            client_config_map=self.client_config_map,
             huobi_api_key="testAPIKey",
             huobi_secret_key="testSecret",
             trading_pairs=[self.trading_pair],
