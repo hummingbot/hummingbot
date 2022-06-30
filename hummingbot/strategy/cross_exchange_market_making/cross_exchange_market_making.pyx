@@ -261,7 +261,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         for market_pair in self._market_pairs.values():
             if self.is_gateway_market(market_pair.taker):
                 if hasattr(market_pair.taker.market, "network_transaction_fee"):
-                    transaction_fee: TokenAmount = getattr(market_pair.taker.market, "network_transaction_fee")
+                    transaction_fee: TokenAmount = market_pair.taker.market.network_transaction_fee
                     if transaction_fee is not None:
                         gas_pair = f"{transaction_fee.token}-{market_pairs.maker.quote_asset}"
 
