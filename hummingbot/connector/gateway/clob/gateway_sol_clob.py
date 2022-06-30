@@ -7,20 +7,23 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
 
 from async_timeout import timeout
-from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.network_iterator import NetworkStatus
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.amm.evm_in_flight_order import EVMInFlightOrder
 from hummingbot.connector.gateway.clob import clob_constants as constant
 from hummingbot.connector.gateway.clob.clob_types import Chain
-from hummingbot.connector.gateway.clob.clob_utils import convert_trading_pairs, convert_order_side, convert_order_type, \
-    convert_trading_pair
+from hummingbot.connector.gateway.clob.clob_utils import (
+    convert_order_side,
+    convert_order_type,
+    convert_trading_pair,
+    convert_trading_pairs,
+)
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.events import (
     OrderType,
@@ -32,6 +35,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.gateway import check_transaction_exceptions
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -76,7 +80,8 @@ class GatewayCLOB(ConnectorBase):
     _poll_notifier: Optional[asyncio.Event]
     _native_currency: str
 
-    def __init__(self,
+    def __init__(
+        self,
         client_config_map: "ClientConfigAdapter",
         connector_name: str,
         chain: str,
@@ -746,7 +751,7 @@ class GatewayCLOB(ConnectorBase):
                                 client_order_id=tracked_order.client_order_id,
                                 update_timestamp=self.current_timestamp,
                                 new_state=OrderState.CANCELED
-                                )
+                            )
                             self._order_tracker.process_order_update(order_update)
 
                         elif tracked_order.is_approval_request:
@@ -822,7 +827,7 @@ class GatewayCLOB(ConnectorBase):
                     fill_base_amount=tracked_order.amount,
                     fill_quote_amount=tracked_order.amount * tracked_order.price,
                     fee=trade_fee
-                        )
+                )
 
                 self._order_tracker.process_trade_update(trade_update)
 
@@ -831,13 +836,13 @@ class GatewayCLOB(ConnectorBase):
                     trading_pair=tracked_order.trading_pair,
                     update_timestamp=self.current_timestamp,
                     new_state=OrderState.FILLED,
-                    )
+                )
                 self._order_tracker.process_order_update(order_update)
             elif tx_status in [-1, 2, 3, 0] or (tx_receipt is not None and tx_receipt.get("status") == 0):
                 self.logger().network(
                     f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
                     app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
-                        )
+                )
                 await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
 
     def get_taker_order_type(self):
