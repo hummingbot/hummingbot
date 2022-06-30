@@ -15,19 +15,7 @@ export class EvmTxStorage extends ReferenceCountingCloseable {
   }
 
   public async init(): Promise<void> {
-    logger.debug(
-      'EvmTxStorage init called, dbPath: ' +
-        this.localStorage.dbPath +
-        ', ready: ' +
-        this.localStorage.ready
-    );
-    if (!this.localStorage.ready) {
-      await this.localStorage.init();
-      logger.debug(
-        'EvmTxStorage init promise complete, dbPath: ' +
-          this.localStorage.dbPath
-      );
-    }
+    await this.localStorage.init();
   }
 
   // pass in a date, then store it as a POSIX timestamp
