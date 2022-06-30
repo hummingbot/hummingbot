@@ -4,7 +4,7 @@ import logging
 import time
 from collections import defaultdict
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
 
 import hummingbot.connector.exchange.bitmex.bitmex_utils as utils
 import hummingbot.connector.exchange.bitmex.bitmex_web_utils as web_utils
@@ -45,6 +45,9 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 bpm_logger = None
 
@@ -121,6 +124,7 @@ class BitmexExchange(ExchangeBase):
 
     def __init__(
             self,
+            client_config_map: "ClientConfigAdapter",
             bitmex_api_key: str = None,
             bitmex_api_secret: str = None,
             trading_pairs: Optional[List[str]] = None,
@@ -141,7 +145,7 @@ class BitmexExchange(ExchangeBase):
         self._rest_assistant: Optional[RESTAssistant] = None
         self._ws_assistant: Optional[WSAssistant] = None
 
-        ExchangeBase.__init__(self)
+        ExchangeBase.__init__(self, client_config_map=client_config_map)
 
         self._user_stream_tracker = BitmexUserStreamTracker(
             auth=self._auth,
