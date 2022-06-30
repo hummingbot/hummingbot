@@ -4,7 +4,9 @@ from unittest.mock import MagicMock, patch
 
 from prompt_toolkit.widgets import Button
 
-from hummingbot.client.config.config_helpers import read_system_configs_from_yml
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
+from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.ui.custom_widgets import CustomTextArea
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
@@ -24,10 +26,17 @@ class HummingbotCLITest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
 
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
         tabs = {self.command_name: CommandTab(self.command_name, None, None, None, MagicMock())}
         self.mock_hb = MagicMock()
-        self.app = HummingbotCLI(None, None, None, tabs)
+        self.app = HummingbotCLI(
+            client_config_map=self.client_config_map,
+            input_handler=None,
+            bindings=None,
+            completer=None,
+            command_tabs=tabs)
         self.app.app = MagicMock()
+        self.hb = HummingbotApplication()
 
     def test_handle_tab_command_on_close_argument(self):
         tab = self.app.command_tabs[self.command_name]
@@ -110,9 +119,8 @@ class HummingbotCLITest(unittest.TestCase):
         self.assertFalse(tab1.is_selected)
         self.assertTrue(tab2.is_selected)
 
-    @patch("hummingbot.client.ui.hummingbot_cli.global_config_map")
     @patch("hummingbot.client.ui.hummingbot_cli.init_logging")
-    def test_did_start_ui(self, mock_init_logging: MagicMock, mock_config_map: MagicMock):
+    def test_did_start_ui(self, mock_init_logging: MagicMock):
         class UIStartHandler(EventListener):
             def __init__(self):
                 super().__init__()
@@ -125,6 +133,5 @@ class HummingbotCLITest(unittest.TestCase):
         self.app.add_listener(HummingbotUIEvent.Start, handler)
         self.app.did_start_ui()
 
-        mock_config_map.get.assert_called()
         mock_init_logging.assert_called()
         handler.mock.assert_called()

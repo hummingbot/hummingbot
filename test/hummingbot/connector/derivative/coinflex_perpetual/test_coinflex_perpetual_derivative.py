@@ -13,6 +13,8 @@ from bidict import bidict
 
 import hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_web_utils as web_utils
 import hummingbot.connector.derivative.coinflex_perpetual.constants as CONSTANTS
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.coinflex_perpetual.coinflex_perpetual_api_order_book_data_source import (
     CoinflexPerpetualAPIOrderBookDataSource,
 )
@@ -52,8 +54,10 @@ class CoinflexPerpetualDerivativeUnitTest(unittest.TestCase):
         self.ws_sent_messages = []
         self.ws_incoming_messages = asyncio.Queue()
         self.resume_test_event = asyncio.Event()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = CoinflexPerpetualDerivative(
+            client_config_map=self.client_config_map,
             coinflex_perpetual_api_key="testAPIKey",
             coinflex_perpetual_api_secret="testSecret",
             trading_pairs=[self.trading_pair],
