@@ -88,6 +88,9 @@ coverage.xml
 /gateway_conf
 # except the examples, template and migration files in /gateway/conf/
 !/gateway/conf/*-example.yml
+# backuf configuration files created by the hummingbot config migration
+/conf_backup/*
+/conf_backup
 # these are database files create by the level library
 /**/*.level
 /gateway/db/*
