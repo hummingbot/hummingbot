@@ -35,7 +35,15 @@ class HummingbotCompleter(Completer):
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
         self._exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_connector_settings().keys()), ignore_case=True)
         self._spot_exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
-        self._exchange_amm_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(AllConnectorSettings.get_gateway_evm_amm_connector_names())), ignore_case=True)
+        self._exchange_amm_completer = WordCompleter(
+            sorted(
+                AllConnectorSettings.get_exchange_names().union(
+                    AllConnectorSettings.get_gateway_evm_amm_connector_names()
+                ).union(
+                    AllConnectorSettings.get_gateway_clob_connector_names()
+                )
+            ), ignore_case=True
+        )
         self._exchange_clob_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(
             AllConnectorSettings.get_gateway_clob_connector_names())), ignore_case=True)
         self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"], ignore_case=True)
@@ -47,11 +55,13 @@ class HummingbotCompleter(Completer):
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
         self._gateway_completer = WordCompleter(["create", "config", "connect", "connector-tokens", "generate-certs", "status", "test-connection", "start", "stop"], ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
+        # TODO fix!!!
         self._gateway_connector_tokens_completer = WordCompleter(
-            sorted([
-                *AllConnectorSettings.get_gateway_evm_amm_connector_names(),
-                *AllConnectorSettings.get_gateway_clob_connector_names()
-            ]), ignore_case=True
+            sorted(
+                AllConnectorSettings.get_gateway_evm_amm_connector_names().union(
+                    AllConnectorSettings.get_gateway_clob_connector_names()
+                )
+            ), ignore_case=True
         )
         self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
@@ -138,10 +148,10 @@ class HummingbotCompleter(Completer):
         return text_before_cursor.startswith("connect ")
 
     def _complete_exchange_amm_connectors(self, document: Document) -> bool:
-        return "(Exchange/AMM)" in self.prompt_text
+        return "(Exchange/AMM/CLOB)" in self.prompt_text
 
     def _complete_exchange_clob_connectors(self, document: Document) -> bool:
-        return "(Exchange/CLOB)" in self.prompt_text
+        return "(Exchange/AMM/CLOB)" in self.prompt_text
 
     def _complete_spot_exchanges(self, document: Document) -> bool:
         return "spot" in self.prompt_text

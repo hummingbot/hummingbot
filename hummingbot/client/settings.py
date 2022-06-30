@@ -61,7 +61,7 @@ class ConnectorType(Enum):
     """
 
     EVM_AMM = "EVM_AMM"
-    CLOB = "CLOB"
+    SOL_CLOB = "SOL_CLOB"
     Connector = "connector"
     Exchange = "exchange"
     Derivative = "derivative"
@@ -171,7 +171,12 @@ class ConnectorSetting(NamedTuple):
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
         if self.uses_gateway_generic_connector():
-            return f"gateway_{self.type.name}"
+            if ConnectorType.EVM_AMM == self.type:
+                return f"gateway.amm.gateway_{self.type.name.lower()}"
+            elif ConnectorType.SOL_CLOB == self.type:
+                return f"gateway.clob.gateway_{self.type.name.lower()}"
+            else:
+                raise ValueError(f"Unsupported connector type: {self.type}")
         return f"{self.base_name()}_{self.type.name.lower()}"
 
     def module_path(self) -> str:
@@ -183,9 +188,13 @@ class ConnectorSetting(NamedTuple):
     def class_name(self) -> str:
         # return connector class name, e.g. BinanceExchange
         if self.uses_gateway_generic_connector():
-            splited_name = self.module_name().split('_')
-            splited_name[0] = splited_name[0].capitalize()
-            return "".join(splited_name)
+            # TODO change to support more evm and clob connectors and create a enum to avoid strings.
+            if ConnectorType.EVM_AMM == self.type:
+                return "GatewayEVMAMM"
+            elif ConnectorType.SOL_CLOB == self.type:
+                return "GatewaySOLCLOB"
+            else:
+                raise ValueError(f"Unsupported connector type: {self.type}")
         return "".join([o.capitalize() for o in self.module_name().split("_")])
 
     def conn_init_parameters(self, api_keys: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -268,6 +277,8 @@ class AllConnectorSettings:
             if f.is_dir()
         ]
         for type_dir in type_dirs:
+            if type_dir.name == 'gateway':
+                continue
             connector_dirs: List[DirEntry] = [
                 cast(DirEntry, f) for f in scandir(type_dir.path)
                 if f.is_dir() and exists(join(f.path, "__init__.py"))
@@ -436,7 +447,7 @@ class AllConnectorSettings:
 
     @classmethod
     def get_gateway_clob_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.CLOB}
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.SOL_CLOB}
 
     @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:
