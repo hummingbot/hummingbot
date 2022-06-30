@@ -170,11 +170,11 @@
       "logoURI": "https://d1xrz6ki9z98vb.cloudfront.net/venomswap/tokens/1WISE.png"
     },
     {
+      "chainId": 1666600000,
       "name": "Wrapped ONE",
       "address": "0xcF664087a5bB0237a0BAd6742852ec6c8d69A27a",
       "symbol": "WONE",
       "decimals": 18,
-      "chainId": 1666600000,
       "logoURI": "https://raw.githubusercontent.com/sushiswap/icons/master/token/one.jpg"
     },
     {
@@ -314,32 +314,32 @@
       "logoURI": "https://raw.githubusercontent.com/sushiswap/assets/master/blockchains/harmony/assets/0x01A4b054110d57069c1658AFBC46730529A3E326/logo.png"
     },
     {
-      "address": "0x0D625029E21540aBdfAFa3BFC6FD44fB4e0A66d0",
       "chainId": 1666600000,
+      "address": "0x0D625029E21540aBdfAFa3BFC6FD44fB4e0A66d0",
       "name": "ColonyToken",
       "symbol": "CLNY",
       "decimals": 18,
       "logoURI": "https://raw.githubusercontent.com/sushiswap/assets/master/blockchains/harmony/assets/0x0D625029E21540aBdfAFa3BFC6FD44fB4e0A66d0/logo.png"
     },
     {
-      "address": "0x10010078a54396F62c96dF8532dc2B4847d47ED3",
       "chainId": 1666600000,
+      "address": "0x10010078a54396F62c96dF8532dc2B4847d47ED3",
       "name": "Hundred Finance",
       "symbol": "HND",
       "decimals": 18,
       "logoURI": "https://raw.githubusercontent.com/sushiswap/assets/master/blockchains/harmony/assets/0x10010078a54396F62c96dF8532dc2B4847d47ED3/logo.png"
     },
     {
-      "address": "0xBbD83eF0c9D347C85e60F1b5D2c58796dBE1bA0d",
       "chainId": 1666600000,
+      "address": "0xBbD83eF0c9D347C85e60F1b5D2c58796dBE1bA0d",
       "name": "Cheese",
       "symbol": "CHEEZ",
       "decimals": 9,
       "logoURI": "https://raw.githubusercontent.com/sushiswap/assets/master/blockchains/harmony/assets/0xBbD83eF0c9D347C85e60F1b5D2c58796dBE1bA0d/logo.png"
     },
     {
-      "address": "0x22D62b19b7039333ad773b7185BB61294F3AdC19",
       "chainId": 1666600000,
+      "address": "0x22D62b19b7039333ad773b7185BB61294F3AdC19",
       "name": "Staked One",
       "symbol": "stONE",
       "decimals": 18,

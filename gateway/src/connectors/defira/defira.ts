@@ -30,7 +30,6 @@ import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 export class Defira implements Uniswapish {
   private static _instances: { [name: string]: Defira };
   private harmony: Harmony;
-  private _chain: string;
   private _router: string;
   private _factory: string | null;
   private _routerAbi: ContractInterface;
@@ -41,8 +40,7 @@ export class Defira implements Uniswapish {
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
-  private constructor(chain: string, network: string) {
-    this._chain = chain;
+  private constructor(network: string) {
     const config = DefiraConfig.config;
     this.harmony = Harmony.getInstance(network);
     this.chainId = this.harmony.chainId;
@@ -59,7 +57,7 @@ export class Defira implements Uniswapish {
       Defira._instances = {};
     }
     if (!(chain + network in Defira._instances)) {
-      Defira._instances[chain + network] = new Defira(chain, network);
+      Defira._instances[chain + network] = new Defira(network);
     }
 
     return Defira._instances[chain + network];
@@ -76,14 +74,14 @@ export class Defira implements Uniswapish {
   }
 
   public async init() {
-    if (this._chain == 'harmony' && !this.harmony.ready())
+    if (!this.harmony.ready())
       throw new InitializationError(
         SERVICE_UNITIALIZED_ERROR_MESSAGE('HMY'),
         SERVICE_UNITIALIZED_ERROR_CODE
       );
     for (const token of this.harmony.storedTokenList) {
       this.tokenList[token.address] = new Token(
-        this.chainId,
+        token.chainId || this.chainId,
         token.address,
         token.decimals,
         token.symbol,

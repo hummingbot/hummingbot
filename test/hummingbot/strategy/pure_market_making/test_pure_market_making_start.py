@@ -1,13 +1,13 @@
 import unittest.mock
 from decimal import Decimal
+from test.hummingbot.strategy import assign_config_default
 
 import hummingbot.strategy.pure_market_making.start as strategy_start
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.data_type.common import PriceType
-from hummingbot.strategy.pure_market_making.pure_market_making_config_map import (
-    pure_market_making_config_map as c_map
-)
-from test.hummingbot.strategy import assign_config_default
+from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map as c_map
 
 
 class PureMarketMakingStartTest(unittest.TestCase):
@@ -15,7 +15,8 @@ class PureMarketMakingStartTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.strategy = None
-        self.markets = {"binance": ExchangeBase()}
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.markets = {"binance": ExchangeBase(client_config_map=self.client_config_map)}
         self.notifications = []
         self.log_errors = []
         assign_config_default(c_map)
@@ -63,7 +64,7 @@ class PureMarketMakingStartTest(unittest.TestCase):
     def _initialize_markets(self, market_names):
         pass
 
-    def _notify(self, message):
+    def notify(self, message):
         self.notifications.append(message)
 
     def logger(self):

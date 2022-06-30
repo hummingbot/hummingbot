@@ -15,8 +15,8 @@
     "dev:debug": "nodemon --inspect src/index.ts",
     "start": "nodemon dist/src/index.js",
     "copy-files": "copyfiles -a 'src/**/schema/*.json' 'src/templates/*.yml' 'test/services/data/**/*.*' dist",
-    "test:unit": "jest --verbose --forceExit ./test/",
-    "test:cov": "jest -w 2 --coverage --forceExit ./test/",
+    "test:unit": "NODE_OPTIONS=--max_old_space_size=4096 jest --verbose --forceExit ./test/",
+    "test:cov": "NODE_OPTIONS=--max_old_space_size=4096 jest -w 1 --coverage --forceExit ./test/",
     "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts"
   },
   "dependencies": {

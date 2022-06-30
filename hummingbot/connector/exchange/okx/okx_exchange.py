@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -22,12 +22,16 @@ from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 
 class OkxExchange(ExchangePyBase):
 
     web_utils = web_utils
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  okx_api_key: str,
                  okx_secret_key: str,
                  okx_passphrase: str,
@@ -39,7 +43,7 @@ class OkxExchange(ExchangePyBase):
         self.okx_passphrase = okx_passphrase
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        super().__init__()
+        super().__init__(client_config_map)
 
     @property
     def authenticator(self):
@@ -88,6 +92,10 @@ class OkxExchange(ExchangePyBase):
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
         return False
+
+    @property
+    def is_trading_required(self) -> bool:
+        return self._trading_required
 
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]

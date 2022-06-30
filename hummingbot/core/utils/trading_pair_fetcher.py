@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.settings import AllConnectorSettings, ConnectorSetting
 from hummingbot.logger import HummingbotLogger
 
@@ -18,15 +19,16 @@ class TradingPairFetcher:
         return cls._tpf_logger
 
     @classmethod
-    def get_instance(cls) -> "TradingPairFetcher":
+    def get_instance(cls, client_config_map: Optional["ClientConfigAdapter"] = None) -> "TradingPairFetcher":
         if cls._sf_shared_instance is None:
-            cls._sf_shared_instance = TradingPairFetcher()
+            client_config_map = client_config_map or cls._get_client_config_map()
+            cls._sf_shared_instance = TradingPairFetcher(client_config_map)
         return cls._sf_shared_instance
 
-    def __init__(self):
+    def __init__(self, client_config_map: ClientConfigAdapter):
         self.ready = False
         self.trading_pairs: Dict[str, Any] = {}
-        self._fetch_task = safe_ensure_future(self.fetch_all())
+        self._fetch_task = safe_ensure_future(self.fetch_all(client_config_map))
 
     def _fetch_pairs_from_connector_setting(
             self,
@@ -41,7 +43,7 @@ class TradingPairFetcher:
         else:
             safe_ensure_future(self.call_fetch_pairs(connector.all_trading_pairs(), connector_name))
 
-    async def fetch_all(self):
+    async def fetch_all(self, client_config_map: ClientConfigAdapter):
         connector_settings = self._all_connector_settings()
         for conn_setting in connector_settings.values():
             # XXX(martin_kou): Some connectors, e.g. uniswap v3, aren't completed yet. Ignore if you can't find the
@@ -75,3 +77,10 @@ class TradingPairFetcher:
     def _all_connector_settings(self) -> Dict[str, ConnectorSetting]:
         # Method created to enabling patching in unit tests
         return AllConnectorSettings.get_connector_settings()
+
+    @staticmethod
+    def _get_client_config_map() -> "ClientConfigAdapter":
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+
+        client_config_map = HummingbotApplication.main_application().client_config_map
+        return client_config_map
