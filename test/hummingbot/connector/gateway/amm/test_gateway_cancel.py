@@ -12,6 +12,9 @@ from aiohttp import ClientSession
 from aiounittest import async_test
 from async_timeout import timeout
 
+from bin import path_util  # noqa: F401
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.gateway.amm.evm_in_flight_order import EVMInFlightOrder
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.core.clock import Clock, ClockMode
@@ -48,8 +51,15 @@ class GatewayCancelUnitTest(unittest.TestCase):
         cls._db_path = realpath(join(__file__, "../fixtures/gateway_cancel_fixture.db"))
         cls._http_player = HttpPlayer(cls._db_path)
         cls._clock: Clock = Clock(ClockMode.REALTIME)
+        cls._client_config_map = ClientConfigAdapter(ClientConfigMap())
         cls._connector: GatewayEVMAMM = GatewayEVMAMM(
-            "uniswap", "ethereum", NETWORK, WALLET_ADDRESS, trading_pairs=[TRADING_PAIR], trading_required=True
+            client_config_map=cls._client_config_map,
+            connector_name="uniswap",
+            chain="ethereum",
+            network=NETWORK,
+            wallet_address=WALLET_ADDRESS,
+            trading_pairs=[TRADING_PAIR],
+            trading_required=True
         )
         cls._clock.add_iterator(cls._connector)
         cls._patch_stack = ExitStack()

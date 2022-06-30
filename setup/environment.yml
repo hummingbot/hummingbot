@@ -17,6 +17,7 @@ dependencies:
   - pandas=1.2.1
   - pip=21.1.2
   - prompt_toolkit=3.0.20
+  - pydantic=1.9
   - pytables=3.6.1
   - python=3.8.2
   - python-dateutil=2.8.1

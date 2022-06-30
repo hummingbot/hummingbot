@@ -12,7 +12,7 @@ from hummingbot.client.settings import AllConnectorSettings, required_exchanges,
 
 
 def exchange_on_validated(value: str) -> None:
-    required_exchanges.append(value)
+    required_exchanges.add(value)
 
 
 def spot_market_validator(value: str) -> None:
