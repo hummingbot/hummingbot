@@ -33,7 +33,7 @@ export namespace SerumConfig {
         ),
       };
     },
-    tradingTypes: ['exchange'],
+    tradingTypes: ['SOL_CLOB'],
     markets: {
       url: ConfigManagerV2.getInstance().get(`serum.markets.url`),
       blacklist: ConfigManagerV2.getInstance().get(`serum.markets.blacklist`),

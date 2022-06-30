@@ -46,8 +46,7 @@ if TYPE_CHECKING:
 
 
 # TODO remove references to the EVM AMM strategy and class.
-# TODO add auto create methods for tokens!!!
-class GatewayCLOB(ConnectorBase):
+class GatewaySOLCLOB(ConnectorBase):
     """
     Defines basic functions common to connectors that interact with the Gateway.
     """
@@ -152,7 +151,7 @@ class GatewayCLOB(ConnectorBase):
     # Added for compatibility
     @property
     def connector_name(self):
-        return self.connector_name
+        return self._connector_name
 
     async def all_trading_pairs(self, chain: str, network: str) -> List[str]:
         """
@@ -167,7 +166,7 @@ class GatewayCLOB(ConnectorBase):
 
             return trading_pairs
         except (Exception,):
-            GatewayCLOB.logger().warning(f"""No trading pairs found for {chain}/{network}.""")
+            GatewaySOLCLOB.logger().warning(f"""No trading pairs found for {chain}/{network}.""")
 
             return []
 
@@ -178,7 +177,7 @@ class GatewayCLOB(ConnectorBase):
     # Added for compatibility
     @staticmethod
     def is_amm_order(in_flight_order: CLOBInFlightOrder) -> bool:
-        return GatewayCLOB.is_order(in_flight_order)
+        return GatewaySOLCLOB.is_order(in_flight_order)
 
     @staticmethod
     def is_approval_order(in_flight_order: CLOBInFlightOrder) -> bool:
@@ -999,13 +998,12 @@ class GatewayCLOB(ConnectorBase):
     def get_taker_order_type():
         return OrderType.LIMIT
 
-    def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
-        # TODO check if the gateway call will be awaited correctly!!!
+    async def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
         return Decimal((await self._get_gateway_instance().clob_get_markets(
             self.chain, self.network, self.connector, name=convert_trading_pair(trading_pair)
         ))['tickSize'])
 
-    def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
+    async def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
         # TODO check if the gateway call will be awaited correctly!!!
         return Decimal((await self._get_gateway_instance().clob_get_markets(
             self.chain, self.network, self.connector, name=convert_trading_pair(trading_pair)
