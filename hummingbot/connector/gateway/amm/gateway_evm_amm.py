@@ -145,13 +145,12 @@ class GatewayEVMAMM(ConnectorBase):
     def address(self):
         return self._wallet_address
 
-    @staticmethod
-    async def all_trading_pairs(chain: str, network: str) -> List[str]:
+    async def all_trading_pairs(self, chain: str, network: str) -> List[str]:
         """
         Calls the tokens endpoint on Gateway.
         """
         try:
-            tokens = await GatewayHttpClient.get_instance().get_tokens(chain, network)
+            tokens = await self._get_gateway_instance().get_tokens(chain, network)
             token_symbols = [t["symbol"] for t in tokens["tokens"]]
             trading_pairs = []
             for base, quote in it.permutations(token_symbols, 2):
@@ -849,7 +848,7 @@ class GatewayEVMAMM(ConnectorBase):
             self._get_chain_info_task = None
         if self._get_gas_estimate_task is not None:
             self._get_gas_estimate_task.cancel()
-            self._get_chain_info_task = None
+            self._get_gas_estimate_task = None
 
     async def check_network(self) -> NetworkStatus:
         try:
