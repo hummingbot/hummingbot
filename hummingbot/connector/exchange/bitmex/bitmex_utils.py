@@ -1,4 +1,5 @@
 from collections import namedtuple
+
 from pydantic import Field, SecretStr
 
 import hummingbot.connector.exchange.bitmex.bitmex_web_utils as web_utils
