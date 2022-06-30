@@ -1,17 +1,11 @@
 import { Level } from 'level';
 import { ReferenceCountingCloseable } from './refcounting-closeable';
-import { logger } from './logger';
 
 export class LocalStorage extends ReferenceCountingCloseable {
   readonly #dbPath: string;
   #db: Level<string, any>;
 
-  private _ready: boolean = false;
-  private _initializing: boolean = false;
-  private _initPromise: Promise<void> = Promise.resolve();
-
   protected constructor(dbPath: string) {
-    logger.debug('LocalStorage constructor called, dbPath: ' + dbPath);
     super(dbPath);
     this.#dbPath = dbPath;
     this.#db = new Level(dbPath, {
@@ -20,29 +14,8 @@ export class LocalStorage extends ReferenceCountingCloseable {
     });
   }
 
-  async init(): Promise<void> {
-    logger.debug(
-      'LocalStorage init called, dbPath: ' +
-        this.#dbPath +
-        ' ready: ' +
-        this.ready
-    );
-    if (!this.ready && !this._initializing) {
-      this._initializing = true;
-
-      this._initPromise = this.#db.open().then(() => {
-        this._ready = true;
-        this._initializing = false;
-        logger.debug(
-          'LocalStorage init promise complete, dbPath: ' + this.#dbPath
-        );
-      });
-    }
-    return this._initPromise;
-  }
-
-  get ready(): boolean {
-    return this._ready;
+  public async init(): Promise<void> {
+    await this.#db.open({ passive: true });
   }
 
   get dbPath(): string {
@@ -106,7 +79,6 @@ export class LocalStorage extends ReferenceCountingCloseable {
   public async close(handle: string): Promise<void> {
     await super.close(handle);
     if (this.refCount < 1) {
-      logger.debug(handle + ': LocalStorage is closing');
       // XXX(martin_kou): `await #db.close()` would freeze. So this is used
       // instead.
       this.#db.close((_) => true);

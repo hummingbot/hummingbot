@@ -23,25 +23,12 @@ export class NonceLocalStorage extends ReferenceCountingCloseable {
   private readonly _localStorage: LocalStorage;
 
   protected constructor(dbPath: string) {
-    logger.debug('NonceLocalStorage constructor called, dbPath: ' + dbPath);
     super(dbPath);
     this._localStorage = LocalStorage.getInstance(dbPath, this.handle);
   }
 
   public async init(): Promise<void> {
-    logger.debug(
-      'NonceLocalStorage init called, dbPath: ' +
-        this._localStorage.dbPath +
-        ', ready: ' +
-        this._localStorage.ready
-    );
-    if (!this._localStorage.ready) {
-      await this._localStorage.init();
-      logger.debug(
-        'NonceLocalStorage init promise complete, dbPath: ' +
-          this._localStorage.dbPath
-      );
-    }
+    await this._localStorage.init();
   }
 
   public async saveCurrentNonce(
@@ -134,7 +121,6 @@ export class NonceLocalStorage extends ReferenceCountingCloseable {
   public async close(handle: string): Promise<void> {
     await super.close(handle);
     if (this.refCount < 1) {
-      logger.debug(handle + ': NonceLocalStorage is closing');
       await this._localStorage.close(this.handle);
     }
   }
@@ -491,7 +477,6 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
   async close(ownerHandle: string): Promise<void> {
     await super.close(ownerHandle);
     if (this.refCount < 1) {
-      logger.debug(ownerHandle + ': EVMNonceManager is closing');
       await this.#db.close(this.handle);
     }
   }
