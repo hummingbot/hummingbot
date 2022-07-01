@@ -142,20 +142,21 @@ class StartCommand(GatewayChainApiManager):
                     wallet_df: pd.DataFrame = pd.DataFrame(data=data, columns=["", f"{connector} configuration"])
                     self.notify(wallet_df.to_string(index=False))
 
-                    self.app.clear_input()
-                    self.placeholder_mode = True
-                    use_configuration = await self.app.prompt(prompt="Do you want to continue? (Yes/No) >>> ")
-                    self.placeholder_mode = False
-                    self.app.change_prompt(prompt=">>> ")
+                    if not self._is_quickstart:
+                        self.app.clear_input()
+                        self.placeholder_mode = True
+                        use_configuration = await self.app.prompt(prompt="Do you want to continue? (Yes/No) >>> ")
+                        self.placeholder_mode = False
+                        self.app.change_prompt(prompt=">>> ")
 
-                    if use_configuration in ["N", "n", "No", "no"]:
-                        self._in_start_check = False
-                        return
+                        if use_configuration in ["N", "n", "No", "no"]:
+                            self._in_start_check = False
+                            return
 
-                    if use_configuration not in ["Y", "y", "Yes", "yes"]:
-                        self.notify("Invalid input. Please execute the `start` command again.")
-                        self._in_start_check = False
-                        return
+                        if use_configuration not in ["Y", "y", "Yes", "yes"]:
+                            self.notify("Invalid input. Please execute the `start` command again.")
+                            self._in_start_check = False
+                            return
 
             # Display custom warning message for specific connectors
             elif warning_msg is not None:
