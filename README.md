@@ -2,7 +2,7 @@
 
 ----
 [![Discord](https://img.shields.io/discord/530578568154054663.svg?color=768AD4&label=discord&logo=https%3A%2F%2Fdiscordapp.com%2Fassets%2F8c9701b98ad4372b58f13fd9f65f966e.svg)](https://discord.hummingbot.io/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-informational.svg)](https://github.com/CoinAlpha/hummingbot/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-informational.svg)](https://github.com/hummingbot/hummingbot/blob/master/LICENSE)
 [![Twitter Follow](https://img.shields.io/twitter/follow/hummingbot_io.svg?style=social&label=hummingbot)](https://twitter.com/hummingbot_io)
 
 Hummingbot is an open-source project that integrates cryptocurrency trading on both **centralized exchanges** and **decentralized protocols**. It allows users to run a client that executes customized, automated trading strategies for cryptocurrencies.
@@ -68,7 +68,8 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/balancer-logo.jpg" alt="Balancer" width="90" /> | balancer | [Balancer](https://balancer.finance/) | * | [SDK](https://docs.balancer.finance/) | :white_check_mark: |
 | <img src="assets/celo-logo.jpg" alt="Celo" width="90" /> | celo | [Celo](https://celo.org/) | * | [SDK](https://celo.org/developers) | :warning: |
 | <img src="assets/perpetual_protocol-logo.jpg" alt="Perpetual Protocol" width="90" /> | perpetual_finance | [Perpetual Protocol](https://perp.fi/) | * | [SDK](https://docs.perp.fi/) | :warning: |
-| <img src="assets/terra-logo.jpg" alt="Terra" width="90" /> | terra | [Terra](https://terra.money/) | * | [SDK](https://docs.terra.money/) | :warning: |
+| <img src="assets/sushiswap-logo.jpg" alt="Sushiswap" width="90" /> | sushiswap | [Sushiswap](https://sushi.com/) | 2 | [SDK](https://docs.sushi.com/docs/Developers/Packages/Core%20SDK/) | :warning: |
+| <img src="assets/traderjoe-logo.jpg" alt="Traderjoe" width="90" /> | traderjoe | [Traderjoe](https://traderjoexyz.com/home#/) | 2 | [SDK](https://github.com/traderjoe-xyz/joe-sdk/) | :warning: |
 | <img src="assets/uniswap-logo.jpg" alt="Uniswap" width="90" /> | uniswap | [Uniswap](https://uniswap.org/) | 2 | [SDK](https://docs.uniswap.org/sdk/2.0.0/) | :warning: |
 | <img src="assets/uniswap_v3-logo.jpg" alt="Uniswap v3" width="90" /> | uniswap v3 | [Uniswap v3](https://uniswap.org/) | 3 | [SDK](https://docs.uniswap.org/sdk/introduction) | :warning: |
 
@@ -81,7 +82,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 - [Website](https://hummingbot.io)
 - [Documentation](https://docs.hummingbot.io)
 - [FAQs](https://docs.hummingbot.io/about/faq/)
-- [Github Chinese](https://github.com/CoinAlpha/hummingbot_chinese)
+- [Github Chinese](https://github.com/hummingbot/hummingbot_chinese)
 
 ### Install Hummingbot
 
@@ -93,7 +94,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 - Email us at support@hummingbot.io
 
 ### Chat with other traders
-- Join our community on [Discord](https://discord.coinalpha.com) or [Reddit](https://www.reddit.com/r/Hummingbot/)
+- Join our community on [Discord](https://discord.hummingbot.com) or [Reddit](https://www.reddit.com/r/Hummingbot/)
 - Follow Hummingbot on [Twitter](https://twitter.com/hummingbot_io)
 
 ## Contributions
