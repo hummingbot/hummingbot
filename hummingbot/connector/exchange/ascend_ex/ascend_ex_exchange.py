@@ -914,11 +914,23 @@ class AscendExExchange(ExchangeBase):
         :param order_type: The order type
         :param price: The order price
         """
+        # For MarketEvents to be emitted, the order needs to be already tracked
+        self.start_tracking_order(
+            order_id=order_id,
+            trading_pair=trading_pair,
+            trade_type=trade_type,
+            price=price,
+            amount=amount,
+            order_type=order_type,
+        )
+
         if not order_type.is_limit_type():
+            self._update_order_after_failure(order_id, trading_pair)
             raise Exception(f"Unsupported order type: {order_type}")
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         if amount <= s_decimal_0:
+            self._update_order_after_failure(order_id, trading_pair)
             raise ValueError("Order amount must be greater than zero.")
         try:
             timestamp = ascend_ex_utils.get_ms_timestamp()
@@ -936,14 +948,6 @@ class AscendExExchange(ExchangeBase):
                 "side": "buy" if trade_type == TradeType.BUY else "sell",
                 "respInst": "ACCEPT",
             }
-            self.start_tracking_order(
-                order_id=order_id,
-                trading_pair=trading_pair,
-                trade_type=trade_type,
-                price=price,
-                amount=amount,
-                order_type=order_type,
-            )
 
             try:
                 resp = await self._api_request(
@@ -988,7 +992,6 @@ class AscendExExchange(ExchangeBase):
                 self._in_flight_order_tracker.process_order_update(order_update)
             except IOError:
                 self.logger().exception(f"The request to create the order {order_id} failed")
-                self.stop_tracking_order(order_id)
                 self._update_order_after_failure(order_id, trading_pair)
         except asyncio.CancelledError:
             raise
