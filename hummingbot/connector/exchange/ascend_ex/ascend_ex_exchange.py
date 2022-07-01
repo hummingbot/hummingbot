@@ -8,14 +8,13 @@ from enum import Enum
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS, ascend_ex_utils
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_tracker import AscendExOrderBookTracker
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker import AscendExUserStreamTracker
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import build_api_factory
-from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -71,7 +70,7 @@ class AscendExTradingRule(TradingRule):
         self.commission_reserve_rate = commission_reserve_rate
 
 
-class AscendExExchange(ExchangePyBase):
+class AscendExExchange(ExchangeBase):
     """
     AscendExExchange connects with AscendEx exchange and provides order book pricing, user account tracking and
     trading functionality.
@@ -110,12 +109,12 @@ class AscendExExchange(ExchangePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._ascend_ex_auth = AscendExAuth(ascend_ex_api_key, ascend_ex_secret_key)
-        self._api_factory = build_api_factory(auth=self._ascend_ex_auth)
-        self._rest_assistant = None
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._order_book_tracker = AscendExOrderBookTracker(
+        self._api_factory = build_api_factory(throttler=self._throttler, auth=self._ascend_ex_auth)
+        self._rest_assistant = None
+        self._set_order_book_tracker(AscendExOrderBookTracker(
             api_factory=self._api_factory, throttler=self._throttler, trading_pairs=self._trading_pairs
-        )
+        ))
         self._user_stream_tracker = AscendExUserStreamTracker(
             api_factory=self._api_factory,
             throttler=self._throttler,
@@ -143,7 +142,7 @@ class AscendExExchange(ExchangePyBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, AscendExTradingRule]:
@@ -159,7 +158,7 @@ class AscendExExchange(ExchangePyBase):
         A dictionary of statuses of various connector's components.
         """
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized": (
@@ -228,7 +227,7 @@ class AscendExExchange(ExchangePyBase):
         - The polling loop to update order status and balance status using REST API (backup for main update process)
         - The background task to process the events received through the user stream tracker (websocket connection)
         """
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         await self._update_account_data()
 
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
@@ -246,7 +245,7 @@ class AscendExExchange(ExchangePyBase):
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
 
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -296,9 +295,9 @@ class AscendExExchange(ExchangePyBase):
         return Decimal(trading_rule.min_base_amount_increment)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def buy(
             self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN,
@@ -678,7 +677,7 @@ class AscendExExchange(ExchangePyBase):
                             order_data["cfq"],
                             order_data["err"],
                             order_data["fa"],
-                            order_data["t"],
+                            int(order_data["t"]) * 1e-3,
                             order_data["orderId"],
                             order_data["sn"],
                             order_data["sd"],
@@ -1137,6 +1136,18 @@ class AscendExExchange(ExchangePyBase):
                 raise IOError(f"{url} API call failed, response: {parsed_response}")
 
         return parsed_response
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await AscendExAPIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await AscendExAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            api_factory=self._api_factory,
+            throttler=self._throttler
+        )
 
     async def _get_rest_assistant(self) -> RESTAssistant:
         if self._rest_assistant is None:

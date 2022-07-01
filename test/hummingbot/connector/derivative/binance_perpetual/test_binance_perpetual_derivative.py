@@ -13,20 +13,17 @@ from bidict import bidict
 
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_utils as web_utils
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import \
-    BinancePerpetualAPIOrderBookDataSource
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import \
-    BinancePerpetualDerivative
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
+    BinancePerpetualAPIOrderBookDataSource,
+)
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
-from hummingbot.core.data_type.in_flight_order import OrderState, InFlightOrder
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderFilledEvent,
-)
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 
 
 class BinancePerpetualDerivativeUnitTest(unittest.TestCase):

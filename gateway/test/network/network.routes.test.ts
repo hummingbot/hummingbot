@@ -4,22 +4,38 @@ import { patch, unpatch } from '../services/patch';
 import { Ethereum } from '../../src/chains/ethereum/ethereum';
 import { Harmony } from '../../src/chains/harmony/harmony';
 import { Avalanche } from '../../src/chains/avalanche/avalanche';
-
+import { patchEVMNonceManager } from '../evm.nonce.mock';
 let eth: Ethereum;
 let avalanche: Avalanche;
 let harmony: Harmony;
+
 beforeAll(async () => {
   eth = Ethereum.getInstance('kovan');
+  patchEVMNonceManager(eth.nonceManager);
   await eth.init();
 
   avalanche = Avalanche.getInstance('fuji');
+  patchEVMNonceManager(avalanche.nonceManager);
   await avalanche.init();
 
   harmony = Harmony.getInstance('testnet');
   await harmony.init();
 });
 
-afterEach(() => unpatch());
+beforeEach(() => {
+  patchEVMNonceManager(eth.nonceManager);
+  patchEVMNonceManager(avalanche.nonceManager);
+});
+
+afterEach(async () => {
+  unpatch();
+});
+
+afterAll(async () => {
+  await eth.close();
+  await avalanche.close();
+  await harmony.close();
+});
 
 describe('GET /network/status', () => {
   it('should return 200 when asking for harmony network status', async () => {

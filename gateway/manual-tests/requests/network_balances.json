@@ -1,6 +1,6 @@
 {
-  "chain": "ethereum",
-  "network": "kovan",
-  "address": "$ETH_ADDRESS",
-  "tokenSymbols": ["ETH", "WETH", "DAI"]
+  "chain": "avalanche",
+  "network": "avalanche",
+  "address": "$AVALANCHE_ADDRESS",
+  "tokenSymbols": ["WAVAX"]
 }
