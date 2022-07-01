@@ -69,7 +69,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/celo-logo.jpg" alt="Celo" width="90" /> | celo | [Celo](https://celo.org/) | * | [SDK](https://celo.org/developers) | :warning: |
 | <img src="assets/perpetual_protocol-logo.jpg" alt="Perpetual Protocol" width="90" /> | perpetual_finance | [Perpetual Protocol](https://perp.fi/) | * | [SDK](https://docs.perp.fi/) | :warning: |
 | <img src="assets/sushiswap-logo.jpg" alt="Sushiswap" width="90" /> | sushiswap | [Sushiswap](https://sushi.com/) | 2 | [SDK](https://docs.sushi.com/docs/Developers/Packages/Core%20SDK/) | :warning: |
-| <img src="assets/traderjoe-logo.jpg" alt="Traderjoe" width="80" /> | traderjoe | [Traderjoe](https://traderjoexyz.com/home#/) | 2 | [SDK](https://github.com/traderjoe-xyz/joe-sdk/) | :warning: |
+| <img src="assets/traderjoe-logo.png" alt="Traderjoe" width="80" /> | traderjoe | [Traderjoe](https://traderjoexyz.com/home#/) | 2 | [SDK](https://github.com/traderjoe-xyz/joe-sdk/) | :warning: |
 | <img src="assets/uniswap-logo.jpg" alt="Uniswap" width="90" /> | uniswap | [Uniswap](https://uniswap.org/) | 2 | [SDK](https://docs.uniswap.org/sdk/2.0.0/) | :warning: |
 | <img src="assets/uniswap_v3-logo.jpg" alt="Uniswap v3" width="90" /> | uniswap v3 | [Uniswap v3](https://uniswap.org/) | 3 | [SDK](https://docs.uniswap.org/sdk/introduction) | :warning: |
 
