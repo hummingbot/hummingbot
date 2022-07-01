@@ -91,7 +91,7 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     AllConnectorSettings.initialize_paper_trade_settings(client_config.paper_trade.paper_trade_exchanges)
 
-    hb = HummingbotApplication.main_application()
+    hb = HummingbotApplication.main_application(is_quickstart=True)
     # Todo: validate strategy and config_file_name before assinging
 
     strategy_config = None
