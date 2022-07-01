@@ -4,6 +4,8 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
@@ -32,7 +34,9 @@ class LiquidityMiningTest(unittest.TestCase):
         """
         Create a BacktestMarket and marketinfo dictionary to be used by the liquidity mining strategy
         """
-        market: MockPaperExchange = MockPaperExchange()
+        market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         market_infos: Dict[str, MarketTradingPairTuple] = {}
 
         for trading_pair in trading_pairs:

@@ -39,6 +39,16 @@ gatewayApp.use(morgan('combined'));
 // parse url for application/x-www-form-urlencoded
 gatewayApp.use(express.urlencoded({ extended: true }));
 
+// logging middleware
+// skip logging path '/'
+gatewayApp.use(
+  morgan('combined', {
+    skip: function (req, _res) {
+      return req.path === '/' || req.path == '/network/status';
+    },
+  })
+);
+
 // mount sub routers
 gatewayApp.use('/network', NetworkRoutes.router);
 gatewayApp.use('/evm', EVMRoutes.router);

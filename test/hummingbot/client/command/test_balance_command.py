@@ -1,13 +1,12 @@
 import asyncio
 import unittest
-from copy import deepcopy
+from decimal import Decimal
+from test.mock.mock_cli import CLIMockingAssistant
 from typing import Awaitable
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from test.mock.mock_cli import CLIMockingAssistant
 
 
 class BalanceCommandTest(unittest.TestCase):
@@ -21,16 +20,10 @@ class BalanceCommandTest(unittest.TestCase):
         self.app = HummingbotApplication()
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
-        self.global_config_backup = deepcopy(global_config_map)
 
     def tearDown(self) -> None:
         self.cli_mock_assistant.stop()
-        self.reset_global_config()
         super().tearDown()
-
-    def reset_global_config(self):
-        for key, value in self.global_config_backup.items():
-            global_config_map[key] = value
 
     @staticmethod
     def get_async_sleep_fn(delay: float):
@@ -64,7 +57,7 @@ class BalanceCommandTest(unittest.TestCase):
         self, all_balances_all_exchanges_mock
     ):
         all_balances_all_exchanges_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
-        global_config_map["other_commands_timeout"].value = 0.01
+        self.app.client_config_map.commands_timeout.other_commands_timeout = Decimal("0.01")
 
         with self.assertRaises(asyncio.TimeoutError):
             self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.show_balances())

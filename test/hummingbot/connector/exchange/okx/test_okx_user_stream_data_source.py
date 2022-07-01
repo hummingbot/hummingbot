@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aiohttp import WSMessage, WSMsgType
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.okx import okx_constants as CONSTANTS
 from hummingbot.connector.exchange.okx.okx_api_user_stream_data_source import OkxAPIUserStreamDataSource
 from hummingbot.connector.exchange.okx.okx_auth import OkxAuth
@@ -49,7 +51,9 @@ class OkxUserStreamDataSourceUnitTests(unittest.TestCase):
             passphrase="TEST_PASSPHRASE",
             time_provider=self.time_synchronizer)
 
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = OkxExchange(
+            client_config_map=client_config_map,
             okx_api_key="",
             okx_secret_key="",
             okx_passphrase="",
