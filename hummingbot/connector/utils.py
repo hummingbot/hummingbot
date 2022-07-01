@@ -8,6 +8,8 @@ from typing import Callable, Dict, Optional, Tuple
 from zero_ex.order_utils import Order as ZeroExOrder
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
@@ -43,8 +45,9 @@ def json_to_zrx_order(data: Optional[Dict[str, any]]) -> Optional[ZeroExOrder]:
     return ZeroExOrder(intermediate)
 
 
-def build_api_factory() -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory()
+def build_api_factory(throttler: AsyncThrottlerBase) -> WebAssistantsFactory:
+    throttler = throttler or AsyncThrottler(rate_limits=[])
+    api_factory = WebAssistantsFactory(throttler=throttler)
     return api_factory
 
 

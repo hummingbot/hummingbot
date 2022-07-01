@@ -1,16 +1,14 @@
-from aiounittest import async_test
 import asyncio
 import contextlib
+import unittest
 from decimal import Decimal
 from typing import List
-import unittest
 from unittest.mock import patch
 
+from aiounittest import async_test
+
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeSchema
 from hummingbot.core.event.event_logger import EventLogger
@@ -18,14 +16,15 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
+    SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    SellOrderCompletedEvent)
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.fixed_rate_source import FixedRateSource
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
-from hummingbot.strategy.amm_arb.data_types import ArbProposalSide, ArbProposal
+from hummingbot.strategy.amm_arb.data_types import ArbProposal, ArbProposalSide
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 TRADING_PAIR: str = "HBOT-USDT"
@@ -59,6 +58,10 @@ class MockAMM(ConnectorBase):
     @property
     def connector_name(self):
         return "uniswap"
+
+    @property
+    def status_dict(self):
+        return {"Balance": False}
 
     async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         if is_buy:
@@ -398,3 +401,22 @@ class AmmArbUnitTest(unittest.TestCase):
     ):
         await asyncio.sleep(2)
         cancel_outdated_orders_func.assert_awaited()
+
+    @async_test(loop=ev_loop)
+    async def test_set_order_failed(self):
+        self.amm_1.set_prices(TRADING_PAIR, True, 101)
+        self.amm_1.set_prices(TRADING_PAIR, False, 100)
+        self.amm_2.set_prices(TRADING_PAIR, True, 105)
+        self.amm_2.set_prices(TRADING_PAIR, False, 104)
+        self.amm_1.network_transaction_fee = TokenAmount("ETH", Decimal("0.0002"))
+        await asyncio.sleep(2)
+        new_amm_1_order = [order for market, order in self.strategy.tracked_limit_orders if market == self.amm_1][0]
+        self.assertEqual(2, len(self.strategy.tracked_limit_orders))
+        self.strategy.set_order_failed(new_amm_1_order.client_order_id)
+        self.assertEqual(2, len(self.strategy.tracked_limit_orders))
+
+    @async_test(loop=ev_loop)
+    async def test_market_ready(self):
+        self.amm_1.ready = False
+        await asyncio.sleep(10)
+        self.assertFalse(self.strategy._all_markets_ready)
