@@ -868,6 +868,15 @@ class AscendExExchange(ExchangeBase):
                     f"Unexpected error during processing order status. The Ascend Ex Response: {resp}", exc_info=True
                 )
 
+    def _update_order_after_failure(self, order_id: str, trading_pair: str):
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order_id,
+            trading_pair=trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=OrderState.FAILED,
+        )
+        self._in_flight_order_tracker.process_order_update(order_update)
+
     def _stop_tracking_order_exceed_no_exchange_id_limit(self, tracked_order: InFlightOrder):
         """
         Increments and checks if the tracked order has exceed the STOP_TRACKING_ORDER_NOT_FOUND_LIMIT limit.
@@ -980,6 +989,7 @@ class AscendExExchange(ExchangeBase):
             except IOError:
                 self.logger().exception(f"The request to create the order {order_id} failed")
                 self.stop_tracking_order(order_id)
+                self._update_order_after_failure(order_id, trading_pair)
         except asyncio.CancelledError:
             raise
         except Exception:
