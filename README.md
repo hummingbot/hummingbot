@@ -28,16 +28,18 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/binance-logo.jpg" alt="Binance" width="90" /> | binance | [Binance](https://www.binance.com/) | 3 | [API](https://github.com/binance/binance-spot-api-docs/blob/master/rest-api.md) | :white_check_mark: | [FQQNNGCD](https://www.binance.com/en/register?ref=FQQNNGCD)
 | <img src="assets/bitfinex-logo.jpg" alt="Bitfinex" width="90" /> | bitfinex | [Bitfinex](https://www.bitfinex.com/) | 2 | [API](https://docs.bitfinex.com/docs/introduction) | :warning: | [dxCUrjvc](https://bitfinex.com/?refcode=-dxCUrjvc)
 | <img src="assets/bittrex_global-logo.jpg" alt="Bittrex Global" width="90" height="30" />| bittrex | [Bittrex Global](https://global.bittrex.com/) | 3 | [API](https://bittrex.github.io/api/v3) | :white_check_mark: |
-| <img src="assets/bitmart-logo.jpg" alt="BitMart" width="90" /> | bitmart | [BitMart](https://www.bitmart.com/) | 1 | [API](https://developer-pro.bitmart.com/en/) | :warning: | [UM6fQV](https://www.bitmart.com/en?r=UM6fQV)
+| <img src="assets/bitmart-logo.jpg" alt="BitMart" width="90" /> | bitmart | [BitMart](https://www.bitmart.com/) | 1 | [API](https://developer-pro.bitmart.com/en/) | :white_check_mark: | [UM6fQV](https://www.bitmart.com/en?r=UM6fQV)
 | <img src="assets/blocktane-logo.jpg" alt="Blocktane" width="90" /> | blocktane | [Blocktane](https://blocktane.io/) | 2 | [API](https://blocktane.io/api) | :warning: |
 | <img src="assets/bybit-logo.jpg" alt="Bybit Perpetual" width="90" /> | bybit_perpetual | [Bybit Perpetual](https://www.bybit.com/en-US/) | 2 | [API](https://bybit-exchange.github.io/docs/linear/#t-introduction) | :white_check_mark: |
+| <img src="assets/bybit-logo.jpg" alt="Bybit" width="90" /> | bybit | [Bybit](https://www.bybit.com/en-US/) | 2 | [API](https://bybit-exchange.github.io/docs/linear/#t-introduction) | :white_check_mark: |
 | <img src="assets/coinbase_pro-logo.jpg" alt="Coinbase Pro" width="90" /> | coinbase_pro | [Coinbase Pro](https://pro.coinbase.com/) | * | [API](https://docs.pro.coinbase.com/) | :warning: |
 | <img src="assets/coinflex_logo.png" alt="CoinFLEX" width="90" /> | coinflex | [CoinFLEX](https://coinflex.com/) | 2 | [API](https://coinflex.com/api/) | :white_check_mark: |
+| <img src="assets/coinflex_logo.png" alt="CoinFLEX Perpetual" width="90" /> | coinflex_perpetual | [CoinFLEX](https://coinflex.com/) | 2 | [API](https://coinflex.com/api/) | :warning: |
 | <img src="assets/coinzoom-logo.jpg" alt="CoinZoom" width="90" /> | coinzoom | [CoinZoom](https://trade.coinzoom.com/landing) | * | [API](https://api-docs.coinzoom.com/) | :warning: |
 | <img src="assets/cryptocom-logo.jpg" alt="Crypto.com" width="90" /> | crypto_com | [Crypto.com](https://crypto.com/exchange) | 2 | [API](https://exchange-docs.crypto.com/#introduction) | :white_check_mark: |
 | <img src="assets/digifinex-logo.jpg" alt="Digifinex" width="90" /> | digifinex | [Digifinex](https://www.digifinex.com/en-ww) | 3 | [API](https://docs.digifinex.com/en-ww/v3/#introduction) | :warning: |
 | <img src="assets/dydx-logo.jpg" alt="dYdX Perpetual" width="90" /> | dydx_perpetual | [dYdX Perpetual](https://dydx.exchange/) | 3 | [API](https://docs.dydx.exchange/#general) | :warning: |
-| <img src="assets/ftx-logo.jpg" alt="FTX" width="90" /> | ftx | [FTX](https://ftx.com/en) | 1 | [API](https://docs.ftx.com/#overview) | :white_check_mark: |
+| <img src="assets/ftx-logo.jpg" alt="FTX" width="90" /> | ftx | [FTX](https://ftx.com/en) | 1 | [API](https://docs.ftx.com/#overview) | :warning: |
 | <img src="assets/himalaya_exchange-logo.jpg" alt="Himalaya Exchange" width="90" /> | himalaya | [Himalaya Exchange](https://himalaya.exchange/) | * | [API]() | :x: |
 | <img src="assets/hitbtc-logo.jpg" alt="HitBTC" width="90" /> | hitbtc | [HitBTC](https://hitbtc.com/) | 2 | [API](https://api.hitbtc.com/) | :white_check_mark: |
 | <img src="assets/huobi_global-logo.jpg" alt="Huobi Global" width="90" />| huobi | [Huobi Global](https://www.hbg.com) | 1 | [API](https://huobiapi.github.io/docs/spot/v1/en/) | :warning: |
