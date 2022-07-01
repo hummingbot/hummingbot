@@ -9,6 +9,7 @@ from pydantic import SecretStr
 from hummingbot import root_path
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.client.settings import CONNECTOR_EXCEPTIONS
 from hummingbot.connector.utils import get_new_client_order_id
 
 
@@ -33,8 +34,6 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual(len(id0) - 2, len(id2))
 
     def test_connector_config_maps(self):
-        connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade", "celo"]
-
         type_dirs = [
             cast(DirEntry, f) for f in
             scandir(f"{root_path() / 'hummingbot' / 'connector'}")
@@ -46,7 +45,7 @@ class UtilsTest(unittest.TestCase):
                 if f.is_dir() and exists(join(f.path, "__init__.py"))
             ]
             for connector_dir in connector_dirs:
-                if connector_dir.name.startswith("_") or connector_dir.name in connector_exceptions:
+                if connector_dir.name.startswith("_") or connector_dir.name in CONNECTOR_EXCEPTIONS + ["celo"]:
                     continue
                 util_module_path: str = (
                     f"hummingbot.connector.{type_dir.name}.{connector_dir.name}.{connector_dir.name}_utils"

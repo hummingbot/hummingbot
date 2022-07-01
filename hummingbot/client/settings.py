@@ -53,6 +53,9 @@ PAPER_TRADE_EXCHANGES = [  # todo: fix after global config map refactor
     "gate_io_paper_trade",
     "mock_paper_exchange",
 ]
+CONNECTOR_EXCEPTIONS = [
+    "mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade", "alpha_point"
+]
 
 
 class ConnectorType(Enum):
@@ -260,7 +263,6 @@ class AllConnectorSettings:
         Iterate over files in specific Python directories to create a dictionary of exchange names to ConnectorSetting.
         """
         cls.all_connector_settings = {}  # reset
-        connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade"]
 
         type_dirs: List[DirEntry] = [
             cast(DirEntry, f) for f in scandir(f"{root_path() / 'hummingbot' / 'connector'}")
@@ -272,7 +274,7 @@ class AllConnectorSettings:
                 if f.is_dir() and exists(join(f.path, "__init__.py"))
             ]
             for connector_dir in connector_dirs:
-                if connector_dir.name.startswith("_") or connector_dir.name in connector_exceptions:
+                if connector_dir.name.startswith("_") or connector_dir.name in CONNECTOR_EXCEPTIONS:
                     continue
                 if connector_dir.name in cls.all_connector_settings:
                     raise Exception(f"Multiple connectors with the same {connector_dir.name} name.")
