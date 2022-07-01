@@ -994,11 +994,13 @@ class AscendExExchange(ExchangeBase):
                 self.logger().exception(f"The request to create the order {order_id} failed")
                 self._update_order_after_failure(order_id, trading_pair)
         except asyncio.CancelledError:
+            self._update_order_after_failure(order_id, trading_pair)
             raise
         except Exception:
             msg = (f"Error submitting {trade_type.name} {order_type.name} order to AscendEx for "
                    f"{amount} {trading_pair} {price}.")
             self.logger().exception(msg)
+            self._update_order_after_failure(order_id, trading_pair)
 
     async def _trading_rules_polling_loop(self):
         """
