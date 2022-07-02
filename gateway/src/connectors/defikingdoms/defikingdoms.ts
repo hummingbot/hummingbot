@@ -287,30 +287,30 @@ export class Defikingdoms implements Uniswapish {
     if (nonce === undefined) {
       nonce = await this.harmony.nonceManager.getNonce(wallet.address);
     }
+
     //* The harmony chain doesn't support maxFeePerGas and MaxPriorityFeePerGas
     // writing this to evade typescript complaints about non used vars
-    maxFeePerGas && maxPriorityFeePerGas;
-
-    // if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
-    //   tx = await contract[result.methodName](...result.args, {
-    //     gasLimit: gasLimit.toFixed(0),
-    //     value: result.value,
-    //     nonce: nonce,
-    //     maxFeePerGas,
-    //     maxPriorityFeePerGas,
-    //   });
-    // } else {
-    const tx: ContractTransaction = await contract[result.methodName](
+    // maxFeePerGas && maxPriorityFeePerGas;
+    let tx: ContractTransaction;
+    if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
+      tx = await contract[result.methodName](...result.args, {
+        gasLimit: gasLimit.toFixed(0),
+        value: result.value,
+        nonce: nonce,
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+      });
+    } else {
+      tx = await contract[result.methodName](
       ...result.args,
       {
-        // gasPrice: (gasPrice * 1e9).toFixed(0),
-        gasPrice: (gasPrice).toFixed(0),
+        gasPrice: (gasPrice * 1e9).toFixed(0),
         gasLimit: gasLimit.toFixed(0),
         value: result.value,
         nonce: nonce,
       }
     );
-    // }
+   }
 
     logger.info(JSON.stringify(tx));
     await this.harmony.nonceManager.commitNonce(wallet.address, nonce);
