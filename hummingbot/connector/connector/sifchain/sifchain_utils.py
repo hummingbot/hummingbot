@@ -2,7 +2,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.settings import required_exchanges
 
 CENTRALIZED = False
-EXAMPLE_PAIR = "LUNA-UST"
+EXAMPLE_PAIR = "ROWAN-USDC"
 DEFAULT_FEES = [0., 0.]
 
 
