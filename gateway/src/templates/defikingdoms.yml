@@ -1,6 +1,6 @@
 # how much the execution price is allowed to move unfavorably from the trade
 # execution price. It uses a rational number for precision.
-allowedSlippage: '1/100'
+allowedSlippage: '2/100'
 
 # the maximum gas allowed for a defikingdoms trade.
 gasLimit: 2000000
