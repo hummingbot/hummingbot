@@ -9,6 +9,8 @@ import aiohttp
 from aioresponses import aioresponses
 from bidict import bidict
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.latoken import (  # latoken_utils as utils
     latoken_constants as CONSTANTS,
     latoken_web_utils as web_utils,
@@ -49,8 +51,9 @@ class LatokenUserStreamDataSourceUnitTests(unittest.TestCase):
         self.auth = LatokenAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider)
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
-
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = LatokenExchange(
+            client_config_map=client_config_map,
             latoken_api_key="",
             latoken_api_secret="",
             trading_pairs=[],

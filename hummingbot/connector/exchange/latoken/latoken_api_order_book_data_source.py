@@ -155,8 +155,7 @@ class LatokenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             channel = self._trade_messages_queue_key
         elif event_type == CONSTANTS.SUBSCRIPTION_ID_BOOKS:
             channel = self._diff_messages_queue_key
-        # shouldn't there be an error message on calling level of this function?
-        # else:
-        #     self.logger().error(f"Unsubscribed id {event_type} packet received {event_message}")
+        else:
+            self.logger().error(f"Unsubscribed id {event_type} packet received {event_message}")
 
         return channel

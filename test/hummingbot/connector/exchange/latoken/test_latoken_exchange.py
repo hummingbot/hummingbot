@@ -12,6 +12,8 @@ from aioresponses import aioresponses
 from bidict import bidict
 
 import hummingbot.connector.exchange.latoken.latoken_web_utils as web_utils
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.latoken import latoken_constants as CONSTANTS
 from hummingbot.connector.exchange.latoken.latoken_api_order_book_data_source import LatokenAPIOrderBookDataSource
@@ -78,8 +80,9 @@ class LatokenExchangeTests(TestCase):
 
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
-
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.exchange = LatokenExchange(
+            client_config_map=client_config_map,
             latoken_api_key="latoken_api_key",
             latoken_api_secret="latoken_api_secret",
             domain=self.domain,

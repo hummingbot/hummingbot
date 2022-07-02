@@ -1,7 +1,6 @@
 import asyncio
-import logging
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List
 
 import hummingbot.connector.exchange.latoken.latoken_constants as CONSTANTS
 import hummingbot.connector.exchange.latoken.latoken_stomper as stomper
@@ -12,7 +11,6 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSPlainTextRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
-from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
     from hummingbot.connector.exchange.latoken.latoken_exchange import LatokenExchange
@@ -20,8 +18,6 @@ if TYPE_CHECKING:
 
 class LatokenAPIUserStreamDataSource(UserStreamTrackerDataSource):
     # Recommended to Ping/Update listen key to keep connection alive
-
-    _logger: Optional[HummingbotLogger] = None
 
     def __init__(self,
                  auth: LatokenAuth,
@@ -37,10 +33,6 @@ class LatokenAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         self._listen_key_initialized_event: asyncio.Event = asyncio.Event()
         self._last_listen_key_ping_ts = 0
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        return logging.getLogger(__name__) if cls._logger is None else cls._logger
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
