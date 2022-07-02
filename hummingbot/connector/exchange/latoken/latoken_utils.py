@@ -2,8 +2,9 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict
 
-from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.config_var import ConfigVar
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 
@@ -33,17 +34,30 @@ DEFAULT_FEES = TradeFeeSchema(maker_percent_fee_decimal=Decimal("0.001"), taker_
 fee_type = {"FEE_SCHEME_TYPE_PERCENT_QUOTE": LatokenCommissionType.PERCENT}
 fee_take = {"FEE_SCHEME_TAKE_PROPORTION": LatokenTakeType.PROPORTION}
 
-KEYS = {
-    "latoken_api_key":
-        ConfigVar(key="latoken_api_key",
-                  prompt="Enter your Latoken API key >>> ",
-                  required_if=using_exchange("latoken"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "latoken_api_secret":
-        ConfigVar(key="latoken_api_secret",
-                  prompt="Enter your Latoken API secret >>> ",
-                  required_if=using_exchange("latoken"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+
+class LatokenConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="latoken", const=True, client_data=None)
+    latoken_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Latoken API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    latoken_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Latoken API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "latoken"
+
+
+KEYS = LatokenConfigMap.construct()
