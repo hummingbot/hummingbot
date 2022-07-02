@@ -8,6 +8,7 @@ import { Avalanche } from '../chains/avalanche/avalanche';
 import { Ethereum } from '../chains/ethereum/ethereum';
 import { Harmony } from '../chains/harmony/harmony';
 import { Token } from '../services/ethereum-base';
+
 import {
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,

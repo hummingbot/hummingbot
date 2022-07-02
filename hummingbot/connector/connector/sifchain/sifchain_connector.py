@@ -11,7 +11,7 @@ import aiohttp
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
-from hummingbot.connector.connector.terra.terra_in_flight_order import SifchainInFlightOrder
+from hummingbot.connector.connector.sifchain.sifchain_in_flight_order import SifchainInFlightOrder
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -108,8 +108,7 @@ class SifchainConnector(ConnectorBase):
 
             base, quote = trading_pair.split("-")
             side = "buy" if is_buy else "sell"
-            resp = await self._api_request("post", "sifchain/price", {"base": base, "quote": quote, "side": side,
-                                                                   "amount": str(amount)})
+            resp = await self._api_request("post", "sifchain/price", {"base": base, "quote": quote, "side": side, "amount": str(amount)})
             txFee = resp["txFee"] / float(amount)
             price_with_txfee = resp["price"] + txFee if is_buy else resp["price"] - txFee
             return Decimal(str(price_with_txfee))
@@ -188,7 +187,7 @@ class SifchainConnector(ConnectorBase):
                       "quote": quote,
                       "side": "buy" if trade_type is TradeType.BUY else "sell",
                       "amount": str(amount),
-                      "privateKey": self._terra_wallet_seeds,
+                      "privateKey": self._sifchain_wallet_seeds,
                       # "maxPrice": str(price),
                       }
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount)
@@ -256,7 +255,7 @@ class SifchainConnector(ConnectorBase):
         except Exception as e:
             self.stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {trade_type.name} order to Terra for "
+                f"Error submitting {trade_type.name} order to Sifchain for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
