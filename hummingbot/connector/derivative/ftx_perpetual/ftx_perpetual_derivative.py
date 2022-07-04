@@ -90,6 +90,7 @@ class FtxPerpetualDerivative(ExchangeBase, PerpetualTrading):
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
 
     FTX_API_ENDPOINT = "https://ftx.com/api"
+    REFERRAL_PROGRAM = "hummingbot1"
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -521,6 +522,7 @@ class FtxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "ioc": False,
                 "postOnly": order_type is OrderType.LIMIT_MAKER,
                 "clientId": str(order_id),
+                "externalReferralProgram": self.REFERRAL_PROGRAM,
             }
         elif order_type is OrderType.MARKET:
             body = {
@@ -533,6 +535,7 @@ class FtxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "ioc": False,
                 "postOnly": False,
                 "clientId": str(order_id),
+                "externalReferralProgram": self.REFERRAL_PROGRAM,
             }
         else:
             raise ValueError(f"Unknown order_type for FTX: {order_type}")
