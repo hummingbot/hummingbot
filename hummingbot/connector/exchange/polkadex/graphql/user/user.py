@@ -1,5 +1,5 @@
 from gql import gql
-from auth.client import execute_query_command
+from hummingbot.connector.exchange.polkadex.graphql.auth.client import execute_query_command
 
 
 
@@ -69,7 +69,7 @@ query listTradesByMainAccount($from: AWSDateTime!, $to: AWSDateTime!, $main: Str
     return result["listTradesByMainAccount"]
 
 
-async def get_all_balances_by_main_account(main):
+async def get_all_balances_by_main_account(main, endpoint, api_key):
     query = gql(
         """
 query getAllBalancesByMainAccount($main: String!) {
@@ -85,8 +85,8 @@ query getAllBalancesByMainAccount($main: String!) {
 """)
     variables = {"main": main}
 
-    result = await execute_query_command(query, variables)
-    return result["getAllBalancesByMainAccount"]
+    result = await execute_query_command(query, variables,endpoint,api_key)
+    return result["getAllBalancesByMainAccount"]["items"]
 
 
 async def find_user_by_main_account(main):

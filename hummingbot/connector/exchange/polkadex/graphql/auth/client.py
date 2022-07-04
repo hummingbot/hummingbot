@@ -20,8 +20,7 @@ def get_env_vars():
 
 # Returns a result after running graphql queries
 # Doesn't take subscription commands
-async def execute_query_command(query, variable_values):
-    url, api_key = get_env_vars()
+async def execute_query_command(query, variable_values, url,api_key):
     # Extract host from url
     host = str(urlparse(url).netloc)
 

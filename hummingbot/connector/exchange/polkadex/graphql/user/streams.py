@@ -3,7 +3,7 @@ from gql import gql
 from auth.client import subscribe_query_command
 
 
-async def on_balance_update(main, callback):
+async def on_balance_update(main, session, callback):
     query = gql(
         """
 subscription onBalanceUpdate($main: String!) {
@@ -17,10 +17,11 @@ subscription onBalanceUpdate($main: String!) {
 """)
     variables = {"main": main}
 
-    await subscribe_query_command(query, variables, callback)
+    async for result in session.subscribe(query, variable_values=variables, parse_result=True):
+        callback(result)
 
 
-async def on_order_update(main, callback):
+async def on_order_update(main, session, callback):
     query = gql(
         """
 subscription onOrderUpdate($main: String!) {
@@ -40,10 +41,11 @@ subscription onOrderUpdate($main: String!) {
 """)
     variables = {"main": main}
 
-    await subscribe_query_command(query, variables, callback)
+    async for result in session.subscribe(query, variable_values=variables, parse_result=True):
+        callback(result)
 
 
-async def on_create_trade(main, callback):
+async def on_create_trade(main, session, callback):
     query = gql(
         """
 subscription onCreateTrade($main: String!) {
@@ -58,7 +60,8 @@ subscription onCreateTrade($main: String!) {
 """)
     variables = {"main": main}
 
-    await subscribe_query_command(query, variables, callback)
+    async for result in session.subscribe(query, variable_values=variables, parse_result=True):
+        callback(result)
 
 
 async def on_transaction_update(main, callback):

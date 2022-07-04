@@ -1,15 +1,36 @@
+import asyncio
 from decimal import Decimal
 from typing import Dict, Any, List, Optional, Tuple
+from urllib.parse import urlparse
+from dateutil import parser
+
+from gql import Client
+from gql.transport.appsync_auth import AppSyncApiKeyAuthentication
+from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
 
 from hummingbot.connector.constants import s_decimal_NaN
+from hummingbot.connector.exchange.polkadex.graphql.user.streams import on_balance_update, on_order_update, \
+    on_create_trade
+from hummingbot.connector.exchange.polkadex.graphql.user.user import get_all_balances_by_main_account
+from hummingbot.connector.exchange.polkadex.polkadex_constants import MIN_ORDER_SIZE, MIN_PRICE, MIN_QTY
+from hummingbot.connector.exchange.polkadex.polkadex_order_book_data_source import PolkadexOrderbookDataSource
+from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase, TokenAmount, \
+    DeductedFromReturnsTradeFee
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+
+
+def fee_levied_asset(side, base, quote):
+    if side == "Bid":
+        return base
+    else:
+        return quote
 
 
 class PolkadexExchange(ExchangePyBase):
@@ -45,17 +66,22 @@ class PolkadexExchange(ExchangePyBase):
     def is_trading_required(self) -> bool:
         return True
 
-    def __init__(self, endpoint: str, api_key: str, trading_pairs: Optional[List[str]] = None):
+    def __init__(self, endpoint: str, api_key: str, seed_phrase: str, trading_pairs: Optional[List[str]] = None):
         self.endpoint = endpoint
         self.api_key = api_key
         self._trading_pairs = trading_pairs
         self._last_trades_poll_binance_timestamp = 1.0
+        self.host = str(urlparse(endpoint).netloc)
+        self.auth = AppSyncApiKeyAuthentication(host=self.host, api_key=self.api_key)
+        self.user_seed_phrase = seed_phrase
+        # TODO: Do crypto stuff here
+        self.user_proxy_address = None
+        self.user_main_address = None
         super().__init__()
 
     @property
     def rate_limits_rules(self):
         return None
-
 
     @property
     def trading_pairs(self):
@@ -80,29 +106,152 @@ class PolkadexExchange(ExchangePyBase):
 
     def _get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
                  amount: Decimal, price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
-        pass
+                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+        return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
+
+    def balance_update_callback(self, message):
+        """ Expected message structure
+        {
+  "data": {
+    "onBalanceUpdate": {
+      "asset": "PDEX",
+      "free": "0.10",
+      "main_account": "eskmPnwDNLNCuZKa3aWuvNS6PshJoKsgBtwbdxyyipS2F2TR5",
+      "pending_withdrawal": "0.00001",
+      "reserved": "0.001"
+                    }
+            }
+        }
+        """
+
+        message = message["data"]["onBalanceUpdate"]
+        asset_name = message["asset"]
+        free_balance = Decimal(message["free"])
+        total_balance = Decimal(message["free"]) + Decimal(message["reserved"])
+        self._account_available_balances[asset_name] = free_balance
+        self._account_balances[asset_name] = total_balance
+
+    def order_update_callback(self, message):
+        """ Expected message structure
+
+        {
+  "data": {
+    "onOrderUpdate": {
+      "avg_filled_price": "0.10",
+      "fee": "0.00000001",
+      "filled_quantity": "0.01",
+      "id": "1234567889",
+      "m": "PDEX-100",
+      "order_type": "LIMIT",
+      "price": "0.10",
+      "qty": "0.10",
+      "side": "Bid",
+      "status": "OPEN",
+      "time": "2022-07-04T13:56:21.390508+00:00"
+    }
+  }
+}
+        """
+        message = message["data"]["onOrderUpdate"]
+
+        base_asset = message["m"].split("-")[0]
+        quote_asset = message["m"].split("-")[1]
+
+        ts = parser.parse(message["time"]).timestamp()
+        tracked_order = self.in_flight_orders.get(message["id"])
+        if tracked_order is not None:
+            order_update = OrderUpdate(
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=ts,
+                new_state=CONSTANTS.ORDER_STATE[message["status"]],
+                client_order_id=message["id"],
+                exchange_order_id=str(message["id"]),
+            )
+            self._order_tracker.process_order_update(order_update=order_update)
+
+            fee = TradeFeeBase.new_spot_fee(
+                fee_schema=self.trade_fee_schema(),
+                trade_type=tracked_order.trade_type,
+                percent_token=message["fee"],
+                flat_fees=[TokenAmount(amount=Decimal(message["fee"]),
+                                       token=fee_levied_asset(message["side"], base_asset, quote_asset))]
+            )
+            trade_update = TradeUpdate(
+                trade_id=str(ts),  # TODO: Add trade id to event
+                client_order_id=message["id"],
+                exchange_order_id=str(message["id"]),
+                trading_pair=tracked_order.trading_pair,
+                fee=fee,
+                fill_base_amount=Decimal(message["filled_quantity"]),
+                fill_quote_amount=Decimal(message["filled_quantity"]) * Decimal(message["avg_filled_price"]),
+                fill_price=Decimal(message["avg_filled_price"]),
+                fill_timestamp=ts,
+            )
+            self._order_tracker.process_trade_update(trade_update)
 
     async def _update_trading_fees(self):
         pass
 
-    def _user_stream_event_listener(self):
-        pass
+    async def _user_stream_event_listener(self):
+        transport = AppSyncWebsocketsTransport(url=self.endpoint, auth=self.auth)
+        tasks = []
+        async with Client(transport=transport, fetch_schema_from_transport=False) as session:
+            tasks.append(
+                asyncio.create_task(on_balance_update(self.user_main_address, session, self.balance_update_callback)))
+            tasks.append(
+                asyncio.create_task(on_order_update(self.user_main_address, session, self.order_update_callback)))
+            await asyncio.wait(tasks)
 
     def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
-        pass
+        rules = []
+        for market in self.trading_pairs:
+            # TODO: Update this with a real endpoint and config
+            rules.append(TradingRule(market,
+                                     min_order_size=MIN_QTY,
+                                     min_price_increment=MIN_PRICE,
+                                     min_base_amount_increment=MIN_QTY,
+                                     min_notional_size=MIN_PRICE * MIN_QTY))
+        return rules
 
     def _update_order_status(self):
         pass
 
     def _update_balances(self):
-        pass
+        local_asset_names = set(self._account_balances.keys())
+        remote_asset_names = set()
+        balances = await get_all_balances_by_main_account(self.user_main_address, self.endpoint, self.api_key)
+        """
+      [
+        {
+          "asset": "PDEX",
+          "free": "0.10",
+          "pending_withdrawal": "0.00001",
+          "reserved": "0.001"
+        }
+      ]
+        """
+
+        for balance_entry in balances:
+            asset_name = balance_entry["asset"]
+            free_balance = Decimal(balance_entry["free"])
+            total_balance = Decimal(balance_entry["free"]) + Decimal(balance_entry["reserved"])
+            self._account_available_balances[asset_name] = free_balance
+            self._account_balances[asset_name] = total_balance
+            remote_asset_names.add(asset_name)
+
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
+
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         pass
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        pass
+        return PolkadexOrderbookDataSource(trading_pairs=self.trading_pairs,
+                                           endpoint=self.endpoint,
+                                           api_key=self.api_key)
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         pass
