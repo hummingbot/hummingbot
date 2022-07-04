@@ -10,10 +10,11 @@ from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.polkadex.graphql.market.market import get_recent_trades
-from hummingbot.connector.exchange.polkadex.graphql.user.streams import on_balance_update, on_order_update, \
-    on_create_trade
-from hummingbot.connector.exchange.polkadex.graphql.user.user import get_all_balances_by_main_account
-from hummingbot.connector.exchange.polkadex.polkadex_constants import MIN_ORDER_SIZE, MIN_PRICE, MIN_QTY
+from hummingbot.connector.exchange.polkadex.graphql.user.streams import on_balance_update, on_order_update
+from hummingbot.connector.exchange.polkadex.graphql.user.user import get_all_balances_by_main_account, \
+    get_main_acc_from_proxy_acc, find_order_by_main_account
+from hummingbot.connector.exchange.polkadex.polkadex_constants import MIN_PRICE, MIN_QTY, POLKADEX_SS58_PREFIX, \
+    UPDATE_ORDER_STATUS_MIN_INTERVAL
 from hummingbot.connector.exchange.polkadex.polkadex_order_book_data_source import PolkadexOrderbookDataSource
 from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
 from hummingbot.connector.exchange_py_base import ExchangePyBase
@@ -21,10 +22,10 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase, TokenAmount, \
+from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount, \
     DeductedFromReturnsTradeFee
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from substrateinterface import Keypair, KeypairType
 
 
 def fee_levied_asset(side, base, quote):
@@ -67,17 +68,16 @@ class PolkadexExchange(ExchangePyBase):
     def is_trading_required(self) -> bool:
         return True
 
-    def __init__(self, endpoint: str, api_key: str, seed_phrase: str, trading_pairs: Optional[List[str]] = None):
+    def __init__(self, endpoint: str, api_key: str, seed_hex: str, trading_pairs: Optional[List[str]] = None):
         self.endpoint = endpoint
         self.api_key = api_key
         self._trading_pairs = trading_pairs
         self._last_trades_poll_binance_timestamp = 1.0
         self.host = str(urlparse(endpoint).netloc)
         self.auth = AppSyncApiKeyAuthentication(host=self.host, api_key=self.api_key)
-        self.user_seed_phrase = seed_phrase
-        # TODO: Do crypto stuff here
-        self.user_proxy_address = None
-        self.user_main_address = None
+        self.proxy_pair = Keypair.create_from_seed(seed_hex, POLKADEX_SS58_PREFIX, KeypairType.SR25519)
+        self.user_proxy_address = self.proxy_pair.ss58_address
+        self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.endpoint, self.api_key)
         super().__init__()
 
     @property
@@ -215,7 +215,37 @@ class PolkadexExchange(ExchangePyBase):
         return rules
 
     def _update_order_status(self):
-        pass
+        last_tick = self._last_poll_timestamp / UPDATE_ORDER_STATUS_MIN_INTERVAL
+        current_tick = self.current_timestamp / UPDATE_ORDER_STATUS_MIN_INTERVAL
+
+        tracked_orders: List[InFlightOrder] = list(self.in_flight_orders.values())
+        if current_tick > last_tick and len(tracked_orders) > 0:
+
+            for tracked_order in tracked_orders:
+                result = await find_order_by_main_account(self.user_main_address, tracked_order.client_order_id,
+                                                          tracked_order.trading_pair)
+
+                if isinstance(result, Exception):
+                    self.logger().network(
+                        f"Error fetching status update for the order {tracked_order.client_order_id}: {result}.",
+                        app_warning_msg=f"Failed to fetch status update for the order {tracked_order.client_order_id}."
+                    )
+                    # Wait until the order not found error have repeated a few times before actually treating
+                    # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
+                    await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
+
+                else:
+                    # Update order execution status
+                    new_state = CONSTANTS.ORDER_STATE[result["status"]]
+                    ts = parser.parse(result["time"]).timestamp()
+                    update = OrderUpdate(
+                        client_order_id=tracked_order.client_order_id,
+                        exchange_order_id=str(tracked_order.client_order_id),
+                        trading_pair=tracked_order.trading_pair,
+                        update_timestamp=ts,
+                        new_state=new_state,
+                    )
+                    self._order_tracker.process_order_update(update)
 
     def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
