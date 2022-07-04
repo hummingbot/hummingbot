@@ -9,6 +9,7 @@ from gql.transport.appsync_auth import AppSyncApiKeyAuthentication
 from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
 
 from hummingbot.connector.constants import s_decimal_NaN
+from hummingbot.connector.exchange.polkadex.graphql.market.market import get_recent_trades
 from hummingbot.connector.exchange.polkadex.graphql.user.streams import on_balance_update, on_order_update, \
     on_create_trade
 from hummingbot.connector.exchange.polkadex.graphql.user.user import get_all_balances_by_main_account
@@ -244,7 +245,6 @@ class PolkadexExchange(ExchangePyBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         pass
 
@@ -253,7 +253,7 @@ class PolkadexExchange(ExchangePyBase):
                                            endpoint=self.endpoint,
                                            api_key=self.api_key)
 
-    def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
+    def _create_user_stream_data_source(self):
         pass
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
@@ -263,4 +263,5 @@ class PolkadexExchange(ExchangePyBase):
         pass
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        pass
+        recent_trade = await get_recent_trades(trading_pair, 1, None, self.endpoint, self.api_key)
+        return float(recent_trade[0]["p"])
