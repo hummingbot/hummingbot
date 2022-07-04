@@ -2,12 +2,14 @@ import asyncio
 import copy
 import logging
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import Any, AsyncIterable, Dict, List, Optional, TYPE_CHECKING
 
 from async_timeout import timeout
 from libc.stdint cimport int64_t
 
 from hummingbot.connector.exchange.coinbase_pro import coinbase_pro_constants as CONSTANTS
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_order_book_data_source import \
+    CoinbaseProAPIOrderBookDataSource
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order cimport CoinbaseProInFlightOrder
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order import CoinbaseProInFlightOrder
@@ -46,6 +48,9 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 s_logger = None
 s_decimal_0 = Decimal("0.0")
 s_decimal_nan = Decimal("nan")
@@ -66,7 +71,7 @@ cdef class CoinbaseProExchangeTransactionTracker(TransactionTracker):
 cdef class CoinbaseProExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -87,17 +92,18 @@ cdef class CoinbaseProExchange(ExchangeBase):
         return s_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  coinbase_pro_api_key: str,
                  coinbase_pro_secret_key: str,
                  coinbase_pro_passphrase: str,
                  poll_interval: float = 5.0,    # interval which the class periodically pulls status from the rest API
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
-        super().__init__()
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         auth = CoinbaseProAuth(coinbase_pro_api_key, coinbase_pro_secret_key, coinbase_pro_passphrase)
         self._web_assistants_factory = build_coinbase_pro_web_assistant_factory(auth)
-        self._order_book_tracker = CoinbaseProOrderBookTracker(trading_pairs, self._web_assistants_factory)
+        self._set_order_book_tracker(CoinbaseProOrderBookTracker(trading_pairs, self._web_assistants_factory))
         self._user_stream_tracker = CoinbaseProUserStreamTracker(
             trading_pairs=trading_pairs,
             web_assistants_factory=self._web_assistants_factory,
@@ -135,7 +141,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         Get mapping of all the order books that are being tracked.
         :return: Dict[trading_pair : OrderBook]
         """
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -145,7 +151,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         This is used by `ready` method below to determine if a market is ready for trading.
         """
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True
         }
@@ -226,7 +232,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         Async function used by NetworkBase class to handle when a single market goes online
         """
         self._stop_network()
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
@@ -237,7 +243,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         """
         Synchronous function that handles when a single market goes offline
         """
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._user_stream_tracker_task is not None:
@@ -436,7 +442,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
                         )
                         self.c_stop_tracking_order(client_order_id)
                         self.c_trigger_event(
-                            self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                            self.MARKET_ORDER_CANCELED_EVENT_TAG,
                             OrderCancelledEvent(self._current_timestamp, client_order_id)
                         )
                 except asyncio.CancelledError:
@@ -515,9 +521,9 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                                      tracked_order.executed_amount_quote,
                                                                      order_type))
                 else:
-                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been cancelled "
+                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been canceled "
                                        f"according to order status API.")
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                          OrderCancelledEvent(
                                              self._current_timestamp,
                                              tracked_order.client_order_id
@@ -632,7 +638,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
                 elif content.get("reason") == "canceled":  # reason == "canceled":
                     execute_amount_diff = 0
                     tracked_order.last_state = "canceled"
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                          OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
                     execute_amount_diff = 0
                     self.c_stop_tracking_order(tracked_order.client_order_id)
@@ -808,17 +814,17 @@ cdef class CoinbaseProExchange(ExchangeBase):
             endpoint = f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}"
             cancelled_id = await self._api_request(RESTMethod.DELETE, endpoint=endpoint)
             if cancelled_id == exchange_order_id:
-                self.logger().info(f"Successfully cancelled order {order_id}.")
+                self.logger().info(f"Successfully canceled order {order_id}.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
         except IOError as e:
             if "order not found" in str(e):
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
-                self.logger().info(f"The order {order_id} does not exist on Coinbase Pro. No cancellation needed.")
+                self.logger().info(f"The order {order_id} does not exist on Coinbase Pro. No cancelation needed.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
         except asyncio.CancelledError:
@@ -866,7 +872,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
                         )
         except Exception as e:
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                f"Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order on Coinbase Pro. Check API key and network connection."
             )
@@ -1069,3 +1075,11 @@ cdef class CoinbaseProExchange(ExchangeBase):
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await CoinbaseProAPIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await CoinbaseProAPIOrderBookDataSource.get_last_traded_prices(trading_pairs=trading_pairs)

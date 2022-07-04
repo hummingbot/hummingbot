@@ -59,6 +59,9 @@ PLACE_ACTIVE_ORDER_PATH_URL = {
 CANCEL_ACTIVE_ORDER_PATH_URL = {
     LINEAR_MARKET: "private/linear/order/cancel",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/cancel"}
+CANCEL_ALL_ACTIVE_ORDERS_PATH_URL = {
+    LINEAR_MARKET: "private/linear/order/cancelAll",
+    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/cancelAll"}
 QUERY_ACTIVE_ORDER_PATH_URL = {
     LINEAR_MARKET: "private/linear/order/search",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order"}
@@ -90,7 +93,7 @@ ORDER_STATE = {
     "New": OrderState.OPEN,
     "Filled": OrderState.FILLED,
     "PartiallyFilled": OrderState.PARTIALLY_FILLED,
-    "Cancelled": OrderState.CANCELLED,
+    "Cancelled": OrderState.CANCELED,
     "PendingCancel": OrderState.PENDING_CANCEL,
     "Rejected": OrderState.FAILED,
 }

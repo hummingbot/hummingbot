@@ -4,6 +4,8 @@ from decimal import Decimal
 from typing import Awaitable, Dict
 from unittest.mock import patch
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -46,7 +48,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         super().setUp()
         self.log_records = []
 
-        self.connector = MockExchange()
+        self.connector = MockExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
         self.connector._set_current_timestamp(1640000000.0)
         self.tracker = ClientOrderTracker(connector=self.connector)
 
@@ -427,13 +429,13 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             exchange_order_id=order.exchange_order_id,
             trading_pair=self.trading_pair,
             update_timestamp=1,
-            new_state=OrderState.CANCELLED,
+            new_state=OrderState.CANCELED,
         )
 
         update_future = self.tracker.process_order_update(order_cancelled_update)
         self.async_run_with_timeout(update_future)
 
-        self.assertTrue(self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}."))
+        self.assertTrue(self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
         self.assertEqual(0, len(self.tracker.active_orders))
         self.assertEqual(1, len(self.tracker.cached_orders))
         self.assertEqual(1, len(self.order_cancelled_logger.event_log))
@@ -757,7 +759,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         )
         self.tracker.start_tracking_order(order)
 
-        self.tracker._order_not_found_records[order.client_order_id] = 3
+        self.tracker._order_not_found_records[order.client_order_id] = 10
         self.async_run_with_timeout(self.tracker.process_order_not_found(order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.tracker.active_orders)
@@ -783,7 +785,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             amount=Decimal("1000.0"),
             creation_timestamp=1640001112.223,
             price=Decimal("1.0"),
-            initial_state=OrderState.CANCELLED
+            initial_state=OrderState.CANCELED
         ))
         orders.append(InFlightOrder(
             client_order_id="OID3",

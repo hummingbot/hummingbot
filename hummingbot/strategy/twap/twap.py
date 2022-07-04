@@ -59,7 +59,7 @@ class TwapTradeStrategy(StrategyPyBase):
         :param order_price: price to place the order at
         :param order_delay_time: how long to wait between placing trades
         :param execution_state: execution state object with the conditions that should be satisfied to run each tick
-        :param cancel_order_wait_time: how long to wait before cancelling an order
+        :param cancel_order_wait_time: how long to wait before canceling an order
         :param status_report_interval: how often to report network connection related warnings, if any
         """
 

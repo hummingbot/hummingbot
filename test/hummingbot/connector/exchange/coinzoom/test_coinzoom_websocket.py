@@ -6,8 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
 from hummingbot.connector.exchange.coinzoom.coinzoom_websocket import CoinzoomWebsocket
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
-
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 

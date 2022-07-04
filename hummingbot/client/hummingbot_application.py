@@ -4,22 +4,27 @@ import asyncio
 import logging
 import time
 from collections import deque
-from typing import Deque, Dict, List, Optional, Tuple
+from typing import Deque, Dict, List, Optional, Tuple, Union
 
 from hummingbot.client.command import __all__ as commands
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
 from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    ReadOnlyClientConfigAdapter,
     get_connector_class,
     get_strategy_config_map,
+    load_client_config_map_from_file,
+    save_to_yml,
 )
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import AllConnectorSettings, ConnectorType
+from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, ConnectorType
 from hummingbot.client.tab import __all__ as tab_classes
 from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.keybindings import load_key_bindings
-from hummingbot.client.ui.parser import load_parser, ThrowingArgumentParser
+from hummingbot.client.ui.parser import ThrowingArgumentParser, load_parser
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
@@ -33,7 +38,6 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.notifier.notifier_base import NotifierBase
-from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -56,19 +60,24 @@ class HummingbotApplication(*commands):
         return s_logger
 
     @classmethod
-    def main_application(cls) -> "HummingbotApplication":
+    def main_application(cls, client_config_map: Optional[ClientConfigAdapter] = None) -> "HummingbotApplication":
         if cls._main_app is None:
-            cls._main_app = HummingbotApplication()
+            cls._main_app = HummingbotApplication(client_config_map)
         return cls._main_app
 
-    def __init__(self):
+    def __init__(self, client_config_map: Optional[ClientConfigAdapter] = None):
+        self.client_config_map: Union[ClientConfigMap, ClientConfigAdapter] = (  # type-hint enables IDE auto-complete
+            client_config_map or load_client_config_map_from_file()
+        )
+
         # This is to start fetching trading pairs for auto-complete
-        TradingPairFetcher.get_instance()
+        TradingPairFetcher.get_instance(self.client_config_map)
         self.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self.markets: Dict[str, ExchangeBase] = {}
         # strategy file name and name get assigned value after import or create command
-        self._strategy_file_name: str = None
-        self.strategy_name: str = None
+        self._strategy_file_name: Optional[str] = None
+        self.strategy_name: Optional[str] = None
+        self._strategy_config_map: Optional[BaseStrategyConfigMap] = None
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
@@ -100,6 +109,7 @@ class HummingbotApplication(*commands):
         command_tabs = self.init_command_tabs()
         self.parser: ThrowingArgumentParser = load_parser(self, command_tabs)
         self.app = HummingbotCLI(
+            self.client_config_map,
             input_handler=self._handle_command,
             bindings=load_key_bindings(self),
             completer=load_completer(self),
@@ -121,15 +131,23 @@ class HummingbotApplication(*commands):
         self._strategy_file_name = value
         if value is not None:
             db_name = value.split(".")[0]
-            self.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(db_name)
+            self.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(
+                self.client_config_map, db_name
+            )
         else:
             self.trade_fill_db = None
 
     @property
     def strategy_config_map(self):
+        if self._strategy_config_map is not None:
+            return self._strategy_config_map
         if self.strategy_name is not None:
             return get_strategy_config_map(self.strategy_name)
         return None
+
+    @strategy_config_map.setter
+    def strategy_config_map(self, config_map: BaseStrategyConfigMap):
+        self._strategy_config_map = config_map
 
     def _init_gateway_monitor(self):
         try:
@@ -167,24 +185,24 @@ class HummingbotApplication(*commands):
                     self.help(raw_command)
                     return
 
-                shortcuts = global_config_map.get("command_shortcuts").value
+                shortcuts = self.client_config_map.command_shortcuts
                 shortcut = None
                 # see if we match against shortcut command
                 if shortcuts is not None:
-                    for s in shortcuts:
-                        if command_split[0] == s['command']:
-                            shortcut = s
+                    for each_shortcut in shortcuts:
+                        if command_split[0] == each_shortcut.command:
+                            shortcut = each_shortcut
                             break
 
                 # perform shortcut expansion
                 if shortcut is not None:
                     # check number of arguments
-                    num_shortcut_args = len(shortcut['arguments'])
+                    num_shortcut_args = len(shortcut.arguments)
                     if len(command_split) == num_shortcut_args + 1:
                         # notify each expansion if there's more than 1
-                        verbose = True if len(shortcut['output']) > 1 else False
+                        verbose = True if len(shortcut.output) > 1 else False
                         # do argument replace and re-enter this function with the expanded command
-                        for output_cmd in shortcut['output']:
+                        for output_cmd in shortcut.output:
                             final_cmd = output_cmd
                             for i in range(1, num_shortcut_args + 1):
                                 final_cmd = final_cmd.replace(f'${i}', command_split[i])
@@ -215,7 +233,7 @@ class HummingbotApplication(*commands):
         success = True
         try:
             kill_timeout: float = self.KILL_TIMEOUT
-            self.notify("Cancelling outstanding orders...")
+            self.notify("Canceling outstanding orders...")
 
             for market_name, market in self.markets.items():
                 cancellation_results = await market.cancel_all(kill_timeout)
@@ -232,7 +250,7 @@ class HummingbotApplication(*commands):
             success = False
 
         if success:
-            self.notify("All outstanding orders cancelled.")
+            self.notify("All outstanding orders canceled.")
         return success
 
     async def run(self):
@@ -263,19 +281,18 @@ class HummingbotApplication(*commands):
             conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
 
             if connector_name.endswith("paper_trade") and conn_setting.type == ConnectorType.Exchange:
-                connector = create_paper_trade_market(conn_setting.parent_name, trading_pairs)
-                paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
+                connector = create_paper_trade_market(conn_setting.parent_name, self.client_config_map, trading_pairs)
+                paper_trade_account_balance = self.client_config_map.paper_trade.paper_trade_account_balance
                 if paper_trade_account_balance is not None:
                     for asset, balance in paper_trade_account_balance.items():
                         connector.set_balance(asset, balance)
             else:
-                Security.update_config_map(global_config_map)
-                keys = {key: config.value for key, config in global_config_map.items()
-                        if key in conn_setting.config_keys}
+                keys = Security.api_keys(connector_name)
                 init_params = conn_setting.conn_init_parameters(keys)
                 init_params.update(trading_pairs=trading_pairs, trading_required=self._trading_required)
                 connector_class = get_connector_class(connector_name)
-                connector = connector_class(**init_params)
+                read_only_config = ReadOnlyClientConfigAdapter.lock_config(self.client_config_map)
+                connector = connector_class(read_only_config, **init_params)
             self.markets[connector_name] = connector
 
         self.markets_recorder = MarketsRecorder(
@@ -287,16 +304,12 @@ class HummingbotApplication(*commands):
         self.markets_recorder.start()
 
     def _initialize_notifiers(self):
-        if global_config_map.get("telegram_enabled").value:
-            # TODO: refactor to use single instance
-            if not any([isinstance(n, TelegramNotifier) for n in self.notifiers]):
-                self.notifiers.append(
-                    TelegramNotifier(
-                        token=global_config_map["telegram_token"].value,
-                        chat_id=global_config_map["telegram_chat_id"].value,
-                        hb=self,
-                    )
-                )
+        self.notifiers.extend(
+            [
+                notifier for notifier in self.client_config_map.telegram_mode.get_notifiers(self)
+                if notifier not in self.notifiers
+            ]
+        )
         for notifier in self.notifiers:
             notifier.start()
 
@@ -310,3 +323,6 @@ class HummingbotApplication(*commands):
             name = tab_class.get_command_name()
             command_tabs[name] = CommandTab(name, None, None, None, tab_class)
         return command_tabs
+
+    def save_client_config(self):
+        save_to_yml(CLIENT_CONFIG_PATH, self.client_config_map)

@@ -1,9 +1,11 @@
 import argparse
-from typing import Any, List
+from typing import TYPE_CHECKING, Any, List
 
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.exceptions import ArgumentParserError
+
+if TYPE_CHECKING:
+    from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
 class ThrowingArgumentParser(argparse.ArgumentParser):
@@ -35,7 +37,7 @@ class ThrowingArgumentParser(argparse.ArgumentParser):
         return filtered
 
 
-def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
+def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingArgumentParser, Any]:
     parser = ThrowingArgumentParser(prog="", add_help=False)
     subparsers = parser.add_subparsers()
 
@@ -95,13 +97,18 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     gateway_create_parser.set_defaults(func=hummingbot.create_gateway)
 
     gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")
-    gateway_config_parser.add_argument("key", nargs=1, default=None, help="Name of the parameter you want to view/change")
+    gateway_config_parser.add_argument("key", nargs="?", default=None, help="Name of the parameter you want to view/change")
     gateway_config_parser.add_argument("value", nargs="?", default=None, help="New value for the parameter")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
     gateway_connect_parser = gateway_subparsers.add_parser("connect", help="Create/view connection info for gateway connector")
     gateway_connect_parser.add_argument("connector", nargs="?", default=None, help="Name of connector you want to create a profile for")
     gateway_connect_parser.set_defaults(func=hummingbot.gateway_connect)
+
+    gateway_connector_tokens_parser = gateway_subparsers.add_parser("connector-tokens", help="Report token balances for gateway connectors")
+    gateway_connector_tokens_parser.add_argument("connector_chain_network", nargs="?", default=None, help="Name of connector you want to edit reported tokens for")
+    gateway_connector_tokens_parser.add_argument("new_tokens", nargs="?", default=None, help="Report balance of these tokens")
+    gateway_connector_tokens_parser.set_defaults(func=hummingbot.gateway_connector_tokens)
 
     gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create ssl certifcate for gateway")
     gateway_cert_parser.set_defaults(func=hummingbot.generate_certs)
@@ -119,7 +126,7 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     gateway_test_parser.set_defaults(func=hummingbot.test_connection)
 
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
-    exit_parser.add_argument("-f", "--force", "--suspend", action="store_true", help="Force exit without cancelling outstanding orders",
+    exit_parser.add_argument("-f", "--force", "--suspend", action="store_true", help="Force exit without canceling outstanding orders",
                              default=False)
     exit_parser.set_defaults(func=hummingbot.exit)
 
@@ -138,16 +145,19 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     pmm_script_parser.add_argument("args", nargs="*", default=None, help="Arguments")
     pmm_script_parser.set_defaults(func=hummingbot.pmm_script_command)
 
+    previous_strategy_parser = subparsers.add_parser("previous", help="Imports the last strategy used")
+    previous_strategy_parser.add_argument("option", nargs="?", choices=["Yes,No"], default=None)
+    previous_strategy_parser.set_defaults(func=hummingbot.previous_strategy)
+
     # add shortcuts so they appear in command help
-    shortcuts = global_config_map.get("command_shortcuts").value
-    if shortcuts is not None:
-        for shortcut in shortcuts:
-            help_str = shortcut['help']
-            command = shortcut['command']
-            shortcut_parser = subparsers.add_parser(command, help=help_str)
-            args = shortcut['arguments']
-            for i in range(len(args)):
-                shortcut_parser.add_argument(f'${i+1}', help=args[i])
+    shortcuts = hummingbot.client_config_map.command_shortcuts
+    for shortcut in shortcuts:
+        help_str = shortcut.help
+        command = shortcut.command
+        shortcut_parser = subparsers.add_parser(command, help=help_str)
+        args = shortcut.arguments
+        for i in range(len(args)):
+            shortcut_parser.add_argument(f'${i+1}', help=args[i])
 
     rate_parser = subparsers.add_parser('rate', help="Show rate of a given trading pair")
     rate_parser.add_argument("-p", "--pair", default=None,

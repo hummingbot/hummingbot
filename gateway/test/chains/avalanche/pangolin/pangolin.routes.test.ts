@@ -3,18 +3,29 @@ import { patch, unpatch } from '../../../services/patch';
 import { gatewayApp } from '../../../../src/app';
 import { Avalanche } from '../../../../src/chains/avalanche/avalanche';
 import { Pangolin } from '../../../../src/connectors/pangolin/pangolin';
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 let avalanche: Avalanche;
 let pangolin: Pangolin;
 
 beforeAll(async () => {
   avalanche = Avalanche.getInstance('fuji');
+  patchEVMNonceManager(avalanche.nonceManager);
   await avalanche.init();
+
   pangolin = Pangolin.getInstance('avalanche', 'fuji');
   await pangolin.init();
 });
 
+beforeEach(() => {
+  patchEVMNonceManager(avalanche.nonceManager);
+});
+
 afterEach(() => {
   unpatch();
+});
+
+afterAll(async () => {
+  await avalanche.close();
 });
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
