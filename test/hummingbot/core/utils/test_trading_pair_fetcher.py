@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.settings import ConnectorSetting, ConnectorType
 from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils
@@ -79,7 +81,8 @@ class TestTradingPairFetcher(unittest.TestCase):
             "mock_paper_trade": self.MockConnectorSetting(name="mock_paper_trade", parent_name="mock_exchange_1")
         }
 
-        trading_pair_fetcher = TradingPairFetcher()
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        trading_pair_fetcher = TradingPairFetcher(client_config_map)
         self.async_run_with_timeout(self.wait_until_trading_pair_fetcher_ready(trading_pair_fetcher), 1.0)
         trading_pairs = trading_pair_fetcher.trading_pairs
         self.assertEqual(2, len(trading_pairs))
@@ -207,7 +210,8 @@ class TestTradingPairFetcher(unittest.TestCase):
 
         mock_api.get(url, body=json.dumps(mock_response))
 
-        fetcher = TradingPairFetcher()
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        fetcher = TradingPairFetcher(client_config_map)
         asyncio.get_event_loop().run_until_complete(fetcher._fetch_task)
         trading_pairs = fetcher.trading_pairs
 
