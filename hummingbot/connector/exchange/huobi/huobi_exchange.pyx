@@ -7,7 +7,7 @@ from typing import (
     AsyncIterable,
     Dict,
     List,
-    Optional
+    Optional, TYPE_CHECKING
 )
 
 import ujson
@@ -52,6 +52,9 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
@@ -100,12 +103,13 @@ cdef class HuobiExchange(ExchangeBase):
         return hm_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  huobi_api_key: str,
                  huobi_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
-        super().__init__()
+        super().__init__(client_config_map)
         self._account_id = ""
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._ev_loop = asyncio.get_event_loop()
@@ -632,7 +636,7 @@ cdef class HuobiExchange(ExchangeBase):
 
     async def _process_trade_event(self, trade_event: Dict[str, Any]):
         order_id = trade_event["orderId"]
-        client_order_id = trade_event["clientOrderId"]
+        client_order_id = trade_event.get("clientOrderId")
         execute_price = Decimal(trade_event["tradePrice"])
         execute_amount_diff = Decimal(trade_event["tradeVolume"])
 
@@ -640,25 +644,24 @@ cdef class HuobiExchange(ExchangeBase):
 
         if tracked_order:
             updated = tracked_order.update_with_trade_update(trade_event)
-        if updated:
-            self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of order "
-                               f"{tracked_order.order_type.name}-{tracked_order.client_order_id}")
-            self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                 OrderFilledEvent(
-                                     self._current_timestamp,
-                                     tracked_order.client_order_id,
-                                     tracked_order.trading_pair,
-                                     tracked_order.trade_type,
-                                     tracked_order.order_type,
-                                     execute_price,
-                                     execute_amount_diff,
-                                     AddedToCostTradeFee(
-                                         flat_fees=[
-                                             TokenAmount(tracked_order.fee_asset, Decimal(trade_event["transactFee"]))
-                                         ]
-                                     ),
-                                     exchange_trade_id=str(trade_event["tradeId"])
-                                 ))
+            if updated:
+                self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of order "
+                                   f"{tracked_order.order_type.name}-{tracked_order.client_order_id}")
+                fee = AddedToCostTradeFee(
+                    flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(trade_event["transactFee"]))]
+                )
+                self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                     OrderFilledEvent(
+                                         self._current_timestamp,
+                                         tracked_order.client_order_id,
+                                         tracked_order.trading_pair,
+                                         tracked_order.trade_type,
+                                         tracked_order.order_type,
+                                         execute_price,
+                                         execute_amount_diff,
+                                         fee,
+                                         exchange_trade_id=str(trade_event["tradeId"])
+                                     ))
 
     @property
     def status_dict(self) -> Dict[str, bool]:

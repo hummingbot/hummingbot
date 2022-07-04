@@ -7,6 +7,8 @@ from unittest.mock import patch
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.okx import okx_constants as CONSTANTS, okx_web_utils as web_utils
 from hummingbot.connector.exchange.okx.okx_exchange import OkxExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
@@ -455,7 +457,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return f"{base_token}-{quote_token}"
 
     def create_exchange_instance(self):
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return OkxExchange(
+            client_config_map,
             self.api_key,
             self.api_secret_key,
             self.api_passphrase,
