@@ -1,9 +1,21 @@
 import { LocalStorage } from './local-storage';
+import { ReferenceCountingCloseable } from './refcounting-closeable';
 
 // store the timestamp for when a transaction was initiated
 // this will be used to calculate a heuristic of the likelihood
 // a mempool transaction will be included in a future block
-export class EvmTxStorage extends LocalStorage {
+export class EvmTxStorage extends ReferenceCountingCloseable {
+  readonly localStorage: LocalStorage;
+
+  protected constructor(dbPath: string) {
+    super(dbPath);
+    this.localStorage = LocalStorage.getInstance(dbPath, this.handle);
+  }
+
+  public async init(): Promise<void> {
+    await this.localStorage.init();
+  }
+
   // pass in a date, then store it as a POSIX timestamp
   public async saveTx(
     chain: string,
@@ -12,7 +24,7 @@ export class EvmTxStorage extends LocalStorage {
     date: Date,
     currentGasPrice: number
   ): Promise<void> {
-    return this.save(
+    return this.localStorage.save(
       chain + '/' + String(chainId) + '/' + tx,
       date.getTime().toString() + ',' + currentGasPrice.toString()
     );
@@ -23,7 +35,7 @@ export class EvmTxStorage extends LocalStorage {
     chainId: number,
     tx: string
   ): Promise<void> {
-    return this.del(chain + '/' + String(chainId) + '/' + tx);
+    return this.localStorage.del(chain + '/' + String(chainId) + '/' + tx);
   }
 
   // retrieve POSIX timestamps and convert them back into JavaScript Date types
@@ -31,7 +43,7 @@ export class EvmTxStorage extends LocalStorage {
     chain: string,
     chainId: number
   ): Promise<Record<string, [Date, number]>> {
-    return this.get((key: string, value: string) => {
+    return this.localStorage.get((key: string, value: string) => {
       const splitKey = key.split('/');
       const splitValue = value.split(',');
       if (
@@ -47,5 +59,12 @@ export class EvmTxStorage extends LocalStorage {
       }
       return;
     });
+  }
+
+  public async close(handle: string): Promise<void> {
+    await super.close(handle);
+    if (this.refCount < 1) {
+      await this.localStorage.close(this.handle);
+    }
   }
 }

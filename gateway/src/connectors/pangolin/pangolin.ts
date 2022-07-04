@@ -7,6 +7,7 @@ import {
   Transaction,
   Wallet,
 } from 'ethers';
+import { isFractionString } from '../../services/validators';
 import { PangolinConfig } from './pangolin.config';
 import routerAbi from './IPangolinRouter.json';
 import {
@@ -25,7 +26,6 @@ import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 export class Pangolin implements Uniswapish {
   private static _instances: { [name: string]: Pangolin };
   private avalanche: Avalanche;
-  private _chain: string;
   private _router: string;
   private _routerAbi: ContractInterface;
   private _gasLimit: number;
@@ -34,15 +34,14 @@ export class Pangolin implements Uniswapish {
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
-  private constructor(chain: string, network: string) {
-    this._chain = chain;
+  private constructor(network: string) {
     const config = PangolinConfig.config;
     this.avalanche = Avalanche.getInstance(network);
     this.chainId = this.avalanche.chainId;
     this._router = config.routerAddress(network);
     this._ttl = config.ttl;
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = config.gasLimit;
+    this._gasLimit = this.avalanche.gasLimit;
   }
 
   public static getInstance(chain: string, network: string): Pangolin {
@@ -50,7 +49,7 @@ export class Pangolin implements Uniswapish {
       Pangolin._instances = {};
     }
     if (!(chain + network in Pangolin._instances)) {
-      Pangolin._instances[chain + network] = new Pangolin(chain, network);
+      Pangolin._instances[chain + network] = new Pangolin(network);
     }
 
     return Pangolin._instances[chain + network];
@@ -67,8 +66,9 @@ export class Pangolin implements Uniswapish {
   }
 
   public async init() {
-    if (this._chain == 'avalanche' && !this.avalanche.ready())
-      throw new Error('Avalanche is not available');
+    if (!this.avalanche.ready()) {
+      await this.avalanche.init();
+    }
     for (const token of this.avalanche.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
@@ -113,7 +113,18 @@ export class Pangolin implements Uniswapish {
     return this._ttl;
   }
 
-  getSlippagePercentage(): Percent {
+  /**
+   * Gets the allowed slippage percent from the optional parameter or the value
+   * in the configuration.
+   *
+   * @param allowedSlippageStr (Optional) should be of the form '1/10'.
+   */
+  public getAllowedSlippage(allowedSlippageStr?: string): Percent {
+    if (allowedSlippageStr != null && isFractionString(allowedSlippageStr)) {
+      const fractionSplit = allowedSlippageStr.split('/');
+      return new Percent(fractionSplit[0], fractionSplit[1]);
+    }
+
     const allowedSlippage = PangolinConfig.config.allowedSlippage;
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
@@ -135,7 +146,8 @@ export class Pangolin implements Uniswapish {
   async estimateSellTrade(
     baseToken: Token,
     quoteToken: Token,
-    amount: BigNumber
+    amount: BigNumber,
+    allowedSlippage?: string
   ): Promise<ExpectedTrade> {
     const nativeTokenAmount: TokenAmount = new TokenAmount(
       baseToken,
@@ -164,7 +176,7 @@ export class Pangolin implements Uniswapish {
       `Best trade for ${baseToken.address}-${quoteToken.address}: ${trades[0]}`
     );
     const expectedAmount = trades[0].minimumAmountOut(
-      this.getSlippagePercentage()
+      this.getAllowedSlippage(allowedSlippage)
     );
     return { trade: trades[0], expectedAmount };
   }
@@ -182,7 +194,8 @@ export class Pangolin implements Uniswapish {
   async estimateBuyTrade(
     quoteToken: Token,
     baseToken: Token,
-    amount: BigNumber
+    amount: BigNumber,
+    allowedSlippage?: string
   ): Promise<ExpectedTrade> {
     const nativeTokenAmount: TokenAmount = new TokenAmount(
       baseToken,
@@ -212,7 +225,7 @@ export class Pangolin implements Uniswapish {
     );
 
     const expectedAmount = trades[0].maximumAmountIn(
-      this.getSlippagePercentage()
+      this.getAllowedSlippage(allowedSlippage)
     );
     return { trade: trades[0], expectedAmount };
   }
@@ -241,17 +254,18 @@ export class Pangolin implements Uniswapish {
     gasLimit: number,
     nonce?: number,
     maxFeePerGas?: BigNumber,
-    maxPriorityFeePerGas?: BigNumber
+    maxPriorityFeePerGas?: BigNumber,
+    allowedSlippage?: string
   ): Promise<Transaction> {
     const result = Router.swapCallParameters(trade, {
       ttl,
       recipient: wallet.address,
-      allowedSlippage: this.getSlippagePercentage(),
+      allowedSlippage: this.getAllowedSlippage(allowedSlippage),
     });
 
     const contract = new Contract(pangolinRouter, abi, wallet);
     if (!nonce) {
-      nonce = await this.avalanche.nonceManager.getNonce(wallet.address);
+      nonce = await this.avalanche.nonceManager.getNextNonce(wallet.address);
     }
     let tx;
     if (maxFeePerGas || maxPriorityFeePerGas) {

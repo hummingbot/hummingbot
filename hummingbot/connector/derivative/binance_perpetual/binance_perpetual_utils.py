@@ -1,18 +1,25 @@
 import os
 import socket
+from decimal import Decimal
 from typing import Any, Dict
 
-from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.config_var import ConfigVar
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.0002"),
+    taker_percent_fee_decimal=Decimal("0.0004"),
+    buy_percent_fee_deducted_from_returns=True
+)
+
 
 CENTRALIZED = True
 
 
 EXAMPLE_PAIR = "BTC-USDT"
-
-
-DEFAULT_FEES = [0.02, 0.04]
 
 
 BROKER_ID = "x-3QreWesy"
@@ -38,43 +45,59 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     return exchange_info.get("status", None) == "TRADING"
 
 
-KEYS = {
-    "binance_perpetual_api_key": ConfigVar(
-        key="binance_perpetual_api_key",
-        prompt="Enter your Binance Perpetual API key >>> ",
-        required_if=using_exchange("binance_perpetual"),
-        is_secure=True,
-        is_connect_key=True,
-    ),
-    "binance_perpetual_api_secret": ConfigVar(
-        key="binance_perpetual_api_secret",
-        prompt="Enter your Binance Perpetual API secret >>> ",
-        required_if=using_exchange("binance_perpetual"),
-        is_secure=True,
-        is_connect_key=True,
-    ),
-}
+class BinancePerpetualConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="binance_perpetual", client_data=None)
+    binance_perpetual_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance Perpetual API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    binance_perpetual_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance Perpetual API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+
+KEYS = BinancePerpetualConfigMap.construct()
 
 OTHER_DOMAINS = ["binance_perpetual_testnet"]
 OTHER_DOMAINS_PARAMETER = {"binance_perpetual_testnet": "binance_perpetual_testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"binance_perpetual_testnet": "BTC-USDT"}
 OTHER_DOMAINS_DEFAULT_FEES = {"binance_perpetual_testnet": [0.02, 0.04]}
-OTHER_DOMAINS_KEYS = {
-    "binance_perpetual_testnet": {
-        # add keys for testnet
-        "binance_perpetual_testnet_api_key": ConfigVar(
-            key="binance_perpetual_testnet_api_key",
-            prompt="Enter your Binance Perpetual testnet API key >>> ",
-            required_if=using_exchange("binance_perpetual_testnet"),
+
+
+class BinancePerpetualTestnetConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="binance_perpetual_testnet", client_data=None)
+    binance_perpetual_testnet_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance Perpetual testnet API key",
             is_secure=True,
             is_connect_key=True,
-        ),
-        "binance_perpetual_testnet_api_secret": ConfigVar(
-            key="binance_perpetual_testnet_api_secret",
-            prompt="Enter your Binance Perpetual testnet API secret >>> ",
-            required_if=using_exchange("binance_perpetual_testnet"),
+            prompt_on_new=True,
+        )
+    )
+    binance_perpetual_testnet_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance Perpetual testnet API secret",
             is_secure=True,
             is_connect_key=True,
-        ),
-    }
-}
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "binance_perpetual"
+
+
+OTHER_DOMAINS_KEYS = {"binance_perpetual_testnet": BinancePerpetualTestnetConfigMap.construct()}

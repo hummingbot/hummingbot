@@ -4,8 +4,10 @@ from typing import List
 
 import pandas as pd
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock
 from hummingbot.core.clock_mode import ClockMode
 from hummingbot.core.event.events import OrderType
@@ -41,7 +43,9 @@ class ScriptStrategyBaseTest(unittest.TestCase):
         self.initial_mid_price: int = 100
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.connector: MockPaperExchange = MockPaperExchange()
+        self.connector: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.connector.set_balanced_order_book(trading_pair=self.trading_pair,
                                                mid_price=100,
                                                min_price=50,
@@ -155,6 +159,6 @@ class ScriptStrategyBaseTest(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 log_level="INFO",
-                message=f"({self.trading_pair}) Cancelling the limit order {order_id}."
+                message=f"({self.trading_pair}) Canceling the limit order {order_id}."
             )
         )

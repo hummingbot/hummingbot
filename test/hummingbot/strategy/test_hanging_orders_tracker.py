@@ -137,7 +137,7 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                        self,
                                        OrderCancelledEvent(old_order.client_order_id, old_order.client_order_id))
         self.assertTrue(self._is_logged("INFO", f"(BTC-USDT) Hanging order {old_order.client_order_id} "
-                                                f"has been cancelled as part of the renew process. "
+                                                f"has been canceled as part of the renew process. "
                                                 f"Now the replacing order will be created."))
         self.assertFalse(any(order.order_id == old_order.client_order_id for order
                              in self.tracker.strategy_current_hanging_orders))
@@ -217,7 +217,7 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                                            new_order.client_order_id,
                                                            new_order.client_order_id))
 
-        self.assertTrue(self._is_logged("INFO", "(BTC-USDT) Hanging order Order-1234567890000000 cancelled."))
+        self.assertTrue(self._is_logged("INFO", "(BTC-USDT) Hanging order Order-1234567890000000 canceled."))
         self.assertTrue(len(self.tracker.strategy_current_hanging_orders) == 0)
         self.assertNotIn(new_order, self.tracker.original_orders)
 

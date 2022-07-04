@@ -5,8 +5,10 @@ from typing import List
 import pandas as pd
 from nose.plugins.attrib import attr
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.event.event_logger import EventLogger
@@ -28,8 +30,8 @@ class ArbitrageUnitTest(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
-        self.market_1: MockPaperExchange = MockPaperExchange()
-        self.market_2: MockPaperExchange = MockPaperExchange()
+        self.market_1: MockPaperExchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        self.market_2: MockPaperExchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
 
         self.market_1.set_balanced_order_book(self.market_1_trading_pairs[0], 1.0, 0.5, 1.5, 0.01, 10)
         self.market_2.set_balanced_order_book(self.market_2_trading_pairs[0], 1.0, 0.5, 1.5, 0.005, 5)

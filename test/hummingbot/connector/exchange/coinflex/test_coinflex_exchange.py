@@ -1,21 +1,24 @@
 import asyncio
 import contextlib
+import functools
 import json
 import re
 import time
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
-from typing import Awaitable, NamedTuple, Optional
+from typing import Awaitable, Callable, NamedTuple, Optional
 from unittest import TestCase
 from unittest.mock import AsyncMock, PropertyMock, patch
 
 from aioresponses import aioresponses
 from async_timeout import timeout
 from bidict import bidict
-from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS
-from hummingbot.connector.exchange.coinflex import coinflex_web_utils
+
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS, coinflex_web_utils
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.connector.exchange.coinflex.coinflex_exchange import CoinflexExchange
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -57,8 +60,10 @@ class CoinflexExchangeTests(TestCase):
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
         self.mocking_assistant = NetworkMockingAssistant()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = CoinflexExchange(
+            client_config_map=self.client_config_map,
             coinflex_api_key="testAPIKey",
             coinflex_api_secret="testSecret",
             trading_pairs=[self.trading_pair],
@@ -74,7 +79,7 @@ class CoinflexExchangeTests(TestCase):
         self._initialize_event_loggers()
 
         CoinflexAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "live": bidict(
+            "coinflex": bidict(
                 {f"{self.base_asset}-{self.quote_asset}": self.trading_pair})
         }
 
@@ -117,6 +122,12 @@ class CoinflexExchangeTests(TestCase):
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
+
+    def _return_calculation_and_set_done_event(self, calculation: Callable, *args, **kwargs):
+        if self.resume_test_event.is_set():
+            raise asyncio.CancelledError
+        self.resume_test_event.set()
+        return calculation(*args, **kwargs)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -220,7 +231,7 @@ class CoinflexExchangeTests(TestCase):
 
         order_data = {
             "clientOrderId": client_order_id or order.client_order_id,
-            "orderId": int(order.exchange_order_id if order else 1),
+            "orderId": int(order.exchange_order_id if order and order.exchange_order_id else 1),
             "timestamp": 1499405658658,
             "status": status,
             "side": side,
@@ -613,7 +624,7 @@ class CoinflexExchangeTests(TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='OID1', exchange_order_id=None)"
+                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 
@@ -665,7 +676,7 @@ class CoinflexExchangeTests(TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None)"
+                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 
@@ -728,7 +739,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Successfully cancelled order {order.client_order_id}."
+                f"Successfully canceled order {order.client_order_id}."
             )
         )
 
@@ -772,7 +783,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                f"There was a an error when requesting cancellation of order {order.client_order_id}"
+                f"There was an error when requesting cancelation of order {order.client_order_id}"
             )
         )
         expected_error = {"errors": None, "status": None}
@@ -780,7 +791,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                f"Unhandled error cancelling order: {order.client_order_id}. Error: {expected_error}"
+                f"Unhandled error canceling order: {order.client_order_id}. Error: {expected_error}"
             )
         )
 
@@ -834,13 +845,13 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                f"There was a an error when requesting cancellation of order {order.client_order_id}"
+                f"There was an error when requesting cancelation of order {order.client_order_id}"
             )
         )
         expected_error = (
             f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
             f" update_timestamp={'1640780000.0'}, new_state={repr(OrderState.FAILED)}, "
-            f"client_order_id='{order.client_order_id}', exchange_order_id=None)")
+            f"client_order_id='{order.client_order_id}', exchange_order_id=None, misc_updates=None)")
 
         self.assertTrue(self._is_logged("INFO", expected_error))
 
@@ -909,7 +920,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Successfully cancelled order {order1.client_order_id}."
+                f"Successfully canceled order {order1.client_order_id}."
             )
         )
 
@@ -1048,7 +1059,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
         self.assertTrue(
-            self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}.")
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
         )
 
     @aioresponses()
@@ -1094,7 +1105,8 @@ class CoinflexExchangeTests(TestCase):
                 "INFO",
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
                 f" update_timestamp={int(order_status['data'][0]['orderClosedTimestamp']) * 1e-3}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}')")
+                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
+                "misc_updates=None)")
         )
 
     @aioresponses()
@@ -1163,7 +1175,7 @@ class CoinflexExchangeTests(TestCase):
 
         order_status = {"data": [{
             "success": "false",
-            "message": CONSTANTS.ORDER_NOT_FOUND_ERROR
+            "message": CONSTANTS.ORDER_NOT_FOUND_ERRORS[0]
         }]}
 
         for i in range(2 * self.exchange.MAX_ORDER_UPDATE_RETRIEVAL_RETRIES_WITH_FAILURES):
@@ -1179,7 +1191,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
         expected_error = {
             **order_status,
-            "errors": CONSTANTS.ORDER_NOT_FOUND_ERROR
+            "errors": CONSTANTS.ORDER_NOT_FOUND_ERRORS[0]
         }
         self.assertTrue(
             self._is_logged(
@@ -1299,7 +1311,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(order.is_done)
 
         self.assertTrue(
-            self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}.")
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
         )
 
     def test_user_stream_update_for_order_fill(self):
@@ -1419,6 +1431,59 @@ class CoinflexExchangeTests(TestCase):
         self.assertEqual(Decimal("10000"), self.exchange.available_balances["COINALPHA"])
         self.assertEqual(Decimal("10500"), self.exchange.get_balance("COINALPHA"))
 
+    def test_user_stream_event_listener_raises_cancelled_error(self):
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = asyncio.CancelledError
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.test_task)
+
+    def test_user_stream_event_queue_error_is_logged(self):
+        self.test_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
+
+        dummy_user_stream = AsyncMock()
+        dummy_user_stream.get.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
+            Exception("Dummy test error")
+        )
+        self.exchange._user_stream_tracker._user_stream = dummy_user_stream
+
+        self.async_run_with_timeout(self.resume_test_event.wait())
+        self.resume_test_event.clear()
+
+        self.assertTrue(self._is_logged("NETWORK", "Unknown error. Retrying after 1 seconds."))
+
+    @patch("hummingbot.core.data_type.in_flight_order.GET_EX_ORDER_ID_TIMEOUT", 0.0)
+    def test_user_stream_event_order_not_created_error(self):
+        self.test_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
+
+        self.exchange.start_tracking_order(
+            exchange_order_id=None,
+            order_id="OID1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+        )
+
+        order = self.exchange.in_flight_orders.get("OID1")
+
+        partial_fill = self._get_mock_user_stream_order_data(order=order)
+
+        dummy_user_stream = AsyncMock()
+        dummy_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                              lambda: partial_fill)
+
+        self.exchange._user_stream_tracker._user_stream = dummy_user_stream
+
+        self.async_run_with_timeout(self.resume_test_event.wait())
+        self.resume_test_event.clear()
+
+        self.assertTrue(self._is_logged("ERROR", f"Failed to get exchange order id for order: {order.client_order_id}"))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error in user stream listener loop."))
+
     def test_restore_tracking_states_only_registers_open_orders(self):
         orders = []
         orders.append(InFlightOrder(
@@ -1440,7 +1505,7 @@ class CoinflexExchangeTests(TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELLED
+            initial_state=OrderState.CANCELED
         ))
         orders.append(InFlightOrder(
             client_order_id="OID3",

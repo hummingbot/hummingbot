@@ -10,15 +10,23 @@ import {
   UNKNOWN_ERROR_MESSAGE,
 } from '../../../src/services/error-handler';
 import * as transactionSuccesful from '../ethereum/fixtures/transaction-succesful.json';
-import * as transactionSuccesfulReceipt from '../ethereum//fixtures/transaction-succesful-receipt.json';
-import * as transactionOutOfGas from '../ethereum//fixtures/transaction-out-of-gas.json';
+import * as transactionSuccesfulReceipt from '../ethereum/fixtures/transaction-succesful-receipt.json';
+import * as transactionOutOfGas from '../ethereum/fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from '../ethereum/fixtures/transaction-out-of-gas-receipt.json';
 import { Avalanche } from '../../../src/chains/avalanche/avalanche';
-
-const avalanche = Avalanche.getInstance('fuji');
-afterEach(unpatch);
+let avalanche: Avalanche;
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
+
+beforeAll(async () => {
+  avalanche = Avalanche.getInstance('fuji');
+});
+
+afterAll(async () => {
+  await avalanche.close();
+});
+
+afterEach(unpatch);
 
 const patchGetWallet = () => {
   patch(avalanche, 'getWallet', () => {

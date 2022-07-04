@@ -1,19 +1,17 @@
-from decimal import Decimal
 import decimal
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_validators import (
-    validate_exchange,
-    validate_connector,
-    validate_market_trading_pair,
-    validate_bool,
-    validate_decimal,
-    validate_int
-)
-from hummingbot.client.settings import (
-    required_exchanges,
-    AllConnectorSettings,
-)
+from decimal import Decimal
 from typing import Optional
+
+from hummingbot.client.config.config_validators import (
+    validate_bool,
+    validate_connector,
+    validate_decimal,
+    validate_exchange,
+    validate_int,
+    validate_market_trading_pair,
+)
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.settings import AllConnectorSettings, required_exchanges
 
 
 def maker_trading_pair_prompt():
@@ -105,7 +103,7 @@ def on_validated_price_type(value: str):
 
 
 def exchange_on_validated(value: str):
-    required_exchanges.append(value)
+    required_exchanges.add(value)
 
 
 def validate_decimal_list(value: str) -> Optional[str]:
@@ -389,7 +387,7 @@ pure_market_making_config_map = {
                   type_str="json"),
     "should_wait_order_cancel_confirmation":
         ConfigVar(key="should_wait_order_cancel_confirmation",
-                  prompt="Should the strategy wait to receive a confirmation for orders cancellation "
+                  prompt="Should the strategy wait to receive a confirmation for orders cancelation "
                          "before creating a new set of orders? "
                          "(Not waiting requires enough available balance) (Yes/No) >>> ",
                   type_str="bool",

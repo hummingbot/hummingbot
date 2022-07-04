@@ -4,18 +4,15 @@ import math
 import time
 import traceback
 from decimal import Decimal
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Any,
-    AsyncIterable,
-)
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 from async_timeout import timeout
 
 import hummingbot.connector.exchange.altmarkets.altmarkets_http_utils as http_utils
+from hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source import (
+    AltmarketsAPIOrderBookDataSource,
+)
 from hummingbot.connector.exchange.altmarkets.altmarkets_auth import AltmarketsAuth
 from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
 from hummingbot.connector.exchange.altmarkets.altmarkets_in_flight_order import AltmarketsInFlightOrder
@@ -51,6 +48,9 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
@@ -73,6 +73,7 @@ class AltmarketsExchange(ExchangeBase):
         return ctce_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  altmarkets_api_key: str,
                  altmarkets_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
@@ -84,16 +85,18 @@ class AltmarketsExchange(ExchangeBase):
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
-        super().__init__()
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._throttler = AsyncThrottler(Constants.RATE_LIMITS)
+        self._throttler = AsyncThrottler(Constants.RATE_LIMITS, self._client_config.rate_limits_share_pct)
         self._altmarkets_auth = AltmarketsAuth(altmarkets_api_key, altmarkets_secret_key)
-        self._order_book_tracker = AltmarketsOrderBookTracker(throttler=self._throttler,
-                                                              trading_pairs=trading_pairs)
-        self._user_stream_tracker = AltmarketsUserStreamTracker(throttler=self._throttler,
-                                                                altmarkets_auth=self._altmarkets_auth,
-                                                                trading_pairs=trading_pairs)
+        self._set_order_book_tracker(AltmarketsOrderBookTracker(
+            throttler=self._throttler,
+            trading_pairs=trading_pairs))
+        self._user_stream_tracker = AltmarketsUserStreamTracker(
+            throttler=self._throttler,
+            altmarkets_auth=self._altmarkets_auth,
+            trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
@@ -113,7 +116,7 @@ class AltmarketsExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -129,7 +132,7 @@ class AltmarketsExchange(ExchangeBase):
         A dictionary of statuses of various connector's components.
         """
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
@@ -206,7 +209,7 @@ class AltmarketsExchange(ExchangeBase):
         It starts tracking order book, polling trading rules,
         updating statuses and tracking user data.
         """
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -221,7 +224,7 @@ class AltmarketsExchange(ExchangeBase):
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
 
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -368,9 +371,9 @@ class AltmarketsExchange(ExchangeBase):
         return Decimal(trading_rule.min_base_amount_increment)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -472,7 +475,8 @@ class AltmarketsExchange(ExchangeBase):
                 event_tag = MarketEvent.SellOrderCreated
                 event_cls = SellOrderCreatedEvent
             self.trigger_event(event_tag,
-                               event_cls(self.current_timestamp, order_type, trading_pair, amount, price, order_id, exchange_order_id))
+                               event_cls(self.current_timestamp, order_type, trading_pair, amount, price, order_id,
+                                         exchange_order_id))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -556,9 +560,9 @@ class AltmarketsExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except asyncio.TimeoutError:
-            self.logger().info(f"The order {order_id} could not be cancelled due to a timeout."
+            self.logger().info(f"The order {order_id} could not be canceled due to a timeout."
                                " The action will be retried later.")
-            errors_found = {"message": "Timeout during order cancellation"}
+            errors_found = {"message": "Timeout during order cancelation"}
         except AltmarketsAPIError as e:
             errors_found = e.error_payload.get('errors', e.error_payload)
             if isinstance(errors_found, dict):
@@ -568,7 +572,7 @@ class AltmarketsExchange(ExchangeBase):
 
         if order_state in Constants.ORDER_STATES['CANCEL_WAIT'] or \
                 self._order_not_found_records.get(order_id, 0) >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
-            self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
+            self.logger().info(f"Successfully canceled order {order_id} on {Constants.EXCHANGE_NAME}.")
             self.stop_tracking_order(order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, order_id))
@@ -744,19 +748,21 @@ class AltmarketsExchange(ExchangeBase):
         try:
             updated = tracked_order.update_with_order_update(order_msg)
         except Exception as e:
-            self.logger().error(f"Error in order update for {tracked_order.exchange_order_id}. Message: {order_msg}\n{e}")
+            self.logger().error(
+                f"Error in order update for {tracked_order.exchange_order_id}. Message: {order_msg}\n{e}")
             traceback.print_exc()
             raise e
         if updated:
             safe_ensure_future(self._trigger_order_fill(tracked_order, order_msg))
         if tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+            self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
             self.stop_tracking_order(tracked_order.client_order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id))
             tracked_order.cancelled_event.set()
         elif tracked_order.is_failure:
-            self.logger().info(f"The market order {tracked_order.client_order_id} has failed according to order status API. ")
+            self.logger().info(
+                f"The market order {tracked_order.client_order_id} has failed according to order status API. ")
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(
                                    self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
@@ -796,7 +802,8 @@ class AltmarketsExchange(ExchangeBase):
     def _process_balance_message(self, balance_message: Dict[str, Any]):
         asset_name = balance_message["currency"].upper()
         self._account_available_balances[asset_name] = Decimal(str(balance_message["balance"]))
-        self._account_balances[asset_name] = Decimal(str(balance_message["locked"])) + Decimal(str(balance_message["balance"]))
+        self._account_balances[asset_name] = Decimal(str(balance_message["locked"])) + Decimal(
+            str(balance_message["balance"]))
 
     async def _trigger_order_fill(self,
                                   tracked_order: AltmarketsInFlightOrder,
@@ -878,8 +885,8 @@ class AltmarketsExchange(ExchangeBase):
         """
         now = time.time()
         poll_interval = (Constants.SHORT_POLL_INTERVAL
-                         if not self._user_stream_tracker.is_connected
-                         or now - self._user_stream_tracker.last_recv_time > Constants.USER_TRACKER_MAX_AGE
+                         if (not self._user_stream_tracker.is_connected
+                             or now - self._user_stream_tracker.last_recv_time > Constants.USER_TRACKER_MAX_AGE)
                          else Constants.LONG_POLL_INTERVAL)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
@@ -978,3 +985,14 @@ class AltmarketsExchange(ExchangeBase):
                 )
             )
         return ret_val
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await AltmarketsAPIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await AltmarketsAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            throttler=self._throttler
+        )

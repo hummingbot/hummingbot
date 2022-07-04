@@ -1,20 +1,27 @@
 import random
 import string
 import time
+from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
 
-from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.config_var import ConfigVar
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.001"),
+    taker_percent_fee_decimal=Decimal("0.001"),
+)
+
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USDT"
-
-DEFAULT_FEES = [0.1, 0.1]
 
 
 HBOT_BROKER_ID = "HMBot"
@@ -36,16 +43,19 @@ class AscendExRESTPreProcessor(RESTPreProcessorBase):
         return request
 
 
-def build_api_factory(auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
+def build_api_factory(throttler: AsyncThrottler, auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
     """
     Builds an API factory with custom REST preprocessors
 
+    :param throttler: throttler instance to enforce rate limits
     :param auth: authentication class for private requests
 
     :return: API factory
     """
-    api_factory = WebAssistantsFactory(auth=auth,
-                                       rest_pre_processors=[AscendExRESTPreProcessor()])
+    api_factory = WebAssistantsFactory(
+        throttler=throttler,
+        auth=auth,
+        rest_pre_processors=[AscendExRESTPreProcessor()])
     return api_factory
 
 
@@ -127,20 +137,32 @@ def gen_exchange_order_id(userUid: str, client_order_id: str, timestamp: Optiona
     ]
 
 
-KEYS = {
-    "ascend_ex_api_key":
-        ConfigVar(key="ascend_ex_api_key",
-                  prompt="Enter your AscendEx API key >>> ",
-                  required_if=using_exchange("ascend_ex"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "ascend_ex_secret_key":
-        ConfigVar(key="ascend_ex_secret_key",
-                  prompt="Enter your AscendEx secret key >>> ",
-                  required_if=using_exchange("ascend_ex"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class AscendExConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="ascend_ex", client_data=None)
+    ascend_ex_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your AscendEx API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    ascend_ex_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your AscendEx secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "ascend_ex"
+
+
+KEYS = AscendExConfigMap.construct()
 
 
 def _time():
