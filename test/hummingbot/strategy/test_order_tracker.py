@@ -6,6 +6,8 @@ from typing import List, Union
 
 import pandas as pd
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -50,7 +52,9 @@ class OrderTrackerUnitTests(unittest.TestCase):
             for i in range(20)
         ]
 
-        cls.market: MockPaperExchange = MockPaperExchange()
+        cls.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         cls.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             cls.market, cls.trading_pair, *cls.trading_pair.split("-")
         )
