@@ -109,7 +109,7 @@ async def get_trading_pair_index_and_tick_size(exchange_trading_pair):
             offset = 500 * multiplier
             instruments = await web_utils.api_request(
                 path = CONSTANTS.EXCHANGE_INFO_URL,
-                domain = "bitmex_testnet",
+                domain = "bitmex",
                 params = {
                     "count": 500,
                     "start": offset
