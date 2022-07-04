@@ -16,6 +16,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
     from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
     from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 
@@ -159,6 +160,7 @@ class RateOracle(NetworkBase):
         """
         Finds a conversion rate of a given token to a global token
         :param token: A token symbol, e.g. BTC
+        :param client_config_map: The client config map
         :return A conversion rate
         """
         prices = await cls.get_prices()
@@ -382,7 +384,9 @@ class RateOracle(NetworkBase):
     def _binance_connector_without_private_keys(cls, domain: str) -> 'BinanceExchange':
         from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 
+        client_config_map = cls._get_client_config_map()
         return BinanceExchange(
+            client_config_map=client_config_map,
             binance_api_key="",
             binance_api_secret="",
             trading_pairs=[],
@@ -393,9 +397,17 @@ class RateOracle(NetworkBase):
     def _kucoin_connector_without_private_keys(cls) -> 'KucoinExchange':
         from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 
+        client_config_map = cls._get_client_config_map()
         return KucoinExchange(
+            client_config_map=client_config_map,
             kucoin_api_key="",
             kucoin_passphrase="",
             kucoin_secret_key="",
             trading_pairs=[],
             trading_required=False)
+
+    @classmethod
+    def _get_client_config_map(cls) -> "ClientConfigAdapter":
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+
+        return HummingbotApplication.main_application().client_config_map

@@ -5,6 +5,8 @@ from typing import Optional
 
 import pandas as pd
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
@@ -29,7 +31,9 @@ class FixedGridUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+
+        self.market: MockPaperExchange = MockPaperExchange(self.client_config_map)
         self.mid_price = 100
         self.start_order_spread = 0.01
         self.order_refresh_time = 30
