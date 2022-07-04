@@ -28,6 +28,7 @@ import {
   OrderSide,
   OrderStatus,
 } from '../../../../src/connectors/serum/serum.types';
+import { ConfigManagerV2 } from '../../../../src/services/config-manager-v2';
 import { HttpException } from '../../../../src/services/error-handler';
 import { unpatch } from '../../../services/patch';
 import { default as config } from './fixtures/config';
@@ -42,6 +43,10 @@ let serum: Serum;
 let patches: Map<string, any>;
 
 beforeAll(async () => {
+  const configManager = ConfigManagerV2.getInstance();
+  configManager.set('serum.parallel.all.batchSize', 100);
+  configManager.set('serum.parallel.all.delayBetweenBatches', 1);
+
   solana = await Solana.getInstance(config.serum.network);
 
   serum = await Serum.getInstance(config.serum.chain, config.serum.network);
