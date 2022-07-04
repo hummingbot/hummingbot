@@ -25,7 +25,7 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount, \
     DeductedFromReturnsTradeFee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from substrateinterface import Keypair, KeypairType
+from substrateinterface import Keypair, KeypairType, SubstrateInterface
 
 
 def fee_levied_asset(side, base, quote):
@@ -78,6 +78,39 @@ class PolkadexExchange(ExchangePyBase):
         self.proxy_pair = Keypair.create_from_seed(seed_hex, POLKADEX_SS58_PREFIX, KeypairType.SR25519)
         self.user_proxy_address = self.proxy_pair.ss58_address
         self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.endpoint, self.api_key)
+        custom_types = {
+            "OrderPayload": {
+                "user": "AccountId",
+                "pair": "TradingPair",
+                "side": "OrderSide",
+                "order_type": "OrderType",
+                "qty": "u128",
+                "price": "u128",
+                "nonce": "u32",
+            },
+            "CancelOrderPayload": {"id": "String"},
+            "TradingPair": {
+                "base_asset": "AssetId",
+                "quote_asset": "AssetId",
+            },
+            "OrderSide": {
+                "_enum": {
+                    "Ask": None,
+                    "Bid": None,
+                },
+            },
+            "OrderType": {
+                "_enum": {
+                    "LIMIT": None,
+                    "MARKET": None,
+                },
+            }
+        }
+        self.blockchain = SubstrateInterface(
+            url="wss://blockchain.polkadex.trade",
+            ss58_format=POLKADEX_SS58_PREFIX,
+            type_registry=custom_types
+        )
         super().__init__()
 
     @property
@@ -103,6 +136,8 @@ class PolkadexExchange(ExchangePyBase):
 
     async def _place_order(self, order_id: str, trading_pair: str, amount: Decimal, trade_type: TradeType,
                            order_type: OrderType, price: Decimal) -> Tuple[str, float]:
+
+
         pass
 
     def _get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
