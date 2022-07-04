@@ -1474,25 +1474,22 @@ class TestAscendExExchange(unittest.TestCase):
 
         mock_price.return_value = Decimal(98.7)
 
-        is_exception = False
-        exception_msg = ""
-
-        try:
-            self.async_run_with_timeout(self.exchange._create_order(
-                trade_type=TradeType.BUY,
-                order_id="testOrderId1",
-                trading_pair=self.trading_pair,
-                amount=Decimal(0),
-                order_type=OrderType.LIMIT,
-                price=Decimal(99),
-            ))
-        except ValueError as e:
-            is_exception = True
-            exception_msg = str(e)
+        self.async_run_with_timeout(self.exchange._create_order(
+            trade_type=TradeType.BUY,
+            order_id="testOrderId1",
+            trading_pair=self.trading_pair,
+            amount=Decimal(0),
+            order_type=OrderType.LIMIT,
+            price=Decimal(99),
+        ))
 
         self.assertNotIn("testOrderId1", self.exchange.in_flight_orders)
-        self.assertTrue(is_exception)
-        self.assertEqual("Order amount must be greater than zero.", exception_msg)
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                "Buy order amount 0 is lower than or equal to the minimum order amount 0"
+            )
+        )
 
     def test_create_order_unsupported_order(self):
         is_exception = False
