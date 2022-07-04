@@ -3,6 +3,8 @@ from decimal import Decimal
 from test.hummingbot.strategy import assign_config_default
 
 import hummingbot.strategy.fixed_grid.start as strategy_start
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.fixed_grid.fixed_grid_config_map import fixed_grid_config_map as c_map
 
@@ -12,7 +14,8 @@ class FixedGridStartTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.strategy = None
-        self.markets = {"binance": ExchangeBase()}
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.markets = {"binance": ExchangeBase(client_config_map=self.client_config_map)}
         self.notifications = []
         self.log_errors = []
         assign_config_default(c_map)

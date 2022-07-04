@@ -7,6 +7,8 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Tuple, Union
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
@@ -24,8 +26,8 @@ ms_logger = None
 
 class ExtendedMockPaperExchange(MockPaperExchange):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, client_config_map: "ClientConfigAdapter"):
+        super().__init__(client_config_map)
 
         self._in_flight_orders = {}
 
@@ -61,7 +63,9 @@ class StrategyBaseUnitTests(unittest.TestCase):
         cls.trading_pair = "COINALPHA-HBOT"
 
     def setUp(self):
-        self.market: ExtendedMockPaperExchange = ExtendedMockPaperExchange()
+        self.market: ExtendedMockPaperExchange = ExtendedMockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.market, self.trading_pair, *self.trading_pair.split("-")
         )
@@ -125,7 +129,9 @@ class StrategyBaseUnitTests(unittest.TestCase):
 
         self.assertEqual(1, len(self.strategy.active_markets))
 
-        new_market: MockPaperExchange = MockPaperExchange()
+        new_market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.strategy.add_markets([new_market])
 
         self.assertEqual(2, len(self.strategy.active_markets))

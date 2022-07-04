@@ -8,6 +8,8 @@ import {
   LOAD_WALLET_ERROR_MESSAGE,
   TOKEN_NOT_SUPPORTED_ERROR_CODE,
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
+  PRICE_FAILED_ERROR_CODE,
+  PRICE_FAILED_ERROR_MESSAGE,
   TRADE_FAILED_ERROR_CODE,
   TRADE_FAILED_ERROR_MESSAGE,
   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
@@ -154,8 +156,8 @@ export async function price(
     if (e instanceof Error) {
       throw new HttpException(
         500,
-        TRADE_FAILED_ERROR_MESSAGE + e.message,
-        TRADE_FAILED_ERROR_CODE
+        PRICE_FAILED_ERROR_MESSAGE + e.message,
+        PRICE_FAILED_ERROR_CODE
       );
     } else {
       throw new HttpException(

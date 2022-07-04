@@ -28,6 +28,7 @@ beforeAll(async () => {
 beforeEach(() => {
   patchEVMNonceManager(ethereum.nonceManager);
 });
+
 afterEach(() => {
   unpatch();
 });
