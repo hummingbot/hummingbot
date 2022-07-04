@@ -939,11 +939,6 @@ class AscendExExchange(ExchangeBase):
                 f"{side} order amount {amount} is lower than the minimum order size "
                 f"{trading_rule.min_order_size}.")
             return
-        if amount <= s_decimal_0:
-            self._update_order_after_failure(order_id, trading_pair)
-            self.logger().error(
-                f"{side} order amount {amount} is lower than or equal to 0.")
-            return
         try:
             timestamp = ascend_ex_utils.get_ms_timestamp()
             # Order UUID is strictly used to enable AscendEx to construct a unique(still questionable) exchange_order_id
