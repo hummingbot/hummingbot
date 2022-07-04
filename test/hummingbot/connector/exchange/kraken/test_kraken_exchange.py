@@ -8,6 +8,8 @@ from typing import Awaitable, Dict
 
 from aioresponses import aioresponses
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
 from hummingbot.connector.exchange.kraken.kraken_in_flight_order import KrakenInFlightOrderNotCreated
@@ -39,7 +41,10 @@ class KrakenExchangeTest(unittest.TestCase):
         self.mocking_assistant = NetworkMockingAssistant()
         self.event_listener = EventLogger()
         not_a_real_secret = "kQH5HW/8p1uGOVjbgWA7FunAmGO8lsSUXNsu3eow76sz84Q18fWxnyRzBHCd3pd5nE9qa99HAZtuZuj6F1huXg=="
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+
         self.exchange = KrakenExchange(
+            client_config_map=self.client_config_map,
             kraken_api_key="someKey",
             kraken_secret_key=not_a_real_secret,
             trading_pairs=[self.trading_pair],
