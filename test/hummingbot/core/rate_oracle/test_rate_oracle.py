@@ -9,6 +9,8 @@ from unittest.mock import patch
 from aioresponses import aioresponses
 from bidict import bidict
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
 from hummingbot.core.rate_oracle.utils import find_rate
@@ -22,6 +24,7 @@ class RateOracleTest(unittest.TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
+        cls.client_config_map = ClientConfigAdapter(ClientConfigMap())
         cls._binance_connector = RateOracle._binance_connector_without_private_keys(domain="com")
         cls._binance_connector._set_trading_pair_symbol_map(bidict(
             {"ETHBTC": "ETH-BTC",
@@ -197,11 +200,14 @@ class RateOracleTest(unittest.TestCase):
         mock_response: Fixture.Binance
         mock_api.get(regex_url, body=json.dumps(Fixture.BinanceUS), repeat=True)
 
-        com_prices = self.async_run_with_timeout(RateOracle.get_binance_prices_by_domain(RateOracle.binance_price_url))
+        com_prices = self.async_run_with_timeout(
+            RateOracle.get_binance_prices_by_domain(RateOracle.binance_price_url)
+        )
         self._assert_rate_dict(com_prices)
 
         us_prices = self.async_run_with_timeout(
-            RateOracle.get_binance_prices_by_domain(RateOracle.binance_us_price_url, "USD", domain="us"))
+            RateOracle.get_binance_prices_by_domain(
+                RateOracle.binance_us_price_url, "USD", domain="us"))
         self._assert_rate_dict(us_prices)
         self.assertGreater(len(us_prices), 1)
 

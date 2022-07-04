@@ -1,301 +1,222 @@
 import asyncio
-import logging
-from typing import Any, Dict, List, Optional
+import json
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-import ujson
-
-import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
-from hummingbot.connector.exchange.bitmart.bitmart_order_book import BitmartOrderBook
-from hummingbot.connector.exchange.bitmart.bitmart_utils import (
-    build_api_factory,
-    convert_from_exchange_trading_pair,
-    convert_snapshot_message_to_order_book_row,
-    convert_to_exchange_trading_pair,
-    decompress_ws_message,
+from hummingbot.connector.exchange.bitmart import (
+    bitmart_constants as CONSTANTS,
+    bitmart_utils as utils,
+    bitmart_web_utils as web_utils,
 )
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.common import TradeType
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.bitmart.bitmart_exchange import BitmartExchange
+
 
 class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    MESSAGE_TIMEOUT = 10.0
-    SNAPSHOT_TIMEOUT = 60 * 60  # expressed in seconds
-    PING_TIMEOUT = 2.0
 
     _logger: Optional[HummingbotLogger] = None
 
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(__name__)
-        return cls._logger
-
     def __init__(self,
-                 throttler: Optional[AsyncThrottler] = None,
-                 trading_pairs: List[str] = None,
-                 api_factory: Optional[WebAssistantsFactory] = None):
+                 trading_pairs: List[str],
+                 connector: 'BitmartExchange',
+                 api_factory: WebAssistantsFactory):
         super().__init__(trading_pairs)
-        self._throttler = throttler or self._get_throttler_instance()
-        self._api_factory = api_factory or build_api_factory(throttler=throttler)
-        self._rest_assistant = None
-        self._snapshot_msg: Dict[str, any] = {}
+        self._connector: BitmartExchange = connector
+        self._api_factory = api_factory
 
-    @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        return throttler
+    async def get_last_traded_prices(self,
+                                     trading_pairs: List[str],
+                                     domain: Optional[str] = None) -> Dict[str, float]:
+        return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
-    async def _get_rest_assistant(self) -> RESTAssistant:
-        if self._rest_assistant is None:
-            self._rest_assistant = await self._api_factory.get_rest_assistant()
-        return self._rest_assistant
-
-    @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
-        throttler = cls._get_throttler_instance()
-        async with throttler.execute_task(CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL):
-            result = {}
-
-            request = RESTRequest(
-                method=RESTMethod.GET,
-                url=f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL}",
-            )
-            rest_assistant = await build_api_factory(throttler=throttler).get_rest_assistant()
-            response = await rest_assistant.call(request=request, timeout=10)
-
-            response_json = await response.json()
-            for ticker in response_json["data"]["tickers"]:
-                t_pair = convert_from_exchange_trading_pair(ticker["symbol"])
-                if t_pair in trading_pairs and ticker["last_price"]:
-                    result[t_pair] = float(ticker["last_price"])
-            return result
-
-    @staticmethod
-    async def fetch_trading_pairs() -> List[str]:
-        throttler = BitmartAPIOrderBookDataSource._get_throttler_instance()
-        async with throttler.execute_task(CONSTANTS.GET_TRADING_PAIRS_PATH_URL):
-
-            request = RESTRequest(
-                method=RESTMethod.GET,
-                url=f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_TRADING_PAIRS_PATH_URL}",
-            )
-            rest_assistant = await build_api_factory(throttler=throttler).get_rest_assistant()
-            response = await rest_assistant.call(request=request, timeout=10)
-
-            if response.status == 200:
-                try:
-                    response_json: Dict[str, Any] = await response.json()
-                    return [convert_from_exchange_trading_pair(symbol) for symbol in response_json["data"]["symbols"]]
-                except Exception:
-                    pass
-                    # Do nothing if the request fails -- there will be no autocomplete for bitmart trading pairs
-            return []
-
-    @staticmethod
-    async def get_order_book_data(trading_pair: str) -> Dict[str, any]:
+    async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
-        Get whole orderbook
+        Bitmart only sends full snapshots, they never send diff messages. That is why this method is overwritten to
+        do nothing.
+
+        :param ev_loop: the event loop the method will run in
+        :param output: a queue to add the created diff messages
         """
-        throttler = BitmartAPIOrderBookDataSource._get_throttler_instance()
-        async with throttler.execute_task(CONSTANTS.GET_ORDER_BOOK_PATH_URL):
+        pass
 
-            request = RESTRequest(
-                method=RESTMethod.GET,
-                url=f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_ORDER_BOOK_PATH_URL}?size=200&symbol="
-                    f"{convert_to_exchange_trading_pair(trading_pair)}",
-            )
-            rest_assistant = await build_api_factory(throttler=throttler).get_rest_assistant()
-            response = await rest_assistant.call(request=request, timeout=10)
+    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        """
+        Bitmart sends always full snapshots through the depth channel. That is why they are processed here.
 
-            if response.status != 200:
-                raise IOError(
-                    f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
-                    f"HTTP status is {response.status}."
-                )
+        :param ev_loop: the event loop the method will run in
+        :param output: a queue to add the created diff messages
+        """
+        message_queue = self._message_queue[self._diff_messages_queue_key]
+        while True:
+            try:
+                snapshot_event = await message_queue.get()
+                await self._parse_order_book_snapshot_message(raw_message=snapshot_event, message_queue=output)
 
-            orderbook_data: Dict[str, Any] = await response.json()
-            orderbook_data = orderbook_data["data"]
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error when processing public order book updates from exchange")
 
-            return orderbook_data
+    async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
+        snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
+        snapshot_data: Dict[str, Any] = snapshot_response["data"]
+        snapshot_timestamp: float = int(snapshot_data["timestamp"]) * 1e-3
+        update_id: int = int(snapshot_data["timestamp"])
 
-    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
-        snapshot_timestamp: float = float(snapshot["timestamp"])
-        snapshot_msg: OrderBookMessage = BitmartOrderBook.snapshot_message_from_exchange(
-            snapshot,
-            snapshot_timestamp,
-            metadata={"trading_pair": trading_pair}
+        order_book_message_content = {
+            "trading_pair": trading_pair,
+            "update_id": update_id,
+            "bids": [(bid["price"], bid["amount"]) for bid in snapshot_data["buys"]],
+            "asks": [(ask["price"], ask["amount"]) for ask in snapshot_data["sells"]],
+        }
+        snapshot_msg: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            order_book_message_content,
+            snapshot_timestamp)
+
+        return snapshot_msg
+
+    async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
+        """
+        Retrieves a copy of the full order book from the exchange, for a particular trading pair.
+
+        :param trading_pair: the trading pair for which the order book will be retrieved
+
+        :return: the response from the exchange (JSON dictionary)
+        """
+        params = {
+            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+            "size": 200
+        }
+
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        data = await rest_assistant.execute_request(
+            url=web_utils.public_rest_url(path_url=CONSTANTS.GET_ORDER_BOOK_PATH_URL),
+            params=params,
+            method=RESTMethod.GET,
+            throttler_limit_id=CONSTANTS.GET_ORDER_BOOK_PATH_URL,
         )
-        order_book = self.order_book_create_function()
-        bids, asks = convert_snapshot_message_to_order_book_row(snapshot_msg)
-        order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
-        return order_book
 
-    async def _sleep(self, delay):
-        """
-        Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
-        """
-        await asyncio.sleep(delay)
+        return data
 
-    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        """
-        Listen for trades using websocket trade channel
-        """
-        while True:
+    async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        trade_updates = raw_message["data"]
+
+        for trade_data in trade_updates:
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=trade_data["symbol"])
+            message_content = {
+                "trade_id": int(trade_data["s_t"]),
+                "trading_pair": trading_pair,
+                "trade_type": float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(
+                    TradeType.SELL.value),
+                "amount": trade_data["size"],
+                "price": trade_data["price"]
+            }
+            trade_message: Optional[OrderBookMessage] = OrderBookMessage(
+                message_type=OrderBookMessageType.TRADE,
+                content=message_content,
+                timestamp=int(trade_data["s_t"]))
+
+            message_queue.put_nowait(trade_message)
+
+    async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        # Bitmart never sends diff messages. This method will never be called
+        pass
+
+    async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        diff_updates: Dict[str, Any] = raw_message["data"]
+
+        for diff_data in diff_updates:
+            timestamp: float = int(diff_data["ms_t"]) * 1e-3
+            update_id: int = int(diff_data["ms_t"])
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
+                symbol=diff_data["symbol"])
+
+            order_book_message_content = {
+                "trading_pair": trading_pair,
+                "update_id": update_id,
+                "bids": [(bid[0], bid[1]) for bid in diff_data["bids"]],
+                "asks": [(ask[0], ask[1]) for ask in diff_data["asks"]],
+            }
+            diff_message: OrderBookMessage = OrderBookMessage(
+                OrderBookMessageType.SNAPSHOT,
+                order_book_message_content,
+                timestamp)
+
+            message_queue.put_nowait(diff_message)
+
+    async def _subscribe_channels(self, ws: WSAssistant):
+        try:
+            symbols = [await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                       for trading_pair in self._trading_pairs]
+
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.PUBLIC_TRADE_CHANNEL_NAME}:{symbol}" for symbol in symbols]
+            }
+            subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.PUBLIC_DEPTH_CHANNEL_NAME}:{symbol}" for symbol in symbols]
+            }
+            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIBE):
+                await ws.send(subscribe_trade_request)
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIBE):
+                await ws.send(subscribe_orderbook_request)
+
+            self.logger().info("Subscribed to public order book and trade channels...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception("Unexpected error occurred subscribing to order book trading and delta streams...")
+            raise
+
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
+        async for ws_response in websocket_assistant.iter_messages():
+            data: Dict[str, Any] = ws_response.data
+            decompressed_data = utils.decompress_ws_message(data)
             try:
-                ws: WSAssistant = await self._api_factory.get_ws_assistant()
-                try:
-                    await ws.connect(ws_url=CONSTANTS.WSS_URL,
-                                     message_timeout=self.MESSAGE_TIMEOUT,
-                                     ping_timeout=self.PING_TIMEOUT)
-                except RuntimeError:
-                    self.logger().info("BitMart WebSocket already connected.")
-
-                for trading_pair in self._trading_pairs:
-                    ws_message: WSJSONRequest = WSJSONRequest({
-                        "op": "subscribe",
-                        "args": [f"spot/trade:{convert_to_exchange_trading_pair(trading_pair)}"]
-                    })
-                    await ws.send(ws_message)
-                while True:
-                    try:
-                        async for raw_msg in ws.iter_messages():
-                            messages = decompress_ws_message(raw_msg.data)
-                            if messages is None:
-                                continue
-
-                            messages = ujson.loads(messages)
-
-                            if "errorCode" in messages.keys() or \
-                               "data" not in messages.keys() or \
-                               "table" not in messages.keys():
-                                continue
-
-                            if messages["table"] != "spot/trade":
-                                # Not a trade message
-                                continue
-
-                            for msg in messages["data"]:        # data is a list
-                                msg_timestamp: float = float(msg["s_t"] * 1000)
-                                t_pair = convert_from_exchange_trading_pair(msg["symbol"])
-
-                                trade_msg: OrderBookMessage = BitmartOrderBook.trade_message_from_exchange(
-                                    msg=msg,
-                                    timestamp=msg_timestamp,
-                                    metadata={"trading_pair": t_pair})
-
-                                output.put_nowait(trade_msg)
-                            break
-                    except asyncio.exceptions.TimeoutError:
-                        # Check whether connection is really dead
-                        await ws.ping()
-            except asyncio.CancelledError:
-                raise
-            except asyncio.exceptions.TimeoutError:
-                self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-                await ws.disconnect()
-                await asyncio.sleep(30.0)
+                if type(decompressed_data) == str:
+                    json_data = json.loads(decompressed_data)
+                else:
+                    json_data = decompressed_data
             except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
-                await ws.disconnect()
-                await self._sleep(5.0)
-            finally:
-                await ws.disconnect()
+                self.logger().warning(f"Invalid event message received through the order book data source "
+                                      f"connection ({decompressed_data})")
+                continue
 
-    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        """
-        Listen for orderbook diffs using websocket book channel(all messages are snapshots)
-        """
-        while True:
-            try:
-                ws: WSAssistant = await self._api_factory.get_ws_assistant()
-                await ws.connect(ws_url=CONSTANTS.WSS_URL,
-                                 message_timeout=self.MESSAGE_TIMEOUT,
-                                 ping_timeout=self.PING_TIMEOUT)
+            if "errorCode" in json_data or "errorMessage" in json_data:
+                raise ValueError(f"Error message received in the order book data source: {json_data}")
 
-                for trading_pair in self._trading_pairs:
-                    ws_message: WSJSONRequest = WSJSONRequest({
-                        "op": "subscribe",
-                        "args": [f"spot/depth400:{convert_to_exchange_trading_pair(trading_pair)}"]
-                    })
-                    await ws.send(ws_message)
+            channel: str = self._channel_originating_message(event_message=json_data)
+            if channel in [self._diff_messages_queue_key, self._trade_messages_queue_key]:
+                self._message_queue[channel].put_nowait(json_data)
 
-                while True:
-                    try:
-                        async for raw_msg in ws.iter_messages():
-                            messages = decompress_ws_message(raw_msg.data)
-                            if messages is None:
-                                continue
+    def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
+        channel = ""
+        if "data" in event_message:
+            event_channel = event_message["table"]
+            if event_channel == CONSTANTS.PUBLIC_TRADE_CHANNEL_NAME:
+                channel = self._trade_messages_queue_key
+            if event_channel == CONSTANTS.PUBLIC_DEPTH_CHANNEL_NAME:
+                channel = self._diff_messages_queue_key
 
-                            messages = ujson.loads(messages)
+        return channel
 
-                            if "errorCode" in messages.keys() or \
-                               "data" not in messages.keys() or \
-                               "table" not in messages.keys():
-                                continue
-
-                            if messages["table"] != "spot/depth5":
-                                # Not an order book message
-                                continue
-
-                            for msg in messages["data"]:        # data is a list
-                                msg_timestamp: float = float(msg["ms_t"])
-                                t_pair = convert_from_exchange_trading_pair(msg["symbol"])
-
-                                snapshot_msg: OrderBookMessage = BitmartOrderBook.snapshot_message_from_exchange(
-                                    msg=msg,
-                                    timestamp=msg_timestamp,
-                                    metadata={"trading_pair": t_pair}
-                                )
-                                output.put_nowait(snapshot_msg)
-                        break
-                    except asyncio.exceptions.TimeoutError:
-                        # Check whether connection is really dead
-                        await ws.ping()
-            except asyncio.CancelledError:
-                raise
-            except asyncio.exceptions.TimeoutError:
-                self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-                await ws.disconnect()
-                await asyncio.sleep(30.0)
-            except Exception:
-                self.logger().network(
-                    "Unexpected error with WebSocket connection.",
-                    exc_info=True,
-                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
-                                    "Check network connection."
-                )
-                await ws.disconnect()
-                await self._sleep(30.0)
-            finally:
-                await ws.disconnect()
-
-    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        """
-        Listen for orderbook snapshots by fetching orderbook
-        """
-        while True:
-            await self._sleep(self.SNAPSHOT_TIMEOUT)
-            try:
-                for trading_pair in self._trading_pairs:
-                    snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
-                    snapshot_timestamp: float = float(snapshot["timestamp"])
-                    snapshot_msg: OrderBookMessage = BitmartOrderBook.snapshot_message_from_exchange(
-                        snapshot,
-                        snapshot_timestamp,
-                        metadata={"trading_pair": trading_pair}
-                    )
-                    output.put_nowait(snapshot_msg)
-                    self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error occured listening for orderbook snapshots. Retrying in 5 secs...", exc_info=True)
-                await self._sleep(5.0)
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        ws: WSAssistant = await self._api_factory.get_ws_assistant()
+        async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_CONNECT):
+            await ws.connect(
+                ws_url=CONSTANTS.WSS_PUBLIC_URL,
+                ping_timeout=CONSTANTS.WS_PING_TIMEOUT)
+        return ws
