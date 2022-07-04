@@ -1487,11 +1487,13 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                "Buy order amount 0 is lower than or equal to the minimum order amount 0"
+                "Buy order amount 0 is lower than the minimum order size 0."
             )
         )
 
     def test_create_order_unsupported_order(self):
+        self._simulate_trading_rules_initialized()
+
         is_exception = False
         exception_msg = ""
 
