@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 class Chain(Enum):
     ETHEREUM = 0
     AVALANCHE = 1
+    POLYGON = 2
 
     @staticmethod
     def from_str(label: str) -> "Chain":
@@ -22,6 +23,8 @@ class Chain(Enum):
             return Chain.ETHEREUM
         elif label == "avalanche":
             return Chain.AVALANCHE
+        elif label == "polygon":
+            return Chain.POLYGON
         else:
             raise NotImplementedError
 
@@ -29,6 +32,8 @@ class Chain(Enum):
     def to_str(chain: "Chain") -> str:
         if chain == Chain.ETHEREUM:
             return "ethereum"
+        if chain == Chain.POLYGON:
+            return "polygon"
         else:
             return "avalanche"
 
