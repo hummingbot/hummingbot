@@ -22,7 +22,7 @@ class BitmexUtilsUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_trading_pair_index_and_tick_size(self, mock_api):
-        url = f"{CONSTANTS.TESTNET_BASE_URL}{CONSTANTS.EXCHANGE_INFO_URL}?count=500&start=0"
+        url = f"{CONSTANTS.BASE_URL}{CONSTANTS.EXCHANGE_INFO_URL}?count=500&start=0"
         mock_response: List[Dict[str, Any]] = [
             {
                 "symbol": "COINALPHA_HBOT",
