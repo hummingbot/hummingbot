@@ -35,7 +35,7 @@ class AlphaPointUserStreamDataSource(unittest.TestCase):
         cls.secret = "someSecret"
         cls.user_id = 20
         cls.time_mock = 1655283229.419752
-        cls.nonce = str(int(cls.time_mock * 1e6))
+        cls.nonce = str(int(cls.time_mock * 1e3))
         auth_concat = f"{cls.nonce}{cls.user_id}{cls.api_key}"
         cls.signature = hmac.new(
             key=cls.secret.encode("utf-8"),

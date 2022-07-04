@@ -36,7 +36,7 @@ class AlphaPointAuthTest(unittest.TestCase):
         return ret
 
     def test_build_auth_payload(self):
-        nonce = str(int(self.time_mock * 1e6))
+        nonce = str(int(self.time_mock * 1e3))
         concat = f"{nonce}{self.user_id}{self.api_key}"
         signature = hmac.new(
             key=self.secret.encode("utf-8"),

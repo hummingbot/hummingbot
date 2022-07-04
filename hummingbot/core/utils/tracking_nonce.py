@@ -9,20 +9,16 @@ class NonceCreator:
         self._last_tracking_nonce_low_res = 0
 
     def get_tracking_nonce(self, ts_us: Optional[Union[float, int]] = None) -> int:
-        nonce = self._validate_ts(ts_us)
+        nonce = int(ts_us if ts_us is not None else self._time() * 1e6)
         self._last_tracking_nonce = nonce if nonce > self._last_tracking_nonce else self._last_tracking_nonce + 1
         return self._last_tracking_nonce
 
     def get_tracking_nonce_low_res(self, ts_us: Optional[Union[float, int]] = None) -> int:
-        nonce = self._validate_ts(ts_us)
+        nonce = int(ts_us if ts_us is not None else self._time() * 1e3)
         self._last_tracking_nonce_low_res = (
             nonce if nonce > self._last_tracking_nonce_low_res else self._last_tracking_nonce_low_res + 1
         )
         return self._last_tracking_nonce_low_res
-
-    def _validate_ts(self, ts_us: Optional[Union[float, int]] = None) -> int:
-        ts_us = int(ts_us if ts_us is not None else self._time() * 1e6)
-        return ts_us
 
     @staticmethod
     def _time() -> float:
