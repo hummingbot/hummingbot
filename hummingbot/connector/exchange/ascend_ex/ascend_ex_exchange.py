@@ -933,11 +933,16 @@ class AscendExExchange(ExchangeBase):
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         side = "Buy" if trade_type == TradeType.BUY else "Sell"
-        if amount <= trading_rule.min_order_size:
+        if amount < trading_rule.min_order_size:
             self._update_order_after_failure(order_id, trading_pair)
             self.logger().error(
                 f"{side} order amount {amount} is lower than the minimum order size "
                 f"{trading_rule.min_order_size}.")
+            return
+        if amount <= s_decimal_0:
+            self._update_order_after_failure(order_id, trading_pair)
+            self.logger().error(
+                f"{side} order amount {amount} is lower than or equal to 0.")
             return
         try:
             timestamp = ascend_ex_utils.get_ms_timestamp()

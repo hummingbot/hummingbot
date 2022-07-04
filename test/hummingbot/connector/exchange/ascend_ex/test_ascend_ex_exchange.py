@@ -112,6 +112,7 @@ class TestAscendExExchange(unittest.TestCase):
                 commission_reserve_rate=Decimal("0.002"),
             ),
         }
+        self.exchange._trading_rules[self.trading_pair].min_order_size = Decimal(str(0.01))
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -1487,7 +1488,7 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                "Buy order amount 0 is lower than the minimum order size 0."
+                "Buy order amount 0 is lower than the minimum order size 0.01."
             )
         )
 
