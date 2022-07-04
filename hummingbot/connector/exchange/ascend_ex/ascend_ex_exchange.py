@@ -876,6 +876,7 @@ class AscendExExchange(ExchangeBase):
             new_state=OrderState.FAILED,
         )
         self._in_flight_order_tracker.process_order_update(order_update)
+        self._in_flight_order_tracker.stop_tracking_order(client_order_id=order_id)
 
     def _stop_tracking_order_exceed_no_exchange_id_limit(self, tracked_order: InFlightOrder):
         """
@@ -929,9 +930,11 @@ class AscendExExchange(ExchangeBase):
             raise Exception(f"Unsupported order type: {order_type}")
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
+        side = "Buy" if trade_type == TradeType.BUY else "Sell"
         if amount <= s_decimal_0:
             self._update_order_after_failure(order_id, trading_pair)
-            raise ValueError("Order amount must be greater than zero.")
+            self.logger().error(f"{side} order amount {amount} is lower than or equal to the minimum order amount 0")
+            return
         try:
             timestamp = ascend_ex_utils.get_ms_timestamp()
             # Order UUID is strictly used to enable AscendEx to construct a unique(still questionable) exchange_order_id
@@ -945,7 +948,7 @@ class AscendExExchange(ExchangeBase):
                 "orderPrice": f"{price:f}",
                 "orderQty": f"{amount:f}",
                 "orderType": "limit",
-                "side": "buy" if trade_type == TradeType.BUY else "sell",
+                "side": side.lower(),
                 "respInst": "ACCEPT",
             }
 
