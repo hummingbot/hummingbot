@@ -1,10 +1,8 @@
-from typing import (
-    Optional,
-    Tuple)
+from typing import Optional, Tuple
 
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
+from pydantic import Field, SecretStr
 
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 
 CENTRALIZED = True
 
@@ -36,23 +34,38 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "/")
 
 
-KEYS = {
-    "ftx_api_key":
-        ConfigVar(key="ftx_api_key",
-                  prompt="Enter your FTX API key >>> ",
-                  required_if=using_exchange("ftx"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "ftx_secret_key":
-        ConfigVar(key="ftx_secret_key",
-                  prompt="Enter your FTX API secret >>> ",
-                  required_if=using_exchange("ftx"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "ftx_subaccount_name":
-        ConfigVar(key="ftx_subaccount_name",
-                  prompt="Enter your FTX subaccount name (if this is not a subaccount, leave blank) >>> ",
-                  required_if=using_exchange("ftx"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class FtxConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="ftx", client_data=None)
+    ftx_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your FTX API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    ftx_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your FTX API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    ftx_subaccount_name: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your FTX subaccount name (if this is not a subaccount, leave blank)",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "ftx"
+
+
+KEYS = FtxConfigMap.construct()
