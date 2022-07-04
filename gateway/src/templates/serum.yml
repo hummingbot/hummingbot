@@ -10,8 +10,8 @@ networks: # Serum and Solana networks need to have the same name
     rpcURL: https://api.devnet.solana.com
 parallel:
   all:
-    batchSize: 100
-    delayBetweenBatches: 15000 # in milliseconds
+    batchSize: 10
+    delayBetweenBatches: 1000 # in milliseconds
 cache:
   markets: 3600 # in seconds
 markets:
