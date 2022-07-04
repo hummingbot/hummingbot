@@ -3,7 +3,7 @@ import logging
 import math
 import time
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 from hummingbot.connector.exchange.digifinex import digifinex_utils
 from hummingbot.connector.exchange.digifinex.digifinex_api_order_book_data_source import DigifinexAPIOrderBookDataSource
@@ -34,6 +34,9 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
@@ -56,6 +59,7 @@ class DigifinexExchange(ExchangeBase):
         return ctce_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  digifinex_api_key: str,
                  digifinex_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
@@ -67,7 +71,7 @@ class DigifinexExchange(ExchangeBase):
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
-        super().__init__()
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._global = DigifinexGlobal(digifinex_api_key, digifinex_secret_key)
