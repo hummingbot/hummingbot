@@ -7,6 +7,8 @@ import mock
 import pandas as pd
 from nose.plugins.attrib import attr
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.other.celo.celo_cli import CeloCLI
 from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
@@ -53,7 +55,7 @@ class CeloArbUnitTest(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange()
+        self.market: MockPaperExchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
 
         self.market.set_balanced_order_book(self.trading_pair, 10, 5, 15, 0.1, 1)
 

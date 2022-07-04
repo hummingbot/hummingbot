@@ -3,6 +3,7 @@
 import asyncio
 import logging
 from multiprocessing import Process, Queue
+from pathlib import Path
 from typing import List
 
 from hummingbot.connector.exchange_base import ExchangeBase
@@ -41,13 +42,12 @@ cdef class PMMScriptIterator(TimeIterator):
         return sir_logger
 
     def __init__(self,
-                 script_file_path: str,
+                 script_file_path: Path,
                  markets: List[ExchangeBase],
                  strategy: PureMarketMakingStrategy,
                  queue_check_interval: float = 0.01,
                  is_unit_testing_mode: bool = False):
         super().__init__()
-        self._script_file_path = script_file_path
         self._markets = markets
         self._strategy = strategy
         self._is_unit_testing_mode = is_unit_testing_mode
@@ -65,7 +65,7 @@ cdef class PMMScriptIterator(TimeIterator):
 
         self._script_process = Process(
             target=run_pmm_script,
-            args=(script_file_path, self._parent_queue, self._child_queue, queue_check_interval,)
+            args=(str(script_file_path), self._parent_queue, self._child_queue, queue_check_interval,)
         )
         self.logger().info(f"starting PMM script in {script_file_path}")
         self._script_process.start()
