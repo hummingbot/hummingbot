@@ -1,10 +1,8 @@
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
+
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage,
-    OrderBookMessageType
-)
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
 class PolkadexOrderbook(OrderBook):
@@ -52,19 +50,19 @@ class PolkadexOrderbook(OrderBook):
         bids = []
         asks = []
         for put in msg["puts"]:
-            if put["side"] == "BID":
+            if put["side"] == "Bid":
                 bids.append((float(put["price"]), float(put["qty"]), float(msg["seq"])))
             else:
                 asks.append((float(put["price"]), float(put["qty"]), float(msg["seq"])))
         for dels in msg["dels"]:
-            if dels["side"] == "BID":
+            if dels["side"] == "Bid":
                 bids.append((float(dels["price"]), float(0),float(msg["seq"])))
             else:
                 asks.append((float(dels["price"]), float(0),float(msg["seq"])))
 
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": msg["trading_pair"],
-            "update_id":msg["seq"],
+            "update_id": int(msg["seq"]),
             "bids": bids,
             "asks": asks
         }, timestamp=timestamp)
