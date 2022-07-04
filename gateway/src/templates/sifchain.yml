@@ -1,0 +1,8 @@
+# list the Cosmos networks available to gateway
+networks:
+  sifchain: 
+    chainID: 43113
+    nodeURL: 'https://rpc.test.sifchain.finance'
+    tokenListType: 'FILE'
+    tokenListSource: 'src/chains/avalanche/avalanche_tokens_fuji.json'
+
