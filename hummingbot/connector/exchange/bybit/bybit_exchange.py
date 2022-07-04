@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
 
@@ -31,6 +31,9 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
@@ -42,6 +45,7 @@ class BybitExchange(ExchangeBase):
     LONG_POLL_INTERVAL = 120.0
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  bybit_api_key: str,
                  bybit_api_secret: str,
                  trading_pairs: Optional[List[str]] = None,
@@ -50,7 +54,7 @@ class BybitExchange(ExchangeBase):
                  ):
         self._domain = domain
         self._time_synchronizer = TimeSynchronizer()
-        super().__init__()
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         self._auth = BybitAuth(
             api_key=bybit_api_key,

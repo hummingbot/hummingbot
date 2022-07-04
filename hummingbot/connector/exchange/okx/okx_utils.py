@@ -1,8 +1,9 @@
 from decimal import Decimal
 from typing import Any, Dict
 
-from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.config_var import ConfigVar
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 DEFAULT_FEES = TradeFeeSchema(
@@ -14,26 +15,39 @@ CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USDT"
 
-KEYS = {
-    "okx_api_key":
-        ConfigVar(key="okx_api_key",
-                  prompt="Enter your OKX API key >>> ",
-                  required_if=using_exchange("okx"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "okx_secret_key":
-        ConfigVar(key="okx_secret_key",
-                  prompt="Enter your OKX secret key >>> ",
-                  required_if=using_exchange("okx"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "okx_passphrase":
-        ConfigVar(key="okx_passphrase",
-                  prompt="Enter your OKX passphrase key >>> ",
-                  required_if=using_exchange("okx"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+
+class OKXConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="okx", const=True, client_data=None)
+    okx_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your OKX API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+    okx_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your OKX secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+    okx_passphrase: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your OKX passphrase key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+
+
+KEYS = OKXConfigMap.construct()
 
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:

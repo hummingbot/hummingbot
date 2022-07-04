@@ -5,9 +5,8 @@ import platform
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from os.path import dirname, join, realpath
-from typing import List, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Tuple
 
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
@@ -26,7 +25,6 @@ with open(realpath(join(dirname(__file__), '../VERSION'))) as version_file:
 class MetricsCollector(ABC):
 
     DEFAULT_METRICS_SERVER_URL = "https://api.coinalpha.com/reporting-proxy-v2"
-    DEFAULT_ACTIVATION_INTERVAL_MINUTES = 15
 
     @abstractmethod
     def start(self):
@@ -64,19 +62,17 @@ class TradeVolumeMetricCollector(MetricsCollector):
 
     def __init__(self,
                  connector: 'ConnectorBase',
-                 activation_interval: float,
-                 metrics_dispatcher: LogServerClient,
+                 activation_interval: Decimal,
                  rate_provider: RateOracle,
                  instance_id: str,
-                 client_version: str,
                  valuation_token: str = "USDT"):
         super().__init__()
         self._connector = connector
         self._activation_interval = activation_interval
-        self._dispatcher = metrics_dispatcher
+        self._dispatcher = LogServerClient(log_server_url=self.DEFAULT_METRICS_SERVER_URL)
         self._rate_provider = rate_provider
         self._instance_id = instance_id
-        self._client_version = client_version
+        self._client_version = CLIENT_VERSION
         self._valuation_token = valuation_token
         self._last_process_tick_timestamp = 0
         self._last_executed_collection_process = None
@@ -93,42 +89,6 @@ class TradeVolumeMetricCollector(MetricsCollector):
         if cls._logger is None:
             cls._logger = logging.getLogger(__name__)
         return cls._logger
-
-    @classmethod
-    def from_configuration(cls, connector: 'ConnectorBase', rate_provider: RateOracle, valuation_token: str = "USDT"):
-        instance = DummyMetricsCollector()
-
-        anonymized_metrics_enabled = global_config_map.get("anonymized_metrics_enabled")
-        if anonymized_metrics_enabled is not None and anonymized_metrics_enabled.value:
-            dispatcher_url = global_config_map.get("log_server_url")
-            if dispatcher_url is None:
-                dispatcher_url = cls.DEFAULT_METRICS_SERVER_URL
-            else:
-                dispatcher_url = dispatcher_url.value
-            dispatcher = LogServerClient(log_server_url=dispatcher_url)
-
-            activation_interval = global_config_map.get("anonymized_metrics_interval_min")
-            if activation_interval is None:
-                activation_interval = cls.DEFAULT_ACTIVATION_INTERVAL_MINUTES * 60
-            else:
-                activation_interval = float(activation_interval.value) * 60
-
-            instance_id = global_config_map.get("instance_id")
-            if instance_id is None:
-                instance_id = ""
-            else:
-                instance_id = instance_id.value
-
-            instance = cls(
-                connector=connector,
-                activation_interval=activation_interval,
-                metrics_dispatcher=dispatcher,
-                rate_provider=rate_provider,
-                instance_id=instance_id,
-                client_version=CLIENT_VERSION,
-                valuation_token=valuation_token)
-
-        return instance
 
     def start(self):
         self._dispatcher.start()
