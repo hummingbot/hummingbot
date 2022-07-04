@@ -77,10 +77,7 @@ export const updateAllowedSlippageToFraction = (
       (typeof body.configValue == 'string' &&
         !isFractionString(body.configValue))
     ) {
-      console.log('update configValue');
-      console.log(body.configValue);
       body.configValue = toFractionString(body.configValue);
-      console.log(body.configValue);
     }
   }
 };

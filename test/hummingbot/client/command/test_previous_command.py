@@ -3,8 +3,8 @@ import unittest
 from typing import Awaitable
 from unittest.mock import MagicMock, patch
 
-from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
 from hummingbot.client.hummingbot_application import HummingbotApplication
 
 from test.mock.mock_cli import CLIMockingAssistant  # isort: skip
@@ -16,7 +16,11 @@ class PreviousCommandUnitTest(unittest.TestCase):
         self.ev_loop = asyncio.get_event_loop()
 
         self.async_run_with_timeout(read_system_configs_from_yml())
-        self.app = HummingbotApplication()
+
+        self.client_config = ClientConfigMap()
+        self.config_adapter = ClientConfigAdapter(self.client_config)
+
+        self.app = HummingbotApplication(self.config_adapter)
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
 
@@ -32,7 +36,7 @@ class PreviousCommandUnitTest(unittest.TestCase):
         config.value = "yes"
 
     def test_no_previous_strategy_found(self):
-        global_config_map["previous_strategy"].value = None
+        self.config_adapter.previous_strategy = None
         self.app.previous_strategy(option="")
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with("No previous strategy found."))
@@ -49,7 +53,7 @@ class PreviousCommandUnitTest(unittest.TestCase):
     @patch("hummingbot.client.command.import_command.ImportCommand.import_command")
     def test_strategy_found_and_user_accepts(self, import_command: MagicMock):
         strategy_name = "conf_1.yml"
-        global_config_map["previous_strategy"].value = strategy_name
+        self.config_adapter.previous_strategy = strategy_name
         self.cli_mock_assistant.queue_prompt_reply("Yes")
         self.async_run_with_timeout(
             self.app.prompt_for_previous_strategy(strategy_name)
