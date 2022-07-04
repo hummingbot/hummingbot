@@ -1,5 +1,7 @@
-from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.config_var import ConfigVar
+
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -17,41 +19,65 @@ def build_api_factory() -> WebAssistantsFactory:
     return api_factory
 
 
-KEYS = {
-    "dydx_perpetual_api_key":
-        ConfigVar(key="dydx_perpetual_api_key",
-                  prompt="Enter your dydx Perpetual API key >>> ",
-                  required_if=using_exchange("dydx_perpetual"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "dydx_perpetual_api_secret":
-        ConfigVar(key="dydx_perpetual_api_secret",
-                  prompt="Enter your dydx Perpetual API secret >>> ",
-                  required_if=using_exchange("dydx_perpetual"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "dydx_perpetual_passphrase":
-        ConfigVar(key="dydx_perpetual_passphrase",
-                  prompt="Enter your dydx Perpetual API passphrase >>> ",
-                  required_if=using_exchange("dydx_perpetual"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "dydx_perpetual_account_number":
-        ConfigVar(key="dydx_perpetual_account_number",
-                  prompt="Enter your dydx Perpetual API account_number >>> ",
-                  required_if=using_exchange("dydx_perpetual"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "dydx_perpetual_stark_private_key":
-        ConfigVar(key="dydx_perpetual_stark_private_key",
-                  prompt="Enter your stark private key >>> ",
-                  required_if=using_exchange("dydx_perpetual"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "dydx_perpetual_ethereum_address":
-        ConfigVar(key="dydx_perpetual_ethereum_address",
-                  prompt="Enter your ethereum wallet address >>> ",
-                  required_if=using_exchange("dydx_perpetual"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class DydxPerpetualConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="dydx_perpetual", client_data=None)
+    dydx_perpetual_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your dydx Perpetual API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    dydx_perpetual_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your dydx Perpetual API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    dydx_perpetual_passphrase: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your dydx Perpetual API passphrase",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    dydx_perpetual_account_number: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your dydx Perpetual API account_number",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    dydx_perpetual_stark_private_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your stark private key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    dydx_perpetual_ethereum_address: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your ethereum wallet address",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "dydx_perpetual"
+
+
+KEYS = DydxPerpetualConfigMap.construct()

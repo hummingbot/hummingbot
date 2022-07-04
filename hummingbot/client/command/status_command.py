@@ -7,8 +7,11 @@ from typing import TYPE_CHECKING, Dict, List
 import pandas as pd
 
 from hummingbot import check_dev_mode
-from hummingbot.client.config.config_helpers import get_strategy_config_map, missing_required_configs
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    get_strategy_config_map,
+    missing_required_configs_legacy,
+)
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import ethereum_wallet_required, required_exchanges
 from hummingbot.connector.connector_base import ConnectorBase
@@ -87,15 +90,16 @@ class StatusCommand:
             self.notify(app_warning)
             return app_warning
 
-    async def validate_required_connections(self) -> Dict[str, str]:
+    async def validate_required_connections(
+        self  # type: HummingbotApplication
+    ) -> Dict[str, str]:
         invalid_conns = {}
         if self.strategy_name == "celo_arb":
             err_msg = await self.validate_n_connect_celo(True)
             if err_msg is not None:
                 invalid_conns["celo"] = err_msg
         if not any([str(exchange).endswith("paper_trade") for exchange in required_exchanges]):
-            await self.update_all_secure_configs()
-            connections = await UserBalances.instance().update_exchanges(exchanges=required_exchanges)
+            connections = await UserBalances.instance().update_exchanges(self.client_config_map, exchanges=required_exchanges)
             invalid_conns.update({ex: err_msg for ex, err_msg in connections.items()
                                   if ex in required_exchanges and err_msg is not None})
             if ethereum_wallet_required():
@@ -104,10 +108,23 @@ class StatusCommand:
                     invalid_conns["ethereum"] = err_msg
         return invalid_conns
 
-    def missing_configurations(self) -> List[str]:
-        missing_globals = missing_required_configs(global_config_map)
-        missing_configs = missing_required_configs(get_strategy_config_map(self.strategy_name))
-        return missing_globals + missing_configs
+    def missing_configurations_legacy(
+        self,  # type: HummingbotApplication
+    ) -> List[str]:
+        config_map = self.strategy_config_map
+        missing_configs = []
+        if not isinstance(config_map, ClientConfigAdapter):
+            missing_configs = missing_required_configs_legacy(
+                get_strategy_config_map(self.strategy_name)
+            )
+        return missing_configs
+
+    def validate_configs(
+        self,  # type: HummingbotApplication
+    ) -> List[str]:
+        config_map = self.strategy_config_map
+        validation_errors = config_map.validate_model() if isinstance(config_map, ClientConfigAdapter) else []
+        return validation_errors
 
     def status(self,  # type: HummingbotApplication
                live: bool = False):
@@ -143,7 +160,21 @@ class StatusCommand:
             self.notify('  - Security check: Encrypted files are being processed. Please wait and try again later.')
             return False
 
-        network_timeout = float(global_config_map["other_commands_timeout"].value)
+        missing_configs = self.missing_configurations_legacy()
+        if missing_configs:
+            self.notify("  - Strategy check: Incomplete strategy configuration. The following values are missing.")
+            for config in missing_configs:
+                self.notify(f"    {config.key}")
+        elif notify_success:
+            self.notify('  - Strategy check: All required parameters confirmed.')
+        validation_errors = self.validate_configs()
+        if len(validation_errors) != 0:
+            self.notify("  - Strategy check: Validation of the config maps failed. The following errors were flagged.")
+            for error in validation_errors:
+                self.notify(f"    {error}")
+            return False
+
+        network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         try:
             invalid_conns = await asyncio.wait_for(self.validate_required_connections(), network_timeout)
         except asyncio.TimeoutError:
@@ -156,14 +187,7 @@ class StatusCommand:
         elif notify_success:
             self.notify('  - Exchange check: All connections confirmed.')
 
-        missing_configs = self.missing_configurations()
-        if missing_configs:
-            self.notify("  - Strategy check: Incomplete strategy configuration. The following values are missing.")
-            for config in missing_configs:
-                self.notify(f"    {config.key}")
-        elif notify_success:
-            self.notify('  - Strategy check: All required parameters confirmed.')
-        if invalid_conns or missing_configs:
+        if invalid_conns or missing_configs or len(validation_errors) != 0:
             return False
 
         loading_markets: List[ConnectorBase] = []

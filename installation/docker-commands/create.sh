@@ -77,6 +77,8 @@ create_instance () {
  mkdir $FOLDER
  # 2) Create subfolders for hummingbot files
  mkdir $CONF_FOLDER
+ mkdir $CONF_FOLDER/connectors
+ mkdir $CONF_FOLDER/strategies
  mkdir $LOGS_FOLDER
  mkdir $DATA_FOLDER
  mkdir $PMM_SCRIPTS_FOLDER

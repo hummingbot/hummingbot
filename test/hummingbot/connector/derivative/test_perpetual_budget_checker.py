@@ -1,13 +1,15 @@
 import unittest
 from decimal import Decimal
+from test.mock.mock_perp_connector import MockPerpConnector
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.order_candidate import PerpetualOrderCandidate
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
-from test.mock.mock_perp_connector import MockPerpConnector
 
 
 class PerpetualBudgetCheckerTest(unittest.TestCase):
@@ -21,7 +23,9 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         trade_fee_schema = TradeFeeSchema(
             maker_percent_fee_decimal=Decimal("0.01"), taker_percent_fee_decimal=Decimal("0.02")
         )
-        self.exchange = MockPerpConnector(trade_fee_schema)
+        self.exchange = MockPerpConnector(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=trade_fee_schema)
         self.budget_checker = self.exchange.budget_checker
 
     def test_populate_collateral_fields_buy_order(self):
@@ -133,7 +137,9 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
             maker_percent_fee_decimal=Decimal("0.01"),
             taker_percent_fee_decimal=Decimal("0.01"),
         )
-        exchange = MockPerpConnector(trade_fee_schema)
+        exchange = MockPerpConnector(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=trade_fee_schema)
         pfc_quote_pair = combine_to_hb_trading_pair(self.quote_asset, pfc_token)
         exchange.set_balanced_order_book(  # the quote to pfc price will be 1:2
             trading_pair=pfc_quote_pair,

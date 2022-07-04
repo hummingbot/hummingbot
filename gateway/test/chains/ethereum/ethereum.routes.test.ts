@@ -49,6 +49,10 @@ const patchGetNonce = () => {
   patch(eth.nonceManager, 'getNonce', () => 2);
 };
 
+const patchGetNextNonce = () => {
+  patch(eth.nonceManager, 'getNextNonce', () => 3);
+};
+
 const patchGetERC20Balance = () => {
   patch(eth, 'getERC20Balance', () => ({ value: 1, decimals: 3 }));
 };
@@ -263,6 +267,36 @@ describe('POST /evm/nonce', () => {
   it('should return 404 when parameters are invalid', async () => {
     await request(gatewayApp)
       .post(`/evm/nonce`)
+      .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        address: 'da857cbda0ba96757fed842617a4',
+      })
+      .expect(404);
+  });
+});
+
+describe('POST /evm/nextNonce', () => {
+  it('should return 200', async () => {
+    patchGetWallet();
+    patchGetNextNonce();
+
+    await request(gatewayApp)
+      .post(`/evm/nextNonce`)
+      .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.nonce).toBe(3));
+  });
+
+  it('should return 404 when parameters are invalid', async () => {
+    await request(gatewayApp)
+      .post(`/evm/nextNonce`)
       .send({
         chain: 'ethereum',
         network: 'kovan',

@@ -75,6 +75,14 @@ class HangingOrdersTracker:
             (MarketEvent.BuyOrderCompleted, self._complete_buy_order_forwarder),
             (MarketEvent.SellOrderCompleted, self._complete_sell_order_forwarder)]
 
+    @property
+    def hanging_orders_cancel_pct(self):
+        return self._hanging_orders_cancel_pct
+
+    @hanging_orders_cancel_pct.setter
+    def hanging_orders_cancel_pct(self, value):
+        self._hanging_orders_cancel_pct = value
+
     def register_events(self, markets: List[ConnectorBase]):
         """Start listening to events from the given markets."""
         for market in markets:

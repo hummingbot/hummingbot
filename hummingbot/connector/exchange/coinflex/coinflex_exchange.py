@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
 
@@ -30,6 +30,9 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
@@ -44,6 +47,7 @@ class CoinflexExchange(ExchangeBase):
     MAX_ORDER_UPDATE_RETRIEVAL_RETRIES_WITH_FAILURES = 3
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  coinflex_api_key: str,
                  coinflex_api_secret: str,
                  trading_pairs: Optional[List[str]] = None,
@@ -51,7 +55,7 @@ class CoinflexExchange(ExchangeBase):
                  domain: str = CONSTANTS.DEFAULT_DOMAIN
                  ):
         self._domain = domain
-        super().__init__()
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         self._auth = CoinflexAuth(
             api_key=coinflex_api_key,

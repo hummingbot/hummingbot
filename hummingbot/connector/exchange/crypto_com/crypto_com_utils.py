@@ -1,12 +1,12 @@
 import math
 from typing import Dict, List
 
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_tracking_nonce_low_res
+
 from . import crypto_com_constants as CONSTANTS
-
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
-
 
 CENTRALIZED = True
 
@@ -78,17 +78,29 @@ def get_rest_url(path_url: str, api_version: str = CONSTANTS.API_VERSION) -> str
     return f"{CONSTANTS.REST_URL}{api_version}{path_url}"
 
 
-KEYS = {
-    "crypto_com_api_key":
-        ConfigVar(key="crypto_com_api_key",
-                  prompt="Enter your Crypto.com API key >>> ",
-                  required_if=using_exchange("crypto_com"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "crypto_com_secret_key":
-        ConfigVar(key="crypto_com_secret_key",
-                  prompt="Enter your Crypto.com secret key >>> ",
-                  required_if=using_exchange("crypto_com"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class CryptoComConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="crypto_com", client_data=None)
+    crypto_com_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Crypto.com API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    crypto_com_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Crypto.com secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "crypto_com"
+
+
+KEYS = CryptoComConfigMap.construct()

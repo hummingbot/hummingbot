@@ -13,7 +13,6 @@ ttl: 600
 # Note: More hops will increase latency of the algorithm.
 maximumHops: 4
 
-
 contractAddresses:
   mainnet:
     uniswapV3SmartOrderRouterAddress: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'

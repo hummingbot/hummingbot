@@ -5,6 +5,8 @@ import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 import { UniswapLP } from '../../../../src/connectors/uniswap/uniswap.lp';
 import { AmmLiquidityRoutes } from '../../../../src/amm/amm.routes';
 import { patch, unpatch } from '../../../services/patch';
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
+
 let app: Express;
 let ethereum: Ethereum;
 let uniswap: UniswapLP;
@@ -13,10 +15,16 @@ beforeAll(async () => {
   app = express();
   app.use(express.json());
   ethereum = Ethereum.getInstance('kovan');
+  patchEVMNonceManager(ethereum.nonceManager);
   await ethereum.init();
+
   uniswap = UniswapLP.getInstance('ethereum', 'kovan');
   await uniswap.init();
   app.use('/amm/liquidity', AmmLiquidityRoutes.router);
+});
+
+beforeEach(() => {
+  patchEVMNonceManager(ethereum.nonceManager);
 });
 
 afterEach(() => {
