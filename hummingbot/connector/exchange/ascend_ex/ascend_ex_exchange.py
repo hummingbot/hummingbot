@@ -925,15 +925,19 @@ class AscendExExchange(ExchangeBase):
             order_type=order_type,
         )
 
+        trading_rule = self._trading_rules[trading_pair]
+
         if not order_type.is_limit_type():
             self._update_order_after_failure(order_id, trading_pair)
             raise Exception(f"Unsupported order type: {order_type}")
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         side = "Buy" if trade_type == TradeType.BUY else "Sell"
-        if amount <= s_decimal_0:
+        if amount <= trading_rule.min_order_size:
             self._update_order_after_failure(order_id, trading_pair)
-            self.logger().error(f"{side} order amount {amount} is lower than or equal to the minimum order amount 0")
+            self.logger().error(
+                f"{side} order amount {amount} is lower than the minimum order size "
+                f"{trading_rule.min_order_size}.")
             return
         try:
             timestamp = ascend_ex_utils.get_ms_timestamp()
