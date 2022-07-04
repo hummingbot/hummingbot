@@ -6,6 +6,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage, Order
 
 
 class PolkadexOrderbook(OrderBook):
+
     @classmethod
     def snapshot_message_from_exchange(cls, msgs: List[Dict[str, any]], timestamp: float, metadata) -> OrderBookMessage:
         """
@@ -19,17 +20,16 @@ class PolkadexOrderbook(OrderBook):
         bids = []
         asks = []
         for price_level in msgs:
-            print("price_level", price_level)
-            if price_level["side"] == "BID":
-                bids.append((float(price_level["price"]), float(price_level["qty"])))
+            if price_level["side"] == "Bid":
+                bids.append((float(price_level["price"]), float(price_level["qty"]), int(-1)))
             else:
-                asks.append((float(price_level["price"]), float(price_level["qty"])))
-
+                asks.append((float(price_level["price"]), float(price_level["qty"]), int(-1)))
 
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": metadata["trading_pair"],
             "bids": bids,
-            "asks": asks
+            "asks": asks,
+            "update_id": -1
         }, timestamp=timestamp)
 
     @classmethod
@@ -56,9 +56,9 @@ class PolkadexOrderbook(OrderBook):
                 asks.append((float(put["price"]), float(put["qty"]), float(msg["seq"])))
         for dels in msg["dels"]:
             if dels["side"] == "Bid":
-                bids.append((float(dels["price"]), float(0),float(msg["seq"])))
+                bids.append((float(dels["price"]), float(0), float(msg["seq"])))
             else:
-                asks.append((float(dels["price"]), float(0),float(msg["seq"])))
+                asks.append((float(dels["price"]), float(0), float(msg["seq"])))
 
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": msg["trading_pair"],
@@ -79,15 +79,15 @@ class PolkadexOrderbook(OrderBook):
             msg.update(metadata)
         ts = msg["time"]
 
-        if msg["s"] == "BID":
-            trade_type = float(TradeType.BUY.value)
-        else:
-            trade_type = float(TradeType.SELL.value)
+        # if msg["s"] == "Bid":
+        #     trade_type = float(TradeType.BUY.value)
+        # else:
+        #     trade_type = float(TradeType.SELL.value)
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": msg["trading_pair"],
-            "trade_type": trade_type,
-            "trade_id": msg["t"],
+            "trading_pair": msg["market"],
+            # "trade_type": trade_type,
+            # "trade_id": msg["t"],
             "update_id": ts,
-            "price": msg["p"],
-            "amount": msg["q"]
+            "price": float(msg["price"]),
+            "amount": float(msg["quantity"])
         }, timestamp=ts * 1e-3)
