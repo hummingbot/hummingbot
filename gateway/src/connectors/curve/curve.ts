@@ -234,7 +234,7 @@ export class Curve {
     await this.prepWallet(wallet, gasPrice, maxFeePerGas, maxPriorityFeePerGas);
 
     if (nonce === undefined) {
-      nonce = await this._ethereum.nonceManager.getNonce(wallet.address);
+      nonce = await this._ethereum.nonceManager.getNextNonce(wallet.address);
     }
 
     if (side === 'BUY') {
