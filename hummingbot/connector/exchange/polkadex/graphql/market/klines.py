@@ -1,6 +1,6 @@
 from gql import gql
 
-from auth.client import execute_query_command
+from hummingbot.connector.exchange.polkadex.graphql.auth.client import execute_query_command
 
 
 async def get_klines_by_market_and_interval(market, interval, from_date, to_date):

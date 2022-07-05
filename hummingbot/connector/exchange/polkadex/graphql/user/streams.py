@@ -1,6 +1,6 @@
 from gql import gql
 
-from auth.client import subscribe_query_command
+from hummingbot.connector.exchange.polkadex.graphql.auth.client import subscribe_query_command
 
 
 async def on_balance_update(main, session, callback):

@@ -70,17 +70,19 @@ class PolkadexExchange(ExchangePyBase):
     def is_trading_required(self) -> bool:
         return True
 
-    def __init__(self, enclave_endpoint: str, endpoint: str, api_key: str, seed_hex: str, trading_pairs: Optional[List[str]] = None):
-        self.enclave_endpoint = enclave_endpoint
-        self.endpoint = endpoint
-        self.api_key = api_key
+    def __init__(self, polkadex_enclave_endpoint: str, polkadex_graphql_endpoint: str, polkadex_api_key: str,
+                 polkadex_seed_phrase: str,
+                 trading_pairs: Optional[List[str]] = None):
+        self.enclave_endpoint = polkadex_enclave_endpoint
+        self.endpoint = polkadex_graphql_endpoint
+        self.api_key = polkadex_api_key
         self._trading_pairs = trading_pairs
         self._last_trades_poll_binance_timestamp = 1.0
-        self.host = str(urlparse(endpoint).netloc)
+        self.host = str(urlparse(polkadex_graphql_endpoint).netloc)
         self.auth = AppSyncApiKeyAuthentication(host=self.host, api_key=self.api_key)
-        self.proxy_pair = Keypair.create_from_seed(seed_hex, POLKADEX_SS58_PREFIX, KeypairType.SR25519)
+        self.proxy_pair = Keypair.create_from_mnemonic(polkadex_seed_phrase, POLKADEX_SS58_PREFIX, KeypairType.SR25519)
         self.user_proxy_address = self.proxy_pair.ss58_address
-        self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.endpoint, self.api_key)
+        self.user_main_address = None
         self.nonce = 0  # TODO: We need to fetch the nonce from enclave
         custom_types = {
             "runtime_id": 1,
@@ -113,30 +115,32 @@ class PolkadexExchange(ExchangePyBase):
                 },
                 "OrderSide": {
                     "type": "enum",
-                    "type_mapping": {
+                    "type_mapping": [
                         ["Ask", None],
                         ["Bid", None],
-                    },
+                    ],
                 },
                 "OrderType": {
                     "type": "enum",
-                    "type_mapping": {
+                    "type_mapping": [
                         ["LIMIT", None],
                         ["MARKET", None],
-                    },
+                    ],
                 },
             }
         }
+        print("Connecting to blockchain")
         self.blockchain = SubstrateInterface(
             url="wss://blockchain.polkadex.trade",
             ss58_format=POLKADEX_SS58_PREFIX,
             type_registry=custom_types
         )
+        print("Blockchain connected: ", self.blockchain.get_chain_head())
         super().__init__()
 
     @property
     def rate_limits_rules(self):
-        return None
+        return CONSTANTS.RATE_LIMITS
 
     @property
     def trading_pairs(self):
@@ -149,7 +153,8 @@ class PolkadexExchange(ExchangePyBase):
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.MARKET]
 
-    def name(self):
+    @property
+    def name(self) -> str:
         return "polkadex"
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
@@ -265,6 +270,9 @@ class PolkadexExchange(ExchangePyBase):
         pass
 
     async def _user_stream_event_listener(self):
+        if self.user_main_address is None:
+            self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.endpoint,
+                                                                       self.api_key)
         transport = AppSyncWebsocketsTransport(url=self.endpoint, auth=self.auth)
         tasks = []
         async with Client(transport=transport, fetch_schema_from_transport=False) as session:
@@ -285,7 +293,10 @@ class PolkadexExchange(ExchangePyBase):
                                      min_notional_size=MIN_PRICE * MIN_QTY))
         return rules
 
-    def _update_order_status(self):
+    async def _update_order_status(self):
+        if self.user_main_address is None:
+            self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.endpoint,
+                                                                       self.api_key)
         last_tick = self._last_poll_timestamp / UPDATE_ORDER_STATUS_MIN_INTERVAL
         current_tick = self.current_timestamp / UPDATE_ORDER_STATUS_MIN_INTERVAL
 
@@ -294,7 +305,7 @@ class PolkadexExchange(ExchangePyBase):
 
             for tracked_order in tracked_orders:
                 result = await find_order_by_main_account(self.user_main_address, tracked_order.client_order_id,
-                                                          tracked_order.trading_pair)
+                                                          tracked_order.trading_pair, self.endpoint, self.api_key)
 
                 if isinstance(result, Exception):
                     self.logger().network(
@@ -318,9 +329,12 @@ class PolkadexExchange(ExchangePyBase):
                     )
                     self._order_tracker.process_order_update(update)
 
-    def _update_balances(self):
+    async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
+        if self.user_main_address is None:
+            self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.endpoint,
+                                                                       self.api_key)
         balances = await get_all_balances_by_main_account(self.user_main_address, self.endpoint, self.api_key)
         """
       [

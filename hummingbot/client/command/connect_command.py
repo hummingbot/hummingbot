@@ -45,7 +45,8 @@ class ConnectCommand:
         if exchange == "kraken":
             self.notify("Reminder: Please ensure your Kraken API Key Nonce Window is at least 10.")
         exchange_configs = [c for c in global_config_map.values()
-                            if c.key in AllConnectorSettings.get_connector_settings()[exchange].config_keys and c.is_connect_key]
+                            if c.key in AllConnectorSettings.get_connector_settings()[
+                                exchange].config_keys and c.is_connect_key]
 
         to_connect = True
         if Security.encrypted_file_exists(exchange_configs[0].key):

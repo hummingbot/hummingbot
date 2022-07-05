@@ -43,6 +43,7 @@ connector_status = {
     'ndax_testnet': 'yellow',
     'okx': 'green',
     'perpetual_finance': 'yellow',
+    'polkadex': 'green',
     'probit': 'yellow',
     'probit_kr': 'yellow',
     'terra': 'red',
