@@ -1,6 +1,5 @@
 import asyncio
 import copy
-import itertools as it
 import logging
 import time
 from decimal import Decimal
@@ -154,21 +153,24 @@ class GatewaySOLCLOB(ConnectorBase):
         return self._connector_name
 
     async def all_trading_pairs(self, chain: str, network: str) -> List[str]:
-        """
-        Calls the token's endpoint on the Gateway.
-        """
-        try:
-            tokens = await self._get_gateway_instance().get_tokens(chain, network)
-            token_symbols = [token["symbol"] for token in tokens["tokens"]]
-            trading_pairs = []
-            for base, quote in it.permutations(token_symbols, 2):
-                trading_pairs.append(f"{base}-{quote}")
+        # Since the solana tokens trading pairs would be too much, we are returning an empty list here.
+        return []
 
-            return trading_pairs
-        except (Exception,):
-            GatewaySOLCLOB.logger().warning(f"""No trading pairs found for {chain}/{network}.""")
-
-            return []
+        # """
+        # Calls the token's endpoint on the Gateway.
+        # """
+        # try:
+        #     tokens = await self._get_gateway_instance().get_tokens(chain, network)
+        #     token_symbols = [token["symbol"] for token in tokens["tokens"]]
+        #     trading_pairs = []
+        #     for base, quote in it.permutations(token_symbols, 2):
+        #         trading_pairs.append(f"{base}-{quote}")
+        #
+        #     return trading_pairs
+        # except (Exception,):
+        #     GatewaySOLCLOB.logger().warning(f"""No trading pairs found for {chain}/{network}.""")
+        #
+        #     return []
 
     @staticmethod
     def is_order(in_flight_order: CLOBInFlightOrder) -> bool:
@@ -390,7 +392,7 @@ class GatewaySOLCLOB(ConnectorBase):
         """
         approval_id: str = self.create_approval_order_id(token_symbol)
 
-        self.logger().info(f"Innitiating approval for {token_symbol}.")
+        self.logger().info(f"Initiating approval for {token_symbol}.")
 
         self.start_tracking_order(
             order_id=approval_id,
