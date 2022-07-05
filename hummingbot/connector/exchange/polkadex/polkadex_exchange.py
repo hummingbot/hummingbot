@@ -1,9 +1,10 @@
 import asyncio
+import datetime
 from decimal import Decimal
 from typing import Dict, Any, List, Optional, Tuple
 from urllib.parse import urlparse
 from dateutil import parser
-
+import websockets
 from gql import Client
 from gql.transport.appsync_auth import AppSyncApiKeyAuthentication
 from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
@@ -17,6 +18,7 @@ from hummingbot.connector.exchange.polkadex.polkadex_constants import MIN_PRICE,
     UPDATE_ORDER_STATUS_MIN_INTERVAL
 from hummingbot.connector.exchange.polkadex.polkadex_order_book_data_source import PolkadexOrderbookDataSource
 from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
+from hummingbot.connector.exchange.polkadex.polkadex_payload import create_order, cancel_order
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -68,7 +70,8 @@ class PolkadexExchange(ExchangePyBase):
     def is_trading_required(self) -> bool:
         return True
 
-    def __init__(self, endpoint: str, api_key: str, seed_hex: str, trading_pairs: Optional[List[str]] = None):
+    def __init__(self, enclave_endpoint: str, endpoint: str, api_key: str, seed_hex: str, trading_pairs: Optional[List[str]] = None):
+        self.enclave_endpoint = enclave_endpoint
         self.endpoint = endpoint
         self.api_key = api_key
         self._trading_pairs = trading_pairs
@@ -78,31 +81,49 @@ class PolkadexExchange(ExchangePyBase):
         self.proxy_pair = Keypair.create_from_seed(seed_hex, POLKADEX_SS58_PREFIX, KeypairType.SR25519)
         self.user_proxy_address = self.proxy_pair.ss58_address
         self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.endpoint, self.api_key)
+        self.nonce = 0  # TODO: We need to fetch the nonce from enclave
         custom_types = {
-            "OrderPayload": {
-                "user": "AccountId",
-                "pair": "TradingPair",
-                "side": "OrderSide",
-                "order_type": "OrderType",
-                "qty": "u128",
-                "price": "u128",
-                "nonce": "u32",
-            },
-            "CancelOrderPayload": {"id": "String"},
-            "TradingPair": {
-                "base_asset": "AssetId",
-                "quote_asset": "AssetId",
-            },
-            "OrderSide": {
-                "_enum": {
-                    "Ask": None,
-                    "Bid": None,
+            "runtime_id": 1,
+            "versioning": [
+            ],
+            "types": {
+                "OrderPayload": {
+                    "type": "struct",
+                    "type_mapping": [
+                        ["user", "AccountId"],
+                        ["pair", "TradingPair"],
+                        ["side", "OrderSide"],
+                        ["order_type", "OrderType"],
+                        ["qty", "u128"],
+                        ["price", "u128"],
+                        ["nonce", "u32"],
+                    ]
                 },
-            },
-            "OrderType": {
-                "_enum": {
-                    "LIMIT": None,
-                    "MARKET": None,
+                "CancelOrderPayload": {
+                    "type": "struct",
+                    "type_mapping": [
+                        ["id", "String"]
+                    ]},
+                "TradingPair": {
+                    "type": "struct",
+                    "type_mapping": [
+                        ["base_asset", "AssetId"],
+                        ["quote_asset", "AssetId"],
+                    ]
+                },
+                "OrderSide": {
+                    "type": "enum",
+                    "type_mapping": {
+                        ["Ask", None],
+                        ["Bid", None],
+                    },
+                },
+                "OrderType": {
+                    "type": "enum",
+                    "type_mapping": {
+                        ["LIMIT", None],
+                        ["MARKET", None],
+                    },
                 },
             }
         }
@@ -132,13 +153,28 @@ class PolkadexExchange(ExchangePyBase):
         return "polkadex"
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        pass
+        # TODO; Convert client_order_id to enclave_order_id
+        encoded_cancel_req = cancel_order(self.blockchain, order_id)
+        signature = self.proxy_pair.sign(encoded_cancel_req)
+        params = ["enclave_cancelOrder", encoded_cancel_req, signature]
+        async with websockets.connect(self.enclave_endpoint) as websocket:
+            await websocket.send(params)
+            result = await websocket.recv()
+            print(result)
 
     async def _place_order(self, order_id: str, trading_pair: str, amount: Decimal, trade_type: TradeType,
                            order_type: OrderType, price: Decimal) -> Tuple[str, float]:
-
-
-        pass
+        self.nonce = self.nonce + 1
+        # TODO; Include client order id
+        encoded_order = create_order(self.blockchain, price, amount, order_type, trade_type, self.user_proxy_address,
+                                     trading_pair.split("-")[0], trading_pair.split("-")[1], self.nonce)
+        signature = self.proxy_pair.sign(encoded_order)
+        params = ["enclave_placeOrder", encoded_order, signature]
+        async with websockets.connect(self.enclave_endpoint) as websocket:
+            await websocket.send(params)
+            result = await websocket.recv()
+            print(result)
+            return result["id"], datetime.datetime.now().timestamp()
 
     def _get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
                  amount: Decimal, price: Decimal = s_decimal_NaN,

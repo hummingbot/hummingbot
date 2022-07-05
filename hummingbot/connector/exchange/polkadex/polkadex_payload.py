@@ -66,8 +66,8 @@ def main():
     runtime_config = RuntimeConfigurationObject(ss58_format=POLKADEX_SS58_PREFIX)
     runtime_config.update_type_registry(custom_types)
 
-    print(create_order(runtime_config, 10, 100, "LIMIT", "Bid", "eskmPnwDNLNCuZKa3aWuvNS6PshJoKsgBtwbdxyyipS2F2TR5",
-                       "polkadex", 1, 2))
+    print(create_order(runtime_config, 10, 100,
+                       "LIMIT", "Bid", "eskmPnwDNLNCuZKa3aWuvNS6PshJoKsgBtwbdxyyipS2F2TR5", "polkadex", 1, 2))
 
 
 def create_asset(asset):
@@ -76,6 +76,12 @@ def create_asset(asset):
     else:
         return {"asset": asset}
 
+
+def cancel_order(runtime_config, order_id):
+    cancel_req = {
+        "id": str(order_id)
+    }
+    return runtime_config.create_scale_object("CancelOrderPayload").encode(cancel_req)
 
 def create_order(runtime_config, price, qty, order_type, side, proxy, base, quote, nonce):
     order = {
@@ -100,6 +106,9 @@ def create_order(runtime_config, price, qty, order_type, side, proxy, base, quot
 
     print(order)
     return runtime_config.create_scale_object("OrderPayload").encode(order)
+
+
+
 
 
 main()
