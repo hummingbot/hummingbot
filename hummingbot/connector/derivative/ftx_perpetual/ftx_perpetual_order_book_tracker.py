@@ -52,7 +52,7 @@ class FtxPerpetualOrderBookTracker(OrderBookTracker):
 
     @property
     def exchange_name(self) -> str:
-        return "ftx"
+        return "ftx_perpetual"
 
     async def _refresh_tracking_tasks(self):
         """

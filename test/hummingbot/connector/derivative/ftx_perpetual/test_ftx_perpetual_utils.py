@@ -8,9 +8,11 @@ from mock import patch
 
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import (
-    BROKER_ID,
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_utils import (
     BinancePerpetualRESTPreProcessor,
+    build_api_factory,
+    rest_url,
+    wss_url,
 )
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -61,7 +63,7 @@ class BinancePerpetualUtilsUnitTests(unittest.TestCase):
 
         result = utils.get_client_order_id("buy", self.trading_pair)
 
-        expected_client_order_id = f"{BROKER_ID}-BCAHT{client_instance_id}{int('1'*16)}"
+        expected_client_order_id = f"{utils.BROKER_ID}-BCAHT{client_instance_id}{int('1'*16)}"
 
         self.assertEqual(result, expected_client_order_id)
 
@@ -71,31 +73,31 @@ class BinancePerpetualUtilsUnitTests(unittest.TestCase):
         expected_url = path_url = "/TEST_PATH_URL"
 
         expected_url = f"{CONSTANTS.PERPETUAL_BASE_URL}{CONSTANTS.API_VERSION_V2}{path_url}"
-        self.assertEqual(expected_url, utils.rest_url(path_url, api_version=CONSTANTS.API_VERSION_V2))
-        self.assertEqual(expected_url, utils.rest_url(path_url, api_version=CONSTANTS.API_VERSION_V2))
+        self.assertEqual(expected_url, rest_url(path_url, api_version=CONSTANTS.API_VERSION_V2))
+        self.assertEqual(expected_url, rest_url(path_url, api_version=CONSTANTS.API_VERSION_V2))
 
     def test_rest_url_testnet_domain(self):
         path_url = "/TEST_PATH_URL"
 
         expected_url = f"{CONSTANTS.TESTNET_BASE_URL}{CONSTANTS.API_VERSION_V2}{path_url}"
         self.assertEqual(
-            expected_url, utils.rest_url(path_url=path_url, domain="testnet", api_version=CONSTANTS.API_VERSION_V2)
+            expected_url, rest_url(path_url=path_url, domain="testnet", api_version=CONSTANTS.API_VERSION_V2)
         )
 
     def test_wss_url_main_domain(self):
         endpoint = "TEST_SUBSCRIBE"
 
         expected_url = f"{CONSTANTS.PERPETUAL_WS_URL}{endpoint}"
-        self.assertEqual(expected_url, utils.wss_url(endpoint=endpoint))
+        self.assertEqual(expected_url, wss_url(endpoint=endpoint))
 
     def test_wss_url_testnet_domain(self):
         endpoint = "TEST_SUBSCRIBE"
 
         expected_url = f"{CONSTANTS.TESTNET_WS_URL}{endpoint}"
-        self.assertEqual(expected_url, utils.wss_url(endpoint=endpoint, domain="testnet"))
+        self.assertEqual(expected_url, wss_url(endpoint=endpoint, domain="testnet"))
 
     def test_build_api_factory(self):
-        api_factory = utils.build_api_factory()
+        api_factory = build_api_factory()
 
         self.assertIsInstance(api_factory, WebAssistantsFactory)
         self.assertIsNone(api_factory._auth)

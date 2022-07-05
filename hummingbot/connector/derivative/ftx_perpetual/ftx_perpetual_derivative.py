@@ -3,7 +3,7 @@ import copy
 import logging
 import time
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 import pandas as pd
@@ -33,6 +33,7 @@ from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import PositionSide
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
@@ -47,7 +48,6 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     OrderType,
     PositionAction,
-    PositionSide,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
     TradeType,
@@ -57,6 +57,9 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 bm_logger = None
 s_decimal_0 = Decimal(0)
@@ -100,14 +103,15 @@ class FtxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         return bm_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  ftx_perpetual_secret_key: str,
                  ftx_perpetual_api_key: str,
                  ftx_perpetual_subaccount_name: str = None,
                  poll_interval: float = 5.0,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
-        super().__init__()
-        ExchangeBase.__init__(self)
+        super().__init__(client_config_map=client_config_map)
+        ExchangeBase.__init__(self, client_config_map=client_config_map)
         PerpetualTrading.__init__(self)
         self._real_time_balance_update = False
         self._account_available_balances = {}
@@ -232,17 +236,8 @@ class FtxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                           tracked_order.client_order_id,
                                                           base,
                                                           quote,
-                                                          base,
                                                           tracked_order.executed_amount_base,
                                                           tracked_order.executed_amount_quote,
-                                                          self.get_fee(
-                                                              base,
-                                                              quote,
-                                                              tracked_order.order_type,
-                                                              tracked_order.trade_type,
-                                                              new_amount,
-                                                              new_price
-                                                          ),
                                                           tracked_order.order_type))
             elif market_event == MarketEvent.SellOrderCompleted:
                 self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
@@ -252,17 +247,8 @@ class FtxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                            tracked_order.client_order_id,
                                                            base,
                                                            quote,
-                                                           quote,
                                                            tracked_order.executed_amount_base,
                                                            tracked_order.executed_amount_quote,
-                                                           self.get_fee(
-                                                               base,
-                                                               quote,
-                                                               tracked_order.order_type,
-                                                               tracked_order.trade_type,
-                                                               new_amount,
-                                                               new_price
-                                                           ),
                                                            tracked_order.order_type))
             # Complete the order if relevent
             if tracked_order.is_done:
@@ -459,16 +445,16 @@ class FtxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                              leverage: int,
                              position_action: str):
         self._in_flight_orders[order_id] = FtxPerpetualInFlightOrder(
-            order_id,
-            exchange_order_id,
-            trading_pair,
-            order_type,
-            trade_type,
-            price,
-            amount,
-            self.current_timestamp,
-            leverage,
-            position_action
+            client_order_id=order_id,
+            exchange_order_id=exchange_order_id,
+            trading_pair=trading_pair,
+            order_type=order_type,
+            trade_type=trade_type,
+            price=price,
+            amount=amount,
+            created_at=self.current_timestamp,
+            leverage=leverage,
+            position_action=position_action,
         )
 
     def stop_tracking_order(self, order_id: str):
@@ -630,7 +616,8 @@ class FtxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                        trading_pair,
                                        decimal_amount,
                                        decimal_price,
-                                       order_id
+                                       order_id,
+                                       tracked_order.creation_timestamp
                                    ))
 
         except asyncio.CancelledError:
@@ -751,7 +738,8 @@ class FtxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                        trading_pair,
                                        decimal_amount,
                                        decimal_price,
-                                       order_id
+                                       order_id,
+                                       tracked_order.creation_timestamp
                                    ))
         except asyncio.CancelledError:
             raise

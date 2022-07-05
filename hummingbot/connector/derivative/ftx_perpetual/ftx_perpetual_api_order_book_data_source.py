@@ -24,7 +24,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 
-EXCHANGE_NAME = "ftx"
+EXCHANGE_NAME = "ftx_perpetual"
 
 FTX_REST_URL = "https://ftx.com/api"
 FTX_EXCHANGE_INFO_PATH = "/markets"

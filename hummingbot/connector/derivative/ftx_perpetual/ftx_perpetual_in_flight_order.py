@@ -20,14 +20,15 @@ class FtxPerpetualInFlightOrder(InFlightOrderBase):
                  position_action: str,
                  initial_state: str = "new"):
         super().__init__(
-            client_order_id,
-            exchange_order_id,
-            trading_pair,
-            order_type,
-            trade_type,
-            price,
-            amount,
-            initial_state
+            client_order_id=client_order_id,
+            exchange_order_id=exchange_order_id,
+            trading_pair=trading_pair,
+            order_type=order_type,
+            trade_type=trade_type,
+            price=price,
+            amount=amount,
+            initial_state=initial_state,
+            creation_timestamp=created_at
         )
         self.created_at = created_at
         self.state = FtxPerpetualOrderStatus.new

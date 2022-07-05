@@ -3,7 +3,6 @@ import json
 import time
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Dict, List
 
 import aiohttp
@@ -13,6 +12,7 @@ from bidict import bidict
 from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_api_order_book_data_source import (
     FtxPerpetualAPIOrderBookDataSource,
 )
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.order_book import OrderBook
 
 FTX_REST_URL = "https://ftx.com/api"

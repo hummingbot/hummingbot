@@ -1,6 +1,5 @@
 import asyncio
 import unittest
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Optional
 from unittest.mock import AsyncMock, patch
 
@@ -11,6 +10,7 @@ from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_api_user_stream
     FtxPerpetualAPIUserStreamDataSource,
 )
 from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_auth import FtxPerpetualAuth
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 
 FTX_API_ENDPOINT = "wss://ftx.com/ws/"
 FTX_USER_STREAM_ENDPOINT = "userDataStream"

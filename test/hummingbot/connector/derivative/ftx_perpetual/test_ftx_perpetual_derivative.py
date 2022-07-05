@@ -5,11 +5,13 @@ import time
 from collections import namedtuple
 from decimal import Decimal
 from typing import Any, Awaitable, Callable, Dict, Optional
-from unittest import TestCase, mock
-from unittest.mock import AsyncMock
+from unittest import TestCase
+from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_derivative import FtxPerpetualDerivative
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent, OrderType, PositionAction, TradeType
@@ -65,13 +67,16 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
         self.resume_test_event = asyncio.Event()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = FtxPerpetualDerivative(
+            client_config_map=self.client_config_map,
             ftx_perpetual_api_key="testAPIKey",
             ftx_perpetual_secret_key="testSecret",
             trading_pairs=[self.trading_pair, "BTC-USD"],
         )
 
+        self.exchange._set_current_timestamp(400000)
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
 
@@ -347,7 +352,6 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
     @aioresponses()
     def test_update_order_status(self, mock_api):
         self.exchange._last_poll_timestamp = 0
-        self.exchange._set_current_timestamp(400000)
         self.exchange.start_tracking_order(
             order_id="OID1",
             exchange_order_id="38065410",
@@ -501,7 +505,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
         )
         self.assertEqual(order_id[0:8], 'FTX-PERP')
 
-    @mock.patch('requests.post', side_effect=execute_buy_success)
+    @patch('requests.post', side_effect=execute_buy_success)
     def test_execute_buy(self, mock_post):
         self.async_run_with_timeout(
             self.exchange.execute_buy(
@@ -516,7 +520,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
         order = self.exchange._in_flight_orders.get("OID1")
         self.assertEqual(order.exchange_order_id, '1')
 
-    @mock.patch('requests.post', side_effect=execute_buy_success)
+    @patch('requests.post', side_effect=execute_buy_success)
     def test_execute_market_buy(self, mock_post):
         self.async_run_with_timeout(
             self.exchange.execute_buy(
@@ -531,7 +535,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
         order = self.exchange._in_flight_orders.get("OID1")
         self.assertEqual(order.exchange_order_id, '1')
 
-    @mock.patch('requests.post', side_effect=execute_buy_fail)
+    @patch('requests.post', side_effect=execute_buy_fail)
     def test_execute_buy_fail(self, mock_post):
         self.async_run_with_timeout(
             self.exchange.execute_buy(
@@ -546,7 +550,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
         order = self.exchange._in_flight_orders.get("OID1")
         self.assertEqual(order, None)
 
-    @mock.patch('requests.post', side_effect=execute_buy_success)
+    @patch('requests.post', side_effect=execute_buy_success)
     def test_execute_sell(self, mock_post):
         self.async_run_with_timeout(
             self.exchange.execute_sell(
@@ -561,7 +565,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
         order = self.exchange._in_flight_orders.get("OID1")
         self.assertEqual(order.exchange_order_id, '1')
 
-    @mock.patch('requests.post', side_effect=execute_buy_success)
+    @patch('requests.post', side_effect=execute_buy_success)
     def test_execute_market_sell(self, mock_post):
         self.async_run_with_timeout(
             self.exchange.execute_sell(
@@ -576,7 +580,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
         order = self.exchange._in_flight_orders.get("OID1")
         self.assertEqual(order.exchange_order_id, '1')
 
-    @mock.patch('requests.post', side_effect=execute_buy_fail)
+    @patch('requests.post', side_effect=execute_buy_fail)
     def test_execute_sell_fail(self, mock_post):
         self.async_run_with_timeout(
             self.exchange.execute_sell(
@@ -652,7 +656,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
         self.assertEqual(order_id, "OID1")
 
     @aioresponses()
-    @mock.patch("hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_derivative.FtxPerpetualDerivative.logger", side_effect=None)
+    @patch("hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_derivative.FtxPerpetualDerivative.logger", side_effect=None)
     def test_execute_cancel_error(self, mock_api, mock_logger):
         url = f"{FTX_API_ENDPOINT}/orders/by_client_id/OID1"
         mock_response: Dict[str, Any] = {

@@ -27,12 +27,13 @@ class FtxPerpetualUserStreamTracker(UserStreamTracker):
         ftx_perpetual_auth: Optional[FtxPerpetualAuth] = None,
         trading_pairs: Optional[List[str]] = [],
     ):
-        super().__init__()
         self._ftx_perpetual_auth: FtxPerpetualAuth = ftx_perpetual_auth
         self._trading_pairs: List[str] = trading_pairs
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
+
+        super().__init__(data_source=self.data_source)
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
@@ -44,7 +45,7 @@ class FtxPerpetualUserStreamTracker(UserStreamTracker):
 
     @property
     def exchange_name(self) -> str:
-        return "ftx"
+        return "ftx_perpetual"
 
     async def start(self):
         self._user_stream_tracking_task = asyncio.ensure_future(
