@@ -2,7 +2,7 @@ import asyncio
 import platform
 import threading
 import time
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set
 
 import pandas as pd
 
@@ -16,7 +16,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.connector_status import get_connector_status, warning_messages
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.gateway.status_monitor import Status
+from hummingbot.core.gateway.status_monitor import GatewayContainerStatus
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import OracleRateUnavailable
@@ -25,6 +25,9 @@ from hummingbot.user.user_balances import UserBalances
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
+
+
+GATEWAY_READY_TIMEOUT = 300  # seconds
 
 
 class StartCommand(GatewayChainApiManager):
@@ -43,6 +46,14 @@ class StartCommand(GatewayChainApiManager):
             else:
                 return func(*args, **kwargs)
 
+    def _strategy_uses_gateway_connector(self, required_exchanges: Set[str]) -> bool:
+        exchange_settings: List[settings.ConnectorSetting] = [
+            settings.AllConnectorSettings.get_connector_settings().get(e, None)
+            for e in required_exchanges
+        ]
+        return any([s.uses_gateway_generic_connector()
+                    for s in exchange_settings])
+
     def start(self,  # type: HummingbotApplication
               log_level: Optional[str] = None,
               restore: Optional[bool] = False,
@@ -58,6 +69,7 @@ class StartCommand(GatewayChainApiManager):
                           restore: Optional[bool] = False,
                           strategy_file_name: Optional[str] = None,
                           is_quickstart: Optional[bool] = False):
+
         if self._in_start_check or (self.strategy_task is not None and not self.strategy_task.done()):
             self.notify('The bot is already running - please run "stop" first')
             return
@@ -91,6 +103,17 @@ class StartCommand(GatewayChainApiManager):
         if platform.system() == "Darwin":
             import appnope
             appnope.nope()
+
+        if self._strategy_uses_gateway_connector(settings.required_exchanges):
+            try:
+                await asyncio.wait_for(self._gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
+            except TimeoutError:
+                self._in_start_check = False
+                self.strategy_name = None
+                self.strategy_file_name = None
+                self.notify(f"TimeoutError waiting for gateway service to go online... Please ensure Gateway is configured correctly."
+                            f"Unable to start strategy {self.strategy_name}. ")
+                raise
 
         self._initialize_notifiers()
         try:
@@ -130,7 +153,7 @@ class StartCommand(GatewayChainApiManager):
                         self.notify("Please wait for gateway to restart.")
                         # wait for gateway to restart, config update causes gateway to restart
                         await self._gateway_monitor.wait_for_online_status()
-                        if self._gateway_monitor.current_status == Status.OFFLINE:
+                        if self._gateway_monitor.gateway_container_status == GatewayContainerStatus.STOPPED:
                             raise Exception("Lost contact with gateway after updating the config.")
 
                     await UserBalances.instance().update_exchange_balance(connector, self.client_config_map)
