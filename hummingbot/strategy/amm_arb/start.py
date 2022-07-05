@@ -37,6 +37,7 @@ def start(self):
             amm_market_info = market_info_2
             other_market_info = market_info_1
             other_market_name = connector_1
+        # TODO add GatewaySOLCLOB!!!
         amm_connector: GatewayEVMAMM = cast(GatewayEVMAMM, amm_market_info.market)
         GatewayPriceShim.get_instance().patch_prices(
             other_market_name,
