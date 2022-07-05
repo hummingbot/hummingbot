@@ -1,9 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {
-  InitializationError,
-  SERVICE_UNITIALIZED_ERROR_CODE,
-  SERVICE_UNITIALIZED_ERROR_MESSAGE,
-} from '../../services/error-handler';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import { isFractionString } from '../../services/validators';
 import { percentRegexp } from '../../services/config-manager-v2';
@@ -69,12 +64,9 @@ export class Curve {
   }
 
   public async init() {
-    await this._ethereum.init();
-    if (this._chain == 'ethereum' && !this._ethereum.ready())
-      throw new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
-        SERVICE_UNITIALIZED_ERROR_CODE
-      );
+    if (!this._ethereum.ready()) {
+      await this._ethereum.init();
+    }
 
     await curve.init(
       'Infura',
