@@ -26,7 +26,7 @@ class GatewayConnectivityStatus(Enum):
     OFFLINE = 2
 
 
-class StatusMonitor:
+class GatewayStatusMonitor:
     _monitor_task: Optional[asyncio.Task]
     _gateway_container_status: GatewayContainerStatus
     _gateway_connectivity_status: GatewayConnectivityStatus
