@@ -24,7 +24,7 @@ query getRecentTrades($market: String!, $limit: Int, $nextToken: String) {
     if next_token is not None:
         variables["nextToken"] = next_token
 
-    result = await execute_query_command(query, variables,endpoint,api_key)
+    result = await execute_query_command(query, variables, endpoint, api_key)
     return result["getRecentTrades"]["items"]
 
 
@@ -52,6 +52,25 @@ query getOrderbook($market: String!, $limit: Int, $nextToken: String) {
 
     result = await execute_query_command(query, variables)
     return result["getOrderbook"]
+
+
+async def get_all_markets(endpoint, api_key):
+    query = gql(
+        """
+query getAllMarketTickers {
+  getAllMarketTickers {
+    items {
+      m
+    }
+    nextToken
+  }
+}
+""")
+
+    variables = {}
+
+    result = await execute_query_command(query, variables, endpoint, api_key)
+    return result["getAllMarketTickers"]["items"]
 
 
 async def get_all_market_tickers():

@@ -17,6 +17,9 @@ MIN_ORDER_SIZE = Decimal(10.0)
 MIN_PRICE = Decimal(10.0)
 MIN_QTY = Decimal(10.0)
 
+GRAPHQL_ENDPOINT = "https://x6sbwzrbzvbabpujfy2phgq6ka.appsync-api.ap-south-1.amazonaws.com/graphql"
+GRAPHQL_API_KEY = "da2-t3j552hl3narhadrq3gqj3zgse"
+ENCLAVE_ENDPOINT = "ws://localhost:9944"
 
 POLKADEX_SS58_PREFIX = 88
 

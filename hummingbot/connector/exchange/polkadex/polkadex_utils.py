@@ -14,24 +14,6 @@ DEFAULT_FEES = TradeFeeSchema(
 )
 
 KEYS = {
-    "polkadex_api_key":
-        ConfigVar(key="polkadex_api_key",
-                  prompt="Enter POLKADEX API Key>>> ",
-                  required_if=using_exchange("polkadex"),
-                  is_secure=False,
-                  is_connect_key=True),
-    "polkadex_graphql_endpoint":
-        ConfigVar(key="polkadex_graphql_endpoint",
-                  prompt="Enter polkadex_graphql_endpoint>>> ",
-                  required_if=using_exchange("polkadex"),
-                  is_secure=False,
-                  is_connect_key=True),
-    "polkadex_enclave_endpoint":
-        ConfigVar(key="polkadex_enclave_endpoint",
-                  prompt="Enter polkadex_enclave_endpoint>>> ",
-                  required_if=using_exchange("polkadex"),
-                  is_secure=False,
-                  is_connect_key=True),
     "polkadex_seed_phrase":
         ConfigVar(key="polkadex_seed_phrase",
                   prompt="Enter polkadex_seed_phrase>>> ",
