@@ -1,10 +1,9 @@
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTRequest, RESTMethod, WSRequest
 from typing import Dict
 
+from hummingbot.core.web_assistant.auth import AuthBase
 
-class BlockchainAuth(AuthBase):
+
+class BlockchainComAuth(AuthBase):
     def __init__(self, api_token: str, ) -> None:
         self.api_token = api_token
 
