@@ -91,7 +91,7 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     AllConnectorSettings.initialize_paper_trade_settings(client_config_map.paper_trade.paper_trade_exchanges)
 
-    hb = HummingbotApplication.main_application(client_config_map=client_config_map, is_quickstart=True)
+    hb = HummingbotApplication.main_application(client_config_map=client_config_map)
     # Todo: validate strategy and config_file_name before assinging
 
     strategy_config = None
@@ -113,7 +113,7 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     # The listener needs to have a named variable for keeping reference, since the event listener system
     # uses weak references to remove unneeded listeners.
-    start_listener: UIStartListener = UIStartListener(hb)
+    start_listener: UIStartListener = UIStartListener(hb, is_quickstart=True)
     hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
     tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container(client_config_map)]

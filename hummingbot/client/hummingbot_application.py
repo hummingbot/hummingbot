@@ -60,16 +60,15 @@ class HummingbotApplication(*commands):
         return s_logger
 
     @classmethod
-    def main_application(cls, client_config_map: Optional[ClientConfigAdapter] = None, is_quickstart: bool = False) -> "HummingbotApplication":
+    def main_application(cls, client_config_map: Optional[ClientConfigAdapter] = None) -> "HummingbotApplication":
         if cls._main_app is None:
-            cls._main_app = HummingbotApplication(client_config_map, is_quickstart)
+            cls._main_app = HummingbotApplication(client_config_map)
         return cls._main_app
 
-    def __init__(self, client_config_map: Optional[ClientConfigAdapter] = None, is_quickstart: bool = False):
+    def __init__(self, client_config_map: Optional[ClientConfigAdapter] = None):
         self.client_config_map: Union[ClientConfigMap, ClientConfigAdapter] = (  # type-hint enables IDE auto-complete
             client_config_map or load_client_config_map_from_file()
         )
-        self._is_quickstart = is_quickstart
         # This is to start fetching trading pairs for auto-complete
         TradingPairFetcher.get_instance(self.client_config_map)
         self.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
