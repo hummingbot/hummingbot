@@ -32,13 +32,19 @@ export async function getConnector<T>(
   connector: string | undefined
 ): Promise<ConnectorType<T>> {
   let connectorInstance: Uniswapish | UniswapLPish;
-  if (chain === 'ethereum' && connector === 'uniswap') {
+  if (
+    (chain === 'ethereum' || chain === 'polygon') &&
+    connector === 'uniswap'
+  ) {
     connectorInstance = Uniswap.getInstance(chain, network);
   } else if (chain === 'polygon' && connector === 'quickswap') {
     connectorInstance = Quickswap.getInstance(chain, network);
   } else if (chain === 'ethereum' && connector === 'sushiswap') {
     connectorInstance = Sushiswap.getInstance(chain, network);
-  } else if (chain === 'ethereum' && connector === 'uniswapLP') {
+  } else if (
+    (chain === 'ethereum' || chain === 'polygon') &&
+    connector === 'uniswapLP'
+  ) {
     connectorInstance = UniswapLP.getInstance(chain, network);
   } else if (chain === 'avalanche' && connector === 'pangolin') {
     connectorInstance = Pangolin.getInstance(chain, network);
