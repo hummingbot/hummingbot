@@ -5,7 +5,7 @@ networks:
     nodeURL: 'https://speedy-nodes-nyc.moralis.io/{}/avalanche/testnet'
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/avalanche/avalanche_tokens_fuji.json'
-    nativeCurrencySymbol: 'AVAX'
+    nativeCurrencySymbol: 'AVAX'    
   avalanche: 
     chainID: 43114
     nodeURL: 'https://speedy-nodes-nyc.moralis.io/{}/avalanche/mainnet'
@@ -15,3 +15,4 @@ networks:
 
 nodeAPIKey: ''
 manualGasPrice: 100
+gasLimit: 3000000

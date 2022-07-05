@@ -17,10 +17,6 @@ interface Config {
   gasLimit: number;
 }
 
-// export namespace HarmonyConfig {
-//   export const config: Config = getHarmonyConfig('harmony');
-// }
-
 export function getHarmonyConfig(
   chainName: string,
   networkName: string

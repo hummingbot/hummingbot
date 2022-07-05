@@ -35,11 +35,11 @@ cdef class ConnectorBase(NetworkIterator):
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
         MarketEvent.FundingPaymentCompleted,
-        MarketEvent.RangePositionLiquidityAdded,
-        MarketEvent.RangePositionLiquidityRemoved,
-        MarketEvent.RangePositionUpdate,
-        MarketEvent.RangePositionUpdateFailure,
-        MarketEvent.RangePositionFeeCollected,
+        MarketEvent.RangePositionCreated,
+        MarketEvent.RangePositionRemoved,
+        MarketEvent.RangePositionUpdated,
+        MarketEvent.RangePositionFailure,
+        MarketEvent.RangePositionInitiated,
     ]
 
     def __init__(self, client_config_map: "ClientConfigAdapter"):

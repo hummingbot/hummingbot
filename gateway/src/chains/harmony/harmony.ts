@@ -5,7 +5,6 @@ import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
 import { getHarmonyConfig } from './harmony.config';
 import { Provider } from '@ethersproject/abstract-provider';
-// import { SushiSwapConfig } from './sushiswap/sushiswap.config';
 import { Ethereumish } from '../../services/common-interfaces';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
@@ -59,11 +58,6 @@ export class Harmony extends EthereumBase implements Ethereumish {
   public static getConnectedInstances(): { [name: string]: Harmony } {
     return Harmony._instances;
   }
-
-  // public static reload(): Harmony {
-  //   Harmony._instance = new Harmony();
-  //   return Harmony._instance;
-  // }
 
   public requestCounter(msg: any): void {
     if (msg.action === 'request') this._requestCount += 1;

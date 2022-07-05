@@ -1,6 +1,6 @@
 import { BigNumber } from 'ethers';
+import { format, fraction, number } from 'mathjs';
 import { isFractionString, isFloatString } from './validators';
-import { fraction, format } from 'mathjs';
 
 // the type of information source for tokens
 export type TokenListType = 'FILE' | 'URL';
@@ -96,7 +96,7 @@ export const replaceOrAppend = (src: string, value: string): string => {
 // convert a fraction string to a number
 export const fromFractionString = (value: string): number | null => {
   if (isFractionString(value)) {
-    const num = Number(fraction(value)); // this can return different mathematical values, control for number
+    const num = number(fraction(value)); // this can return different mathematical values, control for number
     if (typeof num === 'number') {
       return num;
     } else {
