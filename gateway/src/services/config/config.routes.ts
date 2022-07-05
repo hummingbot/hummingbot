@@ -36,6 +36,11 @@ export namespace ConfigRoutes {
           updateAllowedSlippageToFraction(req.body);
         }
 
+        // TODO preferable change the solana yml and its references to work with the same property!!!
+        if (req.body.configPath === 'solana.nodeAPIKey') {
+          req.body.configPath = 'solana.rpcAPIKey';
+        }
+
         ConfigManagerV2.getInstance().set(
           req.body.configPath,
           req.body.configValue
