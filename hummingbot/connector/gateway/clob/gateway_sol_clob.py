@@ -38,10 +38,12 @@ from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
+
+s_logger = None
 
 
 # TODO remove references to the EVM AMM strategy and class.
@@ -49,8 +51,6 @@ class GatewaySOLCLOB(ConnectorBase):
     """
     Defines basic functions common to connectors that interact with the Gateway.
     """
-
-    _logger: HummingbotLogger
 
     _connector_name: str
     _name: str
@@ -121,11 +121,11 @@ class GatewaySOLCLOB(ConnectorBase):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            logging.basicConfig(level=METRICS_LOG_LEVEL)
-            cls._logger = cast(HummingbotLogger, logging.getLogger(cls.__name__))
+        global s_logger
+        if s_logger is None:
+            s_logger = logging.getLogger(cls.__name__)
 
-        return cls._logger
+        return cast(HummingbotLogger, s_logger)
 
     @property
     def chain(self):
@@ -187,19 +187,19 @@ class GatewaySOLCLOB(ConnectorBase):
 
     @property
     def approval_orders(self) -> List[CLOBInFlightOrder]:
-        return cast([
-            approval_order
+        return [
+            cast(approval_order, CLOBInFlightOrder)
             for approval_order in self._order_tracker.active_orders.values()
             if cast(approval_order, CLOBInFlightOrder).is_approval_request
-        ], List[CLOBInFlightOrder])
+        ]
 
     @property
     def orders(self) -> List[CLOBInFlightOrder]:
-        return cast([
-            in_flight_order
+        return [
+            cast(in_flight_order, CLOBInFlightOrder)
             for in_flight_order in self._order_tracker.active_orders.values()
             if in_flight_order.is_open
-        ], List[CLOBInFlightOrder])
+        ]
 
     # Added for compatibility
     @property
@@ -234,7 +234,7 @@ class GatewaySOLCLOB(ConnectorBase):
 
     @property
     def in_flight_orders(self) -> Dict[str, CLOBInFlightOrder]:
-        return cast(self._order_tracker.active_orders, Dict[str, CLOBInFlightOrder])
+        return self._order_tracker.active_orders
 
     @property
     def tracking_states(self) -> Dict[str, Any]:
@@ -326,7 +326,7 @@ class GatewaySOLCLOB(ConnectorBase):
         self._tokens_accounts_created = True
 
     async def get_or_create_token_account(self, token: str) -> Union[Dict[str, Any], None]:
-        if Chain.SOLANA == self.chain:
+        if Chain.SOLANA.chain == self.chain:
             response = await GatewayHttpClient.get_instance().solana_post_token(
                 self.network,
                 self.address,
@@ -356,7 +356,7 @@ class GatewaySOLCLOB(ConnectorBase):
         """
         Gets the gas estimates for the connector.
         """
-        if Chain.SOLANA == self.chain:
+        if Chain.SOLANA.chain == self.chain:
             self.network_transaction_fee = TokenAmount(Chain.SOLANA.native_currency, constant.FIVE_THOUSAND_LAMPORTS)
         else:
             try:
@@ -400,7 +400,7 @@ class GatewaySOLCLOB(ConnectorBase):
             is_approval=True
         )
         try:
-            if Chain.SOLANA == self.chain:
+            if Chain.SOLANA.chain == self.chain:
                 resp: Dict[str, Any] = await self._get_gateway_instance().solana_post_token(
                     self.network,
                     self.address,
@@ -448,7 +448,7 @@ class GatewaySOLCLOB(ConnectorBase):
         :return: A dictionary of token and its allowance.
         """
         ret_val = {}
-        if Chain.SOLANA == self.chain:
+        if Chain.SOLANA.chain == self.chain:
             resp: Dict[str, Any] = await self._get_gateway_instance().solana_post_balances(
                 self.network, self.address, list(self._tokens)
             )
@@ -499,7 +499,7 @@ class GatewaySOLCLOB(ConnectorBase):
             )
             if test_price is not None:
                 # Grab the gas price for testnet.
-                if Chain.SOLANA == self.chain:
+                if Chain.SOLANA.chain == self.chain:
                     self.network_transaction_fee = TokenAmount(Chain.SOLANA.native_currency,
                                                                constant.FIVE_THOUSAND_LAMPORTS)
                 else:
@@ -520,7 +520,7 @@ class GatewaySOLCLOB(ConnectorBase):
         try:
             price: Optional[Decimal] = None
             exceptions: List[str] = []
-            if Chain.SOLANA == self.chain:
+            if Chain.SOLANA.chain == self.chain:
                 ticker = await self._get_gateway_instance().clob_get_tickers(
                     self.chain, self.network, self.connector, market_name=constant.SOL_USDC_MARKET
                 )
@@ -670,7 +670,7 @@ class GatewaySOLCLOB(ConnectorBase):
             amount=amount
         )
         try:
-            if Chain.SOLANA == self.chain:
+            if Chain.SOLANA.chain == self.chain:
                 order_result: Dict[str, Any] = await self._get_gateway_instance().clob_post_orders(
                     self.chain,
                     self.network,
@@ -1019,7 +1019,7 @@ class GatewaySOLCLOB(ConnectorBase):
         """
         Checks if all tokens have allowance (an amount approved)
         """
-        if Chain.SOLANA == self.chain:
+        if Chain.SOLANA.chain == self.chain:
             return ((len(self._allowances.values()) == len(self._tokens)) and
                     (all(amount > constant.DECIMAL_ZERO for amount in self._allowances.values())))
         else:
@@ -1090,7 +1090,7 @@ class GatewaySOLCLOB(ConnectorBase):
                 self._poll_notifier.set()
 
     async def _update_nonce(self, new_nonce: Optional[int] = None):
-        if Chain.SOLANA == self.chain:
+        if Chain.SOLANA.chain == self.chain:
             pass
         else:
             if not new_nonce:
@@ -1158,7 +1158,7 @@ class GatewaySOLCLOB(ConnectorBase):
         This is intentionally not awaited because cancellation is expensive on blockchains. It's not worth it for
         Hummingbot to force cancel all orders whenever Hummingbot quits.
         """
-        if Chain.SOLANA == self.chain:
+        if Chain.SOLANA.chain == self.chain:
             # noinspection PyAsyncCall
             self._get_gateway_instance().clob_delete_orders(
                 self.chain, self.network, self.address
@@ -1191,7 +1191,7 @@ class GatewaySOLCLOB(ConnectorBase):
 
             self.logger().info(f"The blockchain transaction for {order_id} with nonce {tracked_order.nonce} has "
                                f"expired. Canceling the order...")
-            if Chain.SOLANA == self.chain:
+            if Chain.SOLANA.chain == self.chain:
                 resp = await self._get_gateway_instance().clob_delete_orders(
                     self.chain,
                     self.network,
@@ -1288,3 +1288,12 @@ class GatewaySOLCLOB(ConnectorBase):
     def _get_gateway_instance(self) -> GatewayHttpClient:
         gateway_instance = GatewayHttpClient.get_instance(self._client_config)
         return gateway_instance
+
+    def c_stop_tracking_order(self, order_id):
+        raise NotImplementedError
+
+    def get_price(self, trading_pair: str, is_buy: bool, amount: Decimal = constant.DECIMAL_NaN) -> Decimal:
+        raise NotImplementedError
+
+    def cancel(self, trading_pair: str, client_order_id: str):
+        raise NotImplementedError
