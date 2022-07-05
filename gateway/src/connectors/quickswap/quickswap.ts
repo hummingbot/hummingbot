@@ -26,7 +26,6 @@ import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 export class Quickswap implements Uniswapish {
   private static _instances: { [name: string]: Quickswap };
   private polygon: Polygon;
-  private _chain: string;
   private _router: string;
   private _routerAbi: ContractInterface;
   private _gasLimit: number;
@@ -35,8 +34,7 @@ export class Quickswap implements Uniswapish {
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
-  private constructor(chain: string, network: string) {
-    this._chain = chain;
+  private constructor(network: string) {
     const config = QuickswapConfig.config;
     this.polygon = Polygon.getInstance(network);
     this.chainId = this.polygon.chainId;
@@ -51,7 +49,7 @@ export class Quickswap implements Uniswapish {
       Quickswap._instances = {};
     }
     if (!(chain + network in Quickswap._instances)) {
-      Quickswap._instances[chain + network] = new Quickswap(chain, network);
+      Quickswap._instances[chain + network] = new Quickswap(network);
     }
 
     return Quickswap._instances[chain + network];
@@ -68,8 +66,9 @@ export class Quickswap implements Uniswapish {
   }
 
   public async init() {
-    if (this._chain == 'polygon' && !this.polygon.ready())
-      throw new Error('Polygon is not available');
+    if (!this.polygon.ready()) {
+      await this.polygon.init();
+    }
     for (const token of this.polygon.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
@@ -269,7 +268,6 @@ export class Quickswap implements Uniswapish {
       nonce = await this.polygon.nonceManager.getNonce(wallet.address);
     }
     let tx;
-    console.log(result);
     if (maxFeePerGas || maxPriorityFeePerGas) {
       tx = await contract[result.methodName](...result.args, {
         gasLimit: gasLimit,
