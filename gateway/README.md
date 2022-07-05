@@ -10,10 +10,11 @@ Gateway may be used alongside the main Hummingbot client to enable trading on DE
 
 This is a list of DEX connections currently supported by Gateway.
 
-| Connector   | Blockchain | Trading Interface |
-|-------------|------------|-------------------|
-| UniswapV2   | Ethereum   | AMM               |
-| Pangolin    | Avalanche  | AMM               |
+| Connector | Blockchain | Trading Interface |
+|-----------|------------|-------------------|
+| UniswapV2 | Ethereum   | AMM               |
+| Pangolin  | Avalanche  | AMM               |
+| Serum     | Solana     | CLOB              |
 
 ## Contributing
 
