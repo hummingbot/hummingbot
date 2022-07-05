@@ -3,7 +3,7 @@ import logging
 import math
 import time
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 import ujson
@@ -37,6 +37,9 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 probit_logger = None
 s_decimal_NaN = Decimal("nan")
 
@@ -59,6 +62,7 @@ class ProbitExchange(ExchangeBase):
         return probit_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  probit_api_key: str,
                  probit_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
@@ -72,7 +76,7 @@ class ProbitExchange(ExchangeBase):
         :param trading_required: Whether actual trading is needed.
         """
         self._domain = domain
-        super().__init__()
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._shared_client = aiohttp.ClientSession()

@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS, kucoin_web_utils as web_utils
 from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
@@ -51,9 +53,14 @@ class KucoinExchangeTests(unittest.TestCase):
 
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = KucoinExchange(
-            self.api_key, self.api_passphrase, self.api_secret_key, trading_pairs=[self.trading_pair]
+            client_config_map=self.client_config_map,
+            kucoin_api_key=self.api_key,
+            kucoin_passphrase=self.api_passphrase,
+            kucoin_secret_key=self.api_secret_key,
+            trading_pairs=[self.trading_pair]
         )
 
         self.exchange.logger().setLevel(1)
@@ -365,6 +372,7 @@ class KucoinExchangeTests(unittest.TestCase):
     @aioresponses()
     def test_fee_request_for_multiple_pairs(self, mocked_api):
         self.exchange = KucoinExchange(
+            self.client_config_map,
             self.api_key,
             self.api_passphrase,
             self.api_secret_key,
@@ -703,7 +711,7 @@ class KucoinExchangeTests(unittest.TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='OID1', exchange_order_id=None)"
+                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 
@@ -756,7 +764,7 @@ class KucoinExchangeTests(unittest.TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None)"
+                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 
