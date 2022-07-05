@@ -1,14 +1,11 @@
 from typing import Optional
 
-from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.config_var import ConfigVar
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 
 CENTRALIZED = True
-
-
 EXAMPLE_PAIR = "BTC-USD"
-
-
 DEFAULT_FEES = [0.02, 0.07]
 
 
@@ -20,23 +17,41 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("USD", "PERP")
 
 
-KEYS = {
-    "ftx_perpetual_api_key":
-        ConfigVar(key="ftx_perpetual_api_key",
-                  prompt="Enter your FTX API key >>> ",
-                  required_if=using_exchange("ftx_perpetual"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "ftx_perpetual_secret_key":
-        ConfigVar(key="ftx_perpetual_secret_key",
-                  prompt="Enter your FTX API secret >>> ",
-                  required_if=using_exchange("ftx_perpetual"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "ftx_perpetual_subaccount_name":
-        ConfigVar(key="ftx_perpetual_subaccount_name",
-                  prompt="Enter your FTX subaccount name (if this is not a subaccount, leave blank) >>> ",
-                  required_if=using_exchange("ftx_perpetual"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class FtxPerpetualConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="ftx_perpetual", client_data=None)
+
+    ftx_perpetual_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your FTX API key",
+            prompt_on_new=True,
+            is_secure=True,
+            is_connect_key=True,
+        )
+    )
+
+    ftx_perpetual_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your FTX API secret",
+            prompt_on_new=True,
+            is_secure=True,
+            is_connect_key=True,
+        )
+    )
+
+    ftx_perpetual_subaccount_name: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your FTX subaccount name (if this is not a subaccount, leave blank)",
+            prompt_on_new=True,
+            is_secure=True,
+            is_connect_key=True,
+        )
+    )
+
+    class Config:
+        title = "ftx_perpetual"
+
+
+KEYS = FtxPerpetualConfigMap.construct()
