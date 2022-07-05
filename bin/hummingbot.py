@@ -42,7 +42,7 @@ class UIStartListener(EventListener):
         hb: HummingbotApplication = self.hummingbot_app
         if hb.strategy_config_map is not None:
             write_config_to_yml(hb.strategy_config_map, hb.strategy_file_name, hb.client_config_map)
-            hb.start(self._hb_ref.client_config_map.log_level)
+            hb.start(hb.client_config_map.log_level)
 
 
 async def main_async(client_config_map: ClientConfigAdapter):
