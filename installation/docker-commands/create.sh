@@ -92,6 +92,8 @@ create_instance () {
  docker run -it --log-opt max-size=10m --log-opt max-file=5 \
  --name $INSTANCE_NAME \
  --network host \
+ -v /etc/localtime:/etc/localtime:ro \
+ -v /etc/timezone:/etc/timezone:ro \
  --mount "type=bind,source=$CONF_FOLDER,destination=/conf/" \
  --mount "type=bind,source=$LOGS_FOLDER,destination=/logs/" \
  --mount "type=bind,source=$DATA_FOLDER,destination=/data/" \
