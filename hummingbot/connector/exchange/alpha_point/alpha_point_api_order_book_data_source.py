@@ -35,7 +35,7 @@ class AlphaPointAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._auth: AlphaPointAuth = api_factory.auth
         self._url_provider = url_provider
         self._oms_id = oms_id
-        self._nonce_provider = NonceCreator()
+        self._nonce_provider = NonceCreator.for_milliseconds()
 
     async def get_last_traded_prices(
         self, trading_pairs: List[str], domain: Optional[str] = None
@@ -51,7 +51,7 @@ class AlphaPointAPIOrderBookDataSource(OrderBookTrackerDataSource):
         msg_data = raw_message[CONSTANTS.MSG_DATA_FIELD]
         first_row = msg_data[0]
         ts_ms = first_row[CONSTANTS.DIFF_UPDATE_TS_FIELD]
-        update_id = self._nonce_provider.get_tracking_nonce(ts_us=ts_ms * 1e3)
+        update_id = self._nonce_provider.get_tracking_nonce(timestamp=ts_ms * 1e-3)
         instrument_id = first_row[CONSTANTS.DIFF_UPDATE_INSTRUMENT_ID_FIELD]
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=str(instrument_id))
         bids, asks = self._get_bids_and_asks_from_snapshot(msg_data)
@@ -74,7 +74,7 @@ class AlphaPointAPIOrderBookDataSource(OrderBookTrackerDataSource):
         snapshot_response = await self._request_order_book_snapshot(trading_pair)
         first_row = snapshot_response[0]
         ts_ms = first_row[CONSTANTS.DIFF_UPDATE_TS_FIELD]
-        update_id = self._nonce_provider.get_tracking_nonce(ts_us=ts_ms * 1e3)
+        update_id = self._nonce_provider.get_tracking_nonce(timestamp=ts_ms * 1e-3)
         bids, asks = self._get_bids_and_asks_from_snapshot(snapshot_response)
 
         order_book_message_content = {

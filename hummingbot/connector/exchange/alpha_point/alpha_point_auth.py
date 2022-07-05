@@ -47,8 +47,8 @@ class AlphaPointAuth(AuthBase):
         return request
 
     def _build_auth_dict(self):
-        nonce_creator = NonceCreator()
-        nonce = str(nonce_creator.get_tracking_nonce_low_res())
+        nonce_creator = NonceCreator.for_milliseconds()
+        nonce = str(nonce_creator.get_tracking_nonce())
         signature = self._generate_signature(nonce)
         self._auth_dict = {
             CONSTANTS.API_KEY_FIELD: self.api_key,

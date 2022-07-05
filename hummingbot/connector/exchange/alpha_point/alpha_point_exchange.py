@@ -59,7 +59,7 @@ class AlphaPointExchange(ExchangePyBase):
         self._user_id = user_id
         self._auth: Optional[AlphaPointAuth] = None
         self._url_creator = url_creator
-        self._nonce_creator = NonceCreator()
+        self._nonce_creator = NonceCreator.for_milliseconds()
         self._trading_pairs = trading_pairs
         self._trading_required = trading_required
         self._web_assistants_factory: AlphaPointWebAssistantsFactory
@@ -140,7 +140,7 @@ class AlphaPointExchange(ExchangePyBase):
 
         :return: the id assigned by the connector to the order (the client id)
         """
-        order_id = str(self._nonce_creator.get_tracking_nonce_low_res())
+        order_id = str(self._nonce_creator.get_tracking_nonce())
         safe_ensure_future(self._create_order(
             trade_type=TradeType.BUY,
             order_id=order_id,
@@ -164,7 +164,7 @@ class AlphaPointExchange(ExchangePyBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        order_id = str(self._nonce_creator.get_tracking_nonce_low_res())
+        order_id = str(self._nonce_creator.get_tracking_nonce())
         safe_ensure_future(self._create_order(
             trade_type=TradeType.SELL,
             order_id=order_id,

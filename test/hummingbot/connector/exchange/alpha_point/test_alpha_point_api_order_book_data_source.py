@@ -139,7 +139,7 @@ class AlphaPointAPIOrderBookDataSourceTest(unittest.TestCase):
         url = self.url_provider.get_rest_url(CONSTANTS.REST_GET_L2_SNAPSHOT_ENDPOINT)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         update_ts_ms = 21288594
-        expected_update_id = update_ts_ms * 1e3
+        expected_update_id = update_ts_ms
         resp = [
             [21288594, 1, update_ts_ms, 0, 0.0617018, 1, 0.0586575, self.pair_id, 0.087, 0],
             [21288594, 1, update_ts_ms, 0, 0.0617018, 1, 0.0598854, self.pair_id, 2.0, 1],
@@ -365,7 +365,7 @@ class AlphaPointAPIOrderBookDataSourceTest(unittest.TestCase):
     def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
         ts_ms = 1654877612463
-        expected_update_id = ts_ms * 1e3
+        expected_update_id = ts_ms
         diff_event = {
             "m": 3,
             "i": 0,
