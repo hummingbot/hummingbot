@@ -265,7 +265,7 @@ export class Quickswap implements Uniswapish {
 
     const contract = new Contract(quickswapRouter, abi, wallet);
     if (!nonce) {
-      nonce = await this.polygon.nonceManager.getNonce(wallet.address);
+      nonce = await this.polygon.nonceManager.getNextNonce(wallet.address);
     }
     let tx;
     if (maxFeePerGas || maxPriorityFeePerGas) {
