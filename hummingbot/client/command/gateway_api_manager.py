@@ -93,6 +93,10 @@ class GatewayChainApiManager:
                     service = 'Infura'
                     chain_name = 'Ethereum'
                     service_url = 'infura.io'
+                elif chain == Chain.POLYGON:
+                    service = 'Moralis'
+                    chain_name = 'Polygon'
+                    service_url = 'moralis.io'
                 elif chain == Chain.AVALANCHE:
                     service = 'Moralis'
                     chain_name = 'Avalanche'
@@ -115,6 +119,8 @@ class GatewayChainApiManager:
                     else:
                         if chain == Chain.ETHEREUM:
                             api_url = f"https://mainnet.infura.io/v3/{api_key}"
+                        if chain == Chain.POLYGON:
+                            api_url = f"https://speedy-nodes-nyc.moralis.io/{api_key}/polygon/mainnet"
                         elif chain == Chain.AVALANCHE:
                             api_url = f"https://speedy-nodes-nyc.moralis.io/{api_key}/avalanche/mainnet"
                         success: bool = await self._test_evm_node(api_url)
