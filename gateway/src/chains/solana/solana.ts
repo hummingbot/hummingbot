@@ -319,7 +319,7 @@ export class Solana implements Solanaish {
           case 'ciphertext':
           case 'salt':
           case 'iv':
-            return bs58.encode(value);
+            return bs58.encode(Uint8Array.from(Object.values(value)));
           default:
             return value;
         }
