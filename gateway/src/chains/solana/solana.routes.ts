@@ -29,7 +29,7 @@ export namespace SolanaRoutes {
   export const router = Router();
 
   export const getSolana = async (request: Request) => {
-    const solana = Solana.getInstance(
+    const solana = await Solana.getInstance(
       request.body.network || SolanaConfig.config.network.slug
     );
     await solana.init();
