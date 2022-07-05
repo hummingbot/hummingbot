@@ -73,7 +73,7 @@ export namespace SolanaRoutes {
     )
   );
 
-  // Checks whether this specific token account exists and returns it balance, if it does.
+  // Checks whether this specific token account exists and returns its balance, if it does.
   router.get(
     '/token',
     asyncHandler(
