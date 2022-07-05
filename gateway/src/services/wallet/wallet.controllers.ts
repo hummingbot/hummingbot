@@ -51,7 +51,7 @@ export async function addWallet(
     address = polygon.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await polygon.encrypt(req.privateKey, passphrase);
   } else if (req.chain === 'solana') {
-    const solana = Solana.getInstance(req.network);
+    const solana = await Solana.getInstance(req.network);
     address = solana
       .getKeypairFromPrivateKey(req.privateKey)
       .publicKey.toBase58();
