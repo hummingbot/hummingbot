@@ -46,16 +46,18 @@ class StartCommand(GatewayChainApiManager):
     def start(self,  # type: HummingbotApplication
               log_level: Optional[str] = None,
               restore: Optional[bool] = False,
-              script: Optional[str] = None):
+              script: Optional[str] = None,
+              is_quickstart: Optional[bool] = False):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.start, log_level, restore)
             return
-        safe_ensure_future(self.start_check(log_level, restore, script), loop=self.ev_loop)
+        safe_ensure_future(self.start_check(log_level, restore, script, is_quickstart), loop=self.ev_loop)
 
     async def start_check(self,  # type: HummingbotApplication
                           log_level: Optional[str] = None,
                           restore: Optional[bool] = False,
-                          strategy_file_name: Optional[str] = None):
+                          strategy_file_name: Optional[str] = None,
+                          is_quickstart: Optional[bool] = False):
         if self._in_start_check or (self.strategy_task is not None and not self.strategy_task.done()):
             self.notify('The bot is already running - please run "stop" first')
             return
@@ -142,7 +144,7 @@ class StartCommand(GatewayChainApiManager):
                     wallet_df: pd.DataFrame = pd.DataFrame(data=data, columns=["", f"{connector} configuration"])
                     self.notify(wallet_df.to_string(index=False))
 
-                    if not self._is_quickstart:
+                    if not is_quickstart:
                         self.app.clear_input()
                         self.placeholder_mode = True
                         use_configuration = await self.app.prompt(prompt="Do you want to continue? (Yes/No) >>> ")
