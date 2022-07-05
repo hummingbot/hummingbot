@@ -55,7 +55,6 @@ class HummingbotCompleter(Completer):
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
         self._gateway_completer = WordCompleter(["create", "config", "connect", "connector-tokens", "generate-certs", "status", "test-connection", "start", "stop"], ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
-        # TODO fix!!!
         self._gateway_connector_tokens_completer = WordCompleter(
             sorted(
                 AllConnectorSettings.get_gateway_evm_amm_connector_names().union(

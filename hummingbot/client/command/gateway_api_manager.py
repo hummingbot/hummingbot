@@ -85,6 +85,33 @@ class GatewayChainApiManager:
                 self.notify("Error occurred verifying the API Key. Please check your API Key and try again.")
             return success
 
+    async def _test_sol_node(self, url_with_api_key: str) -> bool:
+        """
+        Verify that the Infura API Key is valid. If it is an empty string,
+        ignore it, but let the user know they cannot connect to Solana.
+        """
+        async with aiohttp.ClientSession() as tmp_client:
+            headers = {"Content-Type": "application/json"}
+            data = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getHealth"
+            }
+
+            resp = await tmp_client.post(
+                url=url_with_api_key,
+                data=json.dumps(data),
+                headers=headers
+            )
+
+            success = resp.status == 200
+            if success:
+                self.notify("The API Key works.")
+            else:
+                self.notify("Error occurred verifying the API Key. Please check your API Key and try again.")
+
+            return success
+
     async def _get_api_key(self, chain: Chain, required=False) -> Optional[str]:
         """
         Get the API key from user input, then check that it is valid
@@ -99,6 +126,12 @@ class GatewayChainApiManager:
                     service = 'Moralis'
                     chain_name = 'Avalanche'
                     service_url = 'moralis.io'
+                elif chain == Chain.SOLANA:
+                    service = 'Syndica'
+                    chain_name = 'Solana'
+                    service_url = 'syndica.io'
+                else:
+                    raise ValueError(f"Unrecognized chain: {chain}.")
 
                 api_key: str = await self.app.prompt(prompt=f"Enter {service} API Key (required for {chain_name} node, "
                                                             f"if you do not have one, make an account at {service_url})"
@@ -117,9 +150,15 @@ class GatewayChainApiManager:
                     else:
                         if chain == Chain.ETHEREUM:
                             api_url = f"https://mainnet.infura.io/v3/{api_key}"
+                            success: bool = await self._test_evm_node(api_url)
                         elif chain == Chain.AVALANCHE:
                             api_url = f"https://speedy-nodes-nyc.moralis.io/{api_key}/avalanche/mainnet"
-                        success: bool = await self._test_evm_node(api_url)
+                            success: bool = await self._test_evm_node(api_url)
+                        elif chain == Chain.SOLANA:
+                            api_url = f"https://solana-api.syndica.io/access-token/{api_key}/rpc"
+                            success: bool = await self._test_sol_node(api_url)
+                        else:
+                            raise ValueError(f"Unrecognized chain: {chain}.")
                         if not success:
                             # the API key test was unsuccessful, try again
                             continue
