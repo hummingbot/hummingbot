@@ -299,7 +299,7 @@ class MarketsRecorder:
 
     @staticmethod
     def _csv_matches_header(file_path: str, header: tuple) -> bool:
-        df = pd.read_csv(file_path, header=None)
+        df = pd.read_csv(file_path, header=None, chunksize=1)
         return tuple(df.iloc[0].values) == header
 
     def append_to_csv(self, trade: TradeFill):
