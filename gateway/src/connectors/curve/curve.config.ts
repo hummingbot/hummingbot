@@ -16,6 +16,10 @@ export namespace CurveConfig {
         chain: 'ethereum',
         networks: ['mainnet'],
       },
+      {
+        chain: 'polygon',
+        networks: ['mainnet'],
+      },
     ],
   };
 }
