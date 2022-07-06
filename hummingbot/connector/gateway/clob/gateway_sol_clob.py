@@ -1106,7 +1106,7 @@ class GatewaySOLCLOB(ConnectorBase):
         if Chain.SOLANA.chain == self.chain:
             asyncio.ensure_future(
                 self._get_gateway_instance().clob_delete_orders(
-                    self.chain, self.network, self.address
+                    self.chain, self.network, self.connector, self.address
                 )
             )
 

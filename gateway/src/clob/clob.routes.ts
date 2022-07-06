@@ -60,8 +60,8 @@ export namespace ClobRoutes {
     )
   );
 
-  // TODO Add these get routes to accept post requests as well!!!
-  router.get(
+  // TODO Add these get routes to accept get requests as well!!!
+  router.post(
     '/markets',
     asyncHandler(
       async (
@@ -78,7 +78,7 @@ export namespace ClobRoutes {
   /**
    * Returns the last traded prices.
    */
-  router.get(
+  router.post(
     '/tickers',
     asyncHandler(
       async (
@@ -92,7 +92,7 @@ export namespace ClobRoutes {
     )
   );
 
-  router.get(
+  router.post(
     '/orderBooks',
     asyncHandler(
       async (
@@ -106,7 +106,7 @@ export namespace ClobRoutes {
     )
   );
 
-  router.get(
+  router.post(
     '/orders',
     asyncHandler(
       async (
@@ -154,7 +154,7 @@ export namespace ClobRoutes {
     )
   );
 
-  router.get(
+  router.post(
     '/orders/open',
     asyncHandler(
       async (
@@ -170,7 +170,7 @@ export namespace ClobRoutes {
     )
   );
 
-  router.get(
+  router.post(
     '/orders/filled',
     asyncHandler(
       async (
