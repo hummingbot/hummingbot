@@ -1,0 +1,26 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "maximumHops": { "type": "integer" },
+      "allowedSlippage": { "type": "string" },
+      "gasLimit": { "type": "integer" },
+      "ttl": { "type": "integer" },
+      "contractAddresses": {
+        "type": "object",
+        "patternProperties": {
+          "^\\w+$": {
+            "type": "object",
+            "properties": {
+              "balancerVaultAddress": { "type": "string" }
+            },
+            "required": ["balancerVaultAddress"],
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "additionalProperties": false,
+    "required": ["maximumHops","allowedSlippage", "gasLimit", "ttl", "contractAddresses"]
+  }

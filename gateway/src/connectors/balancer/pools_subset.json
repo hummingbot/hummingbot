@@ -1,0 +1,511 @@
+[
+    {
+        "symbol": "B-stETH-STABLE",
+        "holdersCount": "108",
+        "address": "0x32296969ef14eb0c6d29669c550d4a0449130230",
+        "amp": "50.0",
+        "wrappedIndex": 0,
+        "mainIndex": 0,
+        "totalSwapVolume": "612338433.0456970790338563366556254",
+        "tokensList": [
+            "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+            "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        ],
+        "poolType": "MetaStable",
+        "totalShares": "75964.966050674744440747",
+        "totalSwapFee": "244935.3732182788316135425346622516",
+        "swapsCount": "2629",
+        "totalLiquidity": "141719896.5784586828479153757182586",
+        "chainId": 1,
+        "swapEnabled": true,
+        "name": "Balancer stETH Stable Pool",
+        "totalWeight": "0",
+        "tokens": [
+            {
+                "symbol": "wstETH",
+                "address": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+                "priceRate": "1.071013043471499263",
+                "balance": "45744.402297424016996499",
+                "decimals": 18,
+                "name": "Wrapped liquid staked Ether 2.0",
+                "weight": null,
+                "id": "0x32296969ef14eb0c6d29669c550d4a0449130230000200000000000000000080-0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+                "invested": "0"
+            },
+            {
+                "symbol": "WETH",
+                "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "priceRate": "1",
+                "balance": "28333.642747964746438865",
+                "decimals": 18,
+                "name": "Wrapped Ether",
+                "weight": null,
+                "id": "0x32296969ef14eb0c6d29669c550d4a0449130230000200000000000000000080-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "invested": "0"
+            }
+        ],
+        "id": "0x32296969ef14eb0c6d29669c550d4a0449130230000200000000000000000080",
+        "swapFee": "0.0004"
+    },
+    {
+        "symbol": "bb-a-USD",
+        "holdersCount": "146",
+        "address": "0x7b50775383d3d6f0215a8f290f2c9e2eebbeceb2",
+        "amp": "1472.0",
+        "wrappedIndex": 0,
+        "mainIndex": 0,
+        "totalSwapVolume": "118306382.6326532550464085271297371",
+        "tokensList": [
+            "0x2bbf681cc4eb09218bee85ea2a5d3d13fa40fc0c",
+            "0x7b50775383d3d6f0215a8f290f2c9e2eebbeceb2",
+            "0x804cdb9116a10bb78768d3252355a1b18067bf8f",
+            "0x9210f1204b5a24742eba12f710636d76240df3d0"
+        ],
+        "poolType": "StablePhantom",
+        "totalShares": "148403251.383272174590598015",
+        "totalSwapFee": "1206.360294779271171439543469426801",
+        "swapsCount": "1995",
+        "totalLiquidity": "148780434.0857589207655245277363832",
+        "chainId": 1,
+        "swapEnabled": true,
+        "name": "Balancer Aave Boosted StablePool (USD)",
+        "totalWeight": "0",
+        "tokens": [
+            {
+                "symbol": "bb-a-USDT",
+                "address": "0x2bbf681cc4eb09218bee85ea2a5d3d13fa40fc0c",
+                "priceRate": "1.009818830348395702",
+                "balance": "120284586.027901323182553302",
+                "decimals": 18,
+                "name": "Balancer Aave Boosted Pool (USDT)",
+                "weight": null,
+                "id": "0x7b50775383d3d6f0215a8f290f2c9e2eebbeceb20000000000000000000000fe-0x2bbf681cc4eb09218bee85ea2a5d3d13fa40fc0c",
+                "invested": "0"
+            },
+            {
+                "symbol": "bb-a-USD",
+                "address": "0x7b50775383d3d6f0215a8f290f2c9e2eebbeceb2",
+                "priceRate": "1",
+                "balance": "5192296710131576.24525832173862208",
+                "decimals": 18,
+                "name": "Balancer Aave Boosted StablePool (USD)",
+                "weight": null,
+                "id": "0x7b50775383d3d6f0215a8f290f2c9e2eebbeceb20000000000000000000000fe-0x7b50775383d3d6f0215a8f290f2c9e2eebbeceb2",
+                "invested": "0"
+            },
+            {
+                "symbol": "bb-a-DAI",
+                "address": "0x804cdb9116a10bb78768d3252355a1b18067bf8f",
+                "priceRate": "1.00814278790716724",
+                "balance": "13318981.177846450481374142",
+                "decimals": 18,
+                "name": "Balancer Aave Boosted Pool (DAI)",
+                "weight": null,
+                "id": "0x7b50775383d3d6f0215a8f290f2c9e2eebbeceb20000000000000000000000fe-0x804cdb9116a10bb78768d3252355a1b18067bf8f",
+                "invested": "0"
+            },
+            {
+                "symbol": "bb-a-USDC",
+                "address": "0x9210f1204b5a24742eba12f710636d76240df3d0",
+                "priceRate": "1.008376936058440867",
+                "balance": "15094257.036866648998611051",
+                "decimals": 18,
+                "name": "Balancer Aave Boosted Pool (USDC)",
+                "weight": null,
+                "id": "0x7b50775383d3d6f0215a8f290f2c9e2eebbeceb20000000000000000000000fe-0x9210f1204b5a24742eba12f710636d76240df3d0",
+                "invested": "0"
+            }
+        ],
+        "id": "0x7b50775383d3d6f0215a8f290f2c9e2eebbeceb20000000000000000000000fe",
+        "swapFee": "0.00001"
+    },
+    {
+        "symbol": "staBAL3",
+        "holdersCount": "116",
+        "address": "0x06df3b2bbb68adc8b0e302443692037ed9f91b42",
+        "amp": "1390.0",
+        "wrappedIndex": 0,
+        "mainIndex": 0,
+        "totalSwapVolume": "6578059935.525332853377248027",
+        "tokensList": [
+            "0x6b175474e89094c44da98b954eedeac495271d0f",
+            "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "0xdac17f958d2ee523a2206206994597c13d831ec7"
+        ],
+        "poolType": "Stable",
+        "totalShares": "130561258.294988197827735431",
+        "totalSwapFee": "603667.29570368734020478274695",
+        "swapsCount": "23623",
+        "totalLiquidity": "130230493.8291366356477030497345191",
+        "chainId": 1,
+        "swapEnabled": true,
+        "name": "Balancer USD Stable Pool",
+        "totalWeight": "0",
+        "tokens": [
+            {
+                "symbol": "DAI",
+                "address": "0x6b175474e89094c44da98b954eedeac495271d0f",
+                "priceRate": "1",
+                "balance": "11657153.328990039728790717",
+                "decimals": 18,
+                "name": "Dai Stablecoin",
+                "weight": null,
+                "id": "0x06df3b2bbb68adc8b0e302443692037ed9f91b42000000000000000000000063-0x6b175474e89094c44da98b954eedeac495271d0f",
+                "invested": "0"
+            },
+            {
+                "symbol": "USDC",
+                "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "priceRate": "1",
+                "balance": "11541107.969456",
+                "decimals": 6,
+                "name": "USD Coin",
+                "weight": null,
+                "id": "0x06df3b2bbb68adc8b0e302443692037ed9f91b42000000000000000000000063-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "invested": "0"
+            },
+            {
+                "symbol": "USDT",
+                "address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+                "priceRate": "1",
+                "balance": "108293584.60553",
+                "decimals": 6,
+                "name": "Tether USD",
+                "weight": null,
+                "id": "0x06df3b2bbb68adc8b0e302443692037ed9f91b42000000000000000000000063-0xdac17f958d2ee523a2206206994597c13d831ec7",
+                "invested": "0"
+            }
+        ],
+        "id": "0x06df3b2bbb68adc8b0e302443692037ed9f91b42000000000000000000000063",
+        "swapFee": "0.00005"
+    },
+    {
+        "symbol": "B-50WBTC-50WETH",
+        "holdersCount": "218",
+        "address": "0xa6f548df93de924d73be7d25dc02554c6bd66db5",
+        "wrappedIndex": 0,
+        "mainIndex": 0,
+        "totalSwapVolume": "1917261427.2449131854157914080227",
+        "tokensList": [
+            "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+            "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        ],
+        "poolType": "Weighted",
+        "totalShares": "13355.897648839977400873",
+        "totalSwapFee": "2741813.371648552653027494916104866",
+        "swapsCount": "24373",
+        "totalLiquidity": "96121465.48852588867409860992342417",
+        "chainId": 1,
+        "swapEnabled": true,
+        "name": "Balancer 50 WBTC 50 WETH",
+        "totalWeight": "1",
+        "tokens": [
+            {
+                "symbol": "WBTC",
+                "address": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+                "priceRate": "1",
+                "balance": "1775.60241482",
+                "decimals": 8,
+                "name": "Wrapped BTC",
+                "weight": "0.5",
+                "id": "0xa6f548df93de924d73be7d25dc02554c6bd66db500020000000000000000000e-0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+                "invested": "0"
+            },
+            {
+                "symbol": "WETH",
+                "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "priceRate": "1",
+                "balance": "25928.578402821363621234",
+                "decimals": 18,
+                "name": "Wrapped Ether",
+                "weight": "0.5",
+                "id": "0xa6f548df93de924d73be7d25dc02554c6bd66db500020000000000000000000e-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "invested": "0"
+            }
+        ],
+        "id": "0xa6f548df93de924d73be7d25dc02554c6bd66db500020000000000000000000e",
+        "swapFee": "0.001"
+    },
+    {
+        "symbol": "B-50USDC-50WETH",
+        "holdersCount": "131",
+        "address": "0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f8",
+        "wrappedIndex": 0,
+        "mainIndex": 0,
+        "totalSwapVolume": "1398821089.438668",
+        "tokensList": [
+            "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        ],
+        "poolType": "Weighted",
+        "totalShares": "1352409.932694509652813334",
+        "totalSwapFee": "2378314.5166597123",
+        "swapsCount": "85071",
+        "totalLiquidity": "64756725.24540200000000000000000001",
+        "chainId": 1,
+        "swapEnabled": true,
+        "name": "Balancer 50 USDC 50 WETH",
+        "totalWeight": "1",
+        "tokens": [
+            {
+                "symbol": "USDC",
+                "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "priceRate": "1",
+                "balance": "32082498.145378",
+                "decimals": 6,
+                "name": "USD Coin",
+                "weight": "0.5",
+                "id": "0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f8000200000000000000000019-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "invested": "0"
+            },
+            {
+                "symbol": "WETH",
+                "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "priceRate": "1",
+                "balance": "17446.280470682665178727",
+                "decimals": 18,
+                "name": "Wrapped Ether",
+                "weight": "0.5",
+                "id": "0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f8000200000000000000000019-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "invested": "0"
+            }
+        ],
+        "id": "0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f8000200000000000000000019",
+        "swapFee": "0.00075"
+    },
+    {
+        "symbol": "B-80BAL-20WETH",
+        "holdersCount": "732",
+        "address": "0x5c6ee304399dbdb9c8ef030ab642b10820db8f56",
+        "wrappedIndex": 0,
+        "mainIndex": 0,
+        "totalSwapVolume": "876057014.5849226452824950311834075",
+        "tokensList": [
+            "0xba100000625a3754423978a60c9317c58a424e3d",
+            "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        ],
+        "poolType": "Weighted",
+        "totalShares": "3595615.082825200140608544",
+        "totalSwapFee": "1520620.952795012125541012630683986",
+        "swapsCount": "32456",
+        "totalLiquidity": "75125458.75955019765763668286464256",
+        "chainId": 1,
+        "swapEnabled": true,
+        "name": "Balancer 80 BAL 20 WETH",
+        "totalWeight": "1",
+        "tokens": [
+            {
+                "symbol": "BAL",
+                "address": "0xba100000625a3754423978a60c9317c58a424e3d",
+                "priceRate": "1",
+                "balance": "7005274.705498549944251812",
+                "decimals": 18,
+                "name": "Balancer",
+                "weight": "0.8",
+                "id": "0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014-0xba100000625a3754423978a60c9317c58a424e3d",
+                "invested": "0"
+            },
+            {
+                "symbol": "WETH",
+                "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "priceRate": "1",
+                "balance": "8215.015587618760913096",
+                "decimals": 18,
+                "name": "Wrapped Ether",
+                "weight": "0.2",
+                "id": "0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "invested": "0"
+            }
+        ],
+        "id": "0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014",
+        "swapFee": "0.02"
+    },
+    {
+        "symbol": "B-30FEI-70WETH",
+        "holdersCount": "4",
+        "address": "0x90291319f1d4ea3ad4db0dd8fe9e12baf749e845",
+        "wrappedIndex": 0,
+        "mainIndex": 0,
+        "totalSwapVolume": "225885897.899894976213283983883831",
+        "tokensList": [
+            "0x956f47f50a910163d8bf957cf5846d573e7f87ca",
+            "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        ],
+        "poolType": "Weighted",
+        "totalShares": "386844.60586952898661366",
+        "totalSwapFee": "677657.6936996849286398519516514965",
+        "swapsCount": "4602",
+        "totalLiquidity": "69427893.53746734837513478544401495",
+        "chainId": 1,
+        "swapEnabled": true,
+        "name": "Balancer 30 FEI 70 WETH",
+        "totalWeight": "1",
+        "tokens": [
+            {
+                "symbol": "FEI",
+                "address": "0x956f47f50a910163d8bf957cf5846d573e7f87ca",
+                "priceRate": "1",
+                "balance": "20710526.935192251777910714",
+                "decimals": 18,
+                "name": "Fei USD",
+                "weight": "0.3",
+                "id": "0x90291319f1d4ea3ad4db0dd8fe9e12baf749e84500020000000000000000013c-0x956f47f50a910163d8bf957cf5846d573e7f87ca",
+                "invested": "0"
+            },
+            {
+                "symbol": "WETH",
+                "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "priceRate": "1",
+                "balance": "26316.38731347085114885",
+                "decimals": 18,
+                "name": "Wrapped Ether",
+                "weight": "0.7",
+                "id": "0x90291319f1d4ea3ad4db0dd8fe9e12baf749e84500020000000000000000013c-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "invested": "0"
+            }
+        ],
+        "id": "0x90291319f1d4ea3ad4db0dd8fe9e12baf749e84500020000000000000000013c",
+        "swapFee": "0.003"
+    },
+    {
+        "symbol": "B-50WETH-50YFI",
+        "holdersCount": "16",
+        "address": "0x186084ff790c65088ba694df11758fae4943ee9e",
+        "wrappedIndex": 0,
+        "mainIndex": 0,
+        "totalSwapVolume": "69052027.45619764575952231240813262",
+        "tokensList": [
+            "0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e",
+            "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        ],
+        "poolType": "Weighted",
+        "totalShares": "7258.870526005584714263",
+        "totalSwapFee": "305674.9602629912029632857878129485",
+        "swapsCount": "3653",
+        "totalLiquidity": "31426474.03579654772355547351776582",
+        "chainId": 1,
+        "swapEnabled": true,
+        "name": "Balancer 50 WETH 50 YFI",
+        "totalWeight": "1",
+        "tokens": [
+            {
+                "symbol": "YFI",
+                "address": "0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e",
+                "priceRate": "1",
+                "balance": "1588.222948762146702964",
+                "decimals": 18,
+                "name": "yearn.finance",
+                "weight": "0.5",
+                "id": "0x186084ff790c65088ba694df11758fae4943ee9e000200000000000000000013-0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e",
+                "invested": "0"
+            },
+            {
+                "symbol": "WETH",
+                "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "priceRate": "1",
+                "balance": "8702.247728780041220351",
+                "decimals": 18,
+                "name": "Wrapped Ether",
+                "weight": "0.5",
+                "id": "0x186084ff790c65088ba694df11758fae4943ee9e000200000000000000000013-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "invested": "0"
+            }
+        ],
+        "id": "0x186084ff790c65088ba694df11758fae4943ee9e000200000000000000000013",
+        "swapFee": "0.0075"
+    },
+    {
+        "symbol": "B-80GNO-20WETH",
+        "holdersCount": "10",
+        "address": "0xf4c0dd9b82da36c07605df83c8a416f11724d88b",
+        "wrappedIndex": 0,
+        "mainIndex": 0,
+        "totalSwapVolume": "205441907.0055256339254302014757212",
+        "tokensList": [
+            "0x6810e776880c02933d47db1b9fc05908e5386b96",
+            "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        ],
+        "poolType": "Weighted",
+        "totalShares": "110606.650194986123303718",
+        "totalSwapFee": "448261.1710567994033552414998821613",
+        "swapsCount": "7989",
+        "totalLiquidity": "31717021.6343331576015905047185688",
+        "chainId": 1,
+        "swapEnabled": true,
+        "name": "Balancer 80 GNO 20 WETH",
+        "totalWeight": "1",
+        "tokens": [
+            {
+                "symbol": "GNO",
+                "address": "0x6810e776880c02933d47db1b9fc05908e5386b96",
+                "priceRate": "1",
+                "balance": "114215.875294802478131252",
+                "decimals": 18,
+                "name": "Gnosis Token",
+                "weight": "0.8",
+                "id": "0xf4c0dd9b82da36c07605df83c8a416f11724d88b000200000000000000000026-0x6810e776880c02933d47db1b9fc05908e5386b96",
+                "invested": "0"
+            },
+            {
+                "symbol": "WETH",
+                "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "priceRate": "1",
+                "balance": "3209.070440373957558278",
+                "decimals": 18,
+                "name": "Wrapped Ether",
+                "weight": "0.2",
+                "id": "0xf4c0dd9b82da36c07605df83c8a416f11724d88b000200000000000000000026-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "invested": "0"
+            }
+        ],
+        "id": "0xf4c0dd9b82da36c07605df83c8a416f11724d88b000200000000000000000026",
+        "swapFee": "0.0075"
+    },
+    {
+        "symbol": "B-60WETH-40DAI",
+        "holdersCount": "179",
+        "address": "0x0b09dea16768f0799065c475be02919503cb2a35",
+        "wrappedIndex": 0,
+        "mainIndex": 0,
+        "totalSwapVolume": "2501664577.523403435820277332",
+        "tokensList": [
+            "0x6b175474e89094c44da98b954eedeac495271d0f",
+            "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        ],
+        "poolType": "Weighted",
+        "totalShares": "332328.213923828188781924",
+        "totalSwapFee": "4016418.1855238160162020617464",
+        "swapsCount": "54898",
+        "totalLiquidity": "31403491.51141153400056925760579356",
+        "chainId": 1,
+        "swapEnabled": true,
+        "name": "Balancer 60 WETH 40 DAI",
+        "totalWeight": "1",
+        "tokens": [
+            {
+                "symbol": "DAI",
+                "address": "0x6b175474e89094c44da98b954eedeac495271d0f",
+                "priceRate": "1",
+                "balance": "12426013.008404034003176409",
+                "decimals": 18,
+                "name": "Dai Stablecoin",
+                "weight": "0.4",
+                "id": "0x0b09dea16768f0799065c475be02919503cb2a3500020000000000000000001a-0x6b175474e89094c44da98b954eedeac495271d0f",
+                "invested": "0"
+            },
+            {
+                "symbol": "WETH",
+                "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "priceRate": "1",
+                "balance": "10193.069635375917264709",
+                "decimals": 18,
+                "name": "Wrapped Ether",
+                "weight": "0.6",
+                "id": "0x0b09dea16768f0799065c475be02919503cb2a3500020000000000000000001a-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "invested": "0"
+            }
+        ],
+        "id": "0x0b09dea16768f0799065c475be02919503cb2a3500020000000000000000001a",
+        "swapFee": "0.0005"
+    }
+]

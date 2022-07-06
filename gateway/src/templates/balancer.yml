@@ -1,0 +1,23 @@
+# For each swap, the maximum number of hops to consider. 
+# Note: More hops will increase latency of the algorithm.
+maximumHops: 4
+
+# how much the execution price is allowed to move unfavorably from the trade
+# execution price. It uses a rational number for precision.
+allowedSlippage: '2/100'
+
+# the maximum gas allowed for a balancer trade.
+# TODO: find best values for balancer swap
+gasLimit: 150688
+
+# how long a trade is valid in seconds. After time passes sushiswap will not
+# perform the trade, but the gas will still be sent.
+ttl: 600
+
+contractAddresses:
+  mainnet: 
+    balancerVaultAddress: '0xba12222222228d8ba445958a75a0704d566bf2c8'
+  kovan: 
+    balancerVaultAddress: '0xba12222222228d8ba445958a75a0704d566BF2C8'
+  rinkeby: 
+    balancerVaultAddress: '0xba12222222228d8Ba445958a75a0704d566BF2cb'

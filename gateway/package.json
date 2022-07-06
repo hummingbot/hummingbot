@@ -20,6 +20,7 @@
     "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts"
   },
   "dependencies": {
+    "@balancer-labs/sdk": "^0.1.15",
     "@blockworks-foundation/mango-client": "^3.2.14",
     "@ethersproject/experimental": "^5.3.0",
     "@harmony-js/core": "^0.1.57",

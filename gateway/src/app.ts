@@ -24,6 +24,7 @@ import { UniswapConfig } from './connectors/uniswap/uniswap.config';
 import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
+import { BalancerConfig } from './connectors/balancer/balancer.config';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -68,6 +69,7 @@ interface ConnectorsResponse {
   pangolin: Array<AvailableNetworks>;
   sushiswap: Array<AvailableNetworks>;
   traderjoe: Array<AvailableNetworks>;
+  balancer: Array<AvailableNetworks>;
 }
 
 gatewayApp.get(
@@ -78,6 +80,7 @@ gatewayApp.get(
       pangolin: PangolinConfig.config.availableNetworks,
       sushiswap: SushiswapConfig.config.availableNetworks,
       traderjoe: TraderjoeConfig.config.availableNetworks,
+      balancer: BalancerConfig.config.availableNetworks,
     });
   })
 );
