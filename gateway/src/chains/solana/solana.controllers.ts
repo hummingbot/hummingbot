@@ -48,16 +48,16 @@ export async function balances(
 const toSolanaBalances = (
   balances: Record<string, TokenValue>,
   tokenSymbols: string[]
-): Record<string, string | null> => {
+): Record<string, string> => {
   const filteredBalancesKeys = Object.keys(balances).filter((symbol) =>
     tokenSymbols.includes(symbol)
   );
-  const solanaBalances: Record<string, string | null> = {};
+  const solanaBalances: Record<string, string> = {};
 
   filteredBalancesKeys.forEach((symbol) => {
     if (balances[symbol] !== undefined)
       solanaBalances[symbol] = tokenValueToString(balances[symbol]);
-    else solanaBalances[symbol] = null;
+    else solanaBalances[symbol] = "-1";
   });
 
   return solanaBalances;

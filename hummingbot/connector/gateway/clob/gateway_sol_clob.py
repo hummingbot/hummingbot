@@ -42,7 +42,6 @@ from hummingbot.logger import HummingbotLogger
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
-
 s_logger = None
 
 
@@ -63,7 +62,6 @@ class GatewaySOLCLOB(ConnectorBase):
     _ev_loop: asyncio.AbstractEventLoop
     _last_poll_timestamp: float
     _last_balance_poll_timestamp: float
-    _last_est_gas_cost_reported: float
     _allowances: Dict[str, Decimal]
     _chain_info: Dict[str, Any]
     _status_polling_task: Optional[asyncio.Task]
@@ -73,14 +71,14 @@ class GatewaySOLCLOB(ConnectorBase):
     _native_currency: Optional[str]
 
     def __init__(
-        self,
-        client_config_map: "ClientConfigAdapter",
-        connector_name: str,
-        chain: str,
-        network: str,
-        wallet_address: str,
-        trading_pairs: List[str] = (),
-        trading_required: bool = True
+            self,
+            client_config_map: "ClientConfigAdapter",
+            connector_name: str,
+            chain: str,
+            network: str,
+            wallet_address: str,
+            trading_pairs: List[str] = (),
+            trading_required: bool = True
     ):
         """
         :param connector_name: name of connector on gateway :param chain: refers to a blockchain, e.g. ethereum or
@@ -109,7 +107,6 @@ class GatewaySOLCLOB(ConnectorBase):
         self._status_polling_task = None
         self._get_chain_info_task = None
         self._auto_approve_task = None
-        self._get_gas_estimate_task = None
         self._poll_notifier = None
         self._native_currency = None
         self._network_transaction_fee: Optional[TokenAmount] = None
@@ -352,29 +349,6 @@ class GatewaySOLCLOB(ConnectorBase):
         else:
             raise ValueError(f"""Chain "{self.chain}" not supported.""")
 
-    async def get_gas_estimate(self):
-        """
-        Gets the gas estimates for the connector.
-        """
-        if Chain.SOLANA.chain == self.chain:
-            self.network_transaction_fee = TokenAmount(Chain.SOLANA.native_currency, constant.FIVE_THOUSAND_LAMPORTS)
-        else:
-            try:
-                response: Dict[Any] = await self._get_gateway_instance().amm_estimate_gas(
-                    chain=self.chain, network=self.network, connector=self.connector
-                )
-                self.network_transaction_fee = TokenAmount(
-                    response.get("gasPriceToken"), Decimal(response.get("gasCost"))
-                )
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().network(
-                    f"Error getting gas price estimates for {self.connector_name} on {self.network}.",
-                    exc_info=True,
-                    app_warning_msg=str(e)
-                )
-
     async def auto_approve(self):
         """
         Automatically approves trading pair tokens for contract(s).
@@ -400,28 +374,16 @@ class GatewaySOLCLOB(ConnectorBase):
             is_approval=True
         )
         try:
-            if Chain.SOLANA.chain == self.chain:
-                resp: Dict[str, Any] = await self._get_gateway_instance().solana_post_token(
-                    self.network,
-                    self.address,
-                    token_symbol
-                )
-            else:
-                resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(
-                    self.chain,
-                    self.network,
-                    self.address,
-                    token_symbol,
-                    self.connector,
-                    **request_args
-                )
+            resp: Dict[str, Any] = await self._get_gateway_instance().solana_post_token(
+                self.network,
+                self.address,
+                token_symbol
+            )
 
             transaction_hash: Optional[str] = resp.get("approval", {}).get("hash")
-            nonce: Optional[int] = resp.get("nonce")
-            if transaction_hash is not None and nonce is not None:
+            if transaction_hash is not None:
                 tracked_order = self._order_tracker.fetch_order(client_order_id=approval_id)
                 tracked_order.update_exchange_order_id(transaction_hash)
-                tracked_order.nonce = nonce
                 self.logger().info(
                     f"Maximum {token_symbol} approval for {self.connector_name} contract sent,"
                     f" hash: {transaction_hash}."
@@ -448,31 +410,24 @@ class GatewaySOLCLOB(ConnectorBase):
         :return: A dictionary of token and its allowance.
         """
         ret_val = {}
-        if Chain.SOLANA.chain == self.chain:
-            resp: Dict[str, Any] = await self._get_gateway_instance().solana_post_balances(
-                self.network, self.address, list(self._tokens)
-            )
-            for token, amount in resp.items():
-                if amount is None:
-                    ret_val[token] = constant.DECIMAL_ZERO
-                else:
-                    ret_val[token] = Decimal(str(constant.DECIMAL_INFINITY))
-        else:
-            resp: Dict[str, Any] = await self._get_gateway_instance().get_allowances(
-                self.chain, self.network, self.address, list(self._tokens), self.connector_name
-            )
-            for token, amount in resp["approvals"].items():
-                ret_val[token] = Decimal(str(amount))
+        resp: Dict[str, Any] = await self._get_gateway_instance().solana_post_balances(
+            self.network, self.address, list(self._tokens)
+        )
+        for token, amount in resp['balances'].items():
+            if amount is 'null':
+                ret_val[token] = constant.DECIMAL_ZERO
+            else:
+                ret_val[token] = Decimal(str(constant.DECIMAL_INFINITY))
 
         return ret_val
 
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_quote_price(
-        self,
-        trading_pair: str,
-        is_buy: bool,
-        amount: Decimal,
-        ignore_shim: bool = False
+            self,
+            trading_pair: str,
+            is_buy: bool,
+            amount: Decimal,
+            ignore_shim: bool = False
     ) -> Optional[Decimal]:
         """
         Retrieves a quote price.
@@ -591,11 +546,11 @@ class GatewaySOLCLOB(ConnectorBase):
             )
 
     async def get_order_price(
-        self,
-        trading_pair: str,
-        is_buy: bool,
-        amount: Decimal,
-        ignore_shim: bool = False
+            self,
+            trading_pair: str,
+            is_buy: bool,
+            amount: Decimal,
+            ignore_shim: bool = False
     ) -> Decimal:
 
         """
@@ -642,13 +597,13 @@ class GatewaySOLCLOB(ConnectorBase):
 
     # noinspection PyUnusedLocal
     async def _create_order(
-        self,
-        trade_type: TradeType,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        price: Decimal,
-        **request_args
+            self,
+            trade_type: TradeType,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            price: Decimal,
+            **request_args
     ):
         """
         Calls buy or sell API end point to place an order, starts tracking the order and triggers relevant order events.
@@ -771,15 +726,15 @@ class GatewaySOLCLOB(ConnectorBase):
             self._order_tracker.process_order_update(order_update)
 
     def start_tracking_order(
-        self,
-        order_id: str,
-        exchange_order_id: Optional[str] = None,
-        trading_pair: str = "",
-        trade_type: TradeType = TradeType.BUY,
-        price: Decimal = constant.DECIMAL_ZERO,
-        amount: Decimal = constant.DECIMAL_ZERO,
-        gas_price: Decimal = constant.DECIMAL_ZERO,
-        is_approval: bool = False
+            self,
+            order_id: str,
+            exchange_order_id: Optional[str] = None,
+            trading_pair: str = "",
+            trade_type: TradeType = TradeType.BUY,
+            price: Decimal = constant.DECIMAL_ZERO,
+            amount: Decimal = constant.DECIMAL_ZERO,
+            gas_price: Decimal = constant.DECIMAL_ZERO,
+            is_approval: bool = False
     ):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary in ClientOrderTracker.
@@ -1019,16 +974,8 @@ class GatewaySOLCLOB(ConnectorBase):
         """
         Checks if all tokens have allowance (an amount approved)
         """
-        if Chain.SOLANA.chain == self.chain:
-            return ((len(self._allowances.values()) == len(self._tokens)) and
-                    (all(amount > constant.DECIMAL_ZERO for amount in self._allowances.values())))
-        else:
-            allowances_available = all(amount > constant.DECIMAL_ZERO for amount in self._allowances.values())
-            if not allowances_available and self._auto_approve_task is not None and self._auto_approve_task.done():
-                # we need to attempt approval
-                self._auto_approve_task = safe_ensure_future(self.auto_approve())
-            return ((len(self._allowances.values()) == len(self._tokens)) and
-                    allowances_available)
+        return ((len(self._allowances.values()) == len(self._tokens)) and
+                (all(amount >= constant.DECIMAL_ZERO for amount in self._allowances.values())))
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -1045,7 +992,6 @@ class GatewaySOLCLOB(ConnectorBase):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._auto_approve_task = safe_ensure_future(self.auto_approve())
-            self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
         self._get_markets_task = safe_ensure_future(self.get_markets())
         self._auto_create_token_accounts_task = safe_ensure_future(self.auto_create_token_accounts())
@@ -1060,9 +1006,6 @@ class GatewaySOLCLOB(ConnectorBase):
         if self._get_chain_info_task is not None:
             self._get_chain_info_task.cancel()
             self._get_chain_info_task = None
-        if self._get_gas_estimate_task is not None:
-            self._get_gas_estimate_task.cancel()
-            self._get_gas_estimate_task = None
         if self._get_markets_task is not None:
             self._get_markets_task.cancel()
             self._get_markets_task = None
@@ -1159,10 +1102,12 @@ class GatewaySOLCLOB(ConnectorBase):
         Hummingbot to force cancel all orders whenever Hummingbot quits.
         """
         if Chain.SOLANA.chain == self.chain:
-            # noinspection PyAsyncCall
-            self._get_gateway_instance().clob_delete_orders(
-                self.chain, self.network, self.address
+            asyncio.ensure_future(
+                self._get_gateway_instance().clob_delete_orders(
+                    self.chain, self.network, self.address
+                )
             )
+
         else:
             pass
 
