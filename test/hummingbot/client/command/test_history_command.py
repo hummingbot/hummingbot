@@ -2,21 +2,20 @@ import asyncio
 import datetime
 import time
 import unittest
-from copy import deepcopy
 from decimal import Decimal
 from pathlib import Path
+from test.mock.mock_cli import CLIMockingAssistant
 from typing import Awaitable, List
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.client_config_map import ClientConfigMap, DBSqliteMode
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.exchange.paper_trade import PaperTradeExchange
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
-from test.mock.mock_cli import CLIMockingAssistant
 
 
 class HistoryCommandTest(unittest.TestCase):
@@ -26,24 +25,19 @@ class HistoryCommandTest(unittest.TestCase):
         self.ev_loop = asyncio.get_event_loop()
 
         self.async_run_with_timeout(read_system_configs_from_yml())
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.app = HummingbotApplication()
+        self.app = HummingbotApplication(client_config_map=self.client_config_map)
 
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
-        self.global_config_backup = deepcopy(global_config_map)
         self.mock_strategy_name = "test-strategy"
 
     def tearDown(self) -> None:
         self.cli_mock_assistant.stop()
-        self.reset_global_config()
         db_path = Path(SQLConnectionManager.create_db_path(db_name=self.mock_strategy_name))
         db_path.unlink(missing_ok=True)
         super().tearDown()
-
-    def reset_global_config(self):
-        for key, value in self.global_config_backup.items():
-            global_config_map[key] = value
 
     @staticmethod
     def get_async_sleep_fn(delay: float):
@@ -99,12 +93,12 @@ class HistoryCommandTest(unittest.TestCase):
     @patch("hummingbot.client.command.history_command.HistoryCommand.get_current_balances")
     def test_history_report_raises_on_get_current_balances_network_timeout(self, get_current_balances_mock: AsyncMock):
         get_current_balances_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
-        global_config_map["other_commands_timeout"].value = 0.01
+        self.client_config_map.commands_timeout.other_commands_timeout = 0.01
         trades = self.get_trades()
 
         with self.assertRaises(asyncio.TimeoutError):
             self.async_run_with_timeout_coroutine_must_raise_timeout(
-                self.app.history_report(start_time=time.time(), trades=trades), 10000
+                self.app.history_report(start_time=time.time(), trades=trades)
             )
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with(
@@ -114,7 +108,7 @@ class HistoryCommandTest(unittest.TestCase):
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_list_trades(self, notify_mock):
-        global_config_map["tables_format"].value = "psql"
+        self.client_config_map.db_mode = DBSqliteMode()
 
         captures = []
         notify_mock.side_effect = lambda s: captures.append(s)

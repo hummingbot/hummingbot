@@ -38,6 +38,16 @@ export class UniswapishPriceError extends Error {
   }
 }
 
+export class InvalidNonceError extends Error {
+  message: string;
+  errorCode: number;
+  constructor(message: string, errorCode: number) {
+    super(message);
+    this.message = message;
+    this.errorCode = errorCode;
+  }
+}
+
 // Capture errors from an async route, this must wrap any route that uses async.
 // For example, `app.get('/', asyncHandler(async (req, res) -> {...}))`
 export const asyncHandler =
@@ -88,6 +98,7 @@ export const SERVICE_UNITIALIZED_ERROR_CODE = 1010;
 export const UNKNOWN_CHAIN_ERROR_CODE = 1011;
 export const INVALID_NONCE_ERROR_CODE = 1012;
 export const INCOMPLETE_REQUEST_PARAM_CODE = 1013;
+export const PRICE_FAILED_ERROR_CODE = 1014;
 export const UNKNOWN_ERROR_ERROR_CODE = 1099;
 
 export const NETWORK_ERROR_MESSAGE =
@@ -117,6 +128,8 @@ export const UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE = (chainName: any) =>
   `Unrecognized chain name ${chainName}.`;
 
 export const UNKNOWN_ERROR_MESSAGE = 'Unknown error.';
+
+export const PRICE_FAILED_ERROR_MESSAGE = 'Price query failed: ';
 
 export interface ErrorResponse {
   stack?: any;

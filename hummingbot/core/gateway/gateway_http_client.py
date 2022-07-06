@@ -1,17 +1,20 @@
 import logging
+import re
 import ssl
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import aiohttp
 
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.core.data_type.common import PositionSide
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
 class GatewayError(Enum):
@@ -30,6 +33,8 @@ class GatewayError(Enum):
     SwapPriceLowerThanLimitPrice = 1009
     ServiceUnitialized = 1010
     UnknownChainError = 1011
+    InvalidNonceError = 1012
+    PriceFailed = 1013
     UnknownError = 1099
 
 
@@ -45,15 +50,20 @@ class GatewayHttpClient:
     __instance = None
 
     @staticmethod
-    def get_instance() -> "GatewayHttpClient":
+    def get_instance(client_config_map: Optional["ClientConfigAdapter"] = None) -> "GatewayHttpClient":
         if GatewayHttpClient.__instance is None:
-            GatewayHttpClient()
+            GatewayHttpClient(client_config_map)
         return GatewayHttpClient.__instance
 
-    def __init__(self):
+    def __init__(self, client_config_map: Optional["ClientConfigAdapter"] = None):
+        if client_config_map is None:
+            from hummingbot.client.hummingbot_application import HummingbotApplication
+            client_config_map = HummingbotApplication.main_application().client_config_map
+        api_host = client_config_map.gateway.gateway_api_host
+        api_port = client_config_map.gateway.gateway_api_port
         if GatewayHttpClient.__instance is None:
-            self._base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
-                             f"{global_config_map['gateway_api_port'].value}"
+            self._base_url = f"https://{api_host}:{api_port}"
+        self._client_confi_map = client_config_map
         GatewayHttpClient.__instance = self
 
     @classmethod
@@ -63,27 +73,27 @@ class GatewayHttpClient:
         return cls._ghc_logger
 
     @classmethod
-    def _http_client(cls, re_init: bool = False) -> aiohttp.ClientSession:
+    def _http_client(cls, client_config_map: "ClientConfigAdapter", re_init: bool = False) -> aiohttp.ClientSession:
         """
         :returns Shared client session instance
         """
         if cls._shared_client is None or re_init:
-            cert_path = get_gateway_paths().local_certs_path.as_posix()
+            cert_path = get_gateway_paths(client_config_map).local_certs_path.as_posix()
             ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
             ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
                                     keyfile=f"{cert_path}/client_key.pem",
-                                    password=Security.password)
+                                    password=Security.secrets_manager.password.get_secret_value())
             conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
             cls._shared_client = aiohttp.ClientSession(connector=conn)
         return cls._shared_client
 
     @classmethod
-    def reload_certs(cls):
+    def reload_certs(cls, client_config_map: "ClientConfigAdapter"):
         """
         Re-initializes the aiohttp.ClientSession. This should be called whenever there is any updates to the
         Certificates used to secure a HTTPS connection to the Gateway service.
         """
-        cls._http_client(re_init=True)
+        cls._http_client(client_config_map, re_init=True)
 
     @property
     def base_url(self) -> str:
@@ -101,29 +111,33 @@ class GatewayHttpClient:
         error_code: Optional[int] = resp.get("errorCode")
         if error_code is not None:
             if error_code == GatewayError.Network.value:
-                self.logger().info("Gateway had a network error. Make sure it is still able to communicate with the node.")
+                self.logger().network("Gateway had a network error. Make sure it is still able to communicate with the node.")
             elif error_code == GatewayError.RateLimit.value:
-                self.logger().info("Gateway was unable to communicate with the node because of rate limiting.")
+                self.logger().network("Gateway was unable to communicate with the node because of rate limiting.")
             elif error_code == GatewayError.OutOfGas.value:
-                self.logger().info("There was an out of gas error. Adjust the gas limit in the gateway config.")
+                self.logger().network("There was an out of gas error. Adjust the gas limit in the gateway config.")
             elif error_code == GatewayError.TransactionGasPriceTooLow.value:
-                self.logger().info("The gas price provided by gateway was too low to create a blockchain operation. Consider increasing the gas price.")
+                self.logger().network("The gas price provided by gateway was too low to create a blockchain operation. Consider increasing the gas price.")
             elif error_code == GatewayError.LoadWallet.value:
-                self.logger().info("Gateway failed to load your wallet. Try running 'gateway connect' with the correct wallet settings.")
+                self.logger().network("Gateway failed to load your wallet. Try running 'gateway connect' with the correct wallet settings.")
             elif error_code == GatewayError.TokenNotSupported.value:
-                self.logger().info("Gateway tried to use an unsupported token.")
+                self.logger().network("Gateway tried to use an unsupported token.")
             elif error_code == GatewayError.TradeFailed.value:
-                self.logger().info("The trade on gateway has failed.")
+                self.logger().network("The trade on gateway has failed.")
+            elif error_code == GatewayError.PriceFailed.value:
+                self.logger().network("The price query on gateway has failed.")
+            elif error_code == GatewayError.InvalidNonceError.value:
+                self.logger().network("The nonce was invalid.")
             elif error_code == GatewayError.ServiceUnitialized.value:
-                self.logger().info("Some values was uninitialized. Please contact dev@hummingbot.io ")
+                self.logger().network("Some values was uninitialized. Please contact dev@hummingbot.io ")
             elif error_code == GatewayError.SwapPriceExceedsLimitPrice.value:
-                self.logger().info("The swap price is greater than your limit buy price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
+                self.logger().network("The swap price is greater than your limit buy price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
             elif error_code == GatewayError.SwapPriceLowerThanLimitPrice.value:
-                self.logger().info("The swap price is lower than your limit sell price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
+                self.logger().network("The swap price is lower than your limit sell price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
             elif error_code == GatewayError.UnknownChainError.value:
-                self.logger().info("An unknown chain error has occurred on gateway. Make sure your gateway settings are correct.")
+                self.logger().network("An unknown chain error has occurred on gateway. Make sure your gateway settings are correct.")
             elif error_code == GatewayError.UnknownError.value:
-                self.logger().info("An unknown error has occurred on gateway. Please send your logs to dev@hummingbot.io")
+                self.logger().network("An unknown error has occurred on gateway. Please send your logs to dev@hummingbot.io")
 
     async def api_request(
             self,
@@ -141,7 +155,7 @@ class GatewayHttpClient:
         :returns A response in json format.
         """
         url = f"{self.base_url}/{path_url}"
-        client = self._http_client()
+        client = self._http_client(self._client_confi_map)
 
         parsed_response = {}
         try:
@@ -154,20 +168,47 @@ class GatewayHttpClient:
                 response = await client.post(url, json=params)
             else:
                 raise ValueError(f"Unsupported request method {method}")
-            parsed_response = await response.json()
-            if response.status != 200 and not fail_silently:
-                self.log_error_codes(parsed_response)
+            if not fail_silently and response.status == 504:
+                self.logger().network(f"The network call to {url} has timed out.")
+            else:
+                parsed_response = await response.json()
+                if response.status != 200 and \
+                   not fail_silently and \
+                   not self.is_timeout_error(parsed_response):
+                    self.log_error_codes(parsed_response)
 
-                if "error" in parsed_response:
-                    raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response['error']}")
-                else:
-                    raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response}")
+                    if "error" in parsed_response:
+                        raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response['error']}")
+                    else:
+                        raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response}")
+
         except Exception as e:
             if not fail_silently:
-                self.logger().error(e)
+                if self.is_timeout_error(e):
+                    self.logger().network(f"The network call to {url} has timed out.")
+                else:
+                    self.logger().network(
+                        e,
+                        exc_info=True,
+                        app_warning_msg=f"Call to {url} failed. See logs for more details."
+                    )
                 raise e
 
         return parsed_response
+
+    @staticmethod
+    def is_timeout_error(e) -> bool:
+        """
+        It is hard to consistently return a timeout error from gateway
+        because it uses many different libraries to communicate with the
+        chains with their own idiosyncracies and they do not necessarilly
+        return HTTP status code 504 when there is a timeout error. It is
+        easier to rely on the presence of the word 'timeout' in the error.
+        """
+        error_string = str(e)
+        if re.search('timeout', error_string, re.IGNORECASE):
+            return True
+        return False
 
     async def ping_gateway(self) -> bool:
         try:
@@ -347,7 +388,7 @@ class GatewayHttpClient:
             address: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "evm/nonce", {
+        return await self.api_request("post", "evm/nextNonce", {
             "chain": chain,
             "network": network,
             "address": address
@@ -393,7 +434,6 @@ class GatewayHttpClient:
             "side": side.name,
             "amount": f"{amount:.18f}",
             "limitPrice": str(price),
-            "nonce": nonce,
             "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }
         if nonce is not None:

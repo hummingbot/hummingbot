@@ -4,6 +4,8 @@ from typing import List
 
 import pandas as pd
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
@@ -39,7 +41,9 @@ class Dev2PerformTradeUnitTest(unittest.TestCase):
         self.time_delay = 15
         self.cancel_order_wait_time = 45
 
-        self.market: MockPaperExchange = MockPaperExchange()
+        self.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.market.set_balanced_order_book(trading_pair=self.trading_pair,
                                             mid_price=self.mid_price, min_price=1,
                                             max_price=200, price_step_size=1, volume_step_size=10)
