@@ -11,7 +11,7 @@ from hummingbot.client.settings import (
 
 
 def exchange_on_validated(value: str):
-    required_exchanges.append(value)
+    required_exchanges.add(value)
 
 
 def validate_connector(value: str):
