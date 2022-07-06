@@ -98,13 +98,12 @@ class GatewayStatusMonitor:
                         GATEWAY_CONNECTORS.clear()
                         GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
                         await self.update_gateway_config_key_list()
-                        self.logger().info("Connection to Gateway established.")
-                    elif self._gateway_connectivity_status is GatewayConnectivityStatus.OFFLINE:
-                        gateway_connectors_status = await GatewayHttpClient.get_instance().get_gateway_status(fail_silently=True)
-                        if any([status["currentBlockNumber"] > 0 for status in gateway_connectors_status]):
-                            self._gateway_connectivity_status = GatewayConnectivityStatus.ONLINE
-                        else:
-                            self._gateway_connectivity_status = GatewayContainerStatus.STOPPED
+
+                    gateway_connectors_status = await GatewayHttpClient.get_instance().get_gateway_status(fail_silently=True)
+                    if any([status["currentBlockNumber"] > 0 for status in gateway_connectors_status]):
+                        self._gateway_connectivity_status = GatewayConnectivityStatus.ONLINE
+                    else:
+                        self._gateway_connectivity_status = GatewayContainerStatus.STOPPED
                     self._gateway_container_status = GatewayContainerStatus.RUNNING
                 else:
                     if self._gateway_container_status is GatewayContainerStatus.RUNNING:
@@ -123,6 +122,7 @@ class GatewayStatusMonitor:
             finally:
                 if self.gateway_container_status is GatewayContainerStatus.RUNNING and \
                         self.gateway_connectivity_status is GatewayConnectivityStatus.ONLINE:
+                    self.logger().info("Gateway container is RUNNING. Gateway service is ONLINE.")
                     self._gateway_ready_event.set()
                 else:
                     self._gateway_ready_event.clear()
