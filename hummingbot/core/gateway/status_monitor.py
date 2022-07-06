@@ -102,6 +102,7 @@ class GatewayStatusMonitor:
                     gateway_connectors_status = await GatewayHttpClient.get_instance().get_gateway_status(fail_silently=True)
                     if any([status["currentBlockNumber"] > 0 for status in gateway_connectors_status]):
                         self._gateway_connectivity_status = GatewayConnectivityStatus.ONLINE
+                        self.logger().info("Gateway container is RUNNING. Gateway service is ONLINE.")
                     else:
                         self._gateway_connectivity_status = GatewayContainerStatus.STOPPED
                     self._gateway_container_status = GatewayContainerStatus.RUNNING
@@ -122,7 +123,6 @@ class GatewayStatusMonitor:
             finally:
                 if self.gateway_container_status is GatewayContainerStatus.RUNNING and \
                         self.gateway_connectivity_status is GatewayConnectivityStatus.ONLINE:
-                    self.logger().info("Gateway container is RUNNING. Gateway service is ONLINE.")
                     self._gateway_ready_event.set()
                 else:
                     self._gateway_ready_event.clear()
