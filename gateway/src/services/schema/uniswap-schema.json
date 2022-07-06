@@ -2,10 +2,22 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
-    "allowedSlippage": { "type": "string" },
-    "gasLimit": { "type": "integer" },
-    "ttl": { "type": "integer" },
     "maximumHops": { "type": "integer" },
+    "versions": {
+      "type": "object",
+      "patternProperties": {
+        "^\\w+$": {
+          "type": "object",
+          "properties": {
+            "allowedSlippage": { "type": "string" },
+            "ttl": { "type": "integer" }
+          },
+          "required": ["allowedSlippage", "ttl"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "contractAddresses": {
       "type": "object",
       "patternProperties": {
@@ -26,11 +38,5 @@
     }
   },
   "additionalProperties": false,
-  "required": [
-    "allowedSlippage",
-    "gasLimit",
-    "ttl",
-    "maximumHops",
-    "contractAddresses"
-  ]
+  "required": ["maximumHops", "versions", "contractAddresses"]
 }
