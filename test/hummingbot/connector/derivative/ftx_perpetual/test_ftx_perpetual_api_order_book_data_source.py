@@ -1,9 +1,11 @@
 import asyncio
 import json
+import re
 import time
 import unittest
 from decimal import Decimal
 from typing import Any, Awaitable, Dict, List
+from unittest.mock import AsyncMock, patch
 
 import aiohttp
 from aioresponses.core import aioresponses
@@ -12,6 +14,7 @@ from bidict import bidict
 from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_api_order_book_data_source import (
     FtxPerpetualAPIOrderBookDataSource,
 )
+from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_utils import convert_to_exchange_trading_pair
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.order_book import OrderBook
 
@@ -145,8 +148,15 @@ class FtxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertIsInstance(result, OrderBook)
         self.assertTrue((time.time() - result.snapshot_uid) < 1)
 
-    def test_listen_for_trades(self, ):
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    def test_listen_for_trades(self, ws_connect_mock):
         trades_queue = asyncio.Queue()
+
+        websocket_mock = self.mocking_assistant.create_websocket_mock()
+        websocket_mock.receive_json.side_effect = Exception()
+        websocket_mock.close.side_effect = lambda: trades_queue.put_nowait(1)
+        ws_connect_mock.return_value = websocket_mock
+
         self.data_source = FtxPerpetualAPIOrderBookDataSource(
             trading_pairs=["BTC-PERP"]
         )
@@ -167,8 +177,15 @@ class FtxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertTrue(first_trade.content['price'] > Decimal('0'))
 
-    def test_listen_for_order_book_snapshot_event(self, ):
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    def test_listen_for_order_book_snapshot_event(self, ws_connect_mock):
         order_book_messages = asyncio.Queue()
+
+        websocket_mock = self.mocking_assistant.create_websocket_mock()
+        websocket_mock.receive_json.side_effect = Exception()
+        websocket_mock.close.side_effect = lambda: order_book_messages.put_nowait(1)
+        ws_connect_mock.return_value = websocket_mock
+
         self.data_source = FtxPerpetualAPIOrderBookDataSource(
             trading_pairs=["BTC-PERP"]
         )
@@ -187,8 +204,15 @@ class FtxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertTrue(order_book_message.asks[0].price > Decimal('0'))
 
-    def test_listen_for_order_book_diff_event(self, ):
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    def test_listen_for_order_book_diff_event(self, ws_connect_mock):
         order_book_messages = asyncio.Queue()
+
+        websocket_mock = self.mocking_assistant.create_websocket_mock()
+        websocket_mock.receive_json.side_effect = Exception()
+        websocket_mock.close.side_effect = lambda: order_book_messages.put_nowait(1)
+        ws_connect_mock.return_value = websocket_mock
+
         self.data_source = FtxPerpetualAPIOrderBookDataSource(
             trading_pairs=["BTC-PERP"]
         )
@@ -211,12 +235,85 @@ class FtxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertTrue(price > Decimal('0'))
 
-    def test_fetch_trading_pairs(self):
+    @aioresponses()
+    def test_fetch_trading_pairs(self, mock_api):
+        url = f"{FTX_REST_URL}{FTX_EXCHANGE_INFO_PATH}"
+        regex_url = re.compile(f"^{url}")
+        mock_response: Dict[str, Any] = {
+            "success": True,
+            "result": [
+                {
+                    "name": "HBOT-PERP",
+                    "baseCurrency": None,
+                    "quoteCurrency": None,
+                    "quoteVolume24h": 28914.76,
+                    "change1h": 0.012,
+                    "change24h": 0.0299,
+                    "changeBod": 0.0156,
+                    "highLeverageFeeExempt": False,
+                    "minProvideSize": 0.001,
+                    "type": "future",
+                    "underlying": "HBOT",
+                    "enabled": True,
+                    "ask": 3949.25,
+                    "bid": 3949,
+                    "last": 10579.52,
+                    "postOnly": False,
+                    "price": 10579.52,
+                    "priceIncrement": 0.25,
+                    "sizeIncrement": 0.0001,
+                    "restricted": False,
+                    "volumeUsd24h": 28914.76,
+                    "largeOrderThreshold": 5000.0,
+                    "isEtfMarket": False,
+                }
+            ]
+        }
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
         task = asyncio.get_event_loop().create_task(
             self.data_source.fetch_trading_pairs())
         trading_pairs = asyncio.get_event_loop().run_until_complete(task)
         self.assertTrue(len(trading_pairs) > 0)
+        self.assertEqual(trading_pairs[0], "HBOT-USD")
 
-    def test_get_mid_prices(self):
-        mid_price = self.data_source.get_mid_price("BTC-PERP")
+    @aioresponses()
+    def test_get_mid_prices(self, mock_api):
+        trading_pair = "HBOT-PERP"
+        url = f"{FTX_REST_URL}{FTX_EXCHANGE_INFO_PATH}/{convert_to_exchange_trading_pair(trading_pair)}"
+        regex_url = re.compile(f"^{url}")
+        mock_response: Dict[str, Any] = {
+            "success": True,
+            "result": {
+                "name": trading_pair,
+                "baseCurrency": None,
+                "quoteCurrency": None,
+                "quoteVolume24h": 28914.76,
+                "change1h": 0.012,
+                "change24h": 0.0299,
+                "changeBod": 0.0156,
+                "highLeverageFeeExempt": False,
+                "minProvideSize": 0.001,
+                "type": "future",
+                "underlying": "HBOT",
+                "enabled": True,
+                "ask": 3949.25,
+                "bid": 3949,
+                "last": 10579.52,
+                "postOnly": False,
+                "price": 10579.52,
+                "priceIncrement": 0.25,
+                "sizeIncrement": 0.0001,
+                "restricted": False,
+                "volumeUsd24h": 28914.76,
+                "largeOrderThreshold": 5000.0,
+                "isEtfMarket": False,
+            }
+        }
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        task = asyncio.get_event_loop().create_task(
+            self.data_source.get_mid_price(trading_pair))
+        mid_price = asyncio.get_event_loop().run_until_complete(task)
         self.assertTrue(mid_price > Decimal('0'))
+        self.assertEqual(mid_price, Decimal('3949.125'))

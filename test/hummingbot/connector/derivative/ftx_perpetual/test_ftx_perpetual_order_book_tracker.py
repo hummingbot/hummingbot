@@ -20,7 +20,6 @@ class FtxPerpetualOrderBookTrackerUnitTests(unittest.TestCase):
         cls.ev_loop = asyncio.get_event_loop()
 
     def setUp(self) -> None:
-        super().setUp()
         self.tracker: FtxPerpetualOrderBookTracker = FtxPerpetualOrderBookTracker(trading_pairs=[self.trading_pair])
         self.tracking_task: Optional[asyncio.Task] = None
 

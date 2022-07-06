@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import json as json_pckg
+import re
 import time
 from collections import namedtuple
 from decimal import Decimal
@@ -17,7 +18,9 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent, OrderType, PositionAction, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 
-FTX_API_ENDPOINT = "https://ftx.com/api"
+FTX_REST_URL = "https://ftx.com/api"
+FTX_EXCHANGE_INFO_PATH = "/markets"
+FTX_WS_FEED = "wss://ftx.com/ws/"
 
 request_res = namedtuple("request_res", "text")
 
@@ -319,7 +322,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
 
     @aioresponses()
     def test_update_balances(self, mock_api):
-        url = f"{FTX_API_ENDPOINT}/wallet/balances"
+        url = f"{FTX_REST_URL}/wallet/balances"
         mock_response: Dict[str, Any] = {
             # Truncated responses
             "result": [
@@ -335,14 +338,49 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
         self.async_run_with_timeout(self.exchange._update_balances())
         self.assertEqual(self.exchange._account_available_balances['USD'], Decimal('10.0'))
 
-    def test_update_trading_rules(self):
+    @aioresponses()
+    def test_update_trading_rules(self, mock_api):
+        url = f"{FTX_REST_URL}{FTX_EXCHANGE_INFO_PATH}"
+        regex_url = re.compile(f"^{url}")
+        mock_response: Dict[str, Any] = {
+            "success": True,
+            "result": [
+                {
+                    "name": "HBOT-PERP",
+                    "baseCurrency": None,
+                    "quoteCurrency": None,
+                    "quoteVolume24h": 28914.76,
+                    "change1h": 0.012,
+                    "change24h": 0.0299,
+                    "changeBod": 0.0156,
+                    "highLeverageFeeExempt": False,
+                    "minProvideSize": 0.001,
+                    "type": "future",
+                    "underlying": "HBOT",
+                    "enabled": True,
+                    "ask": 3949.25,
+                    "bid": 3949,
+                    "last": 10579.52,
+                    "postOnly": False,
+                    "price": 10579.52,
+                    "priceIncrement": 0.25,
+                    "sizeIncrement": 0.0001,
+                    "restricted": False,
+                    "volumeUsd24h": 28914.76,
+                    "largeOrderThreshold": 5000.0,
+                    "isEtfMarket": False,
+                }
+            ]
+        }
+        mock_api.get(regex_url, body=json_pckg.dumps(mock_response))
+
         self.async_run_with_timeout(self.exchange._update_trading_rules())
         self.assertTrue(len(self.exchange._trading_rules) > 0)
-        quant_amount = self.exchange.quantize_order_amount('BTC-USD', Decimal('0.00001'), Decimal('10000'))
+        quant_amount = self.exchange.quantize_order_amount('HBOT-USD', Decimal('0.00001'), Decimal('10000'))
         self.assertEqual(quant_amount, Decimal('0'))
-        quant_price = self.exchange.get_order_price_quantum('BTC-USD', Decimal('1'))
-        self.assertEqual(quant_price, Decimal('1.0'))
-        quant_amount = self.exchange.get_order_size_quantum('BTC-USD', Decimal('0.00001'))
+        quant_price = self.exchange.get_order_price_quantum('HBOT-USD', Decimal('1'))
+        self.assertEqual(quant_price, Decimal('0.25'))
+        quant_amount = self.exchange.get_order_size_quantum('HBOT-USD', Decimal('0.00001'))
         self.assertEqual(quant_amount, Decimal('0.0001'))
 
     def test_supported_order_types(self):
@@ -363,7 +401,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
             leverage=1,
             position_action="OPEN"
         )
-        url = f"{FTX_API_ENDPOINT}/orders/by_client_id/OID1"
+        url = f"{FTX_REST_URL}/orders/by_client_id/OID1"
         mock_response: Dict[str, Any] = {
             # Truncated responses
             "result": {
@@ -392,7 +430,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
 
     @aioresponses()
     def test_get_funding_rates(self, mock_api):
-        url_1 = f"{FTX_API_ENDPOINT}/futures/COINALPHA-PERP/stats"
+        url_1 = f"{FTX_REST_URL}/futures/COINALPHA-PERP/stats"
         mock_response_1: Dict[str, Any] = {
             # Truncated responses
             "result": {
@@ -401,7 +439,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
             }
         }
         mock_api.get(url_1, status=200, body=json_pckg.dumps(mock_response_1))
-        url_2 = f"{FTX_API_ENDPOINT}/futures/COINALPHA-PERP"
+        url_2 = f"{FTX_REST_URL}/futures/COINALPHA-PERP"
         mock_response_2: Dict[str, Any] = {
             # Truncated responses
             "result": {
@@ -410,7 +448,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
             }
         }
         mock_api.get(url_2, status=200, body=json_pckg.dumps(mock_response_2))
-        url_3 = f"{FTX_API_ENDPOINT}/futures/BTC-PERP/stats"
+        url_3 = f"{FTX_REST_URL}/futures/BTC-PERP/stats"
         mock_response_3: Dict[str, Any] = {
             # Truncated responses
             "result": {
@@ -419,7 +457,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
             }
         }
         mock_api.get(url_3, status=200, body=json_pckg.dumps(mock_response_3))
-        url_4 = f"{FTX_API_ENDPOINT}/futures/BTC-PERP"
+        url_4 = f"{FTX_REST_URL}/futures/BTC-PERP"
         mock_response_4: Dict[str, Any] = {
             # Truncated responses
             "result": {
@@ -433,7 +471,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
 
     @aioresponses()
     def test_set_leverage(self, mock_api):
-        url = f"{FTX_API_ENDPOINT}/account/leverage"
+        url = f"{FTX_REST_URL}/account/leverage"
         mock_response: Dict[str, Any] = {
             # Truncated responses
             "result": [
@@ -448,7 +486,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
 
     @aioresponses()
     def test_update_positions(self, mock_api):
-        url = f"{FTX_API_ENDPOINT}/positions?showAvgPrice=true"
+        url = f"{FTX_REST_URL}/positions?showAvgPrice=true"
         mock_response: Dict[str, Any] = {
             # Truncated responses
             "result": [
@@ -464,7 +502,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
         mock_api.get(url, status=200, body=json_pckg.dumps(mock_response))
         self.async_run_with_timeout(self.exchange._update_positions())
         self.assertTrue(len(self.exchange._account_positions) > 0)
-        url = f"{FTX_API_ENDPOINT}/positions?showAvgPrice=true"
+        url = f"{FTX_REST_URL}/positions?showAvgPrice=true"
         mock_response: Dict[str, Any] = {
             # Truncated responses
             "result": [
@@ -483,7 +521,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
 
     @aioresponses()
     def test_buy(self, mock_api):
-        url = f"{FTX_API_ENDPOINT}/orders"
+        url = f"{FTX_REST_URL}/orders"
         mock_response: Dict[str, Any] = {
             # Truncated responses
             "result": [
@@ -597,7 +635,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
 
     @aioresponses()
     def test_sell(self, mock_api):
-        url = f"{FTX_API_ENDPOINT}/orders"
+        url = f"{FTX_REST_URL}/orders"
         mock_response: Dict[str, Any] = {
             # Truncated responses
             "result": [
@@ -621,7 +659,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
 
     @aioresponses()
     def test_execute_cancel(self, mock_api):
-        url = f"{FTX_API_ENDPOINT}/orders/by_client_id/OID1"
+        url = f"{FTX_REST_URL}/orders/by_client_id/OID1"
         mock_response: Dict[str, Any] = {
             # Truncated responses
             "success": True,
@@ -640,7 +678,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
 
     @aioresponses()
     def test_execute_cancel_fail(self, mock_api):
-        url = f"{FTX_API_ENDPOINT}/orders/by_client_id/OID1"
+        url = f"{FTX_REST_URL}/orders/by_client_id/OID1"
         mock_response: Dict[str, Any] = {
             # Truncated responses
             "success": False,
@@ -656,9 +694,8 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
         self.assertEqual(order_id, "OID1")
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_derivative.FtxPerpetualDerivative.logger", side_effect=None)
-    def test_execute_cancel_error(self, mock_api, mock_logger):
-        url = f"{FTX_API_ENDPOINT}/orders/by_client_id/OID1"
+    def test_execute_cancel_error(self, mock_api):
+        url = f"{FTX_REST_URL}/orders/by_client_id/OID1"
         mock_response: Dict[str, Any] = {
             # Truncated responses
             "success_not_in_response": False,
@@ -691,7 +728,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
             leverage=1,
             position_action="OPEN"
         )
-        url = f"{FTX_API_ENDPOINT}/orders/by_client_id/OID1"
+        url = f"{FTX_REST_URL}/orders/by_client_id/OID1"
         mock_response: Dict[str, Any] = {
             # Truncated responses
             "success": True,
@@ -711,7 +748,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
     def test_sell_fail(self, mock_api):
         for order_id, _ in self.exchange._in_flight_orders.copy().items():
             self.exchange.stop_tracking_order(order_id)
-        url = f"{FTX_API_ENDPOINT}/orders"
+        url = f"{FTX_REST_URL}/orders"
         mock_response: Dict[str, Any] = {
             # Truncated responses
             "result": [
@@ -804,7 +841,7 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
 
     @aioresponses()
     def test_check_network(self, mock_api):
-        url = f"{FTX_API_ENDPOINT}/wallet/balances"
+        url = f"{FTX_REST_URL}/wallet/balances"
         mock_response: Dict[str, Any] = {
             # Truncated responses
             "result": [
@@ -823,18 +860,13 @@ class FtxPerpetualDerivativeUnitTests(TestCase):
 
     @aioresponses()
     def test_check_network_fail(self, mock_api):
-        url = f"{FTX_API_ENDPOINT}/wallet/balances"
+        url = f"{FTX_REST_URL}/wallet/balances"
         mock_response = {"status": "error"}
         mock_api.get(url, status=400, body=json_pckg.dumps(mock_response))
         connected = self.async_run_with_timeout(
             self.exchange.check_network()
         )
         self.assertEqual(connected, NetworkStatus.NOT_CONNECTED)
-
-    def test_start_network(self):
-        self.async_run_with_timeout(
-            self.exchange.start_network()
-        )
 
     def test_get_fee(self):
         fee = self.exchange.get_fee(

@@ -6,8 +6,6 @@ from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
-import cachetools.func
-import requests
 import simplejson
 import ujson
 import websockets
@@ -66,12 +64,19 @@ class FtxPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._trading_pairs
 
     @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        resp = requests.get(url=f"{FTX_REST_URL}{FTX_EXCHANGE_INFO_PATH}/{convert_to_exchange_trading_pair(trading_pair)}")
-        record = resp.json()["result"]
-        result = (Decimal(record.get("bid", "0")) + Decimal(record.get("ask", "0"))) / Decimal("2")
-        return result if result else None
+    async def get_mid_price(trading_pair: str) -> Optional[Decimal]:
+        try:
+            async with aiohttp.ClientSession() as client:
+                async with client.get(f"{FTX_REST_URL}{FTX_EXCHANGE_INFO_PATH}/{convert_to_exchange_trading_pair(trading_pair)}", timeout=API_CALL_TIMEOUT) as response:
+                    if response.status == 200:
+                        resp: Dict[str, Any] = await response.json()
+                        record = resp["result"]
+                        result = (Decimal(record.get("bid", "0")) + Decimal(record.get("ask", "0"))) / Decimal("2")
+                        return result if result else None
+        except Exception:
+            pass
+
+        return None
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
