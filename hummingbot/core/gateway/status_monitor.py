@@ -101,12 +101,12 @@ class GatewayStatusMonitor:
                         self.logger().info("Connection to Gateway established.")
                     elif self._gateway_connectivity_status is GatewayConnectivityStatus.OFFLINE:
                         gateway_connectors_status = await GatewayHttpClient.get_instance().get_gateway_status(fail_silently=True)
-                        self._gateway_connectivity_status = GatewayConnectivityStatus.ONLINE \
-                            if any([status["currentBlockNumber"] > 0 for status in gateway_connectors_status]) else GatewayContainerStatus.STOPPED
-                        self._gateway_ready_event.set()
+                        if any([status["currentBlockNumber"] > 0 for status in gateway_connectors_status]):
+                            self._gateway_connectivity_status = GatewayConnectivityStatus.ONLINE
+                        else:
+                            self._gateway_connectivity_status = GatewayContainerStatus.STOPPED
                     self._gateway_container_status = GatewayContainerStatus.RUNNING
                 else:
-                    self._gateway_ready_event.clear()
                     if self._gateway_container_status is GatewayContainerStatus.RUNNING:
                         self.logger().info("Connection to Gateway lost...")
                         self._gateway_container_status = GatewayContainerStatus.STOPPED
@@ -121,8 +121,12 @@ class GatewayStatusMonitor:
                 """
                 pass
             finally:
+                if self.gateway_container_status is GatewayContainerStatus.RUNNING and \
+                        self.gateway_connectivity_status is GatewayConnectivityStatus.ONLINE:
+                    self._gateway_ready_event.set()
+                else:
+                    self._gateway_ready_event.clear()
                 await asyncio.sleep(POLL_INTERVAL)
-                self._gateway_ready_event.clear()
 
     async def _fetch_gateway_configs(self) -> Dict[str, Any]:
         return await self._get_gateway_instance().get_configuration(fail_silently=False)
