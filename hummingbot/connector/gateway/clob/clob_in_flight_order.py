@@ -39,7 +39,6 @@ class CLOBInFlightOrder(InFlightOrder):
         )
         self.fee_asset = None
         self._gas_price = gas_price
-        self._nonce: int = -1
         self._cancel_tx_hash: Optional[str] = None
 
     @property
@@ -49,14 +48,6 @@ class CLOBInFlightOrder(InFlightOrder):
     @gas_price.setter
     def gas_price(self, gas_price: Decimal):
         self._gas_price = gas_price
-
-    @property
-    def nonce(self) -> int:
-        return self._nonce
-
-    @nonce.setter
-    def nonce(self, nonce):
-        self._nonce = nonce
 
     @property
     def cancel_tx_hash(self) -> Optional[str]:
@@ -94,7 +85,6 @@ class CLOBInFlightOrder(InFlightOrder):
                     self.executed_amount_quote,
                     self.creation_timestamp,
                     self.last_update_timestamp,
-                    self.nonce,
                     self.gas_price,
                     self.cancel_tx_hash,
                 )
@@ -142,7 +132,6 @@ class CLOBInFlightOrder(InFlightOrder):
         self.current_state = order_update.new_state
         if self.current_state not in {OrderState.PENDING_CANCEL, OrderState.CANCELED}:
             misc_updates = order_update.misc_updates or {}
-            self.nonce = misc_updates.get("nonce", None)
             self.fee_asset = misc_updates.get("fee_asset", None)
             self.gas_price = misc_updates.get("gas_price", None)
 
@@ -176,7 +165,6 @@ class CLOBInFlightOrder(InFlightOrder):
         order.order_fills.update(
             {key: TradeUpdate.from_json(value) for key, value in data.get("order_fills", {}).items()}
         )
-        order._nonce = data["nonce"]
         order._cancel_tx_hash = data["cancel_tx_hash"]
         order._gas_price = Decimal(data["gas_price"])
 
@@ -204,7 +192,6 @@ class CLOBInFlightOrder(InFlightOrder):
             "position": self.position.value,
             "creation_timestamp": self.creation_timestamp,
             "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()},
-            "nonce": self._nonce,
             "cancel_tx_hash": self._cancel_tx_hash,
             "gas_price": str(self._gas_price),
         }
