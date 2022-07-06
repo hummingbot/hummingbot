@@ -363,7 +363,7 @@ export class Solana implements Solanaish {
       }) => {
         const tokenInfo = tokenAccount.account.data.parsed['info'];
         const symbol = this.getTokenForMintAddress(tokenInfo['mint'])?.symbol;
-        if (symbol != null)
+        if (symbol != null && symbol.toUpperCase() !== 'SOL')
           balances[symbol.toUpperCase()] = this.tokenResponseToTokenValue(
             tokenInfo['tokenAmount']
           );

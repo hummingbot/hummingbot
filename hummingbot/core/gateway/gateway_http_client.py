@@ -6,7 +6,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import aiohttp
-import multidict
 
 from hummingbot.client.config.security import Security
 from hummingbot.core.event.events import TradeType
@@ -538,21 +537,19 @@ class GatewayHttpClient:
         name: str = None,
         names: List[str] = None,
     ) -> Dict[str, Any]:
-        # TODO change other get methods to use MultiDict when using lists!!!
-        request = multidict.MultiDict({
+        request = {
             "chain": chain,
             "network": network,
             "connector": connector,
-        })
+        }
 
         if name is not None:
             request["name"] = name
 
         if names is not None:
-            for name in names:
-                request.add("names", name)
+            request["names"] = names
 
-        return await self.api_request("get", "clob/markets", request)
+        return await self.api_request("post", "clob/markets", request)
 
     async def clob_get_order_books(
         self,
@@ -574,7 +571,7 @@ class GatewayHttpClient:
         if market_names is not None:
             request["marketNames"] = market_names
 
-        return await self.api_request("get", "clob/orderBooks", request)
+        return await self.api_request("post", "clob/orderBooks", request)
 
     async def clob_get_tickers(
         self,
@@ -596,7 +593,7 @@ class GatewayHttpClient:
         if market_names is not None:
             request["marketNames"] = market_names
 
-        return await self.api_request("get", "clob/tickers", request)
+        return await self.api_request("post", "clob/tickers", request)
 
     async def clob_get_orders(
         self,
@@ -622,7 +619,7 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("get", "clob/orders", request)
+        return await self.api_request("post", "clob/orders", request)
 
     async def clob_post_orders(
         self,
@@ -696,7 +693,7 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("get", "clob/orders/open", request)
+        return await self.api_request("post", "clob/orders/open", request)
 
     async def clob_get_filled_orders(
         self,
@@ -722,7 +719,7 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("get", "clob/orders/filled", request)
+        return await self.api_request("post", "clob/orders/filled", request)
 
     async def clob_post_settle_funds(
         self,
