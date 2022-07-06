@@ -1,7 +1,7 @@
 import { Cache, CacheContainer } from 'node-ts-cache';
 import { MemoryStorage } from 'node-ts-cache-storage-memory';
 import { logger } from '../../services/logger';
-import { SolanaConfig } from './solana.config';
+import { getSolanaConfig } from './solana.config';
 import { countDecimals, TokenValue, walletPath } from '../../services/base';
 import NodeCache from 'node-cache';
 import bs58 from 'bs58';
@@ -59,10 +59,12 @@ export class Solana implements Solanaish {
   private _ready: boolean = false;
   private initializing: boolean = false;
 
-  constructor(network?: string) {
-    this._network = network || SolanaConfig.config.network.slug;
+  constructor(network: string) {
+    this._network = network;
 
-    if (SolanaConfig.config.customRpcUrl == undefined) {
+    const config = getSolanaConfig('solana', network);
+
+    if (config.customNodeUrl == undefined) {
       switch (this._network) {
         case 'mainnet-beta':
           this.rpcUrl = 'https://api.mainnet-beta.solana.com';
@@ -80,17 +82,17 @@ export class Solana implements Solanaish {
           throw new Error(`Solana network "${this._network}" not valid`);
       }
     } else {
-      this.rpcUrl = SolanaConfig.config.customRpcUrl;
+      this.rpcUrl = config.customNodeUrl;
     }
 
     this._connection = new Connection(this.rpcUrl, 'processed' as Commitment);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
 
     this._nativeTokenSymbol = 'SOL';
-    this._tokenProgramAddress = new PublicKey(SolanaConfig.config.tokenProgram);
+    this._tokenProgramAddress = new PublicKey(config.tokenProgram);
 
-    this.transactionLamports = SolanaConfig.config.transactionLamports;
-    this._lamportPrice = SolanaConfig.config.lamportsToSol;
+    this.transactionLamports = config.transactionLamports;
+    this._lamportPrice = config.lamportsToSol;
     this._lamportDecimals = countDecimals(this._lamportPrice);
 
     this._requestCount = 0;
@@ -303,11 +305,11 @@ export class Solana implements Solanaish {
       iv: iv,
     };
     const enc = new TextEncoder();
-    const ciphertext: ArrayBuffer = await crypto.subtle.encrypt(
+    const ciphertext: Uint8Array = (await crypto.subtle.encrypt(
       cipherAlgorithm,
       key,
       enc.encode(privateKey)
-    );
+    )) as Uint8Array;
     return JSON.stringify(
       {
         keyAlgorithm,
@@ -328,9 +330,6 @@ export class Solana implements Solanaish {
   }
 
   async decrypt(encryptedPrivateKey: any, password: string): Promise<Keypair> {
-    logger.info(encryptedPrivateKey.keyAlgorithm.salt);
-    logger.info(encryptedPrivateKey.cipherAlgorithm.iv);
-    logger.info(encryptedPrivateKey.ciphertext);
     const keyMaterial = await Solana.getKeyMaterial(password);
     const key = await Solana.getKey(
       encryptedPrivateKey.keyAlgorithm,
