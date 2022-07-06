@@ -636,7 +636,7 @@ cdef class HuobiExchange(ExchangeBase):
 
     async def _process_trade_event(self, trade_event: Dict[str, Any]):
         order_id = trade_event["orderId"]
-        client_order_id = trade_event["clientOrderId"]
+        client_order_id = trade_event.get("clientOrderId")
         execute_price = Decimal(trade_event["tradePrice"])
         execute_amount_diff = Decimal(trade_event["tradeVolume"])
 
@@ -644,25 +644,24 @@ cdef class HuobiExchange(ExchangeBase):
 
         if tracked_order:
             updated = tracked_order.update_with_trade_update(trade_event)
-        if updated:
-            self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of order "
-                               f"{tracked_order.order_type.name}-{tracked_order.client_order_id}")
-            self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                 OrderFilledEvent(
-                                     self._current_timestamp,
-                                     tracked_order.client_order_id,
-                                     tracked_order.trading_pair,
-                                     tracked_order.trade_type,
-                                     tracked_order.order_type,
-                                     execute_price,
-                                     execute_amount_diff,
-                                     AddedToCostTradeFee(
-                                         flat_fees=[
-                                             TokenAmount(tracked_order.fee_asset, Decimal(trade_event["transactFee"]))
-                                         ]
-                                     ),
-                                     exchange_trade_id=str(trade_event["tradeId"])
-                                 ))
+            if updated:
+                self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of order "
+                                   f"{tracked_order.order_type.name}-{tracked_order.client_order_id}")
+                fee = AddedToCostTradeFee(
+                    flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(trade_event["transactFee"]))]
+                )
+                self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                     OrderFilledEvent(
+                                         self._current_timestamp,
+                                         tracked_order.client_order_id,
+                                         tracked_order.trading_pair,
+                                         tracked_order.trade_type,
+                                         tracked_order.order_type,
+                                         execute_price,
+                                         execute_amount_diff,
+                                         fee,
+                                         exchange_trade_id=str(trade_event["tradeId"])
+                                     ))
 
     @property
     def status_dict(self) -> Dict[str, bool]:
