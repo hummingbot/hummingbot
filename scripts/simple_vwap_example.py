@@ -20,8 +20,8 @@ class VWAPExample(ScriptStrategyBase):
       - How to code a "utility" strategy
     """
     last_ordered_ts = 0
-    vwap: Dict = {'connector_name': "binance_paper_trade", 'trading_pair': "ETH-USDT", 'is_buy': True,
-                  'total_volume_usd': 100000, 'price_spread': 0.001, 'volume_perc': 0.001, 'order_delay_time': 10}
+    vwap: Dict = {"connector_name": "binance_paper_trade", "trading_pair": "ETH-USDT", "is_buy": True,
+                  "total_volume_usd": 100000, "price_spread": 0.001, "volume_perc": 0.001, "order_delay_time": 10}
     markets = {vwap["connector_name"]: {vwap["trading_pair"]}}
 
     def on_tick(self):
@@ -147,9 +147,9 @@ class VWAPExample(ScriptStrategyBase):
 
     def format_status(self) -> str:
         """
-                Returns status of the current strategy on user balances and current active orders. This function is called
-                when status command is issued. Override this function to create custom status display output.
-                """
+        Returns status of the current strategy on user balances and current active orders. This function is called
+        when status command is issued. Override this function to create custom status display output.
+        """
         if not self.ready_to_trade:
             return "Market connectors are not ready."
         lines = []
