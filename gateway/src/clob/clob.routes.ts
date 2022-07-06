@@ -60,6 +60,7 @@ export namespace ClobRoutes {
     )
   );
 
+  // TODO Add these get routes to accept post requests as well!!!
   router.get(
     '/markets',
     asyncHandler(
