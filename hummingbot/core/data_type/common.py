@@ -59,6 +59,7 @@ class TradeType(Enum):
     SELL = 2
     RANGE = 3
 
+
 class LPType(Enum):
     ADD = 1
     REMOVE = 2
