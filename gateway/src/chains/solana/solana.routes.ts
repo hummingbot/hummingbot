@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
 import { Solana } from './solana';
-import { SolanaConfig } from './solana.config';
 import { verifySolanaIsAvailable } from './solana-middlewares';
 import { asyncHandler } from '../../services/error-handler';
 import {
@@ -30,7 +29,7 @@ export namespace SolanaRoutes {
 
   export const getSolana = async (request: Request) => {
     const solana = await Solana.getInstance(
-      request.body.network || SolanaConfig.config.network.slug
+      request.body.network,
     );
     await solana.init();
 

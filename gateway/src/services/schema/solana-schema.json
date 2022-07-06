@@ -8,10 +8,10 @@
         "^..+$": {
           "type": "object",
           "properties": {
-            "rpcURL": { "type": "string" },
+            "nodeURL": { "type": "string" },
             "nativeCurrencySymbol": { "type": "string" }
           },
-          "required": ["rpcURL", "nativeCurrencySymbol"],
+          "required": ["nodeURL", "nativeCurrencySymbol"],
           "additionalProperties": false
         }
       },
@@ -22,8 +22,8 @@
     "transactionLamports": { "type": "integer" },
     "lamportsToSol": { "type": "number" },
     "timeToLive": { "type": "number" },
-    "customRpcUrl": { "type": ["string", "null"] },
-    "rpcAPIKey": { "type": ["string", "null"] }
+    "customNodeUrl": { "type": ["string", "null"] },
+    "nodeAPIKey": { "type": ["string", "null"] }
   },
   "required": [
     "networks",
