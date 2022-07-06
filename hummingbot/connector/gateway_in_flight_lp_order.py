@@ -2,8 +2,8 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.data_type.common import LPType, OrderType, TradeType
+from hummingbot.core.data_type.in_flight_order import OrderState
 
 s_decimal_0 = Decimal("0")
 
@@ -21,17 +21,17 @@ class GatewayInFlightLPOrder(GatewayInFlightOrder):
                  token_id: Optional[int],
                  creation_timestamp: float,
                  gas_price: Decimal,
-                 initial_state: str = "PENDING_CREATE"):
+                 initial_state: OrderState = OrderState.PENDING_CREATE):
         super().__init__(
-            client_order_id,
-            exchange_order_id,
-            trading_pair,
-            OrderType.LIMIT_MAKER,
-            TradeType.RANGE,
-            s_decimal_0,
-            s_decimal_0,
-            creation_timestamp,
-            initial_state,
+            client_order_id=client_order_id,
+            trading_pair=trading_pair,
+            order_type=OrderType.LIMIT_MAKER,
+            trade_type=TradeType.RANGE,
+            creation_timestamp=creation_timestamp,
+            price=s_decimal_0,
+            amount=s_decimal_0,
+            exchange_order_id=exchange_order_id,
+            initial_state=initial_state,
         )
         self.lp_type = lp_type
         self.lower_price = lower_price
@@ -44,6 +44,7 @@ class GatewayInFlightLPOrder(GatewayInFlightOrder):
         self.unclaimed_fee_0 = s_decimal_0
         self.unclaimed_fee_1 = s_decimal_0
         self.fee_tier = ""
+        self.fee_paid = s_decimal_0
         self.trade_id_set = set()
         self._gas_price = gas_price
         self.nonce = 0
@@ -51,11 +52,15 @@ class GatewayInFlightLPOrder(GatewayInFlightOrder):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"COMPLETED", "CANCELED", "REJECTED", "EXPIRED"}
+        return self.current_state in {OrderState.CANCELED, OrderState.COMPLETED, OrderState.FAILED, OrderState.REJECTED, OrderState.EXPIRED}
 
     @property
     def is_nft(self) -> bool:
-        return self.last_state == "CREATED"
+        return self.current_state in {OrderState.CREATED, OrderState.OPEN} and self.lp_type == LPType.ADD
+
+    @property
+    def last_state(self) -> OrderState:
+        return self.current_state
 
     def to_json(self) -> Dict[str, Any]:
         return {
@@ -76,11 +81,11 @@ class GatewayInFlightLPOrder(GatewayInFlightOrder):
             "fee_asset": self.fee_asset,
             "fee_paid": str(self.fee_paid),
             "creation_timestamp": self.creation_timestamp,
-            "last_state": self.last_state,
+            "last_state": str(self.last_state.value),
         }
 
     @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
+    def from_json(cls, data: Dict[str, Any]) -> "GatewayInFlightLPOrder":
         retval = GatewayInFlightLPOrder(
             client_order_id=data["client_order_id"],
             exchange_order_id=data["exchange_order_id"],
@@ -92,8 +97,8 @@ class GatewayInFlightLPOrder(GatewayInFlightOrder):
             amount_1=Decimal(data["amount_1"]),
             token_id=data["token_id"],
             creation_timestamp=data["creation_timestamp"],
-            gas_price=data["fee_paid"],
-            initial_state=data["last_state"]
+            gas_price=s_decimal_0,
+            initial_state=OrderState(int(data["last_state"]))
         )
         retval.adjusted_lower_price = Decimal(data["adjusted_lower_price"])
         retval.adjusted_upper_price = Decimal(data["adjusted_upper_price"])

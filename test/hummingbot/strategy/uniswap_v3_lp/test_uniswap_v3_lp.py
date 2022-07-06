@@ -7,9 +7,12 @@ from unittest.mock import patch
 
 from aiounittest import async_test
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway_in_flight_lp_order import GatewayInFlightLPOrder
 from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.in_flight_order import OrderState
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeSchema
 from hummingbot.core.event.events import LPType
 from hummingbot.core.network_iterator import NetworkStatus
@@ -29,7 +32,7 @@ s_decimal_0 = Decimal(0)
 class MockAMMLP(ConnectorBase):
     def __init__(self, name):
         self._name = name
-        super().__init__()
+        super().__init__(ClientConfigAdapter(ClientConfigMap()))
         self._pool_price = {}
         self._in_flight_orders = {}
         self._network_transaction_fee = TokenAmount("ETH", s_decimal_0)
@@ -60,7 +63,7 @@ class MockAMMLP(ConnectorBase):
             in_flight_order
             for in_flight_order in self._in_flight_orders.values()
             if not self.is_approval_order(in_flight_order)
-            and not in_flight_order.is_cancelling
+            and not in_flight_order.is_pending_cancel_confirmation
         ]
 
     async def get_price(self, trading_pair: str, fee: str) -> Decimal:
@@ -84,9 +87,9 @@ class MockAMMLP(ConnectorBase):
                                                                   amount_0=amount_0,
                                                                   amount_1=amount_1,
                                                                   token_id=1234,
-                                                                  creation_timestamp=0,
+                                                                  creation_timestamp=self.current_timestamp,
                                                                   gas_price=Decimal("1"))
-        self._in_flight_orders[order_id].last_state = "CREATED"
+        self._in_flight_orders[order_id].current_state = OrderState.CREATED
         return order_id
 
     def remove_liquidity(self, trading_pair: str, token_id: int, reduce_percent: Optional[int] = 100, **request_args) -> str:
@@ -100,7 +103,7 @@ class MockAMMLP(ConnectorBase):
                                                                   amount_0=s_decimal_0,
                                                                   amount_1=s_decimal_0,
                                                                   token_id=1234,
-                                                                  creation_timestamp=0,
+                                                                  creation_timestamp=self.current_timestamp,
                                                                   gas_price=Decimal("1"))
         return order_id
 
@@ -115,7 +118,7 @@ class MockAMMLP(ConnectorBase):
                                                                   amount_0=s_decimal_0,
                                                                   amount_1=s_decimal_0,
                                                                   token_id=1234,
-                                                                  creation_timestamp=0,
+                                                                  creation_timestamp=self.current_timestamp,
                                                                   gas_price=Decimal("1"))
         return order_id
 
