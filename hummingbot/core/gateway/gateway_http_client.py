@@ -6,6 +6,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import aiohttp
+import multidict
 
 from hummingbot.client.config.security import Security
 from hummingbot.core.event.events import TradeType
@@ -533,17 +534,19 @@ class GatewayHttpClient:
         name: str = None,
         names: List[str] = None,
     ) -> Dict[str, Any]:
-        request = {
+        # TODO change other get methods to use MultiDict when using lists!!!
+        request = multidict.MultiDict({
             "chain": chain,
             "network": network,
             "connector": connector,
-        }
+        })
 
         if name is not None:
             request["name"] = name
 
         if names is not None:
-            request["names"] = names
+            for name in names:
+                request.add("names", name)
 
         return await self.api_request("get", "clob/markets", request)
 
