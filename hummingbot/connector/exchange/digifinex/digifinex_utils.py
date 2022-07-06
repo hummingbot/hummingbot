@@ -45,16 +45,8 @@ def ms_timestamp_to_s(ms: int) -> int:
     return math.floor(ms / 1e3)
 
 
-# Request ID class
-class RequestId:
-    """
-    Generate request ids
-    """
-    _request_id: int = 0
-
-    @classmethod
-    def generate_request_id(cls) -> int:
-        return get_tracking_nonce()
+def generate_request_id() -> int:
+    return get_tracking_nonce()
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
