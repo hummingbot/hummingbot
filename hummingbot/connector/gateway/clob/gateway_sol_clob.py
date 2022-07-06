@@ -10,6 +10,7 @@ from async_timeout import timeout
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.clob import clob_constants as constant
+from hummingbot.connector.gateway.clob.clob_constants import FIVE_THOUSAND_LAMPORTS
 from hummingbot.connector.gateway.clob.clob_in_flight_order import CLOBInFlightOrder
 from hummingbot.connector.gateway.clob.clob_types import Chain
 from hummingbot.connector.gateway.clob.clob_utils import (
@@ -109,7 +110,7 @@ class GatewaySOLCLOB(ConnectorBase):
         self._auto_approve_task = None
         self._poll_notifier = None
         self._native_currency = None
-        self._network_transaction_fee: Optional[TokenAmount] = None
+        self._network_transaction_fee: Optional[TokenAmount] = TokenAmount('SOL', FIVE_THOUSAND_LAMPORTS)
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
         self._get_markets_task = None
         self._markets = None
@@ -414,7 +415,7 @@ class GatewaySOLCLOB(ConnectorBase):
             self.network, self.address, list(self._tokens)
         )
         for token, amount in resp['balances'].items():
-            if amount is 'null':
+            if amount == '-1':
                 ret_val[token] = constant.DECIMAL_ZERO
             else:
                 ret_val[token] = Decimal(str(constant.DECIMAL_INFINITY))
@@ -1074,8 +1075,9 @@ class GatewaySOLCLOB(ConnectorBase):
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
+            tokens = list(set(list(self._tokens) + [self._native_currency]))
             resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                self.chain, self.network, self.address, list(self._tokens) + [self._native_currency]
+                self.chain, self.network, self.address, tokens
             )
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
