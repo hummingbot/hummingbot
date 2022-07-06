@@ -12,7 +12,7 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "ETH-XBT"
 
 
-DEFAULT_FEES = [0.01, 0.05]
+DEFAULT_FEES = [0.01, 0.075]
 
 
 class BitmexPerpetualConfigMap(BaseConnectorConfigMap):
