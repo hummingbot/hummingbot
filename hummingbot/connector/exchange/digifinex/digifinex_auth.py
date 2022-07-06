@@ -1,12 +1,15 @@
-import hmac
-import hashlib
 import base64
+import hashlib
+import hmac
 import urllib
+from typing import Any, Dict, List
+
 import aiohttp
-from typing import List, Dict, Any
+
 # from hummingbot.connector.exchange.digifinex.digifinex_utils import get_ms_timestamp
 from hummingbot.connector.exchange.digifinex import digifinex_constants as Constants
 from hummingbot.connector.exchange.digifinex.time_patcher import TimePatcher
+
 # import time
 
 _time_patcher: TimePatcher = None
@@ -69,8 +72,8 @@ class DigifinexAuth():
         data[1] = str(nonce)
 
         data[2] = base64.b64encode(hmac.new(
-            self.secret_key.encode('latin-1'),
-            f"{nonce}".encode('latin-1'),
+            self.secret_key.encode('utf-8'),
+            f"{nonce}".encode('utf-8'),
             hashlib.sha256
         ).digest())
 
