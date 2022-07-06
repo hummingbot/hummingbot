@@ -56,8 +56,9 @@ uniswap_v3_lp_config_map = {
         on_validated=market_on_validated),
     "fee_tier": ConfigVar(
         key="fee_tier",
-        prompt="On which fee tier do you want to provide liquidity on? (LOW/MEDIUM/HIGH) ",
-        validator=lambda s: None if s in {"LOW",
+        prompt="On which fee tier do you want to provide liquidity on? (LOWEST/LOW/MEDIUM/HIGH) ",
+        validator=lambda s: None if s in {"LOWEST",
+                                          "LOW",
                                           "MEDIUM",
                                           "HIGH",
                                           } else
