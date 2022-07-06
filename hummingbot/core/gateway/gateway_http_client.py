@@ -138,12 +138,27 @@ class GatewayHttpClient:
             elif error_code == GatewayError.UnknownError.value:
                 self.logger().network("An unknown error has occurred on gateway. Please send your logs to dev@hummingbot.io")
 
+    @staticmethod
+    def is_timeout_error(e) -> bool:
+        """
+        It is hard to consistently return a timeout error from gateway
+        because it uses many different libraries to communicate with the
+        chains with their own idiosyncracies and they do not necessarilly
+        return HTTP status code 504 when there is a timeout error. It is
+        easier to rely on the presence of the word 'timeout' in the error.
+        """
+        error_string = str(e)
+        if re.search('timeout', error_string, re.IGNORECASE):
+            return True
+        return False
+
     async def api_request(
             self,
             method: str,
             path_url: str,
             params: Dict[str, Any] = {},
-            fail_silently: bool = False
+            fail_silently: bool = False,
+            use_body: bool = False,
     ) -> Optional[Union[Dict[str, Any], List[Dict[str, Any]]]]:
         """
         Sends an aiohttp request and waits for a response.
@@ -151,6 +166,7 @@ class GatewayHttpClient:
         :param path_url: The path url or the API end point
         :param params: A dictionary of required params for the end point
         :param fail_silently: used to determine if errors will be raise or silently ignored
+        :param use_body: used to determine if the request should sent the parameters in the body or as query string
         :returns A response in json format.
         """
         url = f"{self.base_url}/{path_url}"
@@ -160,7 +176,10 @@ class GatewayHttpClient:
         try:
             if method == "get":
                 if len(params) > 0:
-                    response = await client.get(url, params=params)
+                    if use_body:
+                        response = await client.get(url, json=params)
+                    else:
+                        response = await client.get(url, params=params)
                 else:
                     response = await client.get(url)
             elif method == "post":
@@ -198,20 +217,6 @@ class GatewayHttpClient:
                 raise e
 
         return parsed_response
-
-    @staticmethod
-    def is_timeout_error(e) -> bool:
-        """
-        It is hard to consistently return a timeout error from gateway
-        because it uses many different libraries to communicate with the
-        chains with their own idiosyncracies and they do not necessarilly
-        return HTTP status code 504 when there is a timeout error. It is
-        easier to rely on the presence of the word 'timeout' in the error.
-        """
-        error_string = str(e)
-        if re.search('timeout', error_string, re.IGNORECASE):
-            return True
-        return False
 
     async def ping_gateway(self) -> bool:
         try:
@@ -527,7 +532,7 @@ class GatewayHttpClient:
             "chain": chain,
             "network": network,
             "connector": connector,
-        })
+        }, use_body=True)
 
     async def clob_get_markets(
         self,
@@ -549,7 +554,7 @@ class GatewayHttpClient:
         if names is not None:
             request["names"] = names
 
-        return await self.api_request("post", "clob/markets", request)
+        return await self.api_request("get", "clob/markets", request, use_body=True)
 
     async def clob_get_order_books(
         self,
@@ -571,7 +576,7 @@ class GatewayHttpClient:
         if market_names is not None:
             request["marketNames"] = market_names
 
-        return await self.api_request("post", "clob/orderBooks", request)
+        return await self.api_request("get", "clob/orderBooks", request, use_body=True)
 
     async def clob_get_tickers(
         self,
@@ -593,7 +598,7 @@ class GatewayHttpClient:
         if market_names is not None:
             request["marketNames"] = market_names
 
-        return await self.api_request("post", "clob/tickers", request)
+        return await self.api_request("get", "clob/tickers", request, use_body=True)
 
     async def clob_get_orders(
         self,
@@ -619,7 +624,7 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("post", "clob/orders", request)
+        return await self.api_request("get", "clob/orders", request, use_body=True)
 
     async def clob_post_orders(
         self,
@@ -659,7 +664,7 @@ class GatewayHttpClient:
         }
 
         if owner_address is not None:
-            request["owner_address"] = owner_address
+            request["ownerAddress"] = owner_address
 
         if order is not None:
             request["order"] = order
@@ -693,7 +698,7 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("post", "clob/orders/open", request)
+        return await self.api_request("get", "clob/orders/open", request, use_body=True)
 
     async def clob_get_filled_orders(
         self,
@@ -719,7 +724,7 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("post", "clob/orders/filled", request)
+        return await self.api_request("get", "clob/orders/filled", request, use_body=True)
 
     async def clob_post_settle_funds(
         self,
@@ -779,7 +784,7 @@ class GatewayHttpClient:
         if names is not None:
             request["names"] = names
 
-        return await self.api_request("get", "serum/markets", request)
+        return await self.api_request("get", "serum/markets", request, use_body=True)
 
     async def serum_get_order_books(
         self,
@@ -801,7 +806,7 @@ class GatewayHttpClient:
         if market_names is not None:
             request["marketNames"] = market_names
 
-        return await self.api_request("get", "serum/orderBooks", request)
+        return await self.api_request("get", "serum/orderBooks", request, use_body=True)
 
     async def serum_get_tickers(
         self,
@@ -823,7 +828,7 @@ class GatewayHttpClient:
         if market_names is not None:
             request["marketNames"] = market_names
 
-        return await self.api_request("get", "serum/tickers", request)
+        return await self.api_request("get", "serum/tickers", request, use_body=True)
 
     async def serum_get_orders(
         self,
@@ -849,7 +854,7 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("get", "serum/orders", request)
+        return await self.api_request("get", "serum/orders", request, use_body=True)
 
     async def serum_post_orders(
         self,
@@ -923,7 +928,7 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("get", "serum/orders/open", request)
+        return await self.api_request("get", "serum/orders/open", request, use_body=True)
 
     async def serum_get_filled_orders(
         self,
@@ -949,7 +954,7 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("get", "serum/orders/filled", request)
+        return await self.api_request("get", "serum/orders/filled", request, use_body=True)
 
     async def serum_post_settle_funds(
         self,
