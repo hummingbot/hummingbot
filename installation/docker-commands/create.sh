@@ -47,7 +47,7 @@ echo
 echo "ℹ️  Confirm below if the instance and its folders are correct:"
 echo
 printf "%30s %5s\n" "Instance name:" "$INSTANCE_NAME"
-printf "%30s %5s\n" "Version:" "coinalpha/hummingbot:$TAG"
+printf "%30s %5s\n" "Version:" "hummingbot/hummingbot:$TAG"
 echo
 printf "%30s %5s\n" "Main folder path:" "$FOLDER"
 printf "%30s %5s\n" "Config files:" "├── $CONF_FOLDER"
@@ -77,6 +77,8 @@ create_instance () {
  mkdir $FOLDER
  # 2) Create subfolders for hummingbot files
  mkdir $CONF_FOLDER
+ mkdir $CONF_FOLDER/connectors
+ mkdir $CONF_FOLDER/strategies
  mkdir $LOGS_FOLDER
  mkdir $DATA_FOLDER
  mkdir $PMM_SCRIPTS_FOLDER
@@ -105,7 +107,7 @@ create_instance () {
  -e CERTS_FOLDER="$CERTS_FOLDER" \
  -e GATEWAY_LOGS_FOLDER="$GATEWAY_LOGS_FOLDER" \
  -e GATEWAY_CONF_FOLDER="$GATEWAY_CONF_FOLDER" \
- coinalpha/hummingbot:$TAG
+ hummingbot/hummingbot:$TAG
 }
 
 prompt_proceed

@@ -6,7 +6,7 @@ import { Uniswap } from '../../../../src/connectors/uniswap/uniswap';
 import { AmmRoutes } from '../../../../src/amm/amm.routes';
 import { patch, unpatch } from '../../../services/patch';
 import { gasCostInEthString } from '../../../../src/services/base';
-
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 let app: Express;
 let ethereum: Ethereum;
 let uniswap: Uniswap;
@@ -14,15 +14,27 @@ let uniswap: Uniswap;
 beforeAll(async () => {
   app = express();
   app.use(express.json());
+
   ethereum = Ethereum.getInstance('kovan');
+  patchEVMNonceManager(ethereum.nonceManager);
   await ethereum.init();
+
   uniswap = Uniswap.getInstance('ethereum', 'kovan');
   await uniswap.init();
+
   app.use('/amm', AmmRoutes.router);
+});
+
+beforeEach(() => {
+  patchEVMNonceManager(ethereum.nonceManager);
 });
 
 afterEach(() => {
   unpatch();
+});
+
+afterAll(async () => {
+  await ethereum.close();
 });
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
@@ -644,7 +656,7 @@ describe('POST /amm/estimateGas', () => {
         expect(res.body.network).toEqual('kovan');
         expect(res.body.gasPrice).toEqual(100);
         expect(res.body.gasCost).toEqual(
-          gasCostInEthString(100, uniswap.gasLimit)
+          gasCostInEthString(100, ethereum.gasLimit)
         );
       });
   });

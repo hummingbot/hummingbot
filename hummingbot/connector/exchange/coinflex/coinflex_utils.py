@@ -1,9 +1,10 @@
 from decimal import Decimal
 from typing import Any, Dict
 
+from pydantic import Field, SecretStr
+
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
-from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 CENTRALIZED = True
@@ -35,36 +36,62 @@ def decimal_val_or_none(string_value: str):
     return Decimal(string_value) if string_value else None
 
 
-KEYS = {
-    "coinflex_api_key":
-        ConfigVar(key="coinflex_api_key",
-                  prompt="Enter your CoinFLEX API key >>> ",
-                  required_if=using_exchange("coinflex"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "coinflex_api_secret":
-        ConfigVar(key="coinflex_api_secret",
-                  prompt="Enter your CoinFLEX API secret >>> ",
-                  required_if=using_exchange("coinflex"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class CoinflexConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="coinflex", client_data=None)
+    coinflex_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your CoinFLEX API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    coinflex_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your CoinFLEX API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "coinflex"
+
+
+KEYS = CoinflexConfigMap.construct()
 
 OTHER_DOMAINS = ["coinflex_test"]
-OTHER_DOMAINS_PARAMETER = {"coinflex_test": "test"}
+OTHER_DOMAINS_PARAMETER = {"coinflex_test": "coinflex_test"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"coinflex_test": "BTC-USDT"}
 OTHER_DOMAINS_DEFAULT_FEES = {"coinflex_test": [0.1, 0.1]}
-OTHER_DOMAINS_KEYS = {"coinflex_test": {
-    "coinflex_test_api_key":
-        ConfigVar(key="coinflex_test_api_key",
-                  prompt="Enter your CoinFLEX Staging API key >>> ",
-                  required_if=using_exchange("coinflex_test"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "coinflex_test_api_secret":
-        ConfigVar(key="coinflex_test_api_secret",
-                  prompt="Enter your CoinFLEX Staging API secret >>> ",
-                  required_if=using_exchange("coinflex_test"),
-                  is_secure=True,
-                  is_connect_key=True),
-}}
+
+
+class CoinflexTestConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="coinflex_test", client_data=None)
+    coinflex_test_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your CoinFLEX Staging API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    coinflex_test_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your CoinFLEX Staging API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "coinflex_test"
+
+
+OTHER_DOMAINS_KEYS = {"coinflex_test": CoinflexTestConfigMap.construct()}

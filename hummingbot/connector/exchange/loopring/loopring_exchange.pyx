@@ -10,13 +10,14 @@ from typing import (
     AsyncIterable,
     Dict,
     List,
-    Optional,
+    Optional, TYPE_CHECKING,
 )
 
 import aiohttp
 from ethsnarks_loopring import FQ, poseidon, PoseidonEdDSA, poseidon_params, SNARK_SCALAR_FIELD
 from libc.stdint cimport int64_t
 
+from hummingbot.connector.exchange.loopring.loopring_api_order_book_data_source import LoopringAPIOrderBookDataSource
 from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import \
     LoopringAPITokenConfigurationDataSource
 from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
@@ -47,6 +48,9 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -136,6 +140,7 @@ cdef class LoopringExchange(ExchangeBase):
         return s_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  loopring_accountid: int,
                  loopring_exchangeaddress: str,
                  loopring_private_key: str,
@@ -144,7 +149,7 @@ cdef class LoopringExchange(ExchangeBase):
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
-        super().__init__()
+        super().__init__(client_config_map)
 
         self._real_time_balance_update = True
 
@@ -153,14 +158,14 @@ cdef class LoopringExchange(ExchangeBase):
 
         self.API_REST_ENDPOINT = MAINNET_API_REST_ENDPOINT
         self.WS_ENDPOINT = MAINNET_WS_ENDPOINT
-        self._order_book_tracker = LoopringOrderBookTracker(
+        self._set_order_book_tracker(LoopringOrderBookTracker(
             trading_pairs=trading_pairs,
             rest_api_url=self.API_REST_ENDPOINT,
             websocket_url=self.WS_ENDPOINT,
             token_configuration = self._token_configuration
-        )
+        ))
         self._user_stream_tracker = LoopringUserStreamTracker(
-            orderbook_tracker_data_source=self._order_book_tracker.data_source,
+            orderbook_tracker_data_source=self.order_book_tracker.data_source,
             loopring_auth=self._loopring_auth
         )
         self._user_stream_event_listener_task = None
@@ -173,7 +178,7 @@ cdef class LoopringExchange(ExchangeBase):
         self._shared_client = None
         self._polling_update_task = None
 
-        self._loopring_accountid = int(loopring_accountid)
+        self._loopring_accountid = 0 if loopring_accountid == "" else int(loopring_accountid)
         self._loopring_exchangeid = loopring_exchangeaddress
         self._loopring_private_key = loopring_private_key
 
@@ -199,7 +204,7 @@ cdef class LoopringExchange(ExchangeBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "order_books_initialized": len(self.order_book_tracker.order_books) > 0,
             "account_balances": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
         }
@@ -213,7 +218,7 @@ cdef class LoopringExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef dict order_books = self._order_book_tracker.order_books
@@ -552,7 +557,7 @@ cdef class LoopringExchange(ExchangeBase):
     async def start_network(self):
         await self.stop_network()
         await self._token_configuration._configure()
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
 
         if self._trading_required:
             exchange_info = await self.api_request("GET", EXCHANGE_INFO_ROUTE)
@@ -571,7 +576,7 @@ cdef class LoopringExchange(ExchangeBase):
         self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
     async def stop_network(self):
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         self._pending_approval_tx_hashes.clear()
         self._polling_update_task = None
         if self._user_stream_tracker_task is not None:
@@ -985,3 +990,11 @@ cdef class LoopringExchange(ExchangeBase):
                 price: Decimal = s_decimal_NaN,
                 is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await LoopringAPIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await LoopringAPIOrderBookDataSource.get_last_traded_prices(trading_pairs=trading_pairs)

@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class NdaxWebSocketAdaptorTests(TestCase):
