@@ -276,7 +276,7 @@ export class Defikingdoms implements Uniswapish {
 
     const contract: Contract = new Contract(defikingdomsRouter, abi, wallet);
     if (nonce === undefined) {
-      nonce = await this.harmony.nonceManager.getNonce(wallet.address);
+      nonce = await this.harmony.nonceManager.getNextNonce(wallet.address);
     }
 
     //* The harmony chain doesn't support maxFeePerGas and MaxPriorityFeePerGas

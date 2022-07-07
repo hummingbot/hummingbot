@@ -143,9 +143,10 @@ export class Harmony extends EthereumBase implements Ethereumish {
     }*/
     if (reqSpender === 'sushiswap') {
       spender = '0x1b02da8cb0d097eb8d57a175b88c7d8b47997506';
-    }
-    if (reqSpender === 'viperswap') {
+    } else if (reqSpender === 'viperswap') {
       spender = '0xf012702a5f0e54015362cbca26a26fc90aa832a3';
+    } else if (reqSpender === 'defikingdoms') {
+      spender = '0x24ad62502d1C652Cc7684081169D04896aC20f30';
     } else {
       spender = reqSpender;
     }
