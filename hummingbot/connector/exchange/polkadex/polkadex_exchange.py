@@ -1,7 +1,7 @@
 import asyncio
 import datetime
 from decimal import Decimal
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import websockets
@@ -10,27 +10,33 @@ from dateutil import parser
 from gql import Client
 from gql.transport.appsync_auth import AppSyncApiKeyAuthentication
 from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
-from hummingbot.connector.trading_rule import TradingRule
 from substrateinterface import Keypair, KeypairType, SubstrateInterface
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
-from hummingbot.connector.exchange.polkadex.graphql.market.market import get_recent_trades, get_all_markets
+from hummingbot.connector.exchange.polkadex.graphql.market.market import get_all_markets, get_recent_trades
 from hummingbot.connector.exchange.polkadex.graphql.user.streams import on_balance_update, on_order_update
-from hummingbot.connector.exchange.polkadex.graphql.user.user import get_all_balances_by_main_account, \
-    get_main_acc_from_proxy_acc, find_order_by_main_account
-from hummingbot.connector.exchange.polkadex.polkadex_constants import MIN_PRICE, MIN_QTY, POLKADEX_SS58_PREFIX, \
-    UPDATE_ORDER_STATUS_MIN_INTERVAL
+from hummingbot.connector.exchange.polkadex.graphql.user.user import (
+    find_order_by_main_account,
+    get_all_balances_by_main_account,
+    get_main_acc_from_proxy_acc,
+)
+from hummingbot.connector.exchange.polkadex.polkadex_constants import (
+    MIN_PRICE,
+    MIN_QTY,
+    POLKADEX_SS58_PREFIX,
+    UPDATE_ORDER_STATUS_MIN_INTERVAL,
+)
 from hummingbot.connector.exchange.polkadex.polkadex_order_book_data_source import PolkadexOrderbookDataSource
-from hummingbot.connector.exchange.polkadex.polkadex_payload import create_order, cancel_order
+from hummingbot.connector.exchange.polkadex.polkadex_payload import cancel_order, create_order
 from hummingbot.connector.exchange.polkadex.python_user_stream_data_source import PolkadexUserStreamData
 from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount, \
-    DeductedFromReturnsTradeFee
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
