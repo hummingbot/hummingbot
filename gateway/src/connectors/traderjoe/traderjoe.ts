@@ -28,7 +28,7 @@ export class Traderjoe implements Uniswapish {
   private avalanche: Avalanche;
   private _router: string;
   private _routerAbi: ContractInterface;
-  private _gasEstimate: number;
+  private _gasLimitEstimate: number;
   private _ttl: number;
   private chainId;
   private tokenList: Record<string, Token> = {};
@@ -41,7 +41,7 @@ export class Traderjoe implements Uniswapish {
     this._router = config.routerAddress(network);
     this._ttl = config.ttl;
     this._routerAbi = routerAbi.abi;
-    this._gasEstimate = config.gasEstimate;
+    this._gasLimitEstimate = config.gasLimitEstimate;
   }
 
   public static getInstance(chain: string, network: string): Traderjoe {
@@ -100,10 +100,10 @@ export class Traderjoe implements Uniswapish {
   }
 
   /**
-   * Default gas limit for swap transactions.
+   * Default gas limit estimate for swap transactions.
    */
-  public get gasEstimate(): number {
-    return this._gasEstimate;
+  public get gasLimitEstimate(): number {
+    return this._gasLimitEstimate;
   }
 
   /**

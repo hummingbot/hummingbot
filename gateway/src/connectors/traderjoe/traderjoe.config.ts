@@ -4,7 +4,7 @@ import { AvailableNetworks } from '../../services/config-manager-types';
 export namespace TraderjoeConfig {
   export interface NetworkConfig {
     allowedSlippage: string;
-    gasEstimate: number;
+    gasLimitEstimate: number;
     ttl: number;
     routerAddress: (network: string) => string;
     tradingTypes: Array<string>;
@@ -15,7 +15,9 @@ export namespace TraderjoeConfig {
     allowedSlippage: ConfigManagerV2.getInstance().get(
       'traderjoe.allowedSlippage'
     ),
-    gasEstimate: ConfigManagerV2.getInstance().get('traderjoe.gasEstimate'),
+    gasLimitEstimate: ConfigManagerV2.getInstance().get(
+      'traderjoe.gasLimitEstimate'
+    ),
     ttl: ConfigManagerV2.getInstance().get('traderjoe.ttl'),
     routerAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(
