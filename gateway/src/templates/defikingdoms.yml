@@ -12,4 +12,3 @@ ttl: 300
 contractAddresses:
   mainnet:
     routerAddress: '0x24ad62502d1C652Cc7684081169D04896aC20f30'
-    initCodeHash: '0xf1c21a825f13eff153022ddea53156462dd79972b6f88adf06f79ca8b042c3c1'
