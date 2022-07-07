@@ -41,7 +41,7 @@ export class Pangolin implements Uniswapish {
     this._router = config.routerAddress(network);
     this._ttl = config.ttl;
     this._routerAbi = routerAbi.abi;
-    this._gasEstimate = this.avalanche.gasLimit;
+    this._gasEstimate = config.gasEstimate;
   }
 
   public static getInstance(chain: string, network: string): Pangolin {
