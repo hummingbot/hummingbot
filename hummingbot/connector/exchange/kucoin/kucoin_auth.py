@@ -12,7 +12,6 @@ from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WS
 
 
 class KucoinAuth(AuthBase):
-
     def __init__(self, api_key: str, passphrase: str, secret_key: str, time_provider: TimeSynchronizer):
         self.api_key: str = api_key
         self.passphrase: str = passphrase
@@ -70,7 +69,7 @@ class KucoinAuth(AuthBase):
         path_url = f"/api{request.url.split('/api')[-1]}"
         if request.params:
             sorted_params = self.keysort(request.params)
-            query_string_components = urlencode(sorted_params)
+            query_string_components = urlencode(sorted_params, safe=',')
             path_url = f"{path_url}?{query_string_components}"
 
         if request.data is not None:

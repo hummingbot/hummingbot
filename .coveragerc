@@ -4,6 +4,7 @@ omit =
         hummingbot/core/gateway/*
         hummingbot/core/management/*
         hummingbot/client/config/config_helpers.py
+        hummingbot/client/config/conf_migration.py
         hummingbot/client/config/security.py
         hummingbot/client/hummingbot_application.py
         hummingbot/client/command/*
@@ -28,7 +29,6 @@ omit =
         hummingbot/connector/exchange/k2*
         hummingbot/connector/exchange/liquid*
         hummingbot/connector/exchange/loopring*
-        hummingbot/connector/exchange/okex*
         hummingbot/connector/exchange/paper_trade*
         hummingbot/connector/exchange/probit*
         hummingbot/connector/exchange/wazirx*
@@ -41,6 +41,7 @@ omit =
         hummingbot/strategy/*/start.py
         hummingbot/strategy/dev*
         hummingbot/strategy/hedge*
+        hummingbot/user/user_balances.py        
 dynamic_context = test_function
 branch = true
 

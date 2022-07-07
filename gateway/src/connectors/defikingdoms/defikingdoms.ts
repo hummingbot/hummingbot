@@ -21,7 +21,7 @@ import {
   Trade,
   Pair,
   SwapParameters,
-// } from '@defikingdoms/sdk';
+  // } from '@defikingdoms/sdk';
 } from '@switchboard-xyz/defikingdoms-sdk';
 import { BigNumber, Transaction, Wallet } from 'ethers';
 import { logger } from '../../services/logger';
@@ -301,16 +301,13 @@ export class Defikingdoms implements Uniswapish {
         maxPriorityFeePerGas,
       });
     } else {
-      tx = await contract[result.methodName](
-      ...result.args,
-      {
+      tx = await contract[result.methodName](...result.args, {
         gasPrice: (gasPrice * 1e9).toFixed(0),
         gasLimit: gasLimit.toFixed(0),
         value: result.value,
         nonce: nonce,
-      }
-    );
-   }
+      });
+    }
 
     logger.info(JSON.stringify(tx));
     await this.harmony.nonceManager.commitNonce(wallet.address, nonce);

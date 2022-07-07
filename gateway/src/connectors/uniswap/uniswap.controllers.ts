@@ -1,11 +1,15 @@
 import Decimal from 'decimal.js-light';
-import { BigNumber, Wallet } from 'ethers';
+import { BigNumber, Transaction, Wallet } from 'ethers';
+import { Token } from '@uniswap/sdk-core';
+import { FeeAmount } from '@uniswap/v3-sdk';
 import {
   HttpException,
   LOAD_WALLET_ERROR_CODE,
   LOAD_WALLET_ERROR_MESSAGE,
   TOKEN_NOT_SUPPORTED_ERROR_CODE,
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
+  PRICE_FAILED_ERROR_CODE,
+  PRICE_FAILED_ERROR_MESSAGE,
   TRADE_FAILED_ERROR_CODE,
   TRADE_FAILED_ERROR_MESSAGE,
   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
@@ -21,6 +25,7 @@ import {
   Ethereumish,
   ExpectedTrade,
   Uniswapish,
+  UniswapLPish,
   Tokenish,
   Fractionish,
 } from '../../services/common-interfaces';
@@ -31,6 +36,15 @@ import {
   PriceResponse,
   TradeRequest,
   TradeResponse,
+  AddLiquidityRequest,
+  AddLiquidityResponse,
+  RemoveLiquidityRequest,
+  RemoveLiquidityResponse,
+  CollectEarnedFeesRequest,
+  PositionRequest,
+  PositionResponse,
+  PoolPriceRequest,
+  PoolPriceResponse,
 } from '../../amm/amm.requests';
 
 export interface TradeInfo {
@@ -38,6 +52,39 @@ export interface TradeInfo {
   quoteToken: Tokenish;
   requestAmount: BigNumber;
   expectedTrade: ExpectedTrade;
+}
+
+export async function txWriteData(
+  ethereumish: Ethereumish,
+  address: string,
+  maxFeePerGas?: string,
+  maxPriorityFeePerGas?: string
+): Promise<{
+  wallet: Wallet;
+  maxFeePerGasBigNumber: BigNumber | undefined;
+  maxPriorityFeePerGasBigNumber: BigNumber | undefined;
+}> {
+  let maxFeePerGasBigNumber: BigNumber | undefined;
+  if (maxFeePerGas) {
+    maxFeePerGasBigNumber = BigNumber.from(maxFeePerGas);
+  }
+  let maxPriorityFeePerGasBigNumber: BigNumber | undefined;
+  if (maxPriorityFeePerGas) {
+    maxPriorityFeePerGasBigNumber = BigNumber.from(maxPriorityFeePerGas);
+  }
+
+  let wallet: Wallet;
+  try {
+    wallet = await ethereumish.getWallet(address);
+  } catch (err) {
+    logger.error(`Wallet ${address} not available.`);
+    throw new HttpException(
+      500,
+      LOAD_WALLET_ERROR_MESSAGE + err,
+      LOAD_WALLET_ERROR_CODE
+    );
+  }
+  return { wallet, maxFeePerGasBigNumber, maxPriorityFeePerGasBigNumber };
 }
 
 export async function getTradeInfo(
@@ -109,8 +156,8 @@ export async function price(
     if (e instanceof Error) {
       throw new HttpException(
         500,
-        TRADE_FAILED_ERROR_MESSAGE + e.message,
-        TRADE_FAILED_ERROR_CODE
+        PRICE_FAILED_ERROR_MESSAGE + e.message,
+        PRICE_FAILED_ERROR_CODE
       );
     } else {
       throw new HttpException(
@@ -127,7 +174,7 @@ export async function price(
   const tradePrice =
     req.side === 'BUY' ? trade.executionPrice.invert() : trade.executionPrice;
 
-  const gasLimit = uniswapish.gasLimit;
+  const gasLimit = ethereumish.gasLimit;
   const gasPrice = ethereumish.gasPrice;
   return {
     network: ethereumish.chain,
@@ -153,29 +200,14 @@ export async function trade(
 ): Promise<TradeResponse> {
   const startTimestamp: number = Date.now();
 
-  const { limitPrice, maxFeePerGas, maxPriorityFeePerGas, allowedSlippage } =
-    req;
-
-  let maxFeePerGasBigNumber: BigNumber | undefined;
-  if (maxFeePerGas) {
-    maxFeePerGasBigNumber = BigNumber.from(maxFeePerGas);
-  }
-  let maxPriorityFeePerGasBigNumber: BigNumber | undefined;
-  if (maxPriorityFeePerGas) {
-    maxPriorityFeePerGasBigNumber = BigNumber.from(maxPriorityFeePerGas);
-  }
-
-  let wallet: Wallet;
-  try {
-    wallet = await ethereumish.getWallet(req.address);
-  } catch (err) {
-    logger.error(`Wallet ${req.address} not available.`);
-    throw new HttpException(
-      500,
-      LOAD_WALLET_ERROR_MESSAGE + err,
-      LOAD_WALLET_ERROR_CODE
+  const limitPrice = req.limitPrice;
+  const { wallet, maxFeePerGasBigNumber, maxPriorityFeePerGasBigNumber } =
+    await txWriteData(
+      ethereumish,
+      req.address,
+      req.maxFeePerGas,
+      req.maxPriorityFeePerGas
     );
-  }
 
   let tradeInfo: TradeInfo;
   try {
@@ -206,7 +238,7 @@ export async function trade(
   }
 
   const gasPrice: number = ethereumish.gasPrice;
-  const gasLimit: number = uniswapish.gasLimit;
+  const gasLimit: number = ethereumish.gasLimit;
 
   if (req.side === 'BUY') {
     const price: Fractionish =
@@ -233,11 +265,11 @@ export async function trade(
       uniswapish.router,
       uniswapish.ttl,
       uniswapish.routerAbi,
-      uniswapish.gasLimit,
+      gasLimit,
       req.nonce,
       maxFeePerGasBigNumber,
       maxPriorityFeePerGasBigNumber,
-      allowedSlippage
+      req.allowedSlippage
     );
 
     if (tx.hash) {
@@ -299,7 +331,7 @@ export async function trade(
       uniswapish.router,
       uniswapish.ttl,
       uniswapish.routerAbi,
-      uniswapish.gasLimit,
+      gasLimit,
       req.nonce,
       maxFeePerGasBigNumber,
       maxPriorityFeePerGasBigNumber
@@ -329,14 +361,242 @@ export async function trade(
   }
 }
 
+export async function addLiquidity(
+  ethereumish: Ethereumish,
+  uniswapish: UniswapLPish,
+  req: AddLiquidityRequest
+): Promise<AddLiquidityResponse> {
+  const startTimestamp: number = Date.now();
+
+  const { wallet, maxFeePerGasBigNumber, maxPriorityFeePerGasBigNumber } =
+    await txWriteData(
+      ethereumish,
+      req.address,
+      req.maxFeePerGas,
+      req.maxPriorityFeePerGas
+    );
+
+  const fee = FeeAmount[req.fee.toUpperCase() as keyof typeof FeeAmount];
+
+  const token0: Token = getFullTokenFromSymbol(
+    ethereumish,
+    uniswapish,
+    req.token0
+  ) as Token;
+
+  const token1: Token = getFullTokenFromSymbol(
+    ethereumish,
+    uniswapish,
+    req.token1
+  ) as Token;
+
+  const gasPrice: number = ethereumish.gasPrice;
+  const gasLimit: number = ethereumish.gasLimit;
+
+  const invertTokenOrder: boolean = token0.address > token1.address;
+
+  const tx = await uniswapish.addPosition(
+    wallet,
+    invertTokenOrder ? token1 : token0,
+    invertTokenOrder ? token0 : token1,
+    invertTokenOrder ? req.amount1 : req.amount0,
+    invertTokenOrder ? req.amount0 : req.amount1,
+    fee,
+    req.lowerPrice,
+    req.upperPrice,
+    req.tokenId ? req.tokenId : 0,
+    gasLimit,
+    gasPrice,
+    req.nonce,
+    maxFeePerGasBigNumber,
+    maxPriorityFeePerGasBigNumber
+  );
+
+  logger.info(
+    `Liquidity added, txHash is ${tx.hash}, nonce is ${tx.nonce}, gasPrice is ${gasPrice}.`
+  );
+
+  return {
+    network: ethereumish.chain,
+    timestamp: startTimestamp,
+    latency: latency(startTimestamp, Date.now()),
+    token0: invertTokenOrder ? token1.address : token0.address,
+    token1: invertTokenOrder ? token0.address : token1.address,
+    fee: req.fee,
+    tokenId: req.tokenId ? req.tokenId : 0,
+    gasPrice: gasPrice,
+    gasPriceToken: ethereumish.nativeTokenSymbol,
+    gasLimit,
+    gasCost: gasCostInEthString(gasPrice, gasLimit),
+    nonce: tx.nonce,
+    txHash: tx.hash,
+  };
+}
+
+export async function removeLiquidity(
+  ethereumish: Ethereumish,
+  uniswapish: UniswapLPish,
+  req: RemoveLiquidityRequest
+): Promise<RemoveLiquidityResponse> {
+  const startTimestamp: number = Date.now();
+
+  const { wallet, maxFeePerGasBigNumber, maxPriorityFeePerGasBigNumber } =
+    await txWriteData(
+      ethereumish,
+      req.address,
+      req.maxFeePerGas,
+      req.maxPriorityFeePerGas
+    );
+
+  const gasPrice: number = ethereumish.gasPrice;
+  const gasLimit: number = ethereumish.gasLimit;
+
+  const tx = await uniswapish.reducePosition(
+    wallet,
+    req.tokenId,
+    req.decreasePercent ? req.decreasePercent : 100,
+    gasLimit,
+    gasPrice,
+    req.nonce,
+    maxFeePerGasBigNumber,
+    maxPriorityFeePerGasBigNumber
+  );
+
+  logger.info(
+    `Liquidity removed, txHash is ${tx.hash}, nonce is ${tx.nonce}, gasPrice is ${gasPrice}.`
+  );
+
+  return {
+    network: ethereumish.chain,
+    timestamp: startTimestamp,
+    latency: latency(startTimestamp, Date.now()),
+    tokenId: req.tokenId,
+    gasPrice: gasPrice,
+    gasPriceToken: ethereumish.nativeTokenSymbol,
+    gasLimit,
+    gasCost: gasCostInEthString(gasPrice, gasLimit),
+    nonce: tx.nonce,
+    txHash: tx.hash,
+  };
+}
+
+export async function collectEarnedFees(
+  ethereumish: Ethereumish,
+  uniswapish: UniswapLPish,
+  req: CollectEarnedFeesRequest
+): Promise<RemoveLiquidityResponse> {
+  const startTimestamp: number = Date.now();
+
+  const { wallet, maxFeePerGasBigNumber, maxPriorityFeePerGasBigNumber } =
+    await txWriteData(
+      ethereumish,
+      req.address,
+      req.maxFeePerGas,
+      req.maxPriorityFeePerGas
+    );
+
+  const gasPrice: number = ethereumish.gasPrice;
+  const gasLimit: number = ethereumish.gasLimit;
+
+  const tx: Transaction = <Transaction>(
+    await uniswapish.collectFees(
+      wallet,
+      req.tokenId,
+      gasLimit,
+      gasPrice,
+      req.nonce,
+      maxFeePerGasBigNumber,
+      maxPriorityFeePerGasBigNumber
+    )
+  );
+
+  logger.info(
+    `Fees collected, txHash is ${tx.hash}, nonce is ${tx.nonce}, gasPrice is ${gasPrice}.`
+  );
+
+  return {
+    network: ethereumish.chain,
+    timestamp: startTimestamp,
+    latency: latency(startTimestamp, Date.now()),
+    tokenId: req.tokenId,
+    gasPrice: gasPrice,
+    gasPriceToken: ethereumish.nativeTokenSymbol,
+    gasLimit,
+    gasCost: gasCostInEthString(gasPrice, gasLimit),
+    nonce: tx.nonce,
+    txHash: tx.hash,
+  };
+}
+
+export async function positionInfo(
+  ethereumish: Ethereumish,
+  uniswapish: UniswapLPish,
+  req: PositionRequest
+): Promise<PositionResponse> {
+  const startTimestamp: number = Date.now();
+
+  const posInfo = await uniswapish.getPosition(req.tokenId);
+
+  logger.info(`Position info for position ${req.tokenId} retrieved.`);
+
+  return {
+    network: ethereumish.chain,
+    timestamp: startTimestamp,
+    latency: latency(startTimestamp, Date.now()),
+    ...posInfo,
+  };
+}
+
+export async function poolPrice(
+  ethereumish: Ethereumish,
+  uniswapish: UniswapLPish,
+  req: PoolPriceRequest
+): Promise<PoolPriceResponse> {
+  const startTimestamp: number = Date.now();
+
+  const token0: Token = getFullTokenFromSymbol(
+    ethereumish,
+    uniswapish,
+    req.token0
+  ) as Token;
+
+  const token1: Token = getFullTokenFromSymbol(
+    ethereumish,
+    uniswapish,
+    req.token1
+  ) as Token;
+
+  const fee = FeeAmount[req.fee.toUpperCase() as keyof typeof FeeAmount];
+
+  const prices = await uniswapish.poolPrice(
+    token0,
+    token1,
+    fee,
+    req.period,
+    req.interval
+  );
+
+  return {
+    network: ethereumish.chain,
+    timestamp: startTimestamp,
+    latency: latency(startTimestamp, Date.now()),
+    token0: token0.address,
+    token1: token1.address,
+    fee: req.fee,
+    period: req.period,
+    interval: req.interval,
+    prices: prices,
+  };
+}
+
 export function getFullTokenFromSymbol(
   ethereumish: Ethereumish,
-  uniswapish: Uniswapish,
+  uniswapish: Uniswapish | UniswapLPish,
   tokenSymbol: string
-): Tokenish {
+): Tokenish | Token {
   const tokenInfo: TokenInfo | undefined =
     ethereumish.getTokenBySymbol(tokenSymbol);
-  let fullToken: Tokenish | undefined;
+  let fullToken: Tokenish | Token | undefined;
   if (tokenInfo) {
     fullToken = uniswapish.getTokenByAddress(tokenInfo.address);
   }
@@ -351,10 +611,10 @@ export function getFullTokenFromSymbol(
 
 export async function estimateGas(
   ethereumish: Ethereumish,
-  uniswapish: Uniswapish
+  _uniswapish: Uniswapish
 ): Promise<EstimateGasResponse> {
   const gasPrice: number = ethereumish.gasPrice;
-  const gasLimit: number = uniswapish.gasLimit;
+  const gasLimit: number = ethereumish.gasLimit;
   return {
     network: ethereumish.chain,
     timestamp: Date.now(),

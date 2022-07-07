@@ -3,6 +3,8 @@ from decimal import Decimal
 from typing import Awaitable, Optional
 from unittest import TestCase
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bitfinex.bitfinex_exchange import BitfinexExchange
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import TokenAmount
@@ -28,8 +30,10 @@ class BitfinexExchangeTests(TestCase):
 
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = BitfinexExchange(
+            client_config_map=self.client_config_map,
             bitfinex_api_key="testAPIKey",
             bitfinex_secret_key="testSecret",
             trading_pairs=[self.trading_pair],

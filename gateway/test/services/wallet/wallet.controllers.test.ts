@@ -15,7 +15,6 @@ import {
 } from '../../../src/services/error-handler';
 
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
-
 let avalanche: Avalanche;
 let eth: Ethereum;
 let harmony: Harmony;
@@ -24,15 +23,19 @@ beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
 
   avalanche = Avalanche.getInstance('fuji');
-
   eth = Ethereum.getInstance('kovan');
-
   harmony = Harmony.getInstance('testnet');
 });
 
 beforeEach(() =>
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a')
 );
+
+afterAll(async () => {
+  await avalanche.close();
+  await eth.close();
+  await harmony.close();
+});
 
 afterEach(() => unpatch());
 

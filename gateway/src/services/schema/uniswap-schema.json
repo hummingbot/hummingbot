@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "maximumHops": { "type": "integer" },
     "versions": {
       "type": "object",
       "patternProperties": {
@@ -9,10 +10,9 @@
           "type": "object",
           "properties": {
             "allowedSlippage": { "type": "string" },
-            "gasLimit": { "type": "integer" },
             "ttl": { "type": "integer" }
           },
-          "required": ["allowedSlippage", "gasLimit", "ttl"],
+          "required": ["allowedSlippage", "ttl"],
           "additionalProperties": false
         }
       },
@@ -24,13 +24,11 @@
         "^\\w+$": {
           "type": "object",
           "properties": {
-            "uniswapV2RouterAddress": { "type": "string" },
-            "uniswapV3RouterAddress": { "type": "string" },
+            "uniswapV3SmartOrderRouterAddress": { "type": "string" },
             "uniswapV3NftManagerAddress": { "type": "string" }
           },
           "required": [
-            "uniswapV2RouterAddress",
-            "uniswapV3RouterAddress",
+            "uniswapV3SmartOrderRouterAddress",
             "uniswapV3NftManagerAddress"
           ],
           "additionalProperties": false
@@ -40,5 +38,5 @@
     }
   },
   "additionalProperties": false,
-  "required": ["versions", "contractAddresses"]
+  "required": ["maximumHops", "versions", "contractAddresses"]
 }

@@ -1,17 +1,13 @@
 import re
+from typing import Any, Dict, Optional, Tuple
+
 from dateutil.parser import parse as dateparse
-from typing import (
-    Any,
-    Dict,
-    Optional,
-    Tuple,
-)
+from pydantic import Field, SecretStr
 
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
-from .altmarkets_constants import Constants
 
+from .altmarkets_constants import Constants
 
 TRADING_PAIR_SPLITTER = re.compile(Constants.TRADING_PAIR_SPLITTER)
 
@@ -78,17 +74,29 @@ def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     return f"{Constants.HBOT_BROKER_ID}-{side}{base_str}{quote_str}{get_tracking_nonce()}"
 
 
-KEYS = {
-    "altmarkets_api_key":
-        ConfigVar(key="altmarkets_api_key",
-                  prompt=f"Enter your {Constants.EXCHANGE_NAME} API key >>> ",
-                  required_if=using_exchange("altmarkets"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "altmarkets_secret_key":
-        ConfigVar(key="altmarkets_secret_key",
-                  prompt=f"Enter your {Constants.EXCHANGE_NAME} secret key >>> ",
-                  required_if=using_exchange("altmarkets"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class AltmarketsConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="altmarkets", client_data=None)
+    altmarkets_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: f"Enter your {Constants.EXCHANGE_NAME} API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    altmarkets_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: f"Enter your {Constants.EXCHANGE_NAME} secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "altmarkets"
+
+
+KEYS = AltmarketsConfigMap.construct()

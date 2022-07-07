@@ -7,6 +7,8 @@ import { EthereumConfig, getEthereumConfig } from './ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { UniswapConfig } from '../../connectors/uniswap/uniswap.config';
 import { Ethereumish } from '../../services/common-interfaces';
+import { SushiswapConfig } from '../../connectors/sushiswap/sushiswap.config';
+import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
 // MKR does not match the ERC20 perfectly so we need to use a separate ABI.
 const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
@@ -16,7 +18,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   private _ethGasStationUrl: string;
   private _gasPrice: number;
   private _gasPriceRefreshInterval: number | null;
-  private _gasPriceLastUpdated: Date | null;
   private _nativeTokenSymbol: string;
   private _chain: string;
   private _requestCount: number;
@@ -30,7 +31,10 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       config.network.nodeURL + config.nodeAPIKey,
       config.network.tokenListSource,
       config.network.tokenListType,
-      config.manualGasPrice
+      config.manualGasPrice,
+      config.gasLimit,
+      ConfigManagerV2.getInstance().get('database.nonceDbPath'),
+      ConfigManagerV2.getInstance().get('database.transactionDbPath')
     );
     this._chain = network;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
@@ -43,7 +47,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       config.network.gasPriceRefreshInterval !== undefined
         ? config.network.gasPriceRefreshInterval
         : null;
-    this._gasPriceLastUpdated = null;
 
     this.updateGasPrice();
 
@@ -96,10 +99,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     return this._nativeTokenSymbol;
   }
 
-  public get gasPriceLastDated(): Date | null {
-    return this._gasPriceLastUpdated;
-  }
-
   public get requestCount(): number {
     return this._requestCount;
   }
@@ -131,10 +130,14 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       // divide by 10 to convert it to Gwei
       this._gasPrice = data[EthereumConfig.ethGasStationConfig.gasLevel] / 10;
     } else {
-      this._gasPrice = await this.getGasPriceFromEthereumNode();
+      const gasPrice = await this.getGasPriceFromEthereumNode();
+      if (gasPrice !== null) {
+        this._gasPrice = gasPrice;
+      } else {
+        logger.info('gasPrice is unexpectedly null.');
+      }
     }
 
-    this._gasPriceLastUpdated = new Date();
     setTimeout(
       this.updateGasPrice.bind(this),
       this._gasPriceRefreshInterval * 1000
@@ -147,9 +150,12 @@ export class Ethereum extends EthereumBase implements Ethereumish {
    */
   async getGasPriceFromEthereumNode(): Promise<number> {
     const baseFee: BigNumber = await this.provider.getGasPrice();
-    const priorityFee: BigNumber = BigNumber.from(
-      await this.provider.send('eth_maxPriorityFeePerGas', [])
-    );
+    let priorityFee: BigNumber = BigNumber.from('0');
+    if (this._chain === 'mainnet') {
+      priorityFee = BigNumber.from(
+        await this.provider.send('eth_maxPriorityFeePerGas', [])
+      );
+    }
     return baseFee.add(priorityFee).toNumber() * 1e-9;
   }
 
@@ -165,7 +171,13 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   getSpender(reqSpender: string): string {
     let spender: string;
     if (reqSpender === 'uniswap') {
-      spender = UniswapConfig.config.uniswapV2RouterAddress(this._chain);
+      spender = UniswapConfig.config.uniswapV3SmartOrderRouterAddress(
+        this._chain
+      );
+    } else if (reqSpender === 'sushiswap') {
+      spender = SushiswapConfig.config.sushiswapRouterAddress(this._chain);
+    } else if (reqSpender === 'uniswapLP') {
+      spender = UniswapConfig.config.uniswapV3NftManagerAddress(this._chain);
     } else {
       spender = reqSpender;
     }
@@ -178,5 +190,12 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       'Canceling any existing transaction(s) with nonce number ' + nonce + '.'
     );
     return this.cancelTxWithGasPrice(wallet, nonce, this._gasPrice * 2);
+  }
+
+  async close() {
+    await super.close();
+    if (this._chain in Ethereum._instances) {
+      delete Ethereum._instances[this._chain];
+    }
   }
 }
