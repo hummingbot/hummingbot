@@ -11,13 +11,9 @@
         "^\\w+$": {
           "type": "object",
           "properties": {
-            "routerAddress": { "type": "string" },
-	    "initCodeHash": { "type": "string" }
+            "routerAddress": { "type": "string" }
           },
-          "required": [
-            "routerAddress",
-            "initCodeHash"
-	  ],
+          "required": ["routerAddress"],
           "additionalProperties": false
         }
       },

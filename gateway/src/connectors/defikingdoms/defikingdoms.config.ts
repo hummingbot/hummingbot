@@ -24,7 +24,7 @@ export namespace DefikingdomsConfig {
     availableNetworks: [
       {
         chain: 'harmony',
-        networks: ['mainnet', 'testnet'],
+        networks: ['mainnet'],
       },
     ],
   };
