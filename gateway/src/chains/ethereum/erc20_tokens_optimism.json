@@ -1,0 +1,15 @@
+{
+  "name": "optimism",
+  "tokens": [
+    {
+      "symbol": "WETH",
+      "address": "0x4200000000000000000000000000000000000006",
+      "decimals": 18
+    },
+    {
+      "symbol": "DAI",
+      "address": "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
+      "decimals": 18
+    }
+  ]
+}

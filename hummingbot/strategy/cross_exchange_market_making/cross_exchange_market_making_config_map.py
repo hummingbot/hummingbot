@@ -7,6 +7,7 @@ from hummingbot.client.config.config_validators import (
     validate_bool,
     validate_connector,
     validate_decimal,
+    validate_exchange,
     validate_int,
     validate_market_trading_pair,
 )
@@ -97,7 +98,7 @@ cross_exchange_market_making_config_map = {
         key="maker_market",
         prompt="Enter your maker spot connector (Exchange) >>> ",
         prompt_on_new=True,
-        validator=validate_connector,
+        validator=validate_exchange,
         on_validated=lambda value: settings.required_exchanges.append(value),
     ),
     "taker_market": ConfigVar(

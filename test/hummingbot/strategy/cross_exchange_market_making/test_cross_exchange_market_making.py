@@ -2,11 +2,10 @@ import asyncio
 import unittest
 from decimal import Decimal
 from math import ceil, floor
-from typing import List
+from typing import Awaitable, List
+from unittest.mock import patch
 
 import pandas as pd
-from aiounittest import async_test
-from nose.plugins.attrib import attr
 
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
@@ -33,10 +32,7 @@ from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_maki
 from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
-ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
-
-@attr("stable")
 class HedgedMarketMakingUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
@@ -44,6 +40,11 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     end_timestamp: float = end.timestamp()
     maker_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
     taker_trading_pairs: List[str] = ["COINALPHA-ETH", "COINALPHA", "ETH"]
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls.ev_loop = asyncio.get_event_loop()
 
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
@@ -98,16 +99,22 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         self.maker_order_fill_logger: EventLogger = EventLogger()
         self.taker_order_fill_logger: EventLogger = EventLogger()
-        self.cancel_order_logger: EventLogger = EventLogger()
+        self.maker_cancel_order_logger: EventLogger = EventLogger()
+        self.taker_cancel_order_logger: EventLogger = EventLogger()
         self.maker_order_created_logger: EventLogger = EventLogger()
         self.taker_order_created_logger: EventLogger = EventLogger()
         self.maker_market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
         self.taker_market.add_listener(MarketEvent.OrderFilled, self.taker_order_fill_logger)
-        self.maker_market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
+        self.maker_market.add_listener(MarketEvent.OrderCancelled, self.maker_cancel_order_logger)
+        self.taker_market.add_listener(MarketEvent.OrderCancelled, self.taker_cancel_order_logger)
         self.maker_market.add_listener(MarketEvent.BuyOrderCreated, self.maker_order_created_logger)
         self.maker_market.add_listener(MarketEvent.SellOrderCreated, self.maker_order_created_logger)
         self.taker_market.add_listener(MarketEvent.BuyOrderCreated, self.taker_order_created_logger)
         self.taker_market.add_listener(MarketEvent.SellOrderCreated, self.taker_order_created_logger)
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
 
     def simulate_maker_market_trade(self, is_buy: bool, quantity: Decimal, price: Decimal):
         maker_trading_pair: str = self.maker_trading_pairs[0]
@@ -239,10 +246,13 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             )
         )
 
-    @async_test(loop=ev_loop)
-    async def test_both_sides_profitable(self):
+    @patch('hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making.'
+           'CrossExchangeMarketMakingStrategy.is_gateway_market')
+    def test_both_sides_profitable(self, is_gateway_mock):
+        is_gateway_mock.return_value = False
+
         self.clock.backtest_til(self.start_timestamp + 5)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(self.maker_order_created_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual(1, len(self.strategy.active_maker_bids))
         self.assertEqual(1, len(self.strategy.active_maker_asks))
 
@@ -255,11 +265,15 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         self.simulate_maker_market_trade(False, Decimal("10.0"), bid_order.price * Decimal("0.99"))
 
-        self.clock.backtest_til(self.start_timestamp + 10)
-        await asyncio.sleep(0.5)
-        self.clock.backtest_til(self.start_timestamp + 15)
-        await asyncio.sleep(0.5)
         self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+
+        is_gateway_mock.return_value = True
+
+        self.clock.backtest_til(self.start_timestamp + 10)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+        self.clock.backtest_til(self.start_timestamp + 20)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+
         self.assertEqual(1, len(self.taker_order_fill_logger.event_log))
 
         maker_fill: OrderFilledEvent = self.maker_order_fill_logger.event_log[0]
@@ -271,12 +285,11 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("3.0"), maker_fill.amount)
         self.assertAlmostEqual(Decimal("3.0"), taker_fill.amount)
 
-    @async_test(loop=ev_loop)
-    async def test_top_depth_tolerance(self):  # TODO
+    def test_top_depth_tolerance(self):  # TODO
         self.clock.remove_iterator(self.strategy)
         self.clock.add_iterator(self.strategy_with_top_depth_tolerance)
         self.clock.backtest_til(self.start_timestamp + 5)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(self.maker_order_created_logger.wait_for(BuyOrderCreatedEvent))
         bid_order: LimitOrder = self.strategy_with_top_depth_tolerance.active_maker_bids[0][1]
         ask_order: LimitOrder = self.strategy_with_top_depth_tolerance.active_maker_asks[0][1]
 
@@ -314,11 +327,11 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.simulate_order_book_widening(self.taker_market.order_books[self.taker_trading_pairs[0]], 0.99, 1.01)
 
         self.clock.backtest_til(self.start_timestamp + 100)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         self.clock.backtest_til(self.start_timestamp + 101)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
 
-        self.assertEqual(2, len(self.cancel_order_logger.event_log))
+        self.assertEqual(2, len(self.maker_cancel_order_logger.event_log))
         self.assertEqual(1, len(self.strategy_with_top_depth_tolerance.active_maker_bids))
         self.assertEqual(1, len(self.strategy_with_top_depth_tolerance.active_maker_asks))
 
@@ -327,10 +340,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("0.98457"), bid_order.price)
         self.assertEqual(Decimal("1.0155"), ask_order.price)
 
-    @async_test(loop=ev_loop)
-    async def test_market_became_wider(self):
+    def test_market_became_wider(self):
         self.clock.backtest_til(self.start_timestamp + 5)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
 
         bid_order: LimitOrder = self.strategy.active_maker_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_maker_asks[0][1]
@@ -368,11 +380,11 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.simulate_order_book_widening(self.taker_market.order_books[self.taker_trading_pairs[0]], 0.99, 1.01)
 
         self.clock.backtest_til(self.start_timestamp + 100)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         self.clock.backtest_til(self.start_timestamp + 101)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
 
-        self.assertEqual(2, len(self.cancel_order_logger.event_log))
+        self.assertEqual(2, len(self.maker_cancel_order_logger.event_log))
         self.assertEqual(1, len(self.strategy.active_maker_bids))
         self.assertEqual(1, len(self.strategy.active_maker_asks))
 
@@ -381,10 +393,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("0.98457"), bid_order.price)
         self.assertEqual(Decimal("1.0155"), ask_order.price)
 
-    @async_test(loop=ev_loop)
-    async def test_market_became_narrower(self):
+    def test_market_became_narrower(self):
         self.clock.backtest_til(self.start_timestamp + 5)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         bid_order: LimitOrder = self.strategy.active_maker_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_maker_asks[0][1]
         self.assertEqual(Decimal("0.99451"), bid_order.price)
@@ -396,8 +407,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             [OrderBookRow(0.996, 30, 2)], [OrderBookRow(1.004, 30, 2)], 2)
 
         self.clock.backtest_til(self.start_timestamp + 10)
-        await asyncio.sleep(0.5)
-        self.assertEqual(0, len(self.cancel_order_logger.event_log))
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+        self.assertEqual(0, len(self.maker_cancel_order_logger.event_log))
         self.assertEqual(1, len(self.strategy.active_maker_bids))
         self.assertEqual(1, len(self.strategy.active_maker_asks))
 
@@ -406,10 +417,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("0.99451"), bid_order.price)
         self.assertEqual(Decimal("1.0055"), ask_order.price)
 
-    @async_test(loop=ev_loop)
-    async def test_order_fills_after_cancellation(self):  # TODO
+    def test_order_fills_after_cancellation(self):  # TODO
         self.clock.backtest_til(self.start_timestamp + 5)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         bid_order: LimitOrder = self.strategy.active_maker_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_maker_asks[0][1]
         self.assertEqual(Decimal("0.99451"), bid_order.price)
@@ -446,11 +456,11 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.simulate_order_book_widening(self.taker_market.order_books[self.taker_trading_pairs[0]], 0.99, 1.01)
 
         self.clock.backtest_til(self.start_timestamp + 10)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         self.clock.backtest_til(self.start_timestamp + 11)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
 
-        self.assertEqual(2, len(self.cancel_order_logger.event_log))
+        self.assertEqual(2, len(self.maker_cancel_order_logger.event_log))
         self.assertEqual(1, len(self.strategy.active_maker_bids))
         self.assertEqual(1, len(self.strategy.active_maker_asks))
 
@@ -460,37 +470,37 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0155"), ask_order.price)
 
         self.clock.backtest_til(self.start_timestamp + 20)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         self.simulate_limit_order_fill(self.maker_market, bid_order)
         self.simulate_limit_order_fill(self.maker_market, ask_order)
 
         self.clock.backtest_til(self.start_timestamp + 25)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         self.clock.backtest_til(self.start_timestamp + 30)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
 
         fill_events: List[OrderFilledEvent] = self.taker_order_fill_logger.event_log
 
         bid_hedges: List[OrderFilledEvent] = [evt for evt in fill_events if evt.trade_type is TradeType.SELL]
         ask_hedges: List[OrderFilledEvent] = [evt for evt in fill_events if evt.trade_type is TradeType.BUY]
-        self.assertEqual(1, len(bid_hedges))
+
+        self.assertEqual(2, len(bid_hedges))
         self.assertEqual(1, len(ask_hedges))
         self.assertGreater(
             self.maker_market.get_balance(self.maker_trading_pairs[2]) + self.taker_market.get_balance(self.taker_trading_pairs[2]),
             Decimal("10"),
         )
-        self.assertEqual(2, len(self.taker_order_fill_logger.event_log))
-        taker_fill1: OrderFilledEvent = self.taker_order_fill_logger.event_log[0]
+        self.assertEqual(3, len(self.taker_order_fill_logger.event_log))
+        taker_fill1: OrderFilledEvent = self.taker_order_fill_logger.event_log[1]
         self.assertEqual(TradeType.SELL, taker_fill1.trade_type)
         self.assertAlmostEqual(Decimal("0.9895"), taker_fill1.price)
         self.assertAlmostEqual(Decimal("3.0"), taker_fill1.amount)
-        taker_fill2: OrderFilledEvent = self.taker_order_fill_logger.event_log[1]
+        taker_fill2: OrderFilledEvent = self.taker_order_fill_logger.event_log[0]
         self.assertEqual(TradeType.BUY, taker_fill2.trade_type)
-        self.assertAlmostEqual(Decimal("1.0105"), taker_fill2.price)
+        self.assertAlmostEqual(Decimal("1.0104"), taker_fill2.price)
         self.assertAlmostEqual(Decimal("3.0"), taker_fill2.amount)
 
-    @async_test(loop=ev_loop)
-    async def test_with_conversion(self):
+    def test_with_conversion(self):
         self.clock.remove_iterator(self.strategy)
         self.market_pair: MakerTakerMarketPair = MakerTakerMarketPair(
             MarketTradingPairTuple(self.maker_market, *["COINALPHA-QETH", "COINALPHA", "QETH"]),
@@ -506,7 +516,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         )
         self.clock.add_iterator(self.strategy)
         self.clock.backtest_til(self.start_timestamp + 5)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         self.assertEqual(1, len(self.strategy.active_maker_bids))
         self.assertEqual(1, len(self.strategy.active_maker_asks))
         bid_order: LimitOrder = self.strategy.active_maker_bids[0][1]
@@ -516,28 +526,31 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("2.7821"), round(bid_order.quantity, 4))
         self.assertAlmostEqual(Decimal("2.7821"), round(ask_order.quantity, 4))
 
-    @async_test(loop=ev_loop)
-    async def test_maker_price(self):
-        buy_taker_price: Decimal = round(await self.strategy.calculate_effective_hedging_price(self.market_pair, False, 3), 4)
-        sell_taker_price: Decimal = round(await self.strategy.calculate_effective_hedging_price(self.market_pair, True, 3), 4)
-        price_quantum = Decimal("0.0001")
+    def test_maker_price(self):
+        task = self.ev_loop.create_task(self.strategy.calculate_effective_hedging_price(self.market_pair, False, 3))
+        buy_taker_price: Decimal = self.ev_loop.run_until_complete(task)
+
+        task = self.ev_loop.create_task(self.strategy.calculate_effective_hedging_price(self.market_pair, True, 3))
+        sell_taker_price: Decimal = self.ev_loop.run_until_complete(task)
+
         self.assertEqual(Decimal("1.0004"), buy_taker_price)
-        self.assertEqual(Decimal("0.9995"), sell_taker_price)
+        self.assertEqual(Decimal("0.99949"), sell_taker_price)
         self.clock.backtest_til(self.start_timestamp + 5)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         bid_order: LimitOrder = self.strategy.active_maker_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_maker_asks[0][1]
         bid_maker_price = sell_taker_price * (1 - self.min_profitability)
+        price_quantum = self.maker_market.get_order_price_quantum(self.maker_trading_pairs[0], bid_maker_price)
         bid_maker_price = (floor(bid_maker_price / price_quantum)) * price_quantum
         ask_maker_price = buy_taker_price * (1 + self.min_profitability)
+        price_quantum = self.maker_market.get_order_price_quantum(self.maker_trading_pairs[0], ask_maker_price)
         ask_maker_price = (ceil(ask_maker_price / price_quantum) * price_quantum)
-        self.assertEqual(bid_maker_price, round(bid_order.price, 4))
-        self.assertEqual(ask_maker_price, round(ask_order.price, 4))
+        self.assertEqual(round(bid_maker_price, 4), round(bid_order.price, 4))
+        self.assertEqual(round(ask_maker_price, 4), round(ask_order.price, 4))
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
 
-    @async_test(loop=ev_loop)
-    async def test_with_adjust_orders_enabled(self):
+    def test_with_adjust_orders_enabled(self):
         self.clock.remove_iterator(self.strategy)
         self.clock.remove_iterator(self.maker_market)
         self.maker_market: MockPaperExchange = MockPaperExchange()
@@ -560,7 +573,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.clock.add_iterator(self.strategy)
         self.clock.add_iterator(self.maker_market)
         self.clock.backtest_til(self.start_timestamp + 5)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         self.assertEqual(1, len(self.strategy.active_maker_bids))
         self.assertEqual(1, len(self.strategy.active_maker_asks))
         bid_order: LimitOrder = self.strategy.active_maker_bids[0][1]
@@ -572,8 +585,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("3"), round(bid_order.quantity, 4))
         self.assertAlmostEqual(Decimal("3"), round(ask_order.quantity, 4))
 
-    @async_test(loop=ev_loop)
-    async def test_with_adjust_orders_disabled(self):
+    def test_with_adjust_orders_disabled(self):
         self.clock.remove_iterator(self.strategy)
         self.clock.remove_iterator(self.maker_market)
         self.maker_market: MockPaperExchange = MockPaperExchange()
@@ -599,7 +611,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.clock.add_iterator(self.strategy)
         self.clock.add_iterator(self.maker_market)
         self.clock.backtest_til(self.start_timestamp + 5)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         self.assertEqual(1, len(self.strategy.active_maker_bids))
         self.assertEqual(1, len(self.strategy.active_maker_asks))
         bid_order: LimitOrder = self.strategy.active_maker_bids[0][1]
@@ -609,18 +621,25 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("3"), round(bid_order.quantity, 4))
         self.assertAlmostEqual(Decimal("3"), round(ask_order.quantity, 4))
 
-    @async_test(loop=ev_loop)
-    async def test_price_and_size_limit_calculation(self):
+    def test_price_and_size_limit_calculation(self):
         self.taker_market.set_balanced_order_book(self.taker_trading_pairs[0], 1.0, 0.5, 1.5, 0.001, 20)
-        bid_size = await self.strategy.get_market_making_size(self.market_pair, True)
-        bid_price = await self.strategy.get_market_making_price(self.market_pair, True, bid_size)
-        ask_size = await self.strategy.get_market_making_size(self.market_pair, False)
-        ask_price = await self.strategy.get_market_making_price(self.market_pair, False, ask_size)
+
+        task = self.ev_loop.create_task(self.strategy.get_market_making_size(self.market_pair, True))
+        bid_size: Decimal = self.ev_loop.run_until_complete(task)
+
+        task = self.ev_loop.create_task(self.strategy.get_market_making_price(self.market_pair, True, bid_size))
+        bid_price: Decimal = self.ev_loop.run_until_complete(task)
+
+        task = self.ev_loop.create_task(self.strategy.get_market_making_size(self.market_pair, False))
+        ask_size: Decimal = self.ev_loop.run_until_complete(task)
+
+        task = self.ev_loop.create_task(self.strategy.get_market_making_price(self.market_pair, False, ask_size))
+        ask_price: Decimal = self.ev_loop.run_until_complete(task)
+
         self.assertEqual((Decimal("0.99451"), Decimal("3")), (bid_price, bid_size))
         self.assertEqual((Decimal("1.0055"), Decimal("3")), (ask_price, ask_size))
 
-    @async_test(loop=ev_loop)
-    async def test_price_and_size_limit_calculation_with_slippage_buffer(self):
+    def test_price_and_size_limit_calculation_with_slippage_buffer(self):
         self.taker_market.set_balance("ETH", 3)
         self.taker_market.set_balanced_order_book(
             self.taker_trading_pairs[0],
@@ -653,18 +672,33 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             order_amount=Decimal("4"),
         )
 
-        bid_size = await self.strategy.get_market_making_size(self.market_pair, True)
-        bid_price = await self.strategy.get_market_making_price(self.market_pair, True, bid_size)
-        ask_size = await self.strategy.get_market_making_size(self.market_pair, False)
-        ask_price = await self.strategy.get_market_making_price(self.market_pair, False, ask_size)
-        slippage_bid_size = await strategy_with_slippage_buffer.get_market_making_size(self.market_pair, True)
-        slippage_bid_price = await strategy_with_slippage_buffer.get_market_making_price(
+        task = self.ev_loop.create_task(self.strategy.get_market_making_size(self.market_pair, True))
+        bid_size: Decimal = self.ev_loop.run_until_complete(task)
+
+        task = self.ev_loop.create_task(self.strategy.get_market_making_price(self.market_pair, True, bid_size))
+        bid_price: Decimal = self.ev_loop.run_until_complete(task)
+
+        task = self.ev_loop.create_task(self.strategy.get_market_making_size(self.market_pair, False))
+        ask_size: Decimal = self.ev_loop.run_until_complete(task)
+
+        task = self.ev_loop.create_task(self.strategy.get_market_making_price(self.market_pair, False, ask_size))
+        ask_price: Decimal = self.ev_loop.run_until_complete(task)
+
+        task = self.ev_loop.create_task(strategy_with_slippage_buffer.get_market_making_size(self.market_pair, True))
+        slippage_bid_size: Decimal = self.ev_loop.run_until_complete(task)
+
+        task = self.ev_loop.create_task(strategy_with_slippage_buffer.get_market_making_price(
             self.market_pair, True, slippage_bid_size
-        )
-        slippage_ask_size = await strategy_with_slippage_buffer.get_market_making_size(self.market_pair, False)
-        slippage_ask_price = await strategy_with_slippage_buffer.get_market_making_price(
+        ))
+        slippage_bid_price: Decimal = self.ev_loop.run_until_complete(task)
+
+        task = self.ev_loop.create_task(strategy_with_slippage_buffer.get_market_making_size(self.market_pair, False))
+        slippage_ask_size: Decimal = self.ev_loop.run_until_complete(task)
+
+        task = self.ev_loop.create_task(strategy_with_slippage_buffer.get_market_making_price(
             self.market_pair, False, slippage_ask_size
-        )
+        ))
+        slippage_ask_price: Decimal = self.ev_loop.run_until_complete(task)
 
         self.assertEqual(Decimal("4"), bid_size)  # the user size
         self.assertEqual(Decimal("0.75999"), bid_price)  # price = bid_VWAP(4) / profitability = 0.95 / 1.25
@@ -675,8 +709,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("2.2857"), slippage_ask_size)  # size = balance / (ask_VWAP(3) * slippage) = 3 / (1.05 * 1.25)
         self.assertEqual(Decimal("1.3125"), slippage_ask_price)  # price = ask_VWAP(2.2857) * profitability = 1.05 * 1.25
 
-    @async_test(loop=ev_loop)
-    async def test_check_if_sufficient_balance_adjusts_including_slippage(self):
+    def test_check_if_sufficient_balance_adjusts_including_slippage(self):
         self.taker_market.set_balance("COINALPHA", 4)
         self.taker_market.set_balance("ETH", 3)
         self.taker_market.set_balanced_order_book(
@@ -701,7 +734,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.clock.remove_iterator(self.strategy)
         self.clock.add_iterator(strategy_with_slippage_buffer)
         self.clock.backtest_til(self.start_timestamp + 1)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
 
         active_maker_bids = strategy_with_slippage_buffer.active_maker_bids
         active_maker_asks = strategy_with_slippage_buffer.active_maker_asks
@@ -716,9 +749,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.emit_order_created_event(self.maker_market, active_ask)
 
         self.clock.backtest_til(self.start_timestamp + 2)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         self.clock.backtest_til(self.start_timestamp + 3)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
 
         active_maker_bids = strategy_with_slippage_buffer.active_maker_bids
         active_maker_asks = strategy_with_slippage_buffer.active_maker_asks
@@ -739,7 +772,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.taker_market.set_balance("ETH", Decimal("3") - asks_quantum * 1)
 
         self.clock.backtest_til(self.start_timestamp + 4)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
 
         active_maker_bids = strategy_with_slippage_buffer.active_maker_bids
         active_maker_asks = strategy_with_slippage_buffer.active_maker_asks
@@ -748,7 +781,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(0, len(active_maker_asks))  # cancelled
 
         self.clock.backtest_til(self.start_timestamp + 5)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
 
         new_active_maker_bids = strategy_with_slippage_buffer.active_maker_bids
         new_active_maker_asks = strategy_with_slippage_buffer.active_maker_asks
@@ -762,8 +795,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal(str(active_bid.quantity - bids_quantum)), new_active_bid.quantity)
         self.assertEqual(Decimal(str(active_ask.quantity - asks_quantum)), new_active_ask.quantity)
 
-    @async_test(loop=ev_loop)
-    async def test_empty_maker_orderbook(self):
+    def test_empty_maker_orderbook(self):
         self.clock.remove_iterator(self.strategy)
         self.clock.remove_iterator(self.maker_market)
         self.maker_market: MockPaperExchange = MockPaperExchange()
@@ -789,7 +821,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.clock.add_iterator(self.strategy)
         self.clock.add_iterator(self.maker_market)
         self.clock.backtest_til(self.start_timestamp + 5)
-        await asyncio.sleep(0.5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         self.assertEqual(1, len(self.strategy.active_maker_bids))
         self.assertEqual(1, len(self.strategy.active_maker_asks))
         bid_order: LimitOrder = self.strategy.active_maker_bids[0][1]
