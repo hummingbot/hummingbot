@@ -161,20 +161,19 @@ class GatewayEVMAMM(ConnectorBase):
 
     @property
     def approval_orders(self) -> List[EVMInFlightOrder]:
-        # TODO fix all casts like in GatewaySOLCLOB!!!!
-        return cast([
-            approval_order
+        return [
+            cast(approval_order, EVMInFlightOrder)
             for approval_order in self._order_tracker.active_orders.values()
             if cast(approval_order, EVMInFlightOrder).is_approval_request
-        ], List[EVMInFlightOrder])
+        ]
 
     @property
     def amm_orders(self) -> List[EVMInFlightOrder]:
-        return cast([
-            in_flight_order
+        return [
+            cast(in_flight_order, EVMInFlightOrder)
             for in_flight_order in self._order_tracker.active_orders.values()
             if in_flight_order.is_open
-        ], List[EVMInFlightOrder])
+        ]
 
     @property
     def canceling_orders(self) -> List[EVMInFlightOrder]:
