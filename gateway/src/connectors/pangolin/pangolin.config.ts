@@ -4,6 +4,7 @@ import { AvailableNetworks } from '../../services/config-manager-types';
 export namespace PangolinConfig {
   export interface NetworkConfig {
     allowedSlippage: string;
+    gasEstimate: number;
     ttl: number;
     routerAddress: (network: string) => string;
     tradingTypes: Array<string>;
@@ -14,6 +15,7 @@ export namespace PangolinConfig {
     allowedSlippage: ConfigManagerV2.getInstance().get(
       'pangolin.allowedSlippage'
     ),
+    gasEstimate: ConfigManagerV2.getInstance().get(`pangolin.gasEstimate`),
     ttl: ConfigManagerV2.getInstance().get('pangolin.ttl'),
     routerAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(

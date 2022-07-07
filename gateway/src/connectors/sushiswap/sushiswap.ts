@@ -42,9 +42,9 @@ export class Sushiswap implements Uniswapish {
     const config = SushiswapConfig.config;
     this.ethereum = Ethereum.getInstance(network);
     this.chainId = this.ethereum.chainId;
-    this._ttl = SushiswapConfig.config.ttl;
+    this._ttl = config.ttl;
     this._routerAbi = routerAbi.abi;
-    this._gasEstimate = SushiswapConfig.config.gasEstimate;
+    this._gasEstimate = config.gasEstimate;
     this._router = config.sushiswapRouterAddress(network);
   }
 
