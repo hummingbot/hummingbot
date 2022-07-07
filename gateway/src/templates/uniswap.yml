@@ -2,8 +2,8 @@
 # execution price. It uses a rational number for precision.
 allowedSlippage: '2/100'
 
-# the maximum gas allowed for a uniswap trade.
-gasEstimate: 150688
+# the maximum gas used to estimate gasCost for a uniswap trade.
+gasLimitEstimate: 150688
 
 # how long a trade is valid in seconds. After time passes uniswap will not
 # perform the trade, but the gas will still be sent.

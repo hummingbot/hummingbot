@@ -176,7 +176,7 @@ export async function price(
 
   const gasLimitTransaction = ethereumish.gasLimitTransaction;
   const gasPrice = ethereumish.gasPrice;
-  const gasEstimate = uniswapish.gasEstimate;
+  const gasLimitEstimate = uniswapish.gasLimitEstimate;
   return {
     network: ethereumish.chain,
     timestamp: startTimestamp,
@@ -190,7 +190,7 @@ export async function price(
     gasPrice: gasPrice,
     gasPriceToken: ethereumish.nativeTokenSymbol,
     gasLimit: gasLimitTransaction,
-    gasCost: gasCostInEthString(gasPrice, gasEstimate),
+    gasCost: gasCostInEthString(gasPrice, gasLimitEstimate),
   };
 }
 
@@ -240,7 +240,7 @@ export async function trade(
 
   const gasPrice: number = ethereumish.gasPrice;
   const gasLimitTransaction: number = ethereumish.gasLimitTransaction;
-  const gasEstimate: number = uniswapish.gasEstimate;
+  const gasLimitEstimate: number = uniswapish.gasLimitEstimate;
 
   if (req.side === 'BUY') {
     const price: Fractionish =
@@ -301,7 +301,7 @@ export async function trade(
       gasPrice: gasPrice,
       gasPriceToken: ethereumish.nativeTokenSymbol,
       gasLimit: gasLimitTransaction,
-      gasCost: gasCostInEthString(gasPrice, gasEstimate),
+      gasCost: gasCostInEthString(gasPrice, gasLimitEstimate),
       nonce: tx.nonce,
       txHash: tx.hash,
     };
@@ -356,7 +356,7 @@ export async function trade(
       gasPrice: gasPrice,
       gasPriceToken: ethereumish.nativeTokenSymbol,
       gasLimit: gasLimitTransaction,
-      gasCost: gasCostInEthString(gasPrice, gasEstimate),
+      gasCost: gasCostInEthString(gasPrice, gasLimitEstimate),
       nonce: tx.nonce,
       txHash: tx.hash,
     };
@@ -394,7 +394,7 @@ export async function addLiquidity(
 
   const gasPrice: number = ethereumish.gasPrice;
   const gasLimitTransaction: number = ethereumish.gasLimitTransaction;
-  const gasEstimate: number = uniswapish.gasEstimate;
+  const gasLimitEstimate: number = uniswapish.gasLimitEstimate;
 
   const invertTokenOrder: boolean = token0.address > token1.address;
 
@@ -430,7 +430,7 @@ export async function addLiquidity(
     gasPrice: gasPrice,
     gasPriceToken: ethereumish.nativeTokenSymbol,
     gasLimit: gasLimitTransaction,
-    gasCost: gasCostInEthString(gasPrice, gasEstimate),
+    gasCost: gasCostInEthString(gasPrice, gasLimitEstimate),
     nonce: tx.nonce,
     txHash: tx.hash,
   };
@@ -453,7 +453,7 @@ export async function removeLiquidity(
 
   const gasPrice: number = ethereumish.gasPrice;
   const gasLimitTransaction: number = ethereumish.gasLimitTransaction;
-  const gasEstimate: number = uniswapish.gasEstimate;
+  const gasLimitEstimate: number = uniswapish.gasLimitEstimate;
 
   const tx = await uniswapish.reducePosition(
     wallet,
@@ -478,7 +478,7 @@ export async function removeLiquidity(
     gasPrice: gasPrice,
     gasPriceToken: ethereumish.nativeTokenSymbol,
     gasLimit: gasLimitTransaction,
-    gasCost: gasCostInEthString(gasPrice, gasEstimate),
+    gasCost: gasCostInEthString(gasPrice, gasLimitEstimate),
     nonce: tx.nonce,
     txHash: tx.hash,
   };
@@ -501,7 +501,7 @@ export async function collectEarnedFees(
 
   const gasPrice: number = ethereumish.gasPrice;
   const gasLimitTransaction: number = ethereumish.gasLimitTransaction;
-  const gasEstimate: number = uniswapish.gasEstimate;
+  const gasLimitEstimate: number = uniswapish.gasLimitEstimate;
 
   const tx: Transaction = <Transaction>(
     await uniswapish.collectFees(
@@ -527,7 +527,7 @@ export async function collectEarnedFees(
     gasPrice: gasPrice,
     gasPriceToken: ethereumish.nativeTokenSymbol,
     gasLimit: gasLimitTransaction,
-    gasCost: gasCostInEthString(gasPrice, gasEstimate),
+    gasCost: gasCostInEthString(gasPrice, gasLimitEstimate),
     nonce: tx.nonce,
     txHash: tx.hash,
   };
@@ -620,13 +620,13 @@ export async function estimateGas(
 ): Promise<EstimateGasResponse> {
   const gasPrice: number = ethereumish.gasPrice;
   const gasLimitTransaction: number = ethereumish.gasLimitTransaction;
-  const gasEstimate: number = uniswapish.gasEstimate;
+  const gasLimitEstimate: number = uniswapish.gasLimitEstimate;
   return {
     network: ethereumish.chain,
     timestamp: Date.now(),
     gasPrice,
     gasPriceToken: ethereumish.nativeTokenSymbol,
     gasLimit: gasLimitTransaction,
-    gasCost: gasCostInEthString(gasPrice, gasEstimate),
+    gasCost: gasCostInEthString(gasPrice, gasLimitEstimate),
   };
 }
