@@ -15,12 +15,14 @@ from substrateinterface import Keypair, KeypairType, SubstrateInterface
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
 from hummingbot.connector.exchange.polkadex.graphql.market.market import get_all_markets, get_recent_trades
+from hummingbot.connector.exchange.polkadex.graphql.polkadex_user_stream_data_source import PolkadexUserStreamDataSource
 from hummingbot.connector.exchange.polkadex.graphql.user.streams import on_balance_update, on_order_update
 from hummingbot.connector.exchange.polkadex.graphql.user.user import (
     find_order_by_main_account,
     get_all_balances_by_main_account,
     get_main_acc_from_proxy_acc,
 )
+from hummingbot.connector.exchange.polkadex.polkadex_auth import PolkadexAuth
 from hummingbot.connector.exchange.polkadex.polkadex_constants import (
     MIN_PRICE,
     MIN_QTY,
@@ -48,49 +50,15 @@ def fee_levied_asset(side, base, quote):
 
 
 class PolkadexExchange(ExchangePyBase):
-    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
-        raise NotImplementedError
-
-    @property
-    def authenticator(self):
-        return None
-
-    @property
-    def domain(self):
-        return None
-
-    @property
-    def client_order_id_max_length(self):
-        return None
-
-    @property
-    def client_order_id_prefix(self):
-        return None
-
-    @property
-    def trading_rules_request_path(self):
-        return None
-
-    @property
-    def trading_pairs_request_path(self):
-        return None
-
-    @property
-    def check_network_request_path(self):
-        return None
-
-    @property
-    def is_trading_required(self) -> bool:
-        return self.is_trading_required_flag
-
-    def __init__(self, polkadex_seed_phrase: str, trading_required: bool = True,
+    def __init__(self, polkadex_seed_phrase: str,
+                 trading_required: bool = True,
                  trading_pairs: Optional[List[str]] = None):
+
         self.enclave_endpoint = CONSTANTS.ENCLAVE_ENDPOINT
         self.endpoint = CONSTANTS.GRAPHQL_ENDPOINT
         self.api_key = CONSTANTS.GRAPHQL_API_KEY
         self._trading_pairs = trading_pairs
-        self.host = str(urlparse(self.endpoint).netloc)
-        self.auth = AppSyncApiKeyAuthentication(host=self.host, api_key=self.api_key)
+
         self.is_trading_required_flag = trading_required
         if self.is_trading_required_flag:
             self.proxy_pair = Keypair.create_from_mnemonic(polkadex_seed_phrase,
@@ -100,59 +68,94 @@ class PolkadexExchange(ExchangePyBase):
             print("trading account: ", self.user_proxy_address)
         self.user_main_address = None
         self.nonce = 0  # TODO: We need to fetch the nonce from enclave
-        custom_types = {
-            "runtime_id": 1,
-            "versioning": [
-            ],
-            "types": {
-                "OrderPayload": {
-                    "type": "struct",
-                    "type_mapping": [
-                        ["user", "AccountId"],
-                        ["pair", "TradingPair"],
-                        ["side", "OrderSide"],
-                        ["order_type", "OrderType"],
-                        ["qty", "u128"],
-                        ["price", "u128"],
-                        ["nonce", "u32"],
-                    ]
-                },
-                "CancelOrderPayload": {
-                    "type": "struct",
-                    "type_mapping": [
-                        ["id", "String"]
-                    ]},
-                "TradingPair": {
-                    "type": "struct",
-                    "type_mapping": [
-                        ["base_asset", "AssetId"],
-                        ["quote_asset", "AssetId"],
-                    ]
-                },
-                "OrderSide": {
-                    "type": "enum",
-                    "type_mapping": [
-                        ["Ask", None],
-                        ["Bid", None],
-                    ],
-                },
-                "OrderType": {
-                    "type": "enum",
-                    "type_mapping": [
-                        ["LIMIT", None],
-                        ["MARKET", None],
-                    ],
-                },
-            }
-        }
-        print("Connecting to blockchain")
-        self.blockchain = SubstrateInterface(
-            url="wss://blockchain.polkadex.trade",
-            ss58_format=POLKADEX_SS58_PREFIX,
-            type_registry=custom_types
-        )
-        print("Blockchain connected: ", self.blockchain.get_chain_head())
+        # custom_types = {
+        #     "runtime_id": 1,
+        #     "versioning": [
+        #     ],
+        #     "types": {
+        #         "OrderPayload": {
+        #             "type": "struct",
+        #             "type_mapping": [
+        #                 ["user", "AccountId"],
+        #                 ["pair", "TradingPair"],
+        #                 ["side", "OrderSide"],
+        #                 ["order_type", "OrderType"],
+        #                 ["qty", "u128"],
+        #                 ["price", "u128"],
+        #                 ["nonce", "u32"],
+        #             ]
+        #         },
+        #         "CancelOrderPayload": {
+        #             "type": "struct",
+        #             "type_mapping": [
+        #                 ["id", "String"]
+        #             ]},
+        #         "TradingPair": {
+        #             "type": "struct",
+        #             "type_mapping": [
+        #                 ["base_asset", "AssetId"],
+        #                 ["quote_asset", "AssetId"],
+        #             ]
+        #         },
+        #         "OrderSide": {
+        #             "type": "enum",
+        #             "type_mapping": [
+        #                 ["Ask", None],
+        #                 ["Bid", None],
+        #             ],
+        #         },
+        #         "OrderType": {
+        #             "type": "enum",
+        #             "type_mapping": [
+        #                 ["LIMIT", None],
+        #                 ["MARKET", None],
+        #             ],
+        #         },
+        #     }
+        # }
+        # print("Connecting to blockchain")
+        # self.blockchain = SubstrateInterface(
+        #     url="wss://blockchain.polkadex.trade",
+        #     ss58_format=POLKADEX_SS58_PREFIX,
+        #     type_registry=custom_types
+        # )
+        # print("Blockchain connected: ", self.blockchain.get_chain_head())
         super().__init__()
+
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        raise NotImplementedError
+
+    @property
+    def authenticator(self):
+        return PolkadexAuth(api_key=self.api_key)
+
+    @property
+    def domain(self):
+        raise NotImplementedError
+
+    @property
+    def client_order_id_max_length(self):
+        raise NotImplementedError
+
+    @property
+    def client_order_id_prefix(self):
+        raise NotImplementedError
+
+    @property
+    def trading_rules_request_path(self):
+        raise NotImplementedError
+
+    @property
+    def trading_pairs_request_path(self):
+        raise NotImplementedError
+
+    @property
+    def check_network_request_path(self):
+        raise NotImplementedError
+
+    @property
+    def is_trading_required(self) -> bool:
+        return self.is_trading_required_flag
 
     @property
     def rate_limits_rules(self):
@@ -164,7 +167,7 @@ class PolkadexExchange(ExchangePyBase):
 
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
-        return False
+        return True
 
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.MARKET]
@@ -284,7 +287,7 @@ class PolkadexExchange(ExchangePyBase):
             self._order_tracker.process_trade_update(trade_update)
 
     async def _update_trading_fees(self):
-        pass
+        raise NotImplementedError
 
     async def _user_stream_event_listener(self):
         if self.user_main_address is None:
@@ -380,15 +383,19 @@ class PolkadexExchange(ExchangePyBase):
             del self._account_balances[asset_name]
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
-        pass
+        api_factory = WebAssistantsFactory(auth=self._auth)
+        return api_factory
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return PolkadexOrderbookDataSource(trading_pairs=self.trading_pairs,
-                                           endpoint=self.endpoint,
+                                           connector=self,
+                                           api_factory=self._web_assistants_factory,
                                            api_key=self.api_key)
 
     def _create_user_stream_data_source(self):
-        return PolkadexUserStreamData(self._web_assistants_factory, self.enclave_endpoint)
+        return PolkadexUserStreamDataSource(trading_pairs=self.trading_pairs,
+                                            connector=self,
+                                            api_factory=self._web_assistants_factory)
 
     async def _initialize_trading_pair_symbol_map(self):
         markets = await get_all_markets(self.endpoint, self.api_key)
@@ -400,7 +407,7 @@ class PolkadexExchange(ExchangePyBase):
         self._set_trading_pair_symbol_map(mapping)
 
     def c_stop_tracking_order(self, order_id):
-        pass
+        raise NotImplementedError
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         recent_trade = await get_recent_trades(trading_pair, 1, None, self.endpoint, self.api_key)

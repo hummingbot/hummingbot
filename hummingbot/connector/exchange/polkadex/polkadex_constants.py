@@ -16,7 +16,8 @@ ORDER_STATE = {
 MIN_ORDER_SIZE = Decimal(10.0)
 MIN_PRICE = Decimal(10.0)
 MIN_QTY = Decimal(10.0)
-
+TRADE_EVENT_TYPE = "trade"
+DIFF_EVENT_TYPE  = "diff"
 GRAPHQL_ENDPOINT = "https://x6sbwzrbzvbabpujfy2phgq6ka.appsync-api.ap-south-1.amazonaws.com/graphql"
 GRAPHQL_API_KEY = "da2-t3j552hl3narhadrq3gqj3zgse"
 ENCLAVE_ENDPOINT = "ws://127.0.0.1:9945"
