@@ -1,9 +1,4 @@
-import {
-  InitializationError,
-  UniswapishPriceError,
-  SERVICE_UNITIALIZED_ERROR_CODE,
-  SERVICE_UNITIALIZED_ERROR_MESSAGE,
-} from '../../services/error-handler';
+import { UniswapishPriceError } from '../../services/error-handler';
 import { isFractionString } from '../../services/validators';
 import { DefikingdomsConfig } from './defikingdoms.config';
 import routerAbi from './defikingdoms_router_abi.json';
@@ -33,7 +28,6 @@ import { Harmony } from '../../chains/harmony/harmony';
 export class Defikingdoms implements Uniswapish {
   private static _instances: { [name: string]: Defikingdoms };
   private harmony: Harmony;
-  private _chain: string;
   private _router: string;
   private _routerAbi: ContractInterface;
   private _gasLimit: number;
@@ -42,8 +36,7 @@ export class Defikingdoms implements Uniswapish {
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
-  private constructor(chain: string, network: string) {
-    this._chain = chain;
+  private constructor(network: string) {
     const config = DefikingdomsConfig.config;
     this.harmony = Harmony.getInstance(network);
     this.chainId = this.harmony.chainId;
@@ -59,7 +52,7 @@ export class Defikingdoms implements Uniswapish {
     }
     if (!(chain + network in Defikingdoms._instances)) {
       // eslint-disable-next-line prettier/prettier
-      Defikingdoms._instances[chain + network] = new Defikingdoms(chain, network);
+      Defikingdoms._instances[chain + network] = new Defikingdoms(network);
     }
 
     return Defikingdoms._instances[chain + network];
@@ -76,11 +69,9 @@ export class Defikingdoms implements Uniswapish {
   }
 
   public async init() {
-    if (this._chain == 'harmony' && !this.harmony.ready())
-      throw new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE('Harmony'),
-        SERVICE_UNITIALIZED_ERROR_CODE
-      );
+    if (!this.harmony.ready()) {
+      await this.harmony.init();
+    }
     for (const token of this.harmony.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
