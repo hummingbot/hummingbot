@@ -1,6 +1,6 @@
 from gql import gql
-from hummingbot.connector.exchange.polkadex.graphql.auth.client import execute_query_command
 
+from hummingbot.connector.exchange.polkadex.graphql.auth.client import execute_query_command
 
 
 async def list_transaction_by_main_account(main, from_date, to_date, nextToken, limit):
@@ -35,6 +35,7 @@ query listTransactionsByMainAccount($from: AWSDateTime!, $to: AWSDateTime!, $mai
 
     result = await execute_query_command(query, variables)
     return result["listTransactionsByMainAccount"]
+
 
 async def list_trades_by_main_account(main, from_date, to_date, nextToken, limit):
     query = gql(
@@ -85,7 +86,7 @@ query getAllBalancesByMainAccount($main: String!) {
 """)
     variables = {"main": main}
 
-    result = await execute_query_command(query, variables,endpoint,api_key)
+    result = await execute_query_command(query, variables, endpoint, api_key)
     return result["getAllBalancesByMainAccount"]["items"]
 
 
@@ -124,7 +125,7 @@ query findOrderByMainAccount($main: String!, $market: String!, $order_id: String
 """)
     variables = {"order_id": order_id, "market": market, "main": main}
 
-    result = await execute_query_command(query, variables,endpoint,api_key)
+    result = await execute_query_command(query, variables, endpoint, api_key)
     return result["findOrderByMainAccount"]
 
 
@@ -153,7 +154,7 @@ query listOpenOrdersByMainAccount($main: String!, $nextToken: String, $limit: In
   }
 }
 """)
-    variables = { "main": main}
+    variables = {"main": main}
 
     if limit is not None:
         variables["limit"] = limit
@@ -213,7 +214,8 @@ query findUserByProxyAccount($proxy_account: String!) {
 """)
     variables = {"proxy_account": proxy}
 
-    result = await execute_query_command(query, variables,endpoint,api_key)
+    result = await execute_query_command(query, variables, endpoint, api_key)
+    # TODO: Handle error if main account not found
     return result["findUserByProxyAccount"]["items"][0].split("=")[2].replace("}", "")
 
 

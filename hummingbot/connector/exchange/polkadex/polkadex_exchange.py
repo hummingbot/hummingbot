@@ -4,14 +4,17 @@ from decimal import Decimal
 from typing import Dict, Any, List, Optional, Tuple
 from urllib.parse import urlparse
 
+import websockets
 from bidict import bidict
 from dateutil import parser
-import websockets
 from gql import Client
 from gql.transport.appsync_auth import AppSyncApiKeyAuthentication
 from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
+from hummingbot.connector.trading_rule import TradingRule
+from substrateinterface import Keypair, KeypairType, SubstrateInterface
 
 from hummingbot.connector.constants import s_decimal_NaN
+from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
 from hummingbot.connector.exchange.polkadex.graphql.market.market import get_recent_trades, get_all_markets
 from hummingbot.connector.exchange.polkadex.graphql.user.streams import on_balance_update, on_order_update
 from hummingbot.connector.exchange.polkadex.graphql.user.user import get_all_balances_by_main_account, \
@@ -19,10 +22,9 @@ from hummingbot.connector.exchange.polkadex.graphql.user.user import get_all_bal
 from hummingbot.connector.exchange.polkadex.polkadex_constants import MIN_PRICE, MIN_QTY, POLKADEX_SS58_PREFIX, \
     UPDATE_ORDER_STATUS_MIN_INTERVAL
 from hummingbot.connector.exchange.polkadex.polkadex_order_book_data_source import PolkadexOrderbookDataSource
-from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
 from hummingbot.connector.exchange.polkadex.polkadex_payload import create_order, cancel_order
+from hummingbot.connector.exchange.polkadex.python_user_stream_data_source import PolkadexUserStreamData
 from hummingbot.connector.exchange_py_base import ExchangePyBase
-from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
@@ -30,7 +32,6 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount, \
     DeductedFromReturnsTradeFee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from substrateinterface import Keypair, KeypairType, SubstrateInterface
 
 
 def fee_levied_asset(side, base, quote):
@@ -74,7 +75,7 @@ class PolkadexExchange(ExchangePyBase):
 
     @property
     def is_trading_required(self) -> bool:
-        return self.is_trading_required
+        return self.is_trading_required_flag
 
     def __init__(self, polkadex_seed_phrase: str, trading_required: bool = True,
                  trading_pairs: Optional[List[str]] = None):
@@ -84,10 +85,13 @@ class PolkadexExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         self.host = str(urlparse(self.endpoint).netloc)
         self.auth = AppSyncApiKeyAuthentication(host=self.host, api_key=self.api_key)
-        if trading_required:
-            self.proxy_pair = Keypair.create_from_mnemonic(polkadex_seed_phrase, POLKADEX_SS58_PREFIX,
+        self.is_trading_required_flag = trading_required
+        if self.is_trading_required_flag:
+            self.proxy_pair = Keypair.create_from_mnemonic(polkadex_seed_phrase,
+                                                           POLKADEX_SS58_PREFIX,
                                                            KeypairType.SR25519)
             self.user_proxy_address = self.proxy_pair.ss58_address
+            print("trading account: ", self.user_proxy_address)
         self.user_main_address = None
         self.nonce = 0  # TODO: We need to fetch the nonce from enclave
         custom_types = {
@@ -339,9 +343,11 @@ class PolkadexExchange(ExchangePyBase):
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
+        print("Updating Balances...")
         if self.user_main_address is None:
             self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.endpoint,
                                                                        self.api_key)
+        print("Funding account: ", self.user_main_address)
         balances = await get_all_balances_by_main_account(self.user_main_address, self.endpoint, self.api_key)
         """
       [
@@ -376,7 +382,7 @@ class PolkadexExchange(ExchangePyBase):
                                            api_key=self.api_key)
 
     def _create_user_stream_data_source(self):
-        pass
+        return PolkadexUserStreamData(self._web_assistants_factory, self.enclave_endpoint)
 
     async def _initialize_trading_pair_symbol_map(self):
         markets = await get_all_markets(self.endpoint, self.api_key)

@@ -19,12 +19,13 @@ MIN_QTY = Decimal(10.0)
 
 GRAPHQL_ENDPOINT = "https://x6sbwzrbzvbabpujfy2phgq6ka.appsync-api.ap-south-1.amazonaws.com/graphql"
 GRAPHQL_API_KEY = "da2-t3j552hl3narhadrq3gqj3zgse"
-ENCLAVE_ENDPOINT = "ws://localhost:9944"
+ENCLAVE_ENDPOINT = "ws://127.0.0.1:9945"
 
 POLKADEX_SS58_PREFIX = 88
 
 UPDATE_ORDER_STATUS_MIN_INTERVAL = 10
 
+WS_PING_INTERVAL = 30
 
 # Rate Limit Type
 REQUEST_WEIGHT = "REQUEST_WEIGHT"

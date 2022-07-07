@@ -18,6 +18,6 @@ KEYS = {
         ConfigVar(key="polkadex_seed_phrase",
                   prompt="Enter polkadex_seed_phrase>>> ",
                   required_if=using_exchange("polkadex"),
-                  is_secure=False,
+                  is_secure=True,
                   is_connect_key=True),
 }
