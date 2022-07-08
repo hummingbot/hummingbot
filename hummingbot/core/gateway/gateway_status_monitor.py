@@ -16,20 +16,14 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-class GatewayContainerStatus(Enum):
-    RUNNING = 1
-    STOPPED = 2
-
-
-class GatewayConnectivityStatus(Enum):
+class GatewayStatus(Enum):
     ONLINE = 1
     OFFLINE = 2
 
 
 class GatewayStatusMonitor:
     _monitor_task: Optional[asyncio.Task]
-    _gateway_container_status: GatewayContainerStatus
-    _gateway_connectivity_status: GatewayConnectivityStatus
+    _gateway_status: GatewayStatus
     _sm_logger: Optional[logging.Logger] = None
 
     @classmethod
@@ -40,23 +34,22 @@ class GatewayStatusMonitor:
 
     def __init__(self, app: "HummingbotApplication"):
         self._app = app
-        self._gateway_container_status = GatewayContainerStatus.STOPPED
-        self._gateway_connectivity_status = GatewayConnectivityStatus.OFFLINE
+        self._gateway_status = GatewayStatus.OFFLINE
         self._monitor_task = None
         self._gateway_config_keys: List[str] = []
         self._gateway_ready_event: asyncio.Event = asyncio.Event()
+
+    @property
+    def ready(self) -> bool:
+        return self.gateway_status is GatewayStatus.ONLINE
 
     @property
     def ready_event(self) -> asyncio.Event:
         return self._gateway_ready_event
 
     @property
-    def gateway_container_status(self) -> GatewayContainerStatus:
-        return self._gateway_container_status
-
-    @property
-    def gateway_connectivity_status(self) -> GatewayConnectivityStatus:
-        return self._gateway_connectivity_status
+    def gateway_status(self) -> GatewayStatus:
+        return self._gateway_status
 
     @property
     def gateway_config_keys(self) -> List[str]:
@@ -83,34 +76,27 @@ class GatewayStatusMonitor:
         :param max_tries: maximum number of retries (default is 30)
         """
         while True:
-            if self._gateway_container_status is GatewayContainerStatus.RUNNING or max_tries <= 0:
-                return self._gateway_container_status
+            if self.ready or max_tries <= 0:
+                return self.ready
             await asyncio.sleep(POLL_INTERVAL)
             max_tries = max_tries - 1
 
     async def _monitor_loop(self):
         while True:
             try:
-                gateway_instance = self._get_gateway_instance()
-                if await asyncio.wait_for(gateway_instance.ping_gateway(), timeout=POLL_TIMEOUT):
-                    if self._gateway_container_status is GatewayContainerStatus.STOPPED:
-                        gateway_connectors = await gateway_instance.get_connectors(fail_silently=True)
+                gateway_http_client = self._get_gateway_instance()
+                if await asyncio.wait_for(gateway_http_client.ping_gateway(), timeout=POLL_TIMEOUT):
+                    if self.gateway_status is GatewayStatus.OFFLINE:
+                        gateway_connectors = await gateway_http_client.get_connectors(fail_silently=True)
                         GATEWAY_CONNECTORS.clear()
                         GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
                         await self.update_gateway_config_key_list()
 
-                    gateway_connectors_status = await GatewayHttpClient.get_instance().get_gateway_status(fail_silently=True)
-                    if any([status["currentBlockNumber"] > 0 for status in gateway_connectors_status]):
-                        self._gateway_connectivity_status = GatewayConnectivityStatus.ONLINE
-                        self.logger().info("Gateway container is RUNNING. Gateway service is ONLINE.")
-                    else:
-                        self._gateway_connectivity_status = GatewayContainerStatus.STOPPED
-                    self._gateway_container_status = GatewayContainerStatus.RUNNING
+                    self._gateway_status = GatewayStatus.ONLINE
                 else:
-                    if self._gateway_container_status is GatewayContainerStatus.RUNNING:
-                        self.logger().info("Connection to Gateway lost...")
-                        self._gateway_container_status = GatewayContainerStatus.STOPPED
-                        self._gateway_connectivity_status = GatewayConnectivityStatus.OFFLINE
+                    if self._gateway_status is GatewayStatus.ONLINE:
+                        self.logger().info("Connection to Gateway container lost...")
+                        self._gateway_status = GatewayStatus.OFFLINE
 
             except asyncio.CancelledError:
                 raise
@@ -121,8 +107,9 @@ class GatewayStatusMonitor:
                 """
                 pass
             finally:
-                if self.gateway_container_status is GatewayContainerStatus.RUNNING and \
-                        self.gateway_connectivity_status is GatewayConnectivityStatus.ONLINE:
+                if self.gateway_status is GatewayStatus.ONLINE:
+                    if not self._gateway_ready_event.is_set():
+                        self.logger().info("Gateway Service is ONLINE.")
                     self._gateway_ready_event.set()
                 else:
                     self._gateway_ready_event.clear()
