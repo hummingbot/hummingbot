@@ -207,7 +207,7 @@ export const validateGetOrderRequest: RequestValidator = mkRequestValidator(
     validateOrderExchangeId,
     mkValidator(
       '',
-      (_request) => `No client id or exchange id was informed.`,
+      (_request) => `No client id or exchange id were informed.`,
       (request) =>
         !(
           request &&
@@ -235,8 +235,8 @@ export const validateGetOrdersRequest: RequestValidator = mkRequestValidator(
     ),
     mkBatchValidator(
       [
-        validateOrderClientIds,
-        validateOrderExchangeIds,
+        validateOrderClientId,
+        validateOrderExchangeId,
         mkValidator(
           '',
           (_request) => `No client ids or exchange ids were informed.`,
@@ -345,7 +345,7 @@ export const validateGetOpenOrderRequest: RequestValidator = mkRequestValidator(
     validateOrderExchangeId,
     mkValidator(
       '',
-      (_request) => `No client id or exchange id was informed.`,
+      (_request) => `No client id or exchange id were informed.`,
       (request) =>
         !(
           request &&
@@ -405,7 +405,7 @@ export const validateGetFilledOrderRequest: RequestValidator =
       validateOrderExchangeId,
       mkValidator(
         '',
-        (_request) => `No client id or exchange id was informed.`,
+        (_request) => `No client id or exchange id were informed.`,
         (request) =>
           !(
             request &&

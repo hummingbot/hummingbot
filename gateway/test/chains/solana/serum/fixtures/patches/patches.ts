@@ -186,10 +186,10 @@ const patches = (solana: Solana, serum: Serum) => {
     }
   );
 
-  patches.set('serum/getTicker', (marketName: string) => {
+  patches.set('serum/getTicker', () => {
     if (disablePatches) return;
 
-    patch(serum, 'getTicker', async () => {
+    patch(serum, 'getTicker', async (marketName: string) => {
       const market = await serum.getMarket(marketName);
 
       const raw = data.get(`serum/getTicker/${market.address.toString()}`);

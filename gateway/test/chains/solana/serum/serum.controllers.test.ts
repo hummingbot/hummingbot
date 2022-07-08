@@ -360,7 +360,7 @@ it('getOrderBooks (all)', async () => {
 });
 
 it('getTicker ["SOL/USDT"]', async () => {
-  patches.get('serum/getTicker')(marketName);
+  patches.get('serum/getTicker')();
 
   request = {
     ...commonParameters,
@@ -384,7 +384,7 @@ it('getTicker ["SOL/USDT"]', async () => {
 });
 
 it('getTickers ["SOL/USDT", "SOL/USDC"]', async () => {
-  targetMarkets.map((marketName) => patches.get('serum/getTicker')(marketName));
+  patches.get('serum/getTicker')();
 
   request = {
     ...commonParameters,
@@ -418,9 +418,7 @@ it('getTickers ["SOL/USDT", "SOL/USDC"]', async () => {
 });
 
 it('getTickers (all)', async () => {
-  allowedMarkets.map((marketName) =>
-    patches.get('serum/getTicker')(marketName)
-  );
+  patches.get('serum/getTicker')();
 
   request = {
     ...commonParameters,
