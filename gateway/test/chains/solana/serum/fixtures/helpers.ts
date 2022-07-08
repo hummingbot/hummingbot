@@ -136,7 +136,9 @@ export const getNewSerumOrders = (
 
   for (const candidateOrder of candidateOrders) {
     result.push({
-      orderId: getRandonBN(),
+      orderId:
+        (candidateOrder as unknown as CreateOrderResponse).exchangeId ||
+        getRandonBN(),
       openOrdersAddress: new PublicKey(
         'DaosjpvtAxwL6GFDSL31o9pU5somKjifbkt32bEgLddf'
       ),

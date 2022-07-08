@@ -106,7 +106,7 @@ export const mkValidator = (
     } else passed = condition(target[key]);
 
     let error: string;
-    if (!passed) {
+    if (!passed && !optional) {
       if (typeof errorMsg === 'string') error = errorMsg;
       else if (useRequest) error = errorMsg(target, index);
       else error = errorMsg(target[key], index);
@@ -190,7 +190,9 @@ export const validateToken: Validator = mkValidator(
 export const validateAmount: Validator = mkValidator(
   'amount',
   invalidAmountError,
-  (val) => val === undefined || (typeof val === 'string' && isNaturalNumberString(val)),
+  (val) =>
+    val === undefined ||
+    (typeof val === 'string' && isNaturalNumberString(val)),
   true
 );
 

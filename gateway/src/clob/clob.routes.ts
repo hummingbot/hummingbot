@@ -1,6 +1,5 @@
 import { Request, Response, Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
-import { validatePublicKey } from '../chains/solana/solana.validators';
 import { Serumish } from '../connectors/serum/serum';
 import { getConnector } from '../services/connection-manager';
 import { asyncHandler } from '../services/error-handler';
@@ -112,8 +111,6 @@ export namespace ClobRoutes {
         request: Request<any, any, ClobGetOrdersRequest>,
         response: Response<ClobGetOrdersResponse, any>
       ) => {
-        validatePublicKey(request.body);
-
         const result = await getOrders(request.body);
 
         response.status(result.status).json(result.body);
@@ -128,8 +125,6 @@ export namespace ClobRoutes {
         request: Request<any, any, ClobPostOrdersRequest>,
         response: Response<ClobPostOrdersResponse, any>
       ) => {
-        validatePublicKey(request.body);
-
         const result = await createOrders(request.body);
 
         response.status(result.status).json(result.body);
@@ -144,8 +139,6 @@ export namespace ClobRoutes {
         request: Request<any, any, ClobDeleteOrdersRequest>,
         response: Response<ClobDeleteOrdersResponse, any>
       ) => {
-        validatePublicKey(request.body);
-
         const result = await cancelOrders(request.body);
 
         response.status(result.status).json(result.body);
@@ -160,8 +153,6 @@ export namespace ClobRoutes {
         request: Request<any, any, ClobGetOpenOrdersRequest>,
         response: Response<ClobGetOpenOrdersResponse, any>
       ) => {
-        validatePublicKey(request.body);
-
         const result = await getOpenOrders(request.body);
 
         response.status(result.status).json(result.body);
@@ -176,8 +167,6 @@ export namespace ClobRoutes {
         request: Request<any, any, ClobGetFilledOrdersRequest>,
         response: Response<ClobGetFilledOrdersResponse, any>
       ) => {
-        validatePublicKey(request.body);
-
         const result = await getFilledOrders(request.body);
 
         response.status(result.status).json(result.body);
@@ -192,8 +181,6 @@ export namespace ClobRoutes {
         request: Request<any, any, ClobPostSettleFundsRequest>,
         response: Response<ClobPostSettleFundsResponse, any>
       ) => {
-        validatePublicKey(request.body);
-
         const result = await settleFunds(request.body);
 
         response.status(result.status).json(result.body);
