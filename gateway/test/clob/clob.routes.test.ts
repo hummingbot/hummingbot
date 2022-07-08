@@ -5,26 +5,26 @@ import { Express } from 'express-serve-static-core';
 import { StatusCodes } from 'http-status-codes';
 import 'jest-extended';
 import request from 'supertest';
-import { Solana } from '../../../../src/chains/solana/solana';
-import { Serum } from '../../../../src/connectors/serum/serum';
-import { getNotNullOrThrowError } from '../../../../src/connectors/serum/serum.helpers';
-import { SerumRoutes } from '../../../../src/connectors/serum/serum.routes';
+import { Solana } from '../../src/chains/solana/solana';
+import { ClobRoutes } from '../../src/clob/clob.routes';
+import { Serum } from '../../src/connectors/serum/serum';
+import { getNotNullOrThrowError } from '../../src/connectors/serum/serum.helpers';
 import {
   GetMarketResponse,
   GetOrderBookResponse,
   GetOrderResponse,
   GetTickerResponse,
   OrderStatus,
-} from '../../../../src/connectors/serum/serum.types';
-import { ConfigManagerV2 } from '../../../../src/services/config-manager-v2';
-import { default as config } from '../../../../test/chains/solana/serum/fixtures/config';
-import { unpatch } from '../../../services/patch';
+} from '../../src/connectors/serum/serum.types';
+import { ConfigManagerV2 } from '../../src/services/config-manager-v2';
+import { default as config } from '../../test/chains/solana/serum/fixtures/config';
+import { default as patchesCreator } from '../../test/chains/solana/serum/fixtures/patches/patches';
 import {
   CreateOrderData,
   getNewCandidateOrdersTemplates,
   getOrderPairsFromCandidateOrders,
-} from './fixtures/helpers';
-import { default as patchesCreator } from './fixtures/patches/patches';
+} from '../chains/solana/serum/fixtures/helpers';
+import { unpatch } from '../services/patch';
 
 jest.setTimeout(5 * 60 * 1000);
 
@@ -42,7 +42,7 @@ beforeAll(async () => {
   app = express();
   app.use(express.json());
 
-  app.use('/serum', SerumRoutes.router);
+  app.use('/clob', ClobRoutes.router);
 
   solana = await Solana.getInstance(config.serum.network);
   serum = await Serum.getInstance(config.serum.chain, config.serum.network);
@@ -79,11 +79,11 @@ const candidateOrders = getNewCandidateOrdersTemplates(10, 0);
 const orderPairs: CreateOrderData[] =
   getOrderPairsFromCandidateOrders(candidateOrders);
 
-describe(`/serum`, () => {
-  describe(`GET /serum`, () => {
+describe(`/clob`, () => {
+  describe(`GET /clob`, () => {
     it('Get the API status', async () => {
       await request(app)
-        .get(`/serum`)
+        .get(`/clob`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -105,11 +105,11 @@ describe(`/serum`, () => {
   });
 });
 
-describe(`/serum/markets`, () => {
-  describe(`GET /serum/markets`, () => {
+describe(`/clob/markets`, () => {
+  describe(`GET /clob/markets`, () => {
     it('Get a specific market by its name', async () => {
       await request(app)
-        .get(`/serum/markets`)
+        .get(`/clob/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -144,7 +144,7 @@ describe(`/serum/markets`, () => {
 
     it('Get a map of markets by their names', async () => {
       await request(app)
-        .get(`/serum/markets`)
+        .get(`/clob/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -190,7 +190,7 @@ describe(`/serum/markets`, () => {
 
     it('Get a map with all markets', async () => {
       await request(app)
-        .get(`/serum/markets`)
+        .get(`/clob/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -237,7 +237,7 @@ describe(`/serum/markets`, () => {
       const marketName = '';
 
       await request(app)
-        .get(`/serum/markets`)
+        .get(`/clob/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -261,7 +261,7 @@ describe(`/serum/markets`, () => {
       const marketName = 'ABC/XYZ';
 
       await request(app)
-        .get(`/serum/markets`)
+        .get(`/clob/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -284,7 +284,7 @@ describe(`/serum/markets`, () => {
       const marketNames: string[] = [];
 
       await request(app)
-        .get(`/serum/markets`)
+        .get(`/clob/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -307,7 +307,7 @@ describe(`/serum/markets`, () => {
       const marketNames = ['SOL/USDT', 'ABC/XYZ', 'SRM/SOL'];
 
       await request(app)
-        .get(`/serum/markets`)
+        .get(`/clob/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -328,7 +328,7 @@ describe(`/serum/markets`, () => {
   });
 });
 
-describe(`/serum/orderBooks`, () => {
+describe(`/clob/orderBooks`, () => {
   beforeEach(async () => {
     await Promise.all(
       allowedMarkets.flatMap(async (marketName) => {
@@ -338,10 +338,10 @@ describe(`/serum/orderBooks`, () => {
     );
   });
 
-  describe(`GET /serum/orderBooks`, () => {
+  describe(`GET /clob/orderBooks`, () => {
     it('Get a specific order book by its market name', async () => {
       await request(app)
-        .get(`/serum/orderBooks`)
+        .get(`/clob/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -383,7 +383,7 @@ describe(`/serum/orderBooks`, () => {
 
     it('Get a map of order books by their market names', async () => {
       await request(app)
-        .get(`/serum/orderBooks`)
+        .get(`/clob/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -434,7 +434,7 @@ describe(`/serum/orderBooks`, () => {
 
     it('Get a map with all order books', async () => {
       await request(app)
-        .get(`/serum/orderBooks`)
+        .get(`/clob/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -486,7 +486,7 @@ describe(`/serum/orderBooks`, () => {
       const marketName = '';
 
       await request(app)
-        .get(`/serum/orderBooks`)
+        .get(`/clob/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -510,7 +510,7 @@ describe(`/serum/orderBooks`, () => {
       const marketName = 'ABC/XYZ';
 
       await request(app)
-        .get(`/serum/orderBooks`)
+        .get(`/clob/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -533,7 +533,7 @@ describe(`/serum/orderBooks`, () => {
       const marketNames: string[] = [];
 
       await request(app)
-        .get(`/serum/orderBooks`)
+        .get(`/clob/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -556,7 +556,7 @@ describe(`/serum/orderBooks`, () => {
       const marketNames = ['SOL/USDT', 'ABC/XYZ', 'SRM/SOL'];
 
       await request(app)
-        .get(`/serum/orderBooks`)
+        .get(`/clob/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -577,15 +577,15 @@ describe(`/serum/orderBooks`, () => {
   });
 });
 
-describe(`/serum/tickers`, () => {
+describe(`/clob/tickers`, () => {
   beforeEach(async () => {
     patches.get('serum/getTicker')();
   });
 
-  describe(`GET /serum/tickers`, () => {
+  describe(`GET /clob/tickers`, () => {
     it('Get a specific ticker by its market name', async () => {
       await request(app)
-        .get(`/serum/tickers`)
+        .get(`/clob/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -613,7 +613,7 @@ describe(`/serum/tickers`, () => {
 
     it('Get a map of tickers by their market names', async () => {
       await request(app)
-        .get(`/serum/tickers`)
+        .get(`/clob/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -650,7 +650,7 @@ describe(`/serum/tickers`, () => {
 
     it('Get a map with all tickers', async () => {
       await request(app)
-        .get(`/serum/tickers`)
+        .get(`/clob/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -688,7 +688,7 @@ describe(`/serum/tickers`, () => {
       const marketName = '';
 
       await request(app)
-        .get(`/serum/tickers`)
+        .get(`/clob/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -712,7 +712,7 @@ describe(`/serum/tickers`, () => {
       const marketName = 'ABC/XYZ';
 
       await request(app)
-        .get(`/serum/tickers`)
+        .get(`/clob/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -735,7 +735,7 @@ describe(`/serum/tickers`, () => {
       const marketNames: string[] = [];
 
       await request(app)
-        .get(`/serum/tickers`)
+        .get(`/clob/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -758,7 +758,7 @@ describe(`/serum/tickers`, () => {
       const marketNames = ['SOL/USDT', 'ABC/XYZ', 'SRM/SOL'];
 
       await request(app)
-        .get(`/serum/tickers`)
+        .get(`/clob/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -779,11 +779,11 @@ describe(`/serum/tickers`, () => {
   });
 });
 
-describe(`/serum/orders`, () => {
-  describe(`GET /serum/orders`, () => {
+describe(`/clob/orders`, () => {
+  describe(`GET /clob/orders`, () => {
     it('Fail when trying to get one or more orders without informing any parameters', async () => {
       await request(app)
-        .get(`/serum/orders`)
+        .get(`/clob/orders`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -818,7 +818,7 @@ describe(`/serum/orders`, () => {
         const ownerAddress = target.response.ownerAddress;
 
         await request(app)
-          .get(`/serum/orders`)
+          .get(`/clob/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -848,7 +848,7 @@ describe(`/serum/orders`, () => {
         const ownerAddress = target.response.ownerAddress;
 
         await request(app)
-          .get(`/serum/orders`)
+          .get(`/clob/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -878,7 +878,7 @@ describe(`/serum/orders`, () => {
         const ownerAddress = target.response.ownerAddress;
 
         await request(app)
-          .get(`/serum/orders`)
+          .get(`/clob/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -908,7 +908,7 @@ describe(`/serum/orders`, () => {
         const ownerAddress = target.response.ownerAddress;
 
         await request(app)
-          .get(`/serum/orders`)
+          .get(`/clob/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -933,7 +933,7 @@ describe(`/serum/orders`, () => {
         const marketName = target.response.marketName;
 
         await request(app)
-          .get(`/serum/orders`)
+          .get(`/clob/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -960,7 +960,7 @@ describe(`/serum/orders`, () => {
         const ownerAddress = target.response.ownerAddress;
 
         await request(app)
-          .get(`/serum/orders`)
+          .get(`/clob/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -992,7 +992,7 @@ describe(`/serum/orders`, () => {
         const ownerAddress = target.response.ownerAddress;
 
         await request(app)
-          .get(`/serum/orders`)
+          .get(`/clob/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -1033,7 +1033,7 @@ describe(`/serum/orders`, () => {
 
       it('Get a map of orders by their ids and owner addresses', async () => {
         await request(app)
-          .get(`/serum/orders`)
+          .get(`/clob/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -1074,7 +1074,7 @@ describe(`/serum/orders`, () => {
 
       it('Get a map of orders by their ids, owner addresses and market names', async () => {
         await request(app)
-          .get(`/serum/orders`)
+          .get(`/clob/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -1114,7 +1114,7 @@ describe(`/serum/orders`, () => {
 
       it('Get a map of orders by their exchange ids and owner addresses', async () => {
         await request(app)
-          .get(`/serum/orders`)
+          .get(`/clob/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -1155,7 +1155,7 @@ describe(`/serum/orders`, () => {
 
       it('Get a map of orders by their exchange ids, owner addresses and market names', async () => {
         await request(app)
-          .get(`/serum/orders`)
+          .get(`/clob/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -1195,7 +1195,7 @@ describe(`/serum/orders`, () => {
 
       it('Fail when trying to get a map of orders without informing their owner addresses', async () => {
         await request(app)
-          .get(`/serum/orders`)
+          .get(`/clob/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -1244,7 +1244,7 @@ describe(`/serum/orders`, () => {
         const candidateOrder = orderPairs[0].request;
 
         await request(app)
-          .post(`/serum/orders`)
+          .post(`/clob/orders`)
           .send({
             chain: config.serum.chain,
             network: config.serum.network,
@@ -1367,8 +1367,8 @@ describe(`/serum/orders`, () => {
   // });
 });
 
-// describe(`/serum/orders/open`, () => {
-//   describe(`GET /serum/orders/open`, () => {
+// describe(`/clob/orders/open`, () => {
+//   describe(`GET /clob/orders/open`, () => {
 //     describe('Single order', () => {
 //       it('Get a specific open order by its id and owner address', async () => {
 //         console.log('');
@@ -1447,8 +1447,8 @@ describe(`/serum/orders`, () => {
 //   });
 // });
 
-// describe(`/serum/orders/filled`, () => {
-//   describe(`GET /serum/orders/filled`, () => {
+// describe(`/clob/orders/filled`, () => {
+//   describe(`GET /clob/orders/filled`, () => {
 //     describe('Single order', () => {
 //       it('Get a specific filled order by its id and owner address', async () => {
 //         console.log('');
