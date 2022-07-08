@@ -28,13 +28,19 @@ import {
   OrderSide,
   OrderStatus,
 } from '../../../src/connectors/serum/serum.types';
+import { ConfigManagerV2 } from '../../../src/services/config-manager-v2';
 import { HttpException } from '../../../src/services/error-handler';
 import { unpatch } from '../../../test/services/patch';
 import { default as config } from '../../../test/chains/solana/serum/fixtures/config';
 import { getNewCandidateOrdersTemplates } from '../../../test/chains/solana/serum/fixtures/helpers';
-import { default as patchesCreator } from '../../../test/chains/solana/serum/fixtures/patches/patches';
+import {
+  default as patchesCreator,
+  disablePatches,
+} from '../../../test/chains/solana/serum/fixtures/patches/patches';
 
-jest.setTimeout(30 * 60 * 1000);
+jest.setTimeout(5 * 60 * 1000);
+
+disablePatches();
 
 let solana: Solana;
 let serum: Serum;
@@ -42,6 +48,10 @@ let serum: Serum;
 let patches: Map<string, any>;
 
 beforeAll(async () => {
+  const configManager = ConfigManagerV2.getInstance();
+  configManager.set('serum.parallel.all.batchSize', 100);
+  configManager.set('serum.parallel.all.delayBetweenBatches', 1);
+
   solana = await Solana.getInstance(config.serum.network);
 
   serum = await Serum.getInstance(config.serum.chain, config.serum.network);
@@ -355,7 +365,7 @@ it('getOrderBooks (all)', async () => {
 });
 
 it('getTicker ["SOL/USDT"]', async () => {
-  patches.get('serum/getTicker')(marketName);
+  patches.get('serum/getTicker')();
 
   request = {
     ...commonParameters,
@@ -379,7 +389,7 @@ it('getTicker ["SOL/USDT"]', async () => {
 });
 
 it('getTickers ["SOL/USDT", "SOL/USDC"]', async () => {
-  targetMarkets.map((marketName) => patches.get('serum/getTicker')(marketName));
+  patches.get('serum/getTicker')();
 
   request = {
     ...commonParameters,
@@ -413,9 +423,7 @@ it('getTickers ["SOL/USDT", "SOL/USDC"]', async () => {
 });
 
 it('getTickers (all)', async () => {
-  allowedMarkets.map((marketName) =>
-    patches.get('serum/getTicker')(marketName)
-  );
+  patches.get('serum/getTicker')();
 
   request = {
     ...commonParameters,

@@ -24,17 +24,20 @@ import config from '../config';
 import { convertToSerumOpenOrders, getNewSerumOrders } from '../helpers';
 import data from './data';
 
-const disablePatches = false;
+let usePatches = false;
 
 const allowedMarkets = Object.values(config.solana.markets).map(
   (market) => market.name
 );
 
+export const enablePatches = () => (usePatches = true);
+export const disablePatches = () => (usePatches = false);
+
 const patches = (solana: Solana, serum: Serum) => {
   const patches = new Map();
 
   patches.set('solana/loadTokens', () => {
-    if (disablePatches) return;
+    if (usePatches) return;
 
     patch(solana, 'loadTokens', () => {
       return {};
@@ -42,7 +45,7 @@ const patches = (solana: Solana, serum: Serum) => {
   });
 
   patches.set('solana/getKeyPair', () => {
-    if (disablePatches) return;
+    if (usePatches) return;
 
     patch(solana, 'getKeypair', (address: string) => {
       if (address === config.solana.wallet.owner.publicKey)
@@ -55,7 +58,7 @@ const patches = (solana: Solana, serum: Serum) => {
   });
 
   patches.set('serum/serumGetMarketsInformation', () => {
-    if (disablePatches) return;
+    if (usePatches) return;
 
     patch(serum, 'serumGetMarketsInformation', () => {
       return data.get('serum/serumGetMarketsInformation');
@@ -63,7 +66,7 @@ const patches = (solana: Solana, serum: Serum) => {
   });
 
   patches.set('serum/market/load', () => {
-    if (disablePatches) return;
+    if (usePatches) return;
 
     patch(
       SerumMarket,
@@ -82,7 +85,7 @@ const patches = (solana: Solana, serum: Serum) => {
   });
 
   patches.set('serum/market/loadAsks', async (marketName: string) => {
-    if (disablePatches) return;
+    if (usePatches) return;
 
     const market = await serum.getMarket(marketName);
 
@@ -92,7 +95,7 @@ const patches = (solana: Solana, serum: Serum) => {
   });
 
   patches.set('serum/market/loadBids', async (marketName: string) => {
-    if (disablePatches) return;
+    if (usePatches) return;
 
     const market = await serum.getMarket(marketName);
 
@@ -102,7 +105,7 @@ const patches = (solana: Solana, serum: Serum) => {
   });
 
   patches.set('serum/market/asksBidsForAllMarkets', async () => {
-    if (disablePatches) return;
+    if (usePatches) return;
 
     for (const marketName of allowedMarkets) {
       await patches.get('serum/market/loadAsks')(marketName);
@@ -113,7 +116,7 @@ const patches = (solana: Solana, serum: Serum) => {
   patches.set(
     'serum/market/loadOrdersForOwner',
     async (candidateOrders?: CreateOrdersRequest[]) => {
-      if (disablePatches) return;
+      if (usePatches) return;
 
       for (const marketName of allowedMarkets) {
         const serumMarket = (await serum.getMarket(marketName)).market;
@@ -144,7 +147,7 @@ const patches = (solana: Solana, serum: Serum) => {
       orderBooksMap: IMap<string, OrderBook>,
       candidateOrders?: CreateOrdersRequest[]
     ) => {
-      if (disablePatches) return;
+      if (usePatches) return;
 
       const candidateOrdersMap: IMap<string, CreateOrdersRequest[]> = IMap<
         string,
@@ -187,7 +190,7 @@ const patches = (solana: Solana, serum: Serum) => {
   );
 
   patches.set('serum/getTicker', () => {
-    if (disablePatches) return;
+    if (usePatches) return;
 
     patch(serum, 'getTicker', async (marketName: string) => {
       const market = await serum.getMarket(marketName);
@@ -202,7 +205,7 @@ const patches = (solana: Solana, serum: Serum) => {
   });
 
   patches.set('serum/serumMarketLoadFills', () => {
-    if (disablePatches) return;
+    if (usePatches) return;
 
     return patch(
       serum,
@@ -214,7 +217,7 @@ const patches = (solana: Solana, serum: Serum) => {
   });
 
   patches.set('serum/serumMarketPlaceOrders', () => {
-    if (disablePatches) return;
+    if (usePatches) return;
 
     return patch(
       serum,
@@ -236,7 +239,7 @@ const patches = (solana: Solana, serum: Serum) => {
   });
 
   patches.set('serum/serumMarketCancelOrdersAndSettleFunds', () => {
-    if (disablePatches) return;
+    if (usePatches) return;
 
     return patch(
       serum,
@@ -262,7 +265,7 @@ const patches = (solana: Solana, serum: Serum) => {
   });
 
   patches.set('serum/serumSettleFunds', () => {
-    if (disablePatches) return;
+    if (usePatches) return;
 
     return patch(serum, 'serumSettleFunds', () => {
       const shuffle = (target: string) =>
@@ -289,7 +292,7 @@ const patches = (solana: Solana, serum: Serum) => {
       }[],
       _transaction: Transaction = new Transaction()
     ) => {
-      if (disablePatches) return;
+      if (usePatches) return;
 
       return patch(serum, 'serumSettleSeveralFunds', () => {
         const shuffle = (target: string) =>
@@ -306,7 +309,7 @@ const patches = (solana: Solana, serum: Serum) => {
   patches.set(
     'serum/market/OpenOrders/findForMarketAndOwner',
     (_marketName: string, _ownerAddress: string) => {
-      if (disablePatches) return;
+      if (usePatches) return;
 
       return patch(OpenOrders, 'findForMarketAndOwner', () => {
         throw new Error('Not implemented');
@@ -317,7 +320,7 @@ const patches = (solana: Solana, serum: Serum) => {
   patches.set(
     'serum/settleFundsForMarket',
     (_marketName: string, _ownerAddress: string) => {
-      if (disablePatches) return;
+      if (usePatches) return;
 
       return patch(serum, 'settleFundsForMarket', () => {
         const shuffle = (target: string) =>
