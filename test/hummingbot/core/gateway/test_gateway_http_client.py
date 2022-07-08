@@ -222,12 +222,12 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         self.assertGreater(result["timestamp"], 0)
 
     @async_test(loop=ev_loop)
-    async def test_solana_post_balances(self):
+    async def test_solana_get_balances(self):
         network = 'testnet'
         address = ''
         token_symbols = ['']
 
-        result: Dict[str, Any] = await GatewayHttpClient.get_instance().solana_post_balances(
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().solana_get_balances(
             network,
             address,
             token_symbols

@@ -28,9 +28,7 @@ export namespace SolanaRoutes {
   export const router = Router();
 
   export const getSolana = async (request: Request) => {
-    const solana = await Solana.getInstance(
-      request.body.network,
-    );
+    const solana = await Solana.getInstance(request.body.network);
     await solana.init();
 
     return solana;
@@ -54,9 +52,8 @@ export namespace SolanaRoutes {
     })
   );
 
-  // TODO Check the possibility to change to a GET method (consider the Ethereum implementation)
   // Get all token accounts and balances + solana balance
-  router.post(
+  router.get(
     '/balances',
     asyncHandler(
       async (
