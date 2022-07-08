@@ -174,6 +174,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     limit_order.price,
                     limit_order.quantity,
                     AddedToCostTradeFee(Decimal(0)),
+                    "exchid_" + limit_order.client_order_id
                 ),
             )
             market.trigger_event(
@@ -214,6 +215,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     limit_order.price,
                     limit_order.quantity,
                     AddedToCostTradeFee(Decimal(0)),
+                    "exchid_" + limit_order.client_order_id
                 ),
             )
             market.trigger_event(
@@ -248,11 +250,13 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
     @patch('hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making.'
            'CrossExchangeMarketMakingStrategy.is_gateway_market')
-    def test_both_sides_profitable(self, is_gateway_mock):
+    def test_both_sides_profitable(self, is_gateway_mock: unittest.mock.Mock):
         is_gateway_mock.return_value = False
 
         self.clock.backtest_til(self.start_timestamp + 5)
-        self.ev_loop.run_until_complete(self.maker_order_created_logger.wait_for(BuyOrderCreatedEvent))
+        if len(self.maker_order_created_logger.event_log) == 0:
+            self.async_run_with_timeout(self.maker_order_created_logger.wait_for(BuyOrderCreatedEvent))
+
         self.assertEqual(1, len(self.strategy.active_maker_bids))
         self.assertEqual(1, len(self.strategy.active_maker_asks))
 
@@ -270,9 +274,12 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         is_gateway_mock.return_value = True
 
         self.clock.backtest_til(self.start_timestamp + 10)
-        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+        if len(self.taker_order_created_logger.event_log) == 0:
+            self.async_run_with_timeout(self.taker_order_created_logger.wait_for(SellOrderCreatedEvent))
+
         self.clock.backtest_til(self.start_timestamp + 20)
-        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+        if len(self.taker_order_fill_logger.event_log) == 0:
+            self.async_run_with_timeout(self.taker_order_fill_logger.wait_for(OrderFilledEvent))
 
         self.assertEqual(1, len(self.taker_order_fill_logger.event_log))
 
@@ -324,12 +331,16 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
 
+        prev_maker_orders_created_len = len(self.maker_order_created_logger.event_log)
+
         self.simulate_order_book_widening(self.taker_market.order_books[self.taker_trading_pairs[0]], 0.99, 1.01)
 
         self.clock.backtest_til(self.start_timestamp + 100)
         self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         self.clock.backtest_til(self.start_timestamp + 101)
-        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+
+        if len(self.maker_order_created_logger.event_log) == prev_maker_orders_created_len:
+            self.async_run_with_timeout(self.maker_order_created_logger.wait_for(SellOrderCreatedEvent))
 
         self.assertEqual(2, len(self.maker_cancel_order_logger.event_log))
         self.assertEqual(1, len(self.strategy_with_top_depth_tolerance.active_maker_bids))
@@ -377,12 +388,16 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             )
         )
 
+        prev_maker_orders_created_len = len(self.maker_order_created_logger.event_log)
+
         self.simulate_order_book_widening(self.taker_market.order_books[self.taker_trading_pairs[0]], 0.99, 1.01)
 
         self.clock.backtest_til(self.start_timestamp + 100)
         self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         self.clock.backtest_til(self.start_timestamp + 101)
-        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+
+        if len(self.maker_order_created_logger.event_log) == prev_maker_orders_created_len:
+            self.async_run_with_timeout(self.maker_order_created_logger.wait_for(SellOrderCreatedEvent))
 
         self.assertEqual(2, len(self.maker_cancel_order_logger.event_log))
         self.assertEqual(1, len(self.strategy.active_maker_bids))
@@ -407,7 +422,10 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             [OrderBookRow(0.996, 30, 2)], [OrderBookRow(1.004, 30, 2)], 2)
 
         self.clock.backtest_til(self.start_timestamp + 10)
-        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+
+        if len(self.maker_order_created_logger.event_log) == 0:
+            self.async_run_with_timeout(self.maker_order_created_logger.wait_for(SellOrderCreatedEvent))
+
         self.assertEqual(0, len(self.maker_cancel_order_logger.event_log))
         self.assertEqual(1, len(self.strategy.active_maker_bids))
         self.assertEqual(1, len(self.strategy.active_maker_asks))
@@ -457,8 +475,13 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         self.clock.backtest_til(self.start_timestamp + 10)
         self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+
+        prev_maker_orders_created_len = len(self.maker_order_created_logger.event_log)
+
         self.clock.backtest_til(self.start_timestamp + 11)
-        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+
+        if len(self.maker_order_created_logger.event_log) == prev_maker_orders_created_len:
+            self.async_run_with_timeout(self.maker_order_created_logger.wait_for(SellOrderCreatedEvent))
 
         self.assertEqual(2, len(self.maker_cancel_order_logger.event_log))
         self.assertEqual(1, len(self.strategy.active_maker_bids))
@@ -469,28 +492,35 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("0.98457"), bid_order.price)
         self.assertEqual(Decimal("1.0155"), ask_order.price)
 
-        self.clock.backtest_til(self.start_timestamp + 20)
-        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         self.simulate_limit_order_fill(self.maker_market, bid_order)
         self.simulate_limit_order_fill(self.maker_market, ask_order)
 
-        self.clock.backtest_til(self.start_timestamp + 25)
-        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+        prev_taker_orders_created_len = len(self.taker_order_created_logger.event_log)
+
+        self.clock.backtest_til(self.start_timestamp + 20)
+
+        if len(self.taker_order_created_logger.event_log) == prev_taker_orders_created_len:
+            self.async_run_with_timeout(self.taker_order_created_logger.wait_for(SellOrderCreatedEvent))
+
+        prev_taker_orders_filled_len = len(self.taker_order_fill_logger.event_log)
+
         self.clock.backtest_til(self.start_timestamp + 30)
-        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+
+        if len(self.taker_order_fill_logger.event_log) == prev_taker_orders_filled_len:
+            self.async_run_with_timeout(self.taker_order_fill_logger.wait_for(OrderFilledEvent))
 
         fill_events: List[OrderFilledEvent] = self.taker_order_fill_logger.event_log
 
         bid_hedges: List[OrderFilledEvent] = [evt for evt in fill_events if evt.trade_type is TradeType.SELL]
         ask_hedges: List[OrderFilledEvent] = [evt for evt in fill_events if evt.trade_type is TradeType.BUY]
 
-        self.assertEqual(2, len(bid_hedges))
+        self.assertEqual(1, len(bid_hedges))
         self.assertEqual(1, len(ask_hedges))
         self.assertGreater(
             self.maker_market.get_balance(self.maker_trading_pairs[2]) + self.taker_market.get_balance(self.taker_trading_pairs[2]),
             Decimal("10"),
         )
-        self.assertEqual(3, len(self.taker_order_fill_logger.event_log))
+        self.assertEqual(2, len(self.taker_order_fill_logger.event_log))
         taker_fill1: OrderFilledEvent = self.taker_order_fill_logger.event_log[1]
         self.assertEqual(TradeType.SELL, taker_fill1.trade_type)
         self.assertAlmostEqual(Decimal("0.9895"), taker_fill1.price)
@@ -780,8 +810,12 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(0, len(active_maker_bids))  # cancelled
         self.assertEqual(0, len(active_maker_asks))  # cancelled
 
+        prev_maker_orders_created_len = len(self.maker_order_created_logger.event_log)
+
         self.clock.backtest_til(self.start_timestamp + 5)
-        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+
+        if len(self.maker_order_created_logger.event_log) == prev_maker_orders_created_len:
+            self.async_run_with_timeout(self.maker_order_created_logger.wait_for(BuyOrderCreatedEvent))
 
         new_active_maker_bids = strategy_with_slippage_buffer.active_maker_bids
         new_active_maker_asks = strategy_with_slippage_buffer.active_maker_asks
