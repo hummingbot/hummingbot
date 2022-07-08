@@ -8,14 +8,13 @@ import websockets
 from bidict import bidict
 from dateutil import parser
 from gql import Client
-from gql.transport.appsync_auth import AppSyncApiKeyAuthentication
 from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
 from substrateinterface import Keypair, KeypairType, SubstrateInterface
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
 from hummingbot.connector.exchange.polkadex.graphql.market.market import get_all_markets, get_recent_trades
-from hummingbot.connector.exchange.polkadex.graphql.polkadex_user_stream_data_source import PolkadexUserStreamDataSource
+from hummingbot.connector.exchange.polkadex.python_user_stream_data_source import PolkadexUserStreamDataSource
 from hummingbot.connector.exchange.polkadex.graphql.user.streams import on_balance_update, on_order_update
 from hummingbot.connector.exchange.polkadex.graphql.user.user import (
     find_order_by_main_account,
@@ -31,7 +30,6 @@ from hummingbot.connector.exchange.polkadex.polkadex_constants import (
 )
 from hummingbot.connector.exchange.polkadex.polkadex_order_book_data_source import PolkadexOrderbookDataSource
 from hummingbot.connector.exchange.polkadex.polkadex_payload import cancel_order, create_order
-from hummingbot.connector.exchange.polkadex.python_user_stream_data_source import PolkadexUserStreamData
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
@@ -39,6 +37,7 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
@@ -56,6 +55,7 @@ class PolkadexExchange(ExchangePyBase):
 
         self.enclave_endpoint = CONSTANTS.ENCLAVE_ENDPOINT
         self.endpoint = CONSTANTS.GRAPHQL_ENDPOINT
+        self.wss_url = CONSTANTS.GRAPHQL_WSS_ENDPOINT
         self.api_key = CONSTANTS.GRAPHQL_API_KEY
         self._trading_pairs = trading_pairs
 
@@ -131,7 +131,7 @@ class PolkadexExchange(ExchangePyBase):
 
     @property
     def domain(self):
-        raise NotImplementedError
+        return None
 
     @property
     def client_order_id_max_length(self):
@@ -175,6 +175,30 @@ class PolkadexExchange(ExchangePyBase):
     @property
     def name(self) -> str:
         return "polkadex"
+
+    async def _update_trading_rules(self):
+        print("Bypassing trading rules updation for now")
+        pass
+        # exchange_info = await self._api_get(path_url=self.trading_rules_request_path)
+        # trading_rules_list = await self._format_trading_rules(exchange_info)
+        # self._trading_rules.clear()
+        # for trading_rule in trading_rules_list:
+        #     self._trading_rules[trading_rule.trading_pair] = trading_rule
+        # self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
+
+    async def _update_time_synchronizer(self):
+        print("Bypassing setting time from server, fix this later")
+        pass
+
+    async def check_network(self) -> NetworkStatus:
+        try:
+            print("Connecting to enclave")
+            websocket = await websockets.connect(self.enclave_endpoint)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         # TODO; Convert client_order_id to enclave_order_id
@@ -383,7 +407,7 @@ class PolkadexExchange(ExchangePyBase):
             del self._account_balances[asset_name]
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
-        api_factory = WebAssistantsFactory(auth=self._auth)
+        api_factory = WebAssistantsFactory(throttler=self._throttler, auth=self._auth)
         return api_factory
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:

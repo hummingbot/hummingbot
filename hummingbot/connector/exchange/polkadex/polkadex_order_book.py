@@ -19,6 +19,7 @@ class PolkadexOrderbook(OrderBook):
 
         bids = []
         asks = []
+        print("Recvd snapshot msgs: ",msgs)
         for price_level in msgs:
             if price_level["side"] == "Bid":
                 bids.append((float(price_level["price"]), float(price_level["qty"]), int(-1)))

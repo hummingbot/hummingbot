@@ -48,7 +48,9 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
         message_queue.put_nowait(diff_message)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        result: List[Dict[str, Any]] = await get_orderbook(trading_pair, None, None)
+        print("Getting orderbook snapshot for: ", trading_pair)
+        result: List[Dict[str, Any]] = await get_orderbook(trading_pair, None, None, self._connector.wss_url,
+                                                           self._api_key)
         snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = PolkadexOrderbook.snapshot_message_from_exchange(
             result,
@@ -74,6 +76,7 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         print("Connecting to websocket: ", self._connector.wss_url)
+        # TODO: Build the headers and stuff for connection
         await ws.connect(ws_url=self._connector.wss_url, ping_timeout=CONSTANTS.WS_PING_INTERVAL)
         return ws
 
