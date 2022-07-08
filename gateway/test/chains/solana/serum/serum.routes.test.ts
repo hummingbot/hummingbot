@@ -73,7 +73,7 @@ const numberOfAllowedMarkets = allowedMarkets.length;
 
 const targetMarkets = allowedMarkets.slice(0, 2);
 
-const marketName = targetMarkets[0];
+const targetMarket = targetMarkets[0];
 
 // const orderIds = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
@@ -116,7 +116,7 @@ describe(`/clob/markets`, () => {
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          name: marketName,
+          name: targetMarket,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
@@ -124,19 +124,15 @@ describe(`/clob/markets`, () => {
           const market: GetMarketResponse = response.body as GetMarketResponse;
           expect(market).toBeDefined();
 
-          const targetMarket = MARKETS.find(
-            (market) => market.name === marketName && !market.deprecated
+          const found: any = MARKETS.find(
+            (market) => market.name === targetMarket && !market.deprecated
           );
-          expect(targetMarket).toBeDefined();
+          expect(found).toBeDefined();
 
-          expect(market.name).toBe(targetMarket?.name);
-          expect(market.address.toString()).toBe(
-            targetMarket?.address.toString()
-          );
-          expect(market.programId.toString()).toBe(
-            targetMarket?.programId.toString()
-          );
-          expect(market.deprecated).toBe(targetMarket?.deprecated);
+          expect(market.name).toBe(found?.name);
+          expect(market.address.toString()).toBe(found?.address.toString());
+          expect(market.programId.toString()).toBe(found?.programId.toString());
+          expect(market.deprecated).toBe(found?.deprecated);
           expect(market.minimumOrderSize).toBeGreaterThan(0);
           expect(market.tickSize).toBeGreaterThan(0);
           expect(market.minimumBaseIncrement).toBeDefined();
@@ -335,6 +331,15 @@ describe(`/clob/markets`, () => {
 });
 
 describe(`/clob/orderBooks`, () => {
+  beforeEach(async () => {
+    await Promise.all(
+      allowedMarkets.flatMap(async (marketName) => {
+        await patches.get('serum/market/loadAsks')(marketName);
+        await patches.get('serum/market/loadBids')(marketName);
+      })
+    );
+  });
+
   describe(`GET /clob/orderBooks`, () => {
     it('Get a specific order book by its market name', async () => {
       await request(app)
@@ -343,7 +348,7 @@ describe(`/clob/orderBooks`, () => {
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          marketName: marketName,
+          marketName: targetMarket,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
@@ -355,19 +360,15 @@ describe(`/clob/orderBooks`, () => {
 
           const market = orderBook.market;
 
-          const targetMarket = MARKETS.find(
-            (market) => market.name === marketName && !market.deprecated
+          const found: any = MARKETS.find(
+            (market) => market.name === targetMarket && !market.deprecated
           );
-          expect(targetMarket).toBeDefined();
+          expect(found).toBeDefined();
 
-          expect(market.name).toBe(targetMarket?.name);
-          expect(market.address.toString()).toBe(
-            targetMarket?.address.toString()
-          );
-          expect(market.programId.toString()).toBe(
-            targetMarket?.programId.toString()
-          );
-          expect(market.deprecated).toBe(targetMarket?.deprecated);
+          expect(market.name).toBe(found?.name);
+          expect(market.address.toString()).toBe(found?.address.toString());
+          expect(market.programId.toString()).toBe(found?.programId.toString());
+          expect(market.deprecated).toBe(found?.deprecated);
           expect(market.minimumOrderSize).toBeGreaterThan(0);
           expect(market.tickSize).toBeGreaterThan(0);
           expect(market.minimumBaseIncrement).toBeDefined();
@@ -579,6 +580,10 @@ describe(`/clob/orderBooks`, () => {
 });
 
 describe(`/clob/tickers`, () => {
+  beforeEach(async () => {
+    patches.get('serum/getTicker')();
+  });
+
   describe(`GET /clob/tickers`, () => {
     it('Get a specific ticker by its market name', async () => {
       await request(app)
@@ -587,7 +592,7 @@ describe(`/clob/tickers`, () => {
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          marketName: marketName,
+          marketName: targetMarket,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
@@ -595,10 +600,10 @@ describe(`/clob/tickers`, () => {
           const ticker: GetTickerResponse = response.body as GetTickerResponse;
           expect(ticker).toBeDefined();
 
-          const targetMarket = MARKETS.find(
-            (market) => market.name === marketName && !market.deprecated
+          const found: any = MARKETS.find(
+            (market) => market.name === targetMarket && !market.deprecated
           );
-          expect(targetMarket).toBeDefined();
+          expect(found).toBeDefined();
 
           expect(ticker.price).toBeGreaterThan(0);
           expect(ticker.timestamp).toBeGreaterThan(0);
@@ -714,7 +719,7 @@ describe(`/clob/tickers`, () => {
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          marketName: marketName,
+          marketName: 'ABC/XYZ',
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.NOT_FOUND)
@@ -973,7 +978,7 @@ describe(`/clob/orders`, () => {
             expect(response.error).not.toBeFalsy();
             if (response.error) {
               expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
-                `No client id or exchange id was informed`
+                `No client id or exchange id were informed`
               );
             }
           });
@@ -1023,7 +1028,7 @@ describe(`/clob/orders`, () => {
         await patches.get('serum/market/asksBidsForAllMarkets')();
         patches.get('solana/getKeyPair')();
         await patches.get('serum/market/loadOrdersForOwner')(
-          orderPairs.slice(0, 3).map((order) => order.response)
+          targets.map((order) => order.response)
         );
         patches.get('serum/serumMarketLoadFills')();
       });
@@ -1035,10 +1040,12 @@ describe(`/clob/orders`, () => {
             chain: config.serum.chain,
             network: config.serum.network,
             connector: config.serum.connector,
-            orders: targets.map((item) => ({
-              id: item.response.id,
-              ownerAddress: item.response.ownerAddress,
-            })),
+            orders: [
+              {
+                ids: targets.map((item) => item.request.id),
+                ownerAddress: targets[0].request.ownerAddress,
+              },
+            ],
           })
           .set('Accept', 'application/json')
           .expect(StatusCodes.OK)
@@ -1075,9 +1082,9 @@ describe(`/clob/orders`, () => {
             network: config.serum.network,
             connector: config.serum.connector,
             orders: targets.map((item) => ({
-              id: item.response.id,
-              ownerAddress: item.response.ownerAddress,
-              marketName: item.response.marketName,
+              ids: [item.request.id],
+              ownerAddress: item.request.ownerAddress,
+              marketName: item.request.marketName,
             })),
           })
           .set('Accept', 'application/json')
@@ -1114,10 +1121,12 @@ describe(`/clob/orders`, () => {
             chain: config.serum.chain,
             network: config.serum.network,
             connector: config.serum.connector,
-            orders: targets.map((item) => ({
-              exchangeId: item.response.exchangeId,
-              ownerAddress: item.response.ownerAddress,
-            })),
+            orders: [
+              {
+                exchangeIds: targets.map((item) => item.response.exchangeId),
+                ownerAddress: targets[0].request.ownerAddress,
+              },
+            ],
           })
           .set('Accept', 'application/json')
           .expect(StatusCodes.OK)
@@ -1154,9 +1163,9 @@ describe(`/clob/orders`, () => {
             network: config.serum.network,
             connector: config.serum.connector,
             orders: targets.map((item) => ({
-              exchangeId: item.response.exchangeId,
-              ownerAddress: item.response.ownerAddress,
-              marketName: item.response.marketName,
+              exchangeIds: [item.response.exchangeId],
+              ownerAddress: item.request.ownerAddress,
+              marketName: item.request.marketName,
             })),
           })
           .set('Accept', 'application/json')
@@ -1194,8 +1203,8 @@ describe(`/clob/orders`, () => {
             network: config.serum.network,
             connector: config.serum.connector,
             orders: targets.map((item) => ({
-              exchangeId: item.response.exchangeId,
-              marketName: item.response.marketName,
+              exchangeIds: [item.response.exchangeId],
+              marketName: item.request.marketName,
             })),
           })
           .set('Accept', 'application/json')
@@ -1210,17 +1219,17 @@ describe(`/clob/orders`, () => {
           });
       });
 
-      it('Fail when trying to get a map of orders without informing any orders within the orders parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get a map of orders without informing the id or exchange id of one of them', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get a map of orders informing an id of a non existing one', async () => {
-        console.log('');
-      });
+      // it('Fail when trying to get a map of orders without informing any orders within the orders parameter', async () => {
+      //   console.log('');
+      // });
+      //
+      // it('Fail when trying to get a map of orders without informing the id or exchange id of one of them', async () => {
+      //   console.log('');
+      // });
+      //
+      // it('Fail when trying to get a map of orders informing an id of a non existing one', async () => {
+      //   console.log('');
+      // });
     });
   });
 
@@ -1261,253 +1270,253 @@ describe(`/clob/orders`, () => {
           });
       });
 
-      it('Fail when trying to create an order without informing the order parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to create an order without informing some of its required parameters', async () => {
-        console.log('');
-      });
+      // it('Fail when trying to create an order without informing the order parameter', async () => {
+      //   console.log('');
+      // });
+      //
+      // it('Fail when trying to create an order without informing some of its required parameters', async () => {
+      //   console.log('');
+      // });
     });
 
-    describe('Multiple orders', () => {
-      it('Create multiple orders and receive a response as a map with the new information', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to create multiple orders without informing the orders parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to create multiple orders without informing some of their required parameters', async () => {
-        console.log('');
-      });
-    });
+    // describe('Multiple orders', () => {
+    //   it('Create multiple orders and receive a response as a map with the new information', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Fail when trying to create multiple orders without informing the orders parameter', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Fail when trying to create multiple orders without informing some of their required parameters', async () => {
+    //     console.log('');
+    //   });
+    // });
   });
 
-  describe(`DELETE /serum/orders`, () => {
-    describe('Single order', () => {
-      it('Cancel a specific order by its id and owner address', async () => {
-        console.log('');
-      });
-
-      it('Cancel a specific order by its id, owner address and market name', async () => {
-        console.log('');
-      });
-
-      it('Cancel a specific order by its exchange id and owner address', async () => {
-        console.log('');
-      });
-
-      it('Cancel a specific order by its exchange id, owner address and market name', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to cancel an order without informing the order parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to cancel an order without informing its owner address', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to cancel an order without informing its id and exchange id', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to cancel a non existing order', async () => {
-        console.log('');
-      });
-    });
-
-    describe('Multiple orders', () => {
-      it('Cancel multiple orders by their ids and owner addresses', async () => {
-        console.log('');
-      });
-
-      it('Cancel multiple orders by their ids, owner addresses, and market names', async () => {
-        console.log('');
-      });
-
-      it('Cancel multiple orders by their exchange ids and owner addresses', async () => {
-        console.log('');
-      });
-
-      it('Cancel multiple orders by their exchange ids, owner addresses, and market names', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to cancel multiple orders without informing the orders parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to cancel multiple orders without informing any orders within the orders parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to cancel multiple orders without informing some of their owner addresses', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to cancel multiple orders without informing some of their ids and exchange ids', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to cancel multiple orders informing an id of a non existing one', async () => {
-        console.log('');
-      });
-    });
-  });
+  // describe(`DELETE /serum/orders`, () => {
+  //   describe('Single order', () => {
+  //     it('Cancel a specific order by its id and owner address', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Cancel a specific order by its id, owner address and market name', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Cancel a specific order by its exchange id and owner address', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Cancel a specific order by its exchange id, owner address and market name', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Fail when trying to cancel an order without informing the order parameter', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Fail when trying to cancel an order without informing its owner address', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Fail when trying to cancel an order without informing its id and exchange id', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Fail when trying to cancel a non existing order', async () => {
+  //       console.log('');
+  //     });
+  //   });
+  //
+  //   describe('Multiple orders', () => {
+  //     it('Cancel multiple orders by their ids and owner addresses', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Cancel multiple orders by their ids, owner addresses, and market names', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Cancel multiple orders by their exchange ids and owner addresses', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Cancel multiple orders by their exchange ids, owner addresses, and market names', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Fail when trying to cancel multiple orders without informing the orders parameter', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Fail when trying to cancel multiple orders without informing any orders within the orders parameter', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Fail when trying to cancel multiple orders without informing some of their owner addresses', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Fail when trying to cancel multiple orders without informing some of their ids and exchange ids', async () => {
+  //       console.log('');
+  //     });
+  //
+  //     it('Fail when trying to cancel multiple orders informing an id of a non existing one', async () => {
+  //       console.log('');
+  //     });
+  //   });
+  // });
 });
 
-describe(`/clob/orders/open`, () => {
-  describe(`GET /clob/orders/open`, () => {
-    describe('Single order', () => {
-      it('Get a specific open order by its id and owner address', async () => {
-        console.log('');
-      });
+// describe(`/clob/orders/open`, () => {
+//   describe(`GET /clob/orders/open`, () => {
+//     describe('Single order', () => {
+//       it('Get a specific open order by its id and owner address', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a specific open order by its id, owner address and market name', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a specific open order by its exchange id and owner address', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a specific open order by its exchange id, owner address and market name', async () => {
+//         console.log('');
+//       });
+//
+//       it('Fail when trying to get an open order without informing the order parameter', async () => {
+//         console.log('');
+//       });
+//
+//       it('Fail when trying to get an open order without informing its owner address', async () => {
+//         console.log('');
+//       });
+//
+//       it('Fail when trying to get an open order without informing its id and exchange id', async () => {
+//         console.log('');
+//       });
+//
+//       it('Fail when trying to get a non existing open order', async () => {
+//         console.log('');
+//       });
+//     });
+//
+//     describe('Multiple orders', () => {
+//       it('Get a map of open orders by their ids and owner addresses', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a map of open orders by their ids, owner addresses and market names', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a map of open orders by their exchange ids and owner addresses', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a map of open orders by their exchange ids, owner addresses and market names', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a map of with all open orders by for a specific owner address', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a map of with all open orders by for a specific owner address and market name', async () => {
+//         console.log('');
+//       });
+//
+//       it('Fail when trying to get a map of open orders without informing the orders parameter', async () => {
+//         console.log('');
+//       });
+//
+//       it('Fail when trying to get a map of open orders without informing any orders filter within the orders parameter', async () => {
+//         console.log('');
+//       });
+//
+//       it('Fail when trying to get a map of open orders without informing some of their owner addresses', async () => {
+//         console.log('');
+//       });
+//
+//       it('Fail when trying to get a map of multiple open orders informing an id of a non existing one', async () => {
+//         console.log('');
+//       });
+//     });
+//   });
+// });
 
-      it('Get a specific open order by its id, owner address and market name', async () => {
-        console.log('');
-      });
-
-      it('Get a specific open order by its exchange id and owner address', async () => {
-        console.log('');
-      });
-
-      it('Get a specific open order by its exchange id, owner address and market name', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get an open order without informing the order parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get an open order without informing its owner address', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get an open order without informing its id and exchange id', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get a non existing open order', async () => {
-        console.log('');
-      });
-    });
-
-    describe('Multiple orders', () => {
-      it('Get a map of open orders by their ids and owner addresses', async () => {
-        console.log('');
-      });
-
-      it('Get a map of open orders by their ids, owner addresses and market names', async () => {
-        console.log('');
-      });
-
-      it('Get a map of open orders by their exchange ids and owner addresses', async () => {
-        console.log('');
-      });
-
-      it('Get a map of open orders by their exchange ids, owner addresses and market names', async () => {
-        console.log('');
-      });
-
-      it('Get a map of with all open orders by for a specific owner address', async () => {
-        console.log('');
-      });
-
-      it('Get a map of with all open orders by for a specific owner address and market name', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get a map of open orders without informing the orders parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get a map of open orders without informing any orders filter within the orders parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get a map of open orders without informing some of their owner addresses', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get a map of multiple open orders informing an id of a non existing one', async () => {
-        console.log('');
-      });
-    });
-  });
-});
-
-describe(`/clob/orders/filled`, () => {
-  describe(`GET /clob/orders/filled`, () => {
-    describe('Single order', () => {
-      it('Get a specific filled order by its id and owner address', async () => {
-        console.log('');
-      });
-
-      it('Get a specific filled order by its id, owner address and market name', async () => {
-        console.log('');
-      });
-
-      it('Get a specific filled order by its exchange id and owner address', async () => {
-        console.log('');
-      });
-
-      it('Get a specific filled order by its exchange id, owner address and market name', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get a filled order without informing the order parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get a filled order without informing its owner address', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get a filled order without informing its id and exchange id', async () => {
-        console.log('');
-      });
-    });
-
-    describe('Multiple orders', () => {
-      it('Get a map of filled orders by their ids and owner addresses', async () => {
-        console.log('');
-      });
-
-      it('Get a map of filled orders by their ids, owner addresses and market names', async () => {
-        console.log('');
-      });
-
-      it('Get a map of filled orders by their exchange ids and owner addresses', async () => {
-        console.log('');
-      });
-
-      it('Get a map of filled orders by their exchange ids, owner addresses and market names', async () => {
-        console.log('');
-      });
-
-      it('Get a map of with all filled orders by for a specific owner address', async () => {
-        console.log('');
-      });
-
-      it('Get a map of with all filled orders by for a specific owner address and market name', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get a map of filled orders without informing the orders parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get a map of filled orders without informing any orders filter within the orders parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to get a map of filled orders without informing some of their owner addresses', async () => {
-        console.log('');
-      });
-    });
-  });
-});
+// describe(`/clob/orders/filled`, () => {
+//   describe(`GET /clob/orders/filled`, () => {
+//     describe('Single order', () => {
+//       it('Get a specific filled order by its id and owner address', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a specific filled order by its id, owner address and market name', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a specific filled order by its exchange id and owner address', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a specific filled order by its exchange id, owner address and market name', async () => {
+//         console.log('');
+//       });
+//
+//       it('Fail when trying to get a filled order without informing the order parameter', async () => {
+//         console.log('');
+//       });
+//
+//       it('Fail when trying to get a filled order without informing its owner address', async () => {
+//         console.log('');
+//       });
+//
+//       it('Fail when trying to get a filled order without informing its id and exchange id', async () => {
+//         console.log('');
+//       });
+//     });
+//
+//     describe('Multiple orders', () => {
+//       it('Get a map of filled orders by their ids and owner addresses', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a map of filled orders by their ids, owner addresses and market names', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a map of filled orders by their exchange ids and owner addresses', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a map of filled orders by their exchange ids, owner addresses and market names', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a map of with all filled orders by for a specific owner address', async () => {
+//         console.log('');
+//       });
+//
+//       it('Get a map of with all filled orders by for a specific owner address and market name', async () => {
+//         console.log('');
+//       });
+//
+//       it('Fail when trying to get a map of filled orders without informing the orders parameter', async () => {
+//         console.log('');
+//       });
+//
+//       it('Fail when trying to get a map of filled orders without informing any orders filter within the orders parameter', async () => {
+//         console.log('');
+//       });
+//
+//       it('Fail when trying to get a map of filled orders without informing some of their owner addresses', async () => {
+//         console.log('');
+//       });
+//     });
+//   });
+// });
