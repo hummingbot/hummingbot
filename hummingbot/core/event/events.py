@@ -48,14 +48,6 @@ class AccountEvent(Enum):
     PositionModeChangeFailed = 401
 
 
-class FundingInfo(NamedTuple):
-    trading_pair: str
-    index_price: Decimal
-    mark_price: Decimal
-    next_funding_utc_timestamp: int
-    rate: Decimal
-
-
 class MarketTransactionFailureEvent(NamedTuple):
     timestamp: float
     order_id: str
