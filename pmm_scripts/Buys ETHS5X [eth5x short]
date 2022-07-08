@@ -3,9 +3,9 @@ from hummingbot.pmm_script.pmm_script_base import PMMScriptBase
 
 class PriceBandPMMScript(PMMScriptBase):
     """
-    Demonstrates how to set a fixed band, the strategy is to stop buying when the mid price reaches the upper bound
-    of the band and to stop selling when the mid price breaches the lower bound.
-    """
+    Demonstrates how to set a fixed band, the strategy is to buy ETHS5X [eth5x short]then wait for order to finish
+    and buys the same value of ETH5L[eth5x long][only if price is different by.2%] then monitor first to go to .6%
+    and sell both then start over.
 
     band_upper_bound = 105
     band_lower_bound = 95
