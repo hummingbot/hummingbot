@@ -1,19 +1,26 @@
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { Solana } from '../../../src/chains/solana/solana';
-import {balances, poll } from '../../../src/chains/solana/solana.controllers';
-import {SolanaPollResponse, TransactionResponseStatusCode} from '../../../src/chains/solana/solana.requests';
+import { balances, poll } from '../../../src/chains/solana/solana.controllers';
+import {
+  SolanaPollResponse,
+  TransactionResponseStatusCode,
+} from '../../../src/chains/solana/solana.requests';
 import { patch, unpatch } from '../../services/patch';
 import { txHash } from '../../services/validators.test';
 import * as getTokenListData from './fixtures/getTokenList.json';
 import * as getTransactionData from './fixtures/getTransaction.json';
 import { privateKey, publicKey } from './solana.validators.test';
-import {HttpException, LOAD_WALLET_ERROR_CODE, LOAD_WALLET_ERROR_MESSAGE} from "../../../src/services/error-handler";
-import BN from "bn.js";
+import {
+  HttpException,
+  LOAD_WALLET_ERROR_CODE,
+  LOAD_WALLET_ERROR_MESSAGE,
+} from '../../../src/services/error-handler';
+import BN from 'bn.js';
 
 let solana: Solana;
 beforeAll(async () => {
-  solana = await Solana.getInstance("devnet");
+  solana = await Solana.getInstance('devnet');
   solana.getTokenList = jest
     .fn()
     .mockReturnValue([
@@ -60,12 +67,12 @@ describe('poll', () => {
       network: 'devnet',
       txHash: txHash,
     });
-    expect(n.network).toBe(solana.network)
-    expect(n.timestamp).toBeNumber()
-    expect(n.currentBlock).toBe(CurrentBlockNumber)
-    expect(n.txHash).toBe(txHash)
-    expect(n.txStatus).toBe(TransactionResponseStatusCode.CONFIRMED)
-    expect(n.txData).toStrictEqual(getTransactionData)
+    expect(n.network).toBe(solana.network);
+    expect(n.timestamp).toBeNumber();
+    expect(n.currentBlock).toBe(CurrentBlockNumber);
+    expect(n.txHash).toBe(txHash);
+    expect(n.txStatus).toBe(TransactionResponseStatusCode.CONFIRMED);
+    expect(n.txData).toStrictEqual(getTransactionData);
   });
 });
 
@@ -94,7 +101,7 @@ describe('balances', () => {
 
   it('return null if token account not initialized', async () => {
     patch(solana, 'getBalances', () => {
-      return {'MBS': {value: new BN(100), decimals: 3}}
+      return { MBS: { value: new BN(100), decimals: 3 } };
     });
 
     await expect(
@@ -104,6 +111,6 @@ describe('balances', () => {
         address: publicKey,
         tokenSymbols: ['MBS', 'DAI'],
       })
-    ).resolves.toBe({'MBS': 1, 'DAI': null})
+    ).resolves.toBe({ MBS: 1, DAI: null });
   });
 });

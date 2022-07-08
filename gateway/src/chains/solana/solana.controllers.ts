@@ -57,7 +57,7 @@ const toSolanaBalances = (
   filteredBalancesKeys.forEach((symbol) => {
     if (balances[symbol] !== undefined)
       solanaBalances[symbol] = tokenValueToString(balances[symbol]);
-    else solanaBalances[symbol] = "-1";
+    else solanaBalances[symbol] = '-1';
   });
 
   return solanaBalances;

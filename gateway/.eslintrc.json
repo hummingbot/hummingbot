@@ -13,7 +13,10 @@
   "rules": {
     "no-console": "off",
     "@typescript-eslint/no-explicit-any": "off",
-    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      { "argsIgnorePattern": "^_" }
+    ],
     "semi": [2, "always"],
     "prettier/prettier": "error",
     "@typescript-eslint/no-var-requires": "off",

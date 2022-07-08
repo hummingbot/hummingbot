@@ -24,7 +24,9 @@ export function getSolanaConfig(
   return {
     network: {
       name: networkName,
-      nodeUrl: configManager.get(chainName + '.networks.' + networkName + '.nodeURL'),
+      nodeUrl: configManager.get(
+        chainName + '.networks.' + networkName + '.nodeURL'
+      ),
     },
     nativeCurrencySymbol: configManager.get(
       chainName + '.networks.' + networkName + '.nativeCurrencySymbol'

@@ -15,7 +15,7 @@ import { privateKey, publicKey } from './solana.validators.test';
 
 let solana: Solana;
 beforeAll(async () => {
-  solana = await Solana.getInstance("devnet");
+  solana = await Solana.getInstance('devnet');
   solana.getTokenList = jest
     .fn()
     .mockReturnValue([

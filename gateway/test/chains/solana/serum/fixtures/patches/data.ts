@@ -47,8 +47,8 @@ data.set('serum/serumGetMarketsInformation', [
   },
 ]);
 
-const markets: any[] = data.get('serum/serumGetMarketsInformation')
-const SOL_USDC = markets.find((val) => val.name === 'SOL/USDC').address
+const markets: any[] = data.get('serum/serumGetMarketsInformation');
+const SOL_USDC = markets.find((val) => val.name === 'SOL/USDC').address;
 // Market SOL/USDC
 data.set(
   `serum/market/${SOL_USDC}`,
@@ -129,7 +129,7 @@ data.set(
 );
 
 // Market SOL/USDT
-const SOL_USDT = markets.find((val) => val.name === 'SOL/USDT').address
+const SOL_USDT = markets.find((val) => val.name === 'SOL/USDT').address;
 data.set(
   `serum/market/${SOL_USDT}`,
   new SerumMarket(
@@ -209,7 +209,7 @@ data.set(
 );
 
 // Market SRM/SOL
-const SRM_SOL = markets.find((val) => val.name === 'SRM/SOL').address
+const SRM_SOL = markets.find((val) => val.name === 'SRM/SOL').address;
 data.set(
   `serum/market/${SRM_SOL}`,
   new SerumMarket(

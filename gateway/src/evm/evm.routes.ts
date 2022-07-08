@@ -40,7 +40,10 @@ export namespace EVMRoutes {
         res: Response<NonceResponse | string, {}>
       ) => {
         validateNonceRequest(req.body);
-        const chain = (await getChain(req.body.chain, req.body.network)) as Ethereumish;
+        const chain = (await getChain(
+          req.body.chain,
+          req.body.network
+        )) as Ethereumish;
         res.status(200).json(await nextNonce(chain, req.body));
       }
     )
