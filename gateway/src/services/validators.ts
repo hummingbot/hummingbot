@@ -99,7 +99,7 @@ export const mkValidator = (
 
     let passed: boolean;
     if (useRequest) passed = condition(target);
-    else if (!target[key] && !optional) {
+    else if (!(`${key}` in target) && !optional) {
       errors.push(missingParameter(key));
 
       return errors;
@@ -193,7 +193,7 @@ export const validateAmount: Validator = mkValidator(
   (val) =>
     val === undefined ||
     (typeof val === 'string' && isNaturalNumberString(val)),
-  true
+  false
 );
 
 export const validateTxHash: Validator = mkValidator(

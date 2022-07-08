@@ -159,13 +159,13 @@ describe('validateAmount', () => {
     ).toEqual([]);
   });
 
-  it('valid when req.amount does not exist', () => {
-    expect(
-      validateAmount({
-        hello: 'world',
-      })
-    ).toEqual([]);
-  });
+  // it('valid when req.amount does not exist', () => {
+  //   expect(
+  //     validateAmount({
+  //       hello: 'world',
+  //     })
+  //   ).toEqual([]);
+  // });
 
   it('return error when req.amount is invalid', () => {
     expect(
