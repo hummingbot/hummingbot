@@ -16,7 +16,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.connector_status import get_connector_status, warning_messages
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.gateway.status_monitor import GatewayContainerStatus
+from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import OracleRateUnavailable
@@ -57,12 +57,12 @@ class StartCommand(GatewayChainApiManager):
     def start(self,  # type: HummingbotApplication
               log_level: Optional[str] = None,
               restore: Optional[bool] = False,
-              script: Optional[str] = None,
+              strategy_file_name: Optional[str] = None,
               is_quickstart: Optional[bool] = False):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.start, log_level, restore)
             return
-        safe_ensure_future(self.start_check(log_level, restore, script, is_quickstart), loop=self.ev_loop)
+        safe_ensure_future(self.start_check(log_level, restore, strategy_file_name, is_quickstart), loop=self.ev_loop)
 
     async def start_check(self,  # type: HummingbotApplication
                           log_level: Optional[str] = None,
@@ -84,6 +84,18 @@ class StartCommand(GatewayChainApiManager):
                 self._in_start_check = False
                 return
 
+        if self.strategy_file_name and self.strategy_name and is_quickstart:
+            if self._strategy_uses_gateway_connector(settings.required_exchanges):
+                try:
+                    await asyncio.wait_for(self._gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
+                except asyncio.TimeoutError:
+                    self.notify(f"TimeoutError waiting for gateway service to go online... Please ensure Gateway is configured correctly."
+                                f"Unable to start strategy {self.strategy_name}. ")
+                    self._in_start_check = False
+                    self.strategy_name = None
+                    self.strategy_file_name = None
+                    raise
+
         if strategy_file_name:
             file_name = strategy_file_name.split(".")[0]
             self.strategy_file_name = file_name
@@ -103,17 +115,6 @@ class StartCommand(GatewayChainApiManager):
         if platform.system() == "Darwin":
             import appnope
             appnope.nope()
-
-        if self._strategy_uses_gateway_connector(settings.required_exchanges):
-            try:
-                await asyncio.wait_for(self._gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
-            except TimeoutError:
-                self._in_start_check = False
-                self.strategy_name = None
-                self.strategy_file_name = None
-                self.notify(f"TimeoutError waiting for gateway service to go online... Please ensure Gateway is configured correctly."
-                            f"Unable to start strategy {self.strategy_name}. ")
-                raise
 
         self._initialize_notifiers()
         try:
@@ -152,8 +153,10 @@ class StartCommand(GatewayChainApiManager):
                         await self._update_gateway_api_key(chain, api_key)
                         self.notify("Please wait for gateway to restart.")
                         # wait for gateway to restart, config update causes gateway to restart
+
+                        # TODO: Review the necessity of the code snippet below
                         await self._gateway_monitor.wait_for_online_status()
-                        if self._gateway_monitor.gateway_container_status == GatewayContainerStatus.STOPPED:
+                        if self._gateway_monitor.gateway_status == GatewayStatus.OFFLINE:
                             raise Exception("Lost contact with gateway after updating the config.")
 
                     await UserBalances.instance().update_exchange_balance(connector, self.client_config_map)

@@ -29,7 +29,7 @@ from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.clock import Clock
-from hummingbot.core.gateway.status_monitor import GatewayStatusMonitor
+from hummingbot.core.gateway.gateway_status_monitor import GatewayStatusMonitor
 from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.data_feed.data_feed_base import DataFeedBase

@@ -210,10 +210,9 @@ def get_strategy_file():
 def get_gateway_status():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
-    gateway_status = hb._gateway_monitor.gateway_container_status.name
-    gateway_conn_status = hb._gateway_monitor.gateway_connectivity_status.name
+    gateway_status = hb._gateway_monitor.gateway_status.name
     style = "class:log_field"
-    return [(style, f"Gateway: {gateway_status}, {gateway_conn_status}")]
+    return [(style, f"Gateway: {gateway_status}")]
 
 
 def generate_layout(input_field: TextArea,

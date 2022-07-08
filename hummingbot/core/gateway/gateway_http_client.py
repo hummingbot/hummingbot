@@ -62,7 +62,7 @@ class GatewayHttpClient:
         api_port = client_config_map.gateway.gateway_api_port
         if GatewayHttpClient.__instance is None:
             self._base_url = f"https://{api_host}:{api_port}"
-        self._client_confi_map = client_config_map
+        self._client_config_map = client_config_map
         GatewayHttpClient.__instance = self
 
     @classmethod
@@ -154,7 +154,7 @@ class GatewayHttpClient:
         :returns A response in json format.
         """
         url = f"{self.base_url}/{path_url}"
-        client = self._http_client(self._client_confi_map)
+        client = self._http_client(self._client_config_map)
 
         parsed_response = {}
         try:
