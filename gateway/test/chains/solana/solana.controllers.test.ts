@@ -3,6 +3,7 @@ import bs58 from 'bs58';
 import { Solana } from '../../../src/chains/solana/solana';
 import { balances, poll } from '../../../src/chains/solana/solana.controllers';
 import {
+  SolanaBalanceResponse,
   SolanaPollResponse,
   TransactionResponseStatusCode,
 } from '../../../src/chains/solana/solana.requests';
@@ -99,18 +100,24 @@ describe('balances', () => {
     );
   });
 
-  it('return null if token account not initialized', async () => {
+  it('return -1 if token account not initialized', async () => {
+    patchGetKeypair();
     patch(solana, 'getBalances', () => {
-      return { MBS: { value: new BN(100), decimals: 3 } };
+      return {
+        MBS: { value: new BN(100), decimals: 3 },
+        DAI: undefined,
+      };
     });
 
-    await expect(
-      balances(solana, {
-        chain: 'solana',
-        network: 'devnet',
-        address: publicKey,
-        tokenSymbols: ['MBS', 'DAI'],
-      })
-    ).resolves.toBe({ MBS: 1, DAI: null });
+    expect(
+      (
+        (await balances(solana, {
+          chain: 'solana',
+          network: 'devnet',
+          address: publicKey,
+          tokenSymbols: ['MBS', 'DAI'],
+        })) as SolanaBalanceResponse
+      ).balances
+    ).toStrictEqual({ MBS: '0.100', DAI: '-1' });
   });
 });
