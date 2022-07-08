@@ -476,13 +476,13 @@ class GatewayHttpClient:
             "network": network
         })
 
-    async def solana_post_balances(
+    async def solana_get_balances(
         self,
         network: str,
         address: str,
         token_symbols: List[str]
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "solana/balances", {
+        return await self.api_request("get", "solana/balances", {
             "network": network,
             "address": address,
             "tokenSymbols": token_symbols

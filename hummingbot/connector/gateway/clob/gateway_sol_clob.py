@@ -410,7 +410,7 @@ class GatewaySOLCLOB(ConnectorBase):
         :return: A dictionary of token and its allowance.
         """
         ret_val = {}
-        resp: Dict[str, Any] = await self._get_gateway_instance().solana_post_balances(
+        resp: Dict[str, Any] = await self._get_gateway_instance().solana_get_balances(
             self.network, self.address, list(self._tokens)
         )
         for token, amount in resp['balances'].items():
