@@ -205,6 +205,18 @@ export const validateGetOrderRequest: RequestValidator = mkRequestValidator(
   [
     validateOrderClientId,
     validateOrderExchangeId,
+    mkValidator(
+      '',
+      (_request) => `No client id or exchange id was informed.`,
+      (request) =>
+        !(
+          request &&
+          request.id === undefined &&
+          request.exchangeId === undefined
+        ),
+      false,
+      true
+    ),
     // validateOrderMarketName,
     validateOrderOwnerAddress,
   ],
@@ -225,12 +237,29 @@ export const validateGetOrdersRequest: RequestValidator = mkRequestValidator(
       [
         validateOrderClientIds,
         validateOrderExchangeIds,
+        mkValidator(
+          '',
+          (_request) => `No client id or exchange id was informed.`,
+          (request) =>
+            !(
+              request &&
+              request.id === undefined &&
+              request.exchangeId === undefined
+            ),
+          false,
+          true
+        ),
         // validateOrderMarketName,
         validateOrderOwnerAddress,
       ],
       (_item, index) => `Invalid get orders request at position ${index}:`
     ),
   ],
+  StatusCodes.BAD_REQUEST
+);
+
+export const validateGetAllOrdersRequest: RequestValidator = mkRequestValidator(
+  [validateOrderOwnerAddress],
   StatusCodes.BAD_REQUEST
 );
 
@@ -307,10 +336,25 @@ export const validateCancelOrdersRequest: RequestValidator = mkRequestValidator(
   StatusCodes.BAD_REQUEST
 );
 
+export const validateCancelAllOrdersRequest: RequestValidator =
+  mkRequestValidator([validateOrderOwnerAddress], StatusCodes.BAD_REQUEST);
+
 export const validateGetOpenOrderRequest: RequestValidator = mkRequestValidator(
   [
     validateOrderClientId,
     validateOrderExchangeId,
+    mkValidator(
+      '',
+      (_request) => `No client id or exchange id was informed.`,
+      (request) =>
+        !(
+          request &&
+          request.id === undefined &&
+          request.exchangeId === undefined
+        ),
+      false,
+      true
+    ),
     // validateOrderMarketName,
     validateOrderOwnerAddress,
   ],
@@ -332,6 +376,18 @@ export const validateGetOpenOrdersRequest: RequestValidator =
         [
           validateOrderClientIds,
           validateOrderExchangeIds,
+          mkValidator(
+            '',
+            (_request) => `No client id or exchange id was informed.`,
+            (request) =>
+              !(
+                request &&
+                request.id === undefined &&
+                request.exchangeId === undefined
+              ),
+            false,
+            true
+          ),
           // validateOrderMarketName,
           validateOrderOwnerAddress,
         ],
@@ -347,6 +403,18 @@ export const validateGetFilledOrderRequest: RequestValidator =
     [
       validateOrderClientId,
       validateOrderExchangeId,
+      mkValidator(
+        '',
+        (_request) => `No client id or exchange id was informed.`,
+        (request) =>
+          !(
+            request &&
+            request.id === undefined &&
+            request.exchangeId === undefined
+          ),
+        false,
+        true
+      ),
       // validateOrderMarketName,
       validateOrderOwnerAddress,
     ],
@@ -368,6 +436,18 @@ export const validateGetFilledOrdersRequest: RequestValidator =
         [
           validateOrderClientIds,
           validateOrderExchangeIds,
+          mkValidator(
+            '',
+            (_request) => `No client id or exchange id was informed.`,
+            (request) =>
+              !(
+                request &&
+                request.id === undefined &&
+                request.exchangeId === undefined
+              ),
+            false,
+            true
+          ),
           // validateOrderMarketName,
           validateOrderOwnerAddress,
         ],
@@ -390,3 +470,6 @@ export const validateSettleFundsSeveralRequest: RequestValidator =
     [validateOrderMarketNames, validateOrderOwnerAddress],
     StatusCodes.BAD_REQUEST
   );
+
+export const validateSettleAllFundsRequest: RequestValidator =
+  mkRequestValidator([validateOrderOwnerAddress], StatusCodes.BAD_REQUEST);

@@ -35,7 +35,7 @@ import { default as config } from './fixtures/config';
 import { getNewCandidateOrdersTemplates } from './fixtures/helpers';
 import { default as patchesCreator } from './fixtures/patches/patches';
 
-jest.setTimeout(30 * 60 * 1000);
+jest.setTimeout(5 * 60 * 1000);
 
 let solana: Solana;
 let serum: Serum;

@@ -37,10 +37,12 @@ import {
   Ticker,
 } from './serum.types';
 import {
+  validateCancelAllOrdersRequest,
   validateCancelOrderRequest,
   validateCancelOrdersRequest,
   validateCreateOrderRequest,
   validateCreateOrdersRequest,
+  validateGetAllOrdersRequest,
   validateGetFilledOrderRequest,
   validateGetFilledOrdersRequest,
   validateGetMarketRequest,
@@ -53,6 +55,7 @@ import {
   validateGetOrdersRequest,
   validateGetTickerRequest,
   validateGetTickersRequest,
+  validateSettleAllFundsRequest,
   validateSettleFundsRequest,
   validateSettleFundsSeveralRequest,
 } from './serum.validators';
@@ -333,6 +336,8 @@ export async function getOrders(
     }
   }
 
+  validateGetAllOrdersRequest(request);
+
   response.body = convertToJsonIfNeeded(
     convert<IMap<string, IMap<string, Order>>, SerumGetOrdersResponse>(
       await serum.getAllOrders(request.ownerAddress),
@@ -439,6 +444,8 @@ export async function cancelOrders(
     return response;
   }
 
+  validateCancelAllOrdersRequest(request);
+
   response.body = convertToJsonIfNeeded(
     convert<IMap<string, Order>, SerumCancelOrdersResponse>(
       await serum.cancelAllOrders(request.ownerAddress),
@@ -511,6 +518,8 @@ export async function getOpenOrders(
     }
   }
 
+  validateGetAllOrdersRequest(request);
+
   response.body = convertToJsonIfNeeded(
     convert<IMap<string, IMap<string, Order>>, SerumGetOpenOrdersResponse>(
       await serum.getAllOpenOrders(request.ownerAddress),
@@ -582,6 +591,8 @@ export async function getFilledOrders(
       }
     }
   }
+
+  validateGetAllOrdersRequest(request);
 
   response.body = convertToJsonIfNeeded(
     convert<IMap<string, IMap<string, Order>>, SerumGetFilledOrdersResponse>(
@@ -660,6 +671,8 @@ export async function settleFunds(
       }
     }
   }
+
+  validateSettleAllFundsRequest(request);
 
   response.body = convertToJsonIfNeeded(
     convert<IMap<string, Fund[]>, SerumPostSettleFundsResponse>(

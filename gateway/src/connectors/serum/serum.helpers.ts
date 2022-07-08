@@ -48,8 +48,11 @@ export const promiseAllInBatches = async <I, O>(
       ...results,
       ...(await Promise.all(itemsForBatch.map((item) => task(item)))),
     ];
-    await sleep(delayInMilliseconds);
     position += batchSize;
+
+    if (position < items.length) {
+      await sleep(delayInMilliseconds);
+    }
   }
 
   return results;
