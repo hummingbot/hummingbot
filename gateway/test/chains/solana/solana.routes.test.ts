@@ -67,14 +67,14 @@ const patchGetBalances = () => {
   });
 };
 
-describe('POST /solana/balances', () => {
+describe('GET /solana/balances', () => {
   it('should return 200', async () => {
     patchGetKeypair();
     patchGetBalances();
 
     await request(gatewayApp)
-      .post(`/solana/balances`)
-      .send({ address: publicKey, tokenSymbols })
+      .get(`/solana/balances`)
+      .send({ network: solana.network, address: publicKey, tokenSymbols })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.network))
@@ -89,7 +89,10 @@ describe('POST /solana/balances', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(gatewayApp).post(`/solana/balances`).send({}).expect(404);
+    await request(gatewayApp)
+      .post(`/solana/balances`)
+      .send({ network: solana.network })
+      .expect(404);
   });
 });
 
@@ -112,7 +115,11 @@ describe('GET /solana/token', () => {
 
     await request(gatewayApp)
       .get(`/solana/token`)
-      .send({ token: tokenSymbols[0], address: publicKey })
+      .send({
+        network: solana.network,
+        token: tokenSymbols[0],
+        address: publicKey,
+      })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.network))
@@ -125,7 +132,7 @@ describe('GET /solana/token', () => {
       .expect((res) => expect(res.body.amount).toBe('0.000123456'));
   });
 
-  it('should get amount = undefined when Token account not initialized', async () => {
+  it('should get amount = null when Token account not initialized', async () => {
     patchGetTokenAccount();
     patch(solana, 'getSplBalance', () => {
       throw new Error(`Token account not initialized`);
@@ -133,7 +140,11 @@ describe('GET /solana/token', () => {
 
     await request(gatewayApp)
       .get(`/solana/token`)
-      .send({ token: tokenSymbols[0], address: publicKey })
+      .send({
+        network: solana.network,
+        token: tokenSymbols[0],
+        address: publicKey,
+      })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.network))
@@ -147,7 +158,7 @@ describe('GET /solana/token', () => {
           getTokenAccountData.pubkey.toBase58()
         )
       )
-      .expect((res) => expect(res.body.amount).toBeUndefined());
+      .expect((res) => expect(res.body.amount).toBeNull());
   });
 
   it('should return 200', async () => {
@@ -156,7 +167,11 @@ describe('GET /solana/token', () => {
 
     await request(gatewayApp)
       .get(`/solana/token`)
-      .send({ token: tokenSymbols[0], address: publicKey })
+      .send({
+        network: solana.network,
+        token: tokenSymbols[0],
+        address: publicKey,
+      })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.network))
@@ -176,11 +191,14 @@ describe('GET /solana/token', () => {
   it('should return 500 when token not found', async () => {
     await request(gatewayApp)
       .get(`/solana/token`)
-      .send({ token: 'not found', address: publicKey })
+      .send({ network: solana.network, token: 'not found', address: publicKey })
       .expect(500);
   });
   it('should return 404 when parameters are invalid', async () => {
-    await request(gatewayApp).get(`/solana/token`).send({}).expect(404);
+    await request(gatewayApp)
+      .get(`/solana/token`)
+      .send({ network: solana.network })
+      .expect(404);
   });
 });
 
@@ -202,7 +220,11 @@ describe('POST /solana/token', () => {
 
     await request(gatewayApp)
       .post(`/solana/token`)
-      .send({ token: tokenSymbols[0], address: publicKey })
+      .send({
+        network: solana.network,
+        token: tokenSymbols[0],
+        address: publicKey,
+      })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.network))
@@ -215,7 +237,7 @@ describe('POST /solana/token', () => {
       .expect((res) => expect(res.body.amount).toBe('0.000123456'));
   });
 
-  it('should get amount = undefined when Token account not initialized', async () => {
+  it('should get amount = null when Token account not initialized', async () => {
     patchGetOrCreateAssociatedTokenAccount();
     patchGetKeypair();
     patch(solana, 'getSplBalance', () => {
@@ -224,7 +246,11 @@ describe('POST /solana/token', () => {
 
     await request(gatewayApp)
       .post(`/solana/token`)
-      .send({ token: tokenSymbols[0], address: publicKey })
+      .send({
+        network: solana.network,
+        token: tokenSymbols[0],
+        address: publicKey,
+      })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.network))
@@ -238,7 +264,7 @@ describe('POST /solana/token', () => {
           getTokenAccountData.pubkey.toBase58()
         )
       )
-      .expect((res) => expect(res.body.amount).toBeUndefined());
+      .expect((res) => expect(res.body.amount).toBeNull());
   });
 
   it('should return 200', async () => {
@@ -248,7 +274,11 @@ describe('POST /solana/token', () => {
 
     await request(gatewayApp)
       .post(`/solana/token`)
-      .send({ token: tokenSymbols[0], address: publicKey })
+      .send({
+        network: solana.network,
+        token: tokenSymbols[0],
+        address: publicKey,
+      })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.network))
@@ -267,21 +297,26 @@ describe('POST /solana/token', () => {
   it('should return 500 when token not found', async () => {
     await request(gatewayApp)
       .post(`/solana/token`)
-      .send({ token: 'not found', address: publicKey })
+      .send({ network: solana.network, token: 'not found', address: publicKey })
       .expect(500);
   });
   it('should return 404 when parameters are invalid', async () => {
-    await request(gatewayApp).post(`/solana/token`).send({}).expect(404);
+    await request(gatewayApp)
+      .post(`/solana/token`)
+      .send({ network: solana.network })
+      .expect(404);
   });
 });
 
-const CurrentBlockNumber = 112646487;
+const CurrentBlockNumber = 146630151;
 const patchGetCurrentBlockNumber = () => {
-  patch(solana.connection, 'getCurrentBlockNumber', () => CurrentBlockNumber);
+  patch(solana, 'getCurrentBlockNumber', () => CurrentBlockNumber);
 };
 
 const patchGetTransaction = () => {
-  patch(solana, 'getTransaction', () => getTransactionData);
+  patch(solana, 'getTransaction', () => {
+    return getTransactionData;
+  });
 };
 
 describe('POST /solana/poll', () => {
@@ -291,7 +326,7 @@ describe('POST /solana/poll', () => {
 
     await request(gatewayApp)
       .post(`/solana/poll`)
-      .send({ txHash })
+      .send({ network: solana.network, txHash })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.network))
@@ -301,12 +336,25 @@ describe('POST /solana/poll', () => {
       .expect((res) =>
         expect(res.body.txStatus).toBe(TransactionResponseStatusCode.CONFIRMED)
       )
-      .expect((res) =>
-        expect(res.body.txData).toStrictEqual(getTransactionData)
-      );
+      .expect((res) => {
+        const received = JSON.parse(JSON.stringify(res.body.txData, null, 2));
+        // Needed to avoid some parsing differences added by cycle.ts
+        delete received.default;
+
+        const expected = JSON.parse(
+          JSON.stringify(getTransactionData, null, 2)
+        );
+        // Needed to avoid some parsing differences added by cycle.ts
+        delete expected.default;
+
+        expect(received).toStrictEqual(expected);
+      });
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(gatewayApp).post(`/solana/poll`).send({}).expect(404);
+    await request(gatewayApp)
+      .post(`/solana/poll`)
+      .send({ network: solana.network })
+      .expect(404);
   });
 });
