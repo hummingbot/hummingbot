@@ -192,6 +192,34 @@ class HuobiExchangeTests(TestCase):
 
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
 
+    def test_order_fill_update_event_ignored_for_untracked_orders(self):
+        partial_fill = {
+            "eventType": "trade",
+            "symbol": "choinalphahbot",
+            "orderId": 99998888,
+            "tradePrice": "10050.0",
+            "tradeVolume": "0.1",
+            "orderSide": "buy",
+            "aggressor": True,
+            "tradeId": 1,
+            "tradeTime": 998787897878,
+            "transactFee": "10.00",
+            "feeDeduct ": "0",
+            "feeDeductType": "",
+            "feeCurrency": "usdt",
+            "accountId": 9912791,
+            "source": "spot-api",
+            "orderPrice": "10000",
+            "orderSize": "1",
+            "orderCreateTime": 998787897878,
+            "orderStatus": "partial-filled"
+        }
+
+        self.async_run_with_timeout(self.exchange._process_trade_event(partial_fill))
+
+        self.assertEqual(0, len(self.order_filled_logger.event_log))
+        self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
+
     def test_order_fill_event_processed_before_order_complete_event(self):
         self.exchange.start_tracking_order(
             order_id="OID1",

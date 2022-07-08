@@ -1,7 +1,11 @@
-# A single source of truth for constant variables related to the exchange
+from hummingbot.core.data_type.common import OrderType, PositionMode
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "bybit_perpetual"
+
+DEFAULT_DOMAIN = "bybit_perpetual_main"
+
+DEFAULT_TIME_IN_FORCE = "GoodTillCancel"
 
 REST_URLS = {"bybit_perpetual_main": "https://api.bybit.com/",
              "bybit_perpetual_testnet": "https://api-testnet.bybit.com/"}
@@ -15,15 +19,25 @@ WSS_LINEAR_PRIVATE_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realt
 
 REST_API_VERSION = "v2"
 
-HBOT_BROKER_ID = "HBOT"
+CLIENT_ID_PREFIX = "HBOT"
 
-ORDER_ID_LEN = 36
+MAX_ID_LEN = 36
+SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 30
 POSITION_IDX_ONEWAY = 0
 POSITION_IDX_HEDGE_BUY = 1
 POSITION_IDX_HEDGE_SELL = 2
 
+ORDER_TYPE_MAP = {
+    OrderType.LIMIT: "Limit",
+    OrderType.MARKET: "Market",
+}
+
 POSITION_MODE_API_ONEWAY = "MergedSingle"
 POSITION_MODE_API_HEDGE = "BothSide"
+POSITION_MODE_MAP = {
+    PositionMode.ONEWAY: POSITION_MODE_API_ONEWAY,
+    PositionMode.HEDGE: POSITION_MODE_API_HEDGE,
+}
 
 # REST API Public Endpoints
 LINEAR_MARKET = "linear"
@@ -86,6 +100,7 @@ WS_AUTHENTICATE_USER_ENDPOINT_NAME = "auth"
 WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME = "position"
 WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME = "order"
 WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME = "execution"
+WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME = "wallet"
 
 # Order Statuses
 ORDER_STATE = {
