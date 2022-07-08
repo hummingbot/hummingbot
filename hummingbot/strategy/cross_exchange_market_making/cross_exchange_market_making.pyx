@@ -652,7 +652,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 self._maker_to_hedging_trades[order_id] = []
             if exchange_trade_id not in self._maker_to_hedging_trades[order_id]:
                 # This maker fill has not been processed yet, submit Taker hedge order
-                self._ongoing_hedging[order_filled_event.exchange_trade_id] = None
+                # Values have to be unique in a bidict
+                self._ongoing_hedging[order_filled_event.exchange_trade_id] = order_filled_event.exchange_trade_id
 
                 self._maker_to_hedging_trades[order_id] += [exchange_trade_id]
 
@@ -854,6 +855,14 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         taker_trading_pair = market_pair.taker.trading_pair
         buy_fill_records = self._order_fill_buy_events.get(market_pair, [])
         sell_fill_records = self._order_fill_sell_events.get(market_pair, [])
+
+        buy_fill_records = [fill_event for fill_event in buy_fill_records
+                            if (fill_event[1].exchange_trade_id not in self._ongoing_hedging.keys() or
+                                self._ongoing_hedging[fill_event[1].exchange_trade_id] is fill_event[1].exchange_trade_id)]
+        sell_fill_records = [fill_event for fill_event in sell_fill_records
+                             if (fill_event[1].exchange_trade_id not in self._ongoing_hedging.keys() or
+                                 self._ongoing_hedging[fill_event[1].exchange_trade_id] is fill_event[1].exchange_trade_id)]
+
         buy_fill_quantity = sum([fill_event.amount for _, fill_event in buy_fill_records])
         sell_fill_quantity = sum([fill_event.amount for _, fill_event in sell_fill_records])
 
