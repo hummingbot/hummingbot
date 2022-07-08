@@ -279,9 +279,6 @@ export class Defikingdoms implements Uniswapish {
       nonce = await this.harmony.nonceManager.getNextNonce(wallet.address);
     }
 
-    //* The harmony chain doesn't support maxFeePerGas and MaxPriorityFeePerGas
-    // writing this to evade typescript complaints about non used vars
-    // maxFeePerGas && maxPriorityFeePerGas;
     let tx: ContractTransaction;
     if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
       tx = await contract[result.methodName](...result.args, {
