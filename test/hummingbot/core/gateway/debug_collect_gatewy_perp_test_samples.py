@@ -12,21 +12,24 @@ from decimal import Decimal
 from os.path import join, realpath
 
 from bin import path_util  # noqa: F401
-from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    load_client_config_map_from_file,
+    read_system_configs_from_yml,
+)
 from hummingbot.core.data_type.common import PositionSide
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 
 
 async def main():
     from test.mock.http_recorder import HttpRecorder
+    client_config_map: ClientConfigAdapter = load_client_config_map_from_file()
     await read_system_configs_from_yml()
-    global_config_map["gateway_api_port"].value = 5000
 
     fixture_db_path: str = realpath(join(__file__, "../fixtures/gateway_perp_http_client_fixture.db"))
     http_recorder: HttpRecorder = HttpRecorder(fixture_db_path)
     with http_recorder.patch_aiohttp_client():
-        gateway_http_client: GatewayHttpClient = GatewayHttpClient()
+        gateway_http_client: GatewayHttpClient = GatewayHttpClient.get_instance(client_config_map=client_config_map)
 
         print("ping gateway:", await gateway_http_client.ping_gateway())
         print("gateway status:", await gateway_http_client.get_gateway_status())
@@ -61,6 +64,13 @@ async def main():
                   "USD",
                   Decimal("0.1"),
                   PositionSide.LONG,
+              ))
+        print("get USD balance:",
+              await gateway_http_client.amm_perp_balance(
+                  "ethereum",
+                  "optimism",
+                  "perp",
+                  "0xefB7Be8631d154d4C0ad8676FEC0897B2894FE8F",
               ))
         print("open long position:",
               await gateway_http_client.amm_perp_open(
