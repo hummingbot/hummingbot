@@ -598,6 +598,21 @@ class GatewayHttpClient:
             request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
         return await self.api_request("post", "amm/perp/close", request_payload)
 
+    async def amm_perp_balance(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            address: str,
+    ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+        }
+        return await self.api_request("post", "amm/perp/balance", request_payload)
+
     async def amm_perp_estimate_gas(
             self,
             chain: str,

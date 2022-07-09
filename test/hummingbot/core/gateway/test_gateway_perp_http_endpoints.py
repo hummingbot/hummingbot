@@ -70,9 +70,19 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
             PositionSide.LONG,
         )
         self.assertTrue(isinstance(result, dict))
-        self.assertEqual("60.9056073563350272054334195984747494008896", result["markPrice"])
-        self.assertEqual("61.0768053", result["indexPrice"])
-        self.assertEqual("61.01013608", result["indexTwapPrice"])
+        self.assertEqual("72.3961573502110110555952936205735574981841", result["markPrice"])
+        self.assertEqual("72.46", result["indexPrice"])
+        self.assertEqual("72.71790773", result["indexTwapPrice"])
+
+    @async_test(loop=ev_loop)
+    async def test_perp_balance(self):
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().amm_perp_balance(
+            "ethereum",
+            "optimism",
+            "perp",
+            "0xefB7Be8631d154d4C0ad8676FEC0897B2894FE8F",
+        )
+        self.assertEqual("209.992983", result["balance"])
 
     @async_test(loop=ev_loop)
     async def test_perp_open(self):
@@ -88,7 +98,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
             Decimal("63"),
         )
         self.assertEqual("0.100000000000000000", result["amount"])
-        self.assertEqual("0xd7b9f055cdedfce6cda65ff9ec39b6645b7158b9470e2198943811ec902e05f6",      # noqa: mock
+        self.assertEqual("0x48e65c8888282f268154146aa810a0da9bf10a3ffc2f98a298cf48a0fee864ac",      # noqa: mock
                          result["txHash"])
 
     @async_test(loop=ev_loop)
@@ -104,7 +114,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         self.assertTrue(isinstance(result, dict))
         self.assertEqual("LONG", result["positionSide"])
         self.assertEqual("AAVEUSD", result["tickerSymbol"])
-        self.assertEqual("60.94100260746568610616", result["entryPrice"])
+        self.assertEqual("72.54886162448166764354", result["entryPrice"])
 
     @async_test(loop=ev_loop)
     async def test_perp_close(self):
@@ -116,5 +126,5 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
             "AAVE",
             "USD",
         )
-        self.assertEqual("0xc400ac0b5156c90b39a3fa379b4a1099e1fd4312951925ab753655699f5d21a1",      # noqa: mock
+        self.assertEqual("0x4ad832e07778d077af763e96395b4924ae84634a30b296f6f450d7c54e599da5",      # noqa: mock
                          result["txHash"])
