@@ -6,19 +6,17 @@ from operator import itemgetter
 from statistics import mean, median
 from typing import Any, Callable, Dict, List, Optional
 
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent
-)
+from hummingbot.core.event.events import BuyOrderCompletedEvent, SellOrderCompletedEvent
+
 from .pmm_script_interface import (
     CallLog,
     CallNotify,
     OnCommand,
     OnStatus,
     OnTick,
-    PMMParameters,
     PMMMarketInfo,
-    ScriptError
+    PMMParameters,
+    ScriptError,
 )
 
 
@@ -40,6 +38,7 @@ class PMMScriptBase:
         self.all_total_balances: Dict[str, Dict[str, Decimal]] = None
         # all_available_balances has the same data structure as all_total_balances
         self.all_available_balances: Dict[str, Dict[str, Decimal]] = None
+        self.all_prices: Dict[str, Decimal] = None
 
     def assign_init(self, parent_queue: Queue, child_queue: Queue, queue_check_interval: float):
         self._parent_queue = parent_queue
@@ -75,6 +74,7 @@ class PMMScriptBase:
                     self.pmm_parameters = item.pmm_parameters
                     self.all_total_balances = item.all_total_balances
                     self.all_available_balances = item.all_available_balances
+                    self.all_prices = item.all_prices
                     self.on_tick()
                 elif isinstance(item, BuyOrderCompletedEvent):
                     self.on_buy_order_completed(item)

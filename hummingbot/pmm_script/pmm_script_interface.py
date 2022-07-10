@@ -117,11 +117,13 @@ class OnTick:
                  pmm_parameters: PMMParameters,
                  all_total_balances: Dict[str, Dict[str, Decimal]],
                  all_available_balances: Dict[str, Dict[str, Decimal]],
+                 all_prices: Dict[str, Decimal],
                  ):
         self.mid_price = mid_price
         self.pmm_parameters = pmm_parameters
         self.all_total_balances = all_total_balances
         self.all_available_balances = all_available_balances
+        self.all_prices = all_prices
 
     def __repr__(self):
         return f"{self.__class__.__name__} {str(self.__dict__)}"

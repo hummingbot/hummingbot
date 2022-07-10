@@ -15,6 +15,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
 )
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.pmm_script.pmm_script_interface import (
     CallLog,
@@ -100,7 +101,8 @@ cdef class PMMScriptIterator(TimeIterator):
                 param_value = getattr(self._strategy, attr)
                 setattr(pmm_strategy, attr, param_value)
         cdef object on_tick = OnTick(self.strategy.get_mid_price(), pmm_strategy,
-                                     self.all_total_balances(), self.all_available_balances())
+                                     self.all_total_balances(), self.all_available_balances(),
+                                     self.all_prices())
         self._parent_queue.put(on_tick)
 
     def _did_complete_buy_order(self,
@@ -157,3 +159,7 @@ cdef class PMMScriptIterator(TimeIterator):
             connector = [c for c in self._markets if c.name == exchange][0]
             ret_val[exchange] = {token: connector.get_available_balance(token) for token in balances.keys()}
         return ret_val
+
+    def all_prices(self):
+        return RateOracle.get_instance().prices.copy()
+
