@@ -1,5 +1,4 @@
 import asyncio
-import inspect
 import time
 from collections import OrderedDict, deque
 from typing import TYPE_CHECKING, Dict, List
@@ -73,7 +72,7 @@ class StatusCommand:
             else ""
         app_warning = self.application_warning()
         app_warning = "" if app_warning is None else app_warning
-        if inspect.iscoroutinefunction(self.strategy.format_status):
+        if asyncio.iscoroutinefunction(self.strategy.format_status):
             st_status = await self.strategy.format_status()
         else:
             st_status = self.strategy.format_status()
