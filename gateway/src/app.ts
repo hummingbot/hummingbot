@@ -85,12 +85,14 @@ gatewayApp.get(
 
 // watch the exit even, spawn an independent process with the same args and
 // pass the stdio from this process to it.
-process.on('exit', function () {
-  childProcess.spawn(process.argv.shift(), process.argv, {
-    cwd: process.cwd(),
-    detached: true,
-    stdio: 'inherit',
-  });
+process.on('exit', function (code) {
+  // don't restart when signal is 2.
+  if (code !== 2)
+    childProcess.spawn(process.argv.shift(), process.argv, {
+      cwd: process.cwd(),
+      detached: true,
+      stdio: 'inherit',
+    });
 });
 
 gatewayApp.post(
@@ -164,7 +166,7 @@ export const startGateway = async () => {
       logger.error(
         `Failed to start the server with https. Confirm that the SSL certificate files exist and are correct. Error: ${e}`
       );
-      process.exit(1);
+      process.exit(2);
     }
     logger.info('The gateway server is secured behind HTTPS.');
   }
