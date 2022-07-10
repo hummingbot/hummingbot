@@ -28,6 +28,7 @@ connector_status = {
     'digifinex': "yellow",
     'dydx_perpetual': 'yellow',
     'ethereum': 'red',
+    'eve': 'yellow',
     'ftx': 'green',
     'gate_io': 'green',
     'hitbtc': 'green',
