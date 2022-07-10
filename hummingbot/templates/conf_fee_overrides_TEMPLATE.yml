@@ -3,7 +3,7 @@
 ########################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 13
+template_version: 14
 
 # Example of the fields that can be specified to override the `TradeFeeFactory` default settings.
 # If the field is missing or the value is left blank, the default value will be used.
@@ -188,6 +188,12 @@ kucoin_testnet_maker_percent_fee:
 kucoin_testnet_percent_fee_token:
 kucoin_testnet_taker_fixed_fees:
 kucoin_testnet_taker_percent_fee:
+latoken_buy_percent_fee_deducted_from_returns:
+latoken_maker_fixed_fees:
+latoken_maker_percent_fee:
+latoken_percent_fee_token:
+latoken_taker_fixed_fees:
+latoken_taker_percent_fee:
 liquid_buy_percent_fee_deducted_from_returns:
 liquid_maker_fixed_fees:
 liquid_maker_percent_fee:
