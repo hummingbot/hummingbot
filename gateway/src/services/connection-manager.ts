@@ -5,7 +5,13 @@ import { Polygon } from '../chains/polygon/polygon';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { Pangolin } from '../connectors/pangolin/pangolin';
-import { Ethereumish, Uniswapish, UniswapLPish } from './common-interfaces';
+import { Perp } from '../connectors/perp/perp';
+import {
+  Ethereumish,
+  Perpish,
+  Uniswapish,
+  UniswapLPish,
+} from './common-interfaces';
 import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Sushiswap } from '../connectors/sushiswap/sushiswap';
 
@@ -23,20 +29,23 @@ export async function getChain(chain: string, network: string) {
   return chainInstance;
 }
 
-type ConnectorType<T> = T extends Uniswapish ? Uniswapish : UniswapLPish;
+type ConnectorType<T> = T extends Uniswapish ? Uniswapish : T;
 
 export async function getConnector<T>(
   chain: string,
   network: string,
-  connector: string | undefined
+  connector: string | undefined,
+  address?: string
 ): Promise<ConnectorType<T>> {
-  let connectorInstance: Uniswapish | UniswapLPish;
+  let connectorInstance: Uniswapish | UniswapLPish | Perpish;
   if (chain === 'ethereum' && connector === 'uniswap') {
     connectorInstance = Uniswap.getInstance(chain, network);
   } else if (chain === 'ethereum' && connector === 'sushiswap') {
     connectorInstance = Sushiswap.getInstance(chain, network);
   } else if (chain === 'ethereum' && connector === 'uniswapLP') {
     connectorInstance = UniswapLP.getInstance(chain, network);
+  } else if (chain === 'ethereum' && connector === 'perp') {
+    connectorInstance = Perp.getInstance(chain, network, address);
   } else if (chain === 'avalanche' && connector === 'pangolin') {
     connectorInstance = Pangolin.getInstance(chain, network);
   } else if (chain === 'avalanche' && connector === 'traderjoe') {
