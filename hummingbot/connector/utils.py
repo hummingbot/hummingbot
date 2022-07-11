@@ -90,11 +90,13 @@ def get_new_client_order_id(
     return client_order_id
 
 
-def get_new_numeric_client_order_id(nonce_creator: NonceCreator, max_id_len: Optional[int] = None) -> int:
+def get_new_numeric_client_order_id(nonce_creator: NonceCreator, max_id_bit_count: Optional[int] = None) -> int:
     local_ip_host_part = "".join(socket.gethostbyname(socket.gethostname()).split(".")[-2:])
     client_order_id = int(f"{nonce_creator.get_tracking_nonce()}{os.getpid()}{local_ip_host_part}")
-    if max_id_len:
-        client_order_id = int(str(client_order_id)[:max_id_len])
+    if max_id_bit_count:
+        max_int = 2 ** max_id_bit_count
+        while client_order_id > max_int:
+            client_order_id >>= 1
     return client_order_id
 
 

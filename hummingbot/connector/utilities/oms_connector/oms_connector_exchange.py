@@ -142,7 +142,7 @@ class OMSExchange(ExchangePyBase):
         """
         order_id = str(
             get_new_numeric_client_order_id(
-                nonce_creator=self._nonce_creator, max_id_len=CONSTANTS.MAX_ID_LEN
+                nonce_creator=self._nonce_creator, max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT
             )
         )
         safe_ensure_future(self._create_order(
@@ -170,7 +170,7 @@ class OMSExchange(ExchangePyBase):
         """
         order_id = str(
             get_new_numeric_client_order_id(
-                nonce_creator=self._nonce_creator, max_id_len=CONSTANTS.MAX_ID_LEN
+                nonce_creator=self._nonce_creator, max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT
             )
         )
         safe_ensure_future(self._create_order(
