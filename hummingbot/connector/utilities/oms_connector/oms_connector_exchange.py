@@ -24,7 +24,7 @@ from hummingbot.connector.utilities.oms_connector.oms_connector_web_utils import
     OMSConnectorURLCreatorBase,
     OMSConnectorWebAssistantsFactory,
 )
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
@@ -59,7 +59,7 @@ class OMSExchange(ExchangePyBase):
         self._user_id = user_id
         self._auth: Optional[OMSConnectorAuth] = None
         self._url_creator = url_creator
-        self._nonce_creator = NonceCreator.for_milliseconds()
+        self._nonce_creator = NonceCreator.for_seconds()
         self._trading_pairs = trading_pairs
         self._trading_required = trading_required
         self._web_assistants_factory: OMSConnectorWebAssistantsFactory
@@ -140,7 +140,11 @@ class OMSExchange(ExchangePyBase):
 
         :return: the id assigned by the connector to the order (the client id)
         """
-        order_id = str(self._nonce_creator.get_tracking_nonce())
+        order_id = str(
+            get_new_numeric_client_order_id(
+                nonce_creator=self._nonce_creator, max_id_len=CONSTANTS.MAX_ID_LEN
+            )
+        )
         safe_ensure_future(self._create_order(
             trade_type=TradeType.BUY,
             order_id=order_id,
@@ -164,7 +168,11 @@ class OMSExchange(ExchangePyBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        order_id = str(self._nonce_creator.get_tracking_nonce())
+        order_id = str(
+            get_new_numeric_client_order_id(
+                nonce_creator=self._nonce_creator, max_id_len=CONSTANTS.MAX_ID_LEN
+            )
+        )
         safe_ensure_future(self._create_order(
             trade_type=TradeType.SELL,
             order_id=order_id,
