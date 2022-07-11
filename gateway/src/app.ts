@@ -43,7 +43,9 @@ gatewayApp.use(express.urlencoded({ extended: true }));
 gatewayApp.use(
   morgan('combined', {
     skip: function (req, _res) {
-      return req.path === '/' || req.path.includes('/network/status');
+      return (
+        req.originalUrl === '/' || req.originalUrl.includes('/network/status')
+      );
     },
   })
 );
