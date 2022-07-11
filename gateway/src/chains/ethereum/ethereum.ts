@@ -18,7 +18,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   private _ethGasStationUrl: string;
   private _gasPrice: number;
   private _gasPriceRefreshInterval: number | null;
-  private _gasPriceLastUpdated: Date | null;
   private _nativeTokenSymbol: string;
   private _chain: string;
   private _requestCount: number;
@@ -48,7 +47,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       config.network.gasPriceRefreshInterval !== undefined
         ? config.network.gasPriceRefreshInterval
         : null;
-    this._gasPriceLastUpdated = null;
 
     this.updateGasPrice();
 
@@ -101,10 +99,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     return this._nativeTokenSymbol;
   }
 
-  public get gasPriceLastDated(): Date | null {
-    return this._gasPriceLastUpdated;
-  }
-
   public get requestCount(): number {
     return this._requestCount;
   }
@@ -136,10 +130,14 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       // divide by 10 to convert it to Gwei
       this._gasPrice = data[EthereumConfig.ethGasStationConfig.gasLevel] / 10;
     } else {
-      this._gasPrice = await this.getGasPriceFromEthereumNode();
+      const gasPrice = await this.getGasPriceFromEthereumNode();
+      if (gasPrice !== null) {
+        this._gasPrice = gasPrice;
+      } else {
+        logger.info('gasPrice is unexpectedly null.');
+      }
     }
 
-    this._gasPriceLastUpdated = new Date();
     setTimeout(
       this.updateGasPrice.bind(this),
       this._gasPriceRefreshInterval * 1000
