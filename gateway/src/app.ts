@@ -39,11 +39,11 @@ gatewayApp.use(express.json());
 gatewayApp.use(express.urlencoded({ extended: true }));
 
 // logging middleware
-// skip logging path '/'
+// skip logging path '/' or `/network/status`
 gatewayApp.use(
   morgan('combined', {
     skip: function (req, _res) {
-      return req.path === '/' || req.path == '/network/status';
+      return req.path === '/' || req.path.includes('/network/status');
     },
   })
 );
