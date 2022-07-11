@@ -2,15 +2,13 @@ jest.useFakeTimers();
 import { Uniswap } from '../../../../src/connectors/uniswap/uniswap';
 import { patch, unpatch } from '../../../services/patch';
 import { UniswapishPriceError } from '../../../../src/services/error-handler';
-import { CurrencyAmount, TradeType, Token, Percent } from '@uniswap/sdk-core';
+import { CurrencyAmount, Percent, TradeType, Token } from '@uniswap/sdk-core';
 import { Pair, Route } from '@uniswap/v2-sdk';
 import { Trade } from '@uniswap/router-sdk';
 import { BigNumber, utils } from 'ethers';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
-import { OverrideConfigs } from '../../../config.util';
 import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 
-const overrideConfigs = new OverrideConfigs();
 let ethereum: Ethereum;
 let uniswap: Uniswap;
 
@@ -20,6 +18,7 @@ const WETH = new Token(
   18,
   'WETH'
 );
+
 const DAI = new Token(
   3,
   '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
@@ -28,9 +27,6 @@ const DAI = new Token(
 );
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
-
   ethereum = Ethereum.getInstance('kovan');
   patchEVMNonceManager(ethereum.nonceManager);
   await ethereum.init();
@@ -47,9 +43,13 @@ afterEach(() => {
   unpatch();
 });
 
-const patchTrade = (key: string, error?: Error) => {
-  patch(uniswap.alphaRouter.route, key, () => {
-    if (error) return [];
+afterAll(async () => {
+  await ethereum.close();
+});
+
+const patchTrade = (_key: string, error?: Error) => {
+  patch(uniswap.alphaRouter, 'route', () => {
+    if (error) return false;
     const WETH_DAI = new Pair(
       CurrencyAmount.fromRawAmount(WETH, '2000000000000000000'),
       CurrencyAmount.fromRawAmount(DAI, '1000000000000000000')
