@@ -1982,3 +1982,369 @@ definitions:
       prices:
         type: 'object'
         example: ['1', '2', '3']
+
+
+  PerpPairsRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'optimism'
+      connector:
+        type: 'string'
+        example: 'perp'
+
+  PerpPairsResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'pairs'
+    properties:
+      network:
+        type: 'string'
+        example: 'optimism'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 1
+      pairs:
+        type: 'array'
+        items: 'string'
+        example: ['AAVEUSD', 'PERPUSD', 'BTCUSD']
+
+  PerpPriceRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'base'
+      - 'quote'
+    properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'optimism'
+      connector:
+        type: 'string'
+        example: 'perp'
+      base:
+        type: 'string'
+        example: 'AAVE'
+      quote:
+        type: 'string'
+        example: 'USD'
+
+  PerpPriceResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'base'
+      - 'quote'
+      - 'markPrice'
+      - 'indexPrice'
+      - 'indexTwapPrice'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 1
+      base:
+        type: 'string'
+        example: 'AAVE'
+      quote:
+        type: 'string'
+        example: 'USD'
+      markPrice:
+        type: 'string'
+        example: '0.1'
+      indexPrice:
+        type: 'string'
+        example: '0.2'
+      indexTwapPrice:
+        type: 'string'
+        example: '0.3'
+
+  PerpStatusResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'base'
+      - 'quote'
+      - 'isActive'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 1
+      base:
+        type: 'string'
+        example: 'AAVE'
+      quote:
+        type: 'string'
+        example: 'USD'
+      isActive:
+        type: 'boolean'
+        example: 'true'
+
+  PerpPositionRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'base'
+      - 'quote'
+      - 'address'
+    properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'optimism'
+      connector:
+        type: 'string'
+        example: 'perp'
+      base:
+        type: 'string'
+        example: 'AAVE'
+      quote:
+        type: 'string'
+        example: 'USD'
+      address:
+        type: 'string'
+        example: '0x...'
+
+  PerpPositionResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'base'
+      - 'quote'
+      - 'positionAmt'
+      - 'positionSide'
+      - 'unRealizedProfit'
+      - 'leverage'
+      - 'entryPrice'
+      - 'tickerSymbol'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 1
+      base:
+        type: 'string'
+        example: 'AAVE'
+      quote:
+        type: 'string'
+        example: 'USD'
+      positionAmt:
+        type: 'string'
+        example: '0.1'
+      positionSide:
+        type: 'string'
+        example: 'LONG'
+      unRealizedProfit:
+        type: 'string'
+        example: '0.3'
+      leverage:
+        type: 'string'
+        example: '1'
+      entryPrice:
+        type: 'string'
+        example: '100.3'
+      tickerSymbol:
+        type: 'string'
+        example: 'AAVEUSD'
+
+  PerpOpenRequest:
+    type: 'object'
+    required:
+      - 'quote'
+      - 'base'
+      - 'amount'
+      - 'side'
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'address'
+    properties:
+      quote:
+        type: 'string'
+        example: 'AAVE'
+      base:
+        type: 'string'
+        example: 'USD'
+      amount:
+        type: 'string'
+        example: '10'
+      side:
+        type: 'string'
+        example: 'LONG'
+      nonce:
+        type: number
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'optimism'
+      connector:
+        type: 'string'
+        example: 'perp'
+      address:
+        type: 'string'
+        example: '0x...'
+
+  PerpOpenResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'base'
+      - 'quote'
+      - 'amount'
+      - 'gasPrice'
+      - 'gasPriceToken'
+      - 'gasLimit'
+      - 'gasCost'
+      - 'nonce'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      base:
+        type: 'string'
+        example: 'AAVE'
+      quote:
+        type: 'string'
+        example: 'USD'
+      amount:
+        type: 'string'
+        example: '10'
+      gasPrice:
+        type: 'string'
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
+      gasLimit:
+        type: 'string'
+      gasCost:
+        type: 'string'
+      nonce:
+        type: 'string'
+      txHash:
+        type: 'string'
+  
+  PerpCloseRequest:
+    type: 'object'
+    required:
+      - 'quote'
+      - 'base'
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'address'
+    properties:
+      quote:
+        type: 'string'
+        example: 'AAVE'
+      base:
+        type: 'string'
+        example: 'USD'
+      nonce:
+        type: number
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'optimism'
+      connector:
+        type: 'string'
+        example: 'perp'
+      address:
+        type: 'string'
+        example: '0x...'
+
+  PerpCloseResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'base'
+      - 'gasPrice'
+      - 'gasPriceToken'
+      - 'gasLimit'
+      - 'gasCost'
+      - 'nonce'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      base:
+        type: 'string'
+        example: 'AAVE'
+      gasPrice:
+        type: 'string'
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
+      gasLimit:
+        type: 'string'
+      gasCost:
+        type: 'string'
+      nonce:
+        type: 'string'
+      txHash:
+        type: 'string'
+
