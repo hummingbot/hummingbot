@@ -1,3 +1,4 @@
+import { Big } from 'big.js';
 import {
   Contract,
   Transaction,
@@ -44,6 +45,7 @@ import {
   Trade as TradeTraderjoe,
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
+import { PerpPosition } from '../connectors/perp/perp';
 
 export type Tokenish =
   | Token
@@ -348,6 +350,72 @@ export interface UniswapLPish {
     period: number,
     interval: number
   ): Promise<string[]>;
+}
+
+export interface Perpish {
+  gasLimit: number;
+
+  init(): Promise<void>;
+
+  ready(): boolean;
+
+  /**
+   * Given a token's address, return the connector's native representation of
+   * the token.
+   *
+   * @param address Token address
+   */
+  getTokenByAddress(address: string): Tokenish;
+
+  /**
+   * Function for retrieving token list.
+   * @returns a list of available marker pairs.
+   */
+  availablePairs(): string[];
+
+  /**
+   * Give a market, queries for market, index and indexTwap prices.
+   * @param tickerSymbol Market pair
+   */
+  prices(tickerSymbol: string): Promise<{
+    markPrice: Big;
+    indexPrice: Big;
+    indexTwapPrice: Big;
+  }>;
+
+  /**
+   * Used to know if a market is active/tradable.
+   * @param tickerSymbol Market pair
+   * @returns true | false
+   */
+  isMarketActive(tickerSymbol: string): Promise<boolean>;
+
+  /**
+   * Gets available Positions/Position.
+   * @param tickerSymbol An optional parameter to get specific position.
+   * @returns Return all Positions or specific position.
+   */
+  getPositions(tickerSymbol: string): Promise<PerpPosition | undefined>;
+
+  /**
+   * Given the necessary parameters, open a position.
+   * @param isLong Will create a long position if true, else a short pos will be created.
+   * @param tickerSymbol the market to create position on.
+   * @param minBaseAmount the min amount for the position to be opened.
+   * @returns An ethers transaction object.
+   */
+  openPosition(
+    isLong: boolean,
+    tickerSymbol: string,
+    minBaseAmount: string
+  ): Promise<Transaction>;
+
+  /**
+   * Closes an open position on the specified market.
+   * @param tickerSymbol The market on which we want to close position.
+   * @returns An ethers transaction object.
+   */
+  closePosition(tickerSymbol: string): Promise<Transaction>;
 }
 
 export interface Ethereumish extends EthereumBase {
