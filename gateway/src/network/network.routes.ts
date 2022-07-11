@@ -69,27 +69,33 @@ export namespace NetworkRoutes {
         res: Response<BalanceResponse | string, {}>,
         _next: NextFunction
       ) => {
-        const chain = await getChain(req.body.chain, req.body.network);
-
         if (req.body.chain == 'solana') {
           validateSolanaBalanceRequest(req.body);
+
+          const chain = await getChain<Solanaish>(
+            req.body.chain,
+            req.body.network
+          );
 
           res
             .status(200)
             .json(
               (await solanaControllers.balances(
-                chain as Solanaish,
+                chain,
                 req.body
               )) as BalanceResponse
             );
         } else {
           validateEthereumBalanceRequest(req.body);
 
+          const chain = await getChain<Ethereumish>(
+            req.body.chain,
+            req.body.network
+          );
+
           res
             .status(200)
-            .json(
-              await ethereumControllers.balances(chain as Ethereumish, req.body)
-            );
+            .json(await ethereumControllers.balances(chain, req.body));
         }
       }
     )
@@ -102,22 +108,24 @@ export namespace NetworkRoutes {
         req: Request<{}, {}, PollRequest>,
         res: Response<PollResponse, {}>
       ) => {
-        const chain = await getChain(req.body.chain, req.body.network);
-
         if (req.body.chain == 'solana') {
           validateSolanaPollRequest(req.body);
 
-          res
-            .status(200)
-            .json(await solanaControllers.poll(chain as Solanaish, req.body));
+          const chain = await getChain<Solanaish>(
+            req.body.chain,
+            req.body.network
+          );
+
+          res.status(200).json(await solanaControllers.poll(chain, req.body));
         } else {
           validatePollRequest(req.body);
 
-          res
-            .status(200)
-            .json(
-              await ethereumControllers.poll(chain as Ethereumish, req.body)
-            );
+          const chain = await getChain<Ethereumish>(
+            req.body.chain,
+            req.body.network
+          );
+
+          res.status(200).json(await ethereumControllers.poll(chain, req.body));
         }
       }
     )
