@@ -14,6 +14,7 @@ from libcpp.vector cimport vector
 
 from hummingbot.connector.budget_checker import BudgetChecker
 from hummingbot.connector.connector_metrics_collector import DummyMetricsCollector
+from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock cimport Clock
@@ -845,6 +846,10 @@ cdef class PaperTradeExchange(ExchangeBase):
             SingleTradingPairLimitOrdersRIterator orders_rit = orders_collection_ptr.rbegin()
             vector[SingleTradingPairLimitOrdersIterator] process_order_its
             const CPPLimitOrder *cpp_limit_order_ptr = NULL
+
+
+        if math.isnan(opposite_order_book_price):
+            return None
 
         if is_buy:
             while orders_rit != orders_collection_ptr.rend():
