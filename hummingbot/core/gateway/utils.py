@@ -1,5 +1,5 @@
 import re
-from typing import Optional, Match, Pattern, List
+from typing import List, Match, Optional, Pattern
 
 # W{TOKEN} only applies to a few special tokens. It should NOT match all W-prefixed token names like WAVE or WOW.
 CAPITAL_W_SYMBOLS_PATTERN = re.compile(r"^W(BTC|ETH|AVAX|ALBT|XRP)")
@@ -8,7 +8,7 @@ CAPITAL_W_SYMBOLS_PATTERN = re.compile(r"^W(BTC|ETH|AVAX|ALBT|XRP)")
 SMALL_W_SYMBOLS_PATTERN = re.compile(r"^w(\w+)")
 
 # {TOKEN}.e generally means a wrapped token on the Avalanche network.
-DOT_E_SYMBOLS_PATTERN = re.compile(r"(\w+)\.e$")
+DOT_E_SYMBOLS_PATTERN = re.compile(r"(\w+)\.e$", re.IGNORECASE)
 
 
 def unwrap_token_symbol(on_chain_token_symbol: str) -> str:

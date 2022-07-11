@@ -14,6 +14,7 @@ import { replaceOrAppend } from '../../services/base';
 export class Avalanche extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: Avalanche };
   private _gasPrice: number;
+  private _gasPriceRefreshInterval: number | null;
   private _nativeTokenSymbol: string;
   private _chain: string;
 
@@ -32,7 +33,15 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     );
     this._chain = config.network.name;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
+
     this._gasPrice = config.manualGasPrice;
+
+    this._gasPriceRefreshInterval =
+      config.network.gasPriceRefreshInterval !== undefined
+        ? config.network.gasPriceRefreshInterval
+        : null;
+
+    this.updateGasPrice();
   }
 
   public static getInstance(network: string): Avalanche {
@@ -88,6 +97,27 @@ export class Avalanche extends EthereumBase implements Ethereumish {
       'Canceling any existing transaction(s) with nonce number ' + nonce + '.'
     );
     return super.cancelTxWithGasPrice(wallet, nonce, this._gasPrice * 2);
+  }
+
+  /**
+   * Automatically update the prevailing gas price on the network.
+   */
+  async updateGasPrice(): Promise<void> {
+    if (this._gasPriceRefreshInterval === null) {
+      return;
+    }
+
+    const gasPrice = await this.getGasPrice();
+    if (gasPrice !== null) {
+      this._gasPrice = gasPrice;
+    } else {
+      logger.info('gasPrice is unexpectedly null.');
+    }
+
+    setTimeout(
+      this.updateGasPrice.bind(this),
+      this._gasPriceRefreshInterval * 1000
+    );
   }
 
   async close() {
