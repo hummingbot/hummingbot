@@ -21,7 +21,7 @@ export namespace ConfigManagerCertPassphrase {
     logger.error(
       `The passphrase has to be provided by argument (--${PASSPHRASE_ARGUMENT}=XXX) or in an env variable (${PASSPHRASE_ENV}=XXX)`
     );
-    bindings._exit(1);
+    bindings._exit(2);
     return;
   };
 }
