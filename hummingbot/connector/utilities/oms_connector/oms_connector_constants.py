@@ -2,6 +2,8 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
 
+MAX_ID_LEN = 20  # the length of the string repr of unsigned 64 bit int in decimal format
+
 # rest endpoints
 REST_AUTH_ENDPOINT = "Authenticate"
 REST_PRODUCTS_ENDPOINT = "GetInstruments"

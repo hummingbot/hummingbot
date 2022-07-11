@@ -10,7 +10,7 @@ from zero_ex.order_utils import Order as ZeroExOrder
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res
+from hummingbot.core.utils.tracking_nonce import NonceCreator, get_tracking_nonce_low_res
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -87,6 +87,14 @@ def get_new_client_order_id(
     client_order_id = f"{hbot_order_id_prefix}{side}{base_str}{quote_str}{ts_hex}{client_instance_id}"
     if max_id_len is not None:
         client_order_id = client_order_id[:max_id_len]
+    return client_order_id
+
+
+def get_new_numeric_client_order_id(nonce_creator: NonceCreator, max_id_len: Optional[int] = None) -> int:
+    local_ip_host_part = "".join(socket.gethostbyname(socket.gethostname()).split(".")[-2:])
+    client_order_id = int(f"{nonce_creator.get_tracking_nonce()}{os.getpid()}{local_ip_host_part}")
+    if max_id_len:
+        client_order_id = int(str(client_order_id)[:max_id_len])
     return client_order_id
 
 
