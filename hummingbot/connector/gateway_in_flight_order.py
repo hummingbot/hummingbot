@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from async_timeout import timeout
 
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 
 GET_GATEWAY_EX_ORDER_ID_TIMEOUT = 30  # seconds
@@ -142,6 +142,8 @@ class GatewayInFlightOrder(InFlightOrder):
             self.nonce = misc_updates.get("nonce", None)
             self.fee_asset = misc_updates.get("fee_asset", None)
             self.gas_price = misc_updates.get("gas_price", None)
+            self.leverage = misc_updates.get("leverage", 1)
+            self.position = misc_updates.get("position_action", PositionAction.NIL)
 
         updated: bool = prev_data != self.attributes
 
