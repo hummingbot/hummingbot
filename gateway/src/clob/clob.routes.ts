@@ -42,11 +42,11 @@ export namespace ClobRoutes {
     '/',
     asyncHandler(
       async (request: Request<any>, response: Response<any, any>) => {
-        const connector = (await getConnector(
+        const connector = await getConnector<Serumish>(
           request.body.chain,
           request.body.network,
           request.body.connector
-        )) as Serumish;
+        );
 
         response.status(StatusCodes.OK).json({
           chain: connector.chain,
