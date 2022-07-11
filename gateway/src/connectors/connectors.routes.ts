@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../services/error-handler';
 import { DefiraConfig } from './defira/defira.config';
 import { PangolinConfig } from './pangolin/pangolin.config';
+import { PerpConfig } from './perp/perp.config';
 import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
@@ -28,6 +29,11 @@ export namespace ConnectorsRoutes {
             name: 'pangolin',
             trading_type: PangolinConfig.config.tradingTypes,
             available_networks: PangolinConfig.config.availableNetworks,
+          },
+          {
+            name: 'perp',
+            trading_type: PerpConfig.config.tradingTypes('perp'),
+            available_networks: PerpConfig.config.availableNetworks,
           },
           {
             name: 'sushiswap',

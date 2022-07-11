@@ -44,6 +44,10 @@ configurations:
     configurationPath: pangolin.yml
     schemaPath: pangolin-schema.json
 
+  $namespace perp:
+    configurationPath: perp.yml
+    schemaPath: perp-schema.json
+
   $namespace sushiswap:
     configurationPath: sushiswap.yml
     schemaPath: sushiswap-schema.json
