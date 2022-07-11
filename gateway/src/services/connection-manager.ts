@@ -7,15 +7,30 @@ import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { Pangolin } from '../connectors/pangolin/pangolin';
 import { Serum } from '../connectors/serum/serum';
-import { Ethereumish, Uniswapish, UniswapLPish } from './common-interfaces';
+import { Perp } from '../connectors/perp/perp';
+import {
+  Ethereumish,
+  Perpish,
+  Uniswapish,
+  UniswapLPish,
+} from './common-interfaces';
 import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Sushiswap } from '../connectors/sushiswap/sushiswap';
 import { Serumish } from '../connectors/serum/serum';
 
-export type ChainInstance = Ethereumish | Solanaish;
+export type ChainUnion = Ethereumish | Solanaish;
 
-export async function getChain(chain: string, network: string) {
-  let chainInstance: ChainInstance;
+export type Chain<T> = T extends Ethereumish
+  ? Ethereumish
+  : T extends Solanaish
+  ? Solanaish
+  : never;
+
+export async function getChain<T>(
+  chain: string,
+  network: string
+): Promise<Chain<T>> {
+  let chainInstance: ChainUnion;
 
   if (chain === 'ethereum') chainInstance = Ethereum.getInstance(network);
   else if (chain === 'avalanche')
@@ -30,17 +45,28 @@ export async function getChain(chain: string, network: string) {
     await chainInstance.init();
   }
 
-  return chainInstance;
+  return chainInstance as Chain<T>;
 }
 
-type ConnectorType = Uniswapish | UniswapLPish | Serumish;
+type ConnectorUnion = Uniswapish | UniswapLPish | Perpish | Serumish;
 
-export async function getConnector(
+export type Connector<T> = T extends Uniswapish
+  ? Uniswapish
+  : T extends UniswapLPish
+  ? UniswapLPish
+  : T extends Perpish
+  ? Perpish
+  : T extends Serumish
+  ? Serumish
+  : never;
+
+export async function getConnector<T>(
   chain: string,
   network: string,
-  connector: string | undefined
-): Promise<ConnectorType> {
-  let connectorInstance: ConnectorType;
+  connector: string | undefined,
+  address?: string
+): Promise<Connector<T>> {
+  let connectorInstance: ConnectorUnion;
 
   if (chain === 'ethereum' && connector === 'uniswap') {
     connectorInstance = Uniswap.getInstance(chain, network);
@@ -48,6 +74,8 @@ export async function getConnector(
     connectorInstance = Sushiswap.getInstance(chain, network);
   } else if (chain === 'ethereum' && connector === 'uniswapLP') {
     connectorInstance = UniswapLP.getInstance(chain, network);
+  } else if (chain === 'ethereum' && connector === 'perp') {
+    connectorInstance = Perp.getInstance(chain, network, address);
   } else if (chain === 'avalanche' && connector === 'pangolin') {
     connectorInstance = Pangolin.getInstance(chain, network);
   } else if (chain === 'avalanche' && connector === 'traderjoe') {
@@ -62,5 +90,5 @@ export async function getConnector(
     await connectorInstance.init();
   }
 
-  return connectorInstance as ConnectorType;
+  return connectorInstance as Connector<T>;
 }
