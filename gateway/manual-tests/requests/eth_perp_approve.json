@@ -1,0 +1,7 @@
+{
+  "chain": "ethereum",
+  "network": "optimism",
+  "address": "$ETH_ADDRESS",
+  "spender": "perp",
+  "token": "USDC"
+}
