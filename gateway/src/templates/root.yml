@@ -40,6 +40,10 @@ configurations:
     configurationPath: pangolin.yml
     schemaPath: pangolin-schema.json
 
+  $namespace quickswap:
+    configurationPath: quickswap.yml
+    schemaPath: quickswap-schema.json
+    
   $namespace perp:
     configurationPath: perp.yml
     schemaPath: perp-schema.json

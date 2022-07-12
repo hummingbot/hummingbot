@@ -14,7 +14,8 @@ if TYPE_CHECKING:
 class Chain(Enum):
     ETHEREUM = 0
     AVALANCHE = 1
-    SOLANA = 2
+    POLYGON = 2
+    SOLANA = 3
 
     @staticmethod
     def from_str(label: str) -> "Chain":
@@ -23,6 +24,8 @@ class Chain(Enum):
             return Chain.ETHEREUM
         elif label == "avalanche":
             return Chain.AVALANCHE
+        elif label == "polygon":
+            return Chain.POLYGON
         elif label == "solana":
             return Chain.SOLANA
         else:
@@ -32,6 +35,8 @@ class Chain(Enum):
     def to_str(chain: "Chain") -> str:
         if chain == Chain.ETHEREUM:
             return "ethereum"
+        if chain == Chain.POLYGON:
+            return "polygon"
         elif chain == Chain.AVALANCHE:
             return "avalanche"
         elif chain == Chain.SOLANA:
@@ -122,6 +127,10 @@ class GatewayChainApiManager:
                     service = 'Infura'
                     chain_name = 'Ethereum'
                     service_url = 'infura.io'
+                elif chain == Chain.POLYGON:
+                    service = 'Moralis'
+                    chain_name = 'Polygon'
+                    service_url = 'moralis.io'
                 elif chain == Chain.AVALANCHE:
                     service = 'Moralis'
                     chain_name = 'Avalanche'
@@ -150,6 +159,9 @@ class GatewayChainApiManager:
                     else:
                         if chain == Chain.ETHEREUM:
                             api_url = f"https://mainnet.infura.io/v3/{api_key}"
+                            success: bool = await self._test_evm_node(api_url)
+                        if chain == Chain.POLYGON:
+                            api_url = f"https://speedy-nodes-nyc.moralis.io/{api_key}/polygon/mainnet"
                             success: bool = await self._test_evm_node(api_url)
                         elif chain == Chain.AVALANCHE:
                             api_url = f"https://speedy-nodes-nyc.moralis.io/{api_key}/avalanche/mainnet"
