@@ -5,6 +5,7 @@ from copy import deepcopy
 from decimal import Decimal
 from itertools import chain, product
 from typing import Any, Callable, List, Optional, Tuple
+from unittest.mock import AsyncMock
 
 import pandas as pd
 from aioresponses import aioresponses
@@ -349,11 +350,30 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             "topic": "wallet",
             "data": [
                 {
+                    "available_balance": "10",
+                    "wallet_balance": "15"
+                }
+            ]
+        }
+        return mock_response
+
+    @property
+    def non_linear_balance_event_websocket_update(self):
+        mock_response = {
+            "topic": "wallet",
+            "data": [
+                {
                     "user_id": 738713,
                     "coin": self.base_asset,
                     "available_balance": "10",
                     "wallet_balance": "15"
-                }
+                },
+                {
+                    "user_id": 738713,
+                    "coin": self.non_linear_quote_asset,
+                    "available_balance": "20",
+                    "wallet_balance": "25"
+                },
             ]
         }
         return mock_response
@@ -1031,15 +1051,41 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             str(exception_context.exception)
         )
 
+    def test_user_stream_balance_update(self):
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        non_linear_connector = BybitPerpetualDerivative(
+            client_config_map=client_config_map,
+            bybit_perpetual_api_key=self.api_key,
+            bybit_perpetual_secret_key=self.api_secret,
+            trading_pairs=[self.non_linear_trading_pair],
+        )
+        non_linear_connector._set_current_timestamp(1640780000)
+
+        balance_event = self.non_linear_balance_event_websocket_update
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [balance_event, asyncio.CancelledError]
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+        except asyncio.CancelledError:
+            pass
+
+        self.assertEqual(Decimal("10"), self.exchange.available_balances[self.base_asset])
+        self.assertEqual(Decimal("15"), self.exchange.get_balance(self.base_asset))
+        self.assertEqual(Decimal("20"), self.exchange.available_balances[self.non_linear_quote_asset])
+        self.assertEqual(Decimal("25"), self.exchange.get_balance(self.non_linear_quote_asset))
+
     def test_supported_position_modes(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        testnet_linear_connector = BybitPerpetualDerivative(
+        linear_connector = BybitPerpetualDerivative(
             client_config_map=client_config_map,
             bybit_perpetual_api_key=self.api_key,
             bybit_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.trading_pair],
         )
-        testnet_non_linear_connector = BybitPerpetualDerivative(
+        non_linear_connector = BybitPerpetualDerivative(
             client_config_map=client_config_map,
             bybit_perpetual_api_key=self.api_key,
             bybit_perpetual_secret_key=self.api_secret,
@@ -1047,20 +1093,20 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         )
 
         expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]
-        self.assertEqual(expected_result, testnet_linear_connector.supported_position_modes())
+        self.assertEqual(expected_result, linear_connector.supported_position_modes())
 
         expected_result = [PositionMode.ONEWAY]
-        self.assertEqual(expected_result, testnet_non_linear_connector.supported_position_modes())
+        self.assertEqual(expected_result, non_linear_connector.supported_position_modes())
 
     def test_set_position_mode_nonlinear(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        testnet_non_linear_connector = BybitPerpetualDerivative(
+        non_linear_connector = BybitPerpetualDerivative(
             client_config_map=client_config_map,
             bybit_perpetual_api_key=self.api_key,
             bybit_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.non_linear_trading_pair],
         )
-        testnet_non_linear_connector.set_position_mode(PositionMode.HEDGE)
+        non_linear_connector.set_position_mode(PositionMode.HEDGE)
 
         self.assertTrue(
             self.is_logged(

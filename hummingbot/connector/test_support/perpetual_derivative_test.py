@@ -239,7 +239,7 @@ class AbstractPerpetualDerivativeTests:
             self.assertEqual(str(self.expected_exchange_order_id),
                              create_event.exchange_order_id)
             self.assertEqual(leverage, create_event.leverage)
-            self.assertEqual(PositionAction.OPEN, create_event.position)
+            self.assertEqual(PositionAction.OPEN.value, create_event.position)
 
             self.assertTrue(
                 self.is_logged(
@@ -283,7 +283,7 @@ class AbstractPerpetualDerivativeTests:
             self.assertEqual(order_id, create_event.order_id)
             self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
             self.assertEqual(leverage, create_event.leverage)
-            self.assertEqual(PositionAction.OPEN, create_event.position)
+            self.assertEqual(PositionAction.OPEN.value, create_event.position)
 
             self.assertTrue(
                 self.is_logged(
@@ -329,7 +329,7 @@ class AbstractPerpetualDerivativeTests:
             self.assertEqual(str(self.expected_exchange_order_id),
                              create_event.exchange_order_id)
             self.assertEqual(leverage, create_event.leverage)
-            self.assertEqual(PositionAction.CLOSE, create_event.position)
+            self.assertEqual(PositionAction.CLOSE.value, create_event.position)
 
             self.assertTrue(
                 self.is_logged(
@@ -372,7 +372,7 @@ class AbstractPerpetualDerivativeTests:
             self.assertEqual(order_id, create_event.order_id)
             self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
             self.assertEqual(leverage, create_event.leverage)
-            self.assertEqual(PositionAction.CLOSE, create_event.position)
+            self.assertEqual(PositionAction.CLOSE.value, create_event.position)
 
             self.assertTrue(
                 self.is_logged(
@@ -598,7 +598,7 @@ class AbstractPerpetualDerivativeTests:
             self.assertTrue(
                 self.is_logged(
                     log_level="DEBUG",
-                    message=f"{self.trading_pair} mode switched to {PositionMode.HEDGE}.",
+                    message=f"Position mode switched to {PositionMode.HEDGE}.",
                 )
             )
 
@@ -614,7 +614,7 @@ class AbstractPerpetualDerivativeTests:
             self.assertTrue(
                 self.is_logged(
                     log_level="DEBUG",
-                    message=f"{self.trading_pair} mode switched to {PositionMode.ONEWAY}.",
+                    message=f"Position mode switched to {PositionMode.ONEWAY}.",
                 )
             )
 
