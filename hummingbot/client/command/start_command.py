@@ -57,17 +57,17 @@ class StartCommand(GatewayChainApiManager):
     def start(self,  # type: HummingbotApplication
               log_level: Optional[str] = None,
               restore: Optional[bool] = False,
-              strategy_file_name: Optional[str] = None,
+              script: Optional[str] = None,
               is_quickstart: Optional[bool] = False):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.start, log_level, restore)
             return
-        safe_ensure_future(self.start_check(log_level, restore, strategy_file_name, is_quickstart), loop=self.ev_loop)
+        safe_ensure_future(self.start_check(log_level, restore, script, is_quickstart), loop=self.ev_loop)
 
     async def start_check(self,  # type: HummingbotApplication
                           log_level: Optional[str] = None,
                           restore: Optional[bool] = False,
-                          strategy_file_name: Optional[str] = None,
+                          script: Optional[str] = None,
                           is_quickstart: Optional[bool] = False):
 
         if self._in_start_check or (self.strategy_task is not None and not self.strategy_task.done()):
@@ -96,8 +96,8 @@ class StartCommand(GatewayChainApiManager):
                     self.strategy_file_name = None
                     raise
 
-        if strategy_file_name:
-            file_name = strategy_file_name.split(".")[0]
+        if script:
+            file_name = script.split(".")[0]
             self.strategy_file_name = file_name
             self.strategy_name = file_name
         elif not await self.status_check_all(notify_success=False):
