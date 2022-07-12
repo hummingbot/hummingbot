@@ -105,7 +105,7 @@ export class Defira implements Uniswapish {
         const routerContract = new Contract(
           this.router,
           this.routerAbi,
-          this.harmony.provider
+          this.provider()
         );
         this._factory = await routerContract.factory();
       }
@@ -118,6 +118,22 @@ export class Defira implements Uniswapish {
    */
   public get initCodeHash(): string {
     return this._initCodeHash;
+  }
+
+  // in place for mocking
+  async fetchPairData(tokenA: Token, tokenB: Token): Promise<DefiraPair> {
+    return await DefiraFetcher.fetchPairData(
+      tokenA,
+      tokenB,
+      await this.factory,
+      this.initCodeHash,
+      this.provider()
+    );
+  }
+
+  // in place for mocking
+  provider(): any {
+    return this.harmony.provider;
   }
 
   /**
@@ -310,15 +326,5 @@ export class Defira implements Uniswapish {
     logger.info(tx);
     await this.harmony.nonceManager.commitNonce(wallet.address, nonce);
     return tx;
-  }
-
-  async fetchPairData(tokenA: Token, tokenB: Token): Promise<DefiraPair> {
-    return await DefiraFetcher.fetchPairData(
-      tokenA,
-      tokenB,
-      await this.factory,
-      this.initCodeHash,
-      this.harmony.provider
-    );
   }
 }

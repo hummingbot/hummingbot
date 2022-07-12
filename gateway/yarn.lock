@@ -5582,7 +5582,7 @@ ethers@^4.0.20, ethers@^4.0.32:
     uuid "2.0.1"
     xmlhttprequest "1.8.0"
 
-ethers@^5.0.24, ethers@^5.1.4, ethers@^5.6.2, ethers@^5.6.8:
+ethers@^5.0.19, ethers@^5.0.24, ethers@^5.1.4, ethers@^5.6.2, ethers@^5.6.8:
   version "5.6.9"
   resolved "https://registry.yarnpkg.com/ethers/-/ethers-5.6.9.tgz#4e12f8dfcb67b88ae7a78a9519b384c23c576a4d"
   integrity sha512-lMGC2zv9HC5EC+8r429WaWu3uWJUCgUCt8xxKCFqkrFuBDZXDYIdzDUECxzjf2BMF8IVBByY1EBoGSL3RTm8RA==
@@ -8590,6 +8590,13 @@ mocha@^5.2.0:
     minimatch "3.0.4"
     mkdirp "0.5.1"
     supports-color "5.4.0"
+
+mock-ethers-provider@^1.0.2:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/mock-ethers-provider/-/mock-ethers-provider-1.0.2.tgz#e63966d9c3f088987c9f47b52b2c7e9a5157de68"
+  integrity sha512-bxNEAGoHpjOi8Used1GUfT/rT42UekmbsByxyEdcZRlr7zZwxoL0ONIS9pgWkpWcSzqzzQvlElNblyUK/FqcXg==
+  dependencies:
+    ethers "^5.0.19"
 
 mock-fs@^4.1.0:
   version "4.14.0"
