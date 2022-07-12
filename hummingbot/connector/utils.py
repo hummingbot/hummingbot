@@ -91,8 +91,9 @@ def get_new_client_order_id(
 
 
 def get_new_numeric_client_order_id(nonce_creator: NonceCreator, max_id_bit_count: Optional[int] = None) -> int:
-    local_ip_host_part = "".join(socket.gethostbyname(socket.gethostname()).split(".")[-2:])
-    client_order_id = int(f"{local_ip_host_part}{os.getpid()}{nonce_creator.get_tracking_nonce()}")
+    hexa_hash = md5(f"{socket.gethostname()}{os.getpid()}".encode("utf-8")).hexdigest()
+    host_part = int(hexa_hash, 16)
+    client_order_id = int(f"{host_part}{nonce_creator.get_tracking_nonce()}")
     if max_id_bit_count:
         max_int = 2 ** max_id_bit_count - 1
         client_order_id &= max_int
