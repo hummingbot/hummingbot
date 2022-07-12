@@ -104,11 +104,10 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         the exchange
         :param mode: the position mode
         """
-        if mode != self._perpetual_trading.position_mode:
-            if mode in self.supported_position_modes():
-                safe_ensure_future(self._execute_set_position_mode(mode))
-            else:
-                self.logger().error(f"Position mode {mode} is not supported. Mode not set.")
+        if mode in self.supported_position_modes():
+            safe_ensure_future(self._execute_set_position_mode(mode))
+        else:
+            self.logger().error(f"Position mode {mode} is not supported. Mode not set.")
 
     def get_leverage(self, trading_pair: str) -> int:
         return self._perpetual_trading.get_leverage(trading_pair)
@@ -129,6 +128,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         amount: Decimal,
         order_type: OrderType,
         position_action: PositionAction = PositionAction.NIL,
+        **kwargs,
     ):
         """
         Starts tracking an order by adding it to the order tracker.
@@ -219,6 +219,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         order_type: OrderType,
         price: Optional[Decimal] = None,
         position_action: PositionAction = PositionAction.NIL,
+        **kwargs,
     ):
         """
         Creates an order in the exchange using the parameters to configure it
@@ -245,6 +246,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
             order_type,
             price,
             position_action=position_action,
+            **kwargs,
         )
 
     async def _status_polling_loop_fetch_updates(self):
@@ -255,19 +257,15 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         )
 
     async def _execute_set_position_mode(self, mode: PositionMode):
-        for trading_pair in self.trading_pairs:
-            success, msg = await self._trading_pair_position_mode_set(mode, trading_pair)
-            if success:
-                self.trigger_event(
-                    AccountEvent.PositionModeChangeSucceeded,
-                    PositionModeChangeEvent(
-                        self.current_timestamp,
-                        trading_pair,
-                        mode,
-                    )
-                )
-                self.logger().debug(f"{trading_pair} mode switched to {mode}.")
-            else:
+        success, successful_pairs, msg = await self._execute_set_position_mode_for_pairs(
+            mode=mode, trading_pairs=self.trading_pairs
+        )
+
+        if not success:
+            await self._execute_set_position_mode_for_pairs(
+                mode=self._perpetual_trading.position_mode, trading_pairs=successful_pairs
+            )
+            for trading_pair in self.trading_pairs:
                 self.trigger_event(
                     AccountEvent.PositionModeChangeFailed,
                     PositionModeChangeEvent(
@@ -277,9 +275,36 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
                         msg,
                     ),
                 )
-                self.logger().network(f"Error switching {trading_pair} mode to {mode}: {msg}")
+        else:
+            self._perpetual_trading.set_position_mode(mode)
+            for trading_pair in self.trading_pairs:
+                self.trigger_event(
+                    AccountEvent.PositionModeChangeSucceeded,
+                    PositionModeChangeEvent(
+                        self.current_timestamp,
+                        trading_pair,
+                        mode,
+                    )
+                )
+            self.logger().debug(f"Position mode switched to {mode}.")
 
-        self._perpetual_trading.set_position_mode(mode)
+    async def _execute_set_position_mode_for_pairs(
+        self, mode: PositionMode, trading_pairs: List[str]
+    ) -> Tuple[bool, List[str], str]:
+        successful_pairs = []
+        success = True
+        msg = ""
+
+        for trading_pair in trading_pairs:
+            if mode != self._perpetual_trading.position_mode:
+                success, msg = await self._trading_pair_position_mode_set(mode, trading_pair)
+            if success:
+                successful_pairs.append(trading_pair)
+            else:
+                self.logger().network(f"Error switching {trading_pair} mode to {mode}: {msg}")
+                break
+
+        return success, successful_pairs, msg
 
     async def _execute_set_leverage(self, trading_pair: str, leverage: int):
         success, msg = await self._set_trading_pair_leverage(trading_pair, leverage)

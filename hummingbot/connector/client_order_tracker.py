@@ -139,7 +139,7 @@ class ClientOrderTracker:
                 order.creation_timestamp,
                 exchange_order_id=order.exchange_order_id,
                 leverage=order.leverage,
-                position=order.position
+                position=order.position.value,
             ),
         )
 

@@ -576,7 +576,10 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         Updates account balances.
         :param wallet_msg: The account balance update message payload
         """
-        symbol = wallet_msg["coin"]
+        if "coin" in wallet_msg:  # non-linear
+            symbol = wallet_msg["coin"]
+        else:  # linear
+            symbol = "USDT"
         self._account_balances[symbol] = Decimal(str(wallet_msg["wallet_balance"]))
         self._account_available_balances[symbol] = Decimal(str(wallet_msg["available_balance"]))
 
@@ -660,11 +663,11 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
         if is_linear:
             exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-            body_params = {"symbol": exchange_symbol, "mode": api_mode}
+            data = {"symbol": exchange_symbol, "mode": api_mode}
 
             response = await self._api_post(
                 path_url=CONSTANTS.SET_POSITION_MODE_URL,
-                params=body_params,
+                data=data,
                 is_auth_required=True,
             )
 
@@ -684,20 +687,20 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
 
         if bybit_utils.is_linear_perpetual(trading_pair):
-            body_params = {
+            data = {
                 "symbol": exchange_symbol,
                 "buy_leverage": leverage,
                 "sell_leverage": leverage
             }
         else:
-            body_params = {
+            data = {
                 "symbol": exchange_symbol,
                 "leverage": leverage
             }
 
         resp: Dict[str, Any] = await self._api_post(
             path_url=CONSTANTS.SET_LEVERAGE_PATH_URL,
-            params=body_params,
+            data=data,
             is_auth_required=True,
             trading_pair=trading_pair,
         )
