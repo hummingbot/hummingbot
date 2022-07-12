@@ -8,6 +8,7 @@ import websockets
 from bidict import bidict
 from dateutil import parser
 from gql import Client
+from gql.transport.appsync_auth import AppSyncApiKeyAuthentication
 from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
 from substrateinterface import Keypair, KeypairType, SubstrateInterface
 
@@ -57,6 +58,9 @@ class PolkadexExchange(ExchangePyBase):
         self.endpoint = CONSTANTS.GRAPHQL_ENDPOINT
         self.wss_url = CONSTANTS.GRAPHQL_WSS_ENDPOINT
         self.api_key = CONSTANTS.GRAPHQL_API_KEY
+        # Extract host from url
+        host = str(urlparse(self.endpoint).netloc)
+        self.auth = AppSyncApiKeyAuthentication(host=host, api_key=self.api_key)
         self._trading_pairs = trading_pairs
 
         self.is_trading_required_flag = trading_required

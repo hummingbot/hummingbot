@@ -59,19 +59,31 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
         )
         return snapshot_msg
 
-    async def _subscribe_channels(self, ws: WSAssistant):
-        try:
+    def on_recent_trade_callback(self, message):
+        print("Recent trade: ", message)
+        self._message_queue[self._trade_messages_queue_key].put_nowait(message)
+
+    def on_ob_increment(self, message):
+        print("ob inc: ", message)
+        self._message_queue[self._trade_messages_queue_key].put_nowait(message)
+
+    async def listen_for_subscriptions(self):
+        transport = AppSyncWebsocketsTransport(url=self._connector.endpoint, auth=self._connector.auth)
+        tasks = []
+        async with Client(transport=transport, fetch_schema_from_transport=False) as session:
             for trading_pair in self._trading_pairs:
-                print("Create message to send to APPsync subscription: ", trading_pair)
-                raise NotImplementedError
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...",
-                exc_info=True
-            )
-            raise
+                tasks.append(
+                    asyncio.create_task(
+                        websocket_streams_session_provided(trading_pair + "-raw-trade", session,
+                                                           self.on_recent_trade_callback)))
+                tasks.append(
+                    asyncio.create_task(
+                        websocket_streams_session_provided(trading_pair + "-ob-inc", session,
+                                                           self.on_ob_increment)))
+                await asyncio.wait(tasks)
+
+    async def _subscribe_channels(self, ws: WSAssistant):
+        pass
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
