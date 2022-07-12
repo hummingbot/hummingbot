@@ -15,6 +15,5 @@ networks:
     nativeCurrencySymbol: 'AVAX'
     gasPriceRefreshInterval: 60
 
-nodeAPIKey: ''
 manualGasPrice: 100
 gasLimit: 3000000
