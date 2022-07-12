@@ -139,11 +139,11 @@ class PolkadexExchange(ExchangePyBase):
 
     @property
     def client_order_id_max_length(self):
-        raise NotImplementedError
+        return 36
 
     @property
     def client_order_id_prefix(self):
-        raise NotImplementedError
+        return "HBOT"
 
     @property
     def trading_rules_request_path(self):
