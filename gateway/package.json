@@ -64,6 +64,7 @@
     "mathjs": "^10.5.0",
     "minimist": "^1.2.5",
     "morgan": "^1.10.0",
+    "quickswap-sdk": "^3.0.8",
     "swagger-ui-express": "^4.1.6",
     "tslib": "^2.3.1",
     "uuid": "^8.3.2",
