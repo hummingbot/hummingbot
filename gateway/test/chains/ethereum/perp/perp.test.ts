@@ -128,7 +128,7 @@ describe('verify perp position', () => {
     const pos = await perp.getPositions('AAVEUSD');
     expect(pos).toHaveProperty('positionAmt');
     expect(pos).toHaveProperty('positionSide');
-    expect(pos).toHaveProperty('unRealizedProfit');
+    expect(pos).toHaveProperty('unrealizedProfit');
     expect(pos).toHaveProperty('leverage');
     expect(pos).toHaveProperty('entryPrice');
     expect(pos).toHaveProperty('tickerSymbol');
