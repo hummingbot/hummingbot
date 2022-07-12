@@ -492,9 +492,19 @@ class GatewayCommand(GatewayChainApiManager):
                                     chain, network, wallet_private_key
                                 )
                                 wallet_address = response["address"]
+
                                 break
                             except Exception:
                                 self.notify("Error adding wallet. Check private key.\n")
+
+                        # display wallet balance
+                        native_token: str = native_tokens[chain]
+                        balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
+                            chain, network, wallet_address, [native_token]
+                        )
+                        wallet_table: List[Dict[str, Any]] = [{"balance": balances['balances'][native_token], "address": wallet_address}]
+                        wallet_df: pd.DataFrame = build_wallet_display(native_token, wallet_table)
+                        self.notify(wallet_df.to_string(index=False))
 
                 self.app.clear_input()
 
