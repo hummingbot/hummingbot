@@ -1,8 +1,13 @@
+from decimal import Decimal
+
+from hummingbot.connector.exchange.polkadex.polkadex_constants import UNIT_BALANCE
+
+
 def create_asset(asset):
-    if asset == "polkadex":
+    if asset == "PDEX":
         return {"polkadex": None}
     else:
-        return {"asset": asset}
+        return {"asset": int(asset)}
 
 
 def cancel_order(runtime_config, order_id):
@@ -12,15 +17,15 @@ def cancel_order(runtime_config, order_id):
     return runtime_config.create_scale_object("CancelOrderPayload").encode(cancel_req)
 
 
-def create_order(runtime_config, price, qty, order_type, side, proxy, base, quote, nonce):
+def create_order(runtime_config, price: Decimal, qty: Decimal, order_type, side, proxy, base, quote, nonce):
     order = {
         "user": proxy,
         "pair": {
             "base_asset": create_asset(base),
             "quote_asset": create_asset(quote)
         },
-        "qty": qty,
-        "price": price,
+        "qty": int(qty * UNIT_BALANCE),
+        "price": int(price * UNIT_BALANCE),
         "nonce": nonce
     }
     if order_type == "LIMIT":

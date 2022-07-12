@@ -72,58 +72,65 @@ class PolkadexExchange(ExchangePyBase):
             print("trading account: ", self.user_proxy_address)
         self.user_main_address = None
         self.nonce = 0  # TODO: We need to fetch the nonce from enclave
-        # custom_types = {
-        #     "runtime_id": 1,
-        #     "versioning": [
-        #     ],
-        #     "types": {
-        #         "OrderPayload": {
-        #             "type": "struct",
-        #             "type_mapping": [
-        #                 ["user", "AccountId"],
-        #                 ["pair", "TradingPair"],
-        #                 ["side", "OrderSide"],
-        #                 ["order_type", "OrderType"],
-        #                 ["qty", "u128"],
-        #                 ["price", "u128"],
-        #                 ["nonce", "u32"],
-        #             ]
-        #         },
-        #         "CancelOrderPayload": {
-        #             "type": "struct",
-        #             "type_mapping": [
-        #                 ["id", "String"]
-        #             ]},
-        #         "TradingPair": {
-        #             "type": "struct",
-        #             "type_mapping": [
-        #                 ["base_asset", "AssetId"],
-        #                 ["quote_asset", "AssetId"],
-        #             ]
-        #         },
-        #         "OrderSide": {
-        #             "type": "enum",
-        #             "type_mapping": [
-        #                 ["Ask", None],
-        #                 ["Bid", None],
-        #             ],
-        #         },
-        #         "OrderType": {
-        #             "type": "enum",
-        #             "type_mapping": [
-        #                 ["LIMIT", None],
-        #                 ["MARKET", None],
-        #             ],
-        #         },
-        #     }
-        # }
-        # print("Connecting to blockchain")
-        # self.blockchain = SubstrateInterface(
-        #     url="wss://blockchain.polkadex.trade",
-        #     ss58_format=POLKADEX_SS58_PREFIX,
-        #     type_registry=custom_types
-        # )
-        # print("Blockchain connected: ", self.blockchain.get_chain_head())
+        custom_types = {
+            "runtime_id": 1,
+            "versioning": [
+            ],
+            "types": {
+                "OrderPayload": {
+                    "type": "struct",
+                    "type_mapping": [
+                        ["user", "AccountId"],
+                        ["pair", "TradingPair"],
+                        ["side", "OrderSide"],
+                        ["order_type", "OrderType"],
+                        ["qty", "u128"],
+                        ["price", "u128"],
+                        ["nonce", "u32"],
+                    ]
+                },
+                "CancelOrderPayload": {
+                    "type": "struct",
+                    "type_mapping": [
+                        ["id", "String"]
+                    ]},
+                "TradingPair": {
+                    "type": "struct",
+                    "type_mapping": [
+                        ["base_asset", "AssetId"],
+                        ["quote_asset", "AssetId"],
+                    ]
+                },
+                "OrderSide": {
+                    "type": "enum",
+                    "type_mapping": [
+                        ["Ask", None],
+                        ["Bid", None],
+                    ],
+                },
+                "AssetId": {
+                    "type": "enum",
+                    "type_mapping": [
+                        ["polkadex", None],
+                        ["asset", "u128"],
+                    ],
+                },
+                "OrderType": {
+                    "type": "enum",
+                    "type_mapping": [
+                        ["LIMIT", None],
+                        ["MARKET", None],
+                    ],
+                },
+            }
+        }
+        print("Connecting to blockchain")
+        self.blockchain = SubstrateInterface(
+            url="wss://blockchain.polkadex.trade",
+            ss58_format=POLKADEX_SS58_PREFIX,
+            type_registry=custom_types
+        )
+        print("Blockchain connected: ", self.blockchain.get_chain_head())
         super().__init__()
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
@@ -219,8 +226,11 @@ class PolkadexExchange(ExchangePyBase):
         self.nonce = self.nonce + 1
         # TODO; Include client order id
         print("trading pair", trading_pair)
-        encoded_order = create_order(self.blockchain, price, amount, order_type, trade_type, self.user_proxy_address,
-                                     trading_pair.split("-")[0], trading_pair.split("-")[1], self.nonce)
+        encoded_order = create_order(self.blockchain, price, amount, order_type,
+                                     trade_type, self.user_proxy_address,
+                                     trading_pair.split("-")[0],
+                                     trading_pair.split("-")[1],
+                                     self.nonce)
         signature = self.proxy_pair.sign(encoded_order)
         params = ["enclave_placeOrder", encoded_order, signature]
         async with websockets.connect(self.enclave_endpoint) as websocket:

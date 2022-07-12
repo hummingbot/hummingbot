@@ -13,6 +13,7 @@ ORDER_STATE = {
     "EXPIRED": OrderState.FAILED,
 }
 
+UNIT_BALANCE = Decimal(1000000000000)
 MIN_ORDER_SIZE = Decimal(10.0)
 MIN_PRICE = Decimal(0.0001)
 MIN_QTY = Decimal(0.0001)
