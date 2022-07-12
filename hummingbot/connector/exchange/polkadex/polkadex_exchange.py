@@ -181,14 +181,11 @@ class PolkadexExchange(ExchangePyBase):
         return "polkadex"
 
     async def _update_trading_rules(self):
-        print("Bypassing trading rules updation for now")
-        pass
-        # exchange_info = await self._api_get(path_url=self.trading_rules_request_path)
-        # trading_rules_list = await self._format_trading_rules(exchange_info)
-        # self._trading_rules.clear()
-        # for trading_rule in trading_rules_list:
-        #     self._trading_rules[trading_rule.trading_pair] = trading_rule
-        # self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
+        trading_rules_list = self._format_trading_rules({})
+        self._trading_rules.clear()
+        for trading_rule in trading_rules_list:
+            self._trading_rules[trading_rule.trading_pair] = trading_rule
+        await self._initialize_trading_pair_symbol_map()
 
     async def _update_time_synchronizer(self):
         print("Bypassing setting time from server, fix this later")
@@ -197,15 +194,18 @@ class PolkadexExchange(ExchangePyBase):
     async def check_network(self) -> NetworkStatus:
         try:
             print("Connecting to enclave")
-            websocket = await websockets.connect(self.enclave_endpoint)
+            await websockets.connect(self.enclave_endpoint)
         except asyncio.CancelledError:
+            print("Error connecting to enclave")
             raise
         except Exception:
+            print("Error connecting to enclave")
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         # TODO; Convert client_order_id to enclave_order_id
+        print("Cancelling orders...")
         encoded_cancel_req = cancel_order(self.blockchain, order_id)
         signature = self.proxy_pair.sign(encoded_cancel_req)
         params = ["enclave_cancelOrder", encoded_cancel_req, signature]
@@ -380,11 +380,9 @@ class PolkadexExchange(ExchangePyBase):
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        print("Updating Balances...")
         if self.user_main_address is None:
             self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.endpoint,
                                                                        self.api_key)
-        print("Funding account: ", self.user_main_address)
         balances = await get_all_balances_by_main_account(self.user_main_address, self.endpoint, self.api_key)
         """
       [
@@ -425,6 +423,18 @@ class PolkadexExchange(ExchangePyBase):
                                             connector=self,
                                             api_factory=self._web_assistants_factory)
 
+    # @property
+    # def status_dict(self) -> Dict[str, bool]:
+    #     return {
+    #         # TODO: Fix this "symbols_mapping_initialized": self.trading_pair_symbol_map_ready(),
+    #         "symbols_mapping_initialized": True,
+    #         "order_books_initialized": self.order_book_tracker.ready,
+    #         "account_balance": not self.is_trading_required or len(self._account_balances) > 0,
+    #         "trading_rule_initialized": True,
+    #         "user_stream_initialized": True,
+    #         # "user_stream_initialized": TODO: Fix this   self._user_stream_tracker.data_source.last_recv_time > 0 if
+    #         #  self.is_trading_required else True,
+    #     }
     async def _initialize_trading_pair_symbol_map(self):
         markets = await get_all_markets(self.endpoint, self.api_key)
         mapping = bidict()
@@ -439,5 +449,4 @@ class PolkadexExchange(ExchangePyBase):
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         recent_trade = await get_recent_trades(trading_pair, 1, None, self.endpoint, self.api_key)
-        print("recent trade result", recent_trade)
         return float(recent_trade[0]["p"])

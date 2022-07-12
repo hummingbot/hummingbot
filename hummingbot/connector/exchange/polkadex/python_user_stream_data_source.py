@@ -17,6 +17,11 @@ if TYPE_CHECKING:
 
 class PolkadexUserStreamDataSource(UserStreamTrackerDataSource):
 
+    @property
+    def last_recv_time(self) -> float:
+        # TODO: fix this.
+        return 1
+
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         pass
 
