@@ -96,6 +96,7 @@
     "eslint-plugin-standard": "^4.0.1",
     "jest": "^27.3.1",
     "jest-extended": "^0.11.5",
+    "mock-ethers-provider": "^1.0.2",
     "node-cache": "5.1.2",
     "nodemon": "^2.0.4",
     "nohup": "^0.1.0",

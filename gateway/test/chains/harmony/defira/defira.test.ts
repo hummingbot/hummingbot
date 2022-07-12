@@ -1,4 +1,6 @@
 jest.useFakeTimers();
+const { MockProvider } = require('mock-ethers-provider');
+import { FACTORY_ADDRESS } from '@zuzu-cat/defira-sdk';
 import { Defira } from '../../../../src/connectors/defira/defira';
 import { patch, unpatch } from '../../../services/patch';
 import { UniswapishPriceError } from '../../../../src/services/error-handler';
@@ -7,6 +9,8 @@ import { Trade, Pair, Route } from '@zuzu-cat/defira-sdk';
 import { BigNumber } from 'ethers';
 import { Harmony } from '../../../../src/chains/harmony/harmony';
 import { patchEVMNonceManager } from '../../../evm.nonce.mock';
+import { DefiraConfig } from '../../../../src/connectors/defira/defira.config';
+import { abi as routerAbi } from '../../../../src/connectors/defira/defira_v2_router_abi.json';
 
 let harmony: Harmony;
 let defira: Defira;
@@ -24,16 +28,18 @@ const ETH = new Token(
   'ETH'
 );
 
+let mockProvider: typeof MockProvider;
+
 beforeAll(async () => {
   harmony = Harmony.getInstance('testnet');
   patchEVMNonceManager(harmony.nonceManager);
-  await harmony.init();
 
   defira = Defira.getInstance('harmony', 'testnet');
   await defira.init();
 });
 
 beforeEach(() => {
+  mockProvider = new MockProvider();
   patchEVMNonceManager(harmony.nonceManager);
 });
 
@@ -44,6 +50,16 @@ afterEach(() => {
 afterAll(async () => {
   await harmony.close();
 });
+
+const patchMockProvider = () => {
+  mockProvider.setMockContract(
+    DefiraConfig.config.routerAddress('testnet'),
+    routerAbi
+  );
+  patch(defira, 'provider', () => {
+    return mockProvider;
+  });
+};
 
 const patchFetchData = () => {
   patch(defira, 'fetchPairData', () => {
@@ -72,7 +88,23 @@ const patchTrade = (key: string, error?: Error) => {
   });
 };
 
-describe('verify Defira estimateSellTrade', () => {
+describe('verify defira factory', () => {
+  const expectedFactoryAddress = FACTORY_ADDRESS;
+  beforeEach(() => {
+    patchMockProvider();
+    mockProvider.stub(
+      DefiraConfig.config.routerAddress('testnet'),
+      'factory',
+      expectedFactoryAddress
+    );
+  });
+  it('Returns the factory address via the provider', async () => {
+    const factoryAddress = await defira.factory;
+    expect(factoryAddress).toEqual(expectedFactoryAddress);
+  });
+});
+
+describe('verify defira estimateSellTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchData();
     patchTrade('bestTradeExactIn');
