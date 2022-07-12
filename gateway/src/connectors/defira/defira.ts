@@ -1,9 +1,4 @@
-import {
-  InitializationError,
-  SERVICE_UNITIALIZED_ERROR_CODE,
-  SERVICE_UNITIALIZED_ERROR_MESSAGE,
-  UniswapishPriceError,
-} from '../../services/error-handler';
+import { UniswapishPriceError } from '../../services/error-handler';
 import { isFractionString } from '../../services/validators';
 import { DefiraConfig } from './defira.config';
 import routerAbi from './defira_v2_router_abi.json';
@@ -74,11 +69,9 @@ export class Defira implements Uniswapish {
   }
 
   public async init() {
-    if (!this.harmony.ready())
-      throw new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE('HMY'),
-        SERVICE_UNITIALIZED_ERROR_CODE
-      );
+    if (!this.harmony.ready()) {
+      await this.harmony.init();
+    }
     for (const token of this.harmony.storedTokenList) {
       this.tokenList[token.address] = new Token(
         token.chainId || this.chainId,
@@ -193,13 +186,7 @@ export class Defira implements Uniswapish {
       `Fetching pair data for ${baseToken.address}-${quoteToken.address}.`
     );
 
-    const pair: DefiraPair = await DefiraFetcher.fetchPairData(
-      quoteToken,
-      baseToken,
-      await this.factory,
-      this.initCodeHash,
-      this.harmony.provider
-    );
+    const pair: DefiraPair = await this.fetchPairData(quoteToken, baseToken);
     const trades: DefiraTrade<Token, Token, TradeType.EXACT_INPUT>[] =
       DefiraTrade.bestTradeExactIn([pair], baseTokenAmount, quoteToken, {
         maxHops: 1,
@@ -243,13 +230,7 @@ export class Defira implements Uniswapish {
     logger.info(
       `Fetching pair data for ${quoteToken.address}-${baseToken.address}.`
     );
-    const pair: DefiraPair = await DefiraFetcher.fetchPairData(
-      quoteToken,
-      baseToken,
-      await this.factory,
-      this.initCodeHash,
-      this.harmony.provider
-    );
+    const pair: DefiraPair = await this.fetchPairData(quoteToken, baseToken);
     const trades: DefiraTrade<Token, Token, TradeType.EXACT_OUTPUT>[] =
       DefiraTrade.bestTradeExactOut([pair], quoteToken, baseTokenAmount, {
         maxHops: 1,
@@ -287,11 +268,7 @@ export class Defira implements Uniswapish {
    */
   async executeTrade(
     wallet: Wallet,
-    trade: DefiraTrade<
-      Token,
-      Token,
-      TradeType.EXACT_INPUT | TradeType.EXACT_OUTPUT
-    >,
+    trade: DefiraTrade<Token, Token, TradeType>,
     gasPrice: number,
     defiraRouter: string,
     ttl: number,
@@ -333,5 +310,15 @@ export class Defira implements Uniswapish {
     logger.info(tx);
     await this.harmony.nonceManager.commitNonce(wallet.address, nonce);
     return tx;
+  }
+
+  async fetchPairData(tokenA: Token, tokenB: Token): Promise<DefiraPair> {
+    return await DefiraFetcher.fetchPairData(
+      tokenA,
+      tokenB,
+      await this.factory,
+      this.initCodeHash,
+      this.harmony.provider
+    );
   }
 }
