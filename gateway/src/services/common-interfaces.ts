@@ -26,6 +26,12 @@ import {
   Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
 import {
+  Token as TokenQuickswap,
+  CurrencyAmount as CurrencyAmountQuickswap,
+  Trade as TradeQuickswap,
+  Fraction as QuickswapFraction,
+} from 'quickswap-sdk';
+import {
   Trade as SushiswapTrade,
   Token as SushiToken,
   CurrencyAmount as SushiCurrencyAmount,
@@ -45,6 +51,7 @@ import { PerpPosition } from '../connectors/perp/perp';
 export type Tokenish =
   | Token
   | TokenPangolin
+  | TokenQuickswap
   | TokenTraderjoe
   | UniswapCoreToken
   | SushiToken;
@@ -52,20 +59,24 @@ export type Tokenish =
 export type UniswapishTrade =
   | Trade<Currency, Currency, TradeType>
   | TradePangolin
-  | DefiraTrade<UniswapCoreToken, UniswapCoreToken, TradeType>
+  | TradeQuickswap
   | TradeTraderjoe
   | SushiswapTrade<SushiToken, SushiToken, SushiTradeType>
-  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
+  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
+  | DefiraTrade<UniswapCoreToken, UniswapCoreToken, TradeType>;
 
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
+  | CurrencyAmountQuickswap
   | UniswapCoreCurrencyAmount<Currency>
   | CurrencyAmountTraderjoe
   | SushiCurrencyAmount<SushiCurrency | SushiToken>;
+
 export type Fractionish =
   | UniswapFraction
   | PangolinFraction
+  | QuickswapFraction
   | TraderjoeFraction
   | SushiFraction;
 
