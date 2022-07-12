@@ -2,7 +2,7 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
 
-MAX_ID_BIT_COUNT = 64
+MAX_ID_BIT_COUNT = 63  # experimentally, 64 bit ints sometimes result in OMS assigning order IDs of zero
 
 # rest endpoints
 REST_AUTH_ENDPOINT = "Authenticate"

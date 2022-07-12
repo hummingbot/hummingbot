@@ -364,6 +364,7 @@ class OMSExchange(ExchangePyBase):
             order_tasks = [
                 asyncio.create_task(self._request_order_update(order))
                 for order in tracked_orders
+                if order.exchange_order_id is not None  # don't update orders that are not yet acknowledged by server
             ]
             status_responses = await self._gather_tasks(order_tasks, task_name="order status")
             status_responses = await self._validate_status_responses(status_responses, tracked_orders)
@@ -389,7 +390,7 @@ class OMSExchange(ExchangePyBase):
         params = {
             CONSTANTS.OMS_ID_FIELD: self.oms_id,
             CONSTANTS.ACCOUNT_ID_FIELD: self._auth.account_id,
-            CONSTANTS.ORDER_ID_FIELD: int(order.exchange_order_id),
+            CONSTANTS.ORDER_ID_FIELD: int(await order.get_exchange_order_id()),
         }
         resp = await self._api_request(
             path_url=CONSTANTS.REST_ORDER_STATUS_ENDPOINT,
