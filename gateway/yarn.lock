@@ -2991,27 +2991,16 @@
     "@uniswap/v3-core" "1.0.0"
     "@uniswap/v3-periphery" "^1.0.1"
 
-"@zuzu-cat/defira-sdk-core@https://github.com/zuzu-cat/defira-sdk-core.git":
-  version "3.0.1"
-  resolved "https://github.com/zuzu-cat/defira-sdk-core.git#b54f0377175ee6c018f061723f15d2da8c2cc01b"
-  dependencies:
-    "@ethersproject/address" "^5.0.2"
-    big.js "^5.2.2"
-    decimal.js-light "^2.5.0"
-    jsbi "^3.1.4"
-    tiny-invariant "^1.1.0"
-    toformat "^2.0.0"
-
-"@zuzu-cat/defira-sdk@https://github.com/zuzu-cat/defira-sdk.git#07a43b1b0be0d21e686ac98fad262c1cac3eb9c7":
-  version "3.0.1"
-  resolved "https://github.com/zuzu-cat/defira-sdk.git#07a43b1b0be0d21e686ac98fad262c1cac3eb9c7"
+"@zuzu-cat/defira-sdk@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@zuzu-cat/defira-sdk/-/defira-sdk-1.0.0.tgz#fc9a6625cb7c91d6a81440a6317faa4e3f326ad1"
+  integrity sha512-NuxpUe3wGjNFDS8YAI2RHi+KH3/h3q1uH3jx6uXJ1deh0QsaxCS7j+KgFKwpJQAvLUc2/wFJuauT4SOAJfLwIw==
   dependencies:
     "@ethersproject/address" "^5.0.0"
     "@ethersproject/contracts" "^5.6.2"
     "@ethersproject/providers" "^5.6.8"
     "@ethersproject/solidity" "^5.0.0"
     "@uniswap/sdk-core" "^3.0.0-alpha.3"
-    "@zuzu-cat/defira-sdk-core" "https://github.com/zuzu-cat/defira-sdk-core.git"
     tiny-invariant "^1.1.0"
     tiny-warning "^1.0.3"
 
