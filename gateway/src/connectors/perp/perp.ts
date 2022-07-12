@@ -27,7 +27,7 @@ import { Perpish } from '../../services/common-interfaces';
 export interface PerpPosition {
   positionAmt: string;
   positionSide: string;
-  unRealizedProfit: string;
+  unrealizedProfit: string;
   leverage: string;
   entryPrice: string;
   tickerSymbol: string;
@@ -185,19 +185,18 @@ export class Perp implements Perpish {
    */
   async getPositions(tickerSymbol: string): Promise<PerpPosition | undefined> {
     const positions = this._perp.positions;
-    let positionAmt: string = '',
+    let positionAmt: string = '0',
       positionSide: string = '',
-      unRealizedProfit: string = '',
-      leverage: string = '',
-      entryPrice: string = '';
-    positionAmt = '0';
+      unrealizedProfit: string = '0',
+      leverage: string = '1',
+      entryPrice: string = '0';
     if (positions && tickerSymbol) {
       const position = await positions.getTakerPositionByTickerSymbol(
         tickerSymbol
       );
       if (position) {
         positionSide = PositionSide[position.side];
-        unRealizedProfit = (await position.getUnrealizedPnl()).toString();
+        unrealizedProfit = (await position.getUnrealizedPnl()).toString();
         leverage = '1';
         entryPrice = position.entryPrice.toString();
         positionAmt = position.sizeAbs.toString();
@@ -206,7 +205,7 @@ export class Perp implements Perpish {
     return {
       positionAmt,
       positionSide,
-      unRealizedProfit,
+      unrealizedProfit,
       leverage,
       entryPrice,
       tickerSymbol,

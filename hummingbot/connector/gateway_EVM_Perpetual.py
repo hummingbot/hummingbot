@@ -13,7 +13,7 @@ from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.data_type.trade_fee import TokenAmount
-from hummingbot.core.event.events import FundingInfo, TradeType
+from hummingbot.core.event.events import AccountEvent, FundingInfo, PositionModeChangeEvent, TradeType
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import async_ttl_cache
@@ -38,7 +38,6 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
     """
 
     _collateral_currency: str
-    _collateral_leverage: int
 
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
@@ -58,6 +57,7 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
         GatewayEVMAMM.__init__(
+            self,
             client_config_map = client_config_map,
             connector_name = connector_name,
             chain = chain,
@@ -70,7 +70,6 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
 
         # This values may not be applicable to all gateway perps, but applies to perp curie
         self._collateral_currency = "USD"
-        self._collateral_leverage = 10
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -133,7 +132,7 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
         """
 
         base, quote = trading_pair.split("-")
-        side: PositionSide = PositionSide.LONG if is_buy else PositionSide.SELL
+        side: PositionSide = PositionSide.LONG if is_buy else PositionSide.SHORT
 
         # Get the price from gateway price shim for integration tests.
         if not ignore_shim:
@@ -204,7 +203,9 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
                     return Decimal(str(price))
 
             # Didn't pass all the checks - no price available."""
-            return None
+
+            price: Decimal = Decimal(resp["markPrice"])
+            return Decimal(str(price))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -427,14 +428,14 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
                 connector = self.connector_name,
                 address = self.address,
             )
-            for token, bal in col_bal_resp_json["balances"].items():
+            for token, bal in native_bal_resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))
                 remote_asset_names.add(token)
 
-            col_balance = native_bal_resp_json.get("balances", "0")
-            self._account_available_balances[token] = Decimal(str(col_balance)) / Decimal(str(self._collateral_leverage))
-            self._account_balances[self._collateral_currency] = Decimal(str(col_balance)) / Decimal(str(self._collateral_leverage))
+            col_balance = col_bal_resp_json.get("balance", "0")
+            self._account_available_balances[self._collateral_currency] = Decimal(str(col_balance))
+            self._account_balances[self._collateral_currency] = Decimal(str(col_balance))
             remote_asset_names.add(self._collateral_currency)
 
             asset_names_to_remove = local_asset_names.difference(remote_asset_names)
@@ -451,10 +452,19 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
 
     def set_leverage(self, trading_pair: str, leverage: int = 1):
         self._leverage[trading_pair] = leverage
+        self.logger().info(f"Leverage Successfully set to {leverage} for {trading_pair}.")
         return leverage
 
     def set_position_mode(self, position_mode: PositionMode):
-        self._position_mode = position_mode
+        for trading_pair in self._trading_pairs:
+            self.trigger_event(AccountEvent.PositionModeChangeSucceeded,
+                               PositionModeChangeEvent(
+                                   self.current_timestamp,
+                                   trading_pair,
+                                   position_mode)
+                               )
+            self._position_mode = position_mode
+            self.logger().info(f"Using {position_mode.name} position mode for pair {trading_pair}.")
         return position_mode
 
     def supported_position_modes(self):
@@ -485,8 +495,8 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
 
         for position in positions:
             trading_pair = f"{position['base']}-{position['quote']}"
-            position_side = PositionSide[position.get("positionSide")]
-            unrealized_pnl = Decimal(position.get("unRealizedProfit"))
+            position_side = PositionSide.LONG if position.get("positionSide") == "LONG" else PositionSide.SHORT
+            unrealized_pnl = Decimal(position.get("unrealizedProfit"))
             entry_price = Decimal(position.get("entryPrice"))
             amount = Decimal(position.get("positionAmt"))
             leverage = Decimal(position.get("leverage"))
