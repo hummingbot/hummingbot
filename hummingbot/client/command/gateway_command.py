@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import pandas as pd
 
-from hummingbot.client.command.gateway_api_manager import Chain, GatewayChainApiManager, begin_placeholder_mode
+from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager, begin_placeholder_mode
 from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import (
@@ -235,22 +235,10 @@ class GatewayCommand(GatewayChainApiManager):
         # create Gateway configs
         await self._generate_gateway_confs(container_id=container_info["Id"])
 
-        # get the infura key
-        infura_api_key: Optional[str] = await self._get_api_key(Chain.ETHEREUM)
-
         # wait about 30 seconds for the gateway to start
         docker_and_gateway_live = await self.ping_gateway_docker_and_api(30)
         if not docker_and_gateway_live:
-            self.notify("Error starting Gateway container. If you need the Infura API Key, try updating gateway later.")
-        else:
-            # update the infura_api_key if necessary. Both restart to make the
-            # configs take effect.
-            if infura_api_key is not None:
-                await self._get_gateway_instance().update_config("ethereum.nodeAPIKey", infura_api_key)
-            else:
-                await self._get_gateway_instance().post_restart()
-
-            self.notify(f"Loaded new configs into Gateway container {container_info['Id']}")
+            self.notify("Error starting Gateway container.")
 
     async def ping_gateway_docker_and_api(self, max_wait: int) -> bool:
         """

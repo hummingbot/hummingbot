@@ -49,14 +49,13 @@ def begin_placeholder_mode(hb: "HummingbotApplication") -> Generator["Hummingbot
 
 class GatewayChainApiManager:
     """
-    Manage and test connections from gateway to chain APIs like Infura and
-    Moralis.
+    Manage and test connections from gateway to chain urls.
     """
 
-    async def _test_evm_node(self, url_with_api_key: str) -> bool:
+    async def _test_evm_node(self, node_url: str) -> bool:
         """
-        Verify that the Infura API Key is valid. If it is an empty string,
-        ignore it, but let the user know they cannot connect to ethereum.
+        Verify that the node url is valid. If it is an empty string,
+        ignore it, but let the user know they cannot connect to the node.
         """
         async with aiohttp.ClientSession() as tmp_client:
             headers = {"Content-Type": "application/json"}
@@ -67,35 +66,29 @@ class GatewayChainApiManager:
                 "params": []
             }
 
-            resp = await tmp_client.post(url=url_with_api_key,
+            resp = await tmp_client.post(url=node_url,
                                          data=json.dumps(data),
                                          headers=headers)
 
             success = resp.status == 200
             if success:
-                self.notify("The API Key works.")
+                self.notify("The node url works.")
             else:
-                self.notify("Error occurred verifying the API Key. Please check your API Key and try again.")
+                self.notify("Error occurred while verifying the node url. Please check the node url and try again.")
             return success
 
-    async def _get_api_key(self, chain: Chain, required=False) -> Optional[str]:
+    async def _get_node_url(self, chain: Chain) -> Optional[str]:
         """
-        Get the API key from user input, then check that it is valid
+        Get the node url from user input, then check that it is valid.
         """
         with begin_placeholder_mode(self):
             while True:
                 if chain == Chain.ETHEREUM:
-                    service = 'Infura'
                     chain_name = 'Ethereum'
-                    service_url = 'infura.io'
                 elif chain == Chain.AVALANCHE:
-                    service = 'Moralis'
                     chain_name = 'Avalanche'
-                    service_url = 'moralis.io'
 
-                api_key: str = await self.app.prompt(prompt=f"Enter {service} API Key (required for {chain_name} node, "
-                                                            f"if you do not have one, make an account at {service_url})"
-                                                            f", otherwise configure gateway after creation:  >>> ")
+                node_url: str = await self.app.prompt(prompt=f"Enter the node url (with API key if necessary) for {chain_name} node: >>>")
 
                 self.app.clear_input()
 
@@ -103,43 +96,46 @@ class GatewayChainApiManager:
                     self.app.to_stop_config = False
                     return None
                 try:
-                    api_key = api_key.strip()  # help check for an empty string which is valid input
-                    if not required and (api_key is None or api_key == "" or api_key == "''" or api_key == "\"\""):
-                        self.notify(f"Setting up gateway without an {chain_name} node.")
-                        return None
-                    else:
-                        if chain == Chain.ETHEREUM:
-                            api_url = f"https://mainnet.infura.io/v3/{api_key}"
-                        elif chain == Chain.AVALANCHE:
-                            api_url = f"https://speedy-nodes-nyc.moralis.io/{api_key}/avalanche/mainnet"
-                        success: bool = await self._test_evm_node(api_url)
-                        if not success:
-                            # the API key test was unsuccessful, try again
-                            continue
-                        return api_key
+                    node_url = node_url.strip()  # help check for an empty string which is valid input
+                    success: bool = await self._test_evm_node(node_url)
+                    if not success:
+                        # the node URL test was unsuccessful, try again
+                        continue
+                    return node_url
                 except Exception:
-                    self.notify(f"Error occur calling the API route: {api_url}.")
+                    self.notify(f"Error occured when trying to ping the node URL: {node_url}.")
                     raise
 
-    @staticmethod
-    async def _update_gateway_api_key(chain: Chain, api_key: str):
+    async def _test_node_url_from_gateway_config(self, chain: Chain, network: str) -> bool:
         """
-        Update a chain's API key in gateway
-        """
-        await GatewayHttpClient.get_instance().update_config(f"{Chain.to_str(chain)}.nodeAPIKey", api_key)
-
-    @staticmethod
-    async def _get_api_key_from_gateway_config(chain: Chain) -> Optional[str]:
-        """
-        Check if gateway has an API key for gateway
+        Check if gateway node URL for a chain and network works
         """
         config_dict: Dict[str, Any] = await GatewayHttpClient.get_instance().get_configuration()
         chain_config: Optional[Dict[str, Any]] = config_dict.get(Chain.to_str(chain))
         if chain_config is not None:
-            api_key: Optional[str] = chain_config.get("nodeAPIKey")
-            if api_key is None or api_key == "" or api_key == "''" or api_key == "\"\"":
-                return None
+            networks: Optional[Dict[str, Any]] = chain_config.get("networks")
+            if networks is not None:
+                network_config: Optional[Dict[str, Any]] = networks.get(network)
+                if network_config is not None:
+                    node_url: Optional[str] = network_config.get("nodeURL")
+                    if node_url is not None:
+                        return await self._test_evm_node(node_url)
+                    else:
+                        self.notify(f"{Chain.to_str(chain)}.networks.{network}.nodeURL was not found in the gateway config.")
+                        return False
+                else:
+                    self.notify(f"{Chain.to_str(chain)}.networks.{network} was not found in the gateway config.")
+                    return False
             else:
-                return api_key
+                self.notify(f"{Chain.to_str(chain)}.networks was not found in the gateway config.")
+                return False
         else:
-            return None
+            self.notify(f"{Chain.to_str(chain)} was not found in the gateway config.")
+            return False
+
+    @staticmethod
+    async def _update_gateway_chain_network_node_url(chain: Chain, network: str, node_url: str):
+        """
+        Update a chain and network's node URL in gateway
+        """
+        await GatewayHttpClient.get_instance().update_config(f"{Chain.to_str(chain)}.networks.{network}.nodeAPIKey", node_url)
