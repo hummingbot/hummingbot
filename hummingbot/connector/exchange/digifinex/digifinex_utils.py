@@ -1,12 +1,12 @@
 import math
 from typing import Dict, List
 
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_tracking_nonce_low_res
+
 from . import digifinex_constants as Constants
-
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
-
 
 CENTRALIZED = True
 
@@ -45,16 +45,8 @@ def ms_timestamp_to_s(ms: int) -> int:
     return math.floor(ms / 1e3)
 
 
-# Request ID class
-class RequestId:
-    """
-    Generate request ids
-    """
-    _request_id: int = 0
-
-    @classmethod
-    def generate_request_id(cls) -> int:
-        return get_tracking_nonce()
+def generate_request_id() -> int:
+    return get_tracking_nonce()
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
@@ -82,17 +74,29 @@ def get_api_reason(code: str) -> str:
     return Constants.API_REASONS.get(int(code), code)
 
 
-KEYS = {
-    "digifinex_api_key":
-        ConfigVar(key="digifinex_api_key",
-                  prompt="Enter your Digifinex API key >>> ",
-                  required_if=using_exchange("digifinex"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "digifinex_secret_key":
-        ConfigVar(key="digifinex_secret_key",
-                  prompt="Enter your Digifinex secret key >>> ",
-                  required_if=using_exchange("digifinex"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class DigifinexConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="digifinex", client_data=None)
+    digifinex_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Digifinex API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    digifinex_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Digifinex secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "digifinex"
+
+
+KEYS = DigifinexConfigMap.construct()

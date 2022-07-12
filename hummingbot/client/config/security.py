@@ -1,143 +1,102 @@
-from hummingbot.client.config.config_crypt import (
-    list_encrypted_file_paths,
-    decrypt_file,
-    secure_config_key,
-    encrypted_file_exists,
-    encrypt_n_save_config_value,
-    encrypted_file_path
-)
-from hummingbot.core.utils.wallet_setup import (
-    list_wallets,
-    unlock_wallet,
-    import_and_save_wallet
-)
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 import asyncio
-from os import unlink
+from pathlib import Path
+from typing import Dict, Optional
+
+from hummingbot.client.config.config_crypt import PASSWORD_VERIFICATION_PATH, BaseSecretsManager, validate_password
+from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    api_keys_from_connector_config_map,
+    connector_name_from_file,
+    get_connector_config_yml_path,
+    list_connector_configs,
+    load_connector_config_map_from_file,
+    reset_connector_hb_config,
+    save_to_yml,
+    update_connector_hb_config,
+)
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class Security:
     __instance = None
-    password = None
+    secrets_manager: Optional[BaseSecretsManager] = None
     _secure_configs = {}
-    _private_keys = {}
     _decryption_done = asyncio.Event()
 
     @staticmethod
-    def new_password_required():
-        encrypted_files = list_encrypted_file_paths()
-        wallets = list_wallets()
-        return len(encrypted_files) == 0 and len(wallets) == 0
-
-    @staticmethod
-    def any_encryped_files():
-        encrypted_files = list_encrypted_file_paths()
-        return len(encrypted_files) > 0
-
-    @staticmethod
-    def any_wallets():
-        return len(list_wallets()) > 0
-
-    @staticmethod
-    def encrypted_file_exists(config_key):
-        return encrypted_file_exists(config_key)
+    def new_password_required() -> bool:
+        return not PASSWORD_VERIFICATION_PATH.exists()
 
     @classmethod
-    def login(cls, password):
-        encrypted_files = list_encrypted_file_paths()
-        wallets = list_wallets()
-        if encrypted_files:
-            try:
-                decrypt_file(encrypted_files[0], password)
-            except ValueError as err:
-                if str(err) == "MAC mismatch":
-                    return False
-                raise err
-        elif wallets:
-            try:
-                unlock_wallet(wallets[0], password)
-            except ValueError as err:
-                if str(err) == "MAC mismatch":
-                    return False
-                raise err
-        Security.password = password
+    def any_secure_configs(cls):
+        return len(cls._secure_configs) > 0
+
+    @staticmethod
+    def connector_config_file_exists(connector_name: str) -> bool:
+        connector_configs_path = get_connector_config_yml_path(connector_name)
+        return connector_configs_path.exists()
+
+    @classmethod
+    def login(cls, secrets_manager: BaseSecretsManager) -> bool:
+        if not validate_password(secrets_manager):
+            return False
+        cls.secrets_manager = secrets_manager
         coro = AsyncCallScheduler.shared_instance().call_async(cls.decrypt_all, timeout_seconds=30)
         safe_ensure_future(coro)
         return True
 
     @classmethod
-    def decrypt_file(cls, file_path):
-        key_name = secure_config_key(file_path)
-        cls._secure_configs[key_name] = decrypt_file(file_path, Security.password)
-
-    @classmethod
-    def unlock_wallet(cls, public_key):
-        if public_key not in cls._private_keys:
-            cls._private_keys[public_key] = unlock_wallet(wallet_address=public_key, password=Security.password)
-        return cls._private_keys[public_key]
-
-    @classmethod
     def decrypt_all(cls):
         cls._secure_configs.clear()
-        cls._private_keys.clear()
         cls._decryption_done.clear()
-        encrypted_files = list_encrypted_file_paths()
+        encrypted_files = list_connector_configs()
         for file in encrypted_files:
-            cls.decrypt_file(file)
-        wallets = list_wallets()
-        for wallet in wallets:
-            cls.unlock_wallet(wallet)
+            cls.decrypt_connector_config(file)
         cls._decryption_done.set()
 
     @classmethod
-    def update_secure_config(cls, key, new_value):
-        if new_value is None:
-            return
-        if encrypted_file_exists(key):
-            unlink(encrypted_file_path(key))
-        encrypt_n_save_config_value(key, new_value, cls.password)
-        cls._secure_configs[key] = new_value
+    def decrypt_connector_config(cls, file_path: Path):
+        connector_name = connector_name_from_file(file_path)
+        cls._secure_configs[connector_name] = load_connector_config_map_from_file(file_path)
 
     @classmethod
-    def add_private_key(cls, private_key) -> str:
-        # Add private key and return the account address
-        account = import_and_save_wallet(cls.password, private_key)
-        cls._private_keys[account.address] = account.privateKey
-        return account.address
+    def update_secure_config(cls, connector_config: ClientConfigAdapter):
+        connector_name = connector_config.connector
+        file_path = get_connector_config_yml_path(connector_name)
+        save_to_yml(file_path, connector_config)
+        update_connector_hb_config(connector_config)
+        cls._secure_configs[connector_name] = connector_config
 
     @classmethod
-    def update_config_map(cls, config_map):
-        for config in config_map.values():
-            if config.is_secure and config.value is None:
-                config.value = cls.decrypted_value(config.key)
+    def remove_secure_config(cls, connector_name: str):
+        file_path = get_connector_config_yml_path(connector_name)
+        file_path.unlink(missing_ok=True)
+        reset_connector_hb_config(connector_name)
+        cls._secure_configs.pop(connector_name)
 
     @classmethod
     def is_decryption_done(cls):
         return cls._decryption_done.is_set()
 
     @classmethod
-    def decrypted_value(cls, key):
+    def decrypted_value(cls, key: str) -> Optional[ClientConfigAdapter]:
         return cls._secure_configs.get(key, None)
 
     @classmethod
-    def all_decrypted_values(cls):
+    def all_decrypted_values(cls) -> Dict[str, ClientConfigAdapter]:
         return cls._secure_configs.copy()
-
-    @classmethod
-    def private_keys(cls):
-        return cls._private_keys.copy()
 
     @classmethod
     async def wait_til_decryption_done(cls):
         await cls._decryption_done.wait()
 
     @classmethod
-    async def api_keys(cls, exchange):
-        await cls.wait_til_decryption_done()
-        exchange_configs = [c for c in global_config_map.values()
-                            if c.key in AllConnectorSettings.get_connector_settings()[exchange].config_keys
-                            and c.key in cls._secure_configs]
-        return {c.key: cls.decrypted_value(c.key) for c in exchange_configs}
+    def api_keys(cls, connector_name: str) -> Dict[str, Optional[str]]:
+        connector_config = cls.decrypted_value(connector_name)
+        keys = (
+            api_keys_from_connector_config_map(connector_config)
+            if connector_config is not None
+            else {}
+        )
+        return keys

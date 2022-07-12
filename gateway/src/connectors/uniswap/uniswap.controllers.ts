@@ -8,6 +8,8 @@ import {
   LOAD_WALLET_ERROR_MESSAGE,
   TOKEN_NOT_SUPPORTED_ERROR_CODE,
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
+  PRICE_FAILED_ERROR_CODE,
+  PRICE_FAILED_ERROR_MESSAGE,
   TRADE_FAILED_ERROR_CODE,
   TRADE_FAILED_ERROR_MESSAGE,
   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
@@ -154,8 +156,8 @@ export async function price(
     if (e instanceof Error) {
       throw new HttpException(
         500,
-        TRADE_FAILED_ERROR_MESSAGE + e.message,
-        TRADE_FAILED_ERROR_CODE
+        PRICE_FAILED_ERROR_MESSAGE + e.message,
+        PRICE_FAILED_ERROR_CODE
       );
     } else {
       throw new HttpException(
@@ -172,7 +174,7 @@ export async function price(
   const tradePrice =
     req.side === 'BUY' ? trade.executionPrice.invert() : trade.executionPrice;
 
-  const gasLimit = uniswapish.gasLimit;
+  const gasLimit = ethereumish.gasLimit;
   const gasPrice = ethereumish.gasPrice;
   return {
     network: ethereumish.chain,
@@ -236,7 +238,7 @@ export async function trade(
   }
 
   const gasPrice: number = ethereumish.gasPrice;
-  const gasLimit: number = uniswapish.gasLimit;
+  const gasLimit: number = ethereumish.gasLimit;
 
   if (req.side === 'BUY') {
     const price: Fractionish =
@@ -263,7 +265,7 @@ export async function trade(
       uniswapish.router,
       uniswapish.ttl,
       uniswapish.routerAbi,
-      uniswapish.gasLimit,
+      gasLimit,
       req.nonce,
       maxFeePerGasBigNumber,
       maxPriorityFeePerGasBigNumber,
@@ -329,7 +331,7 @@ export async function trade(
       uniswapish.router,
       uniswapish.ttl,
       uniswapish.routerAbi,
-      uniswapish.gasLimit,
+      gasLimit,
       req.nonce,
       maxFeePerGasBigNumber,
       maxPriorityFeePerGasBigNumber
@@ -389,7 +391,7 @@ export async function addLiquidity(
   ) as Token;
 
   const gasPrice: number = ethereumish.gasPrice;
-  const gasLimit: number = uniswapish.gasLimit;
+  const gasLimit: number = ethereumish.gasLimit;
 
   const invertTokenOrder: boolean = token0.address > token1.address;
 
@@ -447,7 +449,7 @@ export async function removeLiquidity(
     );
 
   const gasPrice: number = ethereumish.gasPrice;
-  const gasLimit: number = uniswapish.gasLimit;
+  const gasLimit: number = ethereumish.gasLimit;
 
   const tx = await uniswapish.reducePosition(
     wallet,
@@ -494,7 +496,7 @@ export async function collectEarnedFees(
     );
 
   const gasPrice: number = ethereumish.gasPrice;
-  const gasLimit: number = uniswapish.gasLimit;
+  const gasLimit: number = ethereumish.gasLimit;
 
   const tx: Transaction = <Transaction>(
     await uniswapish.collectFees(
@@ -609,10 +611,10 @@ export function getFullTokenFromSymbol(
 
 export async function estimateGas(
   ethereumish: Ethereumish,
-  uniswapish: Uniswapish
+  _uniswapish: Uniswapish
 ): Promise<EstimateGasResponse> {
   const gasPrice: number = ethereumish.gasPrice;
-  const gasLimit: number = uniswapish.gasLimit;
+  const gasLimit: number = ethereumish.gasLimit;
   return {
     network: ethereumish.chain,
     timestamp: Date.now(),

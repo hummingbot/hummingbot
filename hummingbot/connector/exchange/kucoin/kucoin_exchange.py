@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -26,12 +26,16 @@ from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 
 class KucoinExchange(ExchangePyBase):
 
     web_utils = web_utils
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  kucoin_api_key: str,
                  kucoin_passphrase: str,
                  kucoin_secret_key: str,
@@ -44,7 +48,7 @@ class KucoinExchange(ExchangePyBase):
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        super().__init__()
+        super().__init__(client_config_map=client_config_map)
 
     @property
     def authenticator(self):
