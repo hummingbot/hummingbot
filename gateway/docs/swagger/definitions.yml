@@ -1380,7 +1380,7 @@ definitions:
       - 'quote'
       - 'positionAmt'
       - 'positionSide'
-      - 'unRealizedProfit'
+      - 'unrealizedProfit'
       - 'leverage'
       - 'entryPrice'
       - 'tickerSymbol'
@@ -1406,7 +1406,7 @@ definitions:
       positionSide:
         type: 'string'
         example: 'LONG'
-      unRealizedProfit:
+      unrealizedProfit:
         type: 'string'
         example: '0.3'
       leverage:

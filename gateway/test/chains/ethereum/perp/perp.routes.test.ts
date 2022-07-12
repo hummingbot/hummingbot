@@ -238,7 +238,7 @@ describe('POST /amm/perp/position', () => {
       .then((res: any) => {
         expect(res.body).toHaveProperty('positionAmt');
         expect(res.body).toHaveProperty('positionSide');
-        expect(res.body).toHaveProperty('unRealizedProfit');
+        expect(res.body).toHaveProperty('unrealizedProfit');
         expect(res.body).toHaveProperty('leverage');
         expect(res.body).toHaveProperty('entryPrice');
         expect(res.body).toHaveProperty('tickerSymbol');
