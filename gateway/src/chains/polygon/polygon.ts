@@ -4,6 +4,7 @@ import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
 import { getEthereumConfig as getPolygonConfig } from '../ethereum/ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
+import { QuickswapConfig } from '../../connectors/quickswap/quickswap.config';
 import { Ethereumish } from '../../services/common-interfaces';
 import { replaceOrAppend } from '../../services/base';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
@@ -64,15 +65,13 @@ export class Polygon extends EthereumBase implements Ethereumish {
   }
 
   getSpender(reqSpender: string): string {
-    // TODO: update this after implementing a connector for Polygon
-    // let spender: string;
-    // if (reqSpender === 'pangolin') {
-    //   spender = PangolinConfig.config.routerAddress(this._chain);
-    // } else {
-    //   spender = reqSpender;
-    // }
-    // return spender;
-    return reqSpender;
+    let spender: string;
+    if (reqSpender === 'quickswap') {
+      spender = QuickswapConfig.config.routerAddress(this._chain);
+    } else {
+      spender = reqSpender;
+    }
+    return spender;
   }
 
   // cancel transaction
