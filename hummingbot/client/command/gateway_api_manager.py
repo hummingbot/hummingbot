@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 class Chain(Enum):
     ETHEREUM = 0
     AVALANCHE = 1
+    POLYGON = 2
 
     @staticmethod
     def from_str(label: str) -> "Chain":
@@ -22,6 +23,8 @@ class Chain(Enum):
             return Chain.ETHEREUM
         elif label == "avalanche":
             return Chain.AVALANCHE
+        elif label == "polygon":
+            return Chain.POLYGON
         else:
             raise NotImplementedError
 
@@ -29,6 +32,8 @@ class Chain(Enum):
     def to_str(chain: "Chain") -> str:
         if chain == Chain.ETHEREUM:
             return "ethereum"
+        if chain == Chain.POLYGON:
+            return "polygon"
         else:
             return "avalanche"
 
@@ -88,6 +93,10 @@ class GatewayChainApiManager:
                     service = 'Infura'
                     chain_name = 'Ethereum'
                     service_url = 'infura.io'
+                elif chain == Chain.POLYGON:
+                    service = 'Moralis'
+                    chain_name = 'Polygon'
+                    service_url = 'moralis.io'
                 elif chain == Chain.AVALANCHE:
                     service = 'Moralis'
                     chain_name = 'Avalanche'
@@ -110,6 +119,8 @@ class GatewayChainApiManager:
                     else:
                         if chain == Chain.ETHEREUM:
                             api_url = f"https://mainnet.infura.io/v3/{api_key}"
+                        if chain == Chain.POLYGON:
+                            api_url = f"https://speedy-nodes-nyc.moralis.io/{api_key}/polygon/mainnet"
                         elif chain == Chain.AVALANCHE:
                             api_url = f"https://speedy-nodes-nyc.moralis.io/{api_key}/avalanche/mainnet"
                         success: bool = await self._test_evm_node(api_url)
