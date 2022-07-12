@@ -7,18 +7,26 @@ networks:
     tokenListSource: >-
       https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link
     gasPriceRefreshInterval: 60
-  kovan:
-    chainID: 42
-    nodeURL: https://kovan.infura.io/v3/
-    tokenListType: FILE
-    tokenListSource: src/chains/ethereum/erc20_tokens_kovan.json
-    nativeCurrencySymbol: ETH
-    gasPriceRefreshInterval: 60
   ropsten:
     chainID: 3
     nodeURL: https://ropsten.infura.io/v3/
     tokenListType: FILE
     tokenListSource: src/chains/ethereum/erc20_tokens_ropsten.json  
+    nativeCurrencySymbol: ETH
+    gasPriceRefreshInterval: 60
+  optimism:
+    chainID: 10
+    nodeURL: https://optimism-mainnet.infura.io/v3/
+    tokenListType: URL
+    tokenListSource: >-
+      https://raw.githubusercontent.com/ethereum-optimism/ethereum-optimism.github.io/master/optimism.tokenlist.json
+    nativeCurrencySymbol: ETH
+    gasPriceRefreshInterval: 60
+  kovan:
+    chainID: 42
+    nodeURL: https://kovan.infura.io/v3/
+    tokenListType: FILE
+    tokenListSource: src/chains/ethereum/erc20_tokens_kovan.json
     nativeCurrencySymbol: ETH
     gasPriceRefreshInterval: 60
 gasLimit: 3000000
