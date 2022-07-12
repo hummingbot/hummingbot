@@ -160,11 +160,7 @@ export class Defikingdoms implements Uniswapish {
       `Fetching pair data for ${baseToken.address}-${quoteToken.address}.`
     );
 
-    const pair: Pair = await Fetcher.fetchPairData(
-      baseToken,
-      quoteToken,
-      this.harmony.provider
-    );
+    const pair: Pair = await this.fetchPairData(baseToken, quoteToken);
     const trades: Trade[] = Trade.bestTradeExactIn(
       [pair],
       nativeTokenAmount,
@@ -213,11 +209,7 @@ export class Defikingdoms implements Uniswapish {
     logger.info(
       JSON.stringify({ quoteToken, baseToken, provider: this.harmony.provider })
     );
-    const pair: Pair = await Fetcher.fetchPairData(
-      quoteToken,
-      baseToken,
-      this.harmony.provider
-    );
+    const pair: Pair = await this.fetchPairData(quoteToken, baseToken);
     const trades: Trade[] = Trade.bestTradeExactOut(
       [pair],
       quoteToken,
@@ -300,5 +292,9 @@ export class Defikingdoms implements Uniswapish {
     logger.info(JSON.stringify(tx));
     await this.harmony.nonceManager.commitNonce(wallet.address, nonce);
     return tx;
+  }
+
+  async fetchPairData(tokenA: Token, tokenB: Token): Promise<Pair> {
+    return await Fetcher.fetchPairData(tokenA, tokenB, this.harmony.provider);
   }
 }
