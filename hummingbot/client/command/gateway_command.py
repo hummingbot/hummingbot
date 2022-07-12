@@ -235,10 +235,29 @@ class GatewayCommand(GatewayChainApiManager):
         # create Gateway configs
         await self._generate_gateway_confs(container_id=container_info["Id"])
 
+        self.notify("Gateway is starting.")
         # wait about 30 seconds for the gateway to start
         docker_and_gateway_live = await self.ping_gateway_docker_and_api(30)
-        if not docker_and_gateway_live:
+        if docker_and_gateway_live:
+            self.notify("Gateway has started succesfully.")
+        else:
             self.notify("Error starting Gateway container.")
+
+    async def ping_gateway_api(self, max_wait: int) -> bool:
+        """
+        Try to reach the gateway API for up to max_wait seconds
+        """
+        now = int(time.time())
+        gateway_live = await self._get_gateway_instance().ping_gateway()
+        while not gateway_live:
+            later = int(time.time())
+            if later - now > max_wait:
+                return False
+            await asyncio.sleep(0.5)
+            gateway_live = await self._get_gateway_instance().ping_gateway()
+            later = int(time.time())
+
+        return True
 
     async def ping_gateway_docker_and_api(self, max_wait: int) -> bool:
         """
@@ -253,16 +272,7 @@ class GatewayCommand(GatewayChainApiManager):
             await asyncio.sleep(0.5)
             docker_live = await self.ping_gateway_docker()
 
-        gateway_live = await self._get_gateway_instance().ping_gateway()
-        while not gateway_live:
-            later = int(time.time())
-            if later - now > max_wait:
-                return False
-            await asyncio.sleep(0.5)
-            gateway_live = await self._get_gateway_instance().ping_gateway()
-            later = int(time.time())
-
-        return True
+        return self.ping_gateway_api(max_wait)
 
     async def ping_gateway_docker(self) -> bool:
         try:
@@ -390,6 +400,19 @@ class GatewayCommand(GatewayChainApiManager):
                             break
                         self.notify("Error: Invalid network")
 
+                # test you can connect to the uri, otherwise request the url
+                can_connect_to_node_url: bool = await self._test_node_url_from_gateway_config(chain, network)
+                if not can_connect_to_node_url:
+                    node_url: str = await self._get_node_url(chain, network)
+                    await self._update_gateway_chain_network_node_url(chain, network, node_url)
+
+                    self.notify("Restarting gateway.")
+                    # wait about 30 seconds for the gateway to restart
+                    gateway_live = await self.ping_gateway_api(30)
+                    if not gateway_live:
+                        self.notify("Error: unable to restart gateway. Try 'gateway connect' again after gateway is running.")
+                        return
+
                 # get wallets for the selected chain
                 wallets_response: List[Dict[str, Any]] = await self._get_gateway_instance().get_wallets()
                 matching_wallets: List[Dict[str, Any]] = [w for w in wallets_response if w["chain"] == chain]
@@ -449,7 +472,7 @@ class GatewayCommand(GatewayChainApiManager):
                             if self.app.to_stop_config:
                                 return
                             if wallet_address in wallets:
-                                self.notify(f"You have selected {wallet_address}")
+                                self.notify(f"You have selected {wallet_address}.")
                                 break
                             self.notify("Error: Invalid wallet address")
 
@@ -477,7 +500,7 @@ class GatewayCommand(GatewayChainApiManager):
 
                 # write wallets to Gateway connectors settings.
                 GatewayConnectionSetting.upsert_connector_spec(connector, chain, network, trading_type, wallet_address)
-                self.notify(f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
+                self.notify(f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}.")
 
                 # update AllConnectorSettings and fee overrides.
                 AllConnectorSettings.create_connector_settings()
