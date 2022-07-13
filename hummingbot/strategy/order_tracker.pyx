@@ -24,7 +24,7 @@ cdef class OrderTracker(TimeIterator):
     # 12 * 15 / 60 = 3 minutes
     SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION = 60.0 * 3
 
-    CANCEL_EXPIRY_DURATION = 60.0
+    CANCEL_EXPIRY_DURATION = 60000000000.0
 
     def __init__(self):
         super().__init__()
