@@ -7,32 +7,13 @@ import { patch, unpatch } from '../../../services/patch';
 let avalanche: Avalanche;
 let openocean: Openocean;
 
-const privateKey =
-  '0000000000000000000000000000000000000000000000000000000000000001'; // noqa: mock
-
-jest.setTimeout(30000);
-
 beforeAll(async () => {
   avalanche = Avalanche.getInstance('avalanche');
   patchEVMNonceManager(avalanche.nonceManager);
   await avalanche.init();
+
   openocean = Openocean.getInstance('avalanche', 'avalanche');
   await openocean.init();
-
-  const passphrase = 'waylin_args_passphrase';
-  process.argv.push(`--passphrase=${passphrase}`);
-
-  await request(gatewayApp)
-    .post(`/wallet/add`)
-    .send({
-      privateKey: privateKey,
-      chain: 'avalanche',
-      network: 'avalanche',
-    })
-    .expect('Content-Type', /json/)
-    .expect(200);
-
-  // process.argv.pop();
 });
 
 beforeEach(() => {
@@ -218,6 +199,20 @@ describe('POST /amm/price', () => {
   it('should return 500 for unrecognized quote symbol', async () => {
     patchGetWallet();
     patchStoredTokenList();
+    patch(avalanche, 'getTokenBySymbol', (symbol: string) => {
+      if (symbol === 'WETH') {
+        return {
+          chainId: 43114,
+          name: 'WETH',
+          symbol: 'WETH',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          decimals: 18,
+        };
+      } else {
+        return null;
+      }
+    });
+    patchGetTokenByAddress();
     await request(gatewayApp)
       .post(`/amm/price`)
       .send({
@@ -236,6 +231,20 @@ describe('POST /amm/price', () => {
   it('should return 500 for unrecognized base symbol', async () => {
     patchGetWallet();
     patchStoredTokenList();
+    patch(avalanche, 'getTokenBySymbol', (symbol: string) => {
+      if (symbol === 'WETH') {
+        return {
+          chainId: 43114,
+          name: 'WETH',
+          symbol: 'WETH',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          decimals: 18,
+        };
+      } else {
+        return null;
+      }
+    });
+    patchGetTokenByAddress();
     await request(gatewayApp)
       .post(`/amm/price`)
       .send({
