@@ -532,11 +532,14 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         request_headers = request_call.kwargs["headers"]
         self.assertEqual("application/json", request_headers["Content-Type"])
 
-        request_params = request_call.kwargs["params"]
-        self.assertIn("timestamp", request_params)
-        self.assertIn("api_key", request_params)
-        self.assertEqual(self.api_key, request_params["api_key"])
-        self.assertIn("sign", request_params)
+        request_data = request_call.kwargs["params"]
+        if request_data is None:
+            request_data = json.loads(request_call.kwargs["data"])
+
+        self.assertIn("timestamp", request_data)
+        self.assertIn("api_key", request_data)
+        self.assertEqual(self.api_key, request_data["api_key"])
+        self.assertIn("sign", request_data)
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
@@ -735,7 +738,6 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.SET_POSITION_MODE_URL, trading_pair=self.trading_pair
         )
-        regex_url = re.compile(url + r"\?.*")
         response = {
             "ret_code": 0,
             "ret_msg": "ok",
@@ -747,7 +749,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             "rate_limit_reset_ms": 1577477968183,
             "rate_limit": 75
         }
-        mock_api.post(regex_url, body=json.dumps(response), callback=callback)
+        mock_api.post(url, body=json.dumps(response), callback=callback)
 
         return url
 

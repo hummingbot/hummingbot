@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Any, Dict, List
 
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
 
 class BybitPerpetualAuth(AuthBase):
@@ -18,8 +18,24 @@ class BybitPerpetualAuth(AuthBase):
         self._secret_key: str = secret_key
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
+        if request.method == RESTMethod.GET:
+            request = await self._authenticate_get(request)
+        elif request.method == RESTMethod.POST:
+            request = await self._authenticate_post(request)
+        else:
+            raise NotImplementedError
+        return request
+
+    async def _authenticate_get(self, request: RESTRequest) -> RESTRequest:
         params = request.params or {}
         request.params = self._extend_params_with_authentication_info(params)
+        return request
+
+    async def _authenticate_post(self, request: RESTRequest) -> RESTRequest:
+        data = json.loads(request.data) if request.data is not None else {}
+        data = self._extend_params_with_authentication_info(data)
+        data = {key: value for key, value in sorted(data.items())}
+        request.data = json.dumps(data)
         return request
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:

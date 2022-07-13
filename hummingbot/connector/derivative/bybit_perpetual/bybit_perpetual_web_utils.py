@@ -23,7 +23,8 @@ def build_api_factory(
         throttler: Optional[AsyncThrottler] = None,
         time_synchronizer: Optional[TimeSynchronizer] = None,
         time_provider: Optional[Callable] = None,
-        auth: Optional[AuthBase] = None, ) -> WebAssistantsFactory:
+        auth: Optional[AuthBase] = None,
+) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
     time_provider = time_provider or (lambda: get_current_server_time(throttler=throttler))
