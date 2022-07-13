@@ -45,6 +45,7 @@ if TYPE_CHECKING:
 s_logger = None
 
 
+# TODO remove Chain.ETHEREUM references and keep only Solana in this file!!!
 # TODO remove references to the EVM AMM strategy and class.
 class GatewaySOLCLOB(ConnectorBase):
     """
