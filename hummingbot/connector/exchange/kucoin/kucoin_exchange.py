@@ -21,7 +21,6 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -31,7 +30,6 @@ if TYPE_CHECKING:
 
 
 class KucoinExchange(ExchangePyBase):
-
     web_utils = web_utils
 
     def __init__(self,
@@ -343,68 +341,36 @@ class KucoinExchange(ExchangePyBase):
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=fee_json["symbol"])
             self._trading_fees[trading_pair] = fee_json
 
-    async def _update_order_status(self):
-        tracked_orders = list(self.in_flight_orders.values())
-        if len(tracked_orders) <= 0:
-            return
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        # This has to be implemented to bring Kucoin up to the latest standards
+        return []
 
-        reviewed_orders = []
-        request_tasks = []
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        exchange_order_id = await tracked_order.get_exchange_order_id()
+        updated_order_data = await self._api_get(
+            path_url=f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}",
+            is_auth_required=True,
+            limit_id=CONSTANTS.GET_ORDER_LIMIT_ID)
 
-        for tracked_order in tracked_orders:
-            try:
-                exchange_order_id = await tracked_order.get_exchange_order_id()
-            except asyncio.TimeoutError:
-                self.logger().debug(
-                    f"Tracked order {tracked_order.client_order_id} does not have an exchange id. "
-                    f"Attempting fetch in next polling interval."
-                )
-                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
-                continue
+        ordered_canceled = updated_order_data["data"]["cancelExist"]
+        is_active = updated_order_data["data"]["isActive"]
+        op_type = updated_order_data["data"]["opType"]
 
-            reviewed_orders.append(tracked_order)
-            request_tasks.append(asyncio.get_event_loop().create_task(self._api_get(
-                path_url=f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}",
-                is_auth_required=True,
-                limit_id=CONSTANTS.GET_ORDER_LIMIT_ID)))
+        new_state = tracked_order.current_state
+        if ordered_canceled or op_type == "CANCEL":
+            new_state = OrderState.CANCELED
+        elif not is_active:
+            new_state = OrderState.FILLED
 
-        self.logger().debug(f"Polling for order status updates of {len(reviewed_orders)} orders.")
-        responses = await safe_gather(*request_tasks, return_exceptions=True)
+        order_update = OrderUpdate(
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=updated_order_data["data"]["id"],
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=new_state,
+        )
 
-        for update_result, tracked_order in zip(responses, reviewed_orders):
-            client_order_id = tracked_order.client_order_id
-
-            # If the order has already been canceled or has failed do nothing
-            if client_order_id in self.in_flight_orders:
-                if isinstance(update_result, Exception):
-                    self.logger().network(
-                        f"Error fetching status update for the order {client_order_id}: {update_result}.",
-                        app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
-                    )
-                    # Wait until the order not found error have repeated a few times before actually treating
-                    # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
-                    await self._order_tracker.process_order_not_found(client_order_id)
-
-                else:
-                    # Update order execution status
-                    ordered_canceled = update_result["data"]["cancelExist"]
-                    is_active = update_result["data"]["isActive"]
-                    op_type = update_result["data"]["opType"]
-
-                    new_state = tracked_order.current_state
-                    if ordered_canceled or op_type == "CANCEL":
-                        new_state = OrderState.CANCELED
-                    elif not is_active:
-                        new_state = OrderState.FILLED
-
-                    update = OrderUpdate(
-                        client_order_id=client_order_id,
-                        exchange_order_id=update_result["data"]["id"],
-                        trading_pair=tracked_order.trading_pair,
-                        update_timestamp=self.current_timestamp,
-                        new_state=new_state,
-                    )
-                    self._order_tracker.process_order_update(update)
+        return order_update
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {
