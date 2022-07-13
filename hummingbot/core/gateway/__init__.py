@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
-GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
+GATEWAY_DOCKER_REPO: str = "hummingbot/hummingbot"
 GATEWAY_DOCKER_TAG: str = "20220401-arm" if platform.machine() in {"arm64", "aarch64"} else "20220329"
 S_DECIMAL_0: Decimal = Decimal(0)
 
