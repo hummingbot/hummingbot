@@ -170,40 +170,6 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
                 amount=amount,
                 side=side,
             )
-            """required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
-            if any(item not in resp.keys() for item in required_items):
-                if "info" in resp.keys():
-                    self.logger().info(f"Unable to get price. {resp['info']}")
-                else:
-                    self.logger().info(f"Missing data from price result. Incomplete return result for ({resp.keys()})")
-            else:
-                gas_limit: int = int(resp["gasLimit"])
-                gas_price_token: str = resp["gasPriceToken"]
-                gas_cost: Decimal = Decimal(resp["gasCost"])
-                price: Decimal = Decimal(resp["price"])
-                self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-                exceptions: List[str] = check_transaction_exceptions(
-                    allowances=self._allowances,
-                    balances=self._account_balances,
-                    base_asset=base,
-                    quote_asset=quote,
-                    amount=amount,
-                    side=side,
-                    gas_limit=gas_limit,
-                    gas_cost=gas_cost,
-                    gas_asset=gas_price_token,
-                    swaps_count=len(resp.get("swaps", []))
-                )
-                for index in range(len(exceptions)):
-                    self.logger().warning(
-                        f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
-                    )
-
-                if price is not None and len(exceptions) == 0:
-                    return Decimal(str(price))
-
-            # Didn't pass all the checks - no price available."""
-
             price: Decimal = Decimal(resp["markPrice"])
             return Decimal(str(price))
         except asyncio.CancelledError:
@@ -522,7 +488,6 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
                 if pos_key in self._account_positions:
                     del self._account_positions[pos_key]
 
-    # To-dos:
     async def _fetch_funding_payment(self, trading_pair: str) -> bool:
         """
         This ought to fetch the funding settlement details of all the active trading pairs and trigger FundingPaymentCompletedEvent.
