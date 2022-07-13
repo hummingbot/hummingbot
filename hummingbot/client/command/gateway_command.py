@@ -235,7 +235,7 @@ class GatewayCommand(GatewayChainApiManager):
         # create Gateway configs
         await self._generate_gateway_confs(container_id=container_info["Id"])
 
-        self.notify("Gateway is starting.")
+        self.notify("Gateway is starting, please wait a moment.")
         # wait about 30 seconds for the gateway to start
         docker_and_gateway_live = await self.ping_gateway_docker_and_api(30)
         if docker_and_gateway_live:
