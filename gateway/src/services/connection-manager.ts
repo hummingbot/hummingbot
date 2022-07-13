@@ -5,6 +5,7 @@ import { Polygon } from '../chains/polygon/polygon';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { Pangolin } from '../connectors/pangolin/pangolin';
+import { Quickswap } from '../connectors/quickswap/quickswap';
 import { Perp } from '../connectors/perp/perp';
 import {
   Ethereumish,
@@ -40,6 +41,8 @@ export async function getConnector<T>(
   let connectorInstance: Uniswapish | UniswapLPish | Perpish;
   if (chain === 'ethereum' && connector === 'uniswap') {
     connectorInstance = Uniswap.getInstance(chain, network);
+  } else if (chain === 'polygon' && connector === 'quickswap') {
+    connectorInstance = Quickswap.getInstance(chain, network);
   } else if (chain === 'ethereum' && connector === 'sushiswap') {
     connectorInstance = Sushiswap.getInstance(chain, network);
   } else if (chain === 'ethereum' && connector === 'uniswapLP') {
