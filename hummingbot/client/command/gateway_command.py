@@ -272,7 +272,7 @@ class GatewayCommand(GatewayChainApiManager):
             await asyncio.sleep(0.5)
             docker_live = await self.ping_gateway_docker()
 
-        return self.ping_gateway_api(max_wait)
+        return await self.ping_gateway_api(max_wait)
 
     async def ping_gateway_docker(self) -> bool:
         try:
