@@ -69,6 +69,7 @@ export class Traderjoe implements Uniswapish {
     if (!this.avalanche.ready()) {
       await this.avalanche.init();
     }
+
     for (const token of this.avalanche.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
