@@ -68,7 +68,7 @@ TRADE_EVENT_TYPE = "trade"
 RATE_LIMITS = [
     # Pools
     RateLimit(limit_id=REQUEST_WEIGHT, limit=1200, time_interval=ONE_MINUTE),
-    RateLimit(limit_id=ORDERS, limit=10, time_interval=ONE_SECOND),
+    RateLimit(limit_id=ORDERS, limit=50, time_interval=10 * ONE_SECOND),
     RateLimit(limit_id=ORDERS_24HR, limit=100000, time_interval=ONE_DAY),
     # Weighted Limits
     RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
