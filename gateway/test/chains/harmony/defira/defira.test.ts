@@ -4,7 +4,7 @@ import { FACTORY_ADDRESS } from '@zuzu-cat/defira-sdk';
 import { Defira } from '../../../../src/connectors/defira/defira';
 import { patch, unpatch } from '../../../services/patch';
 import { UniswapishPriceError } from '../../../../src/services/error-handler';
-import { Token, CurrencyAmount, TradeType } from '@uniswap/sdk-core';
+import { Token, CurrencyAmount, TradeType, Percent } from '@uniswap/sdk-core';
 import { Trade, Pair, Route } from '@zuzu-cat/defira-sdk';
 import { BigNumber } from 'ethers';
 import { Harmony } from '../../../../src/chains/harmony/harmony';
@@ -88,6 +88,18 @@ const patchTrade = (key: string, error?: Error) => {
   });
 };
 
+describe('verify defira gasLimit', () => {
+  it('Should initially match the config for mainnet', () => {
+    expect(defira.gasLimit).toEqual(DefiraConfig.config.gasLimit());
+  });
+});
+
+describe('verify defira getAllowedSlippage', () => {
+  it('Should parse simple fractions', () => {
+    expect(defira.getAllowedSlippage('3/100')).toEqual(new Percent('3', '100'));
+  });
+});
+
 describe('verify defira factory', () => {
   const expectedFactoryAddress = FACTORY_ADDRESS;
   beforeEach(() => {
@@ -101,6 +113,14 @@ describe('verify defira factory', () => {
   it('Returns the factory address via the provider', async () => {
     const factoryAddress = await defira.factory;
     expect(factoryAddress).toEqual(expectedFactoryAddress);
+  });
+});
+
+describe('verify defira initCodeHash', () => {
+  it('Should return the testnet factory initCodeHash', () => {
+    expect(defira.initCodeHash).toEqual(
+      DefiraConfig.config.initCodeHash('testnet')
+    );
   });
 });
 
