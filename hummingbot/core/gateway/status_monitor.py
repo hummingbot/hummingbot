@@ -110,7 +110,7 @@ class StatusMonitor:
             await asyncio.sleep(POLL_INTERVAL)
 
     async def _fetch_gateway_configs(self) -> Dict[str, Any]:
-        return await self._get_gateway_instance().get_configuration(fail_silently=False)
+        return await self._get_gateway_instance().get_configuration(fail_silently=True)
 
     async def update_gateway_config_key_list(self):
         try:
