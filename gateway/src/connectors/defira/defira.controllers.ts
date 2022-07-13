@@ -14,6 +14,8 @@ import {
   SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE,
   UNKNOWN_ERROR_ERROR_CODE,
   UNKNOWN_ERROR_MESSAGE,
+  EIP1559_NOT_SUPPORTED_ERROR_MESSAGE,
+  INVALID_REQUEST_FIELDS_CODE,
 } from '../../services/error-handler';
 import { TokenInfo } from '../../services/ethereum-base';
 import { latency, gasCostInEthString } from '../../services/base';
@@ -156,13 +158,12 @@ export async function trade(
   const { limitPrice, maxFeePerGas, maxPriorityFeePerGas, allowedSlippage } =
     req;
 
-  let maxFeePerGasBigNumber: BigNumber | undefined;
-  if (maxFeePerGas) {
-    maxFeePerGasBigNumber = BigNumber.from(maxFeePerGas);
-  }
-  let maxPriorityFeePerGasBigNumber: BigNumber | undefined;
-  if (maxPriorityFeePerGas) {
-    maxPriorityFeePerGasBigNumber = BigNumber.from(maxPriorityFeePerGas);
+  if (maxFeePerGas || maxPriorityFeePerGas) {
+    throw new HttpException(
+      400,
+      EIP1559_NOT_SUPPORTED_ERROR_MESSAGE('Harmony'),
+      INVALID_REQUEST_FIELDS_CODE
+    );
   }
 
   let wallet: Wallet;
@@ -235,8 +236,8 @@ export async function trade(
       uniswapish.routerAbi,
       uniswapish.gasLimit,
       req.nonce,
-      maxFeePerGasBigNumber,
-      maxPriorityFeePerGasBigNumber,
+      undefined,
+      undefined,
       allowedSlippage
     );
 
@@ -301,8 +302,9 @@ export async function trade(
       uniswapish.routerAbi,
       uniswapish.gasLimit,
       req.nonce,
-      maxFeePerGasBigNumber,
-      maxPriorityFeePerGasBigNumber
+      undefined,
+      undefined,
+      allowedSlippage
     );
 
     logger.info(
