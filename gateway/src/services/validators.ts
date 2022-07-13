@@ -1,4 +1,3 @@
-import { StatusCodes } from 'http-status-codes';
 import { HttpException } from './error-handler';
 
 export const invalidAmountError: string =
@@ -44,17 +43,9 @@ export const isFractionString = (str: string): boolean => {
 
 // throw an error because the request parameter is malformed, collect all the
 // errors related to the request to give the most information possible
-export const throwIfErrorsExist = (
-  errors: Array<string>,
-  statusCode: number = StatusCodes.NOT_FOUND,
-  req: any,
-  headerMessage?: (req: any) => string
-): void => {
+export const throwIfErrorsExist = (errors: Array<string>): void => {
   if (errors.length > 0) {
-    let message = headerMessage ? `${headerMessage(req)}\n` : '';
-    message += errors.join('\n');
-
-    throw new HttpException(statusCode, message);
+    throw new HttpException(404, errors.join(', '));
   }
 };
 
@@ -89,53 +80,19 @@ export const mkBranchingValidator = (
 
 export const mkValidator = (
   key: string,
-  errorMsg: string | ((target: any, index?: number) => string),
-  condition: (target: any) => boolean,
-  optional: boolean = false,
-  useRequest: boolean = false
+  errorMsg: string,
+  condition: (x: any) => boolean,
+  optional: boolean = false
 ): Validator => {
-  return (target: any, index?: number) => {
+  return (req: any) => {
     const errors: Array<string> = [];
-
-    let passed: boolean;
-    if (useRequest) passed = condition(target);
-    else if (!(`${key}` in target) && !optional) {
-      errors.push(missingParameter(key));
-
-      return errors;
-    } else passed = condition(target[key]);
-
-    let error: string;
-    if (!passed && !optional) {
-      if (typeof errorMsg === 'string') error = errorMsg;
-      else if (useRequest) error = errorMsg(target, index);
-      else error = errorMsg(target[key], index);
-
-      errors.push(error);
-    }
-
-    return errors;
-  };
-};
-
-export const mkBatchValidator = (
-  validators: Validator[],
-  headerItemMessage?: (item: any, index?: number) => string
-) => {
-  return (items: any[]) => {
-    const errors: string[] = [];
-
-    for (const [index, item] of items.entries()) {
-      const itemErrors: string[] = [];
-
-      for (const validator of validators) {
-        itemErrors.push(...validator(item, index));
+    if (req[key]) {
+      if (!condition(req[key])) {
+        errors.push(errorMsg);
       }
-
-      if (itemErrors && itemErrors.length > 0) {
-        if (headerItemMessage) errors.push(headerItemMessage(item, index));
-
-        errors.push(...itemErrors);
+    } else {
+      if (!optional) {
+        errors.push(missingParameter(key));
       }
     }
 
@@ -144,16 +101,14 @@ export const mkBatchValidator = (
 };
 
 export const mkRequestValidator = (
-  validators: Array<Validator>,
-  statusCode?: number,
-  headerMessage?: (req: any) => string
+  validators: Array<Validator>
 ): RequestValidator => {
   return (req: any) => {
     let errors: Array<string> = [];
     validators.forEach(
       (validator: Validator) => (errors = errors.concat(validator(req)))
     );
-    throwIfErrorsExist(errors, statusCode, req, headerMessage);
+    throwIfErrorsExist(errors);
   };
 };
 
