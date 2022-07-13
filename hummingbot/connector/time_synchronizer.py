@@ -1,9 +1,10 @@
 import asyncio
 import logging
-import statistics
 import time
 from collections import deque
 from typing import Awaitable, Deque
+
+import numpy
 
 from hummingbot.logger import HummingbotLogger
 
@@ -21,6 +22,8 @@ class TimeSynchronizer:
 
     def __init__(self):
         self._time_offset_ms: Deque[float] = deque(maxlen=5)
+        self._last_calculated_times = None
+        self._last_calculated_offsets = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -31,8 +34,13 @@ class TimeSynchronizer:
     @property
     def time_offset_ms(self) -> float:
         if not self._time_offset_ms:
-            return (self._time() - self._current_seconds_counter()) * 1e3
-        return statistics.median(self._time_offset_ms)
+            offset = (self._time() - self._current_seconds_counter()) * 1e3
+        else:
+            median = numpy.median(self._time_offset_ms)
+            weighted_average = numpy.average(self._time_offset_ms, weights=range(1, len(self._time_offset_ms) * 2 + 1, 2))
+            offset = numpy.mean([median, weighted_average])
+
+        return offset
 
     def add_time_offset_ms_sample(self, offset: float):
         self._time_offset_ms.append(offset)
