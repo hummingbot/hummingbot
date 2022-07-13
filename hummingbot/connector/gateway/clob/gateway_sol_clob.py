@@ -45,7 +45,6 @@ if TYPE_CHECKING:
 s_logger = None
 
 
-# TODO remove Chain.ETHEREUM references and keep only Solana in this file!!!
 # TODO remove references to the EVM AMM strategy and class.
 class GatewaySOLCLOB(ConnectorBase):
     """
@@ -282,10 +281,7 @@ class GatewaySOLCLOB(ConnectorBase):
                 chain=self.chain, network=self.network
             )
             if type(self._chain_info) != list:
-                if self.chain == Chain.SOLANA.chain:
-                    self._native_currency = self._chain_info.get("nativeCurrency", Chain.SOLANA.native_currency)
-                else:
-                    self._native_currency = self._chain_info.get("nativeCurrency", Chain.ETHEREUM.native_currency)
+                self._native_currency = self._chain_info.get("nativeCurrency", Chain.SOLANA.native_currency)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -315,40 +311,34 @@ class GatewaySOLCLOB(ConnectorBase):
     async def auto_create_token_accounts(self):
         """Automatically creates all token accounts required for trading."""
         if self._trading_required is True:
-            if Chain.SOLANA.chain == self.chain:
-                for token in self._tokens:
-                    await self.get_or_create_token_account(token)
-            else:
-                pass
+            for token in self._tokens:
+                await self.get_or_create_token_account(token)
 
         self._tokens_accounts_created = True
 
     async def get_or_create_token_account(self, token: str) -> Union[Dict[str, Any], None]:
-        if Chain.SOLANA.chain == self.chain:
-            response = await GatewayHttpClient.get_instance().solana_post_token(
-                self.network,
-                self.address,
-                token
+        response = await GatewayHttpClient.get_instance().solana_post_token(
+            self.network,
+            self.address,
+            token
+        )
+
+        if response.get("accountAddress", None) is None:
+            self.logger().warning(
+                f"""Token account initialization failed """
+                f"""(chain: {self.chain}, network: {self.network}, connector: {self.connector}, """
+                f""" wallet: "{self.address}" token: "{token}")."""
             )
 
-            if response.get("accountAddress", None) is None:
-                self.logger().warning(
-                    f"""Token account initialization failed """
-                    f"""(chain: {self.chain}, network: {self.network}, connector: {self.connector}, """
-                    f""" wallet: "{self.address}" token: "{token}")."""
-                )
-
-                return None
-            else:
-                self.logger().info(
-                    f"""Token account successfully initialized """
-                    f"""(chain: {self.chain}, network: {self.network}, connector: {self.connector}, """
-                    f"""wallet: "{self.address}" token: "{token}", mint_address: "{response['mintAddress']}")."""
-                )
-
-                return response
+            return None
         else:
-            raise ValueError(f"""Chain "{self.chain}" not supported.""")
+            self.logger().info(
+                f"""Token account successfully initialized """
+                f"""(chain: {self.chain}, network: {self.network}, connector: {self.connector}, """
+                f"""wallet: "{self.address}" token: "{token}", mint_address: "{response['mintAddress']}")."""
+            )
+
+            return response
 
     async def auto_approve(self):
         """
@@ -455,78 +445,37 @@ class GatewaySOLCLOB(ConnectorBase):
             )
             if test_price is not None:
                 # Grab the gas price for testnet.
-                if Chain.SOLANA.chain == self.chain:
-                    self.network_transaction_fee = TokenAmount(Chain.SOLANA.native_currency,
-                                                               constant.FIVE_THOUSAND_LAMPORTS)
-                else:
-                    try:
-                        resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
-                            self.chain, self.network, self.connector_name, base, quote, amount, side
-                        )
-                        gas_price_token: str = resp["gasPriceToken"]
-                        gas_cost: Decimal = Decimal(resp["gasCost"])
-                        self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-                    except asyncio.CancelledError:
-                        raise
-                    except (Exception,):
-                        pass
-                    return test_price
+                self.network_transaction_fee = TokenAmount(
+                    Chain.SOLANA.native_currency,
+                    constant.FIVE_THOUSAND_LAMPORTS
+                )
 
         # Pull the price from gateway.
         try:
             price: Optional[Decimal] = None
             exceptions: List[str] = []
-            if Chain.SOLANA.chain == self.chain:
-                ticker = await self._get_gateway_instance().clob_get_tickers(
-                    self.chain, self.network, self.connector, market_name=constant.SOL_USDC_MARKET
-                )
-                gas_limit: int = constant.FIVE_THOUSAND_LAMPORTS
-                gas_price_token: str = Chain.SOLANA.native_currency
-                gas_cost: Decimal = constant.FIVE_THOUSAND_LAMPORTS
-                price = Decimal(ticker["price"])
-                self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-                exceptions: List[str] = check_transaction_exceptions(
-                    allowances=self._allowances,
-                    balances=self._account_balances,
-                    base_asset=base,
-                    quote_asset=quote,
-                    amount=amount,
-                    side=side,
-                    gas_limit=gas_limit,
-                    gas_cost=gas_cost,
-                    gas_asset=gas_price_token,
-                    swaps_count=constant.DECIMAL_ZERO,
-                    chain=Chain.SOLANA,
-                )
-            else:
-                resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
-                    self.chain, self.network, self.connector_name, base, quote, amount, side
-                )
-                required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
-                if any(item not in resp.keys() for item in required_items):
-                    if "info" in resp.keys():
-                        self.logger().info(f"Unable to get price. {resp['info']}")
-                    else:
-                        self.logger().info(
-                            f"Missing data from price result. Incomplete return result for ({resp.keys()})")
-                else:
-                    gas_limit: int = int(resp["gasLimit"])
-                    gas_price_token: str = resp["gasPriceToken"]
-                    gas_cost: Decimal = Decimal(resp["gasCost"])
-                    price = Decimal(resp["price"])
-                    self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-                    exceptions = check_transaction_exceptions(
-                        allowances=self._allowances,
-                        balances=self._account_balances,
-                        base_asset=base,
-                        quote_asset=quote,
-                        amount=amount,
-                        side=side,
-                        gas_limit=gas_limit,
-                        gas_cost=gas_cost,
-                        gas_asset=gas_price_token,
-                        swaps_count=len(resp.get("swaps", []))
-                    )
+
+            ticker = await self._get_gateway_instance().clob_get_tickers(
+                self.chain, self.network, self.connector, market_name=constant.SOL_USDC_MARKET
+            )
+            gas_limit: int = constant.FIVE_THOUSAND_LAMPORTS
+            gas_price_token: str = Chain.SOLANA.native_currency
+            gas_cost: Decimal = constant.FIVE_THOUSAND_LAMPORTS
+            price = Decimal(ticker["price"])
+            self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
+            exceptions: List[str] = check_transaction_exceptions(
+                allowances=self._allowances,
+                balances=self._account_balances,
+                base_asset=base,
+                quote_asset=quote,
+                amount=amount,
+                side=side,
+                gas_limit=gas_limit,
+                gas_cost=gas_cost,
+                gas_asset=gas_price_token,
+                swaps_count=constant.DECIMAL_ZERO,
+                chain=Chain.SOLANA,
+            )
 
             for index in range(len(exceptions)):
                 self.logger().warning(
@@ -627,89 +576,50 @@ class GatewaySOLCLOB(ConnectorBase):
             amount=amount
         )
         try:
-            if Chain.SOLANA.chain == self.chain:
-                order_result: Dict[str, Any] = await self._get_gateway_instance().clob_post_orders(
-                    self.chain,
-                    self.network,
-                    self.connector,
-                    order={
-                        "id": order_id,
-                        "marketName": f"{base}/{quote}",
-                        "ownerAddress": self.address,
-                        "payerAddress": self.address,
-                        "side": convert_order_side(trade_type),
-                        "price": price,
-                        "amount": amount,
-                        "type": convert_order_type(OrderType.LIMIT)
+            order_result: Dict[str, Any] = await self._get_gateway_instance().clob_post_orders(
+                self.chain,
+                self.network,
+                self.connector,
+                order={
+                    "id": order_id,
+                    "marketName": f"{base}/{quote}",
+                    "ownerAddress": self.address,
+                    "payerAddress": self.address,
+                    "side": convert_order_side(trade_type),
+                    "price": price,
+                    "amount": amount,
+                    "type": convert_order_type(OrderType.LIMIT)
+                }
+            )
+            transaction_hash: str = order_result.get("signature")
+
+            if transaction_hash is not None:
+                nonce = constant.DEFAULT_NONCE
+                gas_cost = constant.FIVE_THOUSAND_LAMPORTS
+                gas_price_token = Chain.SOLANA.native_currency
+                gas_price: Decimal = constant.DECIMAL_ONE
+                gas_limit: int = constant.FIVE_THOUSAND_LAMPORTS
+
+                self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
+
+                order_update: OrderUpdate = OrderUpdate(
+                    client_order_id=order_id,
+                    exchange_order_id=transaction_hash,
+                    trading_pair=trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=OrderState.OPEN,  # Assume that the transaction has been successfully mined.
+                    misc_updates={
+                        "nonce": nonce,
+                        "gas_price": gas_price,
+                        "gas_limit": gas_limit,
+                        "gas_cost": gas_cost,
+                        "gas_price_token": gas_price_token,
+                        "fee_asset": self._native_currency
                     }
                 )
-                transaction_hash: str = order_result.get("signature")
-
-                if transaction_hash is not None:
-                    nonce = constant.DEFAULT_NONCE
-                    gas_cost = constant.FIVE_THOUSAND_LAMPORTS
-                    gas_price_token = Chain.SOLANA.native_currency
-                    gas_price: Decimal = constant.DECIMAL_ONE
-                    gas_limit: int = constant.FIVE_THOUSAND_LAMPORTS
-
-                    self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-
-                    order_update: OrderUpdate = OrderUpdate(
-                        client_order_id=order_id,
-                        exchange_order_id=transaction_hash,
-                        trading_pair=trading_pair,
-                        update_timestamp=self.current_timestamp,
-                        new_state=OrderState.OPEN,  # Assume that the transaction has been successfully mined.
-                        misc_updates={
-                            "nonce": nonce,
-                            "gas_price": gas_price,
-                            "gas_limit": gas_limit,
-                            "gas_cost": gas_cost,
-                            "gas_price_token": gas_price_token,
-                            "fee_asset": self._native_currency
-                        }
-                    )
-                    self._order_tracker.process_order_update(order_update)
-                else:
-                    raise ValueError
+                self._order_tracker.process_order_update(order_update)
             else:
-                order_result: Dict[str, Any] = await self._get_gateway_instance().amm_trade(
-                    self.chain,
-                    self.network,
-                    self.connector_name,
-                    self.address,
-                    base,
-                    quote,
-                    trade_type,
-                    amount,
-                    price,
-                    **request_args
-                )
-                transaction_hash: Optional[str] = order_result.get("txHash")
-                if transaction_hash is not None:
-                    gas_cost: Decimal = Decimal(order_result.get("gasCost"))
-                    gas_price_token: str = order_result.get("gasPriceToken")
-
-                    self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-
-                    order_update: OrderUpdate = OrderUpdate(
-                        client_order_id=order_id,
-                        exchange_order_id=transaction_hash,
-                        trading_pair=trading_pair,
-                        update_timestamp=self.current_timestamp,
-                        new_state=OrderState.OPEN,  # Assume that the transaction has been successfully mined.
-                        misc_updates={
-                            "nonce": order_result.get("nonce"),
-                            "gas_price": Decimal(order_result.get("gasPrice")),
-                            "gas_limit": int(order_result.get("gasLimit")),
-                            "gas_cost": Decimal(order_result.get("gasCost")),
-                            "gas_price_token": order_result.get("gasPriceToken"),
-                            "fee_asset": self._native_currency
-                        }
-                    )
-                    self._order_tracker.process_order_update(order_update)
-                else:
-                    raise ValueError
+                raise ValueError
         except asyncio.CancelledError:
             raise
         except (Exception,):
@@ -1042,15 +952,6 @@ class GatewaySOLCLOB(ConnectorBase):
                 self._poll_notifier.set()
 
     async def _update_nonce(self, new_nonce: Optional[int] = None):
-        if Chain.SOLANA.chain == self.chain:
-            pass
-        else:
-            if not new_nonce:
-                resp_json: Dict[str, Any] = await self._get_gateway_instance().get_evm_nonce(
-                    self.chain, self.network, self.address
-                )
-                new_nonce: int = resp_json.get("nonce")
-
         self._nonce = new_nonce
 
     async def _status_polling_loop(self):
@@ -1110,15 +1011,11 @@ class GatewaySOLCLOB(ConnectorBase):
         This is intentionally not awaited because cancellation is expensive on blockchains. It's not worth it for
         Hummingbot to force cancel all orders whenever Hummingbot quits.
         """
-        if Chain.SOLANA.chain == self.chain:
-            asyncio.ensure_future(
-                self._get_gateway_instance().clob_delete_orders(
-                    self.chain, self.network, self.connector, self.address
-                )
+        asyncio.ensure_future(
+            self._get_gateway_instance().clob_delete_orders(
+                self.chain, self.network, self.connector, self.address
             )
-
-        else:
-            pass
+        )
 
         return []
 
@@ -1145,29 +1042,20 @@ class GatewaySOLCLOB(ConnectorBase):
 
             self.logger().info(f"The blockchain transaction for {order_id} with nonce {tracked_order.nonce} has "
                                f"expired. Canceling the order...")
-            if Chain.SOLANA.chain == self.chain:
-                resp = await self._get_gateway_instance().clob_delete_orders(
-                    self.chain,
-                    self.network,
-                    self.connector,
-                    self.address,
-                    order={
-                        "id": order_id,
-                        "marketName": convert_trading_pair(tracked_order.trading_pair),
-                        "ownerAddress": self.address,
-                    }
-                )
 
-                tx_hash: Optional[str] = resp.get("signature")
-            else:
-                resp = await self._get_gateway_instance().cancel_evm_transaction(
-                    self.chain,
-                    self.network,
-                    self.address,
-                    tracked_order.nonce
-                )
+            resp = await self._get_gateway_instance().clob_delete_orders(
+                self.chain,
+                self.network,
+                self.connector,
+                self.address,
+                order={
+                    "id": order_id,
+                    "marketName": convert_trading_pair(tracked_order.trading_pair),
+                    "ownerAddress": self.address,
+                }
+            )
 
-                tx_hash: Optional[str] = resp.get("txHash")
+            tx_hash: Optional[str] = resp.get("signature")
 
             if tx_hash is not None:
                 tracked_order.cancel_tx_hash = tx_hash
