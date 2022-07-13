@@ -199,9 +199,7 @@ class OMSExchange(ExchangePyBase):
         )
         if cancel_result.get(CONSTANTS.ERROR_CODE_FIELD):
             if cancel_result[CONSTANTS.ERROR_MSG_FIELD] == CONSTANTS.RESOURCE_NOT_FOUND_MSG:
-                if not tracked_order.is_cancelled:  # else, already cancelled
-                    await self._order_tracker.process_order_not_found(order_id)
-                    raise IOError(cancel_result[CONSTANTS.ERROR_MSG_FIELD])
+                await self._order_tracker.process_order_not_found(order_id)
             else:
                 raise IOError(cancel_result[CONSTANTS.ERROR_MSG_FIELD])
         cancel_success = cancel_result[CONSTANTS.RESULT_FIELD]
