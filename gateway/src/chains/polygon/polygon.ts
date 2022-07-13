@@ -6,7 +6,6 @@ import { getEthereumConfig as getPolygonConfig } from '../ethereum/ethereum.conf
 import { Provider } from '@ethersproject/abstract-provider';
 import { QuickswapConfig } from '../../connectors/quickswap/quickswap.config';
 import { Ethereumish } from '../../services/common-interfaces';
-import { replaceOrAppend } from '../../services/base';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
 export class Polygon extends EthereumBase implements Ethereumish {
@@ -20,7 +19,7 @@ export class Polygon extends EthereumBase implements Ethereumish {
     super(
       'polygon',
       config.network.chainID,
-      replaceOrAppend(config.network.nodeURL, config.nodeAPIKey),
+      config.network.nodeURL,
       config.network.tokenListSource,
       config.network.tokenListType,
       config.manualGasPrice,
