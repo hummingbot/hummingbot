@@ -196,7 +196,6 @@ export class Perp implements Perpish {
       const fp = await positions.getTotalPendingFundingPayments();
       for (const [key, value] of Object.entries(fp)) {
         if (key === tickerSymbol) pendingFundingPayment = value.toString();
-        console.log(`${key}: ${value.toString()}`);
       }
 
       const position = await positions.getTakerPositionByTickerSymbol(
