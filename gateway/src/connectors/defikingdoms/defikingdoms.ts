@@ -244,8 +244,6 @@ export class Defikingdoms implements Uniswapish {
    * @param abi Router contract ABI
    * @param gasLimit Gas limit
    * @param nonce (Optional) EVM transaction nonce
-   * @param maxFeePerGas (Optional) Maximum total fee per gas you want to pay
-   * @param maxPriorityFeePerGas (Optional) Maximum tip per gas you want to pay
    */
   async executeTrade(
     wallet: Wallet,
@@ -256,8 +254,8 @@ export class Defikingdoms implements Uniswapish {
     abi: ContractInterface,
     gasLimit: number,
     nonce?: number,
-    maxFeePerGas?: BigNumber,
-    maxPriorityFeePerGas?: BigNumber,
+    _1?: BigNumber,
+    _2?: BigNumber,
     allowedSlippage?: string
   ): Promise<Transaction> {
     const result: SwapParameters = Router.swapCallParameters(trade, {
@@ -271,23 +269,15 @@ export class Defikingdoms implements Uniswapish {
       nonce = await this.harmony.nonceManager.getNextNonce(wallet.address);
     }
 
-    let tx: ContractTransaction;
-    if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
-      tx = await contract[result.methodName](...result.args, {
-        gasLimit: gasLimit.toFixed(0),
-        value: result.value,
-        nonce: nonce,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      });
-    } else {
-      tx = await contract[result.methodName](...result.args, {
+    const tx: ContractTransaction = await contract[result.methodName](
+      ...result.args,
+      {
         gasPrice: (gasPrice * 1e9).toFixed(0),
         gasLimit: gasLimit.toFixed(0),
         value: result.value,
         nonce: nonce,
-      });
-    }
+      }
+    );
 
     logger.info(JSON.stringify(tx));
     await this.harmony.nonceManager.commitNonce(wallet.address, nonce);
