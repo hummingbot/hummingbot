@@ -51,7 +51,7 @@ class GatewayChainApiManager:
             if success:
                 self.notify(f"Successfully pinged the node url for {chain}-{network}: {node_url}.")
             else:
-                self.notify(f"Unable to succesfully ping the node url for {chain}-{network}: {node_url}. Please try again (it may require an API key).")
+                self.notify(f"Unable to successfully ping the node url for {chain}-{network}: {node_url}. Please try again (it may require an API key).")
             return success
 
     async def _get_node_url(self, chain: str, network: str) -> Optional[str]:

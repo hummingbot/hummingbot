@@ -122,7 +122,7 @@ class StartCommand(GatewayChainApiManager):
                     # check for node URL
                     node_url_works: bool = await self._test_node_url_from_gateway_config(connector_details['chain'], connector_details['network'])
                     if not node_url_works:
-                        node_url: str = await self._get_node_url(connector_details['chain'])
+                        node_url: str = await self._get_node_url(connector_details['chain'], connector_details['network'])
                         await self._update_gateway_chain_network_node_url(connector_details['chain'], connector_details['network'], node_url)
                         self.notify("Please wait for gateway to restart.")
                         # wait for gateway to restart, config update causes gateway to restart
