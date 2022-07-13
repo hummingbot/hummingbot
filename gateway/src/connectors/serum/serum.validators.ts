@@ -34,23 +34,23 @@ const createValidator = <Item, Value>(
           | string
           | ((target: any | Item) => any | Value),
         index?: number
-      ) => string | Array<string>),
+      ) => string),
   optional: boolean = false
 ): Validator => {
   return (item: undefined | null | any | Item, index?: number) => {
-    let warnings: Array<string> = [];
-    let errors: Array<string> = [];
+    const warnings: Array<string> = [];
+    const errors: Array<string> = [];
 
     let target: any | Value;
     if (item === undefined && accessor) {
-      errors.push(`Payload with undefined value informed when it shouldn't.`);
+      errors.push(`Request with undefined value informed when it shouldn't.`);
     } else if (item === null && accessor) {
-      errors.push(`Payload with null value informed when it shouldn't.`);
+      errors.push(`Request with null value informed when it shouldn't.`);
     } else if (!accessor) {
       target = item;
     } else if (typeof accessor === 'string') {
-      if (!(`${accessor}` in item)) {
-        errors.push(`The payload is missing the key/property "${accessor}".`);
+      if (!(`${accessor}` in item) && !optional) {
+        errors.push(`The request is missing the key/property "${accessor}".`);
       } else {
         target = item[accessor];
       }
@@ -66,18 +66,10 @@ const createValidator = <Item, Value>(
           errors.push(error);
         }
       } else {
-        if (index !== undefined && index !== null) {
-          if (optional) {
-            warnings.push(`Error on item of index "${index}".`);
-          } else {
-            errors.push(`Error on item of index "${index}".`);
-          }
-        }
-
         if (optional) {
-          warnings = [...warnings, ...error(item, target, accessor, index)];
+          warnings.push(error(item, target, accessor, index));
         } else {
-          errors = [...errors, ...error(item, target, accessor, index)];
+          errors.push(error(item, target, accessor, index));
         }
       }
     }
@@ -127,7 +119,7 @@ export const createBatchValidator = <Item>(
         const itemResult = validator(item, index);
 
         if (itemResult.warnings && itemResult.warnings.length > 0) {
-          if (headerItemMessage) errors.push(headerItemMessage(item, index));
+          if (headerItemMessage) warnings.push(headerItemMessage(item, index));
         }
 
         if (itemResult.errors && itemResult.errors.length > 0) {
@@ -174,11 +166,11 @@ export const validateOrderClientId: Validator = createValidator(
 
 export const validateOrderClientIds: Validator = createValidator(
   'ids',
-  (target) => {
+  (_, values) => {
     let ok = true;
-    target === undefined
+    values === undefined
       ? (ok = true)
-      : target.map((item: any) => (ok = isNaturalNumberString(item) && ok));
+      : values.map((item: any) => (ok = isNaturalNumberString(item) && ok));
     return ok;
   },
   `Invalid client ids, it needs to be an array of big numbers.`,
@@ -187,19 +179,19 @@ export const validateOrderClientIds: Validator = createValidator(
 
 export const validateOrderExchangeId: Validator = createValidator(
   'exchangeId',
-  (target) => target === undefined || isNaturalNumberString(target),
-  (value) =>
+  (_, value) => value === undefined || isNaturalNumberString(value),
+  (_, value) =>
     `Invalid exchange id (${value}), it needs to be in big number format.`,
   true
 );
 
 export const validateOrderExchangeIds: Validator = createValidator(
   'exchangeIds',
-  (target) => {
+  (_, values) => {
     let ok = true;
-    target === undefined
+    values === undefined
       ? (ok = true)
-      : target.map((item: any) => (ok = isNaturalNumberString(item) && ok));
+      : values.map((item: any) => (ok = isNaturalNumberString(item) && ok));
     return ok;
   },
   `Invalid client ids, it needs to be an array of big numbers.`,
@@ -208,18 +200,18 @@ export const validateOrderExchangeIds: Validator = createValidator(
 
 export const validateOrderMarketName: Validator = createValidator(
   'marketName',
-  (target) => target.trim().length,
-  (value) => `Invalid market name (${value}).`,
+  (_, value) => value.trim().length,
+  (_, value) => `Invalid market name (${value}).`,
   false
 );
 
 export const validateOrderMarketNames: Validator = createValidator(
   'marketNames',
-  (target) => {
+  (_, values) => {
     let ok = true;
-    target === undefined
+    values === undefined
       ? (ok = true)
-      : target.map((item: any) => (ok = item.trim().length && ok));
+      : values.map((item: any) => (ok = item.trim().length && ok));
     return ok;
   },
   `Invalid market names, it needs to be an array of strings.`,
@@ -228,44 +220,44 @@ export const validateOrderMarketNames: Validator = createValidator(
 
 export const validateOrderOwnerAddress: Validator = createValidator(
   'ownerAddress',
-  (target) => isBase58(target),
-  (value) => `Invalid owner address (${value}).`,
+  (_, value) => isBase58(value),
+  (_, value) => `Invalid owner address (${value}).`,
   false
 );
 
 export const validateOrderSide: Validator = createValidator(
   'side',
-  (target) =>
+  (_, value) =>
     Object.values(OrderSide)
       .map((i) => i.toLowerCase())
-      .includes(target.toLowerCase()),
-  (value) => `Invalid order side (${value}).`,
+      .includes(value.toLowerCase()),
+  (_, value) => `Invalid order side (${value}).`,
   false
 );
 
 export const validateOrderPrice: Validator = createValidator(
   'price',
-  (target) => typeof target === 'number' || isFloatString(target),
-  (value) => `Invalid order price (${value}).`,
+  (_, value) => typeof value === 'number' || isFloatString(value),
+  (_, value) => `Invalid order price (${value}).`,
   false
 );
 
 export const validateOrderAmount: Validator = createValidator(
   'amount',
-  (target) => typeof target === 'number' || isFloatString(target),
-  (value) => `Invalid order amount (${value}).`,
+  (_, value) => typeof value === 'number' || isFloatString(value),
+  (_, value) => `Invalid order amount (${value}).`,
   false
 );
 
 export const validateOrderType: Validator = createValidator(
   'type',
-  (target) =>
-    target === undefined
+  (_, value) =>
+    value === undefined
       ? true
       : Object.values(OrderType)
           .map((item) => item.toLowerCase())
-          .includes(target.toLowerCase()),
-  (value) => `Invalid order type (${value}).`,
+          .includes(value.toLowerCase()),
+  (_, value) => `Invalid order type (${value}).`,
   true
 );
 
@@ -374,7 +366,7 @@ export const validateGetOrdersRequest: RequestValidator =
     [
       createValidator(
         null,
-        (request) => request && request.length,
+        (values) => values && values.length,
         `No orders were informed.`,
         false
       ),
@@ -396,7 +388,7 @@ export const validateGetOrdersRequest: RequestValidator =
           // validateOrderMarketName,
           validateOrderOwnerAddress,
         ],
-        (_item, index) => `Invalid get orders request at position ${index}:`
+        (_, index) => `Invalid get orders request at position ${index}:`
       ),
     ],
     StatusCodes.BAD_REQUEST
@@ -425,8 +417,8 @@ export const validateCreateOrdersRequest: RequestValidator =
     [
       createValidator(
         null,
-        (request) => request && request.length,
-        (_request) => `No orders were informed.`,
+        (values) => values && values.length,
+        `No orders were informed.`,
         false
       ),
       createBatchValidator(
@@ -463,7 +455,7 @@ export const validateCancelOrdersRequest: RequestValidator =
     [
       createValidator(
         null,
-        (request) => request && request.length,
+        (values) => values && values.length,
         `No orders were informed.`,
         false
       ),
@@ -474,7 +466,7 @@ export const validateCancelOrdersRequest: RequestValidator =
           validateOrderMarketName,
           validateOrderOwnerAddress,
         ],
-        (_item, index) => `Invalid cancel orders request at position ${index}:`
+        (_, index) => `Invalid cancel orders request at position ${index}:`
       ),
     ],
     StatusCodes.BAD_REQUEST
@@ -511,7 +503,7 @@ export const validateGetOpenOrdersRequest: RequestValidator =
     [
       createValidator(
         null,
-        (request) => request && request.length,
+        (values) => values && values.length,
         `No orders were informed.`,
         false
       ),
@@ -533,8 +525,7 @@ export const validateGetOpenOrdersRequest: RequestValidator =
           // validateOrderMarketName,
           validateOrderOwnerAddress,
         ],
-        (_item, index) =>
-          `Invalid get open orders request at position ${index}:`
+        (_, index) => `Invalid get open orders request at position ${index}:`
       ),
     ],
     StatusCodes.BAD_REQUEST
@@ -568,8 +559,8 @@ export const validateGetFilledOrdersRequest: RequestValidator =
     [
       createValidator(
         null,
-        (request) => request && request.length,
-        (_request) => `No orders were informed.`,
+        (values) => values && values.length,
+        `No orders were informed.`,
         false
       ),
       createBatchValidator(
@@ -590,8 +581,7 @@ export const validateGetFilledOrdersRequest: RequestValidator =
           // validateOrderMarketName,
           validateOrderOwnerAddress,
         ],
-        (_item, index) =>
-          `Invalid get filled orders request at position ${index}:`
+        (_, index) => `Invalid get filled orders request at position ${index}:`
       ),
     ],
     StatusCodes.BAD_REQUEST

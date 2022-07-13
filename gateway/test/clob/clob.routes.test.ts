@@ -795,7 +795,7 @@ describe(`/clob/orders`, () => {
           expect(response.error).not.toBeFalsy();
           if (response.error) {
             expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
-              `The request is missing the key: ownerAddress`
+              `The request is missing the key/property "ownerAddress"`
             );
           }
         });
@@ -949,7 +949,7 @@ describe(`/clob/orders`, () => {
             expect(response.error).not.toBeFalsy();
             if (response.error) {
               expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
-                `The request is missing the key: ownerAddress`
+                `The request is missing the key/property "ownerAddress"`
               );
             }
           });
@@ -1211,7 +1211,7 @@ describe(`/clob/orders`, () => {
             expect(response.error).not.toBeFalsy();
             if (response.error) {
               expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
-                `The request is missing the key: ownerAddress`
+                `The request is missing the key/property "ownerAddress"`
               );
             }
           });
