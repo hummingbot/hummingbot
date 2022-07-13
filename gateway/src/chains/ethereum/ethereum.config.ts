@@ -18,7 +18,6 @@ export interface EthereumGasStationConfig {
 
 export interface Config {
   network: NetworkConfig;
-  nodeAPIKey: string;
   nativeCurrencySymbol: string;
   manualGasPrice: number;
   gasLimit: number;
@@ -59,7 +58,6 @@ export function getEthereumConfig(
         chainName + '.networks.' + network + '.gasPriceRefreshInterval'
       ),
     },
-    nodeAPIKey: ConfigManagerV2.getInstance().get(chainName + '.nodeAPIKey'),
     nativeCurrencySymbol: ConfigManagerV2.getInstance().get(
       chainName + '.networks.' + network + '.nativeCurrencySymbol'
     ),
