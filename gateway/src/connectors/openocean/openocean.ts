@@ -191,7 +191,7 @@ export class Openocean implements Uniswapish {
     amount: BigNumber
   ): Promise<ExpectedTrade> {
     logger.info(
-      `getting amounts out ${baseToken.address}-${quoteToken.address}.`
+      `estimateSellTrade getting amounts out ${baseToken.address}-${quoteToken.address}.`
     );
 
     const reqAmount = new Decimal(amount.toString())
@@ -277,7 +277,7 @@ export class Openocean implements Uniswapish {
     amount: BigNumber
   ): Promise<ExpectedTrade> {
     logger.info(
-      `getting amounts in ${quoteToken.address}-${baseToken.address}.`
+      `estimateBuyTrade getting amounts in ${quoteToken.address}-${baseToken.address}.`
     );
 
     const reqAmount = new Decimal(amount.toString())
