@@ -9,10 +9,12 @@ import {
   Trade,
   Pair,
   Route,
+  Percent,
 } from '@switchboard-xyz/defikingdoms-sdk';
 import { BigNumber } from 'ethers';
 import { Harmony } from '../../../../src/chains/harmony/harmony';
 import { patchEVMNonceManager } from '../../../evm.nonce.mock';
+import { DefikingdomsConfig } from '../../../../src/connectors/defikingdoms/defikingdoms.config';
 
 let harmony: Harmony;
 let defikingdoms: Defikingdoms;
@@ -33,7 +35,6 @@ const ETH = new Token(
 beforeAll(async () => {
   harmony = Harmony.getInstance('mainnet');
   patchEVMNonceManager(harmony.nonceManager);
-  await harmony.init();
 
   defikingdoms = Defikingdoms.getInstance('harmony', 'mainnet');
   await defikingdoms.init();
@@ -78,7 +79,21 @@ const patchTrade = (key: string, error?: Error) => {
   });
 };
 
-describe('verify Defikingdoms estimateSellTrade', () => {
+describe('verify defikingdoms gasLimit', () => {
+  it('Should initially match the config for mainnet', () => {
+    expect(defikingdoms.gasLimit).toEqual(DefikingdomsConfig.config.gasLimit);
+  });
+});
+
+describe('verify defikingdoms getAllowedSlippage', () => {
+  it('Should parse simple fractions', () => {
+    expect(defikingdoms.getAllowedSlippage('3/100')).toEqual(
+      new Percent('3', '100')
+    );
+  });
+});
+
+describe('verify defikingdoms estimateSellTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchData();
     patchTrade('bestTradeExactIn');
