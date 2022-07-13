@@ -99,7 +99,6 @@ export const UNKNOWN_CHAIN_ERROR_CODE = 1011;
 export const INVALID_NONCE_ERROR_CODE = 1012;
 export const PRICE_FAILED_ERROR_CODE = 1013;
 export const INCOMPLETE_REQUEST_PARAM_CODE = 1014;
-export const INVALID_REQUEST_FIELDS_CODE = 1015; // catch-all for miscellaneous invalid requests
 export const UNKNOWN_ERROR_ERROR_CODE = 1099;
 
 export const NETWORK_ERROR_MESSAGE =
@@ -116,8 +115,6 @@ export const SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE = (
   price: any,
   limitPrice: any
 ) => `Swap price ${price} exceeds limitPrice ${limitPrice}`;
-export const EIP1559_NOT_SUPPORTED_ERROR_MESSAGE = (chain: string) =>
-  `${chain} chain does not support EIP1559; supply gas limit and price instead`;
 
 export const SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE = (
   price: any,
