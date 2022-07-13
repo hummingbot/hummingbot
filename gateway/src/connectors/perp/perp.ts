@@ -31,6 +31,7 @@ export interface PerpPosition {
   leverage: string;
   entryPrice: string;
   tickerSymbol: string;
+  pendingFundingPayment: string;
 }
 
 export class Perp implements Perpish {
@@ -189,8 +190,15 @@ export class Perp implements Perpish {
       positionSide: string = '',
       unrealizedProfit: string = '0',
       leverage: string = '1',
-      entryPrice: string = '0';
+      entryPrice: string = '0',
+      pendingFundingPayment: string = '0';
     if (positions && tickerSymbol) {
+      const fp = await positions.getTotalPendingFundingPayments();
+      for (const [key, value] of Object.entries(fp)) {
+        if (key === tickerSymbol) pendingFundingPayment = value.toString();
+        console.log(`${key}: ${value.toString()}`);
+      }
+
       const position = await positions.getTakerPositionByTickerSymbol(
         tickerSymbol
       );
@@ -209,6 +217,7 @@ export class Perp implements Perpish {
       leverage,
       entryPrice,
       tickerSymbol,
+      pendingFundingPayment,
     };
   }
 

@@ -500,16 +500,24 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
             entry_price = Decimal(position.get("entryPrice"))
             amount = Decimal(position.get("positionAmt"))
             leverage = Decimal(position.get("leverage"))
+            existing_position = self.get_position(trading_pair, position_side)
             pos_key = self.position_key(trading_pair, position_side)
             if amount != s_decimal_0:
-                self._account_positions[pos_key] = Position(
-                    trading_pair=trading_pair,
-                    position_side=position_side,
-                    unrealized_pnl=unrealized_pnl,
-                    entry_price=entry_price,
-                    amount=amount,
-                    leverage=leverage
-                )
+                if existing_position is None:
+                    self._account_positions[pos_key] = Position(
+                        trading_pair=trading_pair,
+                        position_side=position_side,
+                        unrealized_pnl=unrealized_pnl,
+                        entry_price=entry_price,
+                        amount=amount,
+                        leverage=leverage
+                    )
+                else:
+                    existing_position.update_position(
+                        position_side = position_side,
+                        unrealized_pnl = unrealized_pnl,
+                        entry_price = entry_price,
+                        amount = amount)
             else:
                 if pos_key in self._account_positions:
                     del self._account_positions[pos_key]
@@ -517,21 +525,44 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
     # To-dos:
     async def _fetch_funding_payment(self, trading_pair: str) -> bool:
         """
-        Fetches the funding settlement details of all the active trading pairs and processes the responses.
-        Triggers a FundingPaymentCompleted event as required.
+        This ought to fetch the funding settlement details of all the active trading pairs and trigger FundingPaymentCompletedEvent.
+        But retrieving funding payments is a little tricky due to nature of block-based funding payment.
         """
-        try:
-            return True
-        except Exception as e:
-            self.logger().error(f"Unexpected error occurred fetching funding payment for {trading_pair}. Error: {e}",
-                                exc_info=True)
-            return False
+        pass
+
+    async def _get_funding_info(self, trading_pair: str) -> Optional[FundingInfo]:
+        base, quote = trading_pair.split("-")
+        prices: Dict[str, Any] = await self._get_gateway_instance().get_perp_market_price(
+            chain=self.chain,
+            network=self.network,
+            connector=self.connector_name,
+            base_asset=base,
+            quote_asset=quote,
+            amount=s_decimal_0,
+            side=PositionSide.LONG,
+        )
+        pos: Dict[str, Any] = await self._get_gateway_instance().get_perp_position(
+            chain = self.chain,
+            network = self.network,
+            connector = self.connector_name,
+            address = self.address,
+            base_asset = base,
+            quote_asset = quote,
+        )
+        rate = s_decimal_0 if pos["pendingFundingPayment"] == "0" and pos["positionAmt"] == "0" \
+            else Decimal(pos["pendingFundingPayment"]) / Decimal(pos["positionAmt"])
+        self._funding_info[trading_pair] = FundingInfo(
+            trading_pair=trading_pair,
+            index_price=Decimal(prices["indexPrice"]),
+            mark_price=Decimal(prices["markPrice"]),
+            next_funding_utc_timestamp=0,  # technically, it's next block
+            rate=rate,
+        )
 
     def get_funding_info(self, trading_pair: str) -> Optional[FundingInfo]:
         """
         Retrieves the Funding Info for the specified trading pair.
-        Note: This function should NOT be called when the connector is not yet ready.
         :param: trading_pair: The specified trading pair.
         """
-        # self.logger().error(f"Funding Info for {trading_pair} not found. Proceeding to fetch using REST API.")
-        return None
+        safe_ensure_future(self._get_funding_info())
+        return self._funding_info[trading_pair]
