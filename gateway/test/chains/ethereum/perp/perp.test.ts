@@ -146,7 +146,7 @@ describe('verify perp open/close position', () => {
   it('openPosition should return', async () => {
     patchCH();
 
-    const pos = await perp.openPosition(true, 'AAVEUSD', '0.01');
+    const pos = await perp.openPosition(true, 'AAVEUSD', '0.01', '1/10');
     expect(pos.hash).toEqual(
       '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9' // noqa: mock
     );
@@ -164,7 +164,7 @@ describe('verify perp open/close position', () => {
     patchCH();
 
     await expect(async () => {
-      await perp.closePosition('AAVEUSD');
+      await perp.closePosition('AAVEUSD', '1/10');
     }).rejects.toThrow(new Error(`No active position on AAVEUSD.`));
   });
 });
