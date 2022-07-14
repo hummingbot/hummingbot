@@ -59,6 +59,9 @@ const patchPosition = () => {
       getTakerPositionByTickerSymbol() {
         return;
       },
+      getTotalPendingFundingPayments() {
+        return {};
+      },
     };
   });
 };
@@ -132,6 +135,7 @@ describe('verify perp position', () => {
     expect(pos).toHaveProperty('leverage');
     expect(pos).toHaveProperty('entryPrice');
     expect(pos).toHaveProperty('tickerSymbol');
+    expect(res.body).toHaveProperty('pendingFundingPayment');
   });
 });
 
