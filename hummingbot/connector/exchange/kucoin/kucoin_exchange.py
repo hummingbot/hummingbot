@@ -19,7 +19,7 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -223,38 +223,39 @@ class KucoinExchange(ExchangePyBase):
                     order_event_type = execution_data["type"]
                     client_order_id: Optional[str] = execution_data.get("clientOid")
 
-                    tracked_order = self._order_tracker.fetch_order(client_order_id=client_order_id)
+                    fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+                    updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
-                    if tracked_order is not None:
-                        event_timestamp = execution_data["ts"] * 1e-9
+                    event_timestamp = execution_data["ts"] * 1e-9
 
-                        if order_event_type == "match":
-                            execute_amount_diff = Decimal(execution_data["matchSize"])
-                            execute_price = Decimal(execution_data["matchPrice"])
+                    if fillable_order is not None and order_event_type == "match":
+                        execute_amount_diff = Decimal(execution_data["matchSize"])
+                        execute_price = Decimal(execution_data["matchPrice"])
 
-                            fee = self.get_fee(
-                                tracked_order.base_asset,
-                                tracked_order.quote_asset,
-                                tracked_order.order_type,
-                                tracked_order.trade_type,
-                                execute_price,
-                                execute_amount_diff,
-                            )
+                        fee = self.get_fee(
+                            fillable_order.base_asset,
+                            fillable_order.quote_asset,
+                            fillable_order.order_type,
+                            fillable_order.trade_type,
+                            execute_price,
+                            execute_amount_diff,
+                        )
 
-                            trade_update = TradeUpdate(
-                                trade_id=execution_data["tradeId"],
-                                client_order_id=client_order_id,
-                                exchange_order_id=execution_data["orderId"],
-                                trading_pair=tracked_order.trading_pair,
-                                fee=fee,
-                                fill_base_amount=execute_amount_diff,
-                                fill_quote_amount=execute_amount_diff * execute_price,
-                                fill_price=execute_price,
-                                fill_timestamp=event_timestamp,
-                            )
-                            self._order_tracker.process_trade_update(trade_update)
+                        trade_update = TradeUpdate(
+                            trade_id=execution_data["tradeId"],
+                            client_order_id=client_order_id,
+                            exchange_order_id=execution_data["orderId"],
+                            trading_pair=updatable_order.trading_pair,
+                            fee=fee,
+                            fill_base_amount=execute_amount_diff,
+                            fill_quote_amount=execute_amount_diff * execute_price,
+                            fill_price=execute_price,
+                            fill_timestamp=event_timestamp,
+                        )
+                        self._order_tracker.process_trade_update(trade_update)
 
-                        updated_status = tracked_order.current_state
+                    if updatable_order is not None:
+                        updated_status = updatable_order.current_state
                         if order_event_type == "open":
                             updated_status = OrderState.OPEN
                         elif order_event_type == "match":
@@ -265,7 +266,7 @@ class KucoinExchange(ExchangePyBase):
                             updated_status = OrderState.CANCELED
 
                         order_update = OrderUpdate(
-                            trading_pair=tracked_order.trading_pair,
+                            trading_pair=updatable_order.trading_pair,
                             update_timestamp=event_timestamp,
                             new_state=updated_status,
                             client_order_id=client_order_id,
@@ -342,8 +343,39 @@ class KucoinExchange(ExchangePyBase):
             self._trading_fees[trading_pair] = fee_json
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
-        # This has to be implemented to bring Kucoin up to the latest standards
-        return []
+        trade_updates = []
+
+        if order.exchange_order_id is not None:
+            exchange_order_id = order.exchange_order_id
+            all_fills_response = await self._api_get(
+                path_url=CONSTANTS.ORDER_FILLS_URL,
+                params={
+                    "orderId": exchange_order_id,
+                    "pageSize": 500,
+                },
+                is_auth_required=True)
+
+            for trade in all_fills_response.get("items", []):
+                fee = TradeFeeBase.new_spot_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    trade_type=order.trade_type,
+                    percent_token=trade["feeCurrency"],
+                    flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=trade["feeCurrency"])]
+                )
+                trade_update = TradeUpdate(
+                    trade_id=str(trade["tradeId"]),
+                    client_order_id=order.client_order_id,
+                    exchange_order_id=exchange_order_id,
+                    trading_pair=order.trading_pair,
+                    fee=fee,
+                    fill_base_amount=Decimal(trade["size"]),
+                    fill_quote_amount=Decimal(trade["funds"]),
+                    fill_price=Decimal(trade["price"]),
+                    fill_timestamp=trade["createdAt"] * 1e-3,
+                )
+                trade_updates.append(trade_update)
+
+        return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         exchange_order_id = await tracked_order.get_exchange_order_id()
