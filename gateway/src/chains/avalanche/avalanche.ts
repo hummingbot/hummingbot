@@ -8,7 +8,6 @@ import { TraderjoeConfig } from '../../connectors/traderjoe/traderjoe.config';
 import { PangolinConfig } from '../../connectors/pangolin/pangolin.config';
 import { Ethereumish } from '../../services/common-interfaces';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
-import { replaceOrAppend } from '../../services/base';
 
 export class Avalanche extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: Avalanche };
@@ -22,7 +21,7 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     super(
       'avalanche',
       config.network.chainID,
-      replaceOrAppend(config.network.nodeURL, config.nodeAPIKey),
+      config.network.nodeURL,
       config.network.tokenListSource,
       config.network.tokenListType,
       config.manualGasPrice,
