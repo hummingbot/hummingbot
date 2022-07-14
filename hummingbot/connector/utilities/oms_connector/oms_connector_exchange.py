@@ -188,6 +188,7 @@ class OMSExchange(ExchangePyBase):
         """
         This implementation specific function is called by _cancel, and returns True if successful
         """
+        start_ts = self.current_timestamp
         await self._ensure_authenticated()
         params = {
             CONSTANTS.OMS_ID_FIELD: self.oms_id,
@@ -208,6 +209,11 @@ class OMSExchange(ExchangePyBase):
             else:
                 raise IOError(cancel_result[CONSTANTS.ERROR_MSG_FIELD])
         cancel_success = cancel_success or cancel_result[CONSTANTS.RESULT_FIELD]
+
+        if not cancel_success:
+            self.logger().debug(
+                f"Failure to cancel {tracked_order.client_order_id}, attempted at {start_ts}: {cancel_result}"
+            )
 
         return cancel_success
 
