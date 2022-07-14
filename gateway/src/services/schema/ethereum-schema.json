@@ -27,7 +27,6 @@
       },
       "additionalProperties": false
     },
-    "nodeAPIKey": { "type": "string" },
     "manualGasPrice": { "type": "integer" },
     "gasLimitTransaction": { "type": "integer" }
   },

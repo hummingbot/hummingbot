@@ -2,7 +2,7 @@
 
 ----
 [![Discord](https://img.shields.io/discord/530578568154054663.svg?color=768AD4&label=discord&logo=https%3A%2F%2Fdiscordapp.com%2Fassets%2F8c9701b98ad4372b58f13fd9f65f966e.svg)](https://discord.hummingbot.io/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-informational.svg)](https://github.com/CoinAlpha/hummingbot/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-informational.svg)](https://github.com/hummingbot/hummingbot/blob/master/LICENSE)
 [![Twitter Follow](https://img.shields.io/twitter/follow/hummingbot_io.svg?style=social&label=hummingbot)](https://twitter.com/hummingbot_io)
 
 Hummingbot is an open-source project that integrates cryptocurrency trading on both **centralized exchanges** and **decentralized protocols**. It allows users to run a client that executes customized, automated trading strategies for cryptocurrencies.
@@ -44,6 +44,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/gate-io-logo.jpg" alt="Gate.io" width="90" /> | gate_io | [Gate.io](https://www.gate.io/) | 2 | [API](https://www.gate.io/api2) | :white_check_mark: | [5868285](https://www.gate.io/signup/5868285)
 | <img src="assets/kraken-logo.jpg" alt="Kraken" width="90" /> | kraken | [Kraken](https://www.kraken.com/) | 1 | [API](https://www.kraken.com/features/api) | :white_check_mark: |
 | <img src="assets/kucoin-logo.jpg" alt="KuCoin" width="90" /> | kucoin | [KuCoin](https://www.kucoin.com/) | 1 | [API](https://docs.kucoin.com/#general) | :warning: | [272KvRf](https://www.kucoin.com/ucenter/signup?rcode=272KvRf)
+| <img src="assets/latoken-logo.png" alt="Latoken" width="90" /> | latoken | [Latoken](https://latoken.com/) | 1 | [API](https://api.latoken.com) | :warning: |
 | <img src="assets/liquid-logo.jpg" alt="Liquid" width="90" /> | liquid | [Liquid](https://www.liquid.com/) | 2 | [API](https://developers.liquid.com/) | :white_check_mark: |
 | <img src="assets/mexc.jpg" alt="MEXC" width="90" /> | mexc | [MEXC Global](https://www.mexc.com/) | 1 | [API](https://mxcdevelop.github.io/APIDoc/) | :warning: |
 | <img src="assets/ndax-logo.jpg" alt="NDAX" width="90" /> | ndax | [NDAX](https://ndax.io/) | 1 | [API](https://ndaxlo.github.io/API/) | :warning: |
