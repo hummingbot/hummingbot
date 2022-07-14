@@ -217,7 +217,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         )
 
         self.assertEqual(network, result["network"])
-        self.assertEqual("https://api.testnet.solana.com", result["rpcUrl"])
+        self.assertEqual("https://api.testnet.solana.com", result["nodeUrl"])
         self.assertTrue(result["connection"])
         self.assertGreater(result["timestamp"], 0)
 
