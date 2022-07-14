@@ -6,6 +6,7 @@ import { EthereumBase } from '../../services/ethereum-base';
 import { EthereumConfig, getEthereumConfig } from './ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { UniswapConfig } from '../../connectors/uniswap/uniswap.config';
+import { Perp } from '../../connectors/perp/perp';
 import { Ethereumish } from '../../services/common-interfaces';
 import { SushiswapConfig } from '../../connectors/sushiswap/sushiswap.config';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
@@ -28,7 +29,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     super(
       'ethereum',
       config.network.chainID,
-      config.network.nodeURL + config.nodeAPIKey,
+      config.network.nodeURL,
       config.network.tokenListSource,
       config.network.tokenListType,
       config.manualGasPrice,
@@ -178,6 +179,13 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       spender = SushiswapConfig.config.sushiswapRouterAddress(this._chain);
     } else if (reqSpender === 'uniswapLP') {
       spender = UniswapConfig.config.uniswapV3NftManagerAddress(this._chain);
+    } else if (reqSpender === 'perp') {
+      const perp = Perp.getInstance(this._chain, 'optimism');
+      if (!perp.ready()) {
+        perp.init();
+        throw Error('Perp curie not ready');
+      }
+      spender = perp.perp.contracts.vault.address;
     } else {
       spender = reqSpender;
     }
