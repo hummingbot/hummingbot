@@ -11,13 +11,13 @@ from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.clob import clob_constants as constant
 from hummingbot.connector.gateway.clob.clob_in_flight_order import CLOBInFlightOrder
-from hummingbot.connector.gateway.clob.clob_types import Chain
 from hummingbot.connector.gateway.clob.clob_utils import (
     convert_order_side,
     convert_order_type,
     convert_trading_pair,
     convert_trading_pairs,
 )
+from hummingbot.connector.gateway.common_types import Chain
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate

@@ -2,8 +2,8 @@ from decimal import Decimal
 from typing import cast
 
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
-from hummingbot.connector.gateway.clob.clob_types import Chain
 from hummingbot.connector.gateway.clob.gateway_sol_clob import GatewaySOLCLOB
+from hummingbot.connector.gateway.common_types import Chain
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
 from hummingbot.strategy.amm_arb.amm_arb_config_map import amm_arb_config_map
