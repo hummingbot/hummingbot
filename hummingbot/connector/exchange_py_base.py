@@ -914,7 +914,8 @@ class ExchangePyBase(ExchangeBase, ABC):
                     f"Failed to fetch trade updates for order {order.client_order_id}. Error: {request_error}")
 
     async def _update_orders(self):
-        for client_order_id, order in self.in_flight_orders.items():
+        orders_to_update = self.in_flight_orders.copy()
+        for client_order_id, order in orders_to_update.items():
             try:
                 order_update = await self._request_order_status(tracked_order=order)
                 if client_order_id in self.in_flight_orders:
