@@ -146,15 +146,20 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             self.logger().exception("Unexpected error occurred subscribing to order book trading and delta streams...")
             raise
 
-    async def _process_websocket_messages(self, ws_adaptor: WSAssistant):
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         channels = [
             self._diff_messages_queue_key, self._trade_messages_queue_key, self._funding_info_messages_queue_key
         ]
-        async for ws_response in ws_adaptor.iter_messages():
-            data: Dict[str, Any] = ws_response.data
-            channel: str = self._channel_originating_message(event_message=data)
-            if channel in channels:
-                self._message_queue[channel].put_nowait(data)
+        while True:
+            try:
+                async for ws_response in websocket_assistant.iter_messages():
+                    data: Dict[str, Any] = ws_response.data
+                    channel: str = self._channel_originating_message(event_message=data)
+                    if channel in channels:
+                        self._message_queue[channel].put_nowait(data)
+            except asyncio.TimeoutError:
+                ping_request = WSJSONRequest(payload={"op": "ping"})
+                await websocket_assistant.send(ping_request)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""

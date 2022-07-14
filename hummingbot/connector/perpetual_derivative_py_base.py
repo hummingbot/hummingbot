@@ -85,9 +85,9 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
         the execution of the status update polling loop using an event.
         """
-        super().tick(timestamp)
         last_tick = int(self._last_timestamp / self.funding_fee_poll_interval)
         current_tick = int(timestamp / self.funding_fee_poll_interval)
+        super().tick(timestamp)
         if current_tick > last_tick:
             self._funding_fee_poll_notifier.set()
 
