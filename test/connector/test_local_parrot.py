@@ -1,11 +1,13 @@
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../")))
-import unittest
 import asyncio
+import unittest
+from os.path import join, realpath
+
 from hummingbot.connector.parrot import get_active_campaigns, get_campaign_summary
 
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../../")))
 
-class ParrotConnectorUnitTest(unittest.TestCase):
+
+class LocalParrotConnectorUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()

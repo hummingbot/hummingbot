@@ -1,12 +1,14 @@
-import aiohttp
 import asyncio
-from typing import List, Dict
+import logging
 from dataclasses import dataclass
 from decimal import Decimal
-import logging
+from typing import Dict, List
+
+import aiohttp
+
 from hummingbot.core.utils.async_utils import safe_gather
 
-PARROT_MINER_BASE_URL = "https://papi.hummingbot.io/v1/mining_data/"
+PARROT_MINER_BASE_URL = "https://api.hummingbot.io/bounty/"
 
 s_decimal_0 = Decimal("0")
 
@@ -38,8 +40,11 @@ async def get_campaign_summary(exchange: str, trading_pairs: List[str] = []) -> 
         for snapshot in snapshots:
             if isinstance(snapshot, Exception):
                 raise snapshot
-            if snapshot["items"]:
-                snapshot = snapshot["items"][0]
+            if snapshot['status'] != "success":
+                logger().warning(f"Failed to retrieve snapshot info. API response: {snapshot}", exc_info=True)
+                continue
+            if snapshot["market_snapshot"]:
+                snapshot = snapshot["market_snapshot"]
                 market_id = int(snapshot["market_id"])
                 campaign = campaigns[market_id]
                 campaign.apy = Decimal(snapshot["annualized_return"])
@@ -55,25 +60,29 @@ async def get_campaign_summary(exchange: str, trading_pairs: List[str] = []) -> 
     return results
 
 
-async def get_market_snapshots(market_id: int):
+async def get_market_snapshots(market_id: int, timestamp: int = 1657747860000):
     async with aiohttp.ClientSession() as client:
-        url = f"{PARROT_MINER_BASE_URL}market_snapshots/{market_id}?aggregate=1m"
+        url = f"{PARROT_MINER_BASE_URL}user/single_snapshot?client_id=00000000000000000000000000000000000000000&market_id={market_id}&timestamp={timestamp}&aggregate_period=60"
         resp = await client.get(url)
         resp_json = await resp.json()
     return resp_json
 
 
-async def get_active_campaigns(exchange: str, trading_pairs: List[str] = []) -> Dict[int, CampaignSummary]:
+async def get_active_campaigns(exchange: str, trading_pairs=None) -> Dict[int, CampaignSummary]:
+    if trading_pairs is None:
+        trading_pairs = []
+
     campaigns = {}
     async with aiohttp.ClientSession() as client:
-        url = f"{PARROT_MINER_BASE_URL}campaigns"
-        resp = await client.get(url)
+        campaigns_url = f"{PARROT_MINER_BASE_URL}campaigns"
+        resp = await client.get(campaigns_url)
         resp_json = await resp.json()
-    if "error" in resp_json:
+
+    if not resp_json or resp_json['status'] == "error":
         logger().warning("Could not get active campaigns from Hummingbot API"
                          f" (returned response '{resp_json}').")
     else:
-        for campaign_retval in resp_json:
+        for campaign_retval in resp_json["campaigns"]:
             for market in campaign_retval["markets"]:
                 if not are_same_entity(exchange, market["exchange_name"]):
                     continue
@@ -81,18 +90,35 @@ async def get_active_campaigns(exchange: str, trading_pairs: List[str] = []) -> 
                 if trading_pairs and t_pair not in trading_pairs:
                     continue
                 campaign = CampaignSummary()
-                campaign.market_id = int(market["id"])
+                campaign.market_id = int(market["market_id"])
                 campaign.trading_pair = t_pair
                 campaign.exchange_name = exchange
                 campaigns[campaign.market_id] = campaign
-            for bounty_period in campaign_retval["bounty_periods"]:
-                for payout in bounty_period["payout_parameters"]:
-                    market_id = int(payout["market_id"])
-                    if market_id in campaigns:
-                        campaigns[market_id].reward_per_wk = Decimal(str(payout["bid_budget"])) + \
-                            Decimal(str(payout["ask_budget"]))
-                        campaigns[market_id].spread_max = Decimal(str(payout["spread_max"])) / Decimal("100")
-                        campaigns[market_id].payout_asset = payout["payout_asset"]
+
+        campaigns = await get_active_markets(campaigns)
+
+    return campaigns
+
+
+async def get_active_markets(campaigns: Dict[int, CampaignSummary]) -> Dict[int, CampaignSummary]:
+    async with aiohttp.ClientSession() as client:
+        markets_url = f"{PARROT_MINER_BASE_URL}markets"
+        resp = await client.get(markets_url)
+        resp_json = await resp.json()
+
+    if not resp_json or resp_json['status'] == "error":
+        logger().warning("Could not get active markets from Hummingbot API"
+                         f" (returned response '{resp_json}').")
+    else:
+        for markets_retval in resp_json["markets"]:
+            market_id = int(markets_retval["market_id"])
+            if market_id in campaigns:
+                campaigns[market_id].active_bots = markets_retval["bots"]
+                for bounty_period in markets_retval["active_bounty_periods"]:
+                    campaigns[market_id].reward_per_wk = Decimal(str(bounty_period["budget"]["bid"])) + Decimal(str(bounty_period["budget"]["ask"]))
+                    campaigns[market_id].spread_max = Decimal(str(bounty_period["spread_max"])) / Decimal("100")
+                    campaigns[market_id].payout_asset = bounty_period["payout_asset"]
+
     return campaigns
 
 
