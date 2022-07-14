@@ -95,6 +95,9 @@ const patchCH = () => {
           },
         };
       },
+      async getAccountValue() {
+        return new Big('10');
+      },
     };
   });
 };
@@ -147,6 +150,13 @@ describe('verify perp open/close position', () => {
     expect(pos.hash).toEqual(
       '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9' // noqa: mock
     );
+  });
+
+  it('getAccountValue should return', async () => {
+    patchCH();
+
+    const bal = await perp.getAccountValue();
+    expect(bal.toString()).toEqual('10');
   });
 
   it('closePosition should throw', async () => {

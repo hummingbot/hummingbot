@@ -123,6 +123,9 @@ const patchCH = () => {
           },
         };
       },
+      async getAccountValue() {
+        return new Big('10');
+      },
     };
   });
 };
@@ -246,6 +249,26 @@ describe('POST /amm/perp/position', () => {
         expect(res.body).toHaveProperty('entryPrice');
         expect(res.body).toHaveProperty('tickerSymbol');
         expect(res.body).toHaveProperty('pendingFundingPayment');
+      });
+  });
+});
+
+describe('POST /amm/perp/balance', () => {
+  it('should return a account value', async () => {
+    patchCH();
+
+    await request(app)
+      .post(`/amm/perp/balance`)
+      .send({
+        chain: 'ethereum',
+        network: 'optimism',
+        connector: 'perp',
+        address: address,
+      })
+      .set('Accept', 'application/json')
+      .expect(200)
+      .then((res: any) => {
+        expect(res.body).toHaveProperty('balance');
       });
   });
 });
