@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 import aioprocessing
 
 from hummingbot.connector.gateway.clob import clob_constants
-from hummingbot.connector.gateway.clob.clob_types import Chain
+from hummingbot.connector.gateway.common_types import Chain
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils import detect_available_port
 

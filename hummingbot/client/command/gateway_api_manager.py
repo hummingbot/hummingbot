@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
 
 import aiohttp
 
-from hummingbot.connector.gateway.clob.clob_types import Chain
+from hummingbot.connector.gateway.common_types import Chain
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 
 if TYPE_CHECKING:
