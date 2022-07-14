@@ -36,7 +36,7 @@ const caches = {
 };
 
 export class Solana implements Solanaish {
-  public rpcUrl;
+  public nodeURL;
   public transactionLamports;
   public cache: NodeCache;
 
@@ -67,25 +67,25 @@ export class Solana implements Solanaish {
     if (config.customNodeUrl == undefined) {
       switch (this._network) {
         case 'mainnet-beta':
-          this.rpcUrl = 'https://api.mainnet-beta.solana.com';
+          this.nodeURL = 'https://api.mainnet-beta.solana.com';
           break;
         case 'serum-mainnet':
-          this.rpcUrl = 'https://solana-api.projectserum.com';
+          this.nodeURL = 'https://solana-api.projectserum.com';
           break;
         case 'devnet':
-          this.rpcUrl = 'https://api.devnet.solana.com';
+          this.nodeURL = 'https://api.devnet.solana.com';
           break;
         case 'testnet':
-          this.rpcUrl = 'https://api.testnet.solana.com';
+          this.nodeURL = 'https://api.testnet.solana.com';
           break;
         default:
           throw new Error(`Solana network "${this._network}" not valid`);
       }
     } else {
-      this.rpcUrl = config.customNodeUrl;
+      this.nodeURL = config.customNodeUrl;
     }
 
-    this._connection = new Connection(this.rpcUrl, 'processed' as Commitment);
+    this._connection = new Connection(this.nodeURL, 'processed' as Commitment);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
 
     this._nativeTokenSymbol = 'SOL';
