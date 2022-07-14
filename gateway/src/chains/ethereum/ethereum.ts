@@ -6,6 +6,7 @@ import { EthereumBase } from '../../services/ethereum-base';
 import { EthereumConfig, getEthereumConfig } from './ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { UniswapConfig } from '../../connectors/uniswap/uniswap.config';
+import { Perp } from '../../connectors/perp/perp';
 import { Ethereumish } from '../../services/common-interfaces';
 import { SushiswapConfig } from '../../connectors/sushiswap/sushiswap.config';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
@@ -18,7 +19,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   private _ethGasStationUrl: string;
   private _gasPrice: number;
   private _gasPriceRefreshInterval: number | null;
-  private _gasPriceLastUpdated: Date | null;
   private _nativeTokenSymbol: string;
   private _chain: string;
   private _requestCount: number;
@@ -29,7 +29,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     super(
       'ethereum',
       config.network.chainID,
-      config.network.nodeURL + config.nodeAPIKey,
+      config.network.nodeURL,
       config.network.tokenListSource,
       config.network.tokenListType,
       config.manualGasPrice,
@@ -48,7 +48,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       config.network.gasPriceRefreshInterval !== undefined
         ? config.network.gasPriceRefreshInterval
         : null;
-    this._gasPriceLastUpdated = null;
 
     this.updateGasPrice();
 
@@ -101,10 +100,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     return this._nativeTokenSymbol;
   }
 
-  public get gasPriceLastDated(): Date | null {
-    return this._gasPriceLastUpdated;
-  }
-
   public get requestCount(): number {
     return this._requestCount;
   }
@@ -136,10 +131,14 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       // divide by 10 to convert it to Gwei
       this._gasPrice = data[EthereumConfig.ethGasStationConfig.gasLevel] / 10;
     } else {
-      this._gasPrice = await this.getGasPriceFromEthereumNode();
+      const gasPrice = await this.getGasPriceFromEthereumNode();
+      if (gasPrice !== null) {
+        this._gasPrice = gasPrice;
+      } else {
+        logger.info('gasPrice is unexpectedly null.');
+      }
     }
 
-    this._gasPriceLastUpdated = new Date();
     setTimeout(
       this.updateGasPrice.bind(this),
       this._gasPriceRefreshInterval * 1000
@@ -180,6 +179,13 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       spender = SushiswapConfig.config.sushiswapRouterAddress(this._chain);
     } else if (reqSpender === 'uniswapLP') {
       spender = UniswapConfig.config.uniswapV3NftManagerAddress(this._chain);
+    } else if (reqSpender === 'perp') {
+      const perp = Perp.getInstance(this._chain, 'optimism');
+      if (!perp.ready()) {
+        perp.init();
+        throw Error('Perp curie not ready');
+      }
+      spender = perp.perp.contracts.vault.address;
     } else {
       spender = reqSpender;
     }
