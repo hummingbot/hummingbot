@@ -270,7 +270,7 @@ export class Quickswap implements Uniswapish {
     let tx;
     if (maxFeePerGas || maxPriorityFeePerGas) {
       tx = await contract[result.methodName](...result.args, {
-        gasLimit: gasLimit,
+        gasLimit: gasLimit.toFixed(0),
         value: result.value,
         nonce: nonce,
         maxFeePerGas,
