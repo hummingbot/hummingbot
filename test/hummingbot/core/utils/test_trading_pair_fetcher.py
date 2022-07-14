@@ -91,7 +91,8 @@ class TestTradingPairFetcher(unittest.TestCase):
     @aioresponses()
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
     @patch("hummingbot.connector.gateway_EVM_Perpetual.GatewayEVMPerpetual.all_trading_pairs")
-    def test_fetch_all(self, mock_api, perp_market_mock, all_connector_settings_mock):
+    @patch("hummingbot.client.settings.GatewayConnectionSetting.get_connector_spec_from_market_name")
+    def test_fetch_all(self, mock_api, con_spec_mock, perp_market_mock, all_connector_settings_mock, ):
         all_connector_settings_mock.return_value = {
             "binance": ConnectorSetting(
                 name='binance',
@@ -229,6 +230,12 @@ class TestTradingPairFetcher(unittest.TestCase):
 
         mock_api.get(url, body=json.dumps(mock_response))
         perp_market_mock.return_value = ["ABC-DEF"]
+        con_spec_mock.return_value = {
+            "connector": "perp",
+            "chain": "optimism",
+            "network": "ethereum",
+            "wallet_address": "0x..."
+        }
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         fetcher = TradingPairFetcher(client_config_map)
