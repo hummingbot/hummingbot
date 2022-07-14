@@ -1,5 +1,6 @@
 import asyncio
 from abc import abstractmethod
+from collections import defaultdict
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Awaitable, Dict, List, Optional, Tuple, Union
 
@@ -64,6 +65,7 @@ class OMSExchange(ExchangePyBase):
         self._trading_required = trading_required
         self._web_assistants_factory: OMSConnectorWebAssistantsFactory
         self._token_id_map: Dict[int, str] = {}
+        self._order_not_found_on_cancel_record: Dict[str, int] = defaultdict(lambda: 0)
         super().__init__(client_config_map)
 
     @property
@@ -197,12 +199,15 @@ class OMSExchange(ExchangePyBase):
             data=params,
             is_auth_required=True,
         )
+        cancel_success = False
         if cancel_result.get(CONSTANTS.ERROR_CODE_FIELD):
             if cancel_result[CONSTANTS.ERROR_MSG_FIELD] == CONSTANTS.RESOURCE_NOT_FOUND_MSG:
-                await self._order_tracker.process_order_not_found(order_id)
+                self._order_not_found_on_cancel_record[order_id] += 1
+                if self._order_not_found_on_cancel_record[order_id] >= CONSTANTS.MAX_ORDER_NOT_FOUND_ON_CANCEL:
+                    cancel_success = True
             else:
                 raise IOError(cancel_result[CONSTANTS.ERROR_MSG_FIELD])
-        cancel_success = cancel_result[CONSTANTS.RESULT_FIELD]
+        cancel_success = cancel_success or cancel_result[CONSTANTS.RESULT_FIELD]
 
         return cancel_success
 
@@ -277,6 +282,8 @@ class OMSExchange(ExchangePyBase):
                     self._process_order_event_message(payload)
                 elif endpoint == CONSTANTS.WS_ORDER_TRADE_EVENT:
                     self._process_trade_event_message(payload)
+                elif endpoint == CONSTANTS.WS_CANCEL_ORDER_REJECTED_EVENT:
+                    pass
                 else:
                     self.logger().debug(f"Unknown event received from the connector ({event_message})")
             except asyncio.CancelledError:
