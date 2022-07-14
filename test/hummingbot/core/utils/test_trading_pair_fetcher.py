@@ -90,7 +90,7 @@ class TestTradingPairFetcher(unittest.TestCase):
 
     @aioresponses()
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
-    @patch("hummingbot.connector.gateway_EVM_Perpetual.GatewayEVMPerpetual.all_trading_pairs")
+    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_perp_markets")
     @patch("hummingbot.client.settings.GatewayConnectionSetting.get_connector_spec_from_market_name")
     def test_fetch_all(self, mock_api, con_spec_mock, perp_market_mock, all_connector_settings_mock, ):
         all_connector_settings_mock.return_value = {
@@ -229,7 +229,7 @@ class TestTradingPairFetcher(unittest.TestCase):
         }
 
         mock_api.get(url, body=json.dumps(mock_response))
-        perp_market_mock.return_value = ["ABC-DEF"]
+        perp_market_mock.return_value = {"pairs": ["ABCUSD"]}
         con_spec_mock.return_value = {
             "connector": "perp",
             "chain": "optimism",
@@ -251,5 +251,5 @@ class TestTradingPairFetcher(unittest.TestCase):
         self.assertNotIn("BNB-BTC", binance_pairs)
         perp_pairs = trading_pairs["perp_ethereum_optimism"]
         self.assertEqual(1, len(perp_pairs))
-        self.assertIn("ABC-DEF", perp_pairs)
+        self.assertIn("ABC-USD", perp_pairs)
         self.assertNotIn("WETH-USDT", perp_pairs)
