@@ -154,6 +154,16 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             )
             raise
 
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
+        while True:
+            try:
+                await super()._process_websocket_messages(
+                    websocket_assistant=websocket_assistant,
+                    queue=queue)
+            except asyncio.TimeoutError:
+                ping_request = WSJSONRequest(payload={"op": "ping"})
+                await websocket_assistant.send(ping_request)
+
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         pass  # unused
 
