@@ -8,7 +8,7 @@ import pandas as pd
 
 import hummingbot.client.settings as settings
 from hummingbot import init_logging
-from hummingbot.client.command.gateway_api_manager import Chain, GatewayChainApiManager
+from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager
 from hummingbot.client.command.rate_command import RateCommand
 from hummingbot.client.config.config_helpers import get_strategy_starter_file
 from hummingbot.client.config.config_validators import validate_bool
@@ -119,12 +119,11 @@ class StartCommand(GatewayChainApiManager):
                         ["wallet_address", connector_details['wallet_address']]
                     ]
 
-                    # check for API keys
-                    chain: Chain = Chain.from_str(connector_details['chain'])
-                    api_key: Optional[str] = await self._get_api_key_from_gateway_config(chain)
-                    if api_key is None:
-                        api_key = await self._get_api_key(chain, required=True)
-                        await self._update_gateway_api_key(chain, api_key)
+                    # check for node URL
+                    node_url_works: bool = await self._test_node_url_from_gateway_config(connector_details['chain'], connector_details['network'])
+                    if not node_url_works:
+                        node_url: str = await self._get_node_url(connector_details['chain'], connector_details['network'])
+                        await self._update_gateway_chain_network_node_url(connector_details['chain'], connector_details['network'], node_url)
                         self.notify("Please wait for gateway to restart.")
                         # wait for gateway to restart, config update causes gateway to restart
                         await self._gateway_monitor.wait_for_online_status()
