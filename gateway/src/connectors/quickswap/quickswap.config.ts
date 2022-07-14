@@ -15,7 +15,9 @@ export namespace QuickswapConfig {
     allowedSlippage: ConfigManagerV2.getInstance().get(
       'quickswap.allowedSlippage'
     ),
-    gasLimitEstimate: ConfigManagerV2.getInstance().get('quickswap.gasLimit'),
+    gasLimitEstimate: ConfigManagerV2.getInstance().get(
+      'quickswap.gasLimitEstimate'
+    ),
     ttl: ConfigManagerV2.getInstance().get('quickswap.ttl'),
     routerAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(
