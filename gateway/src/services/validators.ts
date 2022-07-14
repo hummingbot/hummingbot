@@ -53,7 +53,7 @@ export const missingParameter = (key: string): string => {
   return `The request is missing the key: ${key}`;
 };
 
-export type Validator = (target: any, index?: number) => Array<string>;
+export type Validator = (req: any) => Array<string>;
 
 export type RequestValidator = (req: any) => void;
 
@@ -145,10 +145,8 @@ export const validateToken: Validator = mkValidator(
 export const validateAmount: Validator = mkValidator(
   'amount',
   invalidAmountError,
-  (val) =>
-    val === undefined ||
-    (typeof val === 'string' && isNaturalNumberString(val)),
-  false
+  (val) => typeof val === 'string' && isNaturalNumberString(val),
+  true
 );
 
 export const validateTxHash: Validator = mkValidator(
