@@ -1,0 +1,6 @@
+# how much price slippage tp allow
+allowedSlippage: '2/100'
+
+# how long a transaction is valid in seconds. After time passes transactio will 
+# fail and gas will still be sent.
+ttl: 600
