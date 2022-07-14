@@ -234,6 +234,7 @@ class GatewayHttpClient:
             "configPath": config_path,
             "configValue": config_value,
         })
+        self.logger().info("Detected change to Gateway config - restarting Gateway...", exc_info=False)
         await self.post_restart()
         return response
 
