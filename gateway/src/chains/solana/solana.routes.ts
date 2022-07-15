@@ -41,11 +41,11 @@ export namespace SolanaRoutes {
     asyncHandler(async (request: Request, response: Response) => {
       const solana = await getSolana(request);
 
-      const nodeURL = solana.nodeURL;
+      const rpcUrl = solana.rpcUrl;
 
       response.status(200).json({
         network: solana.network,
-        nodeURL: nodeURL,
+        rpcUrl: rpcUrl,
         connection: true,
         timestamp: Date.now(),
       });
