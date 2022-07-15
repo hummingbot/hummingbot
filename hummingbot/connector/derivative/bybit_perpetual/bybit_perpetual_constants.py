@@ -19,7 +19,7 @@ WSS_LINEAR_PRIVATE_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realt
 
 REST_API_VERSION = "v2"
 
-CLIENT_ID_PREFIX = "HBOT"
+HBOT_BROKER_ID = "Hummingbot"
 
 MAX_ID_LEN = 36
 SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 30
