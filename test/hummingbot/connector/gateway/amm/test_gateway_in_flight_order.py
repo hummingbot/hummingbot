@@ -2,7 +2,7 @@ import asyncio
 import unittest
 from decimal import Decimal
 
-from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.connector.gateway.amm.evm_in_flight_order import EVMInFlightOrder
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 
@@ -24,7 +24,7 @@ class GatewayInFlightOrderUnitTests(unittest.TestCase):
         cls.nonce = 1
 
     def test_order_life_cycle_of_token_approval_requests(self):
-        order: GatewayInFlightOrder = GatewayInFlightOrder(
+        order: EVMInFlightOrder = EVMInFlightOrder(
             client_order_id=self.client_order_id,
             trading_pair=self.quote_asset,
             order_type=OrderType.LIMIT,
@@ -50,7 +50,7 @@ class GatewayInFlightOrderUnitTests(unittest.TestCase):
         self.assertFalse(order.is_pending_approval)
 
     def test_order_life_cycle_of_trade_orders(self):
-        order: GatewayInFlightOrder = GatewayInFlightOrder(
+        order: EVMInFlightOrder = EVMInFlightOrder(
             client_order_id=self.client_order_id,
             trading_pair=self.quote_asset,
             order_type=OrderType.LIMIT,

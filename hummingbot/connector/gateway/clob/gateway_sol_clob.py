@@ -3,7 +3,7 @@ import copy
 import logging
 import time
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 from async_timeout import timeout
 
@@ -122,7 +122,7 @@ class GatewaySOLCLOB(ConnectorBase):
         if s_logger is None:
             s_logger = logging.getLogger(cls.__name__)
 
-        return cast(HummingbotLogger, s_logger)
+        return HummingbotLogger
 
     @property
     def chain(self):
@@ -185,15 +185,15 @@ class GatewaySOLCLOB(ConnectorBase):
     @property
     def approval_orders(self) -> List[CLOBInFlightOrder]:
         return [
-            cast(approval_order, CLOBInFlightOrder)
+            approval_order
             for approval_order in self._order_tracker.active_orders.values()
-            if cast(approval_order, CLOBInFlightOrder).is_approval_request
+            if approval_order.is_approval_request
         ]
 
     @property
     def orders(self) -> List[CLOBInFlightOrder]:
         return [
-            cast(in_flight_order, CLOBInFlightOrder)
+            in_flight_order
             for in_flight_order in self._order_tracker.active_orders.values()
             if in_flight_order.is_open
         ]
@@ -1025,8 +1025,7 @@ class GatewaySOLCLOB(ConnectorBase):
         and if the order is not done or already in the cancelling state.
         """
         try:
-            tracked_order: CLOBInFlightOrder = cast(self._order_tracker.fetch_order(client_order_id=order_id),
-                                                    CLOBInFlightOrder)
+            tracked_order: CLOBInFlightOrder = self._order_tracker.fetch_order(client_order_id=order_id)
             if tracked_order is None:
                 self.logger().error(f"The order {order_id} is not being tracked.")
                 raise ValueError(f"The order {order_id} is not being tracked.")
