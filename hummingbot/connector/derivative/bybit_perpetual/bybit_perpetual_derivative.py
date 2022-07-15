@@ -83,7 +83,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def client_order_id_prefix(self) -> str:
-        return CONSTANTS.CLIENT_ID_PREFIX
+        return CONSTANTS.HBOT_BROKER_ID
 
     @property
     def trading_rules_request_path(self) -> str:
@@ -197,7 +197,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             data=data,
             is_auth_required=True,
             trading_pair=trading_pair,
-            headers={"referer": CONSTANTS.CLIENT_ID_PREFIX},
+            headers={"referer": CONSTANTS.HBOT_BROKER_ID},
             **kwargs,
         )
 
