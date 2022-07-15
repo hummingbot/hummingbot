@@ -110,21 +110,16 @@ cdef class Clock:
                 # Sleep until the next tick
                 next_tick_time = ((now // self._tick_size) + 1) * self._tick_size
                 for child_iterator in self._current_context:
-                    iterator_tick_size = self._tick_size
-                    if not child_iterator._overriding_tick == 0.0:
-                        iterator_tick_size = child_iterator._overriding_tick
+                    iterator_tick_size = self._tick_size if child_iterator._overriding_tick == 0.0 else child_iterator._overriding_tick
                     next_tick_time = min(next_tick_time, ((child_iterator._current_timestamp // iterator_tick_size) + 1) * iterator_tick_size)
-
                 await asyncio.sleep(next_tick_time - now)
-                self._current_tick = next_tick_time
+                self._current_tick = time.time()
 
                 # Run through the child iterators.
                 for ci in self._current_context:
                     child_iterator = ci
-                    iterator_tick_size = self._tick_size
-                    if not child_iterator._overriding_tick == 0.0:
-                        iterator_tick_size = child_iterator._overriding_tick
-                    if (self._current_tick - child_iterator._current_timestamp) // iterator_tick_size == 0:
+                    iterator_tick_size = self._tick_size if child_iterator._overriding_tick == 0.0 else child_iterator._overriding_tick
+                    if self._current_tick <= ((child_iterator._current_timestamp // iterator_tick_size) + 1) * iterator_tick_size:
                         continue
                     try:
                         child_iterator.c_tick(self._current_tick)

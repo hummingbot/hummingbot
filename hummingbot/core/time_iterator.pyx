@@ -45,3 +45,6 @@ cdef class TimeIterator(PubSub):
         Method added to be used only for unit testing purposes
         """
         self._current_timestamp = timestamp
+
+    def _set_overriding_tick(self, overriding_tick: float):
+        self._overriding_tick = overriding_tick
