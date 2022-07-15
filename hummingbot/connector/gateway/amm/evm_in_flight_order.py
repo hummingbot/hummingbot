@@ -1,6 +1,6 @@
 import copy
 from decimal import Decimal
-from typing import Any, Dict, Optional, Tuple, cast
+from typing import Any, Dict, Optional, Tuple
 
 from async_timeout import timeout
 
@@ -37,7 +37,6 @@ class EVMInFlightOrder(InFlightOrder):
             creation_timestamp=creation_timestamp,
             initial_state=initial_state,
         )
-        self.fee_asset = None
         self._gas_price = gas_price
         self._nonce: int = -1
         self._cancel_tx_hash: Optional[str] = None
@@ -77,28 +76,26 @@ class EVMInFlightOrder(InFlightOrder):
 
     @property
     def attributes(self) -> Tuple[Any]:
-        return cast(
-            copy.deepcopy(
-                (
-                    self.client_order_id,
-                    self.trading_pair,
-                    self.order_type,
-                    self.trade_type,
-                    self.price,
-                    self.amount,
-                    self.exchange_order_id,
-                    self.current_state,
-                    self.leverage,
-                    self.position,
-                    self.executed_amount_base,
-                    self.executed_amount_quote,
-                    self.creation_timestamp,
-                    self.last_update_timestamp,
-                    self.nonce,
-                    self.gas_price,
-                    self.cancel_tx_hash,
-                )
-            ), Tuple[Any]
+        return copy.deepcopy(
+            (
+                self.client_order_id,
+                self.trading_pair,
+                self.order_type,
+                self.trade_type,
+                self.price,
+                self.amount,
+                self.exchange_order_id,
+                self.current_state,
+                self.leverage,
+                self.position,
+                self.executed_amount_base,
+                self.executed_amount_quote,
+                self.creation_timestamp,
+                self.last_update_timestamp,
+                self.nonce,
+                self.gas_price,
+                self.cancel_tx_hash,
+            )
         )
 
     @property
@@ -114,9 +111,9 @@ class EVMInFlightOrder(InFlightOrder):
     @property
     def is_approval_request(self) -> bool:
         """
-        A property attribute that returns `True` if this `GatewayInFlightOrder` is in fact a token approval request.
+        A property attribute that returns `True` if this `EVMInFlightOrder` is in fact a token approval request.
 
-        :return: True if this `GatewayInFlightOrder` is in fact a token approval request, otherwise it returns False
+        :return: True if this `EVMInFlightOrder` is in fact a token approval request, otherwise it returns False
         :rtype: bool
         """
         return "approve" in self.client_order_id or (
