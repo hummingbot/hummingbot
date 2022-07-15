@@ -309,15 +309,16 @@ class ParrotConnectorUnitTest(TestCase):
         self.assertEquals(Decimal("0.015"), campaign_summary.spread_max)
 
     @aioresponses()
-    def test_active_campaigns_are_filetered_by_exchange_name(self, mock_api):
+    def test_active_campaigns_are_filtered_by_exchange_name(self, mock_api):
         url = f"{parrot.PARROT_MINER_BASE_URL}campaigns"
-        resp = [
-            {
+        resp = {
+            "status": "success",
+            "campaigns": [{
                 "id": 26,
                 "campaign_name": "xym",
                 "link": "https://symbolplatform.com/",
                 "markets": [{
-                    "id": 62,
+                    "market_id": 62,
                     "trading_pair": "XYM-BTC",
                     "exchange_name": "ascendex",
                     "base_asset": "XYM",
@@ -335,9 +336,10 @@ class ParrotConnectorUnitTest(TestCase):
                         "ask_budget": 1371.5,
                         "exponential_decay_function_factor": 8.0,
                         "spread_max": 1.5,
-                        "payout_asset": "XYM"}]}]}]
+                        "payout_asset": "XYM"}]}]}]}
 
         mock_api.get(url, body=json.dumps(resp))
+        mock_api.get(f"{parrot.PARROT_MINER_BASE_URL}markets", body=json.dumps(self.markets_get_resp))
 
         campaigns = asyncio.get_event_loop().run_until_complete(
             parrot.get_active_campaigns(
@@ -347,6 +349,8 @@ class ParrotConnectorUnitTest(TestCase):
         self.assertEqual(0, len(campaigns))
 
         mock_api.get(url, body=json.dumps(resp))
+        mock_api.get(f"{parrot.PARROT_MINER_BASE_URL}markets", body=json.dumps(self.markets_get_resp))
+
         campaigns = asyncio.get_event_loop().run_until_complete(
             parrot.get_active_campaigns(
                 exchange="ascend_ex",
