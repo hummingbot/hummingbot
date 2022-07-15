@@ -10,6 +10,7 @@ cdef class TimeIterator(PubSub):
     def __init__(self):
         self._current_timestamp = NaN
         self._clock = None
+        self._overriding_tick = 0.0
 
     cdef c_start(self, Clock clock, double timestamp):
         self._clock = clock
