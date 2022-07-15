@@ -36,6 +36,7 @@ const caches = {
 };
 
 export class Solana implements Solanaish {
+  // TODO return to rpcUrl!!!
   public nodeURL;
   public transactionLamports;
   public cache: NodeCache;

@@ -1,6 +1,6 @@
 import copy
 from decimal import Decimal
-from typing import Any, Dict, Optional, Tuple, cast
+from typing import Any, Dict, Optional, Tuple
 
 from async_timeout import timeout
 
@@ -68,27 +68,25 @@ class CLOBInFlightOrder(InFlightOrder):
 
     @property
     def attributes(self) -> Tuple[Any]:
-        return cast(
-            copy.deepcopy(
-                (
-                    self.client_order_id,
-                    self.trading_pair,
-                    self.order_type,
-                    self.trade_type,
-                    self.price,
-                    self.amount,
-                    self.exchange_order_id,
-                    self.current_state,
-                    self.leverage,
-                    self.position,
-                    self.executed_amount_base,
-                    self.executed_amount_quote,
-                    self.creation_timestamp,
-                    self.last_update_timestamp,
-                    self.gas_price,
-                    self.cancel_tx_hash,
-                )
-            ), Tuple[Any]
+        return copy.deepcopy(
+            (
+                self.client_order_id,
+                self.trading_pair,
+                self.order_type,
+                self.trade_type,
+                self.price,
+                self.amount,
+                self.exchange_order_id,
+                self.current_state,
+                self.leverage,
+                self.position,
+                self.executed_amount_base,
+                self.executed_amount_quote,
+                self.creation_timestamp,
+                self.last_update_timestamp,
+                self.gas_price,
+                self.cancel_tx_hash,
+            )
         )
 
     @property
