@@ -2,15 +2,17 @@ import asyncio
 import json
 import re
 from decimal import Decimal
-from test.hummingbot.connector.exchange_connector_test import AbstractExchangeConnectorTests
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
+from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -378,6 +380,10 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         return False
 
     @property
+    def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
+        return False
+
+    @property
     def expected_partial_fill_price(self) -> Decimal:
         return Decimal(10500)
 
@@ -399,7 +405,9 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         return f"{base_token}{quote_token}"
 
     def create_exchange_instance(self):
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return BinanceExchange(
+            client_config_map=client_config_map,
             binance_api_key="testAPIKey",
             binance_api_secret="testSecret",
             trading_pairs=[self.trading_pair],
@@ -961,7 +969,8 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 "INFO",
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
                 f" update_timestamp={order_status['updateTime'] * 1e-3}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}')")
+                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
+                "misc_updates=None)")
         )
 
     def test_user_stream_update_for_order_failure(self):

@@ -15,7 +15,10 @@ module.exports = {
     'conf/migration/migrations.js',
     'src/chains/solana/solana.ts',
     'src/connectors/uniswap/uniswap.config.ts',
+    'src/network/network.controllers.ts',
   ],
   modulePathIgnorePatterns: ['<rootDir>/dist/'],
   setupFilesAfterEnv: ['<rootDir>/test/setupTests.js'],
+  globalSetup: '<rootDir>/test/setup.ts',
+  globalTeardown: '<rootDir>/test/teardown.ts',
 };
