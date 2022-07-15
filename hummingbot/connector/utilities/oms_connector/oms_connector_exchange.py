@@ -189,6 +189,7 @@ class OMSExchange(ExchangePyBase):
         This implementation specific function is called by _cancel, and returns True if successful
         """
         start_ts = self.current_timestamp
+        self.logger().debug(f"Starting cancelation of {tracked_order.client_order_id} at {start_ts}")
         await self._ensure_authenticated()
         params = {
             CONSTANTS.OMS_ID_FIELD: self.oms_id,
@@ -200,9 +201,10 @@ class OMSExchange(ExchangePyBase):
             data=params,
             is_auth_required=True,
         )
+        self.logger().debug(f"Cancelation result of {tracked_order.client_order_id} at {start_ts}: {cancel_result}")
         cancel_success = False
         if cancel_result.get(CONSTANTS.ERROR_CODE_FIELD):
-            if cancel_result[CONSTANTS.ERROR_MSG_FIELD] == CONSTANTS.RESOURCE_NOT_FOUND_MSG:
+            if cancel_result[CONSTANTS.ERROR_CODE_FIELD] == CONSTANTS.RESOURCE_NOT_FOUND_ERR_CODE:
                 self._order_not_found_on_cancel_record[order_id] += 1
                 if self._order_not_found_on_cancel_record[order_id] >= CONSTANTS.MAX_ORDER_NOT_FOUND_ON_CANCEL:
                     cancel_success = True
@@ -214,6 +216,12 @@ class OMSExchange(ExchangePyBase):
             self.logger().debug(
                 f"Failure to cancel {tracked_order.client_order_id}, attempted at {start_ts}: {cancel_result}"
             )
+        elif order_id in self._order_not_found_on_cancel_record:
+            del self._order_not_found_on_cancel_record[order_id]
+
+        self.logger().debug(
+            f"Cancelation of {tracked_order.client_order_id} at {start_ts} success"
+        )
 
         return cancel_success
 
