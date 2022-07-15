@@ -17,7 +17,7 @@ class ParrotConnectorUnitTest(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        cls.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
     def setUp(self) -> None:
         super().setUp()
@@ -304,9 +304,9 @@ class ParrotConnectorUnitTest(TestCase):
 
         self.assertEqual(1, len(campaigns))
         campaign_summary: parrot.CampaignSummary = campaigns[63]
-        self.assertEquals("COINALPHA-HBOT", campaign_summary.trading_pair)
-        self.assertEquals("kucoin", campaign_summary.exchange_name)
-        self.assertEquals(Decimal("0.015"), campaign_summary.spread_max)
+        self.assertEqual("COINALPHA-HBOT", campaign_summary.trading_pair)
+        self.assertEqual("kucoin", campaign_summary.exchange_name)
+        self.assertEqual(Decimal("0"), campaign_summary.spread_max)
 
     @aioresponses()
     def test_active_campaigns_are_filtered_by_exchange_name(self, mock_api):
