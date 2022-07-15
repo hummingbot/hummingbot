@@ -48,7 +48,7 @@ describe('GET /solana', () => {
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.connection).toBe(true))
-      .expect((res) => expect(res.body.nodeUrl).toBe(solana.nodeURL));
+      .expect((res) => expect(res.body.rpcUrl).toBe(solana.rpcUrl));
   });
 });
 
