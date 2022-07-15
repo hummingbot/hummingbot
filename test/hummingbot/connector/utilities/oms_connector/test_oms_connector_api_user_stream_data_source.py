@@ -6,6 +6,8 @@ import unittest
 from typing import Any, Awaitable, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from aiohttp import WSMessage, WSMsgType
+
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.utilities.oms_connector import oms_connector_constants as CONSTANTS
 from hummingbot.connector.utilities.oms_connector.oms_connector_api_user_stream_data_source import (
@@ -233,3 +235,27 @@ class OMSConnectorUserStreamDataSourceTests(unittest.TestCase):
 
         self.assertTrue(output_queue.empty())
         self.assertEqual(expected_update_resp, update_resp_received)
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_user_stream_sends_ping_message_before_ping_interval_finishes(self, ws_mock):
+        ws_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        subscribe_resp = {"m": 1, "i": 4, "n": "SubscribeAccountEvents", "o": json.dumps({"Subscribed": True})}
+        ws_mock.return_value.receive.side_effect = [
+            WSMessage(type=WSMsgType.TEXT, data=json.dumps(subscribe_resp), extra=None),
+            asyncio.TimeoutError("Test timeout"),
+            asyncio.CancelledError,
+        ]
+
+        msg_queue = asyncio.Queue()
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+
+        try:
+            self.async_run_with_timeout(self.listening_task)
+        except asyncio.CancelledError:
+            pass
+
+        sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(websocket_mock=ws_mock.return_value)
+
+        expected_ping_message = {"n": "Ping", "o": "{}", "m": 0, "i": 6}
+        self.assertEqual(expected_ping_message, sent_messages[-1])

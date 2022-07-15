@@ -27,7 +27,7 @@ class OMSConnectorAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._get_ws_assistant()
         url = self._url_provider.get_ws_url()
-        await ws.connect(ws_url=url)
+        await ws.connect(ws_url=url, message_timeout=CONSTANTS.WS_MESSAGE_TIMEOUT)
         auth_payload = {
             CONSTANTS.MSG_ENDPOINT_FIELD: CONSTANTS.WS_AUTH_ENDPOINT,
             CONSTANTS.MSG_DATA_FIELD: {},
@@ -70,7 +70,17 @@ class OMSConnectorAPIUserStreamDataSource(UserStreamTrackerDataSource):
             raise
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
-        async for ws_response in websocket_assistant.iter_messages():
-            data = ws_response.data
-            if data[CONSTANTS.MSG_TYPE_FIELD] == CONSTANTS.EVENT_MSG_TYPE:
-                await self._process_event_message(event_message=data, queue=queue)
+        while True:
+            try:
+                async for ws_response in websocket_assistant.iter_messages():
+                    data = ws_response.data
+                    if data[CONSTANTS.MSG_TYPE_FIELD] == CONSTANTS.EVENT_MSG_TYPE:
+                        await self._process_event_message(event_message=data, queue=queue)
+            except asyncio.TimeoutError:
+                ping_payload = {
+                    CONSTANTS.MSG_ENDPOINT_FIELD: CONSTANTS.WS_PING_REQUEST,
+                    CONSTANTS.MSG_DATA_FIELD: {},
+                }
+                ping_request = WSJSONRequest(payload=ping_payload)
+                async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_PING_REQUEST):
+                    await websocket_assistant.send(request=ping_request)
