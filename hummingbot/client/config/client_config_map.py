@@ -736,6 +736,14 @@ class ClientConfigMap(BaseClientModel):
     )
     paper_trade: PaperTradeConfigMap = Field(default=PaperTradeConfigMap())
     color: ColorConfigMap = Field(default=ColorConfigMap())
+    strategy_update_tick: Decimal = Field(
+        default=Decimal("1.0"),
+        description="Strategy update tick(seconds)",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "How often strategy's update to run(in seconds)"
+            "(Enter 0.5 to make strategy's update to run every 0.5 second)"
+        ),
+    )
 
     class Config:
         title = "client_config_map"
@@ -833,6 +841,7 @@ class ClientConfigMap(BaseClientModel):
     @validator(
         "manual_gas_price",
         "rate_limits_share_pct",
+        "strategy_update_tick",
         pre=True,
     )
     def validate_decimals(cls, v: str, field: Field):
