@@ -279,7 +279,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
                 "order_link_id": get_new_client_order_id(
                     is_buy=True,
                     trading_pair=self.trading_pair,
-                    hbot_order_id_prefix=CONSTANTS.CLIENT_ID_PREFIX,
+                    hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID,
                     max_id_len=CONSTANTS.MAX_ID_LEN,
                 ),
                 "created_at": "2019-11-30T11:03:43.452Z",
