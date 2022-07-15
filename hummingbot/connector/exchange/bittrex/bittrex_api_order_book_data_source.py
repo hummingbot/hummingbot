@@ -27,16 +27,10 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return ws
 
     # TODO TO BE REFACTORED INTO EXCHANGE CLASS
-    '''
-    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
-        results = dict()
-        async with aiohttp.ClientSession() as client:
-            resp = await client.get(f"{BITTREX_REST_URL}{BITTREX_TICKER_PATH}")
-            resp_json = await resp.json()
-            for trading_pair in trading_pairs:
-                resp_record = [o for o in resp_json if o["symbol"] == trading_pair][0]
-                results[trading_pair] = float(resp_record["lastTradeRate"])
-        return results'''
+    async def get_last_traded_prices(self,
+                                     trading_pairs: List[str],
+                                     domain: Optional[str] = None) -> Dict[str, float]:
+        return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         exchange_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
@@ -71,18 +65,23 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trade_params.append(f"trade_{symbol}")
                 market_params.append(f"orderBook_{symbol}_25")
             payload = {
-                "channels": trade_params
+                "H": "c3",
+                "M": "Subscribe",
+                "A": [trade_params, ],
+                "I": 1
             }
             subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
             payload = {
-                "channels": market_params,
+                "H": "c3",
+                "M": "Subscribe",
+                "A": [market_params, ],
+                "I": 1
             }
             subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
             await ws.send(subscribe_trade_request)
             await ws.send(subscribe_orderbook_request)
-
             self.logger().info("Subscribed to public order book and trade channels...")
         except asyncio.CancelledError:
             raise
