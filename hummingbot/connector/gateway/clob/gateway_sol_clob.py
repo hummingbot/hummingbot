@@ -198,7 +198,7 @@ class GatewaySOLCLOB(ConnectorBase):
             if in_flight_order.is_open
         ]
 
-    # Added for compatibility
+    # Added for compatibility with the AMM ARB Strategy
     @property
     def amm_orders(self) -> List[CLOBInFlightOrder]:
         return self.orders

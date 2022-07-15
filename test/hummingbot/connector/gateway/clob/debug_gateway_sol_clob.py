@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Fixture data collection script for GatewayEVMAMM unit test cases.
+Fixture data collection script for GatewaySOLCLOB unit test cases.
 
 This is included for record only - if you need to run this to collect another batch of fixture data, you'll need to
 change the wallet address and transaction hashes.
@@ -17,8 +17,8 @@ from typing import Generator, List, Optional
 
 from bin import path_util  # noqa: F401
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.connector.gateway.amm.evm_in_flight_order import EVMInFlightOrder
-from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.clob.clob_in_flight_order import CLOBInFlightOrder
+from hummingbot.connector.gateway.clob.gateway_sol_clob import GatewaySOLCLOB
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -36,12 +36,12 @@ s_decimal_0 = Decimal(0)
 gateway_http_client: GatewayHttpClient = GatewayHttpClient.get_instance()
 
 
-class GatewayEVMAMMDataCollector:
+class GatewaySOLCLOBDataCollector:
     fixture_path: str = realpath(join(__file__, "../fixtures/gateway_sol_clob_fixture.db"))
 
     def __init__(self):
         self._clock: Clock = Clock(ClockMode.REALTIME)
-        self._connector: GatewayEVMAMM = GatewayEVMAMM(
+        self._connector: GatewaySOLCLOB = GatewaySOLCLOB(
             "uniswap",
             "ethereum",
             "ropsten",
@@ -117,8 +117,8 @@ class GatewayEVMAMMDataCollector:
         print("done")
 
     async def collect_approval_status(self):
-        def create_approval_record(token_symbol: str, tx_hash: str) -> EVMInFlightOrder:
-            return EVMInFlightOrder(
+        def create_approval_record(token_symbol: str, tx_hash: str) -> CLOBInFlightOrder:
+            return CLOBInFlightOrder(
                 client_order_id=self._connector.create_approval_order_id(token_symbol),
                 exchange_order_id=tx_hash,
                 trading_pair=token_symbol,
@@ -130,7 +130,7 @@ class GatewayEVMAMMDataCollector:
                 creation_timestamp=self._connector.current_timestamp
             )
         print("Getting token approval status...\t\t", end="", flush=True)
-        successful_records: List[EVMInFlightOrder] = [
+        successful_records: List[CLOBInFlightOrder] = [
             create_approval_record(
                 "WETH",
                 "0x66b533792f45780fc38573bfd60d6043ab266471607848fb71284cd0d9eecff9"        # noqa: mock
@@ -141,7 +141,7 @@ class GatewayEVMAMMDataCollector:
             ),
         ]
         await self._connector.update_token_approval_status(successful_records)
-        fake_records: List[EVMInFlightOrder] = [
+        fake_records: List[CLOBInFlightOrder] = [
             create_approval_record(
                 "WETH",
                 "0x66b533792f45780fc38573bfd60d6043ab266471607848fb71284cd0d9eecff8"        # noqa: mock
@@ -161,8 +161,8 @@ class GatewayEVMAMMDataCollector:
                 tx_hash: str,
                 price: Decimal,
                 amount: Decimal,
-                gas_price: Decimal) -> EVMInFlightOrder:
-            return EVMInFlightOrder(
+                gas_price: Decimal) -> CLOBInFlightOrder:
+            return CLOBInFlightOrder(
                 client_order_id=self._connector.create_market_order_id(trade_type, trading_pair),
                 exchange_order_id=tx_hash,
                 trading_pair=trading_pair,
@@ -174,7 +174,7 @@ class GatewayEVMAMMDataCollector:
                 creation_timestamp=self._connector.current_timestamp
             )
         print("Getting uniswap order status...\t\t", end="", flush=True)
-        successful_records: List[EVMInFlightOrder] = [
+        successful_records: List[CLOBInFlightOrder] = [
             create_order_record(
                 "DAI-WETH",
                 TradeType.BUY,
@@ -185,7 +185,7 @@ class GatewayEVMAMMDataCollector:
             )
         ]
         await self._connector.update_order_status(successful_records)
-        fake_records: List[EVMInFlightOrder] = [
+        fake_records: List[CLOBInFlightOrder] = [
             create_order_record(
                 "DAI-WETH",
                 TradeType.BUY,
@@ -206,8 +206,8 @@ class GatewayEVMAMMDataCollector:
 
     async def collect_approve_token(self):
         print("Approving tokens...")
-        weth_in_flight_order: EVMInFlightOrder = await self._connector.approve_token("WETH")
-        dai_in_flight_order: EVMInFlightOrder = await self._connector.approve_token("DAI")
+        weth_in_flight_order: CLOBInFlightOrder = await self._connector.approve_token("WETH")
+        dai_in_flight_order: CLOBInFlightOrder = await self._connector.approve_token("DAI")
         print(f"\tSent WETH approval with txHash: {weth_in_flight_order.exchange_order_id}")
         print(f"\tSent DAI approval with txHash: {dai_in_flight_order.exchange_order_id}")
         while len(self._connector.approval_orders) > 0:
@@ -253,7 +253,7 @@ class GatewayEVMAMMDataCollector:
 
 
 if __name__ == "__main__":
-    data_collector: GatewayEVMAMMDataCollector = GatewayEVMAMMDataCollector()
+    data_collector: GatewaySOLCLOBDataCollector = GatewaySOLCLOBDataCollector()
     ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
     try:
         ev_loop.run_until_complete(data_collector.main())
