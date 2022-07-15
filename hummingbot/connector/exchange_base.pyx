@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import Dict, List, Iterator, Mapping, Optional
+from typing import Dict, List, Iterator, Mapping, Optional, TYPE_CHECKING
 
 from bidict import bidict
 
@@ -15,6 +15,9 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.utils.async_utils import safe_gather
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 s_float_NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
@@ -26,8 +29,8 @@ cdef class ExchangeBase(ConnectorBase):
     interface.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, client_config_map: "ClientConfigAdapter"):
+        super().__init__(client_config_map)
         self._order_book_tracker = None
         self._budget_checker = BudgetChecker(exchange=self)
         self._trading_pair_symbol_map: Optional[Mapping[str, str]] = None

@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS, kucoin_web_utils as web_utils
 from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
@@ -51,9 +53,14 @@ class KucoinExchangeTests(unittest.TestCase):
 
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = KucoinExchange(
-            self.api_key, self.api_passphrase, self.api_secret_key, trading_pairs=[self.trading_pair]
+            client_config_map=self.client_config_map,
+            kucoin_api_key=self.api_key,
+            kucoin_passphrase=self.api_passphrase,
+            kucoin_secret_key=self.api_secret_key,
+            trading_pairs=[self.trading_pair]
         )
 
         self.exchange.logger().setLevel(1)
@@ -362,6 +369,64 @@ class KucoinExchangeTests(unittest.TestCase):
 
         self.assertEqual(Decimal("0.001"), fee.percent)  # default fee
 
+    @aioresponses()
+    def test_fee_request_for_multiple_pairs(self, mocked_api):
+        self.exchange = KucoinExchange(
+            self.client_config_map,
+            self.api_key,
+            self.api_passphrase,
+            self.api_secret_key,
+            trading_pairs=[self.trading_pair, "BTC-USDT"]
+        )
+
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({
+                self.trading_pair: self.trading_pair,
+                "BTC-USDT": "BTC-USDT"}))
+
+        url = web_utils.public_rest_url(CONSTANTS.FEE_PATH_URL)
+        regex_url = re.compile(f"^{url}")
+        resp = {"data": [
+            {"symbol": self.trading_pair,
+             "makerFeeRate": "0.002",
+             "takerFeeRate": "0.002"},
+            {"symbol": "BTC-USDT",
+             "makerFeeRate": "0.01",
+             "takerFeeRate": "0.01"},
+        ]}
+        mocked_api.get(regex_url, body=json.dumps(resp))
+
+        self.async_run_with_timeout(self.exchange._update_trading_fees())
+
+        order_request = next(((key, value) for key, value in mocked_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
+        self._validate_auth_credentials_present(order_request[1][0])
+        request_params = order_request[1][0].kwargs["params"]
+
+        self.assertEqual(f"{self.exchange_trading_pair},BTC-USDT", request_params["symbols"])
+
+        fee = self.exchange.get_fee(
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("10"),
+            price=Decimal("20"),
+        )
+
+        self.assertEqual(Decimal("0.002"), fee.percent)
+
+        fee = self.exchange.get_fee(
+            base_currency="BTC",
+            quote_currency="USDT",
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("10"),
+            price=Decimal("20"),
+        )
+
+        self.assertEqual(Decimal("0.01"), fee.percent)
+
     @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
     def test_client_order_id_on_order(self, mocked_nonce):
         mocked_nonce.return_value = 9
@@ -646,7 +711,7 @@ class KucoinExchangeTests(unittest.TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='OID1', exchange_order_id=None)"
+                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 
@@ -699,7 +764,7 @@ class KucoinExchangeTests(unittest.TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None)"
+                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 

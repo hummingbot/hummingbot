@@ -4,6 +4,7 @@ omit =
         hummingbot/core/gateway/*
         hummingbot/core/management/*
         hummingbot/client/config/config_helpers.py
+        hummingbot/client/config/conf_migration.py
         hummingbot/client/config/security.py
         hummingbot/client/hummingbot_application.py
         hummingbot/client/command/*
@@ -37,6 +38,7 @@ omit =
         hummingbot/core/utils/wallet_setup.py
         hummingbot/connector/mock*
         hummingbot/strategy/aroon_oscillator*
+        hummingbot/strategy/*/start.py
         hummingbot/strategy/dev*
         hummingbot/strategy/hedge*
         hummingbot/user/user_balances.py        

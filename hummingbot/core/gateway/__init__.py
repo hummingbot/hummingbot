@@ -3,17 +3,21 @@ import platform
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 import aioprocessing
 
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils import detect_available_port
 
+if TYPE_CHECKING:
+    from hummingbot import ClientConfigAdapter
+
+
 _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
-GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
+GATEWAY_DOCKER_REPO: str = "hummingbot/hummingbot"
 GATEWAY_DOCKER_TAG: str = "20220401-arm" if platform.machine() in {"arm64", "aarch64"} else "20220329"
 S_DECIMAL_0: Decimal = Decimal(0)
 
@@ -34,14 +38,13 @@ def is_inside_docker() -> bool:
         return False
 
 
-def get_gateway_container_name() -> str:
+def get_gateway_container_name(client_config_map: "ClientConfigAdapter") -> str:
     """
     Calculates the name for the gateway container, for this Hummingbot instance.
 
     :return: Gateway container name
     """
-    from hummingbot.client.config.global_config_map import global_config_map
-    instance_id_suffix: str = global_config_map["instance_id"].value[:8]
+    instance_id_suffix = client_config_map.instance_id[:8]
     return f"hummingbot-gateway-{instance_id_suffix}"
 
 
@@ -75,7 +78,7 @@ class GatewayPaths:
             path.mkdir(mode=0o755, parents=True, exist_ok=True)
 
 
-def get_gateway_paths() -> GatewayPaths:
+def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
     """
     Calculates the default paths for a gateway container.
 
@@ -91,7 +94,7 @@ def get_gateway_paths() -> GatewayPaths:
 
     inside_docker: bool = is_inside_docker()
 
-    gateway_container_name: str = get_gateway_container_name()
+    gateway_container_name: str = get_gateway_container_name(client_config_map)
     external_certs_path: Optional[Path] = os.getenv("CERTS_FOLDER") and Path(os.getenv("CERTS_FOLDER"))
     external_conf_path: Optional[Path] = os.getenv("GATEWAY_CONF_FOLDER") and Path(os.getenv("GATEWAY_CONF_FOLDER"))
     external_logs_path: Optional[Path] = os.getenv("GATEWAY_LOGS_FOLDER") and Path(os.getenv("GATEWAY_LOGS_FOLDER"))
@@ -123,9 +126,9 @@ def get_gateway_paths() -> GatewayPaths:
     return _default_paths
 
 
-def get_default_gateway_port() -> int:
-    from hummingbot.client.config.global_config_map import global_config_map
-    return detect_available_port(16000 + int(global_config_map.get("instance_id").value[:4], 16) % 16000)
+def get_default_gateway_port(client_config_map: "ClientConfigAdapter") -> int:
+    instance_id_portion = client_config_map.instance_id[:4]
+    return detect_available_port(16000 + int(instance_id_portion, 16) % 16000)
 
 
 def set_hummingbot_pipe(conn: aioprocessing.AioConnection):
@@ -133,13 +136,13 @@ def set_hummingbot_pipe(conn: aioprocessing.AioConnection):
     _hummingbot_pipe = conn
 
 
-async def detect_existing_gateway_container() -> Optional[Dict[str, Any]]:
+async def detect_existing_gateway_container(client_config_map: "ClientConfigAdapter") -> Optional[Dict[str, Any]]:
     try:
         results: List[Dict[str, Any]] = await docker_ipc(
             "containers",
             all=True,
             filters={
-                "name": get_gateway_container_name(),
+                "name": get_gateway_container_name(client_config_map),
             })
         if len(results) > 0:
             return results[0]
@@ -148,10 +151,12 @@ async def detect_existing_gateway_container() -> Optional[Dict[str, Any]]:
         return
 
 
-async def start_existing_gateway_container():
-    container_info: Optional[Dict[str, Any]] = await detect_existing_gateway_container()
+async def start_existing_gateway_container(client_config_map: "ClientConfigAdapter"):
+    container_info: Optional[Dict[str, Any]] = await detect_existing_gateway_container(client_config_map)
     if container_info is not None and container_info["State"] != "running":
-        await docker_ipc("start", get_gateway_container_name())
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+        HummingbotApplication.main_application().logger().info("Starting existing Gateway container...")
+        await docker_ipc("start", get_gateway_container_name(client_config_map))
 
 
 async def docker_ipc(method_name: str, *args, **kwargs) -> Any:
@@ -164,16 +169,13 @@ async def docker_ipc(method_name: str, *args, **kwargs) -> Any:
         _hummingbot_pipe.send((method_name, args, kwargs))
         data = await _hummingbot_pipe.coro_recv()
         if isinstance(data, Exception):
-            HummingbotApplication.main_application().notify(
-                "\nError: Unable to communicate with docker socket. "
-                "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
             raise data
         return data
 
     except Exception as e:  # unable to communicate with docker socket
         HummingbotApplication.main_application().notify(
-            "\nError: Unable to communicate with docker socket. "
-            "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
+            "Notice: Hummingbot is unable to communicate with Docker. If you need gateway for DeFi,"
+            "\nmake sure Docker is on, then restart Hummingbot. Otherwise, ignore this message.")
         raise e
 
 
@@ -190,15 +192,12 @@ async def docker_ipc_with_generator(method_name: str, *args, **kwargs) -> AsyncI
             if data is None:
                 break
             if isinstance(data, Exception):
-                HummingbotApplication.main_application().notify(
-                    "\nError: Unable to communicate with docker socket. "
-                    "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
                 raise data
             yield data
     except Exception as e:  # unable to communicate with docker socket
         HummingbotApplication.main_application().notify(
-            "\nError: Unable to communicate with docker socket. "
-            "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
+            "Notice: Hummingbot is unable to communicate with Docker. If you need gateway for DeFi,"
+            "\nmake sure Docker is on, then restart Hummingbot. Otherwise, ignore this message.")
         raise e
 
 
@@ -241,16 +240,16 @@ def check_transaction_exceptions(
     return exception_list
 
 
-async def start_gateway():
+async def start_gateway(client_config_map: "ClientConfigAdapter"):
     from hummingbot.client.hummingbot_application import HummingbotApplication
     try:
         response = await docker_ipc(
             "containers",
             all=True,
-            filters={"name": get_gateway_container_name()}
+            filters={"name": get_gateway_container_name(client_config_map)}
         )
         if len(response) == 0:
-            raise ValueError(f"Gateway container {get_gateway_container_name()} not found. ")
+            raise ValueError(f"Gateway container {get_gateway_container_name(client_config_map)} not found. ")
 
         container_info = response[0]
         if container_info["State"] == "running":
@@ -266,16 +265,16 @@ async def start_gateway():
         HummingbotApplication.main_application().notify(f"Error occurred starting Gateway container. {e}")
 
 
-async def stop_gateway():
+async def stop_gateway(client_config_map: "ClientConfigAdapter"):
     from hummingbot.client.hummingbot_application import HummingbotApplication
     try:
         response = await docker_ipc(
             "containers",
             all=True,
-            filters={"name": get_gateway_container_name()}
+            filters={"name": get_gateway_container_name(client_config_map)}
         )
         if len(response) == 0:
-            raise ValueError(f"Gateway container {get_gateway_container_name()} not found.")
+            raise ValueError(f"Gateway container {get_gateway_container_name(client_config_map)} not found.")
 
         container_info = response[0]
         if container_info["State"] != "running":
@@ -291,8 +290,8 @@ async def stop_gateway():
         HummingbotApplication.main_application().notify(f"Error occurred stopping Gateway container. {e}")
 
 
-async def restart_gateway():
+async def restart_gateway(client_config_map: "ClientConfigAdapter"):
     from hummingbot.client.hummingbot_application import HummingbotApplication
-    await stop_gateway()
-    await start_gateway()
+    await stop_gateway(client_config_map)
+    await start_gateway(client_config_map)
     HummingbotApplication.main_application().notify("Gateway will be ready momentarily.")
