@@ -1080,6 +1080,25 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
         self.assertEqual(result, expected_client_order_id)
 
+    def test_time_synchronizer_related_reqeust_error_detection(self):
+        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+                            "Error: {'code':-1021,'msg':'Timestamp for this request is outside of the recvWindow.'}")
+        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+                            "Error: {'code':-1021,'msg':'Timestamp for this request was 1000ms ahead of the server's "
+                            "time.'}")
+        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+                            "Error: {'code':-1022,'msg':'Timestamp for this request was 1000ms ahead of the server's "
+                            "time.'}")
+        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+                            "Error: {'code':-1021,'msg':'Other error.'}")
+        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
     def _validate_auth_credentials_taking_parameters_from_argument(self,
                                                                    request_call_tuple: RequestCall,
                                                                    params: Dict[str, Any]):

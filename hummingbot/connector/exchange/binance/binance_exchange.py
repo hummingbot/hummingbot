@@ -118,6 +118,12 @@ class BinanceExchange(ExchangePyBase):
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+        error_description = str(request_exception)
+        is_time_synchronizer_related = ("-1021" in error_description
+                                        and "Timestamp for this request" in error_description)
+        return is_time_synchronizer_related
+
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,

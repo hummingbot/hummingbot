@@ -42,7 +42,7 @@ class ExchangePyBase(ExchangeBase, ABC):
     LONG_POLL_INTERVAL = 120.0
     TRADING_RULES_INTERVAL = 30 * MINUTE
     TRADING_FEES_INTERVAL = TWELVE_HOURS
-    TIME_SYNCHRONIZER_UPDATE_INTERVAL = 10.0
+    # TIME_SYNCHRONIZER_UPDATE_INTERVAL = 10.0
     TICK_INTERVAL_LIMIT = 60.0
 
     def __init__(self, client_config_map: "ClientConfigAdapter"):
@@ -58,7 +58,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._trading_fees_polling_task = None
-        self._time_synchronizer_update_task = None
+        # self._time_synchronizer_update_task = None
         self._lost_orders_update_task = None
 
         self._time_synchronizer = TimeSynchronizer()
@@ -200,7 +200,11 @@ class ExchangePyBase(ExchangeBase, ABC):
         }
 
     @abstractmethod
-    def supported_order_types(self):
+    def supported_order_types(self) -> List[OrderType]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         raise NotImplementedError
 
     # === Price logic ===
@@ -646,7 +650,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
-        self._time_synchronizer_update_task = safe_ensure_future(self._time_synchronizer_update_polling_loop())
+        # self._time_synchronizer_update_task = safe_ensure_future(self._time_synchronizer_update_polling_loop())
         if self.is_trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
@@ -694,9 +698,9 @@ class ExchangePyBase(ExchangeBase, ABC):
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
             self._user_stream_event_listener_task = None
-        if self._time_synchronizer_update_task is not None:
-            self._time_synchronizer_update_task.cancel()
-            self._time_synchronizer_update_task = None
+        # if self._time_synchronizer_update_task is not None:
+        #     self._time_synchronizer_update_task.cancel()
+        #     self._time_synchronizer_update_task = None
         if self._lost_orders_update_task is not None:
             self._lost_orders_update_task.cancel()
             self._lost_orders_update_task = None
@@ -755,6 +759,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         while True:
             try:
                 await self._poll_notifier.wait()
+                await self._update_time_synchronizer()
 
                 # the following method is implementation-specific
                 await self._status_polling_loop_fetch_updates()
@@ -773,21 +778,21 @@ class ExchangePyBase(ExchangeBase, ABC):
                                     "Check API key and network connection.")
                 await self._sleep(0.5)
 
-    async def _time_synchronizer_update_polling_loop(self):
-        """
-        This loop regularly executes the update of the TimeSynchronizer, to register a new time diff sample
-        """
-        while True:
-            try:
-                await self._update_time_synchronizer()
-                await self._sleep(self.TIME_SYNCHRONIZER_UPDATE_INTERVAL)
-            except NotImplementedError:
-                raise
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception("Unexpected error while updating the time synchronizer")
-                await self._sleep(0.5)
+    # async def _time_synchronizer_update_polling_loop(self):
+    #     """
+    #     This loop regularly executes the update of the TimeSynchronizer, to register a new time diff sample
+    #     """
+    #     while True:
+    #         try:
+    #             await self._update_time_synchronizer()
+    #             await self._sleep(self.TIME_SYNCHRONIZER_UPDATE_INTERVAL)
+    #         except NotImplementedError:
+    #             raise
+    #         except asyncio.CancelledError:
+    #             raise
+    #         except Exception:
+    #             self.logger().exception("Unexpected error while updating the time synchronizer")
+    #             await self._sleep(0.5)
 
     async def _update_time_synchronizer(self):
         try:
@@ -869,21 +874,35 @@ class ExchangePyBase(ExchangeBase, ABC):
                            return_err: bool = False,
                            limit_id: Optional[str] = None) -> Dict[str, Any]:
 
+        last_exception = None
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
         if is_auth_required:
             url = self.web_utils.private_rest_url(path_url, domain=self.domain)
         else:
             url = self.web_utils.public_rest_url(path_url, domain=self.domain)
 
-        return await rest_assistant.execute_request(
-            url=url,
-            params=params,
-            data=data,
-            method=method,
-            is_auth_required=is_auth_required,
-            return_err=return_err,
-            throttler_limit_id=limit_id if limit_id else path_url,
-        )
+        for retry_count in range(1, 3):
+            try:
+                request_result = await rest_assistant.execute_request(
+                    url=url,
+                    params=params,
+                    data=data,
+                    method=method,
+                    is_auth_required=is_auth_required,
+                    return_err=return_err,
+                    throttler_limit_id=limit_id if limit_id else path_url,
+                )
+                return request_result
+            except IOError as request_exception:
+                last_exception = request_exception
+                if self._is_request_exception_related_to_time_synchronizer(request_exception=request_exception):
+                    self._time_synchronizer.clear_time_offset_ms_samples()
+                    await self._update_time_synchronizer()
+                else:
+                    raise
+
+        # Failed even after the last retry
+        raise last_exception
 
     async def _status_polling_loop_fetch_updates(self):
         """
@@ -937,7 +956,8 @@ class ExchangePyBase(ExchangeBase, ABC):
                 await self._order_tracker.process_order_not_found(order.client_order_id)
 
     async def _update_lost_orders(self):
-        for client_order_id, order in self._order_tracker.lost_orders.items():
+        orders_to_update = self._order_tracker.lost_orders.copy()
+        for client_order_id, order in orders_to_update.items():
             try:
                 order_update = await self._request_order_status(tracked_order=order)
                 if client_order_id in self._order_tracker.lost_orders:
