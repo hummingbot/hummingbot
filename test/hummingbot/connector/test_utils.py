@@ -33,7 +33,7 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual(len(id0) - 2, len(id2))
 
     def test_connector_config_maps(self):
-        connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade", "celo"]
+        connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade", "celo", "amm", "clob"]
 
         type_dirs = [
             cast(DirEntry, f) for f in
