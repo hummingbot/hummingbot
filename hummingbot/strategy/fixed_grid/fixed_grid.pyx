@@ -31,6 +31,7 @@ from .data_types import (
     PriceSize,
     Proposal,
 )
+import threading
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -43,6 +44,7 @@ cdef class FixedGridStrategy(StrategyBase):
     OPTION_LOG_MAKER_ORDER_FILLED = 1 << 4
     OPTION_LOG_STATUS_REPORT = 1 << 5
     OPTION_LOG_ALL = 0x7fffffffffffffff
+    _lock = threading.Lock()
 
     @classmethod
     def logger(cls):
@@ -401,7 +403,7 @@ cdef class FixedGridStrategy(StrategyBase):
         # See if there're any open orders.
         if len(self.active_orders) > 0:
             df = map_df_to_str(self.active_orders_df())
-            lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
+            lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")] + ["", " #Orders: " + str(len(df.index))])
         else:
             lines.extend(["", "  No active maker orders."])
 
@@ -530,6 +532,12 @@ cdef class FixedGridStrategy(StrategyBase):
                     self.c_apply_order_price_modifiers(proposal)
                 if not self._take_if_crossed:
                     self.c_filter_out_takers(proposal)
+            elif int(self._current_timestamp % 10) == 0:
+                 proposal = self.c_create_grid_proposal()
+                 if proposal:
+                     self.logger().info(f"{len(proposal.buys)+len(proposal.sells)} orders will be restored.")
+                     self.c_execute_orders_proposal(proposal)
+                     proposal = None             
 
             self.c_cancel_active_orders_on_max_age_limit()
             self.c_cancel_active_orders(proposal)
@@ -544,12 +552,19 @@ cdef class FixedGridStrategy(StrategyBase):
             list buys = []
             list sells = []
 
+        if len(self.active_orders) == len(self._price_levels) - 1:
+            return None	
+	
         # Proposal will be created according to grid price levels
         for i in range(self._current_level):
             price = self._price_levels[i]
             price = market.c_quantize_order_price(self.trading_pair, price)
             size = self._order_amount
             size = market.c_quantize_order_amount(self.trading_pair, size)
+		
+            if [o for o in self.active_orders if o.price == price]:
+                continue
+		
             if size > 0:
                 buys.append(PriceSize(price, size))
 
@@ -558,6 +573,10 @@ cdef class FixedGridStrategy(StrategyBase):
             price = market.c_quantize_order_price(self.trading_pair, price)
             size = self._order_amount
             size = market.c_quantize_order_amount(self.trading_pair, size)
+		
+            if [o for o in self.active_orders if o.price == price]:
+                continue
+		
             if size > 0:
                 sells.append(PriceSize(price, size))
 
@@ -856,53 +875,62 @@ cdef class FixedGridStrategy(StrategyBase):
             double expiration_seconds = NaN
             str bid_order_id, ask_order_id
             bint orders_created = False
-        # Number of pair of orders to track for hanging orders
-        number_of_pairs = 0
+	
+        if self._lock.acquire(False):
+            self.logger().info("Execution collission detected")
+            return
 
-        if len(proposal.buys) > 0:
-            if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
-                price_quote_str = [f"{buy.size.normalize()} {self.base_asset}, "
-                                   f"{buy.price.normalize()} {self.quote_asset}"
-                                   for buy in proposal.buys]
-                self.logger().info(
-                    f"({self.trading_pair}) Creating {len(proposal.buys)} bid orders "
-                    f"at (Size, Price): {price_quote_str}"
-                )
-            for idx, buy in enumerate(proposal.buys):
-                bid_order_id = self.c_buy_with_specific_market(
-                    self._market_info,
-                    buy.size,
-                    order_type=self._limit_order_type,
-                    price=buy.price,
-                    expiration_seconds=expiration_seconds
-                )
-                orders_created = True
-                if idx < number_of_pairs:
-                    order = next((o for o in self.active_orders if o.client_order_id == bid_order_id))
-                
-        if len(proposal.sells) > 0:
-            if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
-                price_quote_str = [f"{sell.size.normalize()} {self.base_asset}, "
-                                   f"{sell.price.normalize()} {self.quote_asset}"
-                                   for sell in proposal.sells]
-                self.logger().info(
-                    f"({self.trading_pair}) Creating {len(proposal.sells)} ask "
-                    f"orders at (Size, Price): {price_quote_str}"
-                )
-            for idx, sell in enumerate(proposal.sells):
-                ask_order_id = self.c_sell_with_specific_market(
-                    self._market_info,
-                    sell.size,
-                    order_type=self._limit_order_type,
-                    price=sell.price,
-                    expiration_seconds=expiration_seconds
-                )
-                orders_created = True
-                if idx < number_of_pairs:
-                    order = next((o for o in self.active_orders if o.client_order_id == ask_order_id))
-                        
-        if orders_created:
-            self.set_timers()
+        try:
+            # Number of pair of orders to track for hanging orders
+            number_of_pairs = 0
+
+            if len(proposal.buys) > 0:
+                if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
+                    price_quote_str = [f"{buy.size.normalize()} {self.base_asset}, "
+                                       f"{buy.price.normalize()} {self.quote_asset}"
+                                       for buy in proposal.buys]
+                    self.logger().info(
+                        f"({self.trading_pair}) Creating {len(proposal.buys)} bid orders "
+                        f"at (Size, Price): {price_quote_str}"
+                    )
+                for idx, buy in enumerate(proposal.buys):
+                    bid_order_id = self.c_buy_with_specific_market(
+                        self._market_info,
+                        buy.size,
+                        order_type=self._limit_order_type,
+                        price=buy.price,
+                        expiration_seconds=expiration_seconds
+                    )
+                    orders_created = True
+                    if idx < number_of_pairs:
+                        order = next((o for o in self.active_orders if o.client_order_id == bid_order_id))
+
+            if len(proposal.sells) > 0:
+                if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
+                    price_quote_str = [f"{sell.size.normalize()} {self.base_asset}, "
+                                        f"{sell.price.normalize()} {self.quote_asset}"
+                                        for sell in proposal.sells]
+                    self.logger().info(
+                        f"({self.trading_pair}) Creating {len(proposal.sells)} ask "
+                        f"orders at (Size, Price): {price_quote_str}"
+                    )
+                for idx, sell in enumerate(proposal.sells):
+                    ask_order_id = self.c_sell_with_specific_market(
+                        self._market_info,
+                        sell.size,
+                        order_type=self._limit_order_type,
+                        price=sell.price,
+                        expiration_seconds=expiration_seconds
+                    )
+                    orders_created = True
+                    if idx < number_of_pairs:
+                        order = next((o for o in self.active_orders if o.client_order_id == ask_order_id))
+
+            if orders_created:
+                self.set_timers()
+        finally:
+            if self._lock.locked():
+                self._lock.release()
 
     cdef set_timers(self):
         cdef double next_cycle = self._current_timestamp + self._order_refresh_time
