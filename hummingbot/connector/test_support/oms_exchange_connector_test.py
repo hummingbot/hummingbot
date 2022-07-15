@@ -370,7 +370,7 @@ class OMSExchangeTests:
 
         @property
         def is_cancel_request_executed_synchronously_by_server(self) -> bool:
-            return False
+            return True
 
         @property
         def is_order_fill_http_update_included_in_status_update(self) -> bool:
