@@ -10,6 +10,9 @@ class PerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
     def __init__(self, trading_pairs: List[str]):
         super().__init__(trading_pairs)
         self._funding_info_messages_queue_key = "funding_info"
+        self._message_channels = [
+            self._diff_messages_queue_key, self._trade_messages_queue_key, self._funding_info_messages_queue_key
+        ]
 
     @abstractmethod
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
