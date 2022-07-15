@@ -21,7 +21,7 @@ TRADE_EVENT_TYPE = "trade"
 DIFF_EVENT_TYPE  = "diff"
 GRAPHQL_ENDPOINT = "https://x6sbwzrbzvbabpujfy2phgq6ka.appsync-api.ap-south-1.amazonaws.com/graphql"
 GRAPHQL_WSS_ENDPOINT = "wss://x6sbwzrbzvbabpujfy2phgq6ka.appsync-realtime-api.ap-south-1.amazonaws.com/graphql"
-GRAPHQL_API_KEY = "da2-wlahfkgsznh27ahj253h7oefp4"
+GRAPHQL_API_KEY = "da2-uga2aiqob5bqxhcktazox3ve6e"
 ENCLAVE_ENDPOINT = "wss://sgx.polkadex.trade:443"
 
 POLKADEX_SS58_PREFIX = 88

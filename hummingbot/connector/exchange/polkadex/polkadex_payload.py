@@ -1,11 +1,12 @@
 from decimal import Decimal
 
 from hummingbot.connector.exchange.polkadex.polkadex_constants import UNIT_BALANCE
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 def create_asset(asset):
     if asset == "PDEX":
-        return {"polkadex": None}
+        return  "polkadex"
     else:
         return {"asset": int(asset)}
 
@@ -26,17 +27,23 @@ def create_order(runtime_config, price: Decimal, qty: Decimal, order_type, side,
         },
         "qty": int(qty * UNIT_BALANCE),
         "price": int(price * UNIT_BALANCE),
-        "nonce": nonce
+        "nonce": nonce,
     }
-    if order_type == "LIMIT":
-        order["order_type"] = {"LIMIT": None}
+    if order_type == OrderType.LIMIT:
+        order["order_type"] = "LIMIT"
+    elif order_type == OrderType.MARKET:
+        order["order_type"] = "MARKET"
     else:
-        order["order_type"] = {"MARKET": None}
+        print("Unsupported Order type")
+        raise Exception
 
-    if side == "Bid":
-        order["side"] = {"Bid": None}
+    if side == TradeType.BUY:
+        order["side"] = "Bid"
+    elif side == TradeType.SELL:
+        order["side"] = "Ask"
     else:
-        order["side"] = {"Ask": None}
+        print("Unsupported Order side")
+        raise Exception
 
     print(order)
-    return runtime_config.create_scale_object("OrderPayload").encode(order)
+    return runtime_config.create_scale_object("OrderPayload").encode(order), order

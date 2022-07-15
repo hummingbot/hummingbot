@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
@@ -10,6 +11,7 @@ from dateutil import parser
 from gql import Client
 from gql.transport.appsync_auth import AppSyncApiKeyAuthentication
 from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
+from scalecodec import ScaleBytes
 from substrateinterface import Keypair, KeypairType, SubstrateInterface
 
 from hummingbot.connector.constants import s_decimal_NaN
@@ -104,23 +106,44 @@ class PolkadexExchange(ExchangePyBase):
                 "OrderSide": {
                     "type": "enum",
                     "type_mapping": [
-                        ["Ask", None],
-                        ["Bid", None],
+                        ["Ask", "Null"],
+                        ["Bid", "Null"],
                     ],
                 },
                 "AssetId": {
                     "type": "enum",
                     "type_mapping": [
-                        ["polkadex", None],
+                        ["polkadex", "Null"],
                         ["asset", "u128"],
                     ],
                 },
                 "OrderType": {
                     "type": "enum",
                     "type_mapping": [
-                        ["LIMIT", None],
-                        ["MARKET", None],
+                        ["LIMIT", "Null"],
+                        ["MARKET", "Null"],
                     ],
+                },
+                "EcdsaSignature": "[u8; 65]",
+                "Ed25519Signature": "H512",
+                "Sr25519Signature": "H512",
+                "AnySignature": "H512",
+                "MultiSignature": {
+                    "type": "enum",
+                    "type_mapping": [
+                        [
+                            "Ed25519",
+                            "Ed25519Signature"
+                        ],
+                        [
+                            "Sr25519",
+                            "Sr25519Signature"
+                        ],
+                        [
+                            "Ecdsa",
+                            "EcdsaSignature"
+                        ]
+                    ]
                 },
             }
         }
@@ -223,21 +246,34 @@ class PolkadexExchange(ExchangePyBase):
 
     async def _place_order(self, order_id: str, trading_pair: str, amount: Decimal, trade_type: TradeType,
                            order_type: OrderType, price: Decimal) -> Tuple[str, float]:
-        self.nonce = self.nonce + 1
-        # TODO; Include client order id
-        print("trading pair", trading_pair)
-        encoded_order = create_order(self.blockchain, price, amount, order_type,
-                                     trade_type, self.user_proxy_address,
-                                     trading_pair.split("-")[0],
-                                     trading_pair.split("-")[1],
-                                     self.nonce)
-        signature = self.proxy_pair.sign(encoded_order)
-        params = ["enclave_placeOrder", encoded_order, signature]
+
+        if self.user_main_address is None:
+            self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address,
+                                                                       self.endpoint, self.api_key)
+            print("Main account: ", self.user_main_address)
         async with websockets.connect(self.enclave_endpoint) as websocket:
+            params = json.dumps({"jsonrpc": "2.0", "method": "enclave_getNonce",
+                                 "params": [self.user_main_address], "id": 1})
+            print(params)
             await websocket.send(params)
-            result = await websocket.recv()
+            result = json.loads(await websocket.recv())
             print(result)
-            return result["id"], datetime.datetime.now().timestamp()
+            self.nonce = result["result"] + 1
+            # TODO; Include client order id
+            print("nonce: ", self.nonce)
+            encoded_order, order = create_order(self.blockchain, price, amount, order_type,
+                                                trade_type, self.user_proxy_address,
+                                                trading_pair.split("-")[0],
+                                                trading_pair.split("-")[1],
+                                                self.nonce)
+            signature = self.proxy_pair.sign(encoded_order)
+            params = json.dumps({"jsonrpc": "2.0", "method": "enclave_placeOrder",
+                                 "params": [order, {"Sr25519": signature.hex()}], "id": 1})
+            print(params)
+            await websocket.send(params)
+            result = json.loads(await websocket.recv())
+            print(result)
+            return result["result"], datetime.datetime.now().timestamp()
 
     def _get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
                  amount: Decimal, price: Decimal = s_decimal_NaN,
