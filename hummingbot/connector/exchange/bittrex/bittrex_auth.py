@@ -1,56 +1,52 @@
-import time
-import hmac
 import hashlib
+import hmac
+import time
 import urllib
-from typing import Dict, Any, Tuple
+import uuid
+from typing import Any, Dict
 
 import ujson
 
+from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
-class BittrexAuth:
+
+class BittrexAuth(AuthBase):
     def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
         self.secret_key = secret_key
 
-    def generate_auth_dict(
-        self,
-        http_method: str,
-        url: str,
-        params: Dict[str, Any] = None,
-        body: Dict[str, Any] = None,
-        subaccount_id: str = "",
-    ) -> Dict[str, any]:
-        """
-        Generates the url and the valid signature to authenticate with the API endpoint.
-        :param http_method: String representing the HTTP method in use ['GET', 'POST', 'DELETE'].
-        :param url: String representing the API endpoint.
-        :param params: Dictionary of url parameters to be included in the api request. USED ONLY IN SOME CASES
-        :param body: Dictionary representing the values in a request body.
-        :param subaccount_id: String value of subaccount id.
-        :return: Dictionary containing the final 'params' and its corresponding 'signature'.
-        """
+    async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
+        headers = {}
+        if request.headers is not None:
+            headers.update(request.headers)
+        headers.update(self.authenticate_REST_request(request=request))
+        request.headers = headers
+        return request
 
-        # Appends params the url
-        def append_params_to_url(url: str, params: Dict[str, any] = {}) -> str:
-            if params:
-                param_str = urllib.parse.urlencode(params)
-                return f"{url}?{param_str}"
-            return url
+    async def ws_authenticate(self, request: WSRequest) -> WSRequest:
+        auth_params = self.authenticate_WS_request()
+        request.payload['A'] = auth_params
+        return request
 
-        def construct_content_hash(body: Dict[str, any] = {}) -> Tuple[str, bytes]:
-            json_byte: bytes = "".encode()
-            if body:
-                json_byte = ujson.dumps(body).encode()
-                return hashlib.sha512(json_byte).hexdigest(), json_byte
-            return hashlib.sha512(json_byte).hexdigest(), json_byte
+    @staticmethod
+    def construct_content_hash(self, body) -> str:
+        json_byte: bytes = "".encode()
+        if body:
+            json_byte = ujson.dumps(body).encode()
+            return hashlib.sha512(json_byte).hexdigest()
+        return hashlib.sha512(json_byte).hexdigest()
 
+    def authenticate_REST_request(self, request: RESTRequest) -> Dict[str, Any]:
         timestamp = str(int(time.time() * 1000))
-        url = append_params_to_url(url, params)
-        content_hash, content_bytes = construct_content_hash(body)
-        content_to_sign = "".join([timestamp, url, http_method, content_hash, subaccount_id])
+        url = request.url
+        request_body = request.body or {}
+        content_hash = self.construct_content_hash(request_body)
+        if request.params:
+            param_str = urllib.parse.urlencode(request.params)
+            url = f"{url}?{param_str}"
+        content_to_sign = "".join([timestamp, url, request.method.upper(), content_hash, ""])
         signature = hmac.new(self.secret_key.encode(), content_to_sign.encode(), hashlib.sha512).hexdigest()
-
-        # V3 Authentication headers
         headers = {
             "Api-Key": self.api_key,
             "Api-Timestamp": timestamp,
@@ -59,8 +55,11 @@ class BittrexAuth:
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
+        return headers
 
-        if subaccount_id:
-            headers.update({"Api-Subaccount-Id": subaccount_id})
-
-        return {"headers": headers, "body": content_bytes, "url": url}
+    def authenticate_WS_request(self):
+        timestamp = str(int(time.time() * 1000))
+        randomized = str(uuid.uuid4())
+        content_to_sign = f"{timestamp}{randomized}"
+        signature = hmac.new(self.secret_key.encode(), content_to_sign.encode(), hashlib.sha512).hexdigest()
+        return [self.api_key, timestamp, randomized, signature]
