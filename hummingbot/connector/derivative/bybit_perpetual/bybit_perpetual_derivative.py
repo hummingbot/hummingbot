@@ -197,7 +197,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             data=data,
             is_auth_required=True,
             trading_pair=trading_pair,
-            headers={"Referer": CONSTANTS.CLIENT_ID_PREFIX},
+            headers={"referer": CONSTANTS.CLIENT_ID_PREFIX},
             **kwargs,
         )
 
