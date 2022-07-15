@@ -115,6 +115,10 @@ class LatokenExchange(ExchangePyBase):
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT]
 
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+        # API documentation does not clarify the error message for timestamp related problems
+        return False
+
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
         exchange_order_id = await tracked_order.get_exchange_order_id()
         cancel_result = await self._api_post(

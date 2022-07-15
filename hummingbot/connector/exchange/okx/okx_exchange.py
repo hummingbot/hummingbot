@@ -99,6 +99,11 @@ class OkxExchange(ExchangePyBase):
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+        error_description = str(request_exception)
+        is_time_synchronizer_related = '"code":"50113"' in error_description
+        return is_time_synchronizer_related
+
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
@@ -308,78 +313,61 @@ class OkxExchange(ExchangePyBase):
         trade_updates = []
 
         if order.exchange_order_id is not None:
-            for retry_count in range(3):
-                try:
-                    all_fills_response = await self._request_order_fills(order=order)
-                    fills_data = all_fills_response["data"]
+            try:
+                all_fills_response = await self._request_order_fills(order=order)
+                fills_data = all_fills_response["data"]
 
-                    for fill_data in fills_data:
-                        fee = TradeFeeBase.new_spot_fee(
-                            fee_schema=self.trade_fee_schema(),
-                            trade_type=order.trade_type,
-                            percent_token=fill_data["feeCcy"],
-                            flat_fees=[TokenAmount(amount=Decimal(fill_data["fee"]), token=fill_data["feeCcy"])]
-                        )
-                        trade_update = TradeUpdate(
-                            trade_id=str(fill_data["tradeId"]),
-                            client_order_id=order.client_order_id,
-                            exchange_order_id=str(fill_data["ordId"]),
-                            trading_pair=order.trading_pair,
-                            fee=fee,
-                            fill_base_amount=Decimal(fill_data["fillSz"]),
-                            fill_quote_amount=Decimal(fill_data["fillSz"]) * Decimal(fill_data["fillPx"]),
-                            fill_price=Decimal(fill_data["fillPx"]),
-                            fill_timestamp=int(fill_data["ts"]) * 1e-3,
-                        )
-                        trade_updates.append(trade_update)
-                    break
-                except IOError as ex:
-                    if '"code":"50113"' in str(ex):
-                        try:
-                            await self._update_time_synchronizer()
-                        except asyncio.CancelledError:
-                            raise
-                        except Exception:
-                            pass
-                    else:
-                        raise
+                for fill_data in fills_data:
+                    fee = TradeFeeBase.new_spot_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        trade_type=order.trade_type,
+                        percent_token=fill_data["feeCcy"],
+                        flat_fees=[TokenAmount(amount=Decimal(fill_data["fee"]), token=fill_data["feeCcy"])]
+                    )
+                    trade_update = TradeUpdate(
+                        trade_id=str(fill_data["tradeId"]),
+                        client_order_id=order.client_order_id,
+                        exchange_order_id=str(fill_data["ordId"]),
+                        trading_pair=order.trading_pair,
+                        fee=fee,
+                        fill_base_amount=Decimal(fill_data["fillSz"]),
+                        fill_quote_amount=Decimal(fill_data["fillSz"]) * Decimal(fill_data["fillPx"]),
+                        fill_price=Decimal(fill_data["fillPx"]),
+                        fill_timestamp=int(fill_data["ts"]) * 1e-3,
+                    )
+                    trade_updates.append(trade_update)
+            except IOError as ex:
+                if not self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
+                    raise
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        for retry_count in range(3):
-            try:
-                updated_order_data = await self._request_order_update(order=tracked_order)
+        try:
+            updated_order_data = await self._request_order_update(order=tracked_order)
 
-                order_data = updated_order_data["data"][0]
-                new_state = CONSTANTS.ORDER_STATE[order_data["state"]]
+            order_data = updated_order_data["data"][0]
+            new_state = CONSTANTS.ORDER_STATE[order_data["state"]]
 
+            order_update = OrderUpdate(
+                client_order_id=tracked_order.client_order_id,
+                exchange_order_id=str(order_data["ordId"]),
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=int(order_data["uTime"]) * 1e-3,
+                new_state=new_state,
+            )
+
+        except IOError as ex:
+            if self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
                 order_update = OrderUpdate(
                     client_order_id=tracked_order.client_order_id,
-                    exchange_order_id=str(order_data["ordId"]),
                     trading_pair=tracked_order.trading_pair,
-                    update_timestamp=int(order_data["uTime"]) * 1e-3,
-                    new_state=new_state,
+                    update_timestamp=self.current_timestamp,
+                    new_state=tracked_order.current_state,
                 )
+            else:
+                raise
 
-                return order_update
-            except IOError as ex:
-                if '"code":"50113"' in str(ex):
-                    try:
-                        await self._update_time_synchronizer()
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception:
-                        pass
-                else:
-                    raise
-
-        dummy_update = OrderUpdate(
-            client_order_id=tracked_order.client_order_id,
-            trading_pair=tracked_order.trading_pair,
-            update_timestamp=self.current_timestamp,
-            new_state=tracked_order.current_state,
-        )
-        return dummy_update
+        return order_update
 
     async def _user_stream_event_listener(self):
         async for stream_message in self._iter_user_event_queue():

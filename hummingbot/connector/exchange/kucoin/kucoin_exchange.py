@@ -103,6 +103,10 @@ class KucoinExchange(ExchangePyBase):
     def supported_order_types(self):
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+        # API documentation does not clarify the error message for timestamp related problems
+        return False
+
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
