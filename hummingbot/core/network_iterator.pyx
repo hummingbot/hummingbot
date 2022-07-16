@@ -98,7 +98,7 @@ cdef class NetworkIterator(TimeIterator):
             except asyncio.CancelledError:
                 raise
             except asyncio.TimeoutError:
-                self.logger().debug(f"Check network call has timed out. Network status is not connected.")
+                self.logger().error("Check network call has timed out. Network status is not connected.", exc_info=True)
                 new_status = NetworkStatus.NOT_CONNECTED
             except Exception:
                 self.logger().error("Unexpected error while checking for network status.", exc_info=True)
