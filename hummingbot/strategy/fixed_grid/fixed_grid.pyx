@@ -532,7 +532,7 @@ cdef class FixedGridStrategy(StrategyBase):
                     self.c_apply_order_price_modifiers(proposal)
                 if not self._take_if_crossed:
                     self.c_filter_out_takers(proposal)
-            elif int(self._current_timestamp % 10) == 0:
+            elif int(self._current_timestamp % 5) == 0:
                  proposal = self.c_create_grid_proposal()
                  if proposal:
                      self.logger().info(f"{len(proposal.buys)+len(proposal.sells)} orders will be restored.")
