@@ -535,7 +535,7 @@ cdef class FixedGridStrategy(StrategyBase):
                     self.c_apply_order_price_modifiers(proposal)
                 if not self._take_if_crossed:
                     self.c_filter_out_takers(proposal)
-            elif self._started and int(self._current_timestamp % 10) == 0:
+			elif self._started and int(self._current_timestamp % 10) == 0:
 				price = self._market_info.get_mid_price()
 				# Find level closest to market
 				min_diff = 1e8
