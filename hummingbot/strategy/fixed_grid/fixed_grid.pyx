@@ -45,7 +45,6 @@ cdef class FixedGridStrategy(StrategyBase):
     OPTION_LOG_STATUS_REPORT = 1 << 5
     OPTION_LOG_ALL = 0x7fffffffffffffff
     _lock = threading.Lock()
-    _started = False
 
     @classmethod
     def logger(cls):
@@ -117,6 +116,7 @@ cdef class FixedGridStrategy(StrategyBase):
         self._inv_correct = True
         self._start_order_amount = s_decimal_zero
         self._start_order_buy = True
+        self._started = False
 
 
     def all_markets_ready(self):
@@ -426,9 +426,9 @@ cdef class FixedGridStrategy(StrategyBase):
     # ---------------------------------------------------------------
 
     cdef c_start(self, Clock clock, double timestamp):
-	self._started = True
         StrategyBase.c_start(self, clock, timestamp)
-        
+        self._started = True
+
         for i in range(self._n_levels):
             self._price_levels.append(self._grid_price_floor + (i)*self._grid_spread)
             self._base_inv_levels.append((self._n_levels-i-1)*self._order_amount)
@@ -438,8 +438,8 @@ cdef class FixedGridStrategy(StrategyBase):
         self._last_timestamp = timestamp
 
     cdef c_stop(self, Clock clock):
-	self._started = False
         StrategyBase.c_stop(self, clock)
+        self._started = False
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
@@ -536,13 +536,13 @@ cdef class FixedGridStrategy(StrategyBase):
                 if not self._take_if_crossed:
                     self.c_filter_out_takers(proposal)
             elif self._started and int(self._current_timestamp % 5) == 0:
-                 proposal = self.c_create_grid_proposal()
-                 if proposal:
-		     numPropOrders = len(proposal.buys)+len(proposal.sells)
-		     if numPropOrders > 0:
-		     	self.logger().info(f"{numPropOrders} orders will be restored.")
-                     	self.c_execute_orders_proposal(proposal)
-                     proposal = None             
+                proposal = self.c_create_grid_proposal()
+                if proposal:
+                    numPropOrders = len(proposal.buys)+len(proposal.sells)
+                    if numPropOrders > 0:
+                        self.logger().info(f"{numPropOrders} orders will be restored.")
+                        self.c_execute_orders_proposal(proposal)
+                    proposal = None             
 
             self.c_cancel_active_orders_on_max_age_limit()
             self.c_cancel_active_orders(proposal)
