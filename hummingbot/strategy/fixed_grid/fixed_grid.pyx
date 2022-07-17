@@ -552,7 +552,7 @@ cdef class FixedGridStrategy(StrategyBase):
             list buys = []
             list sells = []
 
-        if len(self.active_orders) == len(self._price_levels) - 1:
+        if len(self.active_orders) >= len(self._price_levels) - 1:
             return None	
 	
         # Proposal will be created according to grid price levels
