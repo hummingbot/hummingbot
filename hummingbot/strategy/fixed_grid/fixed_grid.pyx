@@ -426,7 +426,7 @@ cdef class FixedGridStrategy(StrategyBase):
     # ---------------------------------------------------------------
 
     cdef c_start(self, Clock clock, double timestamp):
-	self._started = True
+        self._started = True
         StrategyBase.c_start(self, clock, timestamp)
 
         for i in range(self._n_levels):
@@ -439,8 +439,7 @@ cdef class FixedGridStrategy(StrategyBase):
 
     cdef c_stop(self, Clock clock):
         self._started = False
-	StrategyBase.c_stop(self, clock)
-
+        StrategyBase.c_stop(self, clock)
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
