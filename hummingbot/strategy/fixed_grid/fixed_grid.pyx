@@ -45,6 +45,7 @@ cdef class FixedGridStrategy(StrategyBase):
     OPTION_LOG_STATUS_REPORT = 1 << 5
     OPTION_LOG_ALL = 0x7fffffffffffffff
     _lock = threading.Lock()
+    _started = False
 
     @classmethod
     def logger(cls):
@@ -425,6 +426,7 @@ cdef class FixedGridStrategy(StrategyBase):
     # ---------------------------------------------------------------
 
     cdef c_start(self, Clock clock, double timestamp):
+	self._started = True
         StrategyBase.c_start(self, clock, timestamp)
         
         for i in range(self._n_levels):
@@ -436,6 +438,7 @@ cdef class FixedGridStrategy(StrategyBase):
         self._last_timestamp = timestamp
 
     cdef c_stop(self, Clock clock):
+	self._started = False
         StrategyBase.c_stop(self, clock)
 
     cdef c_tick(self, double timestamp):
@@ -532,11 +535,13 @@ cdef class FixedGridStrategy(StrategyBase):
                     self.c_apply_order_price_modifiers(proposal)
                 if not self._take_if_crossed:
                     self.c_filter_out_takers(proposal)
-            elif int(self._current_timestamp % 5) == 0:
+            elif self._started and int(self._current_timestamp % 5) == 0:
                  proposal = self.c_create_grid_proposal()
                  if proposal:
-                     self.logger().info(f"{len(proposal.buys)+len(proposal.sells)} orders will be restored.")
-                     self.c_execute_orders_proposal(proposal)
+		     numPropOrders = len(proposal.buys)+len(proposal.sells)
+		     if numPropOrders > 0:
+		     	self.logger().info(f"{numPropOrders} orders will be restored.")
+                     	self.c_execute_orders_proposal(proposal)
                      proposal = None             
 
             self.c_cancel_active_orders_on_max_age_limit()
@@ -877,7 +882,7 @@ cdef class FixedGridStrategy(StrategyBase):
             bint orders_created = False
 	
         if self._lock.acquire(False):
-            self.logger().info("Execution collission detected")
+            self.logger().info("Execution collision detected. Not important.")
             return
 
         try:
