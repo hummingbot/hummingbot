@@ -426,8 +426,8 @@ cdef class FixedGridStrategy(StrategyBase):
     # ---------------------------------------------------------------
 
     cdef c_start(self, Clock clock, double timestamp):
+	self._started = True
         StrategyBase.c_start(self, clock, timestamp)
-        self._started = True
 
         for i in range(self._n_levels):
             self._price_levels.append(self._grid_price_floor + (i)*self._grid_spread)
@@ -438,8 +438,9 @@ cdef class FixedGridStrategy(StrategyBase):
         self._last_timestamp = timestamp
 
     cdef c_stop(self, Clock clock):
-        StrategyBase.c_stop(self, clock)
         self._started = False
+	StrategyBase.c_stop(self, clock)
+
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
@@ -536,7 +537,7 @@ cdef class FixedGridStrategy(StrategyBase):
                 if not self._take_if_crossed:
                     self.c_filter_out_takers(proposal)
 	    
-            elif self._started and int(self._current_timestamp % 10) == 0:
+            elif self._started and int(self._current_timestamp % 20) == 0:
                 price = self._market_info.get_mid_price()
                 # Find level closest to market
                 min_diff = 1e8
