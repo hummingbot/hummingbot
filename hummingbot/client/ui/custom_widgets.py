@@ -9,22 +9,18 @@ from prompt_toolkit.auto_suggest import DynamicAutoSuggest
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import DynamicCompleter
 from prompt_toolkit.document import Document
-from prompt_toolkit.filters import (Condition, has_focus, is_done, is_true,
-                                    to_filter)
+from prompt_toolkit.filters import Condition, has_focus, is_done, is_true, to_filter
 from prompt_toolkit.formatted_text.base import StyleAndTextTuples
 from prompt_toolkit.layout.containers import Window, WindowAlign
 from prompt_toolkit.layout.controls import BufferControl
 from prompt_toolkit.layout.margins import NumberedMargin, ScrollbarMargin
-from prompt_toolkit.layout.processors import (AppendAutoSuggestion,
-                                              BeforeInput,
-                                              ConditionalProcessor,
-                                              PasswordProcessor)
+from prompt_toolkit.layout.processors import AppendAutoSuggestion, BeforeInput, ConditionalProcessor, PasswordProcessor
 from prompt_toolkit.lexers import DynamicLexer
 from prompt_toolkit.lexers.base import Lexer
 from prompt_toolkit.widgets.toolbars import SearchToolbar
 
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.ui.style import load_style, text_ui_style
-from hummingbot.client.config.global_config_map import color_config_map
 
 
 class CustomBuffer(Buffer):
@@ -43,20 +39,23 @@ class FormattedTextLexer(Lexer):
 
     PROMPT_TEXT = ">>> "
 
-    def __init__(self) -> None:
+    def __init__(self, client_config_map: ClientConfigAdapter) -> None:
         super().__init__()
-        self.html_tag_css_style_map: Dict[str, str] = {style: css for style, css in load_style().style_rules}
+        self.html_tag_css_style_map: Dict[str, str] = {
+            style: css for style, css in load_style(client_config_map).style_rules
+        }
         self.html_tag_css_style_map.update({
-            style: config.value
-            for style, config in color_config_map.items()
-            if style not in self.html_tag_css_style_map.keys()
+            ti.attr: ti.value
+            for ti in client_config_map.color.traverse()
+            if ti.attr not in self.html_tag_css_style_map
         })
 
         # Maps specific text to its corresponding UI styles
         self.text_style_tag_map: Dict[str, str] = text_ui_style
 
     def get_css_style(self, tag: str) -> str:
-        return self.html_tag_css_style_map.get(tag, "")
+        style = self.html_tag_css_style_map.get(tag, "")
+        return style
 
     def lex_document(self, document: Document) -> Callable[[int], StyleAndTextTuples]:
         lines = document.lines
@@ -68,7 +67,7 @@ class FormattedTextLexer(Lexer):
 
                 # Apply styling to command prompt
                 if current_line.startswith(self.PROMPT_TEXT):
-                    return [(self.get_css_style("primary-label"), current_line)]
+                    return [(self.get_css_style("primary_label"), current_line)]
 
                 matched_indexes: List[Tuple[int, int, str]] = [(match.start(), match.end(), style)
                                                                for special_word, style in self.text_style_tag_map.items()
@@ -82,7 +81,7 @@ class FormattedTextLexer(Lexer):
                 for start_idx, end_idx, style in matched_indexes:
                     line_fragments.extend([
                         ("", current_line[previous_idx:start_idx]),
-                        (self.get_css_style("output-pane"), current_line[start_idx:start_idx + 2]),
+                        (self.get_css_style("output_pane"), current_line[start_idx:start_idx + 2]),
                         (self.get_css_style(style), current_line[start_idx + 2:end_idx])
                     ])
                     previous_idx = end_idx

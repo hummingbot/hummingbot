@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
 
@@ -31,6 +31,9 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
@@ -42,6 +45,7 @@ class BybitExchange(ExchangeBase):
     LONG_POLL_INTERVAL = 120.0
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  bybit_api_key: str,
                  bybit_api_secret: str,
                  trading_pairs: Optional[List[str]] = None,
@@ -50,7 +54,7 @@ class BybitExchange(ExchangeBase):
                  ):
         self._domain = domain
         self._time_synchronizer = TimeSynchronizer()
-        super().__init__()
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         self._auth = BybitAuth(
             api_key=bybit_api_key,
@@ -519,7 +523,8 @@ class BybitExchange(ExchangeBase):
                 method=RESTMethod.POST,
                 path_url=CONSTANTS.ORDER_PATH_URL,
                 params=api_params,
-                is_auth_required=True)
+                is_auth_required=True,
+                referer_header_required=True)
 
             exchange_order_id = str(order_result["result"]["orderId"])
 
@@ -858,7 +863,12 @@ class BybitExchange(ExchangeBase):
                            path_url: str,
                            params: Optional[Dict[str, Any]] = None,
                            data: Optional[Dict[str, Any]] = None,
-                           is_auth_required: bool = False) -> Dict[str, Any]:
+                           is_auth_required: bool = False,
+                           referer_header_required: Optional[bool] = False) -> Dict[str, Any]:
+        if referer_header_required:
+            headers = self._auth.get_referral_code_headers()
+        else:
+            headers = {}
         response = await web_utils.api_request(
             path=path_url,
             api_factory=self._api_factory,
@@ -869,6 +879,7 @@ class BybitExchange(ExchangeBase):
             data=data,
             method=method,
             is_auth_required=is_auth_required,
+            headers=headers
         )
         if response["ret_code"] != 0:
             raise IOError(f"The request to Bybit failed. Error: {response['ret_msg']}. Error code: {response['ret_code']}")
@@ -881,3 +892,22 @@ class BybitExchange(ExchangeBase):
 
     async def _sleep(self, delay: float):
         await asyncio.sleep(delay)
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await BybitAPIOrderBookDataSource.fetch_trading_pairs(
+            domain=self._domain,
+            throttler=self._throttler,
+            api_factory=self._api_factory,
+            time_synchronizer=self._time_synchronizer,
+        )
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await BybitAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            domain=self._domain,
+            api_factory=self._api_factory,
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+        )

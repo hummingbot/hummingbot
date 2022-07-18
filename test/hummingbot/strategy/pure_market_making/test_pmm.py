@@ -1,12 +1,15 @@
 import unittest
 from decimal import Decimal
+from test.mock.mock_asset_price_delegate import MockAssetPriceDelegate
 from typing import List, Optional
 
 import pandas as pd
 
 from hummingbot.client.command.config_command import ConfigCommand
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import PriceType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -19,7 +22,6 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.strategy.pure_market_making.inventory_cost_price_delegate import InventoryCostPriceDelegate
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
-from test.mock.mock_asset_price_delegate import MockAssetPriceDelegate
 
 
 # Update the orderbook so that the top bids and asks are lower than actual for a wider bid ask spread
@@ -53,7 +55,9 @@ class PMMUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange()
+        self.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.mid_price = 100
         self.bid_spread = 0.01
         self.ask_spread = 0.01
@@ -138,7 +142,9 @@ class PMMUnitTest(unittest.TestCase):
             price_type="custom",
         )
 
-        self.ext_market: MockPaperExchange = MockPaperExchange()
+        self.ext_market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.ext_market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.ext_market, self.trading_pair, self.base_asset, self.quote_asset
         )
@@ -147,7 +153,7 @@ class PMMUnitTest(unittest.TestCase):
                                                 volume_step_size=10)
         self.order_book_asset_del = OrderBookAssetPriceDelegate(self.ext_market, self.trading_pair)
         trade_fill_sql = SQLConnectionManager(
-            SQLConnectionType.TRADE_FILLS, db_path=""
+            ClientConfigAdapter(ClientConfigMap()), SQLConnectionType.TRADE_FILLS, db_path=""
         )
         self.inventory_cost_price_del = InventoryCostPriceDelegate(trade_fill_sql, self.trading_pair)
 
@@ -1207,7 +1213,9 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange()
+        self.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.mid_price = 100
         self.market.set_balanced_order_book(trading_pair=self.trading_pair,
                                             mid_price=self.mid_price, min_price=1,

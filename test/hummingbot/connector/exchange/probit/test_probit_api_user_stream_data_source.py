@@ -3,16 +3,14 @@ import json
 import unittest
 from collections import Awaitable
 from typing import Optional
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from aiohttp import WSMsgType
 
-from hummingbot.connector.exchange.probit.probit_api_user_stream_data_source import (
-    ProbitAPIUserStreamDataSource
-)
-from hummingbot.connector.exchange.probit.probit_auth import ProbitAuth
 from hummingbot.connector.exchange.probit import probit_constants as CONSTANTS
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.connector.exchange.probit.probit_api_user_stream_data_source import ProbitAPIUserStreamDataSource
+from hummingbot.connector.exchange.probit.probit_auth import ProbitAuth
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 
 
 class ProbitAPIUserStreamDataSourceTest(unittest.TestCase):

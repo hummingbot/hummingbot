@@ -4,6 +4,8 @@ from decimal import Decimal
 from typing import Awaitable, Dict
 from unittest.mock import patch
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -46,7 +48,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         super().setUp()
         self.log_records = []
 
-        self.connector = MockExchange()
+        self.connector = MockExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
         self.connector._set_current_timestamp(1640000000.0)
         self.tracker = ClientOrderTracker(connector=self.connector)
 
@@ -757,7 +759,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         )
         self.tracker.start_tracking_order(order)
 
-        self.tracker._order_not_found_records[order.client_order_id] = 3
+        self.tracker._order_not_found_records[order.client_order_id] = 10
         self.async_run_with_timeout(self.tracker.process_order_not_found(order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.tracker.active_orders)

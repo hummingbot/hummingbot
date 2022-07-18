@@ -28,6 +28,10 @@ class OrderState(Enum):
     PARTIALLY_FILLED = 4
     FILLED = 5
     FAILED = 6
+    PENDING_APPROVAL = 7
+    APPROVED = 8
+    CREATED = 9
+    COMPLETED = 10
 
 
 class OrderUpdate(NamedTuple):
@@ -36,6 +40,7 @@ class OrderUpdate(NamedTuple):
     new_state: OrderState
     client_order_id: Optional[str] = None
     exchange_order_id: Optional[str] = None
+    misc_updates: Optional[Dict[str, Any]] = None
 
 
 class TradeUpdate(NamedTuple):
