@@ -44,7 +44,7 @@ cdef class FixedGridStrategy(StrategyBase):
     OPTION_LOG_MAKER_ORDER_FILLED = 1 << 4
     OPTION_LOG_STATUS_REPORT = 1 << 5
     OPTION_LOG_ALL = 0x7fffffffffffffff
-    _lock = threading.Lock()
+    #_lock = threading.Lock()
 
     @classmethod
     def logger(cls):
@@ -118,6 +118,7 @@ cdef class FixedGridStrategy(StrategyBase):
         self._start_order_buy = True
         self._started = False
         self._onlyOnce = True
+        self._lock = threading.Lock()
 
 
     def all_markets_ready(self):
@@ -902,7 +903,7 @@ cdef class FixedGridStrategy(StrategyBase):
             str bid_order_id, ask_order_id
             bint orders_created = False
 	
-        if self._lock.acquire(False):
+        if not self._lock.acquire(False):
             self.logger().info("Execution collision detected. Not important.")
             return
 

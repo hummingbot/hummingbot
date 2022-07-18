@@ -47,6 +47,7 @@ cdef class FixedGridStrategy(StrategyBase):
         bint _start_order_buy
         bint _started
         bint _onlyOnce
+        object _lock
 
 
     cdef object c_get_mid_price(self)
