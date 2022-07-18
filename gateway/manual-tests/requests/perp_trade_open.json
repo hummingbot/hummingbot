@@ -1,0 +1,10 @@
+{
+  "address": "$ETH_ADDRESS",
+  "connector": "perp",
+  "chain": "ethereum",
+  "network": "optimism",
+  "quote": "USD",
+  "base": "AAVE",
+  "amount": "0.01",
+  "side": "LONG"
+}

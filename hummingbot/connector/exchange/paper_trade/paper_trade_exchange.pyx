@@ -5,7 +5,7 @@ import math
 import random
 from collections import defaultdict, deque
 from decimal import Decimal
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from cpython cimport PyObject
 from cython.operator cimport address, dereference as deref, postincrement as inc
@@ -44,6 +44,9 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.Utils cimport getIteratorFromReverseIterator, reverse_iterator
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_trade_fee
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 ptm_logger = None
 s_decimal_0 = Decimal(0)
@@ -148,11 +151,17 @@ cdef class PaperTradeExchange(ExchangeBase):
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
 
-    def __init__(self, order_book_tracker: OrderBookTracker, target_market: Callable, exchange_name: str):
+    def __init__(
+        self,
+        client_config_map: "ClientConfigAdapter",
+        order_book_tracker: OrderBookTracker,
+        target_market: Callable,
+        exchange_name: str,
+    ):
         order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
-        self._order_book_tracker = order_book_tracker
+        self._set_order_book_tracker(order_book_tracker)
         self._budget_checker = BudgetChecker(exchange=self)
-        super(ExchangeBase, self).__init__()
+        super(ExchangeBase, self).__init__(client_config_map)
         self._exchange_name = exchange_name
         self._account_balances = {}
         self._account_available_balances = {}
@@ -169,10 +178,6 @@ cdef class PaperTradeExchange(ExchangeBase):
         self._trade_volume_metric_collector = DummyMetricsCollector()
 
     @property
-    def order_book_tracker(self) -> OrderBookTracker:
-        return self._order_book_tracker
-
-    @property
     def budget_checker(self) -> BudgetChecker:
         return self._budget_checker
 
@@ -182,7 +187,7 @@ cdef class PaperTradeExchange(ExchangeBase):
         return f"{order_side}://" + trading_pair + "/" + "".join([f"{val:02x}" for val in vals])
 
     def init_paper_trade_market(self):
-        for trading_pair_str, order_book in self._order_book_tracker.order_books.items():
+        for trading_pair_str, order_book in self.order_book_tracker.order_books.items():
             assert type(order_book) is CompositeOrderBook
             base_asset, quote_asset = self.split_trading_pair(trading_pair_str)
             self._trading_pairs[self._target_market.convert_from_exchange_trading_pair(trading_pair_str)] = TradingPair(trading_pair_str, base_asset, quote_asset)
@@ -209,17 +214,17 @@ cdef class PaperTradeExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, CompositeOrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "order_books_initialized": self._order_book_tracker and len(self._order_book_tracker.order_books) > 0
+            "order_books_initialized": self.order_book_tracker and len(self.order_book_tracker.order_books) > 0
         }
 
     @property
     def ready(self):
-        if not self._order_book_tracker.ready:
+        if not self.order_book_tracker.ready:
             return False
         if all(self.status_dict.values()):
             if not self._paper_trade_market_initialized:
@@ -289,10 +294,10 @@ cdef class PaperTradeExchange(ExchangeBase):
 
     async def start_network(self):
         await self.stop_network()
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
 
     async def stop_network(self):
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
 
     async def check_network(self) -> NetworkStatus:
         return NetworkStatus.CONNECTED
@@ -1035,6 +1040,9 @@ cdef class PaperTradeExchange(ExchangeBase):
             return max(precision_quantum, decimals_quantum)
         else:
             return Decimal(f"1e-10")
+
+    def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
+        return self.c_get_order_price_quantum(trading_pair, price)
 
     cdef object c_get_order_size_quantum(self,
                                          str trading_pair,

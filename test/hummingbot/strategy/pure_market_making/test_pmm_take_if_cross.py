@@ -5,21 +5,19 @@ from typing import List
 
 import pandas as pd
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderBookTradeEvent,
-)
+from hummingbot.core.event.events import MarketEvent, OrderBookTradeEvent
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
-from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
-
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -55,7 +53,9 @@ class PureMMTakeIfCrossUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange()
+        self.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.mid_price = 100
         self.bid_spread = 0.01
         self.ask_spread = 0.01
@@ -81,7 +81,9 @@ class PureMMTakeIfCrossUnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderFilled, self.order_fill_logger)
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
-        self.ext_market: MockPaperExchange = MockPaperExchange()
+        self.ext_market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.ext_market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.ext_market, self.trading_pair, self.base_asset, self.quote_asset
         )

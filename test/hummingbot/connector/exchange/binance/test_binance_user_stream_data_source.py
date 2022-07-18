@@ -2,15 +2,19 @@ import asyncio
 import json
 import re
 import unittest
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Awaitable, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
+from bidict import bidict
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
+from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
@@ -40,22 +44,34 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self.mock_time_provider = MagicMock()
         self.mock_time_provider.time.return_value = 1000
-
+        self.auth = BinanceAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider)
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.connector = BinanceExchange(
+            client_config_map=client_config_map,
+            binance_api_key="",
+            binance_api_secret="",
+            trading_pairs=[],
+            trading_required=False,
+            domain=self.domain)
+        self.connector._web_assistants_factory._auth = self.auth
+
         self.data_source = BinanceAPIUserStreamDataSource(
-            auth=BinanceAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider),
-            domain=self.domain,
+            auth=self.auth,
             trading_pairs=[self.trading_pair],
-            throttler=self.throttler,
-            time_synchronizer=self.time_synchronizer,
+            connector=self.connector,
+            api_factory=self.connector._web_assistants_factory,
+            domain=self.domain
         )
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
         self.resume_test_event = asyncio.Event()
+
+        self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -143,7 +159,8 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         self.data_source._current_listen_key = self.listen_key
         result: bool = self.async_run_with_timeout(self.data_source._ping_listen_key())
 
-        self.assertTrue(self._is_logged("WARNING", f"Failed to refresh the listen key {self.listen_key}: {self._error_response()}"))
+        self.assertTrue(self._is_logged("WARNING", f"Failed to refresh the listen key {self.listen_key}: "
+                                                   f"{self._error_response()}"))
         self.assertFalse(result)
 
     @aioresponses()

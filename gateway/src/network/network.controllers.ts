@@ -24,7 +24,7 @@ export async function getStatus(
   let chain: string;
   let chainId: number;
   let rpcUrl: string;
-  let currentBlockNumber: number;
+  let currentBlockNumber: number | undefined;
   let nativeCurrency: string;
 
   if (req.chain) {
@@ -63,11 +63,20 @@ export async function getStatus(
   }
 
   for (const connection of connections) {
+    if (!connection.ready()) {
+      await connection.init();
+    }
+
     chain = connection.chain;
     chainId = connection.chainId;
     rpcUrl = connection.rpcUrl;
-    currentBlockNumber = await connection.getCurrentBlockNumber();
     nativeCurrency = connection.nativeTokenSymbol;
+
+    try {
+      currentBlockNumber = await connection.getCurrentBlockNumber();
+    } catch (_e) {
+      // do nothing, this means we are not able to connect to the network
+    }
     statuses.push({
       chain,
       chainId,

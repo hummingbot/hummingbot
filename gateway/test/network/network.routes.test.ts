@@ -4,18 +4,14 @@ import { patch, unpatch } from '../services/patch';
 import { Ethereum } from '../../src/chains/ethereum/ethereum';
 import { Harmony } from '../../src/chains/harmony/harmony';
 import { Avalanche } from '../../src/chains/avalanche/avalanche';
-import { OverrideConfigs } from '../config.util';
+import { Polygon } from '../../src/chains/polygon/polygon';
 import { patchEVMNonceManager } from '../evm.nonce.mock';
-
-const overrideConfigs = new OverrideConfigs();
 let eth: Ethereum;
 let avalanche: Avalanche;
 let harmony: Harmony;
+let polygon: Polygon;
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
-
   eth = Ethereum.getInstance('kovan');
   patchEVMNonceManager(eth.nonceManager);
   await eth.init();
@@ -26,11 +22,15 @@ beforeAll(async () => {
 
   harmony = Harmony.getInstance('testnet');
   await harmony.init();
+
+  polygon = Polygon.getInstance('mumbai');
+  await polygon.init();
 });
 
 beforeEach(() => {
   patchEVMNonceManager(eth.nonceManager);
   patchEVMNonceManager(avalanche.nonceManager);
+  patchEVMNonceManager(polygon.nonceManager);
 });
 
 afterEach(async () => {
@@ -41,7 +41,7 @@ afterAll(async () => {
   await eth.close();
   await avalanche.close();
   await harmony.close();
-  await overrideConfigs.resetConfigs();
+  await polygon.close();
 });
 
 describe('GET /network/status', () => {
@@ -117,6 +117,30 @@ describe('GET /network/status', () => {
       .expect((res) => expect(res.body.currentBlockNumber).toBeDefined());
   });
 
+  it('should return 200 when asking for avalance network status', async () => {
+    patch(polygon, 'chain', () => {
+      return 'mumbai';
+    });
+    patch(polygon, 'rpcUrl', 'http://...');
+    patch(polygon, 'chainId', 80001);
+    patch(polygon, 'getCurrentBlockNumber', () => {
+      return 2;
+    });
+
+    await request(gatewayApp)
+      .get(`/network/status`)
+      .query({
+        chain: 'polygon',
+        network: 'mumbai',
+      })
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.chain).toBe('mumbai'))
+      .expect((res) => expect(res.body.chainId).toBeDefined())
+      .expect((res) => expect(res.body.rpcUrl).toBeDefined())
+      .expect((res) => expect(res.body.currentBlockNumber).toBeDefined());
+  });
+
   it('should return 200 when requesting network status without specifying', async () => {
     patch(eth, 'getCurrentBlockNumber', () => {
       return 212;
@@ -173,6 +197,17 @@ describe('GET /network/tokens', () => {
         chain: 'ethereum',
         network: 'kovan',
         tokenSymbols: ['COIN3', 'COIN1'],
+      })
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+  it('should return 200 when retrieving specific tokens', async () => {
+    await request(gatewayApp)
+      .get(`/network/tokens`)
+      .query({
+        chain: 'polygon',
+        network: 'mumbai',
+        tokenSymbols: ['WMATIC', 'WETH'],
       })
       .expect('Content-Type', /json/)
       .expect(200);
