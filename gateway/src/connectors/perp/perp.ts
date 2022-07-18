@@ -166,7 +166,7 @@ export class Perp implements Perpish {
     indexTwapPrice: Big;
   }> {
     const market = this._perp.markets.getMarket({ tickerSymbol });
-    return await market.getPrices();
+    return await market.getPrices({ cache: false });
   }
 
   /**
@@ -193,17 +193,22 @@ export class Perp implements Perpish {
       entryPrice: string = '0',
       pendingFundingPayment: string = '0';
     if (positions && tickerSymbol) {
-      const fp = await positions.getTotalPendingFundingPayments();
+      const fp = await positions.getTotalPendingFundingPayments({
+        cache: false,
+      });
       for (const [key, value] of Object.entries(fp)) {
         if (key === tickerSymbol) pendingFundingPayment = value.toString();
       }
 
       const position = await positions.getTakerPositionByTickerSymbol(
-        tickerSymbol
+        tickerSymbol,
+        { cache: false }
       );
       if (position) {
         positionSide = PositionSide[position.side];
-        unrealizedProfit = (await position.getUnrealizedPnl()).toString();
+        unrealizedProfit = (
+          await position.getUnrealizedPnl({ cache: false })
+        ).toString();
         leverage = '1';
         entryPrice = position.entryPrice.toString();
         positionAmt = position.sizeAbs.toString();
