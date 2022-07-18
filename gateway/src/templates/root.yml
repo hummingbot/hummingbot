@@ -83,3 +83,7 @@ configurations:
   $namespace serum:
     configurationPath: serum.yml
     schemaPath: serum-schema.json
+
+  $namespace binance-smart-chain:
+    configurationPath: binance-smart-chain.yml
+    schemaPath: ethereum-schema.json

@@ -1,0 +1,18 @@
+# list the BSC networks available to gateway
+networks:
+  mainnet: 
+    chainID: 56
+    nodeURL: 'https://apis.ankr.com/{}/{}/binance/full/main'
+    tokenListType: 'FILE'
+    tokenListSource: 'src/chains/binance-smart-chain/binance-smart-chain_tokens_mainnet.json'
+    nativeCurrencySymbol: 'BNB'    
+  testnet: 
+    chainID: 97
+    nodeURL: 'https://apis.ankr.com/{}/{}/binance/full/test'
+    tokenListType: 'FILE'
+    tokenListSource: 'src/chains/binance-smart-chain/binance-smart-chain_tokens_testnet.json'
+    nativeCurrencySymbol: 'BNB'
+
+nodeAPIKey: ''
+manualGasPrice: 100
+gasLimit: 3000000

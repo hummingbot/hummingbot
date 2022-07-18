@@ -21,6 +21,7 @@ import { Sushiswap } from '../connectors/sushiswap/sushiswap';
 import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
 import { Defira } from '../connectors/defira/defira';
 import { Serumish } from '../connectors/serum/serum';
+import { BinanceSmartChain } from '../chains/binance-smart-chain/binance-smart-chain';
 
 export type ChainUnion = Ethereumish | Solanaish;
 
@@ -43,6 +44,8 @@ export async function getChain<T>(
   else if (chain === 'harmony') chainInstance = Harmony.getInstance(network);
   else if (chain === 'solana')
     chainInstance = await Solana.getInstance(network);
+  else if (chain === 'binance-smart-chain')
+    chainInstance = BinanceSmartChain.getInstance(network);
   else throw new Error('unsupported chain');
 
   if (!chainInstance.ready()) {
