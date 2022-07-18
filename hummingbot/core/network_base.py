@@ -21,7 +21,7 @@ class NetworkBase:
         self._network_status = NetworkStatus.STOPPED
         self._last_connected_timestamp = NaN
         self._check_network_interval = 60.0
-        self._check_network_timeout = 60.0
+        self._check_network_timeout = 120.0
         self._network_error_wait_time = 60.0
         self._check_network_task = None
         self._started = False
