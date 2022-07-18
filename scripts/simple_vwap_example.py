@@ -41,7 +41,7 @@ class VWAPExample(ScriptStrategyBase):
                 vwap_order: OrderCandidate = self.create_order()
                 vwap_order_adjusted = self.vwap["connector"].budget_checker.adjust_candidate(vwap_order,
                                                                                              all_or_none=False)
-                if math.isclose(vwap_order_adjusted.amount, Decimal("0"), 1E-5):
+                if math.isclose(vwap_order_adjusted.amount, Decimal("0"), rel_tol=1E-5):
                     self.logger().info(f"Order adjusted: {vwap_order_adjusted.amount}, too low to place an order")
                 else:
                     self.place_order(
