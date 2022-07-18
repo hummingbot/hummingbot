@@ -3,7 +3,7 @@ import { AvailableNetworks } from '../../services/config-manager-types';
 export namespace UniswapConfig {
   export interface NetworkConfig {
     allowedSlippage: string;
-    gasLimit: number;
+    gasLimitEstimate: number;
     ttl: number;
     maximumHops: number;
     uniswapV3SmartOrderRouterAddress: (network: string) => string;
@@ -16,7 +16,9 @@ export namespace UniswapConfig {
     allowedSlippage: ConfigManagerV2.getInstance().get(
       `uniswap.allowedSlippage`
     ),
-    gasLimit: ConfigManagerV2.getInstance().get(`uniswap.gasLimit`),
+    gasLimitEstimate: ConfigManagerV2.getInstance().get(
+      `uniswap.gasLimitEstimate`
+    ),
     ttl: ConfigManagerV2.getInstance().get(`uniswap.ttl`),
     maximumHops: ConfigManagerV2.getInstance().get(`uniswap.maximumHops`),
     uniswapV3SmartOrderRouterAddress: (network: string) =>
@@ -28,7 +30,7 @@ export namespace UniswapConfig {
         `uniswap.contractAddresses.${network}.uniswapV3NftManagerAddress`
       ),
     tradingTypes: (type: string) => {
-      return type === 'swap' ? ['EVM_AMM'] : ['EVM_Range_AMM'];
+      return type === 'swap' ? ['EVM_AMM'] : ['EVM_AMM_LP'];
     },
     availableNetworks: [
       {

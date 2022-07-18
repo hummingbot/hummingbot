@@ -1,19 +1,13 @@
+from typing import Any, Dict, List, Optional, Tuple
+
+from pydantic import Field, SecretStr
+
 import hummingbot.connector.exchange.kraken.kraken_constants as CONSTANTS
-
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-)
-
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-
 
 CENTRALIZED = True
 
@@ -182,31 +176,42 @@ def _api_tier_validator(value: str) -> Optional[str]:
         return "No such Kraken API Tier."
 
 
-KEYS = {
-    "kraken_api_key":
-        ConfigVar(key="kraken_api_key",
-                  prompt="Enter your Kraken API key >>> ",
-                  required_if=using_exchange("kraken"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "kraken_secret_key":
-        ConfigVar(key="kraken_secret_key",
-                  prompt="Enter your Kraken secret key >>> ",
-                  required_if=using_exchange("kraken"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "kraken_api_tier":
-        ConfigVar(key="kraken_api_tier",
-                  prompt="Enter your Kraken API Tier (Starter/Intermediate/Pro) >>> ",
-                  required_if=using_exchange("kraken"),
-                  default="Starter",
-                  is_secure=False,
-                  is_connect_key=True,
-                  validator=lambda v: _api_tier_validator(v),
-                  ),
-}
+class KrakenConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="kraken", client_data=None)
+    kraken_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Kraken API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    kraken_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Kraken secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    kraken_api_tier: str = Field(
+        default="Starter",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Kraken API Tier (Starter/Intermediate/Pro)",
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "kraken"
 
 
-def build_api_factory() -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory()
+KEYS = KrakenConfigMap.construct()
+
+
+def build_api_factory(throttler: AsyncThrottler) -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory(throttler=throttler)
     return api_factory

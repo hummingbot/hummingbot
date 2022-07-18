@@ -12,20 +12,14 @@ import {
   OUT_OF_GAS_ERROR_MESSAGE,
   UNKNOWN_ERROR_MESSAGE,
 } from '../../../src/services/error-handler';
-import { OverrideConfigs } from '../../config.util';
 import { patchEVMNonceManager } from '../../evm.nonce.mock';
 import * as transactionSuccesful from './fixtures/transaction-succesful.json';
 import * as transactionSuccesfulReceipt from './fixtures/transaction-succesful-receipt.json';
 import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-receipt.json';
-
-const overrideConfigs = new OverrideConfigs();
 let eth: Ethereum;
 
 beforeAll(async () => {
-  await overrideConfigs.init();
-  await overrideConfigs.updateConfigs();
-
   eth = Ethereum.getInstance('kovan');
   patchEVMNonceManager(eth.nonceManager);
   await eth.init();
@@ -41,7 +35,6 @@ afterEach(() => {
 
 afterAll(async () => {
   await eth.close();
-  await overrideConfigs.resetConfigs();
 });
 
 const patchGetWallet = () => {
@@ -54,6 +47,10 @@ const patchGetWallet = () => {
 
 const patchGetNonce = () => {
   patch(eth.nonceManager, 'getNonce', () => 2);
+};
+
+const patchGetNextNonce = () => {
+  patch(eth.nonceManager, 'getNextNonce', () => 3);
 };
 
 const patchGetERC20Balance = () => {
@@ -270,6 +267,36 @@ describe('POST /evm/nonce', () => {
   it('should return 404 when parameters are invalid', async () => {
     await request(gatewayApp)
       .post(`/evm/nonce`)
+      .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        address: 'da857cbda0ba96757fed842617a4',
+      })
+      .expect(404);
+  });
+});
+
+describe('POST /evm/nextNonce', () => {
+  it('should return 200', async () => {
+    patchGetWallet();
+    patchGetNextNonce();
+
+    await request(gatewayApp)
+      .post(`/evm/nextNonce`)
+      .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.nonce).toBe(3));
+  });
+
+  it('should return 404 when parameters are invalid', async () => {
+    await request(gatewayApp)
+      .post(`/evm/nextNonce`)
       .send({
         chain: 'ethereum',
         network: 'kovan',

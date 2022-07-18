@@ -3,7 +3,7 @@ import logging
 import time
 import warnings
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
 
@@ -50,6 +50,9 @@ from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 bpm_logger = None
 s_float_NaN = float("nan")
 s_decimal_0 = Decimal("0")
@@ -76,6 +79,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     def __init__(
             self,
+            client_config_map: "ClientConfigAdapter",
             coinflex_perpetual_api_key: str = None,
             coinflex_perpetual_api_secret: str = None,
             trading_pairs: Optional[List[str]] = None,
@@ -88,11 +92,13 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._trading_required = trading_required
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._domain = domain
-        self._api_factory = web_utils.build_api_factory(auth=self._auth)
+        self._api_factory = web_utils.build_api_factory(
+            throttler=self._throttler,
+            auth=self._auth)
         self._rest_assistant: Optional[RESTAssistant] = None
         self._ws_assistant: Optional[WSAssistant] = None
 
-        ExchangeBase.__init__(self)
+        ExchangeBase.__init__(self, client_config_map)
         PerpetualTrading.__init__(self)
 
         self._user_stream_tracker = UserStreamTracker(
@@ -594,6 +600,22 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
     def get_sell_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
+
+    async def trading_pair_symbol_map(self):
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await CoinflexPerpetualAPIOrderBookDataSource.trading_pair_symbol_map(
+            domain=self._domain,
+            api_factory=self._api_factory,
+            throttler=self._throttler)
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await CoinflexPerpetualAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            domain=self._domain,
+            api_factory=self._api_factory,
+            throttler=self._throttler,
+        )
 
     def _stop_network(self):
         # Reset timestamps and _poll_notifier for status_polling_loop

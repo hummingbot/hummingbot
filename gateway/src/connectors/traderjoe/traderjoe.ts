@@ -26,24 +26,22 @@ import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 export class Traderjoe implements Uniswapish {
   private static _instances: { [name: string]: Traderjoe };
   private avalanche: Avalanche;
-  private _chain: string;
   private _router: string;
   private _routerAbi: ContractInterface;
-  private _gasLimit: number;
+  private _gasLimitEstimate: number;
   private _ttl: number;
   private chainId;
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
-  private constructor(chain: string, network: string) {
-    this._chain = chain;
+  private constructor(network: string) {
     const config = TraderjoeConfig.config;
     this.avalanche = Avalanche.getInstance(network);
     this.chainId = this.avalanche.chainId;
     this._router = config.routerAddress(network);
     this._ttl = config.ttl;
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = config.gasLimit;
+    this._gasLimitEstimate = config.gasLimitEstimate;
   }
 
   public static getInstance(chain: string, network: string): Traderjoe {
@@ -51,7 +49,7 @@ export class Traderjoe implements Uniswapish {
       Traderjoe._instances = {};
     }
     if (!(chain + network in Traderjoe._instances)) {
-      Traderjoe._instances[chain + network] = new Traderjoe(chain, network);
+      Traderjoe._instances[chain + network] = new Traderjoe(network);
     }
 
     return Traderjoe._instances[chain + network];
@@ -68,8 +66,10 @@ export class Traderjoe implements Uniswapish {
   }
 
   public async init() {
-    if (this._chain == 'avalanche' && !this.avalanche.ready())
-      throw new Error('Avalanche is not available');
+    if (!this.avalanche.ready()) {
+      await this.avalanche.init();
+    }
+
     for (const token of this.avalanche.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
@@ -101,10 +101,10 @@ export class Traderjoe implements Uniswapish {
   }
 
   /**
-   * Default gas limit for swap transactions.
+   * Default gas limit estimate for swap transactions.
    */
-  public get gasLimit(): number {
-    return this._gasLimit;
+  public get gasLimitEstimate(): number {
+    return this._gasLimitEstimate;
   }
 
   /**
@@ -266,10 +266,9 @@ export class Traderjoe implements Uniswapish {
 
     const contract = new Contract(traderjoeRouter, abi, wallet);
     if (!nonce) {
-      nonce = await this.avalanche.nonceManager.getNonce(wallet.address);
+      nonce = await this.avalanche.nonceManager.getNextNonce(wallet.address);
     }
     let tx;
-    console.log(result);
     if (maxFeePerGas || maxPriorityFeePerGas) {
       tx = await contract[result.methodName](...result.args, {
         gasLimit: gasLimit,
