@@ -14,7 +14,7 @@ interface Config {
   autoGasPrice: boolean;
   manualGasPrice: number;
   gasPricerefreshTime: number;
-  gasLimit: number;
+  gasLimitTransaction: number;
 }
 
 export function getHarmonyConfig(
@@ -50,6 +50,8 @@ export function getHarmonyConfig(
     gasPricerefreshTime: ConfigManagerV2.getInstance().get(
       chainName + '.gasPricerefreshTime'
     ),
-    gasLimit: ConfigManagerV2.getInstance().get(chainName + '.gasLimit'),
+    gasLimitTransaction: ConfigManagerV2.getInstance().get(
+      chainName + '.gasLimitTransaction'
+    ),
   };
 }

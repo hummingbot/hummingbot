@@ -130,6 +130,7 @@
     "@solana/web3.js": "^1.46.0"
   },
   "resolutions": {
-    "@solana/web3.js": "^1.46.0"
+    "@solana/web3.js": "^1.46.0",
+    "web3-utils": "1.7.3"
   }
 }
