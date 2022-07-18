@@ -236,7 +236,7 @@ cdef class ConnectorBase(NetworkIterator):
         """
         raise NotImplementedError
 
-    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
+    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, **kwargs) -> str:
         """
         Buys an amount of base asset (of the given trading pair).
         :param trading_pair: The market (e.g. BTC-USDT) to buy from
@@ -251,7 +251,7 @@ cdef class ConnectorBase(NetworkIterator):
                    object price=s_decimal_NaN, dict kwargs={}):
         return self.buy(trading_pair, amount, order_type, price, **kwargs)
 
-    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
+    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, **kwargs) -> str:
         """
         Sells an amount of base asset (of the given trading pair).
         :param trading_pair: The market (e.g. BTC-USDT) to sell from
