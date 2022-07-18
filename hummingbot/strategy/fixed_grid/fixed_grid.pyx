@@ -501,7 +501,6 @@ cdef class FixedGridStrategy(StrategyBase):
                 if base_balance < self._base_inv_levels[self._current_level]:
                     self._inv_correct = False
                     if self._onlyOnce:
-                        self._onlyOnce = False
                         self.logger().warning(f"WARNING: Insuffient {base_asset} balance for grid bot. Will attempt to rebalance")
                         if base_balance + quote_balance < self._base_inv_levels[self._current_level] + self._quote_inv_levels_current_price[self._current_level]:
                             self.logger().warning(f"WARNING: Insuffient {base_asset} and {quote_asset} balance for grid bot. Unable to rebalance."
@@ -515,7 +514,6 @@ cdef class FixedGridStrategy(StrategyBase):
                 elif quote_balance < self._quote_inv_levels_current_price[self._current_level]:
                     self._inv_correct = False
                     if self._onlyOnce:
-                        self._onlyOnce = False
                         self.logger().warning(f"WARNING: Insuffient {quote_asset} balance for grid bot. Will attempt to rebalance")
                         if base_balance + quote_balance < self._base_inv_levels[self._current_level] + self._quote_inv_levels_current_price[self._current_level]:
                             self.logger().warning(f"WARNING: Insuffient {base_asset} and {quote_asset} balance for grid bot. Unable to rebalance."
@@ -534,6 +532,7 @@ cdef class FixedGridStrategy(StrategyBase):
                     proposal = self.c_create_grid_proposal()
                 else:
                     if self._onlyOnce:
+                        self._onlyOnce = False
                         # Create rebalance proposal
                         proposal = self.c_create_rebalance_proposal()
                         # 2. Apply functions that modify orders price
