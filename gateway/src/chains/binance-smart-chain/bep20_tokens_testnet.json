@@ -28,7 +28,7 @@
       {
         "name": "Ethereum Token",
         "symbol": "ETH",
-        "address": "0x2170ed0880ac9a755fd29b2688956bd959f933f8",
+        "address": "0x8babbb98678facc7342735486c851abd7a0d17ca",
         "chainId": 97,
         "decimals": 18,
         "logoURI": "https://exchange.pancakeswap.finance/images/coins/0x2170ed0880ac9a755fd29b2688956bd959f933f8.png"

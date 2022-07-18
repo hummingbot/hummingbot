@@ -19,6 +19,7 @@ import {
   UNKNOWN_CHAIN_ERROR_CODE,
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../error-handler';
+import { BinanceSmartChain } from '../../chains/binance-smart-chain/binance-smart-chain';
 
 const walletPath = './conf/wallets';
 
@@ -60,6 +61,10 @@ export async function addWallet(
     const harmony = Harmony.getInstance(req.network);
     address = harmony.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await harmony.encrypt(req.privateKey, passphrase);
+  } else if (req.chain === 'binance-smart-chain') {
+    const bsc = BinanceSmartChain.getInstance(req.network);
+    address = bsc.getWalletFromPrivateKey(req.privateKey).address;
+    encryptedPrivateKey = await bsc.encrypt(req.privateKey, passphrase);
   } else {
     throw new HttpException(
       500,

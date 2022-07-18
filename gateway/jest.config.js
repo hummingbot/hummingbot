@@ -8,6 +8,7 @@ module.exports = {
     'src/paths.ts',
     'src/services/ethereum-base.ts',
     'src/services/telemetry-transport.ts',
+    'src/chains/binance-smart-chain/binance-smart-chain.ts',
     'src/chains/ethereum/ethereum.ts',
     'src/chains/ethereum/uniswap/uniswap.ts',
     'src/chains/avalanche/avalanche.ts',
