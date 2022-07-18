@@ -25,6 +25,7 @@ class TestFixedGridConfigMap(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.reset_config_map()
+        required_exchanges.clear()
         super().tearDown()
 
     def reset_config_map(self):
@@ -48,7 +49,6 @@ class TestFixedGridConfigMap(unittest.TestCase):
         self.assertEqual(expected, prompt)
 
     def test_exchange_on_validated(self):
-        exchange = "binance"
-        exchange_on_validated(exchange)
-        expected_required_exchanges = {exchange}
+        exchange_on_validated(self.exchange)
+        expected_required_exchanges = {self.exchange}
         self.assertEqual(expected_required_exchanges, required_exchanges)
