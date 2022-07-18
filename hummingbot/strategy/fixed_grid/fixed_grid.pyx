@@ -426,7 +426,6 @@ cdef class FixedGridStrategy(StrategyBase):
     # ---------------------------------------------------------------
 
     cdef c_start(self, Clock clock, double timestamp):
-        self._started = True
         StrategyBase.c_start(self, clock, timestamp)
 
         for i in range(self._n_levels):
@@ -537,7 +536,7 @@ cdef class FixedGridStrategy(StrategyBase):
                     self.c_filter_out_takers(proposal)
 	    
             elif self._started and int(self._current_timestamp % 20) == 0:
-                '''
+                
                 price = self._market_info.get_mid_price()
                 # Find level closest to market
                 min_diff = 1e8
@@ -545,7 +544,7 @@ cdef class FixedGridStrategy(StrategyBase):
                     if min(min_diff, abs(self._price_levels[i]-price)) < min_diff:
                         min_diff = abs(self._price_levels[i]-price)
                         self._current_level = i
-		'''
+		
                 proposal = self.c_create_grid_proposal()
                 if proposal:
                     numPropOrders = len(proposal.buys)+len(proposal.sells)
@@ -558,6 +557,9 @@ cdef class FixedGridStrategy(StrategyBase):
             self.c_cancel_active_orders(proposal)
             if self.c_to_create_orders(proposal):
                 self.c_execute_orders_proposal(proposal)
+
+                if self._inv_correct:
+                    self._started = True
         finally:
             self._last_timestamp = timestamp
 
