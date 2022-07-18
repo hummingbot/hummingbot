@@ -146,7 +146,7 @@ export class Defira implements Uniswapish {
   /**
    * Default gas limit for swap transactions.
    */
-  public get gasLimit(): number {
+  public get gasLimitEstimate(): number {
     return this._gasLimit;
   }
 

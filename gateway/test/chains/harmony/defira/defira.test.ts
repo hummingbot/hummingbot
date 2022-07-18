@@ -88,9 +88,9 @@ const patchTrade = (key: string, error?: Error) => {
   });
 };
 
-describe('verify defira gasLimit', () => {
+describe('verify defira gasLimitEstimate', () => {
   it('Should initially match the config for mainnet', () => {
-    expect(defira.gasLimit).toEqual(DefiraConfig.config.gasLimit());
+    expect(defira.gasLimitEstimate).toEqual(DefiraConfig.config.gasLimit());
   });
 });
 
