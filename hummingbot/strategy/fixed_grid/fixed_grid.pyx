@@ -539,7 +539,7 @@ cdef class FixedGridStrategy(StrategyBase):
                         # 2. Apply functions that modify orders price
                         self.c_apply_order_price_modifiers(proposal)
                 
-                if not self._take_if_crossed:
+                if proposal and not self._take_if_crossed:
                     self.c_filter_out_takers(proposal)
 	    
             elif self._started and int(self._current_timestamp % 20) == 0:
