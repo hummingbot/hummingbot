@@ -5,7 +5,7 @@ import logging
 import time
 import uuid
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import Any, AsyncIterable, Dict, List, Optional, TYPE_CHECKING
 
 import aiohttp
 from libc.stdint cimport int64_t
@@ -19,6 +19,7 @@ from hummingbot.connector.exchange.bitfinex import (
     ContentEventType,
     OrderStatus,
 )
+from hummingbot.connector.exchange.bitfinex.bitfinex_api_order_book_data_source import BitfinexAPIOrderBookDataSource
 from hummingbot.connector.exchange.bitfinex.bitfinex_auth import BitfinexAuth
 from hummingbot.connector.exchange.bitfinex.bitfinex_in_flight_order cimport BitfinexInFlightOrder
 from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_tracker import BitfinexOrderBookTracker
@@ -52,6 +53,9 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -104,20 +108,21 @@ cdef class BitfinexExchange(ExchangeBase):
         return s_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  bitfinex_api_key: str,
                  bitfinex_secret_key: str,
                  # interval which the class periodically pulls status from the rest API
                  poll_interval: float = 5.0,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
-        super().__init__()
+        super().__init__(client_config_map)
 
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
 
         self._trading_required = trading_required
         self._bitfinex_auth = BitfinexAuth(bitfinex_api_key, bitfinex_secret_key)
-        self._order_book_tracker = BitfinexOrderBookTracker(trading_pairs)
+        self._set_order_book_tracker(BitfinexOrderBookTracker(trading_pairs))
         self._user_stream_tracker = BitfinexUserStreamTracker(
             bitfinex_auth=self._bitfinex_auth, trading_pairs=trading_pairs)
         self._tx_tracker = BitfinexExchangeTransactionTracker(self)
@@ -183,7 +188,7 @@ cdef class BitfinexExchange(ExchangeBase):
         Get mapping of all the order books that are being tracked.
         :return: Dict[trading_pair : OrderBook]
         """
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def status_dict(self) -> Dict[str]:
@@ -194,7 +199,7 @@ cdef class BitfinexExchange(ExchangeBase):
         """
         return {
             # info about bids| ask and other stuffs
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             # info from wallets
             "account_balance": len(
                 self._account_balances) > 0 if self._trading_required else True,
@@ -307,7 +312,7 @@ cdef class BitfinexExchange(ExchangeBase):
         Async function used by NetworkBase class to handle when a single market goes online
         """
         # when exchange is online start streams
-        self._order_tracker_task = self._order_book_tracker.start()
+        self._order_tracker_task = self.order_book_tracker.start()
         if self._trading_required:
             self._ws_task = safe_ensure_future(self._ws_message_listener())
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -545,7 +550,7 @@ cdef class BitfinexExchange(ExchangeBase):
         :returns: OrderBook for a specific trading pair
         """
         cdef:
-            dict order_books = self._order_book_tracker.order_books
+            dict order_books = self.order_book_tracker.order_books
 
         if trading_pair not in order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
@@ -1354,3 +1359,11 @@ cdef class BitfinexExchange(ExchangeBase):
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await BitfinexAPIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await BitfinexAPIOrderBookDataSource.get_last_traded_prices(trading_pairs=trading_pairs)

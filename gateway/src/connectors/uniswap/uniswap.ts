@@ -1,9 +1,4 @@
-import {
-  InitializationError,
-  UniswapishPriceError,
-  SERVICE_UNITIALIZED_ERROR_CODE,
-  SERVICE_UNITIALIZED_ERROR_MESSAGE,
-} from '../../services/error-handler';
+import { UniswapishPriceError } from '../../services/error-handler';
 import { isFractionString } from '../../services/validators';
 import { UniswapConfig } from './uniswap.config';
 import routerAbi from './uniswap_v2_router_abi.json';
@@ -30,19 +25,17 @@ import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 export class Uniswap implements Uniswapish {
   private static _instances: { [name: string]: Uniswap };
   private ethereum: Ethereum;
-  private _chain: string;
   private _alphaRouter: AlphaRouter;
   private _router: string;
   private _routerAbi: ContractInterface;
-  private _gasLimit: number;
+  private _gasLimitEstimate: number;
   private _ttl: number;
   private _maximumHops: number;
   private chainId;
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
-  private constructor(chain: string, network: string) {
-    this._chain = chain;
+  private constructor(network: string) {
     const config = UniswapConfig.config;
     this.ethereum = Ethereum.getInstance(network);
     this.chainId = this.ethereum.chainId;
@@ -53,7 +46,7 @@ export class Uniswap implements Uniswapish {
       provider: this.ethereum.provider,
     });
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = UniswapConfig.config.gasLimit;
+    this._gasLimitEstimate = UniswapConfig.config.gasLimitEstimate;
     this._router = config.uniswapV3SmartOrderRouterAddress(network);
   }
 
@@ -62,7 +55,7 @@ export class Uniswap implements Uniswapish {
       Uniswap._instances = {};
     }
     if (!(chain + network in Uniswap._instances)) {
-      Uniswap._instances[chain + network] = new Uniswap(chain, network);
+      Uniswap._instances[chain + network] = new Uniswap(network);
     }
 
     return Uniswap._instances[chain + network];
@@ -79,11 +72,9 @@ export class Uniswap implements Uniswapish {
   }
 
   public async init() {
-    if (this._chain == 'ethereum' && !this.ethereum.ready())
-      throw new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
-        SERVICE_UNITIALIZED_ERROR_CODE
-      );
+    if (!this.ethereum.ready()) {
+      await this.ethereum.init();
+    }
     for (const token of this.ethereum.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
@@ -122,10 +113,10 @@ export class Uniswap implements Uniswapish {
   }
 
   /**
-   * Default gas limit for swap transactions.
+   * Default gas limit used to estimate gasCost for swap transactions.
    */
-  public get gasLimit(): number {
-    return this._gasLimit;
+  public get gasLimitEstimate(): number {
+    return this._gasLimitEstimate;
   }
 
   /**

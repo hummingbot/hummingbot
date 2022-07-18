@@ -5,7 +5,7 @@ allowedSlippage: '2/100'
 
 # the maximum gas allowed for a unsiwap trade.
 # TODO: find best values for sushi swap
-gasLimit: 150688
+gasLimitEstimate: 150688
 
 # how long a trade is valid in seconds. After time passes sushiswap will not
 # perform the trade, but the gas will still be sent.

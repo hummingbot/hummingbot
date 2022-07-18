@@ -2,7 +2,7 @@ import asyncio
 import logging
 import threading
 from contextlib import ExitStack
-from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.clipboard.pyperclip import PyperclipClipboard
@@ -12,7 +12,8 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout.processors import BeforeInput, PasswordProcessor
 
 from hummingbot import init_logging
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.ui.interface_utils import start_process_monitor, start_timer, start_trade_monitor
 from hummingbot.client.ui.layout import (
@@ -50,15 +51,17 @@ Application._handle_exception = _handle_exception_patch
 
 class HummingbotCLI(PubSub):
     def __init__(self,
+                 client_config_map: ClientConfigAdapter,
                  input_handler: Callable,
                  bindings: KeyBindings,
                  completer: Completer,
                  command_tabs: Dict[str, CommandTab]):
         super().__init__()
+        self.client_config_map: Union[ClientConfigAdapter, ClientConfigMap] = client_config_map
         self.command_tabs = command_tabs
         self.search_field = create_search_field()
         self.input_field = create_input_field(completer=completer)
-        self.output_field = create_output_field()
+        self.output_field = create_output_field(client_config_map)
         self.log_field = create_log_field(self.search_field)
         self.right_pane_toggle = create_log_toggle(self.toggle_right_pane)
         self.live_field = create_live_field()
@@ -98,14 +101,20 @@ class HummingbotCLI(PubSub):
     def did_start_ui(self):
         self._stdout_redirect_context.enter_context(patch_stdout(log_field=self.log_field))
 
-        log_level = global_config_map.get("log_level").value
-        init_logging("hummingbot_logs.yml", override_log_level=log_level)
+        log_level = self.client_config_map.log_level
+        init_logging("hummingbot_logs.yml", self.client_config_map, override_log_level=log_level)
 
         self.trigger_event(HummingbotUIEvent.Start, self)
 
     async def run(self):
-        self.app = Application(layout=self.layout, full_screen=True, key_bindings=self.bindings, style=load_style(),
-                               mouse_support=True, clipboard=PyperclipClipboard())
+        self.app = Application(
+            layout=self.layout,
+            full_screen=True,
+            key_bindings=self.bindings,
+            style=load_style(self.client_config_map),
+            mouse_support=True,
+            clipboard=PyperclipClipboard(),
+        )
         await self.app.run_async(pre_run=self.did_start_ui)
         self._stdout_redirect_context.close()
 
