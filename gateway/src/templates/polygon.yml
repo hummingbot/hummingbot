@@ -14,4 +14,4 @@ networks:
     nativeCurrencySymbol: 'MATIC'
 
 manualGasPrice: 100
-gasLimit: 3000000
+gasLimitTransaction: 3000000

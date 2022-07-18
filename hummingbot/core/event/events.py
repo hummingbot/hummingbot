@@ -3,9 +3,11 @@ from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, NamedTuple, Optional
 
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.common import LPType, OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+
+s_decimal_0 = Decimal("0")
 
 
 class MarketEvent(Enum):
@@ -22,11 +24,12 @@ class MarketEvent(Enum):
     BuyOrderCreated = 200
     SellOrderCreated = 201
     FundingPaymentCompleted = 202
-    RangePositionInitiated = 300
-    RangePositionCreated = 301
-    RangePositionRemoved = 302
-    RangePositionUpdated = 303
-    RangePositionFailure = 304
+    RangePositionLiquidityAdded = 300
+    RangePositionLiquidityRemoved = 301
+    RangePositionUpdate = 302
+    RangePositionUpdateFailure = 303
+    RangePositionFeeCollected = 304
+    RangePositionClosed = 305
 
 
 class OrderBookEvent(int, Enum):
@@ -227,58 +230,72 @@ class SellOrderCreatedEvent:
 
 
 @dataclass
-class RangePositionInitiatedEvent:
+class RangePositionLiquidityAddedEvent:
     timestamp: float
-    hb_id: str
-    tx_hash: str
+    order_id: str
+    exchange_order_id: str
     trading_pair: str
-    fee_tier: str
     lower_price: Decimal
     upper_price: Decimal
-    base_amount: Decimal
-    quote_amount: Decimal
-    status: str
-    gas_price: Decimal
-
-
-@dataclass
-class RangePositionCreatedEvent:
-    timestamp: float
-    hb_id: str
-    tx_hash: str
-    token_id: str
-    trading_pair: str
+    amount: Decimal
     fee_tier: str
-    lower_price: Decimal
-    upper_price: Decimal
-    base_amount: Decimal
-    quote_amount: Decimal
-    status: str
-    gas_price: Decimal
+    creation_timestamp: float
+    trade_fee: TradeFeeBase
+    token_id: Optional[int] = 0
 
 
 @dataclass
-class RangePositionUpdatedEvent:
+class RangePositionLiquidityRemovedEvent:
     timestamp: float
-    hb_id: str
-    tx_hash: str
+    order_id: str
+    exchange_order_id: str
+    trading_pair: str
     token_id: str
-    base_amount: Decimal
-    quote_amount: Decimal
-    status: str
+    trade_fee: TradeFeeBase
+    creation_timestamp: float
 
 
 @dataclass
-class RangePositionRemovedEvent:
+class RangePositionUpdateEvent:
     timestamp: float
-    hb_id: str
-    token_id: Optional[str] = None
+    order_id: str
+    exchange_order_id: str
+    order_action: LPType
+    trading_pair: Optional[str] = ""
+    fee_tier: Optional[str] = ""
+    lower_price: Optional[Decimal] = s_decimal_0
+    upper_price: Optional[Decimal] = s_decimal_0
+    amount: Optional[Decimal] = s_decimal_0
+    creation_timestamp: float = 0
+    token_id: Optional[int] = 0
 
 
 @dataclass
-class RangePositionFailureEvent:
+class RangePositionUpdateFailureEvent:
     timestamp: float
-    hb_id: str
+    order_id: str
+    order_action: LPType
+
+
+@dataclass
+class RangePositionClosedEvent:
+    timestamp: float
+    token_id: int
+    token_0: str
+    token_1: str
+    claimed_fee_0: Decimal = s_decimal_0
+    claimed_fee_1: Decimal = s_decimal_0
+
+
+@dataclass
+class RangePositionFeeCollectedEvent:
+    timestamp: float
+    order_id: str
+    exchange_order_id: str
+    trading_pair: str
+    trade_fee: TradeFeeBase
+    creation_timestamp: float
+    token_id: int = None
 
 
 class LimitOrderStatus(Enum):
