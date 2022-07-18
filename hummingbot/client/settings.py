@@ -62,6 +62,7 @@ class ConnectorType(Enum):
 
     EVM_AMM = "EVM_AMM"
     EVM_Perpetual = "EVM_Perpetual"
+    EVM_AMM_LP = "EVM_AMM_LP"
     Connector = "connector"
     Exchange = "exchange"
     Derivative = "derivative"
@@ -111,13 +112,14 @@ class GatewayConnectionSetting:
             return None
 
     @staticmethod
-    def upsert_connector_spec(connector_name: str, chain: str, network: str, trading_type: str, wallet_address: str):
+    def upsert_connector_spec(connector_name: str, chain: str, network: str, trading_type: str, wallet_address: str, additional_spenders: List[str]):
         new_connector_spec: Dict[str, str] = {
             "connector": connector_name,
             "chain": chain,
             "network": network,
             "trading_type": trading_type,
             "wallet_address": wallet_address,
+            "additional_spenders": additional_spenders,
         }
         updated: bool = False
         connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
@@ -199,7 +201,8 @@ class ConnectorSetting(NamedTuple):
                 connector_name=connector_spec["connector"],
                 chain=connector_spec["chain"],
                 network=connector_spec["network"],
-                wallet_address=connector_spec["wallet_address"]
+                wallet_address=connector_spec["wallet_address"],
+                additional_spenders=connector_spec.get("additional_spenders", []),
             )
             return params
 
@@ -433,6 +436,10 @@ class AllConnectorSettings:
     @classmethod
     def get_gateway_evm_amm_connector_names(cls) -> Set[str]:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.EVM_AMM}
+
+    @classmethod
+    def get_gateway_evm_amm_lp_connector_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.EVM_AMM_LP}
 
     @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:

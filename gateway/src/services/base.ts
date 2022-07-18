@@ -44,10 +44,12 @@ export const bigNumberWithDecimalToStr = (n: BigNumber, d: number): string => {
 
 export const gasCostInEthString = (
   gasPrice: number,
-  gasLimit: number
+  gasLimitTransaction: number
 ): string => {
   return bigNumberWithDecimalToStr(
-    BigNumber.from(Math.ceil(gasPrice * gasLimit)).mul(BigNumber.from(1e9)),
+    BigNumber.from(Math.ceil(gasPrice * gasLimitTransaction)).mul(
+      BigNumber.from(1e9)
+    ),
     18
   );
 };

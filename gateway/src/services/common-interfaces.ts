@@ -113,9 +113,9 @@ export interface Uniswapish {
   abiDecoder?: any;
 
   /**
-   * Default gas limit for swap transactions.
+   * Default gas estiamte for swap transactions.
    */
-  gasLimit: number;
+  gasLimitEstimate: number;
 
   /**
    * Default time-to-live for swap transactions, in seconds.
@@ -229,9 +229,9 @@ export interface UniswapLPish {
   abiDecoder: any;
 
   /**
-   * Default gas limit for swap transactions.
+   * Default gas limit used to estimate gasCost for swap transactions.
    */
-  gasLimit: number;
+  gasLimitEstimate: number;
 
   /**
    * Default time-to-live for swap transactions, in seconds.

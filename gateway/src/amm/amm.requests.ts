@@ -89,8 +89,8 @@ export interface AddLiquidityRequest extends NetworkSelectionRequest {
   amount0: string;
   amount1: string;
   fee: string;
-  lowerPrice: number;
-  upperPrice: number;
+  lowerPrice: string; // integer as string
+  upperPrice: string; // integer as string
   tokenId?: number;
   nonce?: number;
   maxFeePerGas?: string;
