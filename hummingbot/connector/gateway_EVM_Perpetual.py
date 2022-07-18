@@ -6,6 +6,7 @@ import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
@@ -67,6 +68,7 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
             trading_required = trading_required
         )
         PerpetualTrading.__init__(self)
+        self._budget_checker = PerpetualBudgetChecker(self)
 
         # This values may not be applicable to all gateway perps, but applies to perp curie
         self._collateral_currency = "USD"
@@ -92,6 +94,10 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
             return trading_pairs
         except Exception:
             return []
+
+    @property
+    def budget_checker(self) -> PerpetualBudgetChecker:
+        return self._budget_checker
 
     async def get_gas_estimate(self):
         """
@@ -181,6 +187,82 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
                 app_warning_msg=str(e)
             )
 
+    def buy(
+            self,
+            trading_pair: str,
+            amount: Decimal,
+            order_type: OrderType = OrderType.MARKET,
+            price: Decimal = s_decimal_NaN,
+            **kwargs,
+    ) -> str:
+        """
+        The function that takes the strategy inputs generates a client order ID
+        (used by Hummingbot for local order tracking) and places a buy order by
+        calling the _create_order() function.
+
+        Parameters
+        ----------
+        trading_pair:
+            The pair that is being traded
+        amount:
+            The amount to trade
+        order_type:
+            LIMIT
+        position_action:
+            OPEN or CLOSE
+        price:
+            Price for a limit order
+        """
+        order_id: str = self.create_market_order_id(TradeType.BUY, trading_pair)
+        safe_ensure_future(
+            self._create_order(TradeType.BUY,
+                               order_id,
+                               trading_pair,
+                               amount,
+                               order_type,
+                               kwargs["position_action"],
+                               price)
+        )
+        return order_id
+
+    def sell(
+            self,
+            trading_pair: str,
+            amount: Decimal,
+            order_type: OrderType = OrderType.MARKET,
+            price: Decimal = s_decimal_NaN,
+            **kwargs,
+    ) -> str:
+        """
+        The function that takes the strategy inputs generates a client order ID
+        (used by Hummingbot for local order tracking) and places a buy order by
+        calling the _create_order() function.
+
+        Parameters
+        ----------
+        trading_pair:
+            The pair that is being traded
+        amount:
+            The amount to trade
+        order_type:
+            LIMIT
+        position_action:
+            OPEN or CLOSE
+        price:
+            Price for a limit order
+        """
+        order_id: str = self.create_market_order_id(TradeType.SELL, trading_pair)
+        safe_ensure_future(
+            self._create_order(TradeType.SELL,
+                               order_id,
+                               trading_pair,
+                               amount,
+                               order_type,
+                               kwargs["position_action"],
+                               price)
+        )
+        return order_id
+
     async def _create_order(
             self,
             trade_type: TradeType,
@@ -202,6 +284,9 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
         position_action: OPEN or CLOSE
         :param price: The order price
         """
+
+        if position_action not in [PositionAction.OPEN, PositionAction.CLOSE]:
+            raise ValueError("Specify either OPEN_POSITION or CLOSE_POSITION position_action.")
 
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
