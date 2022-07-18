@@ -27,11 +27,11 @@ export type Overrides = {
 
 export class UniswapLP extends UniswapLPHelper implements UniswapLPish {
   private static _instances: { [name: string]: UniswapLP };
-  private _gasLimit: number;
+  private _gasLimitEstimate: number;
 
   private constructor(chain: string, network: string) {
     super(chain, network);
-    this._gasLimit = UniswapConfig.config.gasLimit;
+    this._gasLimitEstimate = UniswapConfig.config.gasLimitEstimate;
   }
 
   public static getInstance(chain: string, network: string): UniswapLP {
@@ -48,8 +48,8 @@ export class UniswapLP extends UniswapLPHelper implements UniswapLPish {
   /**
    * Default gas limit for swap transactions.
    */
-  public get gasLimit(): number {
-    return this._gasLimit;
+  public get gasLimitEstimate(): number {
+    return this._gasLimitEstimate;
   }
 
   async getPosition(tokenId: number): Promise<PositionInfo> {
@@ -199,7 +199,7 @@ export class UniswapLP extends UniswapLPHelper implements UniswapLPish {
   async collectFees(
     wallet: Wallet | providers.StaticJsonRpcProvider,
     tokenId: number,
-    gasLimit: number = this.gasLimit,
+    gasLimit: number = this.gasLimitEstimate,
     gasPrice: number = 0,
     nonce?: number,
     maxFeePerGas?: BigNumber,
