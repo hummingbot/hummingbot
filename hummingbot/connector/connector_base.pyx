@@ -249,7 +249,7 @@ cdef class ConnectorBase(NetworkIterator):
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
                    object price=s_decimal_NaN, dict kwargs={}):
-        return self.buy(trading_pair, amount, order_type, price)
+        return self.buy(trading_pair, amount, order_type, price, **kwargs)
 
     def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
         """
@@ -264,7 +264,7 @@ cdef class ConnectorBase(NetworkIterator):
 
     cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
                     object price=s_decimal_NaN, dict kwargs={}):
-        return self.sell(trading_pair, amount, order_type, price)
+        return self.sell(trading_pair, amount, order_type, price, **kwargs)
 
     cdef c_cancel(self, str trading_pair, str client_order_id):
         self.cancel(trading_pair, client_order_id)
