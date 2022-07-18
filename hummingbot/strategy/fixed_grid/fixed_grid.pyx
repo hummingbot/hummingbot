@@ -537,6 +537,7 @@ cdef class FixedGridStrategy(StrategyBase):
                     self.c_filter_out_takers(proposal)
 	    
             elif self._started and int(self._current_timestamp % 20) == 0:
+                '''
                 price = self._market_info.get_mid_price()
                 # Find level closest to market
                 min_diff = 1e8
@@ -544,7 +545,7 @@ cdef class FixedGridStrategy(StrategyBase):
                     if min(min_diff, abs(self._price_levels[i]-price)) < min_diff:
                         min_diff = abs(self._price_levels[i]-price)
                         self._current_level = i
-		
+		'''
                 proposal = self.c_create_grid_proposal()
                 if proposal:
                     numPropOrders = len(proposal.buys)+len(proposal.sells)
