@@ -42,7 +42,6 @@ class ExchangePyBase(ExchangeBase, ABC):
     LONG_POLL_INTERVAL = 120.0
     TRADING_RULES_INTERVAL = 30 * MINUTE
     TRADING_FEES_INTERVAL = TWELVE_HOURS
-    # TIME_SYNCHRONIZER_UPDATE_INTERVAL = 10.0
     TICK_INTERVAL_LIMIT = 60.0
 
     def __init__(self, client_config_map: "ClientConfigAdapter"):
@@ -58,7 +57,6 @@ class ExchangePyBase(ExchangeBase, ABC):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._trading_fees_polling_task = None
-        # self._time_synchronizer_update_task = None
         self._lost_orders_update_task = None
 
         self._time_synchronizer = TimeSynchronizer()
@@ -650,7 +648,6 @@ class ExchangePyBase(ExchangeBase, ABC):
         self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
-        # self._time_synchronizer_update_task = safe_ensure_future(self._time_synchronizer_update_polling_loop())
         if self.is_trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
@@ -698,9 +695,6 @@ class ExchangePyBase(ExchangeBase, ABC):
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
             self._user_stream_event_listener_task = None
-        # if self._time_synchronizer_update_task is not None:
-        #     self._time_synchronizer_update_task.cancel()
-        #     self._time_synchronizer_update_task = None
         if self._lost_orders_update_task is not None:
             self._lost_orders_update_task.cancel()
             self._lost_orders_update_task = None
@@ -777,22 +771,6 @@ class ExchangePyBase(ExchangeBase, ABC):
                     app_warning_msg=f"Could not fetch account updates from {self.name_cap}. "
                                     "Check API key and network connection.")
                 await self._sleep(0.5)
-
-    # async def _time_synchronizer_update_polling_loop(self):
-    #     """
-    #     This loop regularly executes the update of the TimeSynchronizer, to register a new time diff sample
-    #     """
-    #     while True:
-    #         try:
-    #             await self._update_time_synchronizer()
-    #             await self._sleep(self.TIME_SYNCHRONIZER_UPDATE_INTERVAL)
-    #         except NotImplementedError:
-    #             raise
-    #         except asyncio.CancelledError:
-    #             raise
-    #         except Exception:
-    #             self.logger().exception("Unexpected error while updating the time synchronizer")
-    #             await self._sleep(0.5)
 
     async def _update_time_synchronizer(self):
         try:
