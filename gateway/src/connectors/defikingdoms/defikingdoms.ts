@@ -30,7 +30,7 @@ export class Defikingdoms implements Uniswapish {
   private harmony: Harmony;
   private _router: string;
   private _routerAbi: ContractInterface;
-  private _gasLimit: number;
+  private _gasLimitEstimate: number;
   private _ttl: number;
   private chainId;
   private tokenList: Record<string, Token> = {};
@@ -42,7 +42,7 @@ export class Defikingdoms implements Uniswapish {
     this.chainId = this.harmony.chainId;
     this._ttl = DefikingdomsConfig.config.ttl;
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = DefikingdomsConfig.config.gasLimit;
+    this._gasLimitEstimate = DefikingdomsConfig.config.gasLimit;
     this._router = config.routerAddress(network);
   }
 
@@ -105,8 +105,8 @@ export class Defikingdoms implements Uniswapish {
   /**
    * Default gas limit for swap transactions.
    */
-  public get gasLimit(): number {
-    return this._gasLimit;
+  public get gasLimitEstimate(): number {
+    return this._gasLimitEstimate;
   }
 
   /**

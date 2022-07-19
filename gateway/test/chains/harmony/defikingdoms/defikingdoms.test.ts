@@ -81,7 +81,9 @@ const patchTrade = (key: string, error?: Error) => {
 
 describe('verify defikingdoms gasLimit', () => {
   it('Should initially match the config for mainnet', () => {
-    expect(defikingdoms.gasLimit).toEqual(DefikingdomsConfig.config.gasLimit);
+    expect(defikingdoms.gasLimitEstimate).toEqual(
+      DefikingdomsConfig.config.gasLimit
+    );
   });
 });
 
