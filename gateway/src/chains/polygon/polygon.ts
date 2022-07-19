@@ -24,7 +24,7 @@ export class Polygon extends EthereumBase implements Ethereumish {
       config.network.tokenListSource,
       config.network.tokenListType,
       config.manualGasPrice,
-      config.gasLimit,
+      config.gasLimitTransaction,
       ConfigManagerV2.getInstance().get('database.nonceDbPath'),
       ConfigManagerV2.getInstance().get('database.transactionDbPath')
     );
