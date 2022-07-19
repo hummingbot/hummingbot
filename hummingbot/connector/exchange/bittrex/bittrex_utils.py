@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Any, Dict
 
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
@@ -27,3 +28,9 @@ KEYS = {
                   is_secure=True,
                   is_connect_key=True),
 }
+
+
+def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
+    if exchange_info.get("status") == "ONLINE":
+        return True
+    return False
