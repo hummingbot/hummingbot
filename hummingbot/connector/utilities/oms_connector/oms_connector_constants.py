@@ -2,6 +2,9 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
 
+MAX_ID_BIT_COUNT = 63  # experimentally, 64 bit ints sometimes result in OMS assigning order IDs of zero
+MAX_ORDER_NOT_FOUND_ON_CANCEL = 2
+
 # rest endpoints
 REST_AUTH_ENDPOINT = "Authenticate"
 REST_PRODUCTS_ENDPOINT = "GetInstruments"
@@ -31,11 +34,13 @@ WS_AUTH_ENDPOINT = "AuthenticateUser"
 WS_ACC_EVENTS_ENDPOINT = "SubscribeAccountEvents"
 WS_TRADES_SUB_ENDPOINT = "SubscribeTrades"
 WS_L2_SUB_ENDPOINT = "SubscribeLevel2"
+WS_PING_REQUEST = "Ping"
 _ALL_WS_ENDPOINTS = [
     WS_AUTH_ENDPOINT,
     WS_ACC_EVENTS_ENDPOINT,
     WS_TRADES_SUB_ENDPOINT,
     WS_L2_SUB_ENDPOINT,
+    WS_PING_REQUEST,
 ]
 
 # ws events
@@ -43,6 +48,7 @@ WS_L2_EVENT = "Level2UpdateEvent"
 WS_ACC_POS_EVENT = "AccountPositionEvent"
 WS_ORDER_STATE_EVENT = "OrderStateEvent"
 WS_ORDER_TRADE_EVENT = "OrderTradeEvent"
+WS_CANCEL_ORDER_REJECTED_EVENT = "CancelOrderRejectEvent"
 
 # limits
 REST_REQ_LIMIT_ID = "WSReqLimitID"
@@ -183,4 +189,5 @@ DIFF_UPDATE_AMOUNT_FIELD = 8
 DIFF_UPDATE_SIDE_FIELD = 9
 
 # other
-RESOURCE_NOT_FOUND_MSG = "Resource Not Found"
+RESOURCE_NOT_FOUND_ERR_CODE = 104
+WS_MESSAGE_TIMEOUT = 20

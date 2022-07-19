@@ -404,3 +404,22 @@ class OMSConnectorAPIOrderBookDataSourceTest(unittest.TestCase):
         self.assertEqual(0.0598854, asks[0].price)
         self.assertEqual(2, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_subscriptions_sends_ping_message_before_ping_interval_finishes(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        ws_connect_mock.return_value.receive.side_effect = [asyncio.TimeoutError("Test timeout"),
+                                                            asyncio.CancelledError]
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+
+        try:
+            self.async_run_with_timeout(self.listening_task)
+        except asyncio.CancelledError:
+            pass
+
+        sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(
+            websocket_mock=ws_connect_mock.return_value)
+
+        expected_ping_message = {"n": "Ping", "o": "{}", "m": 0, "i": 4}
+        self.assertEqual(expected_ping_message, sent_messages[-1])

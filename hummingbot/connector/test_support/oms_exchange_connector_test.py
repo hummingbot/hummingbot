@@ -370,7 +370,7 @@ class OMSExchangeTests:
 
         @property
         def is_cancel_request_executed_synchronously_by_server(self) -> bool:
-            return False
+            return True
 
         @property
         def is_order_fill_http_update_included_in_status_update(self) -> bool:
@@ -441,7 +441,7 @@ class OMSExchangeTests:
         ) -> str:
             url = self.url_creator.get_rest_url(path_url=CONSTANTS.REST_ORDER_CANCELATION_ENDPOINT)
             regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-            response = {"detail": None, "errorcode": 104, "errormsg": "Resource Not Found", "result": False}
+            response = {"detail": None, "errorcode": 102, "errormsg": "Server Error", "result": False}
             mock_api.post(regex_url, body=json.dumps(response), callback=callback)
             return url
 
