@@ -1,5 +1,6 @@
 import asyncio
 from abc import abstractmethod
+from collections import defaultdict
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Awaitable, Dict, List, Optional, Tuple, Union
 
@@ -24,7 +25,7 @@ from hummingbot.connector.utilities.oms_connector.oms_connector_web_utils import
     OMSConnectorURLCreatorBase,
     OMSConnectorWebAssistantsFactory,
 )
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
@@ -59,11 +60,12 @@ class OMSExchange(ExchangePyBase):
         self._user_id = user_id
         self._auth: Optional[OMSConnectorAuth] = None
         self._url_creator = url_creator
-        self._nonce_creator = NonceCreator.for_milliseconds()
+        self._nonce_creator = NonceCreator.for_seconds()
         self._trading_pairs = trading_pairs
         self._trading_required = trading_required
         self._web_assistants_factory: OMSConnectorWebAssistantsFactory
         self._token_id_map: Dict[int, str] = {}
+        self._order_not_found_on_cancel_record: Dict[str, int] = defaultdict(lambda: 0)
         super().__init__(client_config_map)
 
     @property
@@ -111,7 +113,7 @@ class OMSExchange(ExchangePyBase):
 
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
-        return False
+        return True
 
     @property
     def is_trading_required(self) -> bool:
@@ -140,7 +142,11 @@ class OMSExchange(ExchangePyBase):
 
         :return: the id assigned by the connector to the order (the client id)
         """
-        order_id = str(self._nonce_creator.get_tracking_nonce())
+        order_id = str(
+            get_new_numeric_client_order_id(
+                nonce_creator=self._nonce_creator, max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT
+            )
+        )
         safe_ensure_future(self._create_order(
             trade_type=TradeType.BUY,
             order_id=order_id,
@@ -164,7 +170,11 @@ class OMSExchange(ExchangePyBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        order_id = str(self._nonce_creator.get_tracking_nonce())
+        order_id = str(
+            get_new_numeric_client_order_id(
+                nonce_creator=self._nonce_creator, max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT
+            )
+        )
         safe_ensure_future(self._create_order(
             trade_type=TradeType.SELL,
             order_id=order_id,
@@ -178,6 +188,8 @@ class OMSExchange(ExchangePyBase):
         """
         This implementation specific function is called by _cancel, and returns True if successful
         """
+        start_ts = self.current_timestamp
+        self.logger().debug(f"Starting cancelation of {tracked_order.client_order_id} at {start_ts}")
         await self._ensure_authenticated()
         params = {
             CONSTANTS.OMS_ID_FIELD: self.oms_id,
@@ -189,14 +201,25 @@ class OMSExchange(ExchangePyBase):
             data=params,
             is_auth_required=True,
         )
+        self.logger().debug(f"Cancelation result of {tracked_order.client_order_id} at {start_ts}: {cancel_result}")
+        cancel_success = False
         if cancel_result.get(CONSTANTS.ERROR_CODE_FIELD):
-            if cancel_result[CONSTANTS.ERROR_MSG_FIELD] == CONSTANTS.RESOURCE_NOT_FOUND_MSG:
-                if not tracked_order.is_cancelled:  # else, already cancelled
-                    await self._order_tracker.process_order_not_found(order_id)
-                    raise IOError(cancel_result[CONSTANTS.ERROR_MSG_FIELD])
+            if cancel_result[CONSTANTS.ERROR_CODE_FIELD] == CONSTANTS.RESOURCE_NOT_FOUND_ERR_CODE:
+                await self._order_tracker.process_order_not_found(order_id)
             else:
                 raise IOError(cancel_result[CONSTANTS.ERROR_MSG_FIELD])
-        cancel_success = cancel_result[CONSTANTS.RESULT_FIELD]
+        cancel_success = cancel_success or cancel_result[CONSTANTS.RESULT_FIELD]
+
+        if not cancel_success:
+            self.logger().debug(
+                f"Failure to cancel {tracked_order.client_order_id}, attempted at {start_ts}: {cancel_result}"
+            )
+        elif order_id in self._order_not_found_on_cancel_record:
+            del self._order_not_found_on_cancel_record[order_id]
+
+        self.logger().debug(
+            f"Cancelation of {tracked_order.client_order_id} at {start_ts} success"
+        )
 
         return cancel_success
 
@@ -271,6 +294,8 @@ class OMSExchange(ExchangePyBase):
                     self._process_order_event_message(payload)
                 elif endpoint == CONSTANTS.WS_ORDER_TRADE_EVENT:
                     self._process_trade_event_message(payload)
+                elif endpoint == CONSTANTS.WS_CANCEL_ORDER_REJECTED_EVENT:
+                    pass
                 else:
                     self.logger().debug(f"Unknown event received from the connector ({event_message})")
             except asyncio.CancelledError:
@@ -359,6 +384,7 @@ class OMSExchange(ExchangePyBase):
             order_tasks = [
                 asyncio.create_task(self._request_order_update(order))
                 for order in tracked_orders
+                if order.exchange_order_id is not None  # don't update orders that are not yet acknowledged by server
             ]
             status_responses = await self._gather_tasks(order_tasks, task_name="order status")
             status_responses = await self._validate_status_responses(status_responses, tracked_orders)
@@ -384,7 +410,7 @@ class OMSExchange(ExchangePyBase):
         params = {
             CONSTANTS.OMS_ID_FIELD: self.oms_id,
             CONSTANTS.ACCOUNT_ID_FIELD: self._auth.account_id,
-            CONSTANTS.ORDER_ID_FIELD: int(order.exchange_order_id),
+            CONSTANTS.ORDER_ID_FIELD: int(await order.get_exchange_order_id()),
         }
         resp = await self._api_request(
             path_url=CONSTANTS.REST_ORDER_STATUS_ENDPOINT,
