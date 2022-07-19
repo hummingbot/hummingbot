@@ -5,7 +5,7 @@ from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.connector.gateway_price_shim import GatewayPriceShim
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import (
     CrossExchangeMarketMakingStrategy,
-    LogOption
+    LogOption,
 )
 from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -14,7 +14,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 def start(self):
     c_map = self.strategy_config_map
     maker_market = c_map.maker_market.lower()
-    taker_market = c_map.taker_market.lower()
+    taker_market = c_map.taker_market.connector.lower()
     raw_maker_trading_pair = c_map.maker_market_trading_pair
     raw_taker_trading_pair = c_map.taker_market_trading_pair
     status_report_interval = self.client_config_map.strategy_report_interval

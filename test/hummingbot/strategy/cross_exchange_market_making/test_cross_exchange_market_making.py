@@ -683,13 +683,6 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             MarketTradingPairTuple(self.taker_market, *self.taker_trading_pairs),
         )
 
-        self.maker_market.set_balanced_order_book(self.trading_pairs_maker[0], 1.0, 0.5, 1.5, 0.1, 10)
-        self.taker_market.set_balanced_order_book(self.trading_pairs_taker[0], 1.0, 0.5, 1.5, 0.001, 20)
-        self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
-            MarketTradingPairTuple(self.maker_market, *self.trading_pairs_maker),
-            MarketTradingPairTuple(self.taker_market, *self.trading_pairs_taker),
-        )
-
         config_map_raw = deepcopy(self.config_map_raw)
         config_map_raw.order_size_portfolio_ratio_limit = Decimal("30")
         config_map_raw.min_profitability = Decimal("0.5")

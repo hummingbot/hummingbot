@@ -4,7 +4,7 @@ from decimal import Decimal
 from enum import Enum
 from functools import lru_cache
 from math import ceil, floor
-from typing import Dict, List, Optional, Tuple, cast
+from typing import Dict, List, Tuple, cast
 
 from bidict import bidict
 import pandas as pd
@@ -12,7 +12,6 @@ import pandas as pd
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -26,7 +25,6 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -82,7 +80,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
     def init_params(self,
                     config_map: CrossExchangeMarketMakingConfigMap,
-                    market_pairs: List[CrossExchangeMarketPair],
+                    market_pairs: List[MakerTakerMarketPair],
                     status_report_interval: float = 900,
                     logging_options: int = OPTION_LOG_ALL,
                     hb_app_notification: bool = False
@@ -222,14 +220,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         return self._config_map.adjust_orders_enabled
 
     @property
-    def taker_to_maker_base_conversion_rate(self):
-        return self._config_map.taker_to_maker_base_conversion_rate
-
-    @property
-    def taker_to_maker_quote_conversion_rate(self):
-        return self._config_map.taker_to_maker_quote_conversion_rate
-
-    @property
     def gas_to_maker_base_conversion_rate(self):
         return self._config_map.gas_to_maker_base_conversion_rate
 
@@ -254,60 +244,9 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
     def is_gateway_market(market_info: MarketTradingPairTuple) -> bool:
         return market_info.market.name in AllConnectorSettings.get_gateway_evm_amm_connector_names()
 
-    def get_conversion_rates(self) -> Tuple[str, Decimal, str, Decimal]:
-        """
-        Find conversion rates from taker market to maker market
-        :return: A tuple of quote pair symbol, quote conversion rate source, quote conversion rate,
-        base pair symbol, base conversion rate source, base conversion rate
-        """
-        quote_rate = Decimal("1")
-        market_pairs = list(self._market_pairs.values())[0]
-        quote_pair = f"{market_pairs.taker.quote_asset}-{market_pairs.maker.quote_asset}"
-        quote_rate_source = "fixed"
-        if self._use_oracle_conversion_rate:
-            if market_pairs.taker.quote_asset != market_pairs.maker.quote_asset:
-                quote_rate_source = RateOracle.source.name
-                quote_rate_oracle = RateOracle.get_instance().rate(quote_pair)
-                if quote_rate_oracle is not None:
-                    quote_rate = quote_rate_oracle
-        else:
-            quote_rate = self.taker_to_maker_quote_conversion_rate
-        base_rate = Decimal("1")
-        base_pair = f"{market_pairs.taker.base_asset}-{market_pairs.maker.base_asset}"
-        base_rate_source = "fixed"
-        if self._use_oracle_conversion_rate:
-            if market_pairs.taker.base_asset != market_pairs.maker.base_asset:
-                base_rate_source = RateOracle.source.name
-                base_rate_oracle = RateOracle.get_instance().rate(base_pair)
-                if base_rate_oracle is not None:
-                    base_rate = base_rate_oracle
-        else:
-            base_rate = self.taker_to_maker_base_conversion_rate
-        gas_rate = Decimal("1")
-        gas_pair = None
-        gas_rate_source = "fixed"
-        transaction_fee = None
-        for market_pair in self._market_pairs.values():
-            if self.is_gateway_market(market_pair.taker):
-                if hasattr(market_pair.taker.market, "network_transaction_fee"):
-                    transaction_fee: TokenAmount = market_pair.taker.market.network_transaction_fee
-                    if transaction_fee is not None:
-                        gas_pair = f"{transaction_fee.token}-{market_pairs.maker.quote_asset}"
-
-        if self._use_oracle_conversion_rate:
-            if transaction_fee is not None and transaction_fee.token != market_pairs.maker.quote_asset:
-                gas_rate_source = RateOracle.source.name
-                gas_rate_oracle = RateOracle.get_instance().rate(gas_pair)
-                if gas_rate_oracle is not None:
-                    gas_rate = gas_rate_oracle
-        else:
-            gas_rate = self._gas_to_maker_base_conversion_rate
-
-        return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, gas_rate
-
     def log_conversion_rates(self):
         quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, gas_rate = \
-            self.get_conversion_rates()
+            self._config_map.conversion_rate_mode.get_conversion_rates()
         if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
             self.logger().info(f"{quote_pair} ({quote_rate_source}) conversion rate: {PerformanceMetrics.smart_round(quote_rate)}")
         if base_pair.split("-")[0] != base_pair.split("-")[1]:
@@ -321,7 +260,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         columns = ["Source", "Pair", "Rate"]
         data = []
         quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, gas_rate = \
-            self.get_conversion_rates()
+            self._config_map.conversion_rate_mode.get_conversion_rates()
         if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
             data.extend([
                 [quote_rate_source, quote_pair, PerformanceMetrics.smart_round(quote_rate)],
@@ -487,7 +426,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
     async def get_gateway_quotes(self):
         for market_pair in self._market_pairs.values():
             if self.is_gateway_market(market_pair.taker):
-                _, _, quote_rate, _, _, base_rate, _, _, _ = self.get_conversion_rates()
+                _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates()
                 order_amount = self._order_amount * base_rate
                 order_price = await market_pair.taker.market.get_order_price(
                     market_pair.taker.trading_pair,
@@ -513,6 +452,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
     async def apply_gateway_transaction_cancel_interval(self):
         # XXX (martin_kou): Concurrent cancellations are not supported before the nonce architecture is fixed.
         # See: https://app.shortcut.com/coinalpha/story/24553/nonce-architecture-in-current-amm-trade-and-evm-approve-apis-is-incorrect-and-causes-trouble-with-concurrent-requests
+        from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
         gateway_connectors: List[GatewayEVMAMM] = []
         for market_pair in self._market_pairs.values():
             if self.is_gateway_market(market_pair.taker):
@@ -903,7 +843,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         taker_market = market_pair.taker.market
 
         # Convert maker order size (in maker base asset) to taker order size (in taker base asset)
-        _, _, quote_rate, _, _, base_rate, _, _, _ = self.get_conversion_rates()
+        _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates()
 
         if buy_fill_quantity > 0:
             # Maker buy
@@ -1122,7 +1062,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         size = self.get_adjusted_limit_order_size(market_pair)
 
         # Convert maker order size (in maker base asset) to taker order size (in taker base asset)
-        _, _, quote_rate, _, _, base_rate, _, _, _ = self.get_conversion_rates()
+        _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates()
         size *= base_rate
 
         if is_bid:
@@ -1199,7 +1139,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         next_price_below_top_ask = s_decimal_nan
 
         # Convert maker order size (in maker base asset) to taker order size (in taker base asset)
-        _, _, quote_rate, _, _, base_rate, _, _, _ = self.get_conversion_rates()
+        _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates()
         size *= base_rate
 
         top_bid_price, top_ask_price = self.get_top_bid_ask_from_price_samples(market_pair)
@@ -1305,7 +1245,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         taker_market = market_pair.taker.market
 
         # Convert maker order size (in maker base asset) to taker order size (in taker base asset)
-        _, _, quote_rate, _, _, base_rate, _, _, gas_rate = self.get_conversion_rates()
+        _, _, quote_rate, _, _, base_rate, _, _, gas_rate = self._config_map.conversion_rate_mode.get_conversion_rates()
         size *= base_rate
 
         # Calculate the next price from the top, and the order size limit.
@@ -1471,7 +1411,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         pl = 0
         if self.is_gateway_market(market_pair.taker):
             if hasattr(market_pair.taker.market, "network_transaction_fee"):
-                _, _, quote_rate, _, _, base_rate, _, _, gas_rate = self.get_conversion_rates()
+                _, _, quote_rate, _, _, base_rate, _, _, gas_rate = self._config_map.conversion_rate_mode.get_conversion_rates()
                 transaction_fee: TokenAmount = getattr(market_pair.taker.market, "network_transaction_fee")
                 transaction_fee = transaction_fee.amount
                 # Transaction fee in maker quote asset
@@ -1553,12 +1493,12 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         taker_trading_pair = market_pair.taker.trading_pair
 
         # Convert maker order size (in maker base asset) to taker order size (in taker base asset)
-        _, _, quote_rate, _, _, base_rate, _, _, gas_rate = self.get_conversion_rates()
+        _, _, quote_rate, _, _, base_rate, _, _, gas_rate = self._config_map.conversion_rate_mode.get_conversion_rates()
         size *= base_rate
 
         taker_market = market_pair.taker.market
         quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, gas_rate = \
-            self.get_conversion_rates()
+            self._config_map.conversion_rate_mode.get_conversion_rates()
 
         if is_buy:
             # Maker buy
@@ -1607,7 +1547,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         """
         Return price conversion rate for from taker quote asset to maker quote asset
         """
-        _, _, quote_rate, _, _, base_rate, _, _, _ = self.get_conversion_rates()
+        _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates()
         return quote_rate / base_rate
         # else:
         #     market_pairs = list(self._market_pairs.values())[0]
