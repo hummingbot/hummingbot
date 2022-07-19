@@ -616,9 +616,9 @@ class GatewayHttpClient:
         self,
         network: str
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "solana", {
+        return await self.api_request("get", "solana", {
             "network": network
-        })
+        }, use_body=True)
 
     async def solana_get_balances(
         self,
@@ -630,7 +630,7 @@ class GatewayHttpClient:
             "network": network,
             "address": address,
             "tokenSymbols": token_symbols
-        })
+        }, use_body=True)
 
     async def solana_get_token(
         self,
@@ -642,7 +642,7 @@ class GatewayHttpClient:
             "network": network,
             "address": address,
             "token": token
-        })
+        }, use_body=True)
 
     async def solana_post_token(
         self,
@@ -906,7 +906,7 @@ class GatewayHttpClient:
             "chain": chain,
             "network": network,
             "connector": connector,
-        })
+        }, use_body=True)
 
     async def serum_get_markets(
         self,
