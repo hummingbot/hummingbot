@@ -3,7 +3,7 @@ import copy
 import logging
 import time
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
 
 from async_timeout import timeout
 
@@ -78,6 +78,7 @@ class GatewaySOLCLOB(ConnectorBase):
             network: str,
             wallet_address: str,
             trading_pairs: List[str] = (),
+            additional_spenders: List[str] = [],  # not implemented
             trading_required: bool = True
     ):
         """
@@ -122,7 +123,7 @@ class GatewaySOLCLOB(ConnectorBase):
         if s_logger is None:
             s_logger = logging.getLogger(cls.__name__)
 
-        return HummingbotLogger
+        return cast(HummingbotLogger, s_logger)
 
     @property
     def chain(self):
@@ -1013,7 +1014,13 @@ class GatewaySOLCLOB(ConnectorBase):
         """
         asyncio.ensure_future(
             self._get_gateway_instance().clob_delete_orders(
-                self.chain, self.network, self.connector, self.address
+                chain=self.chain,
+                network=self.network,
+                connector=self.connector,
+                orders=[{
+                    "marketName": convert_trading_pair(trading_pair),
+                    "ownerAddress": self.address,
+                } for trading_pair in self._trading_pairs]
             )
         )
 
