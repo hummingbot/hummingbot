@@ -13,7 +13,6 @@ export interface Config {
   lamportsToSol: number;
   timeToLive: number;
   customNodeUrl: string | undefined;
-  nodeAPIKey: string | undefined;
 }
 
 export function getSolanaConfig(
@@ -36,6 +35,5 @@ export function getSolanaConfig(
     lamportsToSol: configManager.get(chainName + '.lamportsToSol'),
     timeToLive: configManager.get(chainName + '.timeToLive'),
     customNodeUrl: configManager.get(chainName + '.customNodeUrl'),
-    nodeAPIKey: configManager.get(chainName + '.nodeAPIKey'),
   };
 }

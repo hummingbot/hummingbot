@@ -1,4 +1,4 @@
-network: devnet
+network: mainnet-beta
 networks: # Serum and Solana networks need to have the same name
   mainnet-beta:
     rpcURL: https://api.mainnet-beta.solana.com
