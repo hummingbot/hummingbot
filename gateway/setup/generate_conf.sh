@@ -11,6 +11,8 @@ echo
 HOST_CONF_PATH="${1:=(pwd -P)/conf}"
 
 echo "HOST_CONF_PATH=$HOST_CONF_PATH"
+echo "INFURA_API_KEY=$INFURA_API_KEY"
+echo "BSC_NODE_URL"=$BSC_NODE_URL
 
 mkdir -p $HOST_CONF_PATH
 
@@ -55,6 +57,14 @@ echo "created $HOST_CONF_PATH/solana.yml"
 
 cp "$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../src/templates/serum.yml" "$HOST_CONF_PATH/serum.yml"
 echo "created $HOST_CONF_PATH/serum.yml"
+
+cp "$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../src/templates/binance-smart-chain.yml" "$HOST_CONF_PATH/uniswap.yml"
+if [[ -z "$BSC_NODE_URL" ]];
+then
+else
+    sed -i'.bak' -e "/nodeURL:/ s/[^ ][^ ]*$/$BSC_NODE_URL/" "$HOST_CONF_PATH/binance-smart-chain.yml"
+fi
+echo "created $HOST_CONF_PATH/binance-smart-chain.yml"
 
 # generate the telemetry file
 echo "enabled: false" > "$HOST_CONF_PATH/telemetry.yml"  # enabled must be prompted
