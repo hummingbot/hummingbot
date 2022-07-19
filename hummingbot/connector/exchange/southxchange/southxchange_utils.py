@@ -1,19 +1,17 @@
-import asyncio
-import aiohttp
-import logging
-from typing import List, Tuple, Optional
+from datetime import datetime
+from typing import Tuple, Optional, Dict
+from dateutil import parser
 import random
 import string
-import requests
-import json
-from typing import Dict, Any
+from pydantic import Field, SecretStr
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.connector.exchange.southxchange.southxchange_constants import REST_URL, RATE_LIMITS
-from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-
+from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest
+from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
+from hummingbot.connector.exchange.southxchange.southxchange_web_utils import WebAssistantsFactory_SX
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USDT"
@@ -26,31 +24,22 @@ HBOT_BROKER_ID = "SX-HMBot"
 _SX_throttler: AsyncThrottler
 
 
-def _set_throttler_instance_SX() -> AsyncThrottler:
-    global _SX_throttler
-    _SX_throttler = AsyncThrottler(RATE_LIMITS)
-    return _SX_throttler
+_last_tracking_nonce: int = 0
 
 
-def _get_throttler_instance_SX() -> AsyncThrottler:
-    global _SX_throttler
-    return _SX_throttler
+def get_tracking_nonce() -> int:
+    global _last_tracking_nonce
+    nonce = 1
+    _last_tracking_nonce = nonce if nonce > _last_tracking_nonce else _last_tracking_nonce + 1
+    return _last_tracking_nonce
 
 
-def get_market_id(trading_pairs: List[str]) -> int:
-    url = f"{REST_URL}markets"
-    resp = requests.get(url)
-    if resp.status_code != 200:
-        return 0
-    resp_text = json.loads(resp.text)
+def convert_string_to_datetime(fecha_str: str) -> datetime:    
     try:
-        for item in resp_text:
-            if trading_pairs[0] == (f"{item[0]}-{item[1]}"):
-                return item[2]
-    except Exception:
-        return 0
-    return 0
-
+        fecha_str = str(f"{parser.parse(fecha_str).year}-{parser.parse(fecha_str).month}-{parser.parse(fecha_str).day}T{parser.parse(fecha_str).hour}:{parser.parse(fecha_str).minute}:{parser.parse(fecha_str).second}")                            
+        return datetime.strptime(fecha_str, '%Y-%m-%dT%H:%M:%S')
+    except Exception as ex:
+        _ = ex
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
     return exchange_trading_pair.replace("/", "-")
@@ -129,107 +118,59 @@ def gen_client_order_id(is_buy: bool, trading_pair: str) -> str:
     return f"{HBOT_BROKER_ID}-{side}-{trading_pair}-{get_tracking_nonce()}"
 
 
-KEYS = {
-    "southxchange_api_key":
-        ConfigVar(key="southxchange_api_key",
-                  prompt="Enter your SouthXchange API key >>> ",
-                  required_if=using_exchange("southxchange"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "southxchange_secret_key":
-        ConfigVar(key="southxchange_secret_key",
-                  prompt="Enter your SouthXchange secret key >>> ",
-                  required_if=using_exchange("southxchange"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class SouthxchangeRESTPreProcessor(RESTPreProcessorBase):
+
+    async def pre_process(self, request: RESTRequest) -> RESTRequest:
+        if request.headers is None:
+            request.headers = {}
+        # Generates generic headers required by AscendEx
+        headers_generic = {}
+        headers_generic["Accept"] = "application/json"
+        headers_generic["Content-Type"] = "application/json"
+        # Headers signature to identify user as an HB liquidity provider.
+        request.headers = dict(list(headers_generic.items()) +
+                               list(request.headers.items()))
+        return request
 
 
-class SouthXchangeAPIRequest():
-    def __init__(self, api_key: str, secret_key: str, _shared_client: Optional[aiohttp.ClientSession] = None, _throttler: Optional[AsyncThrottler] = None):
-        self._lock = asyncio.Lock()
-        self._lock2 = asyncio.Lock()
-        self._southxchange_auth = SouthXchangeAuth(api_key, secret_key)
-        self._shared_client = aiohttp.ClientSession()
-        self._throttler = _get_throttler_instance_SX()
+def build_api_factory(throttler: AsyncThrottler, auth: Optional[AuthBase] = None) -> WebAssistantsFactory_SX:
+    """
+    Builds an API factory with custom REST preprocessors
 
-    async def _create_api_request(self,
-                                  method: str, path_url: str,
-                                  params: Dict[str, Any] = {},
-                                  is_auth_required: bool = False) -> Dict[str, Any]:
-        with await self._lock:
-            resp_result = await self._api_request_southxchange(method, path_url, params, is_auth_required, client=self._shared_client, throttler=self._throttler)
-        return resp_result
+    :param throttler: throttler instance to enforce rate limits
+    :param auth: authentication class for private requests
 
-    async def _api_request_southxchange(self,
-                                        method: str,
-                                        path_url: str,
-                                        params: Dict[str, Any] = {},
-                                        is_auth_required: bool = False,
-                                        client: Optional[aiohttp.ClientSession] = None,
-                                        throttler: Optional[AsyncThrottler] = None) -> Dict[str, Any]:
-        """
-        Modify - SouthXchange
-        """
-        url = None
-        headers = None
+    :return: API factory
+    """
+    api_factory = WebAssistantsFactory_SX(
+        throttler=throttler,
+        auth=auth,
+        rest_pre_processors=[SouthxchangeRESTPreProcessor()])
+    return api_factory
 
-        if is_auth_required:
-            url = f"{REST_URL}{path_url}"
-            headers = self._southxchange_auth.get_auth_headers(url, params)
-        else:
-            url = f"{REST_URL}{path_url}"
-            headers = self._southxchange_auth.get_headers()
-        if method == "get":
-            async with self._throttler.execute_task("SXC"):
-                response = await self._shared_client.get(url)
-            try:
-                result = await response.text()
-                if result is not None and result != "":
-                    parsed_response = json.loads(await response.text())
-                else:
-                    parsed_response = "ok"
-            except Exception as e:
-                raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
-            if response.status != 200 and response.status != 204:
-                raise IOError(f"Error fetching data from {url} or API call failed. HTTP status is {response.status}. "
-                              f"Message: {parsed_response}")
-            return parsed_response
-        elif method == "post":
-            async with throttler.execute_task("SXC"):
-                response = await client.post(url, headers= headers["header"], data=json.dumps(headers["data"]))
-            try:
-                result = await response.text()
-                if result is not None and result != "":
-                    parsed_response = json.loads(await response.text())
-                else:
-                    parsed_response = "ok"
-            except Exception as e:
-                raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
-            if response.status != 200 and response.status != 204:
-                raise IOError(f"Error fetching data from {url} or API call failed. HTTP status is {response.status}. "
-                              f"Message: {parsed_response}")
-            return parsed_response
-        else:
-            raise NotImplementedError
+class SouthXchangeConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="southxchange", client_data=None)
+    southxchange_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your SouthXchange API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    southxchange_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your SouthXchange secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
 
-    async def get_websoxket_token(self) -> str:
-        resp_result = await self._create_api_request(
-            method="post",
-            path_url="GetWebSocketToken",
-            params={},
-            is_auth_required=True)
-        return resp_result
+    class Config:
+        title = "southxchange"
 
-    async def safe_wrapper_sx(self, c):
-        try:
-            with await self._lock2:
-                result = await asyncio.gather(c)
-                return result
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            logging.getLogger(__name__).error(f"Unhandled error in background task: {str(e)}", exc_info=True)
 
-    def safe_ensure_future_sx(self, coro, *args, **kwargs):
-        return asyncio.ensure_future(self.safe_wrapper_sx(coro), *args, **kwargs)
+KEYS = SouthXchangeConfigMap.construct()

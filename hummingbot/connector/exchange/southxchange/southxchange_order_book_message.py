@@ -18,11 +18,6 @@ class SouthXchangeOrderBookMessage(OrderBookMessage):
         *args,
         **kwargs,
     ):
-        # if timestamp is None:
-        #     if message_type is OrderBookMessageType.SNAPSHOT:
-        #         raise ValueError("timestamp must not be None when initializing snapshot messages.")
-        #     timestamp = content["timestamp"]
-
         return super(SouthXchangeOrderBookMessage, cls).__new__(
             cls, message_type, content, *args, **kwargs
         )

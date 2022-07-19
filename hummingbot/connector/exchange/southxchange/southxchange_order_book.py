@@ -48,20 +48,6 @@ class SouthXchangeOrderBook(OrderBook):
             timestamp=timestamp
         )
 
-    # @classmethod
-    # def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-    #     """
-    #     *used for backtesting
-    #     Convert a row of snapshot data into standard OrderBookMessage format
-    #     :param record: a row of snapshot data from the database
-    #     :return: AscendExOrderBookMessage
-    #     """
-    #     return SouthXchangeOrderBookMessage(
-    #         message_type=OrderBookMessageType.SNAPSHOT,
-    #         content=record.json,
-    #         timestamp=record.timestamp
-    #     )
-
     @classmethod
     def diff_message_from_exchange(cls,
                                    msg: Dict[str, any],
@@ -82,20 +68,6 @@ class SouthXchangeOrderBook(OrderBook):
             content=msg,
             timestamp=timestamp
         )
-
-    # @classmethod
-    # def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-    #     """
-    #     *used for backtesting
-    #     Convert a row of diff data into standard OrderBookMessage format
-    #     :param record: a row of diff data from the database
-    #     :return: AscendExOrderBookMessage
-    #     """
-    #     return SouthXchangeOrderBookMessage(
-    #         message_type=OrderBookMessageType.DIFF,
-    #         content=record.json,
-    #         timestamp=record.timestamp
-    #     )
 
     @classmethod
     def trade_message_from_exchange(cls,
@@ -130,17 +102,3 @@ class SouthXchangeOrderBook(OrderBook):
     @classmethod
     def restore_from_snapshot_and_diffs(cls, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
         raise NotImplementedError(constants.EXCHANGE_NAME + " order book needs to retain individual order data.")
-
-    # @classmethod
-    # def trade_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-    #     """
-    #     *used for backtesting
-    #     Convert a row of trade data into standard OrderBookMessage format
-    #     :param record: a row of trade data from the database
-    #     :return: AscendExOrderBookMessage
-    #     """
-    #     return SouthXchangeOrderBookMessage(
-    #         message_type=OrderBookMessageType.TRADE,
-    #         content=record.json,
-    #         timestamp=record.timestamp
-    #     )

@@ -248,3 +248,9 @@ wazirx_maker_percent_fee:
 wazirx_percent_fee_token:
 wazirx_taker_fixed_fees:
 wazirx_taker_percent_fee:
+southxchange_buy_percent_fee_deducted_from_returns:
+southxchange_maker_fixed_fees:
+southxchange_maker_percent_fee:
+southxchange_percent_fee_token:
+southxchange_taker_fixed_fees:
+southxchange_taker_percent_fee:
