@@ -30,6 +30,8 @@ class OrderState(Enum):
     FAILED = 6
     PENDING_APPROVAL = 7
     APPROVED = 8
+    CREATED = 9
+    COMPLETED = 10
 
 
 class OrderUpdate(NamedTuple):
