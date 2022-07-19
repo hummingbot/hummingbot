@@ -35,6 +35,7 @@ elif uname | egrep -qe "MINGW64"; then
 elif uname | egrep -qe "Darwin"; then
     if uname -m | egrep -qe "arm64"; then
         ENV_FILE=$MACOS_ARM64_ENV
+    fi
 fi
 
 if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then
