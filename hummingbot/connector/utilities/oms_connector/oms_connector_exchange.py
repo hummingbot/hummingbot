@@ -205,9 +205,7 @@ class OMSExchange(ExchangePyBase):
         cancel_success = False
         if cancel_result.get(CONSTANTS.ERROR_CODE_FIELD):
             if cancel_result[CONSTANTS.ERROR_CODE_FIELD] == CONSTANTS.RESOURCE_NOT_FOUND_ERR_CODE:
-                self._order_not_found_on_cancel_record[order_id] += 1
-                if self._order_not_found_on_cancel_record[order_id] >= CONSTANTS.MAX_ORDER_NOT_FOUND_ON_CANCEL:
-                    cancel_success = True
+                await self._order_tracker.process_order_not_found(order_id)
             else:
                 raise IOError(cancel_result[CONSTANTS.ERROR_MSG_FIELD])
         cancel_success = cancel_success or cancel_result[CONSTANTS.RESULT_FIELD]
