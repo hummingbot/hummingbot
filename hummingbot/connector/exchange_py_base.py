@@ -859,7 +859,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         else:
             url = self.web_utils.public_rest_url(path_url, domain=self.domain)
 
-        for retry_count in range(1, 3):
+        for _ in range(2):
             try:
                 request_result = await rest_assistant.execute_request(
                     url=url,
