@@ -6,6 +6,7 @@ from typing import Any, Awaitable, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
+from bidict import bidict
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -69,6 +70,8 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         self.data_source.logger().addHandler(self)
 
         self.resume_test_event = asyncio.Event()
+
+        self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
