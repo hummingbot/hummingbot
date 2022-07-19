@@ -132,7 +132,7 @@ def main():
     setup(name="hummingbot",
           version=version,
           description="Hummingbot",
-          url="https://github.com/CoinAlpha/hummingbot",
+          url="https://github.com/hummingbot/hummingbot",
           author="CoinAlpha, Inc.",
           author_email="dev@hummingbot.io",
           license="Apache 2.0",
