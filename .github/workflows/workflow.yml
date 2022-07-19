@@ -189,6 +189,7 @@ jobs:
           mkdir conf db
           cp src/templates/* conf
           sed -i 's/https:\/\/kovan.infura.io\/v3\//http:\/\/127.0.0.1:8545\//g' ./conf/ethereum.yml
+          sed -i 's/https:\/\/optimism-mainnet.infura.io\/v3\//http:\/\/127.0.0.1:8545\//g' ./conf/ethereum.yml
           sed -i 's/https:\/\/speedy-nodes-nyc.moralis.io\/{}\/avalanche\/testnet/http:\/\/127.0.0.1:8545\//g' ./conf/avalanche.yml
           sed -i 's/https:\/\/api.s0.b.hmny.io/http:\/\/127.0.0.1:8545\//g' ./conf/harmony.yml
           yarn test:unit 
