@@ -8,12 +8,13 @@ from solders.signature import Signature
 
 from hummingbot.core.utils.solana import publickey
 
-"""
-Because the Solana library conflicts with dydx-python and dydx-v2-python libraries,
-    we need to copy the implementation of this class as a workaround.
-"""
+
 class Keypair:
-    """An account keypair used for signing transactions.
+    """
+    Because the Solana library conflicts with dydx-python and dydx-v2-python libraries,
+        we need to copy the implementation of this class as a workaround.
+
+    An account keypair used for signing transactions.
 
     Args:
         keypair: a `solders.keypair.Keypair` instance. Optional, defaults to None.
@@ -117,7 +118,7 @@ class Keypair:
             >>> msg = b"hello"
             >>> signature = keypair.sign(msg)
             >>> bytes(signature).hex()
-            'e1430c6ebd0d53573b5c803452174f8991ef5955e0906a09e8fdc7310459e9c82a402526748c3431fe7f0e5faafbf7e703234789734063ee42be17af16438d08'
+            'e1430c6ebd0d53573b5c803452174f8991ef5955e0906a09e8fdc7310459e9c82a402526748c3431fe7f0e5faafbf7e703234789734063ee42be17af16438d08' # noqa: documentation
         """  # pylint: disable=line-too-long
         return self._solders.sign_message(msg)
 
