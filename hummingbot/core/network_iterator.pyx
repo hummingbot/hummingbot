@@ -3,7 +3,7 @@
 import asyncio
 from enum import Enum
 import logging
-from typing import Optional
+from typing import Optional, cast
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
@@ -26,7 +26,8 @@ cdef class NetworkIterator(TimeIterator):
         global ni_logger
         if ni_logger is None:
             ni_logger = logging.getLogger(__name__)
-        return ni_logger
+
+        return cast(HummingbotLogger, ni_logger)
 
     def __init__(self):
         super().__init__()
