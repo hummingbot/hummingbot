@@ -21,6 +21,7 @@ class TestFixedGridConfigMap(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
+        required_exchanges.clear()
         self.config_backup = deepcopy(fixed_grid_config_map)
 
     def tearDown(self) -> None:
