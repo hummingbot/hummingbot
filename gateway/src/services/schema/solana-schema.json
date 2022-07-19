@@ -22,8 +22,7 @@
     "transactionLamports": { "type": "integer" },
     "lamportsToSol": { "type": "number" },
     "timeToLive": { "type": "number" },
-    "customNodeUrl": { "type": ["string", "null"] },
-    "nodeAPIKey": { "type": ["string", "null"] }
+    "customNodeUrl": { "type": ["string", "null"] }
   },
   "required": [
     "networks",

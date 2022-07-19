@@ -8,10 +8,9 @@ networks:
   devnet:
     nodeURL: https://api.devnet.solana.com
     nativeCurrencySymbol: SOL
-network: testnet
+network: mainnet-beta
 tokenProgram: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
 transactionLamports: 5000
 lamportsToSol: 0.000000001
 timeToLive: 75
 customNodeUrl: ~
-nodeAPIKey: ~
