@@ -36,6 +36,7 @@ class HummingbotCompleter(Completer):
         self._exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_connector_settings().keys()), ignore_case=True)
         self._spot_exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
         self._exchange_amm_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(AllConnectorSettings.get_gateway_evm_amm_connector_names())), ignore_case=True)
+        self._evm_amm_lp_completer = WordCompleter(sorted(AllConnectorSettings.get_gateway_evm_amm_lp_connector_names()), ignore_case=True)
         self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"], ignore_case=True)
         self._derivative_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
         self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names().difference(AllConnectorSettings.get_derivative_dex_names()), ignore_case=True)
@@ -144,6 +145,9 @@ class HummingbotCompleter(Completer):
     def _complete_spot_exchanges(self, document: Document) -> bool:
         return "spot" in self.prompt_text
 
+    def _complete_lp_connector(self, document: Document) -> bool:
+        return "LP" in self.prompt_text
+
     def _complete_trading_timeframe(self, document: Document) -> bool:
         return any(x for x in ("trading timeframe", "execution timeframe")
                    if x in self.prompt_text.lower())
@@ -246,6 +250,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_wallet_addresses(document):
             for c in self._gateway_wallet_address_completer.get_completions(document, complete_event):
+                yield c
+
+        if self._complete_lp_connector(document):
+            for c in self._evm_amm_lp_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_exchange_amm_connectors(document):

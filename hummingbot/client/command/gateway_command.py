@@ -355,6 +355,7 @@ class GatewayCommand(GatewayChainApiManager):
                     return
                 available_networks: List[Dict[str, Any]] = connector_config[0]["available_networks"]
                 trading_type: str = connector_config[0]["trading_type"][0]
+                additional_spenders: List[str] = connector_config[0].get("additional_spenders", [])
 
                 # ask user to select a chain. Automatically select if there is only one.
                 chains: List[str] = [d['chain'] for d in available_networks]
@@ -505,8 +506,8 @@ class GatewayCommand(GatewayChainApiManager):
                 self.app.clear_input()
 
                 # write wallets to Gateway connectors settings.
-                GatewayConnectionSetting.upsert_connector_spec(connector, chain, network, trading_type, wallet_address)
-                self.notify(f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}.")
+                GatewayConnectionSetting.upsert_connector_spec(connector, chain, network, trading_type, wallet_address, additional_spenders)
+                self.notify(f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
 
                 # update AllConnectorSettings and fee overrides.
                 AllConnectorSettings.create_connector_settings()
