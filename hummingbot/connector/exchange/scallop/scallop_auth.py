@@ -41,7 +41,7 @@ class ScallopAuth(AuthBase):
     def get_auth_headers(self, request: RESTRequest) -> Dict[str, str]:
         timestamp = int(self.time_provider.time() * 1e3)
         path = urlparse(request.url).path
-        payload = timestamp + request.method + path
+        payload = timestamp + request.method.name + path
         if request.method == RESTMethod.GET:
             if request.params:
                 query_string = urlencode(request.params)
