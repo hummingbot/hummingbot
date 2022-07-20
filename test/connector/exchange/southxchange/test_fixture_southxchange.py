@@ -32,7 +32,7 @@ class Fixturesouthxchange:
     ORDER_PLACE = "30001"
 
     GET_ORDER_RESPONSE_BUY_BOOKED = {"Type": "buy", "Amount": '1.0', "LimitPrice": '86.24', "ListingCurrency": "LTC2", "ReferenceCurrency": "USD2", "Status": "booked", "DateAdded": "2021-10-10T12:32:29.167"}
-    
+
     GET_ORDER_RESPONSE_BUY_CREATE = {'Type': 'buy', 'Amount': '1.0', 'LimitPrice': '86.24', 'ListingCurrency': 'LTC2', 'ReferenceCurrency': 'USD2', 'Status': 'pending', 'DateAdded': '2021-10-02T14:23:17.2'}
 
     GET_ORDER_RESPONSE_BUY_EXECUTED = {"Type": "buy", "Amount": '1.0', "LimitPrice": '86.24', "ListingCurrency": "LTC2", "ReferenceCurrency": "USD2", "Status": "executed", "DateAdded": "2021-10-10T12:32:29.167"}
@@ -135,11 +135,11 @@ class Fixturesouthxchange:
                 "p": 118.750000000000000000
             },
             {
-            "m": 3,
-            "d": "2022-07-15T19:17:06Z",
-            "b": True,
-            "a": 0.20000000,
-            "p": 118.750000000000000000
+                "m": 3,
+                "d": "2022-07-15T19:17:06Z",
+                "b": True,
+                "a": 0.20000000,
+                "p": 118.750000000000000000
             }
         ]
     }
