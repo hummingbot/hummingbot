@@ -1,6 +1,5 @@
 import hashlib
 import hmac
-import mock
 import json
 from typing import Dict, Any
 from unittest import TestCase

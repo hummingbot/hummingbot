@@ -2,14 +2,20 @@ import asyncio
 import json
 import re
 import unittest
-import logging
-from decimal import Decimal
-from typing import Awaitable, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
-
 from aioresponses import aioresponses
 from bidict import bidict
-
+import math
+import contextlib
+import conf
+from decimal import Decimal
+from unittest.mock import AsyncMock, MagicMock, patch
+from typing import (
+    List,
+    Optional,
+    Awaitable,
+    Any,
+    Dict
+)
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.southxchange import southxchange_constants as southxchange_utils
@@ -24,74 +30,14 @@ from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
-# from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketEvent, MarketOrderFailureEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-
-import unittest
-# import requests
-import json
-from decimal import Decimal
-from typing import (
-    List,
-    Optional
-)
-import re
-from aioresponses import aioresponses
-from bidict import bidict
-import math
-import asyncio
-import contextlib
-import os
-import time
-import conf
-
-from typing import Awaitable, List, Optional, Dict, Any
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
-
-
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.event.events import (
-    MarketEvent,
-    MarketOrderFailureEvent,
-    BuyOrderCompletedEvent,
-    # SellOrderCompletedEvent,
-    OrderFilledEvent,
-    # OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    # TradeFee,
-    TradeType,
-)
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
-from hummingbot.connector.exchange.southxchange.southxchange_exchange import SouthxchangeExchange
-from hummingbot.core.event.events import OrderType
-# from hummingbot.connector.markets_recorder import MarketsRecorder
-# from hummingbot.model.market_state import MarketState
-# from hummingbot.model.order import Order
-# from hummingbot.model.sql_connection_manager import (
-#     SQLConnectionManager,
-#     SQLConnectionType
-# )
-# from hummingbot.model.trade_fill import TradeFill
-# from hummingbot.core.mock_api.mock_web_server import MockWebServer
-# from unittest import mock
-# from test.connector.exchange.southxchange.mock_server_web_socket import MockWebSocketServerFactory
-from test.connector.exchange.southxchange.fixture_southxchange import Fixturesouthxchange
+from test.connector.exchange.southxchange.test_fixture_southxchange import Fixturesouthxchange
 
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
-API_KEY = "XXX" if API_MOCK_ENABLED else conf.southxchange_api_key
-API_SECRET = "YYY" if API_MOCK_ENABLED else conf.southxchange_secret_key
 API_BASE_URL = "https://www.southxchange.com"
 EXCHANGE_ORDER_ID = 20001
 
@@ -230,57 +176,6 @@ class TestSouthXchangeExchange(unittest.TestCase):
         taker_fee = self.exchange.estimate_fee_pct(False)
         self.assertAlmostEqual(taker_fee, Decimal("0.001"))
 
-    def test_limit_maker_rejections(self):
-        if API_MOCK_ENABLED:
-            return
-        trading_pair = "LTC2-USD2"
-
-        # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
-        price: Decimal = self.exchange.get_price(trading_pair, True) * Decimal('1.02')
-        price: Decimal = self.exchange.quantize_order_price(trading_pair, price)
-        amount = self.exchange.quantize_order_amount(trading_pair, Decimal(0.01))
-
-        order_id = self.exchange.buy(trading_pair, amount, OrderType.LIMIT_MAKER, price)
-        [order_failure_event] = self.run_parallel(self.exchange_logger.wait_for(MarketOrderFailureEvent))
-        self.assertEqual(order_id, order_failure_event.order_id)
-
-        self.exchange_logger.clear()
-
-        # Try to put a sell limit maker order that is going to match, this should triggers order failure event.
-        price: Decimal = self.exchange.get_price(trading_pair, True) * Decimal('0.98')
-        price: Decimal = self.exchange.quantize_order_price(trading_pair, price)
-        amount = self.exchange.quantize_order_amount(trading_pair, Decimal(0.01))
-
-        order_id = self.exchange.sell(trading_pair, amount, OrderType.LIMIT_MAKER, price)
-        [order_failure_event] = self.run_parallel(self.exchange_logger.wait_for(MarketOrderFailureEvent))
-        self.assertEqual(order_id, order_failure_event.order_id)
-
-    def test_limit_makers_unfilled(self):
-        if API_MOCK_ENABLED:
-            return
-        trading_pair = "LTC2-USD2"
-        bid_price = self.exchange.get_price(trading_pair, True) * Decimal("0.8")
-        quantized_bid_price = self.exchange.quantize_order_price(trading_pair, bid_price)
-        quantized_bid_amount = self.exchange.quantize_order_amount(trading_pair, Decimal(1))
-        order_id_buy, exchange_order_id_buy = self.place_order(True, "LTC2-USD2", quantized_bid_amount, OrderType.LIMIT_MAKER, quantized_bid_price)
-        [order_created_event] = self.run_parallel(self.exchange_logger.wait_for(BuyOrderCreatedEvent))
-        order_created_event: BuyOrderCreatedEvent = order_created_event
-        self.assertEqual(order_id_buy, order_created_event.order_id)
-        ask_price = self.exchange.get_price(trading_pair, True) * Decimal("1.2")
-        quatized_ask_price = self.exchange.quantize_order_price(trading_pair, ask_price)
-        quatized_ask_amount = self.exchange.quantize_order_amount(trading_pair, Decimal(1))
-        order_id, _ = self.place_order(False, trading_pair, quatized_ask_amount, OrderType.LIMIT_MAKER,
-                                       quatized_ask_price)
-        [order_created_event] = self.run_parallel(self.exchange_logger.wait_for(SellOrderCreatedEvent))
-        order_created_event: BuyOrderCreatedEvent = order_created_event
-        self.assertEqual(order_id, order_created_event.order_id)
-        [cancellation_results] = self.run_parallel(self.exchange.cancel_all(5))
-        for cr in cancellation_results:
-            self.assertEqual(cr.success, True)
-        [cancellation_results] = self.run_parallel(self.exchange.cancel_all(5))
-        for cr in cancellation_results:
-            self.assertEqual(cr.success, True)
-
     def _cancel_order(self, cl_order_id):
         self.exchange.cancel("LTC2-USD2", cl_order_id)
         resp_GET_RESPONSE_BUY_CANCEL = Fixturesouthxchange.GET_ORDER_RESPONSE_BUY_CANCEL.copy()
@@ -291,7 +186,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
         self._simulate_trading_rules_initialized()
         self.exchange._account_group = 0
         url = f"{API_BASE_URL}/{'api/v4/placeOrder'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))  
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.post(regex_url, body=str(EXCHANGE_ORDER_ID))
         resp_GET_ORDER_BUY = Fixturesouthxchange.GET_ORDER_RESPONSE_BUY_BOOKED.copy()
         resp_GET_ORDER_BUY["Code"] = EXCHANGE_ORDER_ID
@@ -309,8 +204,8 @@ class TestSouthXchangeExchange(unittest.TestCase):
             trading_pair=trading_pair,
             amount=Decimal(str(amount)),
             order_type= order_type,
-            price=Decimal(str(price)),
-        ))        
+            price=Decimal(str(price))
+        ))
         self.assertIn(order_result, self.exchange.in_flight_orders)
         order_tracker = self.exchange.in_flight_orders[order_result]
         self.assertEqual(EXCHANGE_ORDER_ID, order_tracker.exchange_order_id)
@@ -320,7 +215,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
     @patch("hummingbot.connector.exchange.southxchange.southxchange_exchange.SouthxchangeExchange.get_price")
     @aioresponses()
     def test_create_order(self, mock_price, mock_api):
-        order_id_buy, exchange_order_id_buy = self.place_order(True, self.trading_pair,1000,OrderType.LIMIT,99, mock_price, mock_api)
+        order_id_buy, exchange_order_id_buy = self.place_order(True, self.trading_pair, 1000, OrderType.LIMIT, 99, mock_price, mock_api)
         self.assertEqual(EXCHANGE_ORDER_ID, exchange_order_id_buy)
         self.assertEqual("BUY_testOrderId1", order_id_buy)
 
@@ -333,10 +228,8 @@ class TestSouthXchangeExchange(unittest.TestCase):
 
     @aioresponses()
     def test_cancel_all_does_not_cancel_orders_without_exchange_id(self, mock_api):
-
-
         url = f"{API_BASE_URL}/{'api/v4/cancelOrder'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, status=204)
 
@@ -346,10 +239,10 @@ class TestSouthXchangeExchange(unittest.TestCase):
             trade_type=TradeType.BUY,
             price=Decimal("10000"),
             amount=Decimal("1"),
-            order_type=OrderType.LIMIT,
-         )
+            order_type=OrderType.LIMIT
+        )
         order = self.exchange.in_flight_orders.get("testOrderId1")
-        order.exchange_order_id ="421152"
+        order.exchange_order_id = "421152"
         order.exchange_order_id_update_event
 
         self.exchange.start_tracking_order(
@@ -440,39 +333,18 @@ class TestSouthXchangeExchange(unittest.TestCase):
         )
 
         order = self.exchange.in_flight_orders.get("testOrderId1")
-        order.exchange_order_id ="421152"
+        order.exchange_order_id = "421152"
         order.exchange_order_id_update_event
 
-        o = self.exchange.in_flight_orders["testOrderId1"]
         # Check before
         self.assertIn("testOrderId1", self.exchange.in_flight_orders)
         self.assertEqual(self.exchange.in_flight_orders["testOrderId1"].current_state, OrderState.PENDING_CREATE)
 
         url = f"{API_BASE_URL}/{'api/v4/getOrder'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         resp_GET_ORDER_BUY = Fixturesouthxchange.GET_ORDER_RESPONSE_BUY_BOOKED.copy()
         resp_GET_ORDER_BUY["Code"] = "421152"
         mock_api.post(regex_url, body=json.dumps(resp_GET_ORDER_BUY))
-
-        # status_update = {
-        #     "k": "order",
-        #         "v": [
-        #             {
-        #                 "c": "421152",
-        #                 "m": 3,
-        #                 "d": "2022-07-15T18:24:53.563",
-        #                 "get": "LTC2",
-        #                 "giv": "USD2",
-        #                 "a": 1,
-        #                 "oa": 1,
-        #                 "p": 20000,
-        #                 "b": True
-        #             }
-        #         ]
-        # }
-
-        # mock_response = status_update
-        # mock_api.get(regex_url, body=json.dumps(mock_response))
 
         self.async_run_with_timeout(self.exchange._update_order_status())
 
@@ -500,25 +372,25 @@ class TestSouthXchangeExchange(unittest.TestCase):
         self.exchange._account_group = 0
 
         url = f"{API_BASE_URL}/{'api/v4/getOrder'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, body=json.dumps(Fixturesouthxchange.GET_ORDER_RESPONSE_BUY_BOOKED))
 
         status_update = {
             "k": "order",
-                "v": [
-                    {
-                        "c": "421152",
-                        "m": 3,
-                        "d": "2022-07-15T18:24:53.563",
-                        "get": "LTC2",
-                        "giv": "USD2",
-                        "a": 1,
-                        "oa": 1,
-                        "p": 118.75,
-                        "b": True
-                    }
-                ]
+            "v": [
+                {
+                    "c": "421152",
+                    "m": 3,
+                    "d": "2022-07-15T18:24:53.563",
+                    "get": "LTC2",
+                    "giv": "USD2",
+                    "a": 1,
+                    "oa": 1,
+                    "p": 118.75,
+                    "b": True
+                }
+            ]
         }
 
         mock_response = status_update
@@ -549,19 +421,17 @@ class TestSouthXchangeExchange(unittest.TestCase):
             trade_type=TradeType.BUY,
             price=Decimal("20000"),
             amount=Decimal("2"),
-            order_type=OrderType.LIMIT            
+            order_type=OrderType.LIMIT
         )
         order = self.exchange.in_flight_orders.get("testOrderId1")
-        order.exchange_order_id ="421152"
+        order.exchange_order_id = "421152"
         order.exchange_order_id_update_event
         # Check before
         self.assertIn("testOrderId1", self.exchange.in_flight_orders)
         self.assertEqual(self.exchange.in_flight_orders["testOrderId1"].current_state, OrderState.PENDING_CREATE)
 
-
-
         url = f"{API_BASE_URL}/{'api/v4/getOrder'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, body=json.dumps(Fixturesouthxchange.GET_ORDER_RESPONSE_BUY_BOOKED), status=401)
 
@@ -592,7 +462,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
             order_type=OrderType.LIMIT,
         )
         order = self.exchange.in_flight_orders.get("testOrderId1")
-        order.exchange_order_id ="421152"
+        order.exchange_order_id = "421152"
         order.exchange_order_id_update_event
 
         # Check before
@@ -600,7 +470,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
         self.assertEqual(self.exchange.in_flight_orders["testOrderId1"].current_state, OrderState.PENDING_CREATE)
 
         url = f"{API_BASE_URL}/{'api/v4/getOrder'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, body=json.dumps(Fixturesouthxchange.GET_ORDER_RESPONSE_BUY_BOOKED))
 
@@ -677,8 +547,6 @@ class TestSouthXchangeExchange(unittest.TestCase):
 
     @aioresponses()
     def test_partial_fill_and_full_fill_generate_fill_events(self, mock_api):
-
-
         self.exchange._set_current_timestamp(1640780000)
 
         self.exchange.start_tracking_order(
@@ -701,38 +569,36 @@ class TestSouthXchangeExchange(unittest.TestCase):
         )
         self.exchange._in_flight_order_tracker.process_order_update(order_update)
 
-
         url = f"{API_BASE_URL}/{'api/v4/listTransactions'}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.post(regex_url, body=json.dumps(Fixturesouthxchange.LIST_TRANSACTIONS))
 
-
         url = f"{API_BASE_URL}/{'api/v4/getOrder'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         getOrder_partialFill = {"Type": "buy", "Amount": '1.0', "LimitPrice": '118.75', "ListingCurrency": "LTC2", "ReferenceCurrency": "USD2", "Status": "partiallyexecuted", "DateAdded": "2021-10-10T12: 32: 29.167"}
         mock_api.post(regex_url, body=json.dumps(getOrder_partialFill))
 
         partial_fill = {
             "k": "order",
-                "v": [
-                    {
-                        "c": "421152",
-                        "m": 3,
-                        "d": "2022-07-15T18:24:53.563",
-                        "get": "LTC2",
-                        "giv": "USD2",
-                        "a": 0.2,
-                        "oa": 1,
-                        "p": 118.75,
-                        "b": True
-                    }
-                ]
+            "v": [
+                {
+                    "c": "421152",
+                    "m": 3,
+                    "d": "2022-07-15T18:24:53.563",
+                    "get": "LTC2",
+                    "giv": "USD2",
+                    "a": 0.2,
+                    "oa": 1,
+                    "p": 118.75,
+                    "b": True
+                }
+            ]
         }
 
         mock_user_stream = AsyncMock()
         mock_user_stream.get.side_effect = [partial_fill, asyncio.CancelledError()]
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
-        self.test_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())        
+        self.test_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
         try:
             self.async_run_with_timeout(self.test_task)
         except asyncio.CancelledError:
@@ -760,7 +626,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.post(regex_url, body=json.dumps(Fixturesouthxchange.LIST_TRANSACTIONS))
         url = f"{API_BASE_URL}/{'api/v4/getOrder'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         getOrder_partialFill = {"Type": "buy", "Amount": '1.0', "LimitPrice": '118.75', "ListingCurrency": "LTC2", "ReferenceCurrency": "USD2", "Status": "executed", "DateAdded": "2021-10-10T12: 32: 29.167"}
         mock_api.post(regex_url, body=json.dumps(getOrder_partialFill))
 
@@ -794,7 +660,6 @@ class TestSouthXchangeExchange(unittest.TestCase):
         self.assertEqual(Decimal(total_fill["v"][0]["p"]), fill_event.price)
         self.assertEqual(Decimal('0.2'), fill_event.amount)
         self.assertEqual(0.0, fill_event.trade_fee.percent)
-
 
         buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, buy_event.timestamp)
@@ -853,7 +718,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
         self.exchange._account_balances[self.base_asset] = Decimal(99)
 
         url = f"{API_BASE_URL}/{'api/v4/listBalances'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, body=json.dumps(Fixturesouthxchange.BALANCES))
 
@@ -903,7 +768,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
     @aioresponses()
     def test_update_trading_rules(self, mock_api):
         url = f"{API_BASE_URL}/{'api/v4/fees'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, body=json.dumps(Fixturesouthxchange.FEES))
 
@@ -920,7 +785,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
     @aioresponses()
     def test_trading_rules_polling_loop(self, sleep_mock, mock_api):
         url = f"{API_BASE_URL}/{'api/v4/fees'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, body=json.dumps(Fixturesouthxchange.FEES))
 
@@ -941,9 +806,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
     @aioresponses()
     def test_api_request_public(self, mock_api):
         url = f"{API_BASE_URL}/{'api/v4/markets'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
-
-
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, body=json.dumps(Fixturesouthxchange.MARKETS))
 
         response = self.async_run_with_timeout(self.exchange._api_request(
@@ -958,7 +821,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
     @aioresponses()
     def test_api_request_private(self, mock_api):
         url = f"{API_BASE_URL}/{'api/v4/getOrder'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, body=json.dumps(Fixturesouthxchange.GET_ORDER_RESPONSE_BUY_BOOKED))
 
@@ -974,7 +837,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
     @aioresponses()
     def test_api_request_error_status(self, mock_api):
         url = f"{API_BASE_URL}/{'api/v4/markets'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {"code": 0, "data": "test"}
         mock_api.get(regex_url, body=json.dumps(mock_response), status=401)
@@ -992,12 +855,12 @@ class TestSouthXchangeExchange(unittest.TestCase):
             error = str(e)
 
         self.assertIsNotNone(error)
-        self.assertEqual(error, f"Error calling {url}. " F"Error: Error executing request {RESTMethod.GET} {url}. HTTP status is {401}. " f"Error: {json.dumps(mock_response)}")
+        self.assertEqual(error, f"Error calling {url}. Error: Error executing request {RESTMethod.GET} {url}. HTTP status is {401}. " f"Error: {json.dumps(mock_response)}.")
 
     @aioresponses()
     def test_api_request_exception_json(self, mock_api):
         url = f"{API_BASE_URL}/{'api/v4/markets'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = "wkjqhqw:{"
         mock_api.get(regex_url, body=mock_response)
@@ -1020,7 +883,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
     @aioresponses()
     def test_update_account_data(self, mock_api):
         url = f"{API_BASE_URL}/{'api/v4/getUserInfo'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {"TraderLevel": "test"}
         mock_api.post(regex_url, body=json.dumps(mock_response))
@@ -1032,7 +895,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
     @aioresponses()
     def test_update_account_data_error_status(self, mock_api):
         url = f"{API_BASE_URL}/{'api/v4/getUserInfo'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {"TraderLevel": "test"}
         mock_api.get(regex_url, body=json.dumps(mock_response), status=401)
@@ -1045,7 +908,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
             error = str(e)
 
         self.assertIsNotNone(error)
-        self.assertEqual(error, f"Error parsing data from getUserInfo.")
+        self.assertEqual(error, "Error parsing data from getUserInfo.")
 
     @aioresponses()
     def test_process_order_message(self, mock_api):
@@ -1060,11 +923,11 @@ class TestSouthXchangeExchange(unittest.TestCase):
             trade_type=TradeType.BUY,
             price=Decimal("10000"),
             amount=Decimal("1"),
-            order_type=OrderType.LIMIT           
+            order_type=OrderType.LIMIT
         )
         # Verify that the order is being tracked
         self.assertIn("testOrderId1", self.exchange.in_flight_orders)
-        # Update the order                        
+        # Update the order
         order_update: OrderUpdate = OrderUpdate(
             client_order_id="testOrderId1",
             exchange_order_id="1617339",
@@ -1080,17 +943,17 @@ class TestSouthXchangeExchange(unittest.TestCase):
 
         self.ev_loop.run_until_complete(
             self.exchange._process_trade_message(SouthxchangeOrder(
-                        "1617339",
-                        0,
-                        "2022-07-13T12:00:00",
-                        "LTC2",
-                        "USD2",
-                        Decimal("4000"),
-                        Decimal("10000"),                        
-                        Decimal("10000"),
-                        TradeType.BUY,
-                        "partiallyexecuted"
-                    ))
+                "1617339",
+                0,
+                "2022-07-13T12:00:00",
+                "LTC2",
+                "USD2",
+                Decimal("4000"),
+                Decimal("10000"),
+                Decimal("10000"),
+                TradeType.BUY,
+                "partiallyexecuted"
+            ))
         )
 
         self.assertIn("testOrderId1", self.exchange.in_flight_orders)
@@ -1099,7 +962,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
     @aioresponses()
     def test_check_network_successful(self, mock_api):
         url = f"{API_BASE_URL}/{'api/v4/markets'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, body=json.dumps(Fixturesouthxchange.MARKETS))
 
@@ -1110,7 +973,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
     @aioresponses()
     def test_check_network_unsuccessful(self, mock_api):
         url = f"{API_BASE_URL}/{'api/v4/markets'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")) 
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=404)
 
@@ -1160,7 +1023,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
         self.exchange._account_group = 0
 
         url = f"{API_BASE_URL}/{'api/v4/placeOrder'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))  
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, body="{}", status=400)
 
@@ -1208,7 +1071,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
         self.assertNotIn("testOrderId1", self.exchange.in_flight_orders)
         self.assertTrue(is_exception)
         self.assertEqual("Order amount must be greater than zero.", exception_msg)
-        
+
     def test_create_order_unsupported_order(self):
         is_exception = False
         exception_msg = ""
@@ -1247,12 +1110,12 @@ class TestSouthXchangeExchange(unittest.TestCase):
             order_type=OrderType.LIMIT
         )
         order = self.exchange.in_flight_orders.get("testOrderId1")
-        order.exchange_order_id ="421152"
+        order.exchange_order_id = "421152"
         order.exchange_order_id_update_event
         # Verify that the order is being tracked
         self.assertIn("testOrderId1", self.exchange.in_flight_orders)
         url = f"{API_BASE_URL}/{'api/v4/cancelOrder'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))  
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.post(regex_url, status=204)
         # Cancel the order
         response = self.ev_loop.run_until_complete(
@@ -1307,11 +1170,3 @@ class TestSouthXchangeExchange(unittest.TestCase):
                 "The order testOrderId1 was finished before being canceled"
             )
         )
-
-def main():
-    logging.basicConfig(level=logging.INFO)
-    unittest.main()
-
-
-if __name__ == "__main__":
-    main()

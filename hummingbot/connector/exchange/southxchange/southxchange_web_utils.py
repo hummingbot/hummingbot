@@ -96,8 +96,8 @@ class RESTAssistant_SX:
                         return error_response
                     else:
                         error_response = await response.text()
-                        raise IOError(f"Error executing request {method.name} {url}. HTTP status is {response.status}."
-                                      f"Error: {error_response}")
+                        raise IOError(f"Error executing request {method.name} {url}. HTTP status is {response.status}. "
+                                      f"Error: {error_response}.")
                 elif response.status == 204:
                     return "ok"
                 else:

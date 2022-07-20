@@ -14,13 +14,13 @@ from hummingbot.connector.exchange.southxchange.southxchange_api_order_book_data
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.utils import build_api_factory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.connector.exchange.southxchange.southxchange_exchange import SouthxchangeExchange
-from test.connector.exchange.southxchange.fixture_southxchange import Fixturesouthxchange
+from test.connector.exchange.southxchange.test_fixture_southxchange import Fixturesouthxchange
 from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_to_exchange_trading_pair
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 API_BASE_URL = "https://www.southxchange.com"
+
 
 class SouthxchangeAPIOrderBookDataSourceTests(TestCase):
     # logging.Level required to receive logs from the data source logger
@@ -47,7 +47,6 @@ class SouthxchangeAPIOrderBookDataSourceTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
 
-
         self._connector = SouthxchangeAPIOrderBookDataSourceTests.exchange
         self.ev_loop = asyncio.get_event_loop()
 
@@ -64,7 +63,7 @@ class SouthxchangeAPIOrderBookDataSourceTests(TestCase):
         self.api_factory = build_api_factory(throttler=self.throttler)
 
         self.data_source = SouthxchangeAPIOrderBookDataSource(
-            connector=self.exchange,api_factory=self.api_factory, throttler=self.throttler, trading_pairs=[self.trading_pair]
+            connector=self.exchange, api_factory=self.api_factory, throttler=self.throttler, trading_pairs=[self.trading_pair]
         )
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
@@ -104,7 +103,7 @@ class SouthxchangeAPIOrderBookDataSourceTests(TestCase):
         SouthxchangeAPIOrderBookDataSource._trading_pair_symbol_map = None
 
         url = f"{API_BASE_URL}/{'api/v4/markets'}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))  
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         api_mock.get(regex_url, body=json.dumps(Fixturesouthxchange.MARKETS))
 
         trading_pairs = self.async_run_with_timeout(
@@ -120,7 +119,7 @@ class SouthxchangeAPIOrderBookDataSourceTests(TestCase):
         self.data_source._trading_pairs = ["LTC2-BTC2"]
 
         url = f"{API_BASE_URL}/{'api/v4/trades'}/{convert_to_exchange_trading_pair('LTC2-BTC2')}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))  
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         api_mock.get(regex_url, body=json.dumps(Fixturesouthxchange.TRADES))
 
         results = self.ev_loop.run_until_complete(
@@ -135,7 +134,7 @@ class SouthxchangeAPIOrderBookDataSourceTests(TestCase):
     def test_get_order_book_http_error_raises_exception(self, api_mock):
         mock_response = "ERROR WITH REQUEST"
         url = f"{API_BASE_URL}/{'api/v4/book'}/{convert_to_exchange_trading_pair('LTC2-BTC2')}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))  
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         api_mock.get(regex_url, status=400, body=mock_response)
 
         with self.assertRaises(IOError):
@@ -144,9 +143,9 @@ class SouthxchangeAPIOrderBookDataSourceTests(TestCase):
             )
 
     @aioresponses()
-    def test_get_order_book_resp_code_error_raises_exception(self, api_mock):        
+    def test_get_order_book_resp_code_error_raises_exception(self, api_mock):
         url = f"{API_BASE_URL}/{'api/v4/book'}/{convert_to_exchange_trading_pair('LTC2-BTC2')}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))  
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         api_mock.get(regex_url, status=400, body=json.dumps(Fixturesouthxchange.OPEN_ORDERS))
 
         with self.assertRaises(IOError):
@@ -157,7 +156,7 @@ class SouthxchangeAPIOrderBookDataSourceTests(TestCase):
     @aioresponses()
     def test_get_order_book_data_successful(self, api_mock):
         url = f"{API_BASE_URL}/{'api/v4/book'}/{convert_to_exchange_trading_pair('LTC2-BTC2')}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))  
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         api_mock.get(regex_url, body=json.dumps(Fixturesouthxchange.ORDERS_BOOK))
 
         result = self.async_run_with_timeout(
@@ -171,7 +170,7 @@ class SouthxchangeAPIOrderBookDataSourceTests(TestCase):
         self.data_source._trading_pairs = ["LTC2-BTC2"]
 
         url = f"{API_BASE_URL}/{'api/v4/book'}/{convert_to_exchange_trading_pair('LTC2-BTC2')}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))  
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         api_mock.get(regex_url, body=json.dumps(Fixturesouthxchange.ORDERS_BOOK))
 
         self.listening_task = self.ev_loop.create_task(self.data_source.get_new_order_book(self.trading_pair))
@@ -215,7 +214,7 @@ class SouthxchangeAPIOrderBookDataSourceTests(TestCase):
         )
 
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
-        self.assertEqual(f"subscribe", sent_messages[0]['k'])
+        self.assertEqual("subscribe", sent_messages[0]['k'])
         self.assertEqual(self.ex_trading_pair, sent_messages[0]['v'])
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -409,21 +408,17 @@ class SouthxchangeAPIOrderBookDataSourceTests(TestCase):
         self.data_source._trading_pairs = ["LTC2-BTC2"]
 
         url = f"{API_BASE_URL}/{'api/v4/book'}/{convert_to_exchange_trading_pair('LTC2-BTC2')}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))  
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         api_mock.get(regex_url, body=json.dumps(Fixturesouthxchange.ORDERS_BOOK))
 
         order_book_messages = asyncio.Queue()
-        x1 = get_tracking_nonce()
         task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_snapshots(ev_loop=self.ev_loop, output=order_book_messages)
         )
-        x2 = get_tracking_nonce()
         order_book_message = self.ev_loop.run_until_complete(order_book_messages.get())
-        x3 = get_tracking_nonce()
         try:
             task.cancel()
             self.ev_loop.run_until_complete(task)
-            x4 = get_tracking_nonce()
         except asyncio.CancelledError:
             # The exception will happen when cancelling the task
             pass

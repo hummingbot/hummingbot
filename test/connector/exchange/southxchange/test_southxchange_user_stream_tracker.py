@@ -1,47 +1,4 @@
 # #!/usr/bin/env python
-# import sys
-# import asyncio
-# import logging
-# import unittest
-# import conf
-
-# from os.path import join, realpath
-# from hummingbot.connector.exchange.southxchange.southxchange_user_stream_tracker import SouthxchangeUserStreamTracker
-# from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
-# from hummingbot.core.utils.async_utils import safe_ensure_future
-# from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-
-
-# sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-# logging.basicConfig(level=METRICS_LOG_LEVEL)
-
-
-# class TestSouthXchangeUserStreamTracker(unittest.TestCase):
-#     api_key = conf.southxchange_api_key
-#     api_secret = conf.southxchange_secret_key
-
-#     @classmethod
-#     def setUpClass(cls):
-#         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-#         cls.southxchange_auth = SouthXchangeAuth(cls.api_key, cls.api_secret)
-#         cls.trading_pairs = ["BTC-USDT"]
-#         cls.user_stream_tracker: SouthxchangeUserStreamTracker = SouthxchangeUserStreamTracker(
-#             southxchange_auth=cls.southxchange_auth, trading_pairs=cls.trading_pairs)
-#         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())
-
-#     def test_user_stream(self):
-#         # Wait process some msgs.
-#         self.ev_loop.run_until_complete(asyncio.sleep(120.0))
-#         print(self.user_stream_tracker.user_stream)
-
-
-# def main():
-#     logging.basicConfig(level=logging.INFO)
-#     unittest.main()
-
-
-# if __name__ == "__main__":
-#     main()
 import asyncio
 import json
 from typing import Any, Awaitable, Dict
@@ -60,6 +17,7 @@ from hummingbot.connector.exchange.southxchange.southxchange_exchange import Sou
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 API_BASE_URL = "https://www.southxchange.com"
+
 
 class SouthxchangeUserStreamTrackerTests(TestCase):
     @classmethod
@@ -89,7 +47,7 @@ class SouthxchangeUserStreamTrackerTests(TestCase):
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._time_provider = TimeSynchronizer()
         self.tracker = SouthxchangeUserStreamTracker(
-            connector=self.exchange,southxchange_auth=SouthXchangeAuth(api_key="testAPIKey", secret_key="testSecret",time_provider=self._time_provider),
+            connector=self.exchange, southxchange_auth=SouthXchangeAuth(api_key="testAPIKey", secret_key="testSecret", time_provider=self._time_provider),
             api_factory=self.api_factory,
             throttler=self.throttler,
         )
@@ -118,8 +76,6 @@ class SouthxchangeUserStreamTrackerTests(TestCase):
         output_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(self.tracker.data_source.listen_for_user_stream(output_queue))
         resp = "token"
-        # url = f"{API_BASE_URL}/{'api/v4/GetWebSocketToken'}"
-        # regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))  
         api_mock.post(f"{API_BASE_URL}/{'api/v4/GetWebSocketToken'}", body=json.dumps(resp))
 
         # Create WS mock

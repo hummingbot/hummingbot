@@ -1,31 +1,31 @@
 from unittest import TestCase
-
 from hummingbot.connector.exchange.southxchange.southxchange_order_book import SouthXchangeOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_bookWebSocket_to_bookApi
+
 
 class AscendExOrderBookTests(TestCase):
 
     def test_trade_message_from_exchange(self):
         json_message = {
-        "k": "trade",
-        "v": [
-            {
-                "m": 3,
-                "d": "2022-07-15T19:20:40",
-                "b": False,
-                "a": 0.100000000000000000,
-                "p": 118.750000000000000000
-            },
-            {
-            "m": 3,
-            "d": "2022-07-15T19:17:06Z",
-            "b": True,
-            "a": 0.20000000,
-            "p": 118.750000000000000000
-            }
-        ]
-    }
+            "k": "trade",
+            "v": [
+                {
+                    "m": 3,
+                    "d": "2022-07-15T19:20:40",
+                    "b": False,
+                    "a": 0.100000000000000000,
+                    "p": 118.750000000000000000
+                },
+                {
+                    "m": 3,
+                    "d": "2022-07-15T19:17:06Z",
+                    "b": True,
+                    "a": 0.20000000,
+                    "p": 118.750000000000000000
+                }
+            ]
+        }
         extra_metadata = {"trading_pair": "BTC=USDT"}
 
         message = SouthXchangeOrderBook.trade_message_from_exchange(msg=json_message["v"][0], timestamp=1000, metadata=extra_metadata)
@@ -97,9 +97,7 @@ class AscendExOrderBookTests(TestCase):
                 }
             ]
         }
-                        
         extra_metadata = {"trading_pair": "BTC=USD"}
-
         message = SouthXchangeOrderBook.diff_message_from_exchange(msg=convert_bookWebSocket_to_bookApi(json_message["v"]), timestamp=1000, metadata=extra_metadata)
 
         self.assertEqual(OrderBookMessageType.DIFF, message.type)
@@ -118,7 +116,7 @@ class AscendExOrderBookTests(TestCase):
 
         first_ask = message.asks[0]
         second_ask = message.asks[1]
-        self.assertEqual(1, len(message.asks))
+        self.assertEqual(2, len(message.asks))
         self.assertEqual(120, first_ask.price)
         self.assertEqual(0.9, first_ask.amount)
         self.assertEqual(message.update_id, first_ask.update_id)
