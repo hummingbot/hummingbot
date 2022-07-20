@@ -120,14 +120,12 @@ class ScallopExchange(ExchangePyBase):
         return web_utils.build_api_factory(
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
-            domain=self._domain,
             auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return ScallopAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
             connector=self,
-            domain=self.domain,
             api_factory=self._web_assistants_factory)
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
@@ -136,7 +134,6 @@ class ScallopExchange(ExchangePyBase):
             trading_pairs=self._trading_pairs,
             connector=self,
             api_factory=self._web_assistants_factory,
-            domain=self.domain,
         )
 
     def _get_fee(self,
