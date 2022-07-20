@@ -372,13 +372,13 @@ class GatewaySOLCLOB(ConnectorBase):
                 token_symbol
             )
 
-            transaction_hash: Optional[str] = resp.get("approval", {}).get("hash")
-            if transaction_hash is not None:
+            mint_address: Optional[str] = resp.get("mintAddress")
+            if mint_address is not None:
                 tracked_order = self._order_tracker.fetch_order(client_order_id=approval_id)
-                tracked_order.update_exchange_order_id(transaction_hash)
+                tracked_order.update_exchange_order_id(mint_address)
                 self.logger().info(
                     f"Maximum {token_symbol} approval for {self.connector_name} contract sent,"
-                    f" hash: {transaction_hash}."
+                    f" mint address: {mint_address}."
                 )
                 return tracked_order
             else:
@@ -586,15 +586,15 @@ class GatewaySOLCLOB(ConnectorBase):
                     "marketName": f"{base}/{quote}",
                     "ownerAddress": self.address,
                     "payerAddress": self.address,
-                    "side": convert_order_side(trade_type),
-                    "price": price,
-                    "amount": amount,
-                    "type": convert_order_type(OrderType.LIMIT)
+                    "side": convert_order_side(trade_type).value,
+                    "price": str(amount),
+                    "amount": str(amount),
+                    "type": convert_order_type(OrderType.LIMIT).value
                 }
             )
-            transaction_hash: str = order_result.get("signature")
+            exchange_order_id: str = order_result.get("exchangeId")
 
-            if transaction_hash is not None:
+            if exchange_order_id is not None:
                 nonce = constant.DEFAULT_NONCE
                 gas_cost = constant.FIVE_THOUSAND_LAMPORTS
                 gas_price_token = Chain.SOLANA.native_currency
@@ -605,7 +605,7 @@ class GatewaySOLCLOB(ConnectorBase):
 
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=order_id,
-                    exchange_order_id=transaction_hash,
+                    exchange_order_id=exchange_order_id,
                     trading_pair=trading_pair,
                     update_timestamp=self.current_timestamp,
                     new_state=OrderState.OPEN,  # Assume that the transaction has been successfully mined.
