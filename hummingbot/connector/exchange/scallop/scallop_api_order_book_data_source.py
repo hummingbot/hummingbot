@@ -30,8 +30,6 @@ class ScallopAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__(trading_pairs)
         self._connector = connector
-        self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
-        self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._domain = domain
         self._api_factory = api_factory
 
