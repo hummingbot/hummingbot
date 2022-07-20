@@ -1,12 +1,12 @@
 import asyncio
-from collections import deque
 import logging
 import statistics
 import time
-from typing import Deque, Optional, Callable, Awaitable
+from collections import deque
+from typing import Awaitable, Callable, Deque, Optional
 
-from hummingbot.logger import HummingbotLogger
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 
 
 class TimePatcher:
@@ -92,8 +92,8 @@ class TimePatcher:
     async def update_server_time_offset(self):
         try:
             local_before_ms: float = time.perf_counter() * 1e3
-            query_time_func = self._query_time_func.__func__
-            server_time = await query_time_func()
+            # query_time_func = self._query_time_func.__func__
+            server_time = time.time()  # await query_time_func()
             # async with aiohttp.ClientSession() as session:
             #     async with session.get(self.BINANCE_TIME_API) as resp:
             #         resp_data: Dict[str, float] = await resp.json()
