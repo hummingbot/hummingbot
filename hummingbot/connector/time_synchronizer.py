@@ -22,8 +22,6 @@ class TimeSynchronizer:
 
     def __init__(self):
         self._time_offset_ms: Deque[float] = deque(maxlen=5)
-        self._last_calculated_times = None
-        self._last_calculated_offsets = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
