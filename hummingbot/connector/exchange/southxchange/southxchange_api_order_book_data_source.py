@@ -1,8 +1,6 @@
 import asyncio
 import logging
 import aiohttp
-# import websockets
-import ujson
 import time
 import pandas as pd
 from datetime import datetime
@@ -127,40 +125,40 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return order_book
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-            """
-            Reads the trade events queue. For each event creates a trade message instance and adds it to the output queue
+        """
+        Reads the trade events queue. For each event creates a trade message instance and adds it to the output queue
 
-            :param ev_loop: the event loop the method will run in
-            :param output: a queue to add the created trade messages
-            """
-            msg_queue = self._message_queue["trade"]
-            while True:
-                try:
-                    msg = await msg_queue.get()
-                    if msg is None:
-                        continue
-                    trading_pairs = ",".join(list(
-                        map(lambda trading_pair: convert_to_exchange_trading_pair(trading_pair), self._trading_pairs)
-                    ))
-                    if msg.get("k") == "trade":
-                        """
-                        Modify - SouthXchange
-                        """
-                        for trade in msg.get("v"):                            
-                            trade_timestamp = int(datetime.timestamp(convert_string_to_datetime(trade.get('d'))))
-                            trade_msg: OrderBookMessage = SouthXchangeOrderBook.trade_message_from_exchange(
-                                trade,
-                                trade_timestamp,
-                                metadata={"trading_pair": trading_pairs}
-                            )
-                            output.put_nowait(trade_msg)
-                    else:
-                        continue
-                except asyncio.CancelledError:
-                    raise
-                except Exception as e:
-                    self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
-                                        exc_info=True)
+        :param ev_loop: the event loop the method will run in
+        :param output: a queue to add the created trade messages
+        """
+        msg_queue = self._message_queue["trade"]
+        while True:
+            try:
+                msg = await msg_queue.get()
+                if msg is None:
+                    continue
+                trading_pairs = ",".join(list(
+                    map(lambda trading_pair: convert_to_exchange_trading_pair(trading_pair), self._trading_pairs)
+                ))
+                if msg.get("k") == "trade":
+                    """
+                    Modify - SouthXchange
+                    """
+                    for trade in msg.get("v"):
+                        trade_timestamp = int(datetime.timestamp(convert_string_to_datetime(trade.get('d'))))
+                        trade_msg: OrderBookMessage = SouthXchangeOrderBook.trade_message_from_exchange(
+                            trade,
+                            trade_timestamp,
+                            metadata={"trading_pair": trading_pairs}
+                        )
+                        output.put_nowait(trade_msg)
+                else:
+                    continue
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
+                                    exc_info=True)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -170,9 +168,9 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param ev_loop: the event loop the method will run in
         :param output: a queue to add the created diff messages
         """
-        msg_queue = self._message_queue["bookdelta"]        
+        msg_queue = self._message_queue["bookdelta"]
         while True:
-            try:                
+            try:
                 msg = await msg_queue.get()
                 raw_msg = convert_bookWebSocket_to_bookApi(msg.get("v"))
                 if raw_msg is None:
@@ -233,7 +231,6 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
-
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
@@ -312,9 +309,6 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
         exchange. Each message is stored in its own queue.
         """
-        trading_pairs = ",".join(list(
-            map(lambda trading_pair: convert_to_exchange_trading_pair(trading_pair), self._trading_pairs)
-        ))
         ws = None
         while True:
             try:
@@ -337,6 +331,7 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await self._sleep(5.0)
             finally:
                 ws and await ws.disconnect()
+
     async def _subscribe_to_order_book_streams(self) -> aiohttp.ClientWebSocketResponse:
         """
         Subscribes to the order book diff orders events through the provided websocket connection.

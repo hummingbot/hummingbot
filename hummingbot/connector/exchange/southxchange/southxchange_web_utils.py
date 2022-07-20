@@ -1,28 +1,33 @@
-from typing import Callable, Optional
-
-from sqlalchemy import false
-
+import json
+import asyncio
+from typing import Callable
+from copy import deepcopy
+from typing import (
+    AsyncGenerator,
+    Dict,
+    List,
+    Optional,
+    Any,
+    Union
+)
+from asyncio import wait_for
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-# from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from threading import Lock
-lock = Lock()
-
-import json, time, datetime, asyncio
-from asyncio import wait_for
-from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
-
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
-from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse
 from hummingbot.core.web_assistant.connections.rest_connection import RESTConnection
 from hummingbot.core.web_assistant.rest_post_processors import RESTPostProcessorBase
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
+from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
+from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
+from hummingbot.core.web_assistant.ws_post_processors import WSPostProcessorBase
+from hummingbot.core.web_assistant.ws_pre_processors import WSPreProcessorBase
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
+from threading import Lock
+lock = Lock()
 
 
 class RESTAssistant_SX:
@@ -58,7 +63,7 @@ class RESTAssistant_SX:
             return_err: bool = False,
             timeout: Optional[float] = None,
             headers: Optional[Dict[str, Any]] = None) -> Union[str, Dict[str, Any]]:
-        with await self._lock:  
+        with await self._lock:
             data = json.dumps(data)
             auth_ = None
             if is_auth_required:
@@ -69,7 +74,7 @@ class RESTAssistant_SX:
             headers = auth_['header'] or {}
             local_headers = {
                 "Content-Type": ("application/json" if method in [RESTMethod.POST, RESTMethod.PUT]
-                                else "application/x-www-form-urlencoded")}
+                                 else "application/x-www-form-urlencoded")}
             local_headers.update(headers)
 
             request = RESTRequest(
@@ -80,8 +85,8 @@ class RESTAssistant_SX:
                 headers=local_headers,
                 is_auth_required=False,
                 throttler_limit_id=throttler_limit_id
-            )          
-            
+            )
+
             async with self._throttler.execute_task(limit_id=throttler_limit_id):
                 response = await self.call(request=request, timeout=timeout)
 
@@ -91,11 +96,11 @@ class RESTAssistant_SX:
                         return error_response
                     else:
                         error_response = await response.text()
-                        raise IOError(f"Error executing request {method.name} {url}. HTTP status is {response.status}. "
-                                    f"Error: {error_response}")
-                elif response.status == 204:  
+                        raise IOError(f"Error executing request {method.name} {url}. HTTP status is {response.status}."
+                                      f"Error: {error_response}")
+                elif response.status == 204:
                     return "ok"
-                else:                         
+                else:
                     result = await response.json()
                     return result
 
@@ -121,19 +126,6 @@ class RESTAssistant_SX:
         for post_processor in self._rest_post_processors:
             response = await post_processor.post_process(response)
         return response
-from copy import deepcopy
-from typing import (
-    AsyncGenerator,
-    Dict,
-    List,
-    Optional,
-)
-
-from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
-from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
-from hummingbot.core.web_assistant.ws_post_processors import WSPostProcessorBase
-from hummingbot.core.web_assistant.ws_pre_processors import WSPreProcessorBase
 
 
 class WSAssistant_SX:
@@ -217,19 +209,6 @@ class WSAssistant_SX:
         return response
 
 
-from typing import List, Optional
-
-from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
-from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
-from hummingbot.core.web_assistant.rest_post_processors import RESTPostProcessorBase
-from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
-from hummingbot.core.web_assistant.ws_assistant import WSAssistant
-from hummingbot.core.web_assistant.ws_post_processors import WSPostProcessorBase
-from hummingbot.core.web_assistant.ws_pre_processors import WSPreProcessorBase
-
-
 class WebAssistantsFactory_SX:
     """Creates `RESTAssistant` and `WSAssistant` objects.
 
@@ -278,7 +257,6 @@ class WebAssistantsFactory_SX:
             connection, self._ws_pre_processors, self._ws_post_processors, self._auth
         )
         return assistant
-
 
 
 def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
@@ -345,4 +323,3 @@ async def get_current_server_time(
     )
     server_time = response["serverTime"]
     return server_time
-

@@ -8,6 +8,7 @@ import aiohttp
 
 import hummingbot.client.settings  # noqa
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
+from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_from_exchange_trading_pair
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.rate_oracle.utils import find_rate
@@ -363,7 +364,7 @@ class RateOracle(NetworkBase):
         return results
 
     @classmethod
-    @async_ttl_cache(ttl=1, maxsize=1)
+    @async_ttl_cache(ttl=30, maxsize=1)
     async def get_southxchange_prices(cls) -> Dict[str, Decimal]:
         """
         Fetches SouthXchange mid prices from their ticker endpoint.
@@ -374,7 +375,7 @@ class RateOracle(NetworkBase):
         async with client.request("GET", cls.southxchange_price_url) as resp:
             records = await resp.json(content_type=None)
             for record in records:
-                pair = ascend_ex_convert_from_exchange_pair(record["Market"])
+                pair = convert_from_exchange_trading_pair(record["Market"])
                 if record["Ask"] is not None and record["Bid"] is not None and Decimal(record["Ask"]) > 0 and Decimal(record["Bid"]) > 0:
                     results[pair] = (Decimal(str(record["Ask"])) + Decimal(str(record["Bid"]))) / Decimal("2")
         return results

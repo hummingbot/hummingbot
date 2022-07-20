@@ -8,12 +8,6 @@ WS_URL = "wss://www.southxchange.com/api/v4/connect"
 PUBLIC_WS_URL = WS_URL
 PRIVATE_WS_URL = WS_URL + '?token={access_token}'
 
-# EXCHANGE_NAME = "southxchange"
-# REST_URL = "http://localhost:6017/api/v4/"
-# WS_URL = "ws://localhost:6017/api/v4/connect"
-# PUBLIC_WS_URL = WS_URL
-# PRIVATE_WS_URL = WS_URL + '?token={access_token}'
-
 SIDE_BUY = 'BUY'
 SIDE_SELL = 'SELL'
 PING_PATH_URL = "markets"

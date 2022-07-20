@@ -6,7 +6,6 @@ from collections import namedtuple
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
-from sqlalchemy import true
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.southxchange import southxchange_constants as CONSTANTS, southxchange_utils
@@ -270,8 +269,8 @@ class SouthxchangeExchange(ExchangeBase):
             )
             if response is not None:
                 self._trader_level = "ok"
-        except Exception as e:
-            raise IOError(f"Error parsing data from getUserInfo.")
+        except Exception:
+            raise IOError("Error parsing data from getUserInfo.")
 
     async def _trading_rules_polling_loop(self):
         """
@@ -325,7 +324,7 @@ class SouthxchangeExchange(ExchangeBase):
         client_order_id = get_new_client_order_id(
             is_buy=True, trading_pair=trading_pair, hbot_order_id_prefix=southxchange_utils.HBOT_BROKER_ID
         )
-        safe_ensure_future(self._create_order(TradeType.BUY, client_order_id, trading_pair, amount, order_type, price))        
+        safe_ensure_future(self._create_order(TradeType.BUY, client_order_id, trading_pair, amount, order_type, price))
         return client_order_id
 
     def sell(
@@ -396,7 +395,7 @@ class SouthxchangeExchange(ExchangeBase):
         failed_cancellations = []
         open_orders = [o for o in self._in_flight_order_tracker.active_orders.values() if not o.is_done]
         if len(open_orders) == 0:
-            return []       
+            return []
         for order in open_orders:
             if order.exchange_order_id is None:
                 failed_cancellations.append(CancellationResult(order.client_order_id, False))
@@ -588,7 +587,7 @@ class SouthxchangeExchange(ExchangeBase):
         cumFilledQty = Decimal(str(order_msg.orderOriginalAmount)) - Decimal(str(order_msg.orderAmount))
         if (order_status in [OrderState.PARTIALLY_FILLED, OrderState.FILLED]
                 and ((cumFilledQty > tracked_order.executed_amount_base) or (cumFilledQty == Decimal("0")))):
-            filled_amount = (cumFilledQty - tracked_order.executed_amount_base) if cumFilledQty != Decimal("0") else ( tracked_order.amount - tracked_order.executed_amount_base)
+            filled_amount = (cumFilledQty - tracked_order.executed_amount_base) if cumFilledQty != Decimal("0") else (tracked_order.amount - tracked_order.executed_amount_base)
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
                 trade_type=tracked_order.trade_type,
@@ -682,7 +681,7 @@ class SouthxchangeExchange(ExchangeBase):
         """
         try:
             tracked_order = self._in_flight_order_tracker.fetch_tracked_order(order_id)
-            if tracked_order is None: # or tracked_order.exchange_order_id == '':
+            if tracked_order is None:
                 non_tracked_order = self._in_flight_order_tracker.fetch_cached_order(order_id)
                 if non_tracked_order is None:
                     raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
@@ -705,7 +704,7 @@ class SouthxchangeExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except asyncio.TimeoutError:
-            self._stop_tracking_order_exceed_no_exchange_id_limit(tracked_order=tracked_order)        
+            self._stop_tracking_order_exceed_no_exchange_id_limit(tracked_order=tracked_order)
         except Exception as e:
             self.logger().error(
                 f"{str(e)}",
@@ -787,7 +786,7 @@ class SouthxchangeExchange(ExchangeBase):
                         f"There was an error requesting updates for the active orders ({ex_oid_to_c_oid_map})")
                     raise
                 self.logger().debug(f"Polling for order status updates of {len(ex_oid_to_c_oid_map)} orders.")
-                self.logger().debug(f"getOrder: code={exchange_id} response: {response}")                    
+                self.logger().debug(f"getOrder: code={exchange_id} response: {response}")
 
                 try:
                     # for response in responses:
@@ -924,7 +923,7 @@ class SouthxchangeExchange(ExchangeBase):
                 self._in_flight_order_tracker.process_order_update(order_update)
         except asyncio.CancelledError:
             raise
-        except Exception as e:
+        except Exception:
             self.logger().exception(
                 f"Error submitting {trade_type.name} {order_type.name} order to SouthXchange for "
                 f"{amount} {trading_pair} "

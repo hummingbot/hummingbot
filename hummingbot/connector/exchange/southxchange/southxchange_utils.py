@@ -5,8 +5,6 @@ import random
 import string
 from pydantic import Field, SecretStr
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest
@@ -34,12 +32,13 @@ def get_tracking_nonce() -> int:
     return _last_tracking_nonce
 
 
-def convert_string_to_datetime(fecha_str: str) -> datetime:    
+def convert_string_to_datetime(fecha_str: str) -> datetime:
     try:
-        fecha_str = str(f"{parser.parse(fecha_str).year}-{parser.parse(fecha_str).month}-{parser.parse(fecha_str).day}T{parser.parse(fecha_str).hour}:{parser.parse(fecha_str).minute}:{parser.parse(fecha_str).second}")                            
+        fecha_str = str(f"{parser.parse(fecha_str).year}-{parser.parse(fecha_str).month}-{parser.parse(fecha_str).day}T{parser.parse(fecha_str).hour}:{parser.parse(fecha_str).minute}:{parser.parse(fecha_str).second}")
         return datetime.strptime(fecha_str, '%Y-%m-%dT%H:%M:%S')
     except Exception as ex:
         _ = ex
+
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
     return exchange_trading_pair.replace("/", "-")
@@ -147,6 +146,7 @@ def build_api_factory(throttler: AsyncThrottler, auth: Optional[AuthBase] = None
         auth=auth,
         rest_pre_processors=[SouthxchangeRESTPreProcessor()])
     return api_factory
+
 
 class SouthXchangeConfigMap(BaseConnectorConfigMap):
     connector: str = Field(default="southxchange", client_data=None)
