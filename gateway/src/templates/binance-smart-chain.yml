@@ -2,13 +2,13 @@
 networks:
   mainnet: 
     chainID: 56
-    nodeURL: 'https://apis.ankr.com/{}/{}/binance/full/main'
+    nodeURL: 'https://dataseed1.binance.org/'
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/binance-smart-chain/bep20_tokens_mainnet.json'
     nativeCurrencySymbol: 'BNB'    
   testnet: 
     chainID: 97
-    nodeURL: 'https://apis.ankr.com/{}/{}/binance/full/test'
+    nodeURL: 'https://data-seed-prebsc-1-s1.binance.org:8545/'
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/binance-smart-chain/bep20_tokens_testnet.json'
     nativeCurrencySymbol: 'BNB'
