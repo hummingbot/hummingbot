@@ -66,6 +66,9 @@ else
 fi
 echo "created $HOST_CONF_PATH/binance-smart-chain.yml"
 
+cp "$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../src/templates/pancakeswap.yml" "$HOST_CONF_PATH/pancakeswap.yml"
+echo "created $HOST_CONF_PATH/pancakeswap.yml"
+
 # generate the telemetry file
 echo "enabled: false" > "$HOST_CONF_PATH/telemetry.yml"  # enabled must be prompted
 echo "created $HOST_CONF_PATH/telemetry.yml"

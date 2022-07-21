@@ -30,6 +30,7 @@ import { SerumRoutes } from './connectors/serum/serum.routes';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
 import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.config';
 import { SerumConfig } from './connectors/serum/serum.config';
+import { PancakeSwapConfig } from './connectors/pancakeswap/pancakeswap.config';
 
 import swaggerUi from 'swagger-ui-express';
 
@@ -81,6 +82,7 @@ interface ConnectorsResponse {
   traderjoe: Array<AvailableNetworks>;
   defikingdoms: Array<AvailableNetworks>;
   serum: Array<AvailableNetworks>;
+  pancakeswap: Array<AvailableNetworks>;
 }
 
 gatewayApp.get(
@@ -95,6 +97,7 @@ gatewayApp.get(
       traderjoe: TraderjoeConfig.config.availableNetworks,
       defikingdoms: DefikingdomsConfig.config.availableNetworks,
       serum: SerumConfig.config.availableNetworks,
+      pancakeswap: PancakeSwapConfig.config.availableNetworks,
     });
   })
 );

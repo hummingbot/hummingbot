@@ -40,8 +40,6 @@ const patchGetTokenBySymbol = () => {
       decimals: 18,
       name: 'WBNB Token',
       symbol: 'WBNB',
-      logoURI:
-        'https://exchange.pancakeswap.finance/images/coins/0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c.png',
     };
   });
 };
