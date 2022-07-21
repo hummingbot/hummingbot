@@ -278,7 +278,6 @@ class ClientOrderTracker:
             if updated:
                 self._trigger_order_creation(tracked_order, previous_state, order_update.new_state)
                 self._trigger_order_completion(tracked_order, order_update)
-
         else:
             self.logger().debug(f"Order is not/no longer being tracked ({order_update})")
 
