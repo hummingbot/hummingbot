@@ -61,6 +61,13 @@ def combine_to_hb_trading_pair(base: str, quote: str) -> str:
     return trading_pair
 
 
+def validate_trading_pair(trading_pair: str) -> bool:
+    valid = False
+    if "-" in trading_pair and len(trading_pair.split("-")) == 2:
+        valid = True
+    return valid
+
+
 def get_new_client_order_id(
     is_buy: bool, trading_pair: str, hbot_order_id_prefix: str = "", max_id_len: Optional[int] = None
 ) -> str:

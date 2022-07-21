@@ -1,7 +1,6 @@
 from decimal import Decimal
 from typing import TYPE_CHECKING, Dict, Optional
 
-from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.utils import async_ttl_cache
 
@@ -30,10 +29,6 @@ class KucoinRateSource(RateSourceBase):
                 except KeyError:
                     # Ignore results for which their symbols is not tracked by the connector
                     continue
-                if quote_token is not None:
-                    _, quote = split_hb_trading_pair(trading_pair=pair)
-                    if quote != quote_token:
-                        continue
                 if Decimal(record["buy"]) > 0 and Decimal(record["sell"]) > 0:
                     results[pair] = (Decimal(str(record["buy"])) + Decimal(str(record["sell"]))) / Decimal("2")
         except Exception:
