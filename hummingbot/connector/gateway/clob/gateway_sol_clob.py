@@ -453,11 +453,8 @@ class GatewaySOLCLOB(ConnectorBase):
 
         # Pull the price from gateway.
         try:
-            price: Optional[Decimal] = None
-            exceptions: List[str] = []
-
             ticker = await self._get_gateway_instance().clob_get_tickers(
-                self.chain, self.network, self.connector, market_name=constant.SOL_USDC_MARKET
+                self.chain, self.network, self.connector, market_name=convert_trading_pair(trading_pair)
             )
             gas_limit: int = constant.FIVE_THOUSAND_LAMPORTS
             gas_price_token: str = Chain.SOLANA.native_currency
@@ -1046,7 +1043,7 @@ class GatewaySOLCLOB(ConnectorBase):
             if tracked_order.is_pending_cancel_confirmation:
                 return order_id
 
-            self.logger().info(f"The blockchain transaction for {order_id} with nonce {tracked_order.nonce} has "
+            self.logger().info(f"The blockchain transaction for {order_id} has "
                                f"expired. Canceling the order...")
 
             resp = await self._get_gateway_instance().clob_delete_orders(
@@ -1061,10 +1058,10 @@ class GatewaySOLCLOB(ConnectorBase):
                 }
             )
 
-            tx_hash: Optional[str] = resp.get("signature")
+            signature: Optional[str] = resp.get("signature")
 
-            if tx_hash is not None:
-                tracked_order.cancel_tx_hash = tx_hash
+            if signature is not None:
+                tracked_order.cancel_tx_hash = signature
             else:
                 raise EnvironmentError(f"Missing txHash from the transaction response: {resp}.")
 

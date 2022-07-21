@@ -15,23 +15,16 @@ from async_timeout import timeout
 from bin import path_util  # noqa: F401
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.gateway.clob.clob_in_flight_order import CLOBInFlightOrder
 from hummingbot.connector.gateway.clob.gateway_sol_clob import GatewaySOLCLOB
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderCancelledEvent,
-    TokenApprovalCancelledEvent,
-    TokenApprovalEvent,
-    TradeType,
-)
+from hummingbot.core.event.events import MarketEvent, OrderCancelledEvent, TradeType
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
-WALLET_ADDRESS = "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92"
+WALLET_ADDRESS = "FMosjpvtAxwL6GFDSL31o9pU5somKjifbkt32bEgLddf"  # noqa: mock
 NETWORK = "testnet"
-TRADING_PAIR = "WETH-DAI"
+TRADING_PAIR = "SOL-USDC"
 MAX_FEE_PER_GAS = 2000
 MAX_PRIORITY_FEE_PER_GAS = 200
 
@@ -106,18 +99,18 @@ class GatewayCancelUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_cancel_order(self):
-        amount: Decimal = Decimal("0.001")
+        amount: Decimal = Decimal("0.2")
         connector: GatewaySOLCLOB = self._connector
         event_logger: EventLogger = EventLogger()
         connector.add_listener(MarketEvent.OrderCancelled, event_logger)
 
         expected_order_tx_hash_set: Set[str] = {
-            "0x08f410a0d5cd42446fef3faffc14251ccfa3e4388d83f75f3730c05bcba1c5ab",  # noqa: mock
-            "0xe09a9d9593e7ca19205edd3a4ddd1ab1f348dad3ea922ad0ef8efc5c00e3abfb",  # noqa: mock
+            "18446725626965478e",  # noqa: mock
+            "28446725626965478e" # noqa: mock
         }
         expected_cancel_tx_hash_set: Set[str] = {
-            "0xcd03a16f309a01239b8f7c036865f1c413768f2809fd0355400e7595a3860988",  # noqa: mock
-            "0x044eb2c220ec160e157949b0f18f7ba5e36c6e7b115a36e976f92b469f45cab5",  # noqa: mock
+            "18446725626965478e",  # noqa: mock
+            "28446725626965478e" # noqa: mock
         }
 
         try:
@@ -173,49 +166,50 @@ class GatewayCancelUnitTest(unittest.TestCase):
         finally:
             connector.remove_listener(MarketEvent.OrderCancelled, event_logger)
 
-    @async_test(loop=ev_loop)
-    async def test_cancel_approval(self):
-        connector: GatewaySOLCLOB = self._connector
-        event_logger: EventLogger = EventLogger()
-        connector.add_listener(TokenApprovalEvent.ApprovalCancelled, event_logger)
-
-        expected_evm_approve_tx_hash_set: Set[str] = {
-            "0x7666bb5ba3ecec828e323f20685dfd03a067e7b2830b217363293b166b48a679",  # noqa: mock
-            "0x7291d26447e300bd37260add7ac7db9a745f64c7ee10854695b0a70b0897456f",  # noqa: mock
-        }
-        expected_cancel_tx_hash_set: Set[str] = {
-            "0x21b4d0e956241a497cf50d9c5dcefea4ec9fb225a1d11f80477ca434caab30ff",  # noqa: mock
-            "0x7ac85d5a77f28e9317127218c06eb3d70f4c68924a4b5b743fe8faef6d011d11",  # noqa: mock
-        }
-
-        try:
-            async with self.run_clock():
-                self._http_player.replay_timestamp_ms = 1648503333290
-                tracked_order_1: CLOBInFlightOrder = await connector.approve_token(
-                    "DAI", max_fee_per_gas=MAX_FEE_PER_GAS, max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
-                )
-                self._http_player.replay_timestamp_ms = 1648503337964
-                tracked_order_2: CLOBInFlightOrder = await connector.approve_token(
-                    "WETH", max_fee_per_gas=MAX_FEE_PER_GAS, max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
-                )
-                self.assertEqual(2, len(connector.approval_orders))
-                self.assertEqual(
-                    expected_evm_approve_tx_hash_set, set(o.exchange_order_id for o in connector.approval_orders)
-                )
-
-                self._http_player.replay_timestamp_ms = 1648503342513
-                tracked_order_1.creation_timestamp = connector.current_timestamp - 86400
-                tracked_order_2.creation_timestamp = connector.current_timestamp - 86400
-                await connector.cancel_outdated_orders(600)
-                self.assertEqual(2, len(connector.approval_orders))
-                self.assertEqual(expected_cancel_tx_hash_set, set(o.cancel_tx_hash for o in connector.approval_orders))
-
-                self._http_player.replay_timestamp_ms = 1648503385484
-                async with timeout(10):
-                    while len(event_logger.event_log) < 2:
-                        await event_logger.wait_for(TokenApprovalCancelledEvent)
-                    cancelled_approval_symbols = [e.token_symbol for e in event_logger.event_log]
-                    self.assertIn("DAI", cancelled_approval_symbols)
-                    self.assertIn("WETH", cancelled_approval_symbols)
-        finally:
-            connector.remove_listener(TokenApprovalEvent.ApprovalCancelled, event_logger)
+    # # TODO Check about the possibility to cancel POST solana/token transactions.!!!
+    # @async_test(loop=ev_loop)
+    # async def test_cancel_approval(self):
+    #     connector: GatewaySOLCLOB = self._connector
+    #     event_logger: EventLogger = EventLogger()
+    #     connector.add_listener(TokenApprovalEvent.ApprovalCancelled, event_logger)
+    #
+    #     expected_evm_approve_tx_hash_set: Set[str] = {
+    #         "8PZnzjEUJ1B1sMAU3xhzpfK8T4QzydDrnTZrWdzzcno",  # noqa: mock
+    #         "9PZnzjEUJ1B1sMAU3xhzpfK8T4QzydDrnTZrWdzzcno",  # noqa: mock
+    #     }
+    #     expected_cancel_tx_hash_set: Set[str] = {
+    #         "0x21b4d0e956241a497cf50d9c5dcefea4ec9fb225a1d11f80477ca434caab30ff",  # noqa: mock
+    #         "0x7ac85d5a77f28e9317127218c06eb3d70f4c68924a4b5b743fe8faef6d011d11",  # noqa: mock
+    #     }
+    #
+    #     try:
+    #         async with self.run_clock():
+    #             self._http_player.replay_timestamp_ms = 1648503333290
+    #             tracked_order_1: CLOBInFlightOrder = await connector.approve_token(
+    #                 "SOL", max_fee_per_gas=MAX_FEE_PER_GAS, max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
+    #             )
+    #             self._http_player.replay_timestamp_ms = 1648503337964
+    #             tracked_order_2: CLOBInFlightOrder = await connector.approve_token(
+    #                 "USDC", max_fee_per_gas=MAX_FEE_PER_GAS, max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
+    #             )
+    #             self.assertEqual(2, len(connector.approval_orders))
+    #             self.assertEqual(
+    #                 expected_evm_approve_tx_hash_set, set(o.exchange_order_id for o in connector.approval_orders)
+    #             )
+    #
+    #             self._http_player.replay_timestamp_ms = 1648503342513
+    #             tracked_order_1.creation_timestamp = connector.current_timestamp - 86400
+    #             tracked_order_2.creation_timestamp = connector.current_timestamp - 86400
+    #             await connector.cancel_outdated_orders(600)
+    #             self.assertEqual(2, len(connector.approval_orders))
+    #             self.assertEqual(expected_cancel_tx_hash_set, set(o.cancel_tx_hash for o in connector.approval_orders))
+    #
+    #             self._http_player.replay_timestamp_ms = 1648503385484
+    #             async with timeout(10):
+    #                 while len(event_logger.event_log) < 2:
+    #                     await event_logger.wait_for(TokenApprovalCancelledEvent)
+    #                 cancelled_approval_symbols = [e.token_symbol for e in event_logger.event_log]
+    #                 self.assertIn("USDC", cancelled_approval_symbols)
+    #                 self.assertIn("SOL", cancelled_approval_symbols)
+    #     finally:
+    #         connector.remove_listener(TokenApprovalEvent.ApprovalCancelled, event_logger)
