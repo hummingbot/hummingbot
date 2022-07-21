@@ -165,7 +165,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
         finally:
             connector.remove_listener(MarketEvent.OrderCancelled, event_logger)
 
-    # # TODO Check about the possibility to cancel POST solana/token transactions.!!!
+    # # TODO Check about the possibility to cancel POST solana/token transactions.
     # @async_test(loop=ev_loop)
     # async def test_cancel_approval(self):
     #     connector: GatewaySOLCLOB = self._connector
