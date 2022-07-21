@@ -24,9 +24,10 @@ class BinanceRateSource(RateSourceBase):
     async def get_prices(self, quote_token: Optional[str] = None) -> Dict[str, Decimal]:
         self._ensure_exchanges()
         results = {}
-        tasks = [self._get_binance_prices(exchange=self._binance_exchange, quote_token=quote_token)]
-        if quote_token is None or quote_token == "USD":
-            tasks.append(self._get_binance_prices(exchange=self._binance_us_exchange, quote_token="USD"))
+        tasks = [
+            self._get_binance_prices(exchange=self._binance_exchange),
+            self._get_binance_prices(exchange=self._binance_us_exchange, quote_token="USD"),
+        ]
         task_results = await safe_gather(*tasks, return_exceptions=True)
         for task_result in task_results:
             if isinstance(task_result, Exception):
