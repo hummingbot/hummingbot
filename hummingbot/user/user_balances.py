@@ -62,7 +62,7 @@ class UserBalances:
     @staticmethod
     @lru_cache(maxsize=10)
     def is_gateway_market(exchange_name: str) -> bool:
-        return exchange_name in AllConnectorSettings.get_gateway_evm_amm_connector_names()
+        return exchange_name in AllConnectorSettings.get_gateway_evm_amm_connector_names().union(AllConnectorSettings.get_gateway_evm_amm_lp_connector_names())
 
     def __init__(self):
         if UserBalances.__instance is not None:
