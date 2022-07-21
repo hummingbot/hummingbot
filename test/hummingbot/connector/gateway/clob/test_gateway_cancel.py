@@ -105,12 +105,12 @@ class GatewayCancelUnitTest(unittest.TestCase):
         connector.add_listener(MarketEvent.OrderCancelled, event_logger)
 
         expected_order_tx_hash_set: Set[str] = {
-            "18446725626965478e",  # noqa: mock
-            "28446725626965478e" # noqa: mock
+            "12sFho8chAFK8Mxj8sZTWQJfQTPLgHFrCuGxyapnEMPSbGtSuBWkFaJaNG3E9fmzvbtvmFf1qnPEGWGj4dRR98N",  # noqa: mock
+            "22sFho8chAFK8Mxj8sZTWQJfQTPLgHFrCuGxyapnEMPSbGtSuBWkFaJaNG3E9fmzvbtvmFf1qnPEGWGj4dRR98N" # noqa: mock
         }
         expected_cancel_tx_hash_set: Set[str] = {
-            "18446725626965478e",  # noqa: mock
-            "28446725626965478e" # noqa: mock
+            "1HEGEidnzzGvdKAB6dui5dZBB4qcBbqEMPgjbch8b9qdzf72Wworr11FqxdHDCjJVoG4Q3P9Fw4ergmwW3u47rC7",  # noqa: mock
+            "2HEGEidnzzGvdKAB6dui5dZBB4qcBbqEMPgjbch8b9qdzf72Wworr11FqxdHDCjJVoG4Q3P9Fw4ergmwW3u47rC7" # noqa: mock
         }
 
         try:
@@ -122,7 +122,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
                 self._http_player.replay_timestamp_ms = 1648503304951
                 await connector._create_order(
                     trade_type=TradeType.BUY,
-                    order_id=GatewaySOLCLOB.create_market_order_id(TradeType.BUY, TRADING_PAIR),
+                    order_id='buy-SOL-USDC-1658434205028888',
                     trading_pair=TRADING_PAIR,
                     amount=amount,
                     price=buy_price,
@@ -132,7 +132,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
                 self._http_player.replay_timestamp_ms = 1648503309059
                 await connector._create_order(
                     TradeType.SELL,
-                    GatewaySOLCLOB.create_market_order_id(TradeType.SELL, TRADING_PAIR),
+                    'sell-SOL-USDC-1658434205059909',
                     TRADING_PAIR,
                     amount,
                     sell_price,
@@ -152,12 +152,11 @@ class GatewayCancelUnitTest(unittest.TestCase):
                 self._http_player.replay_timestamp_ms = 1648503313675
                 await connector.cancel_outdated_orders(600)
 
-                self._http_player.replay_timestamp_ms = 1648503331511
-                await connector.update_canceling_transactions(connector.amm_orders)
-                # self._http_player.replay_timestamp_ms = 1648503331520
-                # await connector.update_canceling_transactions(connector.amm_orders)
                 self.assertEqual(2, len(connector.amm_orders))
                 self.assertEqual(expected_cancel_tx_hash_set, set(o.cancel_tx_hash for o in connector.amm_orders))
+
+                self._http_player.replay_timestamp_ms = 1648503331511
+                await connector.update_canceling_transactions(connector.amm_orders)
 
                 async with timeout(10):
                     while len(event_logger.event_log) < 2:

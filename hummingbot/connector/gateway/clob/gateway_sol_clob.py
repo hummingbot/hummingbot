@@ -589,9 +589,9 @@ class GatewaySOLCLOB(ConnectorBase):
                     "type": convert_order_type(OrderType.LIMIT).value
                 }
             )
-            exchange_order_id: str = order_result.get("exchangeId")
+            signature: str = order_result.get("signature")
 
-            if exchange_order_id is not None:
+            if signature is not None:
                 nonce = constant.DEFAULT_NONCE
                 gas_cost = constant.FIVE_THOUSAND_LAMPORTS
                 gas_price_token = Chain.SOLANA.native_currency
@@ -602,7 +602,7 @@ class GatewaySOLCLOB(ConnectorBase):
 
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=order_id,
-                    exchange_order_id=exchange_order_id,
+                    exchange_order_id=signature,  # The GatewayEVMAMM implementation uses the creation transaction hash here.
                     trading_pair=trading_pair,
                     update_timestamp=self.current_timestamp,
                     new_state=OrderState.OPEN,  # Assume that the transaction has been successfully mined.
@@ -612,7 +612,7 @@ class GatewaySOLCLOB(ConnectorBase):
                         "gas_limit": gas_limit,
                         "gas_cost": gas_cost,
                         "gas_price_token": gas_price_token,
-                        "fee_asset": self._native_currency
+                        "fee_asset": self._native_currency,
                     }
                 )
                 self._order_tracker.process_order_update(order_update)
