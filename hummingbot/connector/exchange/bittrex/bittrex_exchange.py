@@ -166,7 +166,7 @@ class BittrexExchange(ExchangePyBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    def _format_trading_rules(self, markets: List) -> List[TradingRule]:
+    async def _format_trading_rules(self, markets: List) -> List[TradingRule]:
         retval = []
         for market in markets:
             try:

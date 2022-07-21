@@ -46,8 +46,8 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             self.logger().info("Successfully authenticated to user stream...")
         except asyncio.CancelledError:
             raise
-        except Exception as e:
-            self.logger().error(f"Error occurred authenticating websocket connection... Error: {str(e)}", exc_info=True)
+        except Exception:
+            self.logger().error("Error occurred authenticating websocket connection..")
             raise
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
