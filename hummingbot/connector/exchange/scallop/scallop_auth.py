@@ -54,7 +54,7 @@ class ScallopAuth(AuthBase):
         return {
             'X-CH-APIKEY': self.api_key,
             'X-CH-SIGN': self._generate_signature(payload),
-            'X-CH-TS': timestamp,
+            'X-CH-TS': str(timestamp),
             'Content-Type': 'application/json',
         }
 
