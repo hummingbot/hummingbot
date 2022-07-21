@@ -1,10 +1,9 @@
-from decimal import Decimal
 import threading
-from typing import (
-    TYPE_CHECKING,
-)
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from decimal import Decimal
+from typing import TYPE_CHECKING
+
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import OracleRateUnavailable
 
 s_float_0 = float(0)
@@ -40,19 +39,20 @@ class RateCommand:
     async def oracle_rate_msg(pair: str,
                               ):
         pair = pair.upper()
-        rate = await RateOracle.rate_async(pair)
+        rate = await RateOracle.get_instance().rate_async(pair)
         if rate is None:
             raise OracleRateUnavailable
         base, quote = pair.split("-")
-        return f"Source: {RateOracle.source.name}\n1 {base} = {rate} {quote}"
+        return f"Source: {RateOracle.get_instance().source.name}\n1 {base} = {rate} {quote}"
 
     async def show_token_value(self,  # type: HummingbotApplication
                                token: str
                                ):
-        token = token.upper()
-        self.notify(f"Source: {RateOracle.source.name}")
-        rate = await RateOracle.global_rate(token)
+        self.notify(f"Source: {RateOracle.get_instance().source.name}")
+        rate = await RateOracle.get_instance().get_rate(base_token=token)
         if rate is None:
             self.notify("Rate is not available.")
             return
-        self.notify(f"1 {token} = {RateOracle.global_token_symbol} {rate} {RateOracle.global_token}")
+        global_token = self.client_config_map.global_token.global_token_name
+        token_symbol = self.client_config_map.global_token.global_token_symbol
+        self.notify(f"1 {token} = {token_symbol} {rate} {global_token}")

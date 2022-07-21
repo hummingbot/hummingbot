@@ -39,16 +39,16 @@ class OracleConversionRateMode(ConversionRateModel):
         """
         quote_pair = f"{market_pair.taker.quote_asset}-{market_pair.maker.quote_asset}"
         if market_pair.taker.quote_asset != market_pair.maker.quote_asset:
-            quote_rate_source = RateOracle.source.name
-            quote_rate = RateOracle.get_instance().rate(quote_pair)
+            quote_rate_source = RateOracle.get_instance().source.name
+            quote_rate = RateOracle.get_instance().get_pair_rate(quote_pair)
         else:
             quote_rate_source = "fixed"
             quote_rate = Decimal("1")
 
         base_pair = f"{market_pair.taker.base_asset}-{market_pair.maker.base_asset}"
         if market_pair.taker.base_asset != market_pair.maker.base_asset:
-            base_rate_source = RateOracle.source.name
-            base_rate = RateOracle.get_instance().rate(base_pair)
+            base_rate_source = RateOracle.get_instance().source.name
+            base_rate = RateOracle.get_instance().get_pair_rate(base_pair)
         else:
             base_rate_source = "fixed"
             base_rate = Decimal("1")
