@@ -114,3 +114,6 @@ coverage.xml
 
 # password file
 .password_verification
+
+# backup conf
+/conf_backup
