@@ -18,17 +18,17 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 :x: RED - Connector is broken and unusable.
 
 
-| logo | id | name | ver | doc | status | referral |
+| logo | id | name | ver | doc | status | signup |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | <img src="assets/altmarkets_logo1.png" alt="AltMarkets.io" width="90" /> | altmarkets | [AltMarkets.io](https://altmarkets.io/) | 2 | [API](https://altmarkets.io/) | :white_check_mark: |
-| <img src="assets/ascendex-logo.jpg" alt="AscendEx" width="90" /> | ascend_ex | [AscendEx](https://ascendex.com/en/global-digital-asset-platform) | 1 | [API](https://ascendex.github.io/ascendex-pro-api/#ascendex-pro-api-documentation) | :warning: | [UEIXNXKW](https://ascendex.com/register?inviteCode=UEIXNXKW)
+| <img src="assets/ascendex-logo.jpg" alt="AscendEx" width="90" /> | ascend_ex | [AscendEx](https://ascendex.com/en/global-digital-asset-platform) | 1 | [API](https://ascendex.github.io/ascendex-pro-api/#ascendex-pro-api-documentation) | :warning: | [![referral](https://img.shields.io/badge/referral-UEIXNXKW-lightgrey)](https://ascendex.com/register?inviteCode=UEIXNXKW)  
 | <img src="assets/beaxy-logo.png" alt="Beaxy" width="90" /> | beaxy | [Beaxy](https://beaxy.com/) | 2 | [API](https://beaxyapiv2trading.docs.apiary.io/) | :white_check_mark:|
-| <img src="assets/binance_futures-logo.jpg" alt="Binance Perpetual" width="90" /> | binance_perpetual | [Binance Futures](https://www.binance.com/) | 1 | [API](https://binance-docs.github.io/apidocs/futures/en/) | :warning: | [hummingbot](https://www.binance.com/en/futures/ref/hummingbot)
+| <img src="assets/binance_futures-logo.jpg" alt="Binance Perpetual" width="90" /> | binance_perpetual | [Binance Futures](https://www.binance.com/) | 1 | [API](https://binance-docs.github.io/apidocs/futures/en/) | :warning: | [![referral](https://img.shields.io/badge/referral-hummingbot-lightgrey)](https://www.binance.com/en/futures/ref/hummingbot)
 | <img src="assets/binance_us-logo.jpg" alt="Binance US" width="90" /> | binance_us | [Binance US](https://www.binance.com/) | 3 | [API](https://github.com/binance-us/binance-official-api-docs/blob/master/rest-api.md) | :white_check_mark: |
-| <img src="assets/binance-logo.jpg" alt="Binance" width="90" /> | binance | [Binance](https://www.binance.com/) | 3 | [API](https://github.com/binance/binance-spot-api-docs/blob/master/rest-api.md) | :white_check_mark: | [FQQNNGCD](https://www.binance.com/en/register?ref=FQQNNGCD)
-| <img src="assets/bitfinex-logo.jpg" alt="Bitfinex" width="90" /> | bitfinex | [Bitfinex](https://www.bitfinex.com/) | 2 | [API](https://docs.bitfinex.com/docs/introduction) | :warning: | [dxCUrjvc](https://bitfinex.com/?refcode=-dxCUrjvc)
+| <img src="assets/binance-logo.jpg" alt="Binance" width="90" /> | binance | [Binance](https://www.binance.com/) | 3 | [API](https://github.com/binance/binance-spot-api-docs/blob/master/rest-api.md) | :white_check_mark: | [![referral](https://img.shields.io/badge/referral-FQQNNGCD-lightgrey)](https://www.binance.com/en/register?ref=FQQNNGCD)   
+| <img src="assets/bitfinex-logo.jpg" alt="Bitfinex" width="90" /> | bitfinex | [Bitfinex](https://www.bitfinex.com/) | 2 | [API](https://docs.bitfinex.com/docs/introduction) | :warning: | [![referral](https://img.shields.io/badge/referral-dxCUrjvc-lightgrey)](https://bitfinex.com/?refcode=-dxCUrjvc) 
 | <img src="assets/bittrex_global-logo.jpg" alt="Bittrex Global" width="90" height="30" />| bittrex | [Bittrex Global](https://global.bittrex.com/) | 3 | [API](https://bittrex.github.io/api/v3) | :white_check_mark: |
-| <img src="assets/bitmart-logo.jpg" alt="BitMart" width="90" /> | bitmart | [BitMart](https://www.bitmart.com/) | 1 | [API](https://developer-pro.bitmart.com/en/) | :white_check_mark: | [UM6fQV](https://www.bitmart.com/en?r=UM6fQV)
+| <img src="assets/bitmart-logo.jpg" alt="BitMart" width="90" /> | bitmart | [BitMart](https://www.bitmart.com/) | 1 | [API](https://developer-pro.bitmart.com/en/) | :white_check_mark: | [![referral](https://img.shields.io/badge/referral-UM6fQV-lightgrey)](https://www.bitmart.com/en?r=UM6fQV)  
 | <img src="assets/blocktane-logo.jpg" alt="Blocktane" width="90" /> | blocktane | [Blocktane](https://blocktane.io/) | 2 | [API](https://blocktane.io/api) | :warning: |
 | <img src="assets/bybit-logo.jpg" alt="Bybit Perpetual" width="90" /> | bybit_perpetual | [Bybit Perpetual](https://www.bybit.com/en-US/) | 2 | [API](https://bybit-exchange.github.io/docs/linear/#t-introduction) | :white_check_mark: |
 | <img src="assets/bybit-logo.jpg" alt="Bybit" width="90" /> | bybit | [Bybit](https://www.bybit.com/en-US/) | 2 | [API](https://bybit-exchange.github.io/docs/linear/#t-introduction) | :white_check_mark: |
@@ -43,13 +43,13 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/himalaya_exchange-logo.jpg" alt="Himalaya Exchange" width="90" /> | himalaya | [Himalaya Exchange](https://himalaya.exchange/) | * | [API]() | :x: |
 | <img src="assets/hitbtc-logo.jpg" alt="HitBTC" width="90" /> | hitbtc | [HitBTC](https://hitbtc.com/) | 2 | [API](https://api.hitbtc.com/) | :white_check_mark: |
 | <img src="assets/huobi_global-logo.jpg" alt="Huobi Global" width="90" />| huobi | [Huobi Global](https://www.hbg.com) | 1 | [API](https://huobiapi.github.io/docs/spot/v1/en/) | :warning: |
-| <img src="assets/gate-io-logo.jpg" alt="Gate.io" width="90" /> | gate_io | [Gate.io](https://www.gate.io/) | 2 | [API](https://www.gate.io/api2) | :white_check_mark: | [5868285](https://www.gate.io/signup/5868285)
+| <img src="assets/gate-io-logo.jpg" alt="Gate.io" width="90" /> | gate_io | [Gate.io](https://www.gate.io/) | 2 | [API](https://www.gate.io/api2) | :white_check_mark: | [![referral](https://img.shields.io/badge/referral-5868285-lightgrey)](https://www.gate.io/signup/5868285) 
 | <img src="assets/kraken-logo.jpg" alt="Kraken" width="90" /> | kraken | [Kraken](https://www.kraken.com/) | 1 | [API](https://www.kraken.com/features/api) | :white_check_mark: |
-| <img src="assets/kucoin-logo.jpg" alt="KuCoin" width="90" /> | kucoin | [KuCoin](https://www.kucoin.com/) | 1 | [API](https://docs.kucoin.com/#general) | :warning: | [272KvRf](https://www.kucoin.com/ucenter/signup?rcode=272KvRf)
+| <img src="assets/kucoin-logo.jpg" alt="KuCoin" width="90" /> | kucoin | [KuCoin](https://www.kucoin.com/) | 1 | [API](https://docs.kucoin.com/#general) | :warning: | [![referral](https://img.shields.io/badge/referral-272KvRf-lightgrey)](https://www.kucoin.com/ucenter/signup?rcode=272KvRf)
 | <img src="assets/liquid-logo.jpg" alt="Liquid" width="90" /> | liquid | [Liquid](https://www.liquid.com/) | 2 | [API](https://developers.liquid.com/) | :white_check_mark: |
 | <img src="assets/mexc.jpg" alt="MEXC" width="90" /> | mexc | [MEXC Global](https://www.mexc.com/) | 1 | [API](https://mxcdevelop.github.io/APIDoc/) | :warning: |
 | <img src="assets/ndax-logo.jpg" alt="NDAX" width="90" /> | ndax | [NDAX](https://ndax.io/) | 1 | [API](https://ndaxlo.github.io/API/) | :warning: |
-| <img src="assets/okex-logo.jpg" alt="OKEx" width="90" /> | okex | [OKEx](https://www.okex.com/) | 3 | [API](https://www.okex.com/docs/en/) | :white_check_mark: | [1931920](https://www.okex.com/join/1931920)
+| <img src="assets/okex-logo.jpg" alt="OKEx" width="90" /> | okex | [OKEx](https://www.okex.com/) | 3 | [API](https://www.okex.com/docs/en/) | :white_check_mark: | [![referral](https://img.shields.io/badge/referral-1931920-lightgrey)](https://www.okex.com/join/1931920)
 | <img src="assets/probit-logo.jpg" alt="Probit Global" width="90" /> | probit | [Probit Global](https://www.probit.com/en-us/) | 1 | [API](https://docs-en.probit.com/docs) | :warning: |
 | <img src="assets/probit_kr-logo.jpg" alt="Probit Korea" width="90" /> | probit_kr | [Probit Korea](https://www.probit.kr/en-us/) | 1 | [API](https://docs-en.probit.com/docs) | :warning: |
 | <img src="assets/wazirX-logo.jpg" alt="Wazirx" width="90" /> | wazirx | [WazirX](https://wazirx.com/) | 1 | [API](https://docs.wazirx.com/#public-rest-api-for-wazirx) | :warning: |
