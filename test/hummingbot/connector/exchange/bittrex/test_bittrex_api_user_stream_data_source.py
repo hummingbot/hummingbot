@@ -1,22 +1,24 @@
 import asyncio
-import base64
 import json
 import unittest
-
+from typing import Awaitable, Optional
 from unittest.mock import AsyncMock, patch
 
-import zlib
-
-
-from hummingbot.connector.exchange.bittrex.bittrex_api_user_stream_data_source import \
-    BittrexAPIUserStreamDataSource
+from hummingbot.connector.exchange.bittrex import bittrex_constants as CONSTANTS
+from hummingbot.connector.exchange.bittrex.bittrex_api_user_stream_data_source import BittrexAPIUserStreamDataSource
 from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
+from hummingbot.connector.exchange.bittrex.bittrex_web_utils import build_api_factory
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class BittrexAPIUserStreamDataSourceTest(unittest.TestCase):
+    level = 0
+
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
+        cls.ev_loop = asyncio.get_event_loop()
         cls.api_key = "someKey"
         cls.secret_key = "someSecret"
         cls.base_asset = "COINALPHA"
@@ -26,103 +28,165 @@ class BittrexAPIUserStreamDataSourceTest(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.ev_loop = asyncio.get_event_loop()
+        self.listening_task: Optional[asyncio.Task] = None
+        self.log_records = []
+        self.mocking_assistant = NetworkMockingAssistant()
+        self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
 
-        self.ws_incoming_messages = asyncio.Queue()
+        self.data_source = BittrexAPIUserStreamDataSource(
+            auth=BittrexAuth(self.api_key, self.secret_key),
+            connector=AsyncMock(),
+            api_factory=build_api_factory()
+        )
         self.resume_test_event = asyncio.Event()
-        self._finalMessage = {"FinalDummyMessage": None}
+        self.data_source.logger().setLevel(1)
+        self.data_source.logger().addHandler(self)
 
-        self.output_queue = asyncio.Queue()
+    def tearDown(self) -> None:
+        self.listening_task and self.listening_task.cancel()
+        super().tearDown()
 
-        self.us_data_source = BittrexAPIUserStreamDataSource(
-            bittrex_auth=BittrexAuth(self.api_key, self.secret_key),
-            trading_pairs=[self.trading_pair],
-        )
+    def handle(self, record):
+        self.log_records.append(record)
 
-    def _create_queue_mock(self):
-        queue = AsyncMock()
-        queue.get.side_effect = self._get_next_ws_received_message
-        return queue
+    def _is_logged(self, log_level: str, message: str) -> bool:
+        return any(record.levelname == log_level and record.getMessage() == message
+                   for record in self.log_records)
 
-    async def _get_next_ws_received_message(self):
-        message = await self.ws_incoming_messages.get()
-        if message == self._finalMessage:
-            self.resume_test_event.set()
-        return message
+    def _raise_exception(self, exception_class):
+        raise exception_class
 
-    @patch("signalr_aio.Connection.start")
-    @patch("asyncio.Queue")
-    @patch(
-        "hummingbot.connector.exchange.bittrex.bittrex_api_user_stream_data_source.BittrexAPIUserStreamDataSource"
-        "._transform_raw_message"
-    )
-    @patch(
-        "hummingbot.connector.exchange.bittrex.bittrex_api_user_stream_data_source.BittrexAPIUserStreamDataSource"
-        ".authenticate"
-    )
-    def test_listen_for_user_stream_re_authenticates(
-        self, authenticate_mock, transform_raw_message_mock, mocked_connection, _
-    ):
-        auths_count = 0
+    def _create_exception_and_unlock_test_with_event(self, exception):
+        self.resume_test_event.set()
+        raise exception
 
-        async def check_for_auth(*args, **kwargs):
-            nonlocal auths_count
-            auths_count += 1
+    def _create_return_value_and_unlock_test_with_event(self, value):
+        self.resume_test_event.set()
+        return value
 
-        authenticate_mock.side_effect = check_for_auth
-        transform_raw_message_mock.side_effect = lambda arg: arg
-        mocked_connection.return_value = self._create_queue_mock()
-        self.ws_incoming_messages.put_nowait(
-            {
-                "event_type": "heartbeat",
-                "content": None,
-                "error": None,
-            }
-        )
-        self.ws_incoming_messages.put_nowait(
-            {
-                "event_type": "re-authenticate",
-                "content": None,
-                "error": None,
-            }
-        )
-        self.ws_incoming_messages.put_nowait(self._finalMessage)  # to resume test event
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
 
-        self.ev_loop.create_task(self.us_data_source.listen_for_user_stream(self.output_queue))
-        self.ev_loop.run_until_complete(asyncio.wait([self.resume_test_event.wait()], timeout=1000))
-
-        self.assertEqual(auths_count, 2)
-
-    def test_transform_raw_execution_message(self):
-
-        execution_message = {
-            "accountId": "testAccount",
-            "sequence": "1001",
-            "deltas": [{
-                "id": "1",
-                "marketSymbol": f"{self.base_asset}{self.quote_asset}",
-                "executedAt": "12-03-2021 6:17:16",
-                "quantity": "0.1",
-                "rate": "10050",
-                "orderId": "EOID1",
-                "commission": "10",
-                "isTaker": False
-            }]
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        success_auth = {
+            "R": {
+                "Success": True,
+                "ErrorCode": None
+            },
+            "I": 1
         }
-
-        compressor = zlib.compressobj(wbits=-zlib.MAX_WBITS)
-        compressor.compress(json.dumps(execution_message).encode())
-        encoded_execution_message = base64.b64encode(compressor.flush())
-
-        message = {
-            "M": [{
-                "M": "execution",
-                "A": [encoded_execution_message.decode()]
-            }
-            ]
+        success_response = {
+            "R": [
+                {
+                    "Success": True,
+                    "ErrorCode": None
+                },
+                {
+                    "Success": True,
+                    "ErrorCode": None
+                },
+                {
+                    "Success": True,
+                    "ErrorCode": None
+                },
+                {
+                    "Success": True,
+                    "ErrorCode": None
+                },
+            ],
+            "I": 1
         }
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(success_auth))
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(success_response))
 
-        transformed_message = self.us_data_source._transform_raw_message(json.dumps(message))
+        output_queue = asyncio.Queue()
 
-        self.assertEqual("execution", transformed_message["event_type"])
-        self.assertEqual(execution_message, transformed_message["content"])
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(
+            websocket_mock=ws_connect_mock.return_value)
+
+        self.assertEqual(2, len(sent_messages))
+        expected_sub_msg = {
+            "H": "c3",
+            "M": "Subscribe",
+            "A": [["balance", "order", "heartbeat", "execution"]],
+            "I": 1
+        }
+        self.assertEqual(expected_sub_msg, sent_messages[1])
+        self.assertTrue(self._is_logged(
+            "INFO",
+            "Successfully authenticated to user stream..."
+        ))
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_user_stream_authentication_failure(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        err_resp = {"R": {
+            "Success": False,
+            "ErrorCode": "INVALID_APIKEY"
+        },
+            "I": 1
+        }
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(err_resp))
+
+        output_queue = asyncio.Queue()
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        self.assertTrue(self._is_logged(
+            "ERROR",
+            "Error occurred authenticating websocket connection.."
+        ))
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_user_stream_does_not_queue_empty_payload(self, mock_ws):
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        sucess_auth = {
+            "R": {
+                "Success": True,
+                "ErrorCode": None
+            },
+            "I": 1
+        }
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value,
+            json.dumps(sucess_auth))
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "")
+
+        msg_queue = asyncio.Queue()
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue)
+        )
+
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+
+        self.assertEqual(0, msg_queue.qsize())
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_user_stream_connection_failed(self, mock_ws):
+        mock_ws.side_effect = lambda *arg, **kwars: self._create_exception_and_unlock_test_with_event(
+            Exception("TEST ERROR."))
+
+        msg_queue = asyncio.Queue()
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue)
+        )
+
+        self.async_run_with_timeout(self.resume_test_event.wait())
+
+        self.assertTrue(
+            self._is_logged("ERROR",
+                            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
