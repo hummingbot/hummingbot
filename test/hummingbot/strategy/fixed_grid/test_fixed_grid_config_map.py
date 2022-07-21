@@ -1,8 +1,9 @@
 import unittest
 from copy import deepcopy
 
-from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.client.settings import AllConnectorSettings, required_exchanges
 from hummingbot.strategy.fixed_grid.fixed_grid_config_map import (
+    exchange_on_validated,
     fixed_grid_config_map,
     maker_trading_pair_prompt,
     order_amount_prompt,
@@ -20,10 +21,12 @@ class TestFixedGridConfigMap(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
+        required_exchanges.clear()
         self.config_backup = deepcopy(fixed_grid_config_map)
 
     def tearDown(self) -> None:
         self.reset_config_map()
+        required_exchanges.clear()
         super().tearDown()
 
     def reset_config_map(self):
@@ -45,3 +48,8 @@ class TestFixedGridConfigMap(unittest.TestCase):
         expected = f"Enter the token trading pair you would like to trade on {self.exchange} (e.g. {example}) >>> "
 
         self.assertEqual(expected, prompt)
+
+    def test_exchange_on_validated(self):
+        exchange_on_validated(self.exchange)
+        expected_required_exchanges = {self.exchange}
+        self.assertEqual(expected_required_exchanges, required_exchanges)
