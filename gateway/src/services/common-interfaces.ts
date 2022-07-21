@@ -53,6 +53,12 @@ import {
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
 import { Trade as DefiraTrade } from '@zuzu-cat/defira-sdk';
+import {
+  Token as PancakeSwapToken,
+  CurrencyAmount as PancakeSwapCurrencyAmount,
+  Trade as PancakeSwapTrade,
+  Fraction as PancakeSwapFraction,
+} from '@pancakeswap/sdk';
 import { PerpPosition } from '../connectors/perp/perp';
 
 // TODO Check the possibility to have clob/solana/serum equivalents here
@@ -65,7 +71,8 @@ export type Tokenish =
   | TokenTraderjoe
   | UniswapCoreToken
   | SushiToken
-  | TokenDefikingdoms;
+  | TokenDefikingdoms
+  | PancakeSwapToken;
 
 export type UniswapishTrade =
   | Trade<Currency, Currency, TradeType>
@@ -77,7 +84,8 @@ export type UniswapishTrade =
   | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
   | TradeUniswap
   | TradeDefikingdoms
-  | DefiraTrade<UniswapCoreToken, UniswapCoreToken, TradeType>;
+  | DefiraTrade<UniswapCoreToken, UniswapCoreToken, TradeType>
+  | PancakeSwapTrade;
 
 export type UniswapishAmount =
   | CurrencyAmount
@@ -86,7 +94,8 @@ export type UniswapishAmount =
   | UniswapCoreCurrencyAmount<Currency>
   | CurrencyAmountTraderjoe
   | SushiCurrencyAmount<SushiCurrency | SushiToken>
-  | CurrencyAmountDefikingdoms;
+  | CurrencyAmountDefikingdoms
+  | PancakeSwapCurrencyAmount;
 
 export type Fractionish =
   | UniswapFraction
@@ -94,7 +103,8 @@ export type Fractionish =
   | QuickswapFraction
   | TraderjoeFraction
   | SushiFraction
-  | DefikingdomsFraction;
+  | DefikingdomsFraction
+  | PancakeSwapFraction;
 
 export interface ExpectedTrade {
   trade: UniswapishTrade;

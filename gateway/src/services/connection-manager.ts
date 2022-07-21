@@ -1,5 +1,6 @@
-import { Ethereum } from '../chains/ethereum/ethereum';
 import { Avalanche } from '../chains/avalanche/avalanche';
+import { BinanceSmartChain } from '../chains/binance-smart-chain/binance-smart-chain';
+import { Ethereum } from '../chains/ethereum/ethereum';
 import { Harmony } from '../chains/harmony/harmony';
 import { Solana, Solanaish } from '../chains/solana/solana';
 import { Polygon } from '../chains/polygon/polygon';
@@ -9,6 +10,7 @@ import { Pangolin } from '../connectors/pangolin/pangolin';
 import { Openocean } from '../connectors/openocean/openocean';
 import { Serum } from '../connectors/serum/serum';
 import { Quickswap } from '../connectors/quickswap/quickswap';
+import { PancakeSwap } from '../connectors/pancakeswap/pancakeswap';
 import { Perp } from '../connectors/perp/perp';
 import {
   Ethereumish,
@@ -21,7 +23,6 @@ import { Sushiswap } from '../connectors/sushiswap/sushiswap';
 import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
 import { Defira } from '../connectors/defira/defira';
 import { Serumish } from '../connectors/serum/serum';
-import { BinanceSmartChain } from '../chains/binance-smart-chain/binance-smart-chain';
 
 export type ChainUnion = Ethereumish | Solanaish;
 
@@ -103,6 +104,8 @@ export async function getConnector<T>(
     connectorInstance = Defira.getInstance(chain, network);
   } else if (chain === 'solana' && connector === 'serum') {
     connectorInstance = await Serum.getInstance(chain, network);
+  } else if (chain === 'binance-smart-chain' && connector === 'pancakeswap') {
+    connectorInstance = PancakeSwap.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
   }
