@@ -22,6 +22,7 @@ SERVER_TIME_PATH_URL = "/api/v1/timestamp"
 SYMBOLS_PATH_URL = "/api/v1/symbols"
 ORDERS_PATH_URL = "/api/v1/orders"
 FEE_PATH_URL = "/api/v1/trade-fees"
+ALL_TICKERS_PATH_URL = "/api/v1/market/allTickers"
 
 WS_CONNECTION_LIMIT_ID = "WSConnection"
 WS_CONNECTION_LIMIT = 30
@@ -50,6 +51,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=GET_ORDER_LIMIT_ID, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=FEE_PATH_URL, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=ALL_TICKERS_PATH_URL, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=POST_ORDER_LIMIT_ID, limit=45, time_interval=3),
     RateLimit(limit_id=DELETE_ORDER_LIMIT_ID, limit=60, time_interval=3),
 ]
