@@ -14,7 +14,7 @@ This is a list of DEX connections currently supported by Gateway.
 |-------------|------------|-------------------|
 | UniswapV2   | Ethereum   | AMM               |
 | Sushiswap   | Ethereum   | AMM               |
-| UniswapV3   | Ethereum   | EVM_Perpetual     |
+| UniswapV3   | Ethereum   | EVM_Range_AMM     |
 | Pangolin    | Avalanche  | AMM               |
 | Traderjoe   | Avalanche  | AMM               |
 | Quickswap   | Polygon    | AMM               |
