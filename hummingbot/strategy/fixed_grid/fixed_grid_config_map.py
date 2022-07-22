@@ -41,7 +41,7 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
 
 
 def exchange_on_validated(value: str):
-    required_exchanges.append(value)
+    required_exchanges.add(value)
 
 
 fixed_grid_config_map = {
