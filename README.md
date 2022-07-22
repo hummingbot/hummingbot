@@ -29,7 +29,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/bitfinex-logo.jpg" alt="Bitfinex" width="90" /> | bitfinex | [Bitfinex](https://www.bitfinex.com/) | 2 | [API](https://docs.bitfinex.com/docs/introduction) | :warning: | [dxCUrjvc](https://bitfinex.com/?refcode=-dxCUrjvc)
 | <img src="assets/bittrex_global-logo.jpg" alt="Bittrex Global" width="90" height="30" />| bittrex | [Bittrex Global](https://global.bittrex.com/) | 3 | [API](https://bittrex.github.io/api/v3) | :white_check_mark: |
 | <img src="assets/bitmart-logo.jpg" alt="BitMart" width="90" /> | bitmart | [BitMart](https://www.bitmart.com/) | 1 | [API](https://developer-pro.bitmart.com/en/) | :white_check_mark: | [UM6fQV](https://www.bitmart.com/en?r=UM6fQV)
-| <img src="assets/bitmex-logo.png" alt="Bitmex" width="90" /> | bitmart | [Bitmex](https://www.bitmex.com/) | 1 | [API](https://www.bitmex.com/app/apiOverview/) | :warning: |
+| <img src="assets/bitmex-logo.png" alt="Bitmex" width="90" /> | bitmex | [Bitmex](https://www.bitmex.com/) | 1 | [API](https://www.bitmex.com/app/apiOverview/) | :warning: |
 | <img src="assets/blocktane-logo.jpg" alt="Blocktane" width="90" /> | blocktane | [Blocktane](https://blocktane.io/) | 2 | [API](https://blocktane.io/api) | :warning: |
 | <img src="assets/bybit-logo.jpg" alt="Bybit Perpetual" width="90" /> | bybit_perpetual | [Bybit Perpetual](https://www.bybit.com/en-US/) | 2 | [API](https://bybit-exchange.github.io/docs/linear/#t-introduction) | :white_check_mark: |
 | <img src="assets/bybit-logo.jpg" alt="Bybit" width="90" /> | bybit | [Bybit](https://www.bybit.com/en-US/) | 2 | [API](https://bybit-exchange.github.io/docs/linear/#t-introduction) | :white_check_mark: |
