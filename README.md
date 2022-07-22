@@ -70,6 +70,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/balancer-logo.jpg" alt="Balancer" width="90" /> | balancer | [Balancer](https://balancer.finance/) | * | [SDK](https://docs.balancer.finance/) | :white_check_mark: |
 | <img src="assets/celo-logo.jpg" alt="Celo" width="90" /> | celo | [Celo](https://celo.org/) | * | [SDK](https://celo.org/developers) | :warning: |
 | <img src="assets/perpetual_protocol-logo.jpg" alt="Perpetual Protocol" width="90" /> | perpetual_finance | [Perpetual Protocol](https://perp.fi/) | * | [SDK](https://docs.perp.fi/) | :warning: |
+| <img src="assets/quickswap-logo.png" alt="Quickswap" width="90" /> | quickswap | [Quickswap](https://quickswap.exchange) | * | [SDK](https://github.com/QuickSwap/QuickSwap-sdk) | :warning: |
 | <img src="assets/sushiswap-logo.jpg" alt="Sushiswap" width="90" /> | sushiswap | [Sushiswap](https://sushi.com/) | 2 | [SDK](https://docs.sushi.com/docs/Developers/Packages/Core%20SDK/) | :warning: |
 | <img src="assets/traderjoe-logo.png" alt="Traderjoe" width="80" /> | traderjoe | [Traderjoe](https://traderjoexyz.com/home#/) | 2 | [SDK](https://github.com/traderjoe-xyz/joe-sdk/) | :warning: |
 | <img src="assets/uniswap-logo.jpg" alt="Uniswap" width="90" /> | uniswap | [Uniswap](https://uniswap.org/) | 2 | [SDK](https://docs.uniswap.org/sdk/2.0.0/) | :warning: |
