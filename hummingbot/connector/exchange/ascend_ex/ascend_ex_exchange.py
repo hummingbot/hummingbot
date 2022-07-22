@@ -876,7 +876,6 @@ class AscendExExchange(ExchangeBase):
             new_state=OrderState.FAILED,
         )
         self._in_flight_order_tracker.process_order_update(order_update)
-        self._in_flight_order_tracker.stop_tracking_order(client_order_id=order_id)
 
     def _stop_tracking_order_exceed_no_exchange_id_limit(self, tracked_order: InFlightOrder):
         """
