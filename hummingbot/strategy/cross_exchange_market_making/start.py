@@ -14,7 +14,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 def start(self):
     c_map = self.strategy_config_map
     maker_market = c_map.maker_market.lower()
-    taker_market = c_map.taker_market.connector.lower()
+    taker_market = c_map.taker_market.lower()
     raw_maker_trading_pair = c_map.maker_market_trading_pair
     raw_taker_trading_pair = c_map.taker_market_trading_pair
     status_report_interval = self.client_config_map.strategy_report_interval
