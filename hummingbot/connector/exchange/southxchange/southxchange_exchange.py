@@ -6,15 +6,19 @@ from collections import namedtuple
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.southxchange import southxchange_constants as CONSTANTS, southxchange_utils
-from hummingbot.connector.exchange.southxchange.southxchange_api_order_book_data_source import SouthxchangeAPIOrderBookDataSource
+from hummingbot.connector.exchange.southxchange.southxchange_api_order_book_data_source import (
+    SouthxchangeAPIOrderBookDataSource,
+)
 from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
+from hummingbot.connector.exchange.southxchange.southxchange_constants import REST_URL
 from hummingbot.connector.exchange.southxchange.southxchange_order_book_tracker import SouthxchangeOrderBookTracker
 from hummingbot.connector.exchange.southxchange.southxchange_user_stream_tracker import SouthxchangeUserStreamTracker
 from hummingbot.connector.exchange.southxchange.southxchange_utils import build_api_factory, convert_string_to_datetime
+from hummingbot.connector.exchange.southxchange.southxchange_web_utils import RESTAssistant_SX
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -28,9 +32,7 @@ from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-from hummingbot.connector.exchange.southxchange.southxchange_web_utils import RESTAssistant_SX
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.southxchange.southxchange_constants import REST_URL
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter

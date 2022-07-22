@@ -3,21 +3,22 @@ import asyncio
 import bisect
 import logging
 import time
+from collections import defaultdict, deque
+from typing import TYPE_CHECKING, Deque, Dict, List, Optional
 
 import hummingbot.connector.exchange.southxchange.southxchange_constants as constants
-
-from collections import defaultdict, deque
-from typing import Optional, Dict, List, Deque, TYPE_CHECKING
-
+from hummingbot.connector.exchange.southxchange.southxchange_api_order_book_data_source import (
+    SouthxchangeAPIOrderBookDataSource,
+)
+from hummingbot.connector.exchange.southxchange.southxchange_order_book import SouthXchangeOrderBook
+from hummingbot.connector.exchange.southxchange.southxchange_order_book_message import SouthXchangeOrderBookMessage
+from hummingbot.connector.exchange.southxchange.southxchange_web_utils import WebAssistantsFactory_SX
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.connector.exchange.southxchange.southxchange_order_book_message import SouthXchangeOrderBookMessage
-from hummingbot.connector.exchange.southxchange.southxchange_api_order_book_data_source import SouthxchangeAPIOrderBookDataSource
-from hummingbot.connector.exchange.southxchange.southxchange_order_book import SouthXchangeOrderBook
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.connector.exchange.southxchange.southxchange_web_utils import WebAssistantsFactory_SX
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
+
 if TYPE_CHECKING:
     from hummingbot.connector.exchange.southxchange.southxchange_exchange import SouthxchangeExchange
 

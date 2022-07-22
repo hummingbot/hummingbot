@@ -1,7 +1,8 @@
 from unittest import TestCase
+
 from hummingbot.connector.exchange.southxchange.southxchange_order_book import SouthXchangeOrderBook
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_bookWebSocket_to_bookApi
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
 class AscendExOrderBookTests(TestCase):

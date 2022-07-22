@@ -1,10 +1,11 @@
 import hashlib
 import hmac
 import json
-from typing import Dict, Any
+from typing import Any, Dict
 from unittest import TestCase
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
+
 from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 
 
 class SouthXchangeAuthTests(TestCase):

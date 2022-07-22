@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+from test.connector.exchange.southxchange.test_fixture_southxchange import Fixturesouthxchange
 from typing import Awaitable, Optional
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
@@ -9,16 +10,18 @@ import aiohttp
 from aioresponses import aioresponses
 from bidict import bidict
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.southxchange import southxchange_constants as CONSTANTS
-from hummingbot.connector.exchange.southxchange.southxchange_api_order_book_data_source import SouthxchangeAPIOrderBookDataSource
+from hummingbot.connector.exchange.southxchange.southxchange_api_order_book_data_source import (
+    SouthxchangeAPIOrderBookDataSource,
+)
+from hummingbot.connector.exchange.southxchange.southxchange_exchange import SouthxchangeExchange
+from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_to_exchange_trading_pair
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.utils import build_api_factory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.connector.exchange.southxchange.southxchange_exchange import SouthxchangeExchange
-from test.connector.exchange.southxchange.test_fixture_southxchange import Fixturesouthxchange
-from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_to_exchange_trading_pair
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 API_BASE_URL = "https://www.southxchange.com"
 
 

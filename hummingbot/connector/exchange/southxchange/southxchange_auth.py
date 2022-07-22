@@ -1,8 +1,9 @@
-import time
-import hmac
 import hashlib
+import hmac
 import json
-from typing import Dict, Any, Optional
+import time
+from typing import Any, Dict, Optional
+
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest
 

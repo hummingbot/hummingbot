@@ -1,19 +1,19 @@
 #!/usr/bin/env python
-import time
 import asyncio
 import logging
-from typing import Optional, List, AsyncIterable, Any, Dict, TYPE_CHECKING
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
+import time
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
+
 from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
-from hummingbot.connector.exchange.southxchange.southxchange_constants import PRIVATE_WS_URL, RATE_LIMITS
+from hummingbot.connector.exchange.southxchange.southxchange_constants import PRIVATE_WS_URL, RATE_LIMITS, REST_URL
 from hummingbot.connector.exchange.southxchange.southxchange_utils import build_api_factory
+from hummingbot.connector.exchange.southxchange.southxchange_web_utils import RESTAssistant_SX, WebAssistantsFactory_SX
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.connector.exchange.southxchange.southxchange_constants import REST_URL
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse, WSJSONRequest
-from hummingbot.connector.exchange.southxchange.southxchange_web_utils import RESTAssistant_SX
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
-from hummingbot.connector.exchange.southxchange.southxchange_web_utils import WebAssistantsFactory_SX
+from hummingbot.logger import HummingbotLogger
+
 if TYPE_CHECKING:
     from hummingbot.connector.exchange.southxchange.southxchange_exchange import SouthxchangeExchange
 

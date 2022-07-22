@@ -1,15 +1,18 @@
-from datetime import datetime
-from typing import Tuple, Optional, Dict
-from dateutil import parser
 import random
 import string
+from datetime import datetime
+from typing import Dict, Optional, Tuple
+
+from dateutil import parser
 from pydantic import Field, SecretStr
+
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.connector.exchange.southxchange.southxchange_web_utils import WebAssistantsFactory_SX
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
-from hummingbot.connector.exchange.southxchange.southxchange_web_utils import WebAssistantsFactory_SX
+
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USDT"

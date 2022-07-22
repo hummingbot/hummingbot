@@ -7,15 +7,16 @@ from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.southxchange import southxchange_constants as CONSTANTS
-from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
-from hummingbot.connector.exchange.southxchange.southxchange_user_stream_tracker import SouthxchangeUserStreamTracker
-from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.connector.exchange.southxchange.southxchange_exchange import SouthxchangeExchange
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.exchange.southxchange import southxchange_constants as CONSTANTS
+from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
+from hummingbot.connector.exchange.southxchange.southxchange_exchange import SouthxchangeExchange
+from hummingbot.connector.exchange.southxchange.southxchange_user_stream_tracker import SouthxchangeUserStreamTracker
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+
 API_BASE_URL = "https://www.southxchange.com"
 
 

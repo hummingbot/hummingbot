@@ -1,32 +1,31 @@
-import json
 import asyncio
-from typing import Callable
-from copy import deepcopy
-from typing import (
-    AsyncGenerator,
-    Dict,
-    List,
-    Optional,
-    Any,
-    Union
-)
+import json
 from asyncio import wait_for
+from copy import deepcopy
+from threading import Lock
+from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Union
+
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse
+from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
+from hummingbot.core.web_assistant.connections.data_types import (
+    RESTMethod,
+    RESTRequest,
+    RESTResponse,
+    WSRequest,
+    WSResponse,
+)
 from hummingbot.core.web_assistant.connections.rest_connection import RESTConnection
+from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
 from hummingbot.core.web_assistant.rest_post_processors import RESTPostProcessorBase
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
-from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
-from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
 from hummingbot.core.web_assistant.ws_post_processors import WSPostProcessorBase
 from hummingbot.core.web_assistant.ws_pre_processors import WSPreProcessorBase
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
-from threading import Lock
+
 lock = Lock()
 
 

@@ -1,21 +1,19 @@
 #!/usr/bin/env python
 import logging
-from typing import (
-    Optional,
-    List,
-    TYPE_CHECKING
-)
+from typing import TYPE_CHECKING, List, Optional
+
 from hummingbot.connector.exchange.southxchange.southxchange_api_user_stream_data_source import (
-    SouthxchangeAPIUserStreamDataSource
+    SouthxchangeAPIUserStreamDataSource,
 )
 from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
 from hummingbot.connector.exchange.southxchange.southxchange_constants import EXCHANGE_NAME
+from hummingbot.connector.exchange.southxchange.southxchange_web_utils import WebAssistantsFactory_SX
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.connector.exchange.southxchange.southxchange_web_utils import WebAssistantsFactory_SX
 from hummingbot.logger import HummingbotLogger
+
 if TYPE_CHECKING:
     from hummingbot.connector.exchange.southxchange.southxchange_exchange import SouthxchangeExchange
 

@@ -1,26 +1,36 @@
 import asyncio
 import logging
-import aiohttp
 import time
-import pandas as pd
-from datetime import datetime
 from collections import defaultdict
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
+
+import aiohttp
+import pandas as pd
 from bidict import bidict
-from typing import Any, Dict, List, Optional, Mapping, TYPE_CHECKING
+
+from hummingbot.connector.exchange.southxchange.southxchange_constants import (
+    EXCHANGE_NAME,
+    PUBLIC_WS_URL,
+    RATE_LIMITS,
+    REST_URL,
+)
+from hummingbot.connector.exchange.southxchange.southxchange_order_book import SouthXchangeOrderBook
+from hummingbot.connector.exchange.southxchange.southxchange_utils import (
+    build_api_factory,
+    convert_bookWebSocket_to_bookApi,
+    convert_string_to_datetime,
+    convert_to_exchange_trading_pair,
+)
+from hummingbot.connector.exchange.southxchange.southxchange_web_utils import WebAssistantsFactory_SX, WSAssistant_SX
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.southxchange.southxchange_order_book import SouthXchangeOrderBook
-from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_to_exchange_trading_pair, build_api_factory, convert_string_to_datetime
-from hummingbot.connector.exchange.southxchange.southxchange_constants import EXCHANGE_NAME, PUBLIC_WS_URL, REST_URL, RATE_LIMITS
-from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_bookWebSocket_to_bookApi
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse, WSJSONRequest
+from hummingbot.logger import HummingbotLogger
 
-
-from hummingbot.connector.exchange.southxchange.southxchange_web_utils import WSAssistant_SX, WebAssistantsFactory_SX
 if TYPE_CHECKING:
     from hummingbot.connector.exchange.southxchange.southxchange_exchange import SouthxchangeExchange
 

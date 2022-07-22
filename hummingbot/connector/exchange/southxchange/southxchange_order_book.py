@@ -1,18 +1,12 @@
 #!/usr/bin/env python
 
 import logging
+from typing import Any, Dict, List, Optional
+
 import hummingbot.connector.exchange.southxchange.southxchange_constants as constants
-
-from typing import (
-    Optional,
-    Dict,
-    List, Any)
-
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage, OrderBookMessageType
-)
 from hummingbot.connector.exchange.southxchange.southxchange_order_book_message import SouthXchangeOrderBookMessage
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 
 _logger = None

@@ -1,13 +1,8 @@
 #!/usr/bin/env python
-from typing import (
-    Dict,
-    List
-)
+from typing import Dict, List
+
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage,
-    OrderBookMessageType,
-)
 
 
 class SouthXchangeOrderBookMessage(OrderBookMessage):

@@ -1,25 +1,24 @@
 import asyncio
+import contextlib
 import json
+import math
 import re
 import unittest
+from decimal import Decimal
+from test.connector.exchange.southxchange.test_fixture_southxchange import Fixturesouthxchange
+from typing import Any, Awaitable, Dict, List, Optional
+from unittest.mock import AsyncMock, MagicMock, patch
+
 from aioresponses import aioresponses
 from bidict import bidict
-import math
-import contextlib
+
 import conf
-from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import (
-    List,
-    Optional,
-    Awaitable,
-    Any,
-    Dict
-)
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.southxchange import southxchange_constants as southxchange_utils
-from hummingbot.connector.exchange.southxchange.southxchange_api_order_book_data_source import SouthxchangeAPIOrderBookDataSource
+from hummingbot.connector.exchange.southxchange.southxchange_api_order_book_data_source import (
+    SouthxchangeAPIOrderBookDataSource,
+)
 from hummingbot.connector.exchange.southxchange.southxchange_exchange import (
     SouthxchangeExchange,
     SouthxchangeOrder,
@@ -30,12 +29,11 @@ from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketEvent, MarketOrderFailureEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from test.connector.exchange.southxchange.test_fixture_southxchange import Fixturesouthxchange
 
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 API_BASE_URL = "https://www.southxchange.com"
