@@ -9,7 +9,6 @@ from typing import Generator, Optional, Set
 from unittest.mock import patch
 
 from aiohttp import ClientSession
-from aiounittest import async_test
 from async_timeout import timeout
 
 from bin import path_util  # noqa: F401
@@ -97,7 +96,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
                 pass
             self._clock_task = None
 
-    @async_test(loop=ev_loop)
+    # @async_test(loop=ev_loop)
     async def test_cancel_order(self):
         amount: Decimal = Decimal("0.2")
         connector: GatewaySOLCLOB = self._connector

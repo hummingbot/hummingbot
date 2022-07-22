@@ -275,7 +275,7 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
             except asyncio.CancelledError:
                 pass
 
-    @async_test(loop=ev_loop)
+    # @async_test(loop=ev_loop)
     async def test_buy_order(self):
         self._http_player.replay_timestamp_ms = 1648500060561
         clock_task: asyncio.Task = safe_ensure_future(self.run_clock())
@@ -290,13 +290,13 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
                 timeout_seconds=5
             )
             self.assertEqual(
-                "18446725626965478e",       # noqa: mock
+                "1HEGEidnzzGvdKAB6dui5dZBB4qcBbqEMPgjbch8b9qdzf72Wworr11FqxdHDCjJVoG4Q3P9Fw4ergmwW3u47rC7",       # noqa: mock
                 order_created_event.exchange_order_id
             )
             self._http_player.replay_timestamp_ms = 1648500097569
             order_filled_event: OrderFilledEvent = await event_logger.wait_for(OrderFilledEvent, timeout_seconds=5)
             self.assertEqual(
-                "18446725626965478e",       # noqa: mock
+                "1HEGEidnzzGvdKAB6dui5dZBB4qcBbqEMPgjbch8b9qdzf72Wworr11FqxdHDCjJVoG4Q3P9Fw4ergmwW3u47rC7",       # noqa: mock
                 order_filled_event.exchange_trade_id
             )
         finally:
@@ -306,7 +306,7 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
             except asyncio.CancelledError:
                 pass
 
-    @async_test(loop=ev_loop)
+    # @async_test(loop=ev_loop)
     async def test_sell_order(self):
         self._http_player.replay_timestamp_ms = 1648500097825
         clock_task: asyncio.Task = safe_ensure_future(self.run_clock())
@@ -321,13 +321,13 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
                 timeout_seconds=5
             )
             self.assertEqual(
-                "18446725626965478e",       # noqa: mock
+                "1HEGEidnzzGvdKAB6dui5dZBB4qcBbqEMPgjbch8b9qdzf72Wworr11FqxdHDCjJVoG4Q3P9Fw4ergmwW3u47rC7",       # noqa: mock
                 order_created_event.exchange_order_id
             )
             self._http_player.replay_timestamp_ms = 1648500133889
             order_filled_event: OrderFilledEvent = await event_logger.wait_for(OrderFilledEvent, timeout_seconds=5)
             self.assertEqual(
-                "18446725626965478e",       # noqa: mock
+                "1HEGEidnzzGvdKAB6dui5dZBB4qcBbqEMPgjbch8b9qdzf72Wworr11FqxdHDCjJVoG4Q3P9Fw4ergmwW3u47rC7",       # noqa: mock
                 order_filled_event.exchange_trade_id
             )
         finally:
