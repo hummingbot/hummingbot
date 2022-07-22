@@ -44,10 +44,12 @@ export const bigNumberWithDecimalToStr = (n: BigNumber, d: number): string => {
 
 export const gasCostInEthString = (
   gasPrice: number,
-  gasLimit: number
+  gasLimitTransaction: number
 ): string => {
   return bigNumberWithDecimalToStr(
-    BigNumber.from(Math.ceil(gasPrice * gasLimit)).mul(BigNumber.from(1e9)),
+    BigNumber.from(Math.ceil(gasPrice * gasLimitTransaction)).mul(
+      BigNumber.from(1e9)
+    ),
     18
   );
 };
@@ -81,17 +83,6 @@ export const latency = (startTime: number, endTime: number): number => {
 };
 
 export const walletPath = './conf/wallets';
-
-// API URLs may require the key in the middle or the end of the route.
-// If the src string contains '{}', replace it with the value, otherwise
-// append the value at the end
-export const replaceOrAppend = (src: string, value: string): string => {
-  if (src.includes('{}')) {
-    return src.replace('{}', value);
-  } else {
-    return src + value;
-  }
-};
 
 // convert a fraction string to a number
 export const fromFractionString = (value: string): number | null => {
