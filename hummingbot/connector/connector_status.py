@@ -32,7 +32,7 @@ connector_status = {
     'digifinex': "yellow",
     'dydx_perpetual': 'yellow',
     'ethereum': 'red',
-    'ftx': 'green',
+    'ftx': 'yellow',
     'gate_io': 'green',
     'hitbtc': 'green',
     'huobi': 'yellow',
