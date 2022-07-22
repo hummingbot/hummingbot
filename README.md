@@ -51,7 +51,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/liquid-logo.jpg" alt="Liquid" width="90" /> | liquid | [Liquid](https://www.liquid.com/) | 2 | [API](https://developers.liquid.com/) | :white_check_mark: |
 | <img src="assets/mexc.jpg" alt="MEXC" width="90" /> | mexc | [MEXC Global](https://www.mexc.com/) | 1 | [API](https://mxcdevelop.github.io/APIDoc/) | :warning: |
 | <img src="assets/ndax-logo.jpg" alt="NDAX" width="90" /> | ndax | [NDAX](https://ndax.io/) | 1 | [API](https://ndaxlo.github.io/API/) | :warning: |
-| <img src="assets/okex-logo.jpg" alt="OKEx" width="90" /> | okex | [OKEx](https://www.okex.com/) | 3 | [API](https://www.okex.com/docs/en/) | :white_check_mark: | [1931920](https://www.okex.com/join/1931920)
+| <img src="assets/okex-logo.jpg" alt="OKEx" width="90" /> | okx | [OKX](https://www.okx.com/) | 3 | [API](https://www.okx.com/docs/en/) | :white_check_mark: | [![Sign up with OKX using Hummingbot's referral link for a 10% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange)](https://www.okex.com/join/1931920)
 | <img src="assets/probit-logo.jpg" alt="Probit Global" width="90" /> | probit | [Probit Global](https://www.probit.com/en-us/) | 1 | [API](https://docs-en.probit.com/docs) | :warning: |
 | <img src="assets/probit_kr-logo.jpg" alt="Probit Korea" width="90" /> | probit_kr | [Probit Korea](https://www.probit.kr/en-us/) | 1 | [API](https://docs-en.probit.com/docs) | :warning: |
 | <img src="assets/wazirX-logo.jpg" alt="Wazirx" width="90" /> | wazirx | [WazirX](https://wazirx.com/) | 1 | [API](https://docs.wazirx.com/#public-rest-api-for-wazirx) | :warning: |
