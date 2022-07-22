@@ -63,7 +63,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                 trade_params.append(f"trade_{symbol}")
-                market_params.append(f"orderBook_{symbol}_25")
+                market_params.append(f"orderbook_{symbol}_25")
             payload = {
                 "H": "c3",
                 "M": "Subscribe",
@@ -100,8 +100,12 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["marketSymbol"])
-        trade_message = self.trade_message_from_exchange(raw_message, {"trading_pair": trading_pair})
-        message_queue.put_nowait(trade_message)
+        for data in raw_message["deltas"]:
+            trade_message: OrderBookMessage = self.trade_message_from_exchange(
+                msg=data,
+                metadata={"trading_pair": trading_pair, "sequence": raw_message["sequence"]}
+            )
+            message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["marketSymbol"])
@@ -113,14 +117,17 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
+        bids, asks = msg["bid"], msg["ask"]
+        bids = [(bid["rate"], bid["quantity"]) for bid in bids]
+        asks = [(ask["rate"], ask["quantity"]) for ask in asks]
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
             "update_id": int(timestamp),
-            "bids": msg["bid"],
-            "asks": msg["ask"]
+            "bids": bids,
+            "asks": asks
         }, timestamp=timestamp)
 
-    def trade_message_from_exchange(msg: Dict[str, Any],
+    def trade_message_from_exchange(self, msg: Dict[str, Any],
                                     timestamp: Optional[float] = None,
                                     metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
@@ -128,12 +135,12 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return OrderBookMessage(
             OrderBookMessageType.TRADE, {
                 "trading_pair": msg["trading_pair"],
-                "trade_type": float(TradeType.BUY.value) if msg["deltas"]["takerSide"] == "BUY" else float(TradeType.SELL.value),
-                "trade_id": msg["deltas"]["id"],
+                "trade_type": float(TradeType.BUY.value) if msg["takerSide"] == "BUY" else float(TradeType.SELL.value),
+                "trade_id": msg["id"],
                 "update_id": msg["sequence"],
-                "price": msg["deltas"]["rate"],
-                "amount": msg["deltas"]["quantity"]
-            }, timestamp=timestamp)
+                "price": msg["rate"],
+                "amount": msg["quantity"]
+            }, timestamp=float(msg["executedAt"]))
 
     def diff_message_from_exchange(msg: Dict[str, any],
                                    timestamp: Optional[float] = None,
