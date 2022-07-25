@@ -25,6 +25,7 @@ import { UniswapConfig } from './connectors/uniswap/uniswap.config';
 import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
+import { CortexConfig } from './connectors/cortex/cortex.config';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -59,6 +60,7 @@ gatewayApp.use('/connectors', ConnectorsRoutes.router);
 gatewayApp.use('/amm', AmmRoutes.router);
 gatewayApp.use('/amm/perp', PerpAmmRoutes.router);
 gatewayApp.use('/amm/liquidity', AmmLiquidityRoutes.router);
+gatewayApp.use('/vault', VaultRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
 
@@ -73,6 +75,7 @@ interface ConnectorsResponse {
   quickswap: Array<AvailableNetworks>;
   sushiswap: Array<AvailableNetworks>;
   traderjoe: Array<AvailableNetworks>;
+  cortex: Array<AvailableNetworks>;
 }
 
 gatewayApp.get(
@@ -84,6 +87,7 @@ gatewayApp.get(
       quickswap: QuickswapConfig.config.availableNetworks,
       sushiswap: SushiswapConfig.config.availableNetworks,
       traderjoe: TraderjoeConfig.config.availableNetworks,
+      cortex: CortexConfig.config.availableNetworks,
     });
   })
 );

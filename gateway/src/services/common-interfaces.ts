@@ -418,6 +418,9 @@ export interface Perpish {
   closePosition(tickerSymbol: string): Promise<Transaction>;
 }
 
+export interface Vaultish {
+}
+
 export interface Ethereumish extends EthereumBase {
   cancelTx(wallet: Wallet, nonce: number): Promise<Transaction>;
   getSpender(reqSpender: string): string;

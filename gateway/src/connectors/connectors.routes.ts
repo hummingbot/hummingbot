@@ -50,6 +50,11 @@ export namespace ConnectorsRoutes {
             trading_type: TraderjoeConfig.config.tradingTypes,
             available_networks: TraderjoeConfig.config.availableNetworks,
           },
+          {
+            name: 'cortex',
+            trading_type: CortexConfig.config.tradingTypes,
+            available_networks: CortexConfig.config.availableNetworks,
+          },
         ],
       });
     })

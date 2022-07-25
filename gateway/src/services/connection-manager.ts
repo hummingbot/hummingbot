@@ -12,9 +12,11 @@ import {
   Perpish,
   Uniswapish,
   UniswapLPish,
+  Vaultish,
 } from './common-interfaces';
 import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Sushiswap } from '../connectors/sushiswap/sushiswap';
+import { Cortex } from '../connectors/cortex/cortex';
 
 export async function getChain(chain: string, network: string) {
   let chainInstance: Ethereumish;
@@ -38,7 +40,7 @@ export async function getConnector<T>(
   connector: string | undefined,
   address?: string
 ): Promise<ConnectorType<T>> {
-  let connectorInstance: Uniswapish | UniswapLPish | Perpish;
+  let connectorInstance: Uniswapish | UniswapLPish | Perpish | Vaultish;
   if (chain === 'ethereum' && connector === 'uniswap') {
     connectorInstance = Uniswap.getInstance(chain, network);
   } else if (chain === 'polygon' && connector === 'quickswap') {
@@ -53,6 +55,8 @@ export async function getConnector<T>(
     connectorInstance = Pangolin.getInstance(chain, network);
   } else if (chain === 'avalanche' && connector === 'traderjoe') {
     connectorInstance = Traderjoe.getInstance(chain, network);
+  } else if (chain === 'ethereum' && connector === 'cortex') {
+    connectorInstance = Cortex.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
   }
