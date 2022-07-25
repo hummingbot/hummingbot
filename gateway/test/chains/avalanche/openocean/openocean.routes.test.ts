@@ -1,19 +1,28 @@
 import request from 'supertest';
-import { gatewayApp } from '../../../../src/app';
 import { Avalanche } from '../../../../src/chains/avalanche/avalanche';
 import { Openocean } from '../../../../src/connectors/openocean/openocean';
 import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 import { patch, unpatch } from '../../../services/patch';
+import { gasCostInEthString } from '../../../../src/services/base';
+import { AmmRoutes } from '../../../../src/amm/amm.routes';
+import express from 'express';
+import { Express } from 'express-serve-static-core';
+let app: Express;
 let avalanche: Avalanche;
 let openocean: Openocean;
 
 beforeAll(async () => {
+  app = express();
+  app.use(express.json());
+
   avalanche = Avalanche.getInstance('avalanche');
   patchEVMNonceManager(avalanche.nonceManager);
   await avalanche.init();
 
   openocean = Openocean.getInstance('avalanche', 'avalanche');
   await openocean.init();
+
+  app.use('/amm', AmmRoutes.router);
 });
 
 beforeEach(() => {
@@ -35,6 +44,12 @@ const patchGetWallet = () => {
     return {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     };
+  });
+};
+
+const patchInit = () => {
+  patch(openocean, 'init', async () => {
+    return;
   });
 };
 
@@ -151,7 +166,7 @@ describe('POST /amm/price', () => {
     patchEstimateBuyTrade();
     patchGetNonce();
     patchExecuteTrade();
-    await request(gatewayApp)
+    await request(app)
       .post(`/amm/price`)
       .send({
         chain: 'avalanche',
@@ -179,7 +194,7 @@ describe('POST /amm/price', () => {
     patchEstimateSellTrade();
     patchGetNonce();
     patchExecuteTrade();
-    await request(gatewayApp)
+    await request(app)
       .post(`/amm/price`)
       .send({
         chain: 'avalanche',
@@ -215,7 +230,7 @@ describe('POST /amm/price', () => {
       }
     });
     patchGetTokenByAddress();
-    await request(gatewayApp)
+    await request(app)
       .post(`/amm/price`)
       .send({
         chain: 'avalanche',
@@ -247,7 +262,7 @@ describe('POST /amm/price', () => {
       }
     });
     patchGetTokenByAddress();
-    await request(gatewayApp)
+    await request(app)
       .post(`/amm/price`)
       .send({
         chain: 'avalanche',
@@ -257,6 +272,100 @@ describe('POST /amm/price', () => {
         base: 'bDAI',
         amount: '10000',
         side: 'SELL',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 500 for unrecognized base symbol with decimals in the amount and SELL', async () => {
+    patchGetWallet();
+    patchInit();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGetTokenByAddress();
+
+    await request(app)
+      .post(`/amm/price`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'USDC',
+        base: 'bDAI',
+        amount: '10.000',
+        side: 'SELL',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 500 for unrecognized base symbol with decimals in the amount and BUY', async () => {
+    patchGetWallet();
+    patchInit();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGetTokenByAddress();
+
+    await request(app)
+      .post(`/amm/price`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'USDC',
+        base: 'bDAI',
+        amount: '10.000',
+        side: 'BUY',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 500 when the priceSwapIn operation fails', async () => {
+    patchGetWallet();
+    patchInit();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGetTokenByAddress();
+    patch(openocean, 'priceSwapIn', () => {
+      return 'error';
+    });
+
+    await request(app)
+      .post(`/amm/price`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'USDC',
+        base: 'bDAI',
+        amount: '10000',
+        side: 'SELL',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 500 when the priceSwapOut operation fails', async () => {
+    patchGetWallet();
+    patchInit();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGetTokenByAddress();
+    patch(openocean, 'priceSwapOut', () => {
+      return 'error';
+    });
+
+    await request(app)
+      .post(`/amm/price`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'USDC',
+        base: 'bDAI',
+        amount: '10000',
+        side: 'BUY',
       })
       .set('Accept', 'application/json')
       .expect(500);
@@ -276,7 +385,7 @@ describe('POST /amm/trade', () => {
   };
   it('should return 200 for BUY', async () => {
     patchForBuy();
-    await request(gatewayApp)
+    await request(app)
       .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
@@ -298,7 +407,7 @@ describe('POST /amm/trade', () => {
 
   it('should return 200 for BUY without nonce parameter', async () => {
     patchForBuy();
-    await request(gatewayApp)
+    await request(app)
       .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
@@ -309,6 +418,27 @@ describe('POST /amm/trade', () => {
         amount: '0.01',
         address,
         side: 'BUY',
+      })
+      .set('Accept', 'application/json')
+      .expect(200);
+  });
+
+  it('should return 200 for BUY with maxFeePerGas and maxPriorityFeePerGas', async () => {
+    patchForBuy();
+    await request(app)
+      .post(`/amm/trade`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'sAVAX',
+        base: 'USDC',
+        amount: '0.01',
+        address,
+        side: 'BUY',
+        nonce: 21,
+        maxFeePerGas: '5000000000',
+        maxPriorityFeePerGas: '5000000000',
       })
       .set('Accept', 'application/json')
       .expect(200);
@@ -326,7 +456,7 @@ describe('POST /amm/trade', () => {
   };
   it('should return 200 for SELL', async () => {
     patchForSell();
-    await request(gatewayApp)
+    await request(app)
       .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
@@ -346,8 +476,29 @@ describe('POST /amm/trade', () => {
       });
   });
 
+  it('should return 200 for SELL  with maxFeePerGas and maxPriorityFeePerGas', async () => {
+    patchForSell();
+    await request(app)
+      .post(`/amm/trade`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'USDC',
+        base: 'sAVAX',
+        amount: '10000',
+        address,
+        side: 'SELL',
+        nonce: 21,
+        maxFeePerGas: '5000000000',
+        maxPriorityFeePerGas: '5000000000',
+      })
+      .set('Accept', 'application/json')
+      .expect(200);
+  });
+
   it('should return 404 when parameters are incorrect', async () => {
-    await request(gatewayApp)
+    await request(app)
       .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
@@ -379,7 +530,7 @@ describe('POST /amm/trade', () => {
       }
     });
 
-    await request(gatewayApp)
+    await request(app)
       .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
@@ -414,7 +565,7 @@ describe('POST /amm/trade', () => {
       }
     });
 
-    await request(gatewayApp)
+    await request(app)
       .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
@@ -435,7 +586,7 @@ describe('POST /amm/trade', () => {
 
   it('should return 200 for SELL with limitPrice', async () => {
     patchForSell();
-    await request(gatewayApp)
+    await request(app)
       .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
@@ -455,7 +606,7 @@ describe('POST /amm/trade', () => {
 
   it('should return 200 for BUY with limitPrice', async () => {
     patchForBuy();
-    await request(gatewayApp)
+    await request(app)
       .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
@@ -475,7 +626,7 @@ describe('POST /amm/trade', () => {
 
   it('should return 200 for SELL with price higher than limitPrice', async () => {
     patchForSell();
-    await request(gatewayApp)
+    await request(app)
       .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
@@ -495,7 +646,7 @@ describe('POST /amm/trade', () => {
 
   it('should return 200 for BUY with price less than limitPrice', async () => {
     patchForBuy();
-    await request(gatewayApp)
+    await request(app)
       .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
@@ -508,6 +659,45 @@ describe('POST /amm/trade', () => {
         side: 'BUY',
         nonce: 21,
         limitPrice: '9',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+});
+
+describe('POST /amm/estimateGas', () => {
+  it('should return 200 for valid connector', async () => {
+    patchInit();
+    patchGasPrice();
+
+    await request(app)
+      .post('/amm/estimateGas')
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+      })
+      .set('Accept', 'application/json')
+      .expect(200)
+      .then((res: any) => {
+        expect(res.body.network).toEqual('avalanche');
+        expect(res.body.gasPrice).toEqual(100);
+        expect(res.body.gasCost).toEqual(
+          gasCostInEthString(100, openocean.gasLimitEstimate)
+        );
+      });
+  });
+
+  it('should return 500 for invalid connector', async () => {
+    patchInit();
+    patchGasPrice();
+
+    await request(app)
+      .post('/amm/estimateGas')
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'sushiswap',
       })
       .set('Accept', 'application/json')
       .expect(500);
