@@ -325,13 +325,9 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws = await self._subscribe_to_order_book_streams()
                 async for ws_response in ws.iter_messages():
                     data = ws_response.data
-                    # if "result" in data:
-                    #     continue
                     event_type = data.get("k")
                     if event_type in ["bookdelta", "trade"]:
                         self._message_queue[event_type].put_nowait(data)
-                    # if event_type in [self.PING_TOPIC_ID]:
-                    #     await self._handle_ping_message(ws)
             except asyncio.CancelledError:
                 raise
             except Exception:

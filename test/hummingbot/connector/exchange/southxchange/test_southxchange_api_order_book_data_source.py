@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+from datetime import datetime
 from test.connector.exchange.southxchange.test_fixture_southxchange import Fixturesouthxchange
 from typing import Awaitable, Optional
 from unittest import TestCase
@@ -17,7 +18,10 @@ from hummingbot.connector.exchange.southxchange.southxchange_api_order_book_data
     SouthxchangeAPIOrderBookDataSource,
 )
 from hummingbot.connector.exchange.southxchange.southxchange_exchange import SouthxchangeExchange
-from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_to_exchange_trading_pair
+from hummingbot.connector.exchange.southxchange.southxchange_utils import (
+    convert_string_to_datetime,
+    convert_to_exchange_trading_pair,
+)
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.utils import build_api_factory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -403,8 +407,10 @@ class SouthxchangeAPIOrderBookDataSourceTests(TestCase):
         second_trade_message = self.async_run_with_timeout(output_queue.get())
 
         self.assertTrue(trades_queue.empty())
-        self.assertEqual(1657923640, first_trade_message.timestamp)
-        self.assertEqual(1657923426, second_trade_message.timestamp)
+        self.assertEqual(0.1, first_trade_message[1].get('a'))
+        self.assertEqual(first_trade_message.timestamp, int(datetime.timestamp(convert_string_to_datetime(first_trade_message[1].get('d')))))
+        self.assertEqual(0.2, second_trade_message[1].get('a'))
+        self.assertEqual(second_trade_message.timestamp, int(datetime.timestamp(convert_string_to_datetime(second_trade_message[1].get('d')))))
 
     @aioresponses()
     def test_listen_for_order_book_snapshot_event(self, api_mock):
