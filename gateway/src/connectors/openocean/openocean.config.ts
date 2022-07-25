@@ -4,7 +4,7 @@ import { AvailableNetworks } from '../../services/config-manager-types';
 export namespace OpenoceanConfig {
   export interface NetworkConfig {
     allowedSlippage: string;
-    gasLimit: number;
+    gasLimitEstimate: number;
     ttl: number;
     routerAddress: (network: string) => string;
     tradingTypes: Array<string>;
@@ -15,7 +15,9 @@ export namespace OpenoceanConfig {
     allowedSlippage: ConfigManagerV2.getInstance().get(
       'openocean.allowedSlippage'
     ),
-    gasLimit: ConfigManagerV2.getInstance().get('openocean.gasLimit'),
+    gasLimitEstimate: ConfigManagerV2.getInstance().get(
+      `pangolin.gasLimitEstimate`
+    ),
     ttl: ConfigManagerV2.getInstance().get('openocean.ttl'),
     routerAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(

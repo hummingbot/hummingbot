@@ -28,6 +28,8 @@ afterAll(async () => {
   await avalanche.close();
 });
 
+const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
+
 const patchGetWallet = () => {
   patch(avalanche, 'getWallet', () => {
     return {
@@ -255,6 +257,257 @@ describe('POST /amm/price', () => {
         base: 'bDAI',
         amount: '10000',
         side: 'SELL',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+});
+
+describe('POST /amm/trade', () => {
+  const patchForBuy = () => {
+    patchGetWallet();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGetTokenByAddress();
+    patchGasPrice();
+    patchEstimateBuyTrade();
+    patchGetNonce();
+    patchExecuteTrade();
+  };
+  it('should return 200 for BUY', async () => {
+    patchForBuy();
+    await request(gatewayApp)
+      .post(`/amm/trade`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'sAVAX',
+        base: 'USDC',
+        amount: '0.01',
+        address,
+        side: 'BUY',
+        nonce: 21,
+      })
+      .set('Accept', 'application/json')
+      .expect(200)
+      .then((res: any) => {
+        expect(res.body.nonce).toEqual(21);
+      });
+  });
+
+  it('should return 200 for BUY without nonce parameter', async () => {
+    patchForBuy();
+    await request(gatewayApp)
+      .post(`/amm/trade`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'sAVAX',
+        base: 'USDC',
+        amount: '0.01',
+        address,
+        side: 'BUY',
+      })
+      .set('Accept', 'application/json')
+      .expect(200);
+  });
+
+  const patchForSell = () => {
+    patchGetWallet();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGetTokenByAddress();
+    patchGasPrice();
+    patchEstimateSellTrade();
+    patchGetNonce();
+    patchExecuteTrade();
+  };
+  it('should return 200 for SELL', async () => {
+    patchForSell();
+    await request(gatewayApp)
+      .post(`/amm/trade`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'USDC',
+        base: 'sAVAX',
+        amount: '10000',
+        address,
+        side: 'SELL',
+        nonce: 21,
+      })
+      .set('Accept', 'application/json')
+      .expect(200)
+      .then((res: any) => {
+        expect(res.body.nonce).toEqual(21);
+      });
+  });
+
+  it('should return 404 when parameters are incorrect', async () => {
+    await request(gatewayApp)
+      .post(`/amm/trade`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'USDC',
+        base: 'sAVAX',
+        amount: 10000,
+        address: 'da8',
+        side: 'comprar',
+      })
+      .set('Accept', 'application/json')
+      .expect(404);
+  });
+
+  it('should return 500 when base token is unknown', async () => {
+    patchForSell();
+    patch(avalanche, 'getTokenBySymbol', (symbol: string) => {
+      if (symbol === 'USDC') {
+        return {
+          chainId: 43114,
+          name: 'USDC',
+          symbol: 'USDC',
+          address: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',
+          decimals: 6,
+        };
+      } else {
+        return null;
+      }
+    });
+
+    await request(gatewayApp)
+      .post(`/amm/trade`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'USDC',
+        base: 'BITCOIN',
+        amount: '10000',
+        address,
+        side: 'BUY',
+        nonce: 21,
+        maxFeePerGas: '5000000000',
+        maxPriorityFeePerGas: '5000000000',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 500 when quote token is unknown', async () => {
+    patchForSell();
+    patch(avalanche, 'getTokenBySymbol', (symbol: string) => {
+      if (symbol === 'USDC') {
+        return {
+          chainId: 43114,
+          name: 'USDC',
+          symbol: 'USDC',
+          address: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',
+          decimals: 6,
+        };
+      } else {
+        return null;
+      }
+    });
+
+    await request(gatewayApp)
+      .post(`/amm/trade`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'BITCOIN',
+        base: 'USDC',
+        amount: '10000',
+        address,
+        side: 'BUY',
+        nonce: 21,
+        maxFeePerGas: '5000000000',
+        maxPriorityFeePerGas: '5000000000',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 200 for SELL with limitPrice', async () => {
+    patchForSell();
+    await request(gatewayApp)
+      .post(`/amm/trade`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'USDC',
+        base: 'sAVAX',
+        amount: '10000',
+        address,
+        side: 'SELL',
+        nonce: 21,
+        limitPrice: '9',
+      })
+      .set('Accept', 'application/json')
+      .expect(200);
+  });
+
+  it('should return 200 for BUY with limitPrice', async () => {
+    patchForBuy();
+    await request(gatewayApp)
+      .post(`/amm/trade`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'sAVAX',
+        base: 'USDC',
+        amount: '0.01',
+        address,
+        side: 'BUY',
+        nonce: 21,
+        limitPrice: '999999999999999999999',
+      })
+      .set('Accept', 'application/json')
+      .expect(200);
+  });
+
+  it('should return 200 for SELL with price higher than limitPrice', async () => {
+    patchForSell();
+    await request(gatewayApp)
+      .post(`/amm/trade`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'USDC',
+        base: 'sAVAX',
+        amount: '10000',
+        address,
+        side: 'SELL',
+        nonce: 21,
+        limitPrice: '99999999999',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 200 for BUY with price less than limitPrice', async () => {
+    patchForBuy();
+    await request(gatewayApp)
+      .post(`/amm/trade`)
+      .send({
+        chain: 'avalanche',
+        network: 'avalanche',
+        connector: 'openocean',
+        quote: 'sAVAX',
+        base: 'USDC',
+        amount: '0.01',
+        address,
+        side: 'BUY',
+        nonce: 21,
+        limitPrice: '9',
       })
       .set('Accept', 'application/json')
       .expect(500);
