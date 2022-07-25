@@ -1,4 +1,5 @@
 import json
+import logging
 from asyncio import wait_for
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
@@ -9,6 +10,8 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 from hummingbot.core.web_assistant.connections.rest_connection import RESTConnection
 from hummingbot.core.web_assistant.rest_post_processors import RESTPostProcessorBase
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
+
+rpmm_logger = None
 
 
 class RESTAssistant:
@@ -31,6 +34,13 @@ class RESTAssistant:
         self._rest_post_processors = rest_post_processors or []
         self._auth = auth
         self._throttler = throttler
+
+    @classmethod
+    def logger(cls):
+        global rpmm_logger
+        if rpmm_logger is None:
+            rpmm_logger = logging.getLogger(__name__)
+        return rpmm_logger
 
     async def execute_request(
             self,
@@ -65,6 +75,8 @@ class RESTAssistant:
 
         async with self._throttler.execute_task(limit_id=throttler_limit_id):
             response = await self.call(request=request, timeout=timeout)
+
+            self.logger().info(f"REQ: {request.url} | {request.params} | {request.data}")
 
             if 400 <= response.status:
                 if return_err:
