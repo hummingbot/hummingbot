@@ -29,11 +29,11 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     super(
       'ethereum',
       config.network.chainID,
-      config.network.nodeURL + config.nodeAPIKey,
+      config.network.nodeURL,
       config.network.tokenListSource,
       config.network.tokenListType,
       config.manualGasPrice,
-      config.gasLimit,
+      config.gasLimitTransaction,
       ConfigManagerV2.getInstance().get('database.nonceDbPath'),
       ConfigManagerV2.getInstance().get('database.transactionDbPath')
     );
