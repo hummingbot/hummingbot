@@ -141,15 +141,18 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "amount": msg["quantity"]
             }, timestamp=float(msg["executedAt"]))
 
-    def diff_message_from_exchange(msg: Dict[str, any],
+    def diff_message_from_exchange(self, msg: Dict[str, any],
                                    timestamp: Optional[float] = None,
                                    metadata: Optional[Dict] = None):
         if metadata:
             msg.update(metadata)
+        bids, asks = msg["bidDeltas"], msg["askDeltas"]
+        bids = [(bid["rate"], bid["quantity"]) for bid in bids]
+        asks = [(ask["rate"], ask["quantity"]) for ask in asks]
         return OrderBookMessage(
             OrderBookMessageType.DIFF, {
                 "trading_pair": msg["trading_pair"],
                 "update_id": int(msg["sequence"]),
-                "bids": msg["bidDeltas"],
-                "asks": msg["askDeltas"]
+                "bids": bids,
+                "asks": asks
             }, timestamp=timestamp)
