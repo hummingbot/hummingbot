@@ -15,6 +15,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage, Order
 
 
 class BittrexOrderBookDataSourceTest(unittest.TestCase):
+    # logging.Level required to receive logs from the data source logger
     level = 0
 
     @classmethod
@@ -29,10 +30,9 @@ class BittrexOrderBookDataSourceTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.log_records = []
-        self.resume_test_event = asyncio.Event()
         self.listening_task = None
+        self.resume_test_event = asyncio.Event()
         self.mocking_assistant = NetworkMockingAssistant()
-        self.output_queue = asyncio.Queue()
         self.connector = AsyncMock()
         self.connector.exchange_symbol_associated_to_pair.return_value = self.symbol
         self.connector.trading_pair_associated_to_exchange_symbol.return_value = self.trading_pair
@@ -81,17 +81,17 @@ class BittrexOrderBookDataSourceTest(unittest.TestCase):
         resp = {
             "marketSymbol": self.symbol,
             "depth": 25,
-            "sequence": "int",
+            "sequence": "17789",
             "bidDeltas": [
                 {
-                    "quantity": "number (double)",
-                    "rate": "number (double)"
+                    "quantity": 431.0,
+                    "rate": 4.0
                 }
             ],
             "askDeltas": [
                 {
-                    "quantity": "number (double)",
-                    "rate": "number (double)"
+                    "quantity": 12.03,
+                    "rate": 7.8
                 }
             ]
         }
@@ -259,7 +259,6 @@ class BittrexOrderBookDataSourceTest(unittest.TestCase):
         incomplete_resp = {
             "sequence": "int",
             "marketSymbol": self.symbol,
-            "deltas": []
         }
 
         mock_queue = AsyncMock()
@@ -296,3 +295,135 @@ class BittrexOrderBookDataSourceTest(unittest.TestCase):
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
         self.assertEqual(trade_event["deltas"][0]["id"], msg.trade_id)
         self.assertEqual(float(trade_event["deltas"][0]["executedAt"]), msg.timestamp)
+
+    def test_listen_for_order_book_diffs_cancelled(self):
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = asyncio.CancelledError()
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
+            )
+            self.async_run_with_timeout(self.listening_task)
+
+    def test_listen_for_order_book_diffs_logs_exception(self):
+        incomplete_resp = {
+            "marketSymbol": self.symbol,
+            "depth": 25,
+            "sequence": "int",
+        }
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
+        )
+
+        try:
+            self.async_run_with_timeout(self.listening_task)
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
+
+    @patch("time.time")
+    def test_listen_for_order_book_diffs_successful(self, time_mock):
+        mock_queue = AsyncMock()
+        time_mock.return_value = 1658733281.707259
+        diff_event = self._order_diff_event()
+        mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
+
+        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+
+        self.assertEqual(OrderBookMessageType.DIFF, msg.type)
+        self.assertEqual(1658733281.707259, msg.timestamp)
+        self.assertEqual(17789, msg.update_id)
+
+        bids = msg.bids
+        asks = msg.asks
+        self.assertEqual(1, len(bids))
+        self.assertEqual(4.0, bids[0].price)
+        self.assertEqual(431.0, bids[0].amount)
+        self.assertEqual(17789, bids[0].update_id)
+        self.assertEqual(1, len(asks))
+        self.assertEqual(7.8, asks[0].price)
+        self.assertEqual(12.03, asks[0].amount)
+        self.assertEqual(17789, asks[0].update_id)
+
+    @aioresponses()
+    def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
+        url = web_utils.public_rest_url(path_url=CONSTANTS.ORDERBOOK_SNAPSHOT_URL.format(self.symbol))
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, exception=asyncio.CancelledError)
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.async_run_with_timeout(
+                self.data_source.listen_for_order_book_snapshots(self.ev_loop, asyncio.Queue())
+            )
+
+    @aioresponses()
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
+
+        url = web_utils.public_rest_url(path_url=CONSTANTS.ORDERBOOK_SNAPSHOT_URL.format(self.symbol))
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, exception=Exception)
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
+        )
+        self.async_run_with_timeout(self.resume_test_event.wait())
+
+        self.assertTrue(
+            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}."))
+
+    @aioresponses()
+    @patch("time.time")
+    def test_listen_for_order_book_snapshots_successful(self, mock_api, time_mock):
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        time_mock.return_value = 1658733281.707259
+        url = web_utils.public_rest_url(path_url=CONSTANTS.ORDERBOOK_SNAPSHOT_URL.format(self.symbol))
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        resp = self._snapshot_response()
+
+        mock_api.get(regex_url, body=json.dumps(resp))
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
+        )
+
+        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+
+        self.assertEqual(OrderBookMessageType.SNAPSHOT, msg.type)
+        self.assertEqual(1658733281.707259, msg.timestamp)
+        self.assertEqual(1658733281, msg.update_id)
+
+        bids = msg.bids
+        asks = msg.asks
+        self.assertEqual(1, len(bids))
+        self.assertEqual(4.0, bids[0].price)
+        self.assertEqual(431.0, bids[0].amount)
+        self.assertEqual(1658733281, bids[0].update_id)
+        self.assertEqual(1, len(asks))
+        self.assertEqual(4.002, asks[0].price)
+        self.assertEqual(12.2, asks[0].amount)
+        self.assertEqual(1658733281, asks[0].update_id)
