@@ -1,10 +1,11 @@
-from typing import Callable, Dict, Any
-import aiohttp
 import json
 import urllib
+from typing import Any, Callable, Dict
+
+import aiohttp
+
+from hummingbot.connector.exchange.digifinex import digifinex_constants as Constants, digifinex_utils
 from hummingbot.connector.exchange.digifinex.digifinex_auth import DigifinexAuth
-from hummingbot.connector.exchange.digifinex import digifinex_constants as Constants
-from hummingbot.connector.exchange.digifinex import digifinex_utils
 
 
 class DigifinexRestApi:
@@ -29,7 +30,7 @@ class DigifinexRestApi:
         url = f"{Constants.REST_URL}/{path_url}"
         client = await self._http_client()
         if is_auth_required:
-            request_id = digifinex_utils.RequestId.generate_request_id()
+            request_id = digifinex_utils.generate_request_id()
             headers = self._auth.get_private_headers(path_url, request_id, params)
         else:
             headers = {}
