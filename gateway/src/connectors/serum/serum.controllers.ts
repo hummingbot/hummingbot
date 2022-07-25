@@ -317,9 +317,13 @@ export async function getOrders(
     validateGetOrdersRequest(request.orders);
 
     try {
+      const orders = await serum.getOrders(request.orders);
+
+      if (!orders.size) throw new OrderNotFoundError('No orders found.');
+
       response.body = convertToJsonIfNeeded(
         convert<IMap<string, Order>, SerumGetOrdersResponse>(
-          await serum.getOrders(request.orders),
+          orders,
           Types.GetOrdersResponse
         )
       );
@@ -499,10 +503,14 @@ export async function getOpenOrders(
     validateGetOpenOrdersRequest(request.orders);
 
     try {
+      const orders = await serum.getOpenOrders(request.orders);
+
+      if (!orders.size) throw new OrderNotFoundError('No open orders found.');
+
       response.body = convertToJsonIfNeeded(
-        convert<IMap<string, Order>, SerumGetOpenOrdersResponse>(
-          await serum.getOpenOrders(request.orders),
-          Types.GetOpenOrdersResponse
+        convert<IMap<string, Order>, SerumGetOrdersResponse>(
+          orders,
+          Types.GetOrdersResponse
         )
       );
 
