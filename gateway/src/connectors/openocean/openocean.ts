@@ -56,7 +56,7 @@ export class Openocean implements Uniswapish {
   private avalanche: Avalanche;
   private _chain: string;
   private _router: string;
-  private _gasLimit: number;
+  private _gasLimitEstimate: number;
   private _ttl: number;
   private chainId;
   private tokenList: Record<string, Token> = {};
@@ -69,7 +69,7 @@ export class Openocean implements Uniswapish {
     this.chainId = this.avalanche.chainId;
     this._router = config.routerAddress(network);
     this._ttl = config.ttl;
-    this._gasLimit = config.gasLimit;
+    this._gasLimitEstimate = config.gasLimitEstimate;
   }
 
   public static getInstance(chain: string, network: string): Openocean {
@@ -142,8 +142,8 @@ export class Openocean implements Uniswapish {
   /**
    * Default gas limit for swap transactions.
    */
-  public get gasLimit(): number {
-    return this._gasLimit;
+  public get gasLimitEstimate(): number {
+    return this._gasLimitEstimate;
   }
 
   /**
