@@ -2,17 +2,16 @@
 networks:
   mainnet:
     chainID: 137
-    nodeURL: 'https://speedy-nodes-nyc.moralis.io/{}/polygon/mainnet'
+    nodeURL: https://polygon-rpc.com
     tokenListType: 'URL'
     tokenListSource: 'https://raw.githubusercontent.com/SetProtocol/uniswap-tokenlist/main/set.polygon.tokenlist.json'
     nativeCurrencySymbol: 'MATIC'  
   mumbai:
     chainID: 80001
-    nodeURL: 'https://speedy-nodes-nyc.moralis.io/{}/polygon/mumbai'
+    nodeURL: https://matic-mumbai.chainstacklabs.com
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/polygon/polygon_tokens_mumbai.json'
     nativeCurrencySymbol: 'MATIC'
 
-nodeAPIKey: ''
 manualGasPrice: 100
-gasLimit: 3000000
+gasLimitTransaction: 3000000
