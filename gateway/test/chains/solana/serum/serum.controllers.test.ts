@@ -1007,15 +1007,21 @@ it('getOrders [4, 5]', async () => {
       },
     ],
   };
-  response = await getOrders(solana, serum, request);
 
-  expect(response.status).toBe(StatusCodes.NOT_FOUND);
+  await expect(async () => {
+    await getOrders(solana, serum, request);
+  }).rejects.toThrowError(
+    new HttpException(StatusCodes.NOT_FOUND, 'No orders found.')
+  );
 });
 
 it('cancelOrders (all)', async () => {
   await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
+  await patches.get('serum/market/loadOrdersForOwner')(
+    candidateOrders.slice(1, 2).concat(candidateOrders.slice(6, 8))
+  );
 
   request = {
     ...commonParameters,
@@ -1254,6 +1260,9 @@ it('cancelOrders (all)', async () => {
   await patches.get('serum/market/asksBidsForAllMarkets')();
   patches.get('solana/getKeyPair')();
   patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
+  await patches.get('serum/market/loadOrdersForOwner')(
+    candidateOrders.slice(8, 10)
+  );
 
   request = {
     ...commonParameters,
@@ -1269,7 +1278,7 @@ it('cancelOrders (all)', async () => {
   >(Object.entries(response.body));
 
   expect(canceledOrdersMap).toBeDefined();
-  expect(canceledOrdersMap.size).toBe(numberOfAllowedMarkets);
+  expect(canceledOrdersMap.size).toBe(2);
 
   for (const [id, canceledOrder] of canceledOrdersMap) {
     expect(canceledOrder).toBeDefined();
