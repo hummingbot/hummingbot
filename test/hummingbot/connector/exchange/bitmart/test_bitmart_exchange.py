@@ -594,7 +594,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         pass
 
-    def test_time_synchronizer_related_reqeust_error_detection(self):
+    def test_time_synchronizer_related_request_error_detection(self):
         exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
                             'Error: {"code":30007,"msg":"Header X-BM-TIMESTAMP range. Within a minute"}')
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
