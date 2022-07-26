@@ -19,7 +19,8 @@ DIFF_EVENT_KEY = "orderbook_25"
 # Order States
 ORDER_STATE = {
     "OPEN": OrderState.OPEN,
-    "CLOSED": OrderState.CANCELED,
+    "CLOSED-CANCELLED": OrderState.CANCELED,
+    "CLOSED-FILLED": OrderState.FILLED
 }
 
 # SERVER REFERENCE DATA URLS
@@ -30,23 +31,26 @@ BALANCES_URL = "/balances"
 ORDERBOOK_SNAPSHOT_URL = "/markets/{}/orderbook"
 EXCHANGE_INFO_PATH_URL = "/markets"
 ORDER_CREATION_URL = "/orders"
-ORDER_DELETION_URL = "/orders/{}"
+ORDER_DETAIL_URL = "/orders/{}"
 ALL_OPEN_ORDERS_URL = "/orders/open"
+ALL_CLOSED_ORDERS_URL = "/orders/closed"
 SYMBOL_TICKER_PATH = "/markets/{}/ticker"
 FEES_URL = "/account/fees/trading"
 
 # RATE-LIMIT ID
 ORDERBOOK_SNAPSHOT_LIMIT_ID = "orderBook"
-ORDER_DELETE_LIMIT_ID = "orderDel"
+ORDER_DETAIL_LIMIT_ID = "orderDel"
+SYMBOL_TICKER_LIMIT_ID = "ticker"
 
 RATE_LIMITS = [
     RateLimit(limit_id=ORDERBOOK_SNAPSHOT_LIMIT_ID, limit=60, time_interval=60),
     RateLimit(limit_id=SERVER_TIME_URL, limit=60, time_interval=60),
     RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=60, time_interval=60),
     RateLimit(limit_id=ORDER_CREATION_URL, limit=60, time_interval=60),
-    RateLimit(limit_id=ORDER_DELETE_LIMIT_ID, limit=60, time_interval=60),
+    RateLimit(limit_id=ORDER_DETAIL_LIMIT_ID, limit=60, time_interval=60),
     RateLimit(limit_id=ALL_OPEN_ORDERS_URL, limit=60, time_interval=60),
-    RateLimit(limit_id=SYMBOL_TICKER_PATH, limit=60, time_interval=60),
+    RateLimit(limit_id=ALL_CLOSED_ORDERS_URL, limit=60, time_interval=60),
+    RateLimit(limit_id=SYMBOL_TICKER_LIMIT_ID, limit=60, time_interval=60),
     RateLimit(limit_id=FEES_URL, limit=60, time_interval=60),
-
+    RateLimit(limit_id=BALANCES_URL, limit=60, time_interval=60),
 ]
