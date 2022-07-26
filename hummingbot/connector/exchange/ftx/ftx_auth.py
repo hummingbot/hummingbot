@@ -1,61 +1,98 @@
-import time
+import hashlib
 import hmac
-from typing import Dict, Any
-from requests import Request
+import time
+from collections import OrderedDict
+from typing import Any, Dict, Optional
+from urllib.parse import quote, urlencode
+
+from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
 
-class FtxAuth:
-    def __init__(self, api_key: str, secret_key: str, subaccount_name: str):
+class FtxAuth(AuthBase):
+
+    def __init__(self, api_key: str, secret_key: str, subaccount_name: Optional[str] = None):
         self.api_key = api_key
         self.secret_key = secret_key
-        self.subaccount_name = subaccount_name
+        self.subaccount = subaccount_name
 
-    def generate_auth_dict(
-        self,
-        http_method: str,
-        url: str,
-        params: Dict[str, Any] = None,
-        body: Dict[str, Any] = None
-    ) -> Dict[str, any]:
+    async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
+        """
+        Adds the server time and the signature to the request, required for authenticated interactions. It also adds
+        the required parameter in the request header.
 
-        if http_method == "POST":
-            request = Request(http_method, url, json=body)
-            prepared = request.prepare()
-            ts = int(time.time() * 1000)
-            content_to_sign = f'{ts}{prepared.method}{prepared.path_url}'.encode()
-            content_to_sign += prepared.body
-        else:
-            request = Request(http_method, url)
-            prepared = request.prepare()
-            ts = int(time.time() * 1000)
-            content_to_sign = f'{ts}{prepared.method}{prepared.path_url}'.encode()
+        :param request: the request to be configured for authenticated interaction
 
-        signature = hmac.new(self.secret_key.encode(), content_to_sign, 'sha256').hexdigest()
+        :return: The RESTRequest with auth information included
+        """
 
-        # V3 Authentication headers
-        headers = {
+        headers = {}
+        if request.headers is not None:
+            headers.update(request.headers)
+        headers.update(self.authentication_headers(request=request))
+        request.headers = headers
+
+        return request
+
+    async def ws_authenticate(self, request: WSRequest) -> WSRequest:
+        """
+        This method is intended to configure a websocket request to be authenticated. OKX does not use this
+        functionality
+        """
+        return request  # pass-through
+
+    @staticmethod
+    def keysort(dictionary: Dict[str, str]) -> Dict[str, str]:
+        return OrderedDict(sorted(dictionary.items(), key=lambda t: t[0]))
+
+    def authentication_headers(self, request: RESTRequest) -> Dict[str, Any]:
+        timestamp = int(self._time() * 1e3)
+
+        path_url = f"/{request.url.split('/')[-1]}"
+        if request.params:
+            sorted_params = self.keysort(request.params)
+            query_string_components = urlencode(sorted_params)
+            path_url = f"{path_url}?{query_string_components}"
+
+        header = {
             "FTX-KEY": self.api_key,
-            "FTX-SIGN": signature,
-            "FTX-TS": str(ts)
+            "FTX-TS": str(timestamp),
+            "FTX-SIGN": self._generate_signature(timestamp, request.method.value.upper(), path_url, request.data),
         }
-        if self.subaccount_name is not None and self.subaccount_name != "":
-            headers["FTX-SUBACCOUNT"] = self.subaccount_name
 
-        return headers
+        if self.subaccount is not None:
+            header["FTX-SUBACCOUNT"] = quote(self.subaccount)
 
-    def generate_websocket_subscription(self):
-        ts = int(1000 * time.time())
-        presign = f"{ts}websocket_login"
-        sign = hmac.new(self.secret_key.encode(), presign.encode(), 'sha256').hexdigest()
-        subscribe = {
-            "args": {
-                "key": self.api_key,
-                "sign": sign,
-                "time": ts,
-            },
-            "op": "login"
+        return header
+
+    def websocket_login_parameters(self) -> Dict[str, Any]:
+        timestamp = int(self._time() * 1e3)
+        signature = self._sign(payload=f"{timestamp}websocket_login")
+
+        payload = {
+            "key": self.api_key,
+            "sign": signature,
+            "time": timestamp,
         }
-        if self.subaccount_name is not None and self.subaccount_name != "":
-            subscribe["args"]["subaccount"] = self.subaccount_name
 
-        return subscribe
+        if self.subaccount is not None:
+            payload["subaccount"] = quote(self.subaccount)
+
+        return payload
+
+    def _sign(self, payload: str):
+        signature = hmac.new(
+            self.secret_key.encode(),
+            payload.encode(),
+            hashlib.sha256).hexdigest()
+        return signature
+
+    def _generate_signature(self, timestamp: int, method: str, path_url: str, body: Optional[str] = None) -> str:
+        unsigned_signature = str(timestamp) + method + path_url
+        if body is not None:
+            unsigned_signature += body
+
+        return self._sign(payload=unsigned_signature)
+
+    def _time(self):
+        return time.time()
