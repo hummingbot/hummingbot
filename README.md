@@ -11,7 +11,7 @@ Hummingbot is an open source client-side framework that helps you build, manage,
 
 ## Why Hummingbot?
 
-* **CEX and DEX connectors**: Hummingbot supports connectors to 30+ centralized exchanges and 10+ decentralized exchanges
+* **CEX and DEX connectors**: Hummingbot supports connectors to 30+ centralized exchanges and 7+ decentralized exchanges
 * **Advanced market making strategies**: Hummingbot ships with 10+ customizable strategy templates like [Cross-Exchange Market Making](https://hummingbot.org/strategies/cross-exchange-market-making/), [Avellaneda Market Making](https://hummingbot.org/strategies/avellaneda-market-making/) (based on the classic [Avellaneda & Stoikov paper](https://people.orie.cornell.edu/sfs33/LimitOrderBook.pdf)), and [Spot Perpetual Arbitrage](https://hummingbot.org/strategies/spot-perpetual-arbitrage/)
 * **Secure local client**: Hummingbot is a local client software that you install and run on your own devices or cloud virtual machines. It encrypts your API keys and private keys and never exposes them to any third parties.
 * **Community-driven**: Inspired by Linux, Hummingbot is managed by a not-for-profit foundation that enables the community to govern how the codebase evolves, using the Hummingbot Governance Token (HBOT).
@@ -60,7 +60,7 @@ Help us **democratize high-frequency trading** and make powerful trading algorit
 |:----:|------|-----------------------|
 | <img src="assets/dydx-logo.jpg" alt="dYdX Perpetual" width="90" /> | [dYdX Perpetual](https://dydx.exchange/) | [perp clob](https://hummingbot.org/exchanges/dydx-perpetual/)
 | <img src="assets/loopring-logo.jpg" alt="Loopring" width="90" /> | [Loopring](https://loopring.io/) | [spot clob](https://hummingbot.org/exchanges/loopring/)
-| <img src="assets/pangolin-logo.jpg" alt="Loopring" width="90" /> | [Pangolin](https://pangolin.exchange/) | [amm](https://hummingbot.org/gateway/exchanges/pangolin/)
+| <img src="assets/pangolin-logo.jpg" alt="Pangolin" width="90" /> | [Pangolin](https://pangolin.exchange/) | [amm](https://hummingbot.org/gateway/exchanges/pangolin/)
 | <img src="assets/quickswap-logo.png" alt="Quickswap" width="90" /> | [Quickswap](https://quickswap.exchange) | [amm](https://hummingbot.org/gateway/exchanges/quickswap/)
 | <img src="assets/sushiswap-logo.jpg" alt="Sushiswap" width="90" /> | [Sushiswap](https://sushi.com/) | [amm](https://hummingbot.org/gateway/exchanges/sushiswap/)
 | <img src="assets/traderjoe-logo.png" alt="Traderjoe" width="80" /> | [TraderJoe](https://traderjoexyz.com/) | [amm](https://hummingbot.org/gateway/exchanges/traderjoe/)
