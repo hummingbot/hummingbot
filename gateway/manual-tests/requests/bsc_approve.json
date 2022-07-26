@@ -1,0 +1,7 @@
+{
+  "chain": "binance-smart-chain",
+  "network": "testnet",
+  "address": "$BSC_ADDRESS",
+  "spender": "pancakeswap",
+  "token": "WBNB"
+}
