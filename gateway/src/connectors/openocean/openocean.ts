@@ -2,7 +2,6 @@ import { percentRegexp } from '../../services/config-manager-v2';
 import { BigNumber, ContractInterface, Transaction, Wallet } from 'ethers';
 import { OpenoceanConfig } from './openocean.config';
 import {
-  Percent,
   Token,
   TokenAmount,
   Trade,
@@ -16,12 +15,8 @@ import axios from 'axios';
 import { logger } from '../../services/logger';
 import { Avalanche } from '../../chains/avalanche/avalanche';
 import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
-import { Currency } from '@uniswap/sdk/dist/entities/currency';
 import {
   HttpException,
-  InitializationError,
-  SERVICE_UNITIALIZED_ERROR_CODE,
-  SERVICE_UNITIALIZED_ERROR_MESSAGE,
   TRADE_FAILED_ERROR_CODE,
   TRADE_FAILED_ERROR_MESSAGE,
   UniswapishPriceError,
@@ -93,22 +88,10 @@ export class Openocean implements Uniswapish {
     return this.tokenList[address];
   }
 
-  public getTokenByCurrency(currency: Currency): Token | any {
-    for (const key in this.tokenList) {
-      if (this.tokenList[key].symbol == currency.symbol) {
-        return this.tokenList[key];
-      }
-    }
-    return;
-  }
-
   public async init() {
-    if (this._chain == 'avalanche' && !this.avalanche.ready())
-      // throw new Error('Avalanche is not available');
-      throw new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE('AVALANCHE'),
-        SERVICE_UNITIALIZED_ERROR_CODE
-      );
+    if (!this.avalanche.ready()) {
+      await this.avalanche.init();
+    }
     for (const token of this.avalanche.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
@@ -154,22 +137,13 @@ export class Openocean implements Uniswapish {
   }
 
   public get chainName(): string {
-    return this._chain == 'avalanche' ? 'avax' : this._chain;
+    return this._chain === 'avalanche' ? 'avax' : this._chain;
   }
 
   getSlippageNumberage(): number {
     const allowedSlippage = OpenoceanConfig.config.allowedSlippage;
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return Number(nd[1]);
-    throw new Error(
-      'Encountered a malformed percent string in the config for ALLOWED_SLIPPAGE.'
-    );
-  }
-
-  getSlippagePercentage(): Percent {
-    const allowedSlippage = OpenoceanConfig.config.allowedSlippage;
-    const nd = allowedSlippage.match(percentRegexp);
-    if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(
       'Encountered a malformed percent string in the config for ALLOWED_SLIPPAGE.'
     );
