@@ -8,7 +8,6 @@ import aiohttp
 
 import hummingbot.client.settings  # noqa
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
-from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_from_exchange_trading_pair
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.rate_oracle.utils import find_rate
@@ -30,7 +29,6 @@ class RateOracleSource(Enum):
     coingecko = 1
     kucoin = 2
     ascend_ex = 3
-    southxchange = 4
 
 
 class RateOracle(NetworkBase):
@@ -56,7 +54,6 @@ class RateOracle(NetworkBase):
     coingecko_supported_vs_tokens_url = "https://api.coingecko.com/api/v3/simple/supported_vs_currencies"
     kucoin_price_url = "https://api.kucoin.com/api/v1/market/allTickers"
     ascend_ex_price_url = "https://ascendex.com/api/pro/v1/ticker"
-    southxchange_price_url = "https://www.southxchange.com/api/v4/prices"
 
     coingecko_token_categories = [
         "cryptocurrency",
@@ -209,8 +206,6 @@ class RateOracle(NetworkBase):
             return await cls.get_kucoin_prices()
         elif cls.source == RateOracleSource.ascend_ex:
             return await cls.get_ascend_ex_prices()
-        elif cls.source == RateOracleSource.southxchange:
-            return await cls.get_southxchange_prices()
         else:
             raise NotImplementedError
 
@@ -361,23 +356,6 @@ class RateOracle(NetworkBase):
                 pair = f'{record["symbol"].upper()}-{vs_currency.upper()}'
                 if record["current_price"]:
                     results[pair] = Decimal(str(record["current_price"]))
-        return results
-
-    @classmethod
-    @async_ttl_cache(ttl=30, maxsize=1)
-    async def get_southxchange_prices(cls) -> Dict[str, Decimal]:
-        """
-        Fetches SouthXchange mid prices from their ticker endpoint.
-        :return A dictionary of trading pairs and prices
-        """
-        results = {}
-        client = await cls._http_client()
-        async with client.request("GET", cls.southxchange_price_url) as resp:
-            records = await resp.json(content_type=None)
-            for record in records:
-                pair = convert_from_exchange_trading_pair(record["Market"])
-                if record["Ask"] is not None and record["Bid"] is not None and Decimal(record["Ask"]) > 0 and Decimal(record["Bid"]) > 0:
-                    results[pair] = (Decimal(str(record["Ask"])) + Decimal(str(record["Bid"]))) / Decimal("2")
         return results
 
     async def start_network(self):
