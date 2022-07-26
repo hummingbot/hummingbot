@@ -234,6 +234,7 @@ class GatewayHttpClient:
             "configPath": config_path,
             "configValue": config_value,
         })
+        self.logger().info("Detected change to Gateway config - restarting Gateway...", exc_info=False)
         await self.post_restart()
         return response
 
@@ -379,12 +380,14 @@ class GatewayHttpClient:
             connector: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "network/poll", {
+        request = {
             "chain": chain,
             "network": network,
-            "connector": connector,
             "txHash": transaction_hash
-        }, fail_silently=fail_silently)
+        }
+        if connector:
+            request["connector"] = connector
+        return await self.api_request("post", "network/poll", request, fail_silently=fail_silently)
 
     async def get_evm_nonce(
             self,
@@ -582,20 +585,20 @@ class GatewayHttpClient:
             chain: str,
             network: str,
             connector: str,
-            token0: str,
-            token1: str,
+            token_0: str,
+            token_1: str,
             fee: str,
             period: Optional[int] = 1,
-            internal: Optional[int] = 1,
+            interval: Optional[int] = 1,
     ) -> Dict[str, Any]:
         request_payload: Dict[str, Any] = {
             "chain": chain,
             "network": network,
             "connector": connector,
-            "token0": token0,
-            "token1": token1,
+            "token0": token_0,
+            "token1": token_1,
             "fee": fee,
             "period": period,
-            "internal": internal,
+            "interval": interval,
         }
         return await self.api_request("post", "amm/liquidity/price", request_payload)

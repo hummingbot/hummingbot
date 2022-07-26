@@ -5,6 +5,7 @@ from collections import OrderedDict
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode
 
+import hummingbot.connector.exchange.bybit.bybit_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
@@ -40,6 +41,16 @@ class BybitAuth(AuthBase):
         functionality
         """
         return request  # pass-through
+
+    def get_referral_code_headers(self):
+        """
+        Generates authentication headers required by ByBit
+        :return: a dictionary of auth headers
+        """
+        headers = {
+            "referer": CONSTANTS.HBOT_BROKER_ID
+        }
+        return headers
 
     def add_auth_to_params(self,
                            params: Optional[Dict[str, Any]]):
