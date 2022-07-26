@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -11,6 +12,7 @@ from hummingbot.connector.exchange.bittrex import (
     bittrex_web_utils as web_utils,
 )
 from hummingbot.connector.exchange.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
+from hummingbot.connector.exchange.bittrex.bittrex_api_user_stream_data_source import BittrexAPIUserStreamDataSource
 from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
@@ -19,6 +21,7 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -26,6 +29,7 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 class BittrexExchange(ExchangePyBase):
 
     UPDATE_ORDERS_INTERVAL = 10.0
+    web_utils = web_utils
 
     def __init__(self,
                  bittrex_api_key: str,
@@ -101,6 +105,12 @@ class BittrexExchange(ExchangePyBase):
             connector=self,
             api_factory=self._web_assistants_factory)
 
+    def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
+        return BittrexAPIUserStreamDataSource(
+            auth=self._auth,
+            connector=self,
+            api_factory=self._web_assistants_factory)
+
     async def _place_order(self,
                            order_id: str,
                            trading_pair: str,
@@ -112,15 +122,15 @@ class BittrexExchange(ExchangePyBase):
 
         path_url = CONSTANTS.ORDER_CREATION_URL
         body = {
-            "marketSymbol": trading_pair,
+            "marketSymbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
             "direction": "BUY" if trade_type is TradeType.BUY else "SELL",
             "type": "LIMIT" if order_type is OrderType.LIMIT else "MARKET",
-            "quantity": amount,
+            "quantity": float(amount),
             "clientOrderId": order_id
         }
         if order_type is OrderType.LIMIT:
             body.update({
-                "limit": price,
+                "limit": float(price),
                 "timeInForce": "GOOD_TIL_CANCELLED"
                 # Available options [GOOD_TIL_CANCELLED, IMMEDIATE_OR_CANCEL,
                 # FILL_OR_KILL, POST_ONLY_GOOD_TIL_CANCELLED]
@@ -134,19 +144,21 @@ class BittrexExchange(ExchangePyBase):
             params=body,
             data=body,
             is_auth_required=True)
-        o_id = str(order_result["id"])
-        transact_time = order_result["createdAt"] * 1e-3
+        o_id = order_result["id"]
+        transact_time = self._get_timestamp(order_result["createdAt"])
         return o_id, transact_time
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        exchange_id = await tracked_order.get_exchange_order_id()
         api_params = {
-            "id": order_id,
+            "id": exchange_id
         }
         cancel_result = await self._api_delete(
-            path_url=CONSTANTS.ORDER_DELETION_URL,
+            path_url=CONSTANTS.ORDER_DETAIL_URL.format(exchange_id),
             params=api_params,
-            is_auth_required=True)
-        if cancel_result.get("status") == "CLOSED":
+            is_auth_required=True,
+            limit_id=CONSTANTS.ORDER_DETAIL_LIMIT_ID)
+        if cancel_result["status"] == "CLOSED":
             return True
         return False
 
@@ -175,9 +187,9 @@ class BittrexExchange(ExchangePyBase):
                 precision = market.get("precision")
                 retval.append(TradingRule(trading_pair,
                                           min_order_size=min_trade_size,
-                                          min_price_increment=Decimal(f"1e-{precision}"),
-                                          min_base_amount_increment=Decimal(f"1e-{precision}"),
-                                          min_notional_size=Decimal(f"1e-{precision}")
+                                          min_price_increment=Decimal(precision),
+                                          min_base_amount_increment=Decimal(precision),
+                                          min_notional_size=Decimal(precision)
                                           ))
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {market}. Skipping.", exc_info=True)
@@ -192,101 +204,62 @@ class BittrexExchange(ExchangePyBase):
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=fees["marketSymbol"])
             self._trading_fees[trading_pair] = fees
 
-    async def list_orders(self) -> List[Any]:
-        """
-        Only a list of all currently open orders(does not include filled orders)
-        :returns json response
-        i.e.
-        Result = [
-              {
-                "id": "string (uuid)",
-                "marketSymbol": "string",
-                "direction": "string",
-                "type": "string",
-                "quantity": "number (double)",
-                "limit": "number (double)",
-                "ceiling": "number (double)",
-                "timeInForce": "string",
-                "expiresAt": "string (date-time)",
-                "clientOrderId": "string (uuid)",
-                "fillQuantity": "number (double)",
-                "commission": "number (double)",
-                "proceeds": "number (double)",
-                "status": "string",
-                "createdAt": "string (date-time)",
-                "updatedAt": "string (date-time)",
-                "closedAt": "string (date-time)"
-              }
-              ...
-            ]
-
-        """
-        result = await self._api_get(path_url=CONSTANTS.ALL_OPEN_ORDERS_URL)
-        return result
-
     async def _update_order_status(self):
-        """
-        This is intended to be a backup measure to close straggler orders, in case Bittrex's user stream events
-        are not capturing the updates as intended. Also handles filled events that are not captured by
-        user_stream_event_listener
-        The poll interval for order status is 10 seconds.
-        """
-        last_tick = self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL
-        current_tick = self.current_timestamp / self.UPDATE_ORDERS_INTERVAL
-        if current_tick > last_tick and len(self.in_flight_orders) > 0:
-            tracked_orders = list(self.in_flight_orders.values())
-            open_orders = await self.list_orders()
-            open_orders = dict((entry["id"], entry) for entry in open_orders)
-            for tracked_order in tracked_orders:
-                try:
-                    client_order_id = tracked_order.client_order_id
-                    exchange_order_id = await tracked_order.get_exchange_order_id()
-                except asyncio.TimeoutError:
-                    if tracked_order.last_state == "FAILURE":
-                        self.stop_tracking_order(client_order_id)
-                        self.logger().warning(
-                            f"No exchange ID found for {client_order_id} on order status update."
-                            f" Order no longer tracked. This is most likely due to a POST_ONLY_NOT_MET error."
-                        )
-                        continue
-                    else:
-                        self.logger().error(f"Exchange order ID never updated for {tracked_order.client_order_id}")
-                        raise
-                order = open_orders.get(exchange_order_id)
-                if not order:
-                    self.logger().network(
-                        f"Error fetching status update for the order {client_order_id}",
-                        app_warning_msg=f"No matching orders found for {client_order_id}."
-                    )
-                    await self._order_tracker.process_order_not_found(client_order_id)
-                    continue
-                order_state = order["status"]
-                update_time = order["updatedAt"]
-                update = OrderUpdate(
-                    client_order_id=client_order_id,
-                    exchange_order_id=exchange_order_id,
-                    trading_pair=tracked_order.trading_pair,
-                    update_timestamp=update_time * 1e-3,
-                    new_state=CONSTANTS.ORDER_STATE[order_state],
+        tracked_orders = list(self.in_flight_orders.values())
+        for tracked_order in tracked_orders:
+            try:
+                client_order_id = tracked_order.client_order_id
+                exchange_order_id = await tracked_order.get_exchange_order_id()
+                params = {
+                    "orderId": exchange_order_id
+                }
+                order = None
+                if exchange_order_id:
+                    order = await self._api_get(path_url=CONSTANTS.ORDER_DETAIL_URL.format(exchange_order_id),
+                                                params=params,
+                                                is_auth_required=True,
+                                                limit_id=CONSTANTS.ORDER_DETAIL_LIMIT_ID)
+            except Exception:
+                self.logger().network(
+                    f"Error fetching status update for the order {client_order_id}",
+                    app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
                 )
-                self._order_tracker.process_order_update(update)
+                await self._order_tracker.process_order_not_found(client_order_id)
+                continue
+            if order is None:
+                continue
+            if "code" in order:
+                self.logger().network(
+                    f"Error fetching status update for the order {client_order_id}",
+                    app_warning_msg=f"No matching orders found for {client_order_id}."
+                )
+                await self._order_tracker.process_order_not_found(client_order_id)
+                continue
+            new_state = self._get_order_status(order)
+            update_time = self._get_timestamp(order["updatedAt"])
+            update = OrderUpdate(
+                client_order_id=client_order_id,
+                exchange_order_id=exchange_order_id,
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=update_time,
+                new_state=new_state,
+            )
+            self._order_tracker.process_order_update(update)
 
     async def _user_stream_event_listener(self):
-        async for stream_message in self._iter_user_stream_queue():
+        async for stream_message in self._iter_user_event_queue():
             try:
-                content = stream_message.get("content")
-                event_type = stream_message.get("event_type")
-                if event_type == "balance":  # Updates total balance and available balance of specified currency
-                    balance_delta = content["delta"]
-                    asset_name = balance_delta["currencySymbol"]
-                    total_balance = balance_delta["total"]
-                    available_balance = balance_delta["available"]
+                content = stream_message.get("delta") or stream_message.get("deltas")
+                if "marketSymbol" not in content:  # Updates total balance and available balance of specified currency
+                    asset_name = content["currencySymbol"]
+                    total_balance = content["total"]
+                    available_balance = content["available"]
                     self._account_available_balances[asset_name] = available_balance
                     self._account_balances[asset_name] = total_balance
-                elif event_type == "order":  # Updates track order status
-                    safe_ensure_future(self._process_order_update_event(stream_message))
-                elif event_type == "execution":
-                    safe_ensure_future(self._process_execution_event(stream_message))
+                elif "executedAt" in content:  # Updates track order status
+                    safe_ensure_future(self._process_execution_event(content))
+                else:
+                    safe_ensure_future(self._process_order_update_event(content))
 
             except asyncio.CancelledError:
                 raise
@@ -294,52 +267,48 @@ class BittrexExchange(ExchangePyBase):
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await self._sleep(5.0)
 
-    async def _process_order_update_event(self, stream_message: Dict[str, Any]):
-        content = stream_message["content"]
-        order = content["delta"]
-        order_status = order["status"]
-        order_id = order["id"]
-        tracked_order = self.in_flight_orders.get(client_order_id=order["clientOrderId"])
+    async def _process_order_update_event(self, msg: Dict[str, Any]):
+        order_id = msg["id"]
+        update_time = self._get_timestamp(msg["updatedAt"])
+        order_state = self._get_order_status(msg)
+        tracked_order = self.in_flight_orders.get(msg["clientOrderId"])
         if tracked_order is not None:
             order_update = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
-                update_timestamp=order["updatedAt"] * 1e-3,
-                new_state=CONSTANTS.ORDER_STATE[order_status],
-                client_order_id=order["clientOrderId"],
+                update_timestamp=update_time,
+                new_state=order_state,
+                client_order_id=msg["clientOrderId"],
                 exchange_order_id=order_id,
             )
             self._order_tracker.process_order_update(order_update=order_update)
 
-    async def _process_execution_event(self, stream_message: Dict[str, Any]):
-        content = stream_message["content"]
-        events = content["deltas"]
-
+    async def _process_execution_event(self, events: Dict[str, Any]):
         for execution_event in events:
-            order_id = execution_event["id"]
+            order_id = execution_event["orderId"]
             tracked_order = None
             for order in self.in_flight_orders.values():
                 exchange_order_id = await order.get_exchange_order_id()
                 if exchange_order_id == order_id:
                     tracked_order = order
                     break
-
             if tracked_order is not None:
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=self.trade_fee_schema(),
                     trade_type=tracked_order.trade_type,
                     percent_token=tracked_order.trading_pair.split("-")[-1],
-                    flat_fees=[TokenAmount(amount=execution_event["rate"], token=tracked_order.trading_pair.split("-")[-1])]
+                    flat_fees=[TokenAmount(amount=execution_event["rate"],
+                                           token=tracked_order.trading_pair.split("-")[-1])]
                 )
                 trade_update = TradeUpdate(
                     trade_id=execution_event["id"],
                     client_order_id=tracked_order.client_order_id,
-                    exchange_order_id=tracked_order.exchange_order_id,
+                    exchange_order_id=order_id,
                     trading_pair=tracked_order.trading_pair,
                     fee=fee,
                     fill_base_amount=execution_event["quantity"],
                     fill_quote_amount=execution_event["quantity"] * execution_event["rate"],
                     fill_price=execution_event["rate"],
-                    fill_timestamp=execution_event["executedAt"] * 1e-3,
+                    fill_timestamp=await self._get_timestamp(execution_event["executedAt"]),
                 )
                 self._order_tracker.process_trade_update(trade_update)
 
@@ -368,6 +337,25 @@ class BittrexExchange(ExchangePyBase):
         }
         resp = await self._api_get(
             path_url=CONSTANTS.SYMBOL_TICKER_PATH.format(exchange_symbol),
-            params=params
+            params=params,
+            limit_id=CONSTANTS.SYMBOL_TICKER_LIMIT_ID
         )
-        return float(resp["lastTradeRate"])
+        return resp["lastTradeRate"]
+
+    @staticmethod
+    def _get_timestamp(transact_info):
+        transact_time_info = datetime.datetime.strptime(transact_info, '%Y-%m-%d %H:%M:%S.%f')
+        return datetime.datetime.timestamp(transact_time_info)
+
+    @staticmethod
+    def _get_order_status(order):
+        order_state = order["status"]
+        new_state = ""
+        if order_state == "OPEN":
+            new_state = CONSTANTS.ORDER_STATE[order_state]
+        else:
+            if order["fillQuantity"] == order["quantity"]:
+                new_state = CONSTANTS.ORDER_STATE[order_state + "-FILLED"]
+            else:
+                new_state = CONSTANTS.ORDER_STATE[order_state + "-CANCELLED"]
+        return new_state
