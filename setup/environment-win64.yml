@@ -39,6 +39,7 @@ dependencies:
     - asyncssh==2.7.2
     - base58==2.1.1
     - cachetools==4.0.0
+    - coincurve==13.0.0
     - cryptography==2.8
     - cython==3.0a7
     - cytoolz==0.11.0
@@ -54,11 +55,9 @@ dependencies:
     - eth-utils==1.10.0
     - ethsnarks-loopring==0.1.5
     - flake8==3.7.9
-    - graphviz==0.20
     - hexbytes==0.2.0
     - importlib-metadata==0.23
     - mypy-extensions==0.4.3
-    - objgraph==3.5.0
     - pre-commit==2.18.1
     - psutil==5.7.2
     - ptpython==3.0.20

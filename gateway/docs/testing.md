@@ -11,7 +11,7 @@ We use [prettier](https://prettier.io/) for formatting. Configuration file
 [here](../.prettierrc).
 
 We use [ESLint](https://eslint.org/) for linting. Configuration file 
-[here](../.eslintrc.json).
+[here](../.eslintrc.js).
 
 ## Running the unit tests
 
