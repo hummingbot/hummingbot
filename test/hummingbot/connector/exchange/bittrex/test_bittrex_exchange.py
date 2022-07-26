@@ -1,354 +1,738 @@
-import asyncio
-import functools
 import json
 import re
-import unittest
 from decimal import Decimal
-from typing import Awaitable, Callable, Dict, Optional
-from unittest.mock import AsyncMock
+from typing import Any, Callable, List, Optional, Tuple
+from unittest.mock import patch
 
 from aioresponses import aioresponses
+from aioresponses.core import RequestCall
 
+from hummingbot.connector.exchange.bittrex import bittrex_constants as CONSTANTS, bittrex_web_utils as web_utils
 from hummingbot.connector.exchange.bittrex.bittrex_exchange import BittrexExchange
-from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.trade_fee import TokenAmount
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderFilledEvent,
-)
+from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
+from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import get_new_client_order_id
+from hummingbot.core.data_type.common import OrderType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
 
-class BittrexExchangeTest(unittest.TestCase):
-    # the level is required to receive logs from the data source logger
-    level = 0
+class BittrexExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.api_key = "someKey"
         cls.secret_key = "someSecret"
-        cls.base_asset = "COINALPHA"
-        cls.quote_asset = "HBOT"
-        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.symbol = f"{cls.base_asset}{cls.quote_asset}"
 
-    def setUp(self) -> None:
-        super().setUp()
-        self.ev_loop = asyncio.get_event_loop()
-        self.log_records = []
-        self.test_task: Optional[asyncio.Task] = None
-        self.resume_test_event = asyncio.Event()
+    @property
+    def all_symbols_url(self):
+        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        return url
 
-        self.exchange = BittrexExchange(self.api_key, self.secret_key, trading_pairs=[self.trading_pair])
+    @property
+    def latest_prices_url(self):
+        exchange_symbol = f"{self.base_asset}{self.quote_asset}"
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SYMBOL_TICKER_PATH.format(exchange_symbol))
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        return regex_url
 
-        self.exchange.logger().setLevel(1)
-        self.exchange.logger().addHandler(self)
-        self._initialize_event_loggers()
+    @property
+    def network_status_url(self):
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SERVER_TIME_URL)
+        return url
 
-    def tearDown(self) -> None:
-        self.test_task and self.test_task.cancel()
-        super().tearDown()
+    @property
+    def trading_rules_url(self):
+        return self.all_symbols_url
 
-    def _initialize_event_loggers(self):
-        self.buy_order_completed_logger = EventLogger()
-        self.sell_order_completed_logger = EventLogger()
-        self.order_filled_logger = EventLogger()
-        self.order_cancelled_logger = EventLogger()
+    @property
+    def order_creation_url(self):
+        url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_CREATION_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        return regex_url
 
-        events_and_loggers = [
-            (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
-            (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
-            (MarketEvent.OrderFilled, self.order_filled_logger),
-            (MarketEvent.OrderCancelled, self.order_cancelled_logger)]
+    @property
+    def balance_url(self):
+        url = web_utils.private_rest_url(path_url=CONSTANTS.BALANCES_URL)
+        return url
 
-        for event, logger in events_and_loggers:
-            self.exchange.add_listener(event, logger)
+    @property
+    def all_symbols_request_mock_response(self):
+        return [
+            {
+                "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "baseCurrencySymbol": self.base_asset,
+                "quoteCurrencySymbol": self.quote_asset,
+                "minTradeSize": "number (double)",
+                "precision": "integer (int32)",
+                "status": "ONLINE",
+                "createdAt": "string (date-time)",
+                "notice": "string",
+                "prohibitedIn": [
+                    "string"
+                ],
+                "associatedTermsOfService": [
+                    "string"
+                ],
+                "tags": [
+                    "string"
+                ]
+            }
+        ]
 
-    def handle(self, record):
-        self.log_records.append(record)
+    @property
+    def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
+        response = [
+            {
+                "symbol": "string",
+                "baseCurrencySymbol": "string",
+                "quoteCurrencySymbol": "string",
+                "minTradeSize": "number (double)",
+                "precision": "integer (int32)",
+                "status": "string",
+                "createdAt": "string (date-time)",
+                "notice": "string",
+                "prohibitedIn": [
+                    "string"
+                ],
+                "associatedTermsOfService": [
+                    "string"
+                ],
+                "tags": [
+                    "string"
+                ]
+            }
+        ]
+        return "INVALID-PAIR", response
 
-    def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
-    def _return_calculation_and_set_done_event(self, calculation: Callable, *args, **kwargs):
-        if self.resume_test_event.is_set():
-            raise asyncio.CancelledError
-        self.resume_test_event.set()
-        return calculation(*args, **kwargs)
-
-    def get_filled_response(self) -> Dict:
-        filled_resp = {
-            "id": "87076200-79bc-4f97-82b1-ad8fa3e630cf",
-            "marketSymbol": self.trading_pair,
-            "direction": "BUY",
-            "type": "LIMIT",
-            "quantity": "1",
-            "limit": "10",
-            "timeInForce": "POST_ONLY_GOOD_TIL_CANCELLED",
-            "fillQuantity": "1",
-            "commission": "0.11805420",
-            "proceeds": "23.61084196",
-            "status": "CLOSED",
-            "createdAt": "2021-09-08T10:00:34.83Z",
-            "updatedAt": "2021-09-08T10:00:35.05Z",
-            "closedAt": "2021-09-08T10:00:35.05Z",
-        }
-        return filled_resp
-
-    @aioresponses()
-    def test_execute_cancel(self, mocked_api):
-        url = f"{self.exchange.BITTREX_API_ENDPOINT}/orders/"
-        regex_url = re.compile(f"^{url}")
-        resp = {"status": "CLOSED"}
-        mocked_api.delete(regex_url, body=json.dumps(resp))
-
-        order_id = "someId"
-        self.exchange.start_tracking_order(
-            order_id=order_id,
-            exchange_order_id="someExchangeId",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT_MAKER,
-            trade_type=TradeType.BUY,
-            price=Decimal("10.0"),
-            amount=Decimal("1.0"),
-        )
-
-        self.async_run_with_timeout(coroutine=self.exchange.execute_cancel(self.trading_pair, order_id))
-
-        self.assertEqual(1, len(self.order_cancelled_logger.event_log))
-
-        event = self.order_cancelled_logger.event_log[0]
-
-        self.assertEqual(order_id, event.order_id)
-        self.assertTrue(order_id not in self.exchange.in_flight_orders)
-
-    @aioresponses()
-    def test_execute_cancel_already_filled(self, mocked_api):
-        url = f"{self.exchange.BITTREX_API_ENDPOINT}/orders/"
-        regex_url = re.compile(f"^{url}")
-        del_resp = {"code": "ORDER_NOT_OPEN"}
-        mocked_api.delete(regex_url, status=409, body=json.dumps(del_resp))
-        get_resp = self.get_filled_response()
-        mocked_api.get(regex_url, body=json.dumps(get_resp))
-
-        order_id = "someId"
-        self.exchange.start_tracking_order(
-            order_id=order_id,
-            exchange_order_id="someExchangeId",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT_MAKER,
-            trade_type=TradeType.BUY,
-            price=Decimal("10.0"),
-            amount=Decimal("1.0"),
-        )
-
-        self.async_run_with_timeout(coroutine=self.exchange.execute_cancel(self.trading_pair, order_id))
-
-        self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
-
-        event = self.buy_order_completed_logger.event_log[0]
-
-        self.assertEqual(order_id, event.order_id)
-        self.assertTrue(order_id not in self.exchange.in_flight_orders)
-
-    def test_order_fill_event_takes_fee_from_update_event(self):
-        self.exchange.start_tracking_order(
-            order_id="OID1",
-            exchange_order_id="EOID1",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            price=Decimal("10000"),
-            amount=Decimal("1"),
-        )
-
-        order = self.exchange.in_flight_orders.get("OID1")
-
-        partial_fill = {
-            "accountId": "testAccount",
-            "sequence": "1001",
-            "deltas": [{
-                "id": "1",
-                "marketSymbol": f"{self.base_asset}{self.quote_asset}",
-                "executedAt": "12-03-2021 6:17:16",
-                "quantity": "0.1",
-                "rate": "10050",
-                "orderId": "EOID1",
-                "commission": "10",
-                "isTaker": False
-            }]
+    @property
+    def latest_prices_request_mock_response(self):
+        return {
+            "symbol": "string",
+            "lastTradeRate": 45.0,
+            "bidRate": "number (double)",
+            "askRate": "number (double)"
         }
 
-        message = {
-            "event_type": "execution",
-            "content": partial_fill,
+    @property
+    def network_status_request_successful_mock_response(self):
+        return {
+            "serverTime": "integer (int64)"
         }
 
-        mock_user_stream = AsyncMock()
-        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: message)
+    @property
+    def trading_rules_request_mock_response(self):
+        response = [
+            {
+                "symbol": "COINALPHAHBOT",
+                "baseCurrencySymbol": "COINALPHA",
+                "quoteCurrencySymbol": "HBOT",
+                "minTradeSize": 20,
+                "precision": 2,
+                "status": "ONLINE",
+                "createdAt": "string (date-time)",
+                "notice": "string",
+                "prohibitedIn": [
+                    "string"
+                ],
+                "associatedTermsOfService": [
+                    "string"
+                ],
+                "tags": [
+                    "string"
+                ]
+            }
+        ]
+        return response
 
-        self.exchange.user_stream_tracker._user_stream = mock_user_stream
+    @property
+    def trading_rules_request_erroneous_mock_response(self):
+        response = [
+            {
+                "symbol": "string",
+                "baseCurrencySymbol": "string",
+                "quoteCurrencySymbol": "string",
+                "minTradeSize": "number (double)",
+                "precision": "integer (int32)",
+                "status": "string",
+                "createdAt": "string (date-time)",
+                "notice": "string",
+                "prohibitedIn": [
+                    "string"
+                ],
+                "associatedTermsOfService": [
+                    "string"
+                ],
+                "tags": [
+                    "string"
+                ]
+            }
+        ]
+        return response
 
-        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
+    @property
+    def balance_request_mock_response_for_base_and_quote(self):
+        return [
+            {
+                "currencySymbol": "COINALPHA",
+                "total": 15.0,
+                "available": 10.0,
+                "updatedAt": "string (date-time)"
+            },
+            {
+                "currencySymbol": "HBOT",
+                "total": 2000.0,
+                "available": 2000.0,
+                "updatedAt": "string (date-time)"
+            }
+        ]
 
-        self.assertEqual(Decimal("10"), order.fee_paid)
-        self.assertEqual(1, len(self.order_filled_logger.event_log))
-        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        self.assertEqual([TokenAmount(order.quote_asset, Decimal(partial_fill["deltas"][0]["commission"]))],
-                         fill_event.trade_fee.flat_fees)
-        self.assertTrue(self._is_logged(
-            "INFO",
-            f"Filled {Decimal(partial_fill['deltas'][0]['quantity'])} out of {order.amount} of the "
-            f"{order.order_type_description} order {order.client_order_id}. - ws"
-        ))
+    @property
+    def balance_request_mock_response_only_base(self):
+        return [
+            {
+                "currencySymbol": "COINALPHA",
+                "total": 15.0,
+                "available": 10.0,
+                "updatedAt": "string (date-time)"
+            }
+        ]
 
-        self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
-
-        complete_fill = {
-            "accountId": "testAccount",
-            "sequence": "1001",
-            "deltas": [{
-                "id": "2",
-                "marketSymbol": f"{self.base_asset}{self.quote_asset}",
-                "executedAt": "12-03-2021 6:17:16",
-                "quantity": "0.9",
-                "rate": "10060",
-                "orderId": "EOID1",
-                "commission": "30",
-                "isTaker": False
-            }]
-        }
-
-        message["content"] = complete_fill
-
-        self.resume_test_event = asyncio.Event()
-        mock_user_stream = AsyncMock()
-        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: message)
-
-        self.exchange.user_stream_tracker._user_stream = mock_user_stream
-
-        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
-
-        self.assertEqual(Decimal("40"), order.fee_paid)
-
-        self.assertEqual(2, len(self.order_filled_logger.event_log))
-        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        self.assertEqual([TokenAmount(order.quote_asset, Decimal(complete_fill["deltas"][0]["commission"]))],
-                         fill_event.trade_fee.flat_fees)
-
-        # The order should be marked as complete only when the "done" event arrives, not with the fill event
-        self.assertFalse(self._is_logged(
-            "INFO",
-            f"The market buy order {order.client_order_id} has completed according to Coinbase Pro user stream."
-        ))
-
-        self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
-
-    def test_order_fill_event_processed_before_order_complete_event(self):
-        self.exchange.start_tracking_order(
-            order_id="OID1",
-            exchange_order_id="EOID1",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            price=Decimal("10000"),
-            amount=Decimal("1"),
-        )
-
-        order = self.exchange.in_flight_orders.get("OID1")
-
-        complete_fill = {
-            "id": "1",
-            "marketSymbol": f"{self.base_asset}{self.quote_asset}",
-            "executedAt": "12-03-2021 6:17:16",
-            "quantity": "1",
-            "rate": "10050",
-            "orderId": "EOID1",
-            "commission": "10",
-            "isTaker": False
-        }
-
-        fill_message = {
-            "event_type": "execution",
-            "content": {
-                "accountId": "testAccount",
-                "sequence": "1001",
-                "deltas": [complete_fill]
+    @property
+    def balance_event_websocket_update(self):
+        return {
+            "accountId": "string (uuid)",
+            "sequence": "int",
+            "delta": {
+                "currencySymbol": "COINALPHA",
+                "total": 15.0,
+                "available": 10.0,
+                "updatedAt": "string (date-time)"
             }
         }
 
-        update_data = {
-            "id": "EOID1",
-            "marketSymbol": f"{self.base_asset}{self.quote_asset}",
-            "direction": "BUY",
-            "type": "LIMIT",
-            "quantity": "1",
-            "limit": "10000",
-            "ceiling": "10000",
-            "timeInForce": "GOOD_TIL_CANCELLED",
-            "clientOrderId": "OID1",
-            "fillQuantity": "1",
-            "commission": "10",
-            "proceeds": "10050",
-            "status": "CLOSED",
-            "createdAt": "12-03-2021 6:17:16",
-            "updatedAt": "12-03-2021 6:17:16",
-            "closedAt": "12-03-2021 6:17:16",
+    @property
+    def expected_latest_price(self):
+        return 45.0
+
+    @property
+    def expected_supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.MARKET]
+
+    @property
+    def expected_trading_rule(self):
+        precision = self.trading_rules_request_mock_response[0]["precision"]
+        return TradingRule(
+            trading_pair=self.trading_pair,
+            min_order_size=Decimal(self.trading_rules_request_mock_response[0]["minTradeSize"]),
+            min_price_increment=Decimal(precision),
+            min_base_amount_increment=Decimal(precision),
+            min_notional_size=Decimal(precision)
+        )
+
+    @property
+    def expected_logged_error_for_erroneous_trading_rule(self):
+        erroneous_rule = self.trading_rules_request_erroneous_mock_response[0]
+        return f"Error parsing the trading pair rule {erroneous_rule}. Skipping."
+
+    @property
+    def expected_exchange_order_id(self):
+        return "OID"
+
+    @property
+    def expected_partial_fill_price(self) -> Decimal:
+        return Decimal(10500)
+
+    @property
+    def expected_partial_fill_amount(self) -> Decimal:
+        return Decimal("0.5")
+
+    @property
+    def expected_fill_fee(self) -> TradeFeeBase:
+        return AddedToCostTradeFee(
+            percent_token=self.quote_asset,
+            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))])
+
+    @property
+    def expected_fill_trade_id(self) -> str:
+        return "TrID1"
+
+    @property
+    def is_cancel_request_executed_synchronously_by_server(self) -> bool:
+        return True
+
+    @property
+    def is_order_fill_http_update_included_in_status_update(self) -> bool:
+        return False
+
+    @property
+    def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
+        return False
+
+    def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
+        return f"{base_token}{quote_token}"
+
+    def create_exchange_instance(self):
+        return BittrexExchange(
+            self.api_key,
+            self.secret_key,
+            trading_pairs=[self.trading_pair]
+        )
+
+    def validate_auth_credentials_present(self, request_call: RequestCall):
+        request_headers = request_call.kwargs["headers"]
+        self.assertIn("Api-Key", request_headers)
+        self.assertEqual(self.api_key, request_headers["Api-Key"])
+        self.assertIn("Api-Timestamp", request_headers)
+        self.assertIn("Api-Content-Hash", request_headers)
+        self.assertIn("Api-Signature", request_headers)
+
+    def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
+        request_data = request_call.kwargs["params"]
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_data["marketSymbol"])
+        self.assertEqual(order.trade_type.name, request_data["direction"])
+        self.assertEqual(order.order_type.name, request_data["type"])
+        self.assertEqual(Decimal("100"), Decimal(request_data["quantity"]))
+        self.assertEqual(Decimal("10000"), Decimal(request_data["limit"]))
+        self.assertEqual(order.client_order_id, request_data["clientOrderId"])
+
+    def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
+        request_data = request_call.kwargs["params"]
+        self.assertEqual(order.exchange_order_id, request_data["id"])
+
+    def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
+        request_params = request_call.kwargs["params"]
+        self.assertEqual(order.exchange_order_id, request_params["orderId"])
+
+    def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
+        request_params = request_call.kwargs["params"]
+        self.assertEqual("SPOT", request_params["instType"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_params["instId"])
+        self.assertEqual(order.exchange_order_id, request_params["ordId"])
+
+    def configure_successful_cancelation_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_DETAIL_URL.format(order.exchange_order_id))
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self._order_cancelation_request_successful_mock_response(order=order)
+        mock_api.delete(regex_url, body=json.dumps(response), callback=callback)
+        return regex_url
+
+    def configure_erroneous_cancelation_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_DETAIL_URL.format(order.exchange_order_id))
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {
+            "limit": "number (double)",
+            "ceiling": "number (double)",
+            "timeInForce": "string",
+            "clientOrderId": "string (uuid)",
+            "fillQuantity": "number (double)",
+            "commission": "number (double)",
+            "proceeds": "number (double)",
+        }
+        mock_api.delete(regex_url, body=json.dumps(response), callback=callback)
+        return regex_url
+
+    def configure_one_successful_one_erroneous_cancel_all_response(
+            self,
+            successful_order: InFlightOrder,
+            erroneous_order: InFlightOrder,
+            mock_api: aioresponses) -> List[str]:
+        """
+        :return: a list of all configured URLs for the cancelations
+        """
+        all_urls = []
+        url = self.configure_successful_cancelation_response(order=successful_order, mock_api=mock_api)
+        all_urls.append(url)
+        url = self.configure_erroneous_cancelation_response(order=erroneous_order, mock_api=mock_api)
+        all_urls.append(url)
+        return all_urls
+
+    def configure_completely_filled_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_DETAIL_URL.format(order.exchange_order_id))
+        regex_url = re.compile(url + r"\?.*")
+        response = self._order_status_request_completely_filled_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return regex_url
+
+    def configure_canceled_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+
+        url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_DETAIL_URL.format(order.exchange_order_id))
+        regex_url = re.compile(url + r"\?.*")
+        response = self._order_status_request_canceled_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return regex_url
+
+    def configure_open_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_DETAIL_URL.format(order.exchange_order_id))
+        regex_url = re.compile(url + r"\?.*")
+        response = self._order_status_request_open_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return regex_url
+
+    def configure_http_error_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_DETAIL_URL.format(order.exchange_order_id))
+        regex_url = re.compile(url + r"\?.*")
+        mock_api.get(regex_url, status=404, callback=callback)
+        return regex_url
+
+    def configure_partially_filled_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_DETAIL_URL.format(order.exchange_order_id))
+        regex_url = re.compile(url + r"\?.*")
+        response = self._order_status_request_partially_filled_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return regex_url
+
+    def configure_partial_fill_trade_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_TRADE_FILLS_PATH)
+        regex_url = re.compile(url + r"\?.*")
+        response = self._order_fills_request_partial_fill_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_full_fill_trade_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_TRADE_FILLS_PATH)
+        regex_url = re.compile(url + r"\?.*")
+        response = self._order_fills_request_full_fill_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_erroneous_http_fill_trade_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_TRADE_FILLS_PATH)
+        regex_url = re.compile(url + r"\?.*")
+        mock_api.get(regex_url, status=400, callback=callback)
+        return url
+
+    @property
+    def order_creation_request_successful_mock_response(self):
+        return {
+            "id": "OID",
+            "marketSymbol": "string",
+            "direction": "string",
+            "type": "string",
+            "quantity": "number (double)",
+            "limit": "number (double)",
+            "ceiling": "number (double)",
+            "timeInForce": "string",
+            "clientOrderId": "string (uuid)",
+            "fillQuantity": "number (double)",
+            "commission": "number (double)",
+            "proceeds": "number (double)",
+            "status": "string",
+            "createdAt": '2018-06-29 08:15:27.243860',
+            "updatedAt": "string (date-time)",
+            "closedAt": "string (date-time)",
             "orderToCancel": {
-                "type": "LIMIT",
+                "type": "string",
                 "id": "string (uuid)"
             }
         }
 
-        update_message = {
-            "event_type": "order",
-            "content": {
-                "accountId": "testAccount",
-                "sequence": "1001",
-                "delta": update_data
+    def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
+        return {
+            "accountId": "string (uuid)",
+            "sequence": "int",
+            "delta": {
+                "id": "string (uuid)",
+                "marketSymbol": "COINALPHAHBOT",
+                "direction": "string",
+                "type": "string",
+                "quantity": 20.0,
+                "limit": "number (double)",
+                "ceiling": "number (double)",
+                "timeInForce": "string",
+                "clientOrderId": "OID1",
+                "fillQuantity": "0.0",
+                "commission": "number (double)",
+                "proceeds": "number (double)",
+                "status": "OPEN",
+                "createdAt": "string (date-time)",
+                "updatedAt": "2018-06-29 08:15:27.243860",
+                "closedAt": "string (date-time)",
+                "orderToCancel": {
+                    "type": "string",
+                    "id": "string (uuid)"
+                }
             }
         }
 
-        mock_user_stream = AsyncMock()
-        # We simulate the case when the order update arrives before the order fill
-        mock_user_stream.get.side_effect = [update_message, fill_message, asyncio.CancelledError()]
-        self.exchange.user_stream_tracker._user_stream = mock_user_stream
+    def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
+        return {
+            "accountId": "string (uuid)",
+            "sequence": "int",
+            "delta": {
+                "id": "string (uuid)",
+                "marketSymbol": "COINALPHAHBOT",
+                "direction": "string",
+                "type": "string",
+                "quantity": 20.0,
+                "limit": "number (double)",
+                "ceiling": "number (double)",
+                "timeInForce": "string",
+                "clientOrderId": "OID1",
+                "fillQuantity": 12.0,
+                "commission": "number (double)",
+                "proceeds": "number (double)",
+                "status": "CLOSED",
+                "createdAt": "string (date-time)",
+                "updatedAt": "2018-06-29 08:15:27.243860",
+                "closedAt": "string (date-time)",
+                "orderToCancel": {
+                    "type": "string",
+                    "id": "string (uuid)"
+                }
+            }
+        }
 
-        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        try:
-            self.async_run_with_timeout(self.test_task)
-        except asyncio.CancelledError:
-            pass
+    def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
+        return {
+            "accountId": "string (uuid)",
+            "sequence": "int",
+            "delta": {
+                "id": "EOID1",
+                "marketSymbol": "COINALPHAHBOT",
+                "direction": "BUY",
+                "type": "LIMIT",
+                "quantity": 1.0,
+                "limit": 1000.0,
+                "ceiling": "number (double)",
+                "timeInForce": "string",
+                "clientOrderId": "OID1",
+                "fillQuantity": 1.0,
+                "commission": "number (double)",
+                "proceeds": "number (double)",
+                "status": "CLOSED",
+                "createdAt": "string (date-time)",
+                "updatedAt": "2018-06-29 08:15:27.243860",
+                "closedAt": "string (date-time)",
+                "orderToCancel": {
+                    "type": "string",
+                    "id": "string (uuid)"
+                }
+            }
+        }
 
-        self.async_run_with_timeout(order.wait_until_completely_filled())
+    def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
+        return {
+            "accountId": "string (uuid)",
+            "sequence": "int",
+            "deltas": [
+                {
+                    "id": "string (uuid)",
+                    "marketSymbol": "COINALPHAHBOT",
+                    "executedAt": "2018-06-29 08:15:27.243860",
+                    "quantity": 1.0,
+                    "rate": 1000.0,
+                    "orderId": "EOID1",
+                    "commission": "number (double)",
+                    "isTaker": True
+                }
+            ]
+        }
 
-        self.assertEqual(Decimal("10"), order.fee_paid)
-        self.assertEqual(1, len(self.order_filled_logger.event_log))
-        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        self.assertEqual(
-            [TokenAmount(order.quote_asset, Decimal(complete_fill["commission"]))], fill_event.trade_fee.flat_fees
+    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
+    def test_client_order_id_on_order(self, mocked_nonce):
+        mocked_nonce.return_value = 9
+        result = self.exchange.buy(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
         )
-        self.assertTrue(self._is_logged(
-            "INFO",
-            f"Filled {Decimal(complete_fill['quantity'])} out of {order.amount} of the "
-            f"{order.order_type_description} order {order.client_order_id}. - ws"
-        ))
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=self.trading_pair,
+            hbot_order_id_prefix="",
+            max_id_len=40,
+        )
 
-        self.assertTrue(self._is_logged(
-            "INFO",
-            f"The BUY order {order.client_order_id} has completed according to order delta websocket API."
-        ))
+        self.assertEqual(result, expected_client_order_id)
 
-        self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
+        result = self.exchange.sell(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=False,
+            trading_pair=self.trading_pair,
+            hbot_order_id_prefix="",
+            max_id_len=40,
+        )
+
+        self.assertEqual(result, expected_client_order_id)
+
+    def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
+        return {
+            "id": "string (uuid)",
+            "marketSymbol": "string",
+            "direction": "string",
+            "type": "string",
+            "quantity": 20.0,
+            "limit": "number (double)",
+            "ceiling": "number (double)",
+            "timeInForce": "string",
+            "clientOrderId": "string (uuid)",
+            "fillQuantity": 11.0,
+            "commission": "number (double)",
+            "proceeds": "number (double)",
+            "status": "CLOSED",
+            "createdAt": "string (date-time)",
+            "updatedAt": "string (date-time)",
+            "closedAt": "string (date-time)",
+            "orderToCancel": {
+                "type": "string",
+                "id": "string (uuid)"
+            }
+        }
+
+    def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
+        return {
+            "id": "EOID1",
+            "marketSymbol": "COINALPHAHBOT",
+            "direction": "BUY",
+            "type": "LIMIT",
+            "quantity": 10.0,
+            "limit": "number (double)",
+            "ceiling": "number (double)",
+            "timeInForce": "string",
+            "clientOrderId": "string (uuid)",
+            "fillQuantity": 10.0,
+            "commission": "number (double)",
+            "proceeds": "number (double)",
+            "status": "CLOSED",
+            "createdAt": "string (date-time)",
+            "updatedAt": "2018-06-29 08:15:27.243860",
+            "closedAt": "string (date-time)",
+            "orderToCancel": {
+                "type": "string",
+                "id": "string (uuid)"
+            }
+        }
+
+    def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
+        return {
+            "id": "string (uuid)",
+            "marketSymbol": "COINALPHAHBOT",
+            "direction": "string",
+            "type": "string",
+            "quantity": 20.0,
+            "limit": "number (double)",
+            "ceiling": "number (double)",
+            "timeInForce": "string",
+            "clientOrderId": "string (uuid)",
+            "fillQuantity": 11.0,
+            "commission": "number (double)",
+            "proceeds": "number (double)",
+            "status": "CLOSED",
+            "createdAt": "string (date-time)",
+            "updatedAt": "2018-06-29 08:15:27.243860",
+            "closedAt": "string (date-time)",
+            "orderToCancel": {
+                "type": "string",
+                "id": "string (uuid)"
+            }
+        }
+
+    def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
+        return {
+            "id": "EOID1",
+            "marketSymbol": "COINALPHAHBOT",
+            "direction": "string",
+            "type": "string",
+            "quantity": "number (double)",
+            "limit": "number (double)",
+            "ceiling": "number (double)",
+            "timeInForce": "string",
+            "clientOrderId": "string (uuid)",
+            "fillQuantity": "number (double)",
+            "commission": "number (double)",
+            "proceeds": "number (double)",
+            "status": "OPEN",
+            "createdAt": "string (date-time)",
+            "updatedAt": "2018-06-29 08:15:27.243860",
+            "closedAt": "string (date-time)",
+            "orderToCancel": {
+                "type": "string",
+                "id": "string (uuid)"
+            }
+        }
+
+    def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
+        return {
+            "id": "EOID1",
+            "marketSymbol": "COINALPHAHBOT",
+            "direction": "string",
+            "type": "string",
+            "quantity": 20.0,
+            "limit": "number (double)",
+            "ceiling": "number (double)",
+            "timeInForce": "string",
+            "clientOrderId": "string (uuid)",
+            "fillQuantity": 17.0,
+            "commission": "number (double)",
+            "proceeds": "number (double)",
+            "status": "OPEN",
+            "createdAt": "string (date-time)",
+            "updatedAt": "2018-06-29 08:15:27.243860",
+            "closedAt": "string (date-time)",
+            "orderToCancel": {
+                "type": "string",
+                "id": "string (uuid)"
+            }
+        }
+
+    def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
+        pass
+
+    def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
+        pass
+
+    @aioresponses()
+    def test_update_order_status_when_order_has_not_changed_and_one_partial_fill(self, mock_api):
+        # Suppressing test as Bittrex does not provide a partial-filled state
+        pass
