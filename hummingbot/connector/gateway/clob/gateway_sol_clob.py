@@ -592,7 +592,6 @@ class GatewaySOLCLOB(ConnectorBase):
             signature: str = order_result.get("signature")
 
             if signature is not None:
-                nonce = constant.DEFAULT_NONCE
                 gas_cost = constant.FIVE_THOUSAND_LAMPORTS
                 gas_price_token = Chain.SOLANA.native_currency
                 gas_price: Decimal = constant.DECIMAL_ONE
@@ -607,7 +606,6 @@ class GatewaySOLCLOB(ConnectorBase):
                     update_timestamp=self.current_timestamp,
                     new_state=OrderState.OPEN,  # Assume that the transaction has been successfully mined.
                     misc_updates={
-                        "nonce": nonce,
                         "gas_price": gas_price,
                         "gas_limit": gas_limit,
                         "gas_cost": gas_cost,
@@ -948,9 +946,6 @@ class GatewaySOLCLOB(ConnectorBase):
         if time.time() - self._last_poll_timestamp > constant.POLL_INTERVAL:
             if self._poll_notifier is not None and not self._poll_notifier.is_set():
                 self._poll_notifier.set()
-
-    async def _update_nonce(self, new_nonce: Optional[int] = None):
-        self._nonce = new_nonce
 
     async def _status_polling_loop(self):
         await self.update_balances(on_interval=False)
