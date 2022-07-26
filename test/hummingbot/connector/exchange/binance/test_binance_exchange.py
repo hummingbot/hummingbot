@@ -1080,7 +1080,7 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
         self.assertEqual(result, expected_client_order_id)
 
-    def test_time_synchronizer_related_reqeust_error_detection(self):
+    def test_time_synchronizer_related_request_error_detection(self):
         exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
                             "Error: {'code':-1021,'msg':'Timestamp for this request is outside of the recvWindow.'}")
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
