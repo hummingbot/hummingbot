@@ -114,6 +114,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         # Holds ongoing hedging orders mapped to their respective maker fill trades
         self._ongoing_hedging = bidict()
 
+        self._logging_options = logging_options
+
         self._last_taker_buy_price = None
         self._last_taker_sell_price = None
 
@@ -229,11 +231,11 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
     @property
     def logging_options(self) -> int:
-        return self.logging_options
+        return self._logging_options
 
     @logging_options.setter
     def logging_options(self, logging_options: Tuple):
-        self.logging_options = logging_options
+        self._logging_options = logging_options
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
