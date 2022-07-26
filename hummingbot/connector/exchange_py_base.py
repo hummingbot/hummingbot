@@ -449,6 +449,8 @@ class ExchangePyBase(ExchangeBase, ABC):
         else:
             amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount)
 
+        self.logger().debug(f"Before tracking {order_id} with {order_type}, {amount} at {price}")
+
         self.start_tracking_order(
             order_id=order_id,
             exchange_order_id=None,
@@ -459,6 +461,8 @@ class ExchangePyBase(ExchangeBase, ABC):
             amount=amount,
             **kwargs,
         )
+
+        self.logger().debug(f"After tracking {order_id} with {order_type}, {amount} at {price}")
 
         if order_type not in self.supported_order_types():
             self.logger().error(f"{order_type} is not in the list of supported order types")
@@ -477,6 +481,8 @@ class ExchangePyBase(ExchangeBase, ABC):
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
 
         try:
+            self.logger().debug(f"Before placing {order_id} with {order_type}, {amount} at {price}")
+
             exchange_order_id, update_timestamp = await self._place_order(
                 order_id=order_id,
                 trading_pair=trading_pair,
@@ -486,6 +492,8 @@ class ExchangePyBase(ExchangeBase, ABC):
                 price=price,
                 **kwargs,
             )
+
+            self.logger().debug(f"After placing {order_id} - excid: {exchange_order_id} with {order_type}, {amount} at {price}")
 
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
@@ -865,7 +873,12 @@ class ExchangePyBase(ExchangeBase, ABC):
                            limit_id: Optional[str] = None,
                            **kwargs) -> Dict[str, Any]:
 
+<<<<<<< HEAD
         last_exception = None
+=======
+        self.logger().debug(f"Before getting rest assistant {params}, {data}")
+
+>>>>>>> debugging
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
         if is_auth_required:
             url = self.web_utils.private_rest_url(path_url, domain=self.domain)

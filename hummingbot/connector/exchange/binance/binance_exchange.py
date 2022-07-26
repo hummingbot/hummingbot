@@ -171,6 +171,9 @@ class BinanceExchange(ExchangePyBase):
         price_str = f"{price:f}"
         type_str = BinanceExchange.binance_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
+
+        self.logger().debug(f"Before associating symbol {order_id} with {order_type},  {amount_str} at {price_str}.")
+
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         api_params = {"symbol": symbol,
                       "side": side_str,
@@ -180,6 +183,8 @@ class BinanceExchange(ExchangePyBase):
                       "price": price_str}
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
+
+        self.logger().debug(f"Before api posting {api_params}.")
 
         order_result = await self._api_post(
             path_url=CONSTANTS.ORDER_PATH_URL,

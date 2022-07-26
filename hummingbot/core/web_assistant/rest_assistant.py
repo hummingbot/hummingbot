@@ -73,10 +73,14 @@ class RESTAssistant:
             throttler_limit_id=throttler_limit_id
         )
 
+        self.logger().debug(f"Before asyncwith req: {request.url} | {request.method} | {request.params} | {request.data} | to={timeout}, thr={throttler_limit_id}")
+
         async with self._throttler.execute_task(limit_id=throttler_limit_id):
+            self.logger().debug(f"Before req: {request.url} | {request.method} | {request.params} | {request.data} | to={timeout}, thr={throttler_limit_id}")
+
             response = await self.call(request=request, timeout=timeout)
 
-            self.logger().info(f"REQ: {request.url} | {request.method} | {request.params} | {request.data}")
+            self.logger().debug(f"After req: {request.url} | {request.method} | {request.params} | {request.data} | to={timeout}, thr={throttler_limit_id}")
 
             if 400 <= response.status:
                 if return_err:

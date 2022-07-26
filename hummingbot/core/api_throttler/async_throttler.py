@@ -29,12 +29,15 @@ class AsyncRequestContext(AsyncRequestContextBase):
                                           Decimal(str(now)) - Decimal(str(task.timestamp)) - Decimal(str(task.rate_limit.time_interval * self._safety_margin_pct)) <= task.rate_limit.time_interval])
 
                 if capacity_used + weight > rate_limit.limit * (1 - self._safety_margin_pct * 4):
-                    if capacity_used + weight > rate_limit.limit and self._last_max_cap_warning_ts < now - MAX_CAPACITY_REACHED_WARNING_INTERVAL:
+                    if self._last_max_cap_warning_ts < now - MAX_CAPACITY_REACHED_WARNING_INTERVAL:
                         msg = f"API rate limit on {rate_limit.limit_id} ({rate_limit.limit} calls per " \
                               f"{rate_limit.time_interval}s) has almost reached. Limits used " \
                               f"is {capacity_used} in the last " \
                               f"{rate_limit.time_interval} seconds. New task weight is {weight}."
-                        self.logger().notify(msg)
+                        if capacity_used + weight > rate_limit.limit:
+                            self.logger().notify(msg)
+                        else:
+                            self.logger().debug(f"VIOLATION : {msg}")
                         AsyncRequestContextBase._last_max_cap_warning_ts = now
                     return False
         return True
