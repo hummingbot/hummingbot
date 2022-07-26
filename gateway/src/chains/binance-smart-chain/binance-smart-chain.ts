@@ -5,6 +5,7 @@ import { EthereumBase } from '../../services/ethereum-base';
 import { getEthereumConfig as getBinanceSmartChainConfig } from '../ethereum/ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { Ethereumish } from '../../services/common-interfaces';
+import { PancakeSwapConfig } from '../../connectors/pancakeswap/pancakeswap.config';
 
 export class BinanceSmartChain extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: BinanceSmartChain };
@@ -62,7 +63,13 @@ export class BinanceSmartChain extends EthereumBase implements Ethereumish {
   }
 
   getSpender(reqSpender: string): string {
-    return reqSpender;
+    let spender: string;
+    if (reqSpender === 'pancakeswap') {
+      spender = PancakeSwapConfig.config.routerAddress(this._chain);
+    } else {
+      spender = reqSpender;
+    }
+    return spender;
   }
 
   // cancel transaction

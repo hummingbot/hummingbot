@@ -1,13 +1,14 @@
 {
-  "name": "BSC Mainnet Token List",
-  "logoURI": "https://bsctokenlists.org/static/media/color.657056ae.png",
+  "name": "PancakeSwap Default List",
+  "timestamp": "2021-03-17T09:56:23Z",
   "version": {
-    "major": 0,
-    "minor": 2,
-    "patch": 0
+    "major": 2,
+    "minor": 0,
+    "patch": 1
   },
-  "keywords": [],
-  "timestamp": "2022-07-15T00:00:00+00:00",
+  "tags": {},
+  "logoURI": "https://exchange.pancakeswap.finance/images/pancakeswap.png",
+  "keywords": ["pancake", "default"],
   "tokens": [
     {
       "name": "WBNB Token",
@@ -16,6 +17,7 @@
       "chainId": 56,
       "decimals": 18,
       "logoURI": "https://exchange.pancakeswap.finance/images/coins/0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c.png"
+
     },
     {
       "name": "Bakery Token",

@@ -3,8 +3,9 @@ networks:
   mainnet: 
     chainID: 56
     nodeURL: 'https://bsc-dataseed1.binance.org/'
-    tokenListType: 'FILE'
-    tokenListSource: 'src/chains/binance-smart-chain/bep20_tokens_mainnet.json'
+    tokenListType: URL
+    tokenListSource: >-
+      https://gateway.pinata.cloud/ipfs/QmdKy1K5TMzSHncLzUXUJdvKi1tHRmJocDRfmCXxW5mshS  # Pancakeswap Token List
     nativeCurrencySymbol: 'BNB'    
   testnet: 
     chainID: 97

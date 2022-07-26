@@ -87,3 +87,15 @@ configurations:
   $namespace binance-smart-chain:
     configurationPath: binance-smart-chain.yml
     schemaPath: ethereum-schema.json
+
+  $namespace cronos:
+      configurationPath: cronos.yml
+      schemaPath: ethereum-schema.json
+
+  $namespace defikingdoms:
+    configurationPath: defikingdoms.yml
+    schemaPath: defikingdoms-schema.json
+
+  $namespace pancakeswap:
+    configurationPath: pancakeswap.yml
+    schemaPath: pancakeswap-schema.json
