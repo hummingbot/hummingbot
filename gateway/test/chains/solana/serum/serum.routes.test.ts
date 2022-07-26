@@ -10,11 +10,13 @@ import { Serum } from '../../../../src/connectors/serum/serum';
 import { getNotNullOrThrowError } from '../../../../src/connectors/serum/serum.helpers';
 import { SerumRoutes } from '../../../../src/connectors/serum/serum.routes';
 import {
+  CancelOrderResponse,
   GetMarketResponse,
   GetOrderBookResponse,
   GetOrderResponse,
   GetTickerResponse,
   OrderStatus,
+  SettleFundsResponse,
 } from '../../../../src/connectors/serum/serum.types';
 import { ConfigManagerV2 } from '../../../../src/services/config-manager-v2';
 import { default as config } from '../../../../test/chains/solana/serum/fixtures/config';
@@ -1292,229 +1294,370 @@ describe(`/serum/orders`, () => {
     // });
   });
 
-  // describe(`DELETE /serum/orders`, () => {
-  //   describe('Single order', () => {
-  //     it('Cancel a specific order by its id and owner address', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Cancel a specific order by its id, owner address and market name', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Cancel a specific order by its exchange id and owner address', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Cancel a specific order by its exchange id, owner address and market name', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Fail when trying to cancel an order without informing the order parameter', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Fail when trying to cancel an order without informing its owner address', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Fail when trying to cancel an order without informing its id and exchange id', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Fail when trying to cancel a non existing order', async () => {
-  //       console.log('');
-  //     });
-  //   });
-  //
-  //   describe('Multiple orders', () => {
-  //     it('Cancel multiple orders by their ids and owner addresses', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Cancel multiple orders by their ids, owner addresses, and market names', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Cancel multiple orders by their exchange ids and owner addresses', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Cancel multiple orders by their exchange ids, owner addresses, and market names', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Fail when trying to cancel multiple orders without informing the orders parameter', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Fail when trying to cancel multiple orders without informing any orders within the orders parameter', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Fail when trying to cancel multiple orders without informing some of their owner addresses', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Fail when trying to cancel multiple orders without informing some of their ids and exchange ids', async () => {
-  //       console.log('');
-  //     });
-  //
-  //     it('Fail when trying to cancel multiple orders informing an id of a non existing one', async () => {
-  //       console.log('');
-  //     });
-  //   });
-  // });
+  describe(`DELETE /serum/orders`, () => {
+    describe('Single order', () => {
+      let target: CreateOrderData;
+
+      beforeAll(async () => {
+        target = orderPairs[0];
+      });
+
+      // it('Cancel a specific order by its id and owner address', async () => {
+      //   console.log('');
+      // });
+
+      it('Cancel a specific order by its id, owner address and market name', async () => {
+        await patches.get('serum/market/asksBidsForAllMarkets')();
+        patches.get('solana/getKeyPair')();
+        patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
+        await patches.get('serum/market/loadOrdersForOwner')([target.request]);
+
+        const orderId = target.response.id;
+        const ownerAddress = target.response.ownerAddress;
+        const marketName = target.response.marketName;
+
+        await request(app)
+          .delete(`/serum/orders`)
+          .send({
+            chain: config.serum.chain,
+            network: config.serum.network,
+            connector: config.serum.connector,
+            order: {
+              id: orderId,
+              ownerAddress: ownerAddress,
+              marketName: marketName,
+            },
+          })
+          .set('Accept', 'application/json')
+          .expect(StatusCodes.OK)
+          .then((response) => {
+            const order = response.body as CancelOrderResponse;
+
+            expect(order).toBeDefined();
+          });
+      });
+      //
+      // it('Cancel a specific order by its exchange id and owner address', async () => {
+      //   console.log('');
+      // });
+      //
+      // it('Cancel a specific order by its exchange id, owner address and market name', async () => {
+      //   console.log('');
+      // });
+      //
+      // it('Fail when trying to cancel an order without informing the order parameter', async () => {
+      //   console.log('');
+      // });
+      //
+      // it('Fail when trying to cancel an order without informing its owner address', async () => {
+      //   console.log('');
+      // });
+      //
+      // it('Fail when trying to cancel an order without informing its id and exchange id', async () => {
+      //   console.log('');
+      // });
+      //
+      // it('Fail when trying to cancel a non existing order', async () => {
+      //   console.log('');
+      // });
+    });
+
+    // describe('Multiple orders', () => {
+    //   it('Cancel multiple orders by their ids and owner addresses', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Cancel multiple orders by their ids, owner addresses, and market names', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Cancel multiple orders by their exchange ids and owner addresses', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Cancel multiple orders by their exchange ids, owner addresses, and market names', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Fail when trying to cancel multiple orders without informing the orders parameter', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Fail when trying to cancel multiple orders without informing any orders within the orders parameter', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Fail when trying to cancel multiple orders without informing some of their owner addresses', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Fail when trying to cancel multiple orders without informing some of their ids and exchange ids', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Fail when trying to cancel multiple orders informing an id of a non existing one', async () => {
+    //     console.log('');
+    //   });
+    // });
+  });
 });
 
-// describe(`/serum/orders/open`, () => {
-//   describe(`GET /serum/orders/open`, () => {
-//     describe('Single order', () => {
-//       it('Get a specific open order by its id and owner address', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a specific open order by its id, owner address and market name', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a specific open order by its exchange id and owner address', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a specific open order by its exchange id, owner address and market name', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to get an open order without informing the order parameter', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to get an open order without informing its owner address', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to get an open order without informing its id and exchange id', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to get a non existing open order', async () => {
-//         console.log('');
-//       });
-//     });
-//
-//     describe('Multiple orders', () => {
-//       it('Get a map of open orders by their ids and owner addresses', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a map of open orders by their ids, owner addresses and market names', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a map of open orders by their exchange ids and owner addresses', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a map of open orders by their exchange ids, owner addresses and market names', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a map of with all open orders by for a specific owner address', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a map of with all open orders by for a specific owner address and market name', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to get a map of open orders without informing the orders parameter', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to get a map of open orders without informing any orders filter within the orders parameter', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to get a map of open orders without informing some of their owner addresses', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to get a map of multiple open orders informing an id of a non existing one', async () => {
-//         console.log('');
-//       });
-//     });
-//   });
-// });
+describe(`/serum/orders/open`, () => {
+  describe(`GET /serum/orders/open`, () => {
+    describe('Single order', () => {
+      let target: CreateOrderData;
 
-// describe(`/serum/orders/filled`, () => {
-//   describe(`GET /serum/orders/filled`, () => {
-//     describe('Single order', () => {
-//       it('Get a specific filled order by its id and owner address', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a specific filled order by its id, owner address and market name', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a specific filled order by its exchange id and owner address', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a specific filled order by its exchange id, owner address and market name', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to get a filled order without informing the order parameter', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to get a filled order without informing its owner address', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to get a filled order without informing its id and exchange id', async () => {
-//         console.log('');
-//       });
-//     });
-//
-//     describe('Multiple orders', () => {
-//       it('Get a map of filled orders by their ids and owner addresses', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a map of filled orders by their ids, owner addresses and market names', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a map of filled orders by their exchange ids and owner addresses', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a map of filled orders by their exchange ids, owner addresses and market names', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a map of with all filled orders by for a specific owner address', async () => {
-//         console.log('');
-//       });
-//
-//       it('Get a map of with all filled orders by for a specific owner address and market name', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to get a map of filled orders without informing the orders parameter', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to get a map of filled orders without informing any orders filter within the orders parameter', async () => {
-//         console.log('');
-//       });
-//
-//       it('Fail when trying to get a map of filled orders without informing some of their owner addresses', async () => {
-//         console.log('');
-//       });
-//     });
-//   });
-// });
+      beforeAll(async () => {
+        target = orderPairs[0];
+      });
+
+      // it('Get a specific open order by its id and owner address', async () => {
+      //   console.log('');
+      // });
+
+      it('Get a specific open order by its id, owner address and market name', async () => {
+        await patches.get('serum/market/asksBidsForAllMarkets')();
+        patches.get('solana/getKeyPair')();
+        patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
+        await patches.get('serum/market/loadOrdersForOwner')([target.request]);
+
+        const orderId = target.response.id;
+        const ownerAddress = target.response.ownerAddress;
+        const marketName = target.response.marketName;
+
+        await request(app)
+          .get(`/serum/orders/open`)
+          .send({
+            chain: config.serum.chain,
+            network: config.serum.network,
+            connector: config.serum.connector,
+            order: {
+              id: orderId,
+              ownerAddress: ownerAddress,
+              marketName: marketName,
+            },
+          })
+          .set('Accept', 'application/json')
+          .expect(StatusCodes.OK)
+          .then((response) => {
+            const order = response.body as GetOrderResponse;
+
+            expect(order).toBeDefined();
+          });
+      });
+
+      // it('Get a specific open order by its exchange id and owner address', async () => {
+      //   console.log('');
+      // });
+      //
+      // it('Get a specific open order by its exchange id, owner address and market name', async () => {
+      //   console.log('');
+      // });
+      //
+      // it('Fail when trying to get an open order without informing the order parameter', async () => {
+      //   console.log('');
+      // });
+      //
+      // it('Fail when trying to get an open order without informing its owner address', async () => {
+      //   console.log('');
+      // });
+      //
+      // it('Fail when trying to get an open order without informing its id and exchange id', async () => {
+      //   console.log('');
+      // });
+      //
+      // it('Fail when trying to get a non existing open order', async () => {
+      //   console.log('');
+      // });
+    });
+
+    // describe('Multiple orders', () => {
+    //   it('Get a map of open orders by their ids and owner addresses', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Get a map of open orders by their ids, owner addresses and market names', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Get a map of open orders by their exchange ids and owner addresses', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Get a map of open orders by their exchange ids, owner addresses and market names', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Get a map of with all open orders by for a specific owner address', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Get a map of with all open orders by for a specific owner address and market name', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Fail when trying to get a map of open orders without informing the orders parameter', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Fail when trying to get a map of open orders without informing any orders filter within the orders parameter', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Fail when trying to get a map of open orders without informing some of their owner addresses', async () => {
+    //     console.log('');
+    //   });
+    //
+    //   it('Fail when trying to get a map of multiple open orders informing an id of a non existing one', async () => {
+    //     console.log('');
+    //   });
+    // });
+  });
+});
+
+describe(`/serum/orders/filled`, () => {
+  describe(`GET /serum/orders/filled`, () => {
+    describe('Single order', () => {
+      let target: CreateOrderData;
+
+      beforeAll(async () => {
+        target = orderPairs[0];
+      });
+
+      //       it('Get a specific filled order by its id and owner address', async () => {
+      //         console.log('');
+      //       });
+
+      it('Get a specific filled order by its id, owner address and market name', async () => {
+        await patches.get('serum/market/asksBidsForAllMarkets')();
+        patches.get('solana/getKeyPair')();
+        patches.get('serum/serumMarketCancelOrdersAndSettleFunds')();
+        await patches.get('serum/market/loadOrdersForOwner')([target.request]);
+        patches.get('serum/serumMarketLoadFills')([target.request]);
+
+        const orderId = target.response.id;
+        const ownerAddress = target.response.ownerAddress;
+        const marketName = target.response.marketName;
+
+        await request(app)
+          .get(`/serum/orders/filled`)
+          .send({
+            chain: config.serum.chain,
+            network: config.serum.network,
+            connector: config.serum.connector,
+            order: {
+              id: orderId,
+              ownerAddress: ownerAddress,
+              marketName: marketName,
+            },
+          })
+          .set('Accept', 'application/json')
+          .expect(StatusCodes.NOT_FOUND)
+          .then((response) => {
+            expect(response.error).not.toBeFalsy();
+            if (response.error) {
+              expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+                `found with id / exchange id "${target.request.id}`
+              );
+            }
+          });
+      });
+
+      //       it('Get a specific filled order by its exchange id and owner address', async () => {
+      //         console.log('');
+      //       });
+      //
+      //       it('Get a specific filled order by its exchange id, owner address and market name', async () => {
+      //         console.log('');
+      //       });
+      //
+      //       it('Fail when trying to get a filled order without informing the order parameter', async () => {
+      //         console.log('');
+      //       });
+      //
+      //       it('Fail when trying to get a filled order without informing its owner address', async () => {
+      //         console.log('');
+      //       });
+      //
+      //       it('Fail when trying to get a filled order without informing its id and exchange id', async () => {
+      //         console.log('');
+      //       });
+    });
+    //
+    //     describe('Multiple orders', () => {
+    //       it('Get a map of filled orders by their ids and owner addresses', async () => {
+    //         console.log('');
+    //       });
+    //
+    //       it('Get a map of filled orders by their ids, owner addresses and market names', async () => {
+    //         console.log('');
+    //       });
+    //
+    //       it('Get a map of filled orders by their exchange ids and owner addresses', async () => {
+    //         console.log('');
+    //       });
+    //
+    //       it('Get a map of filled orders by their exchange ids, owner addresses and market names', async () => {
+    //         console.log('');
+    //       });
+    //
+    //       it('Get a map of with all filled orders by for a specific owner address', async () => {
+    //         console.log('');
+    //       });
+    //
+    //       it('Get a map of with all filled orders by for a specific owner address and market name', async () => {
+    //         console.log('');
+    //       });
+    //
+    //       it('Fail when trying to get a map of filled orders without informing the orders parameter', async () => {
+    //         console.log('');
+    //       });
+    //
+    //       it('Fail when trying to get a map of filled orders without informing any orders filter within the orders parameter', async () => {
+    //         console.log('');
+    //       });
+    //
+    //       it('Fail when trying to get a map of filled orders without informing some of their owner addresses', async () => {
+    //         console.log('');
+    //       });
+    //     });
+  });
+});
+
+describe(`/serum/settleFunds`, () => {
+  describe(`GET /serum/settleFunds`, () => {
+    let target: CreateOrderData;
+
+    beforeAll(async () => {
+      target = orderPairs[0];
+    });
+
+    it('Settle funds for as specific market by its market name and owner address', async () => {
+      await patches.get('serum/market/asksBidsForAllMarkets')();
+      patches.get('solana/getKeyPair')();
+      patches.get('serum/settleFundsForMarket')();
+      patches.get('serum/serumMarketLoadFills')();
+      await patches.get('serum/market/loadOrdersForOwner')([]);
+
+      const ownerAddress = target.response.ownerAddress;
+      const marketName = target.response.marketName;
+
+      await request(app)
+        .post(`/serum/settleFunds`)
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          ownerAddress: ownerAddress,
+          marketName: marketName,
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.OK)
+        .then((response) => {
+          const order = response.body as SettleFundsResponse;
+
+          expect(order).toBeDefined();
+        });
+    });
+  });
+});
