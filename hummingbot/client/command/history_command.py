@@ -147,9 +147,9 @@ class HistoryCommand:
              PerformanceMetrics.smart_round(perf.cur_quote_bal, precision),
              PerformanceMetrics.smart_round(perf.tot_vol_quote, precision)],
             [f"{trading_pair + ' price':<17}",
-             PerformanceMetrics.smart_round(perf.start_price),
-             PerformanceMetrics.smart_round(perf.cur_price),
-             PerformanceMetrics.smart_round(perf.cur_price - perf.start_price)],
+             PerformanceMetrics.smart_round(perf.start_price, precision),
+             PerformanceMetrics.smart_round(perf.cur_price, precision),
+             PerformanceMetrics.smart_round(perf.cur_price - perf.start_price, precision)],
             [f"{'Base asset %':<17}", "-", "-", "-"] if market in AllConnectorSettings.get_derivative_names() else  # No base asset for derivatives because they are margined
             [f"{'Base asset %':<17}",
              f"{perf.start_base_ratio_pct:.2%}",
