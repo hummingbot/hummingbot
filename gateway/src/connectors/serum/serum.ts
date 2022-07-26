@@ -69,7 +69,7 @@ const caches = {
 export type Serumish = Serum;
 
 /**
- * Serum is a wrapper around the Serum API.
+ * Serum is a wrapper around the Serum  API.
  *
  * // TODO Listen the events from the serum API to automatically settle the funds (specially when filling orders)
  */
