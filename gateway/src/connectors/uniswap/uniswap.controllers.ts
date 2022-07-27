@@ -396,17 +396,15 @@ export async function addLiquidity(
   const gasLimitTransaction: number = ethereumish.gasLimitTransaction;
   const gasLimitEstimate: number = uniswapish.gasLimitEstimate;
 
-  const invertTokenOrder: boolean = token0.address > token1.address;
-
   const tx = await uniswapish.addPosition(
     wallet,
-    invertTokenOrder ? token1 : token0,
-    invertTokenOrder ? token0 : token1,
-    invertTokenOrder ? req.amount1 : req.amount0,
-    invertTokenOrder ? req.amount0 : req.amount1,
+    token0,
+    token1,
+    req.amount0,
+    req.amount1,
     fee,
-    req.lowerPrice,
-    req.upperPrice,
+    Number(req.lowerPrice),
+    Number(req.upperPrice),
     req.tokenId ? req.tokenId : 0,
     gasLimitTransaction,
     gasPrice,
@@ -423,8 +421,8 @@ export async function addLiquidity(
     network: ethereumish.chain,
     timestamp: startTimestamp,
     latency: latency(startTimestamp, Date.now()),
-    token0: invertTokenOrder ? token1.address : token0.address,
-    token1: invertTokenOrder ? token0.address : token1.address,
+    token0: token0.address,
+    token1: token1.address,
     fee: req.fee,
     tokenId: req.tokenId ? req.tokenId : 0,
     gasPrice: gasPrice,
