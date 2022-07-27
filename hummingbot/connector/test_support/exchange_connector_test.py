@@ -1457,7 +1457,7 @@ class AbstractExchangeConnectorTests:
             request_sent_event = asyncio.Event()
 
             self.exchange.start_tracking_order(
-                order_id="OID1",
+                order_id="11",
                 exchange_order_id=self.expected_exchange_order_id,
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
@@ -1465,7 +1465,7 @@ class AbstractExchangeConnectorTests:
                 price=Decimal("10000"),
                 amount=Decimal("1"),
             )
-            order: InFlightOrder = self.exchange.in_flight_orders["OID1"]
+            order: InFlightOrder = self.exchange.in_flight_orders["11"]
 
             for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
                 self.async_run_with_timeout(
@@ -1555,7 +1555,7 @@ class AbstractExchangeConnectorTests:
             self.exchange._set_current_timestamp(1640780000)
 
             self.exchange.start_tracking_order(
-                order_id="OID1",
+                order_id="11",
                 exchange_order_id="4",
                 trading_pair=self.trading_pair,
                 trade_type=TradeType.BUY,
@@ -1564,8 +1564,8 @@ class AbstractExchangeConnectorTests:
                 order_type=OrderType.LIMIT,
             )
 
-            self.assertIn("OID1", self.exchange.in_flight_orders)
-            order: InFlightOrder = self.exchange.in_flight_orders["OID1"]
+            self.assertIn("11", self.exchange.in_flight_orders)
+            order: InFlightOrder = self.exchange.in_flight_orders["11"]
 
             for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
                 self.async_run_with_timeout(
@@ -1602,7 +1602,7 @@ class AbstractExchangeConnectorTests:
             self.exchange._set_current_timestamp(1640780000)
 
             self.exchange.start_tracking_order(
-                order_id="OID1",
+                order_id="11",
                 exchange_order_id="4",
                 trading_pair=self.trading_pair,
                 trade_type=TradeType.BUY,
@@ -1611,8 +1611,8 @@ class AbstractExchangeConnectorTests:
                 order_type=OrderType.LIMIT,
             )
 
-            self.assertIn("OID1", self.exchange.in_flight_orders)
-            order = self.exchange.in_flight_orders["OID1"]
+            self.assertIn("11", self.exchange.in_flight_orders)
+            order = self.exchange.in_flight_orders["11"]
 
             for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
                 self.async_run_with_timeout(
@@ -1642,7 +1642,7 @@ class AbstractExchangeConnectorTests:
         def test_lost_order_removed_after_cancel_status_user_event_received(self):
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
-                order_id="OID1",
+                order_id="11",
                 exchange_order_id=self.expected_exchange_order_id,
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
@@ -1650,7 +1650,7 @@ class AbstractExchangeConnectorTests:
                 price=Decimal("10000"),
                 amount=Decimal("1"),
             )
-            order = self.exchange.in_flight_orders["OID1"]
+            order = self.exchange.in_flight_orders["11"]
 
             for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
                 self.async_run_with_timeout(
@@ -1680,7 +1680,7 @@ class AbstractExchangeConnectorTests:
         def test_lost_order_user_stream_full_fill_events_are_processed(self, mock_api):
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
-                order_id="OID1",
+                order_id="11",
                 exchange_order_id=self.expected_exchange_order_id,
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
@@ -1688,7 +1688,7 @@ class AbstractExchangeConnectorTests:
                 price=Decimal("10000"),
                 amount=Decimal("1"),
             )
-            order = self.exchange.in_flight_orders["OID1"]
+            order = self.exchange.in_flight_orders["11"]
 
             for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
                 self.async_run_with_timeout(

@@ -281,7 +281,9 @@ class GateIoExchange(ExchangePyBase):
                 is_auth_required=True,
                 limit_id=CONSTANTS.ORDER_STATUS_LIMIT_ID)
 
-            order_update = self._create_order_update_with_order_status_data(order_status=updated_order_data)
+            order_update = self._create_order_update_with_order_status_data(
+                order_status=updated_order_data,
+                order=tracked_order)
         except asyncio.TimeoutError:
             raise IOError(f"Skipped order status update for {tracked_order.client_order_id}"
                           f" - waiting for exchange order id.")
@@ -371,13 +373,12 @@ class GateIoExchange(ExchangePyBase):
                 state = OrderState.CANCELED
         return state
 
-    def _create_order_update_with_order_status_data(self, order_status: Dict[str, Any]):
+    def _create_order_update_with_order_status_data(self, order_status: Dict[str, Any], order: InFlightOrder):
         client_order_id = str(order_status.get("text", ""))
-        tracked_order = self.in_flight_orders.get(client_order_id, None)
-        state = self._normalise_order_message_state(order_status, tracked_order) or tracked_order.current_state
+        state = self._normalise_order_message_state(order_status, order) or order.current_state
 
         order_update = OrderUpdate(
-            trading_pair=tracked_order.trading_pair,
+            trading_pair=order.trading_pair,
             update_timestamp=int(order_status["update_time"]),
             new_state=state,
             client_order_id=client_order_id,
@@ -400,7 +401,7 @@ class GateIoExchange(ExchangePyBase):
             self.logger().debug(f"Ignoring order message with id {client_order_id}: not in in_flight_orders.")
             return
 
-        order_update = self._create_order_update_with_order_status_data(order_status=order_msg)
+        order_update = self._create_order_update_with_order_status_data(order_status=order_msg, order=tracked_order)
         self._order_tracker.process_order_update(order_update=order_update)
 
     def _create_trade_update_with_order_fill_data(
