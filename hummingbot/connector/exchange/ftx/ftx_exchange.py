@@ -17,8 +17,9 @@ from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -140,13 +141,30 @@ class FtxExchange(ExchangePyBase):
 
         return exchange_order_id, self.current_timestamp
 
-    def _get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
-                 amount: Decimal, price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
-        raise NotImplementedError
+    def _get_fee(self,
+                 base_currency: str,
+                 quote_currency: str,
+                 order_type: OrderType,
+                 order_side: TradeType,
+                 amount: Decimal,
+                 price: Decimal = s_decimal_NaN,
+                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+
+        is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
+        fee = build_trade_fee(
+            self.name,
+            is_maker,
+            base_currency=base_currency,
+            quote_currency=quote_currency,
+            order_type=order_type,
+            order_side=order_side,
+            amount=amount,
+            price=price,
+        )
+        return fee
 
     async def _update_trading_fees(self):
-        raise NotImplementedError
+        pass
 
     async def _user_stream_event_listener(self):
         """
@@ -360,14 +378,15 @@ class FtxExchange(ExchangePyBase):
         state = order.current_state
         msg_status = order_status_msg["status"]
         if msg_status == "new":
-            state = OrderState.PENDING_CREATE
+            # Do nothing because pending creation is the first natural status of InFlightOrders
+            pass
         elif msg_status == "open":
             state = (OrderState.PARTIALLY_FILLED
                      if Decimal(str(order_status_msg["filledSize"])) > s_decimal_0
                      else OrderState.OPEN)
         elif msg_status == "closed":
             state = (OrderState.CANCELED
-                     if Decimal(str(order_status_msg["remainingSize"])) > s_decimal_0
+                     if Decimal(str(order_status_msg["filledSize"])) == s_decimal_0
                      else OrderState.FILLED)
 
         order_update = OrderUpdate(
