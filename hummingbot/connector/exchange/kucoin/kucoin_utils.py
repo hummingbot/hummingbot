@@ -1,95 +1,106 @@
-from typing import (
-    Tuple,
-)
+from decimal import Decimal
+from typing import Any, Dict
 
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "ETH-USDT"
 
-DEFAULT_FEES = [0.1, 0.1]
-
-# Certain asset tokens is different from its name as per displayed on Kucoin Exchange
-ASSET_TO_NAME_MAPPING = {  # token: name
-    "WAX": "WAXP",
-    "BCHSV": "BSV",
-}
-
-NAME_TO_ASSET_MAPPING = {  # name: token
-    name: asset
-    for asset, name in ASSET_TO_NAME_MAPPING.items()
-}
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.001"),
+    taker_percent_fee_decimal=Decimal("0.001"),
+)
 
 
-def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
-    try:
-        base, quote = trading_pair.split("-")
+def is_pair_information_valid(pair_info: Dict[str, Any]) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its market information
 
-        if base in ASSET_TO_NAME_MAPPING:
-            base = ASSET_TO_NAME_MAPPING[base]
+    :param pair_info: the market information for a trading pair
 
-        if quote in ASSET_TO_NAME_MAPPING:
-            quote = ASSET_TO_NAME_MAPPING[quote]
-
-        return base, quote
-    except Exception as e:
-        raise ValueError(f"Error parsing trading_pair {trading_pair}: {str(e)}")
+    :return: True if the trading pair is enabled, False otherwise
+    """
+    return pair_info.get("enableTrading", False)
 
 
-def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
-    base, quote = exchange_trading_pair.split("-")
-    if base in ASSET_TO_NAME_MAPPING:
-        base = ASSET_TO_NAME_MAPPING[base]
+class KuCoinConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="kucoin", client_data=None)
+    kucoin_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your KuCoin API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    kucoin_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your KuCoin secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    kucoin_passphrase: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your KuCoin passphrase",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
 
-    if quote in ASSET_TO_NAME_MAPPING:
-        quote = ASSET_TO_NAME_MAPPING[quote]
-
-    return f"{base}-{quote}"
+    class Config:
+        title = "kucoin"
 
 
-def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    base, quote = hb_trading_pair.split("-")
+KEYS = KuCoinConfigMap.construct()
 
-    if base in NAME_TO_ASSET_MAPPING:
-        base = NAME_TO_ASSET_MAPPING[base]
-
-    if quote in NAME_TO_ASSET_MAPPING:
-        quote = NAME_TO_ASSET_MAPPING[quote]
-
-    return f"{base}-{quote}"
+OTHER_DOMAINS = ["kucoin_testnet"]
+OTHER_DOMAINS_PARAMETER = {"kucoin_testnet": "testnet"}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"kucoin_testnet": "ETH-USDT"}
+OTHER_DOMAINS_DEFAULT_FEES = {"kucoin_testnet": [0.1, 0.1]}
 
 
-def convert_asset_from_exchange(asset: str) -> str:
-    if asset in ASSET_TO_NAME_MAPPING:
-        asset = ASSET_TO_NAME_MAPPING[asset]
-    return asset
+class KuCoinTestnetConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="kucoin_testnet", client_data=None)
+    kucoin_testnet_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your KuCoin Testnet API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    kucoin_testnet_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your KuCoin Testnet secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    kucoin_testnet_passphrase: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your KuCoin Testnet passphrase",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "kucoin_testnet"
 
 
-def convert_asset_to_exchange(asset: str) -> str:
-    if asset in NAME_TO_ASSET_MAPPING:
-        asset = NAME_TO_ASSET_MAPPING[asset]
-    return asset
-
-
-KEYS = {
-    "kucoin_api_key":
-        ConfigVar(key="kucoin_api_key",
-                  prompt="Enter your KuCoin API key >>> ",
-                  required_if=using_exchange("kucoin"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "kucoin_secret_key":
-        ConfigVar(key="kucoin_secret_key",
-                  prompt="Enter your KuCoin secret key >>> ",
-                  required_if=using_exchange("kucoin"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "kucoin_passphrase":
-        ConfigVar(key="kucoin_passphrase",
-                  prompt="Enter your KuCoin passphrase >>> ",
-                  required_if=using_exchange("kucoin"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+OTHER_DOMAINS_KEYS = {"kucoin_testnet": KuCoinTestnetConfigMap.construct()}

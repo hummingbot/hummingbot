@@ -1,38 +1,32 @@
-#!/usr/bin/env python
-from decimal import Decimal
-from datetime import datetime
 import math
-import logging
+import unittest
+from datetime import datetime
+from decimal import Decimal
+from typing import List
 
 import pandas as pd
-from typing import List
-import unittest
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
-from hummingbot.core.event.event_logger import EventLogger
 
-from hummingbot.core.event.events import (
-    MarketEvent,
-    TradeType,
-    OrderType,
-    OrderFilledEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderCancelledEvent,
-    MarketOrderFailureEvent,
-    OrderExpiredEvent
-)
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderExpiredEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+)
 from hummingbot.strategy.conditional_execution_state import RunInTimeConditionalExecutionState
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.twap import TwapTradeStrategy
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from test.mock.mock_paper_exchange import MockPaperExchange
-
-logging.basicConfig(level=logging.ERROR)
 
 
 class TWAPUnitTest(unittest.TestCase):
@@ -52,7 +46,9 @@ class TWAPUnitTest(unittest.TestCase):
         self.log_records = []
 
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange()
+        self.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.mid_price = 100
         self.order_delay_time = 15
         self.cancel_order_wait_time = 45
@@ -68,11 +64,7 @@ class TWAPUnitTest(unittest.TestCase):
             )
         )
 
-        self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
-            *(
-                [self.market] + self.maker_trading_pairs
-            )
-        )
+        self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(*([self.market] + self.maker_trading_pairs))
 
         # Define strategies to test
         self.limit_buy_strategy: TwapTradeStrategy = TwapTradeStrategy(
@@ -137,10 +129,8 @@ class TWAPUnitTest(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal("0"),
                 OrderType.LIMIT
             ))
         else:
@@ -161,10 +151,8 @@ class TWAPUnitTest(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal("0"),
                 OrderType.LIMIT
             ))
 
@@ -390,7 +378,6 @@ class TWAPUnitTest(unittest.TestCase):
 
         order_time_2 = order_time_1 + self.clock_tick_size * math.ceil(self.order_delay_time / self.clock_tick_size)
         self.clock.backtest_til(order_time_2)
-        ask_order2: LimitOrder = self.limit_sell_strategy.active_asks[0][1]
 
         base_balance = self.market_info.base_balance
         available_base_balance = self.market.get_available_balance(self.market_info.base_asset)
@@ -404,14 +391,14 @@ class TWAPUnitTest(unittest.TestCase):
                                "    Order size: 1 COINALPHA\n"
                                "    Execution type: run continuously\n\n"
                                "  Markets:\n"
-                               "                Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
-                               "    0  MockPaperExchange  COINALPHA-WETH            99.5           100.5        100\n\n"
+                               "                  Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
+                               "    0  mock_paper_exchange  COINALPHA-WETH            99.5           100.5        100\n\n"
                                "  Assets:\n"
-                               "                Exchange      Asset  Total Balance  Available Balance\n"
-                               "    0  MockPaperExchange  COINALPHA         "
+                               "                  Exchange      Asset  Total Balance  Available Balance\n"
+                               "    0  mock_paper_exchange  COINALPHA         "
                                f"{base_balance:.2f}             "
                                f"{available_base_balance:.2f}\n"
-                               "    1  MockPaperExchange       WETH       "
+                               "    1  mock_paper_exchange       WETH       "
                                f"{quote_balance:.2f}           "
                                f"{available_quote_balance:.2f}\n\n"
                                "  No active maker orders.\n\n"
@@ -419,30 +406,29 @@ class TWAPUnitTest(unittest.TestCase):
                                "  Pending amount: 2.00 COINALPHA")
 
         sell_started_status = self.limit_sell_strategy.format_status()
-        expected_sell_status = ("\n  Configuration:\n"
-                                "    Total amount: 5.00 COINALPHA"
-                                "    Order price: 101.0 WETH"
-                                "    Order size: 1.67 COINALPHA\n"
-                                "    Execution type: run continuously\n\n"
-                                "  Markets:\n"
-                                "                Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
-                                "    0  MockPaperExchange  COINALPHA-WETH            99.5           100.5        100\n\n"
-                                "  Assets:\n"
-                                "                Exchange      Asset  Total Balance  Available Balance\n"
-                                "    0  MockPaperExchange  COINALPHA         "
-                                f"{base_balance:.2f}             "
-                                f"{available_base_balance:.2f}\n"
-                                "    1  MockPaperExchange       WETH       "
-                                f"{quote_balance:.2f}           "
-                                f"{available_quote_balance:.2f}\n\n"
-                                "  Active orders:\n"
-                                "      Order ID  Type  Price Spread  Amount  Age Hang\n"
-                                f"    0  ...{ask_order2.client_order_id[-4:]}  sell    101  0.00%    1.67  n/a  n/a\n\n"
-                                "  Average filled orders price: 101.0 WETH\n"
-                                "  Pending amount: 1.66 COINALPHA")
+        expected_sell_start = ("\n  Configuration:\n"
+                               "    Total amount: 5.00 COINALPHA"
+                               "    Order price: 101.0 WETH"
+                               "    Order size: 1.67 COINALPHA\n"
+                               "    Execution type: run continuously\n\n"
+                               "  Markets:\n"
+                               "                  Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
+                               "    0  mock_paper_exchange  COINALPHA-WETH            99.5           100.5        100\n\n"
+                               "  Assets:\n"
+                               "                  Exchange      Asset  Total Balance  Available Balance\n"
+                               "    0  mock_paper_exchange  COINALPHA         "
+                               f"{base_balance:.2f}             "
+                               f"{available_base_balance:.2f}\n"
+                               "    1  mock_paper_exchange       WETH       "
+                               f"{quote_balance:.2f}           "
+                               f"{available_quote_balance:.2f}\n\n"
+                               "  Active orders:\n"
+                               "      Order ID  Type  Price Spread  Amount")
+        expected_sell_end = "n/a\n\n  Average filled orders price: 101.0 WETH\n  Pending amount: 1.66 COINALPHA"
 
         self.assertEqual(expected_buy_status, buy_not_started_status)
-        self.assertEqual(expected_sell_status, sell_started_status)
+        self.assertTrue(sell_started_status.startswith(expected_sell_start))
+        self.assertTrue(sell_started_status.endswith(expected_sell_end))
 
     def test_strategy_time_span_execution(self):
         span_start_time = self.start_timestamp + (self.clock_tick_size * 5)
@@ -486,7 +472,8 @@ class TWAPUnitTest(unittest.TestCase):
             order_delay_time=self.order_delay_time,
             target_asset_amount=Decimal("100.0"),
             order_step_size=Decimal("1.0"),
-            execution_state=RunInTimeConditionalExecutionState(start_timestamp=datetime.fromtimestamp(delayed_start_time))
+            execution_state=RunInTimeConditionalExecutionState(
+                start_timestamp=datetime.fromtimestamp(delayed_start_time))
         )
 
         self.clock.add_iterator(strategy)

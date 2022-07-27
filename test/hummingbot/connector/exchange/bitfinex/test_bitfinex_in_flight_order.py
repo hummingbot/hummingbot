@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from hummingbot.connector.exchange.bitfinex import OrderStatus
 from hummingbot.connector.exchange.bitfinex.bitfinex_in_flight_order import BitfinexInFlightOrder
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class BitfinexInFlightOrderTests(TestCase):
@@ -22,7 +22,8 @@ class BitfinexInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0,
         )
 
         trade_event_info = {
@@ -53,7 +54,8 @@ class BitfinexInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0
         )
 
         trade_event_info = {
@@ -106,7 +108,8 @@ class BitfinexInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0
         )
 
         trade_event_info = {
@@ -158,7 +161,8 @@ class BitfinexInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0
         )
 
         trade_event_info = {

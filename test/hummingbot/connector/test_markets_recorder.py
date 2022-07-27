@@ -5,16 +5,17 @@ from unittest.mock import patch
 
 from sqlalchemy import create_engine
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
     OrderFilledEvent,
-    OrderType,
-    PositionAction,
-    TradeType
+    SellOrderCreatedEvent,
 )
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
@@ -23,7 +24,7 @@ from hummingbot.model.trade_fill import TradeFill
 
 class MarketsRecorderTests(TestCase):
 
-    @patch("hummingbot.model.sql_connection_manager.SQLConnectionManager.get_db_engine")
+    @patch("hummingbot.model.sql_connection_manager.create_engine")
     def setUp(self, engine_mock) -> None:
         super().setUp()
         self.display_name = "test_market"
@@ -36,7 +37,9 @@ class MarketsRecorderTests(TestCase):
         self.trading_pair = f"{self.base}-{self.quote}"
 
         engine_mock.return_value = create_engine("sqlite:///:memory:")
-        self.manager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_name="test_DB")
+        self.manager = SQLConnectionManager(
+            ClientConfigAdapter(ClientConfigMap()), SQLConnectionType.TRADE_FILLS, db_name="test_DB"
+        )
 
         self.tracking_states = dict()
 
@@ -93,7 +96,7 @@ class MarketsRecorderTests(TestCase):
         self.assertEqual(1, len(trades))
         self.assertEqual(fill_id, trades[0].exchange_trade_id)
 
-    def test_create_order_event_creates_order_record(self):
+    def test_buy_order_created_event_creates_order_record(self):
         recorder = MarketsRecorder(
             sql=self.manager,
             markets=[self],
@@ -108,6 +111,7 @@ class MarketsRecorderTests(TestCase):
             amount=Decimal(1),
             price=Decimal(1000),
             order_id="OID1",
+            creation_timestamp=1640001112.223,
             exchange_order_id="EOID1",
         )
 
@@ -123,8 +127,45 @@ class MarketsRecorderTests(TestCase):
         self.assertEqual(1, len(orders))
         self.assertEqual(self.config_file_path, orders[0].config_file_path)
         self.assertEqual(event.order_id, orders[0].id)
+        self.assertEqual(1640001112223, orders[0].creation_timestamp)
         self.assertEqual(1, len(order_status))
         self.assertEqual(MarketEvent.BuyOrderCreated.name, order_status[0].status)
+        self.assertEqual(0, len(trade_fills))
+
+    def test_sell_order_created_event_creates_order_record(self):
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name
+        )
+
+        event = SellOrderCreatedEvent(
+            timestamp=int(time.time()),
+            type=OrderType.LIMIT,
+            trading_pair=self.trading_pair,
+            amount=Decimal(1),
+            price=Decimal(1000),
+            order_id="OID1",
+            creation_timestamp=1640001112.223,
+            exchange_order_id="EOID1",
+        )
+
+        recorder._did_create_order(MarketEvent.SellOrderCreated.value, self, event)
+
+        with self.manager.get_new_session() as session:
+            query = session.query(Order)
+            orders = query.all()
+            order = orders[0]
+            order_status = order.status
+            trade_fills = order.trade_fills
+
+        self.assertEqual(1, len(orders))
+        self.assertEqual(self.config_file_path, orders[0].config_file_path)
+        self.assertEqual(event.order_id, orders[0].id)
+        self.assertEqual(1640001112223, orders[0].creation_timestamp)
+        self.assertEqual(1, len(order_status))
+        self.assertEqual(MarketEvent.SellOrderCreated.name, order_status[0].status)
         self.assertEqual(0, len(trade_fills))
 
     def test_create_order_and_process_fill(self):
@@ -142,6 +183,7 @@ class MarketsRecorderTests(TestCase):
             amount=Decimal(1),
             price=Decimal(1000),
             order_id="OID1-1642010000000000",
+            creation_timestamp=1640001112.223,
             exchange_order_id="EOID1",
         )
 
@@ -193,6 +235,7 @@ class MarketsRecorderTests(TestCase):
             amount=Decimal(1),
             price=Decimal(1000),
             order_id="OID1-1642010000000000",
+            creation_timestamp=1640001112.223,
             exchange_order_id="EOID1",
         )
 
@@ -203,10 +246,8 @@ class MarketsRecorderTests(TestCase):
             order_id=create_event.order_id,
             base_asset=self.base,
             quote_asset=self.quote,
-            fee_asset=self.base,
             base_asset_amount=create_event.amount,
             quote_asset_amount=create_event.amount * create_event.price,
-            fee_amount=Decimal(0),
             order_type=create_event.type)
 
         recorder._did_complete_order(MarketEvent.BuyOrderCompleted.value, self, complete_event)

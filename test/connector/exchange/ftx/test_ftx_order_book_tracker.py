@@ -14,7 +14,8 @@ from typing import (
 
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.connector.exchange.ftx.ftx_order_book_tracker import FtxOrderBookTracker
-from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
+from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 

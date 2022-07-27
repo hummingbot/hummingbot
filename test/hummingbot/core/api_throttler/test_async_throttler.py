@@ -3,19 +3,15 @@ import logging
 import math
 import time
 import unittest
-
 from decimal import Decimal
-from typing import (
-    Dict,
-    List,
-)
+from typing import Dict, List
+from unittest.mock import patch
 
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.core.api_throttler.async_throttler import AsyncRequestContext, AsyncThrottler
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit, TaskLog
-
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-
 
 TEST_PATH_URL = "/hummingbot"
 TEST_POOL_ID = "TEST"
@@ -51,10 +47,7 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         super().setUp()
         self.throttler = AsyncThrottler(rate_limits=self.rate_limits)
         self._req_counters: Dict[str, int] = {limit.limit_id: 0 for limit in self.rate_limits}
-
-    def tearDown(self) -> None:
-        global_config_map["rate_limits_share_pct"].value = None
-        super().tearDown()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
     async def execute_requests(self, no_request: int, limit_id: str, throttler: AsyncThrottler):
         for _ in range(no_request):
@@ -67,10 +60,13 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         self.assertEqual(1, self.throttler._id_to_limit_map[TEST_POOL_ID].limit)
         self.assertEqual(1, self.throttler._id_to_limit_map[TEST_PATH_URL].limit)
 
-    def test_init_with_rate_limits_share_pct(self):
+    @patch("hummingbot.core.api_throttler.async_throttler_base.AsyncThrottlerBase._client_config_map")
+    def test_init_with_rate_limits_share_pct(self, config_map_mock):
 
         rate_share_pct: Decimal = Decimal("55")
-        global_config_map["rate_limits_share_pct"].value = rate_share_pct
+        self.client_config_map.rate_limits_share_pct = rate_share_pct
+        config_map_mock.return_value = self.client_config_map
+        self.throttler = AsyncThrottler(rate_limits=self.rate_limits)
 
         rate_limits = self.rate_limits.copy()
         rate_limits.append(RateLimit(limit_id="ANOTHER_TEST", limit=10, time_interval=5))
@@ -224,3 +220,8 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
             self.ev_loop.run_until_complete(
                 asyncio.wait_for(context.acquire(), 1.0)
             )
+
+    def test_within_capacity_returns_true_for_throttler_without_configured_limits(self):
+        throttler = AsyncThrottler(rate_limits=[])
+        context = throttler.execute_task(limit_id="test_limit_id")
+        self.assertTrue(context.within_capacity())

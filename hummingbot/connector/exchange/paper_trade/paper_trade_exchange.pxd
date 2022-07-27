@@ -7,8 +7,7 @@ from hummingbot.core.data_type.LimitOrder cimport LimitOrder as CPPLimitOrder
 from hummingbot.core.data_type.OrderExpirationEntry cimport OrderExpirationEntry as CPPOrderExpirationEntry
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.event.events import MarketEvent, OrderType
+
 
 ctypedef cpp_set[CPPLimitOrder] SingleTradingPairLimitOrders
 ctypedef unordered_map[string, SingleTradingPairLimitOrders].iterator LimitOrdersIterator
@@ -40,6 +39,7 @@ cdef class PaperTradeExchange(ExchangeBase):
         object _market_order_filled_listener
         LimitOrderExpirationSet _limit_order_expiration_set
         object _target_market
+        str _exchange_name
 
     cdef c_execute_buy(self, str order_id, str trading_pair, object amount)
     cdef c_execute_sell(self, str order_id, str trading_pair, object amount)

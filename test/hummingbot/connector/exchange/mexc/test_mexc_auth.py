@@ -20,4 +20,4 @@ class TestAuth(unittest.TestCase):
         headers = self.auth.add_auth_to_params('GET', "/open/api/v2/market/coin/list",
                                                {'api_key': self.api_key}, True)
         self.assertIn("api_key=MEXC_API_KEY_mock&req_time=1635249347"
-                      "&sign=8dc59c2b7f0ad6da9e8844bb5478595a4f83126cb607524d767586437bae8d68", headers)
+                      "&sign=8dc59c2b7f0ad6da9e8844bb5478595a4f83126cb607524d767586437bae8d68", headers)  # noqa: mock

@@ -1,46 +1,60 @@
-#!/usr/bin/env python
-import logging
-from os.path import join, realpath
-
-from test.connector.exchange.mexc.fixture_mexc import FixtureMEXC
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-
 import asyncio
 import contextlib
-from decimal import Decimal
+import logging
+import math
 import os
 import time
+import unittest
+from decimal import Decimal
+from os.path import join, realpath
 from typing import (
     List,
     Optional
 )
-import unittest
-import math
+from unittest import mock
+
 import conf
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    MarketOrderFailureEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    TradeType,
-)
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
+
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.connector.exchange.mexc.mexc_constants import (
+    MEXC_BALANCE_URL,
+    MEXC_BASE_URL,
+    MEXC_BATCH_ORDER_CANCEL,
+    MEXC_DEAL_DETAIL,
+    MEXC_DEPTH_URL,
+    MEXC_ORDER_CANCEL,
+    MEXC_ORDER_DETAILS_URL,
+    MEXC_PING_URL,
+    MEXC_PLACE_ORDER,
+    MEXC_PRICE_URL,
+    MEXC_SYMBOL_URL,
 )
 from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
 from hummingbot.connector.exchange_base import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.core.clock import (
+    Clock,
+    ClockMode
+)
+from hummingbot.core.data_type.common import TradeType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
+from hummingbot.core.mock_api.mock_web_server import MockWebServer
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
@@ -48,24 +62,7 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-from hummingbot.core.mock_api.mock_web_server import MockWebServer
-from unittest import mock
-from hummingbot.connector.exchange.mexc.constants import (
-    MEXC_BASE_URL,
-    MEXC_PING_URL,
-    MEXC_SYMBOL_URL,
-    MEXC_DEPTH_URL,
-    MEXC_PRICE_URL,
-    MEXC_PLACE_ORDER,
-    MEXC_ORDER_DETAILS_URL,
-    MEXC_ORDER_CANCEL,
-    MEXC_BATCH_ORDER_CANCEL,
-    MEXC_BALANCE_URL, MEXC_DEAL_DETAIL,
-)
-import sys
-
-sys.path.insert(0, realpath(join(__file__, "../../../../../")))
+from test.connector.exchange.mexc.fixture_mexc import FixtureMEXC
 
 # MOCK_API_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 MOCK_API_ENABLED = True
@@ -336,7 +333,7 @@ class MexcExchangeUnitTest(unittest.TestCase):
 
         self.run_parallel(asyncio.sleep(1))
         if MOCK_API_ENABLED:
-            resp = FixtureMEXC.ORDERS_BATCH_CANCELLED.copy()
+            resp = FixtureMEXC.ORDERS_BATCH_CANCELED.copy()
             resp["data"]["success"] = [exch_order_id1, exch_order_id2]
             self.web_app.update_response("delete", API_BASE_URL, "/open/api/v2/order/cancel_by_symbol", resp)
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
@@ -368,7 +365,6 @@ class MexcExchangeUnitTest(unittest.TestCase):
         self.assertEqual("USDT", buy_order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, buy_order_completed_event.base_asset_amount, places=4)
         self.assertAlmostEqual(quote_amount_traded, buy_order_completed_event.quote_asset_amount, places=4)
-        self.assertGreater(buy_order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
         self.market_logger.clear()
@@ -438,7 +434,7 @@ class MexcExchangeUnitTest(unittest.TestCase):
                                              1002, FixtureMEXC.ORDER_GET_LIMIT_BUY_FILLED, self.market_2)
         self.run_parallel(asyncio.sleep(1))
         if MOCK_API_ENABLED:
-            resp = FixtureMEXC.ORDERS_BATCH_CANCELLED.copy()
+            resp = FixtureMEXC.ORDERS_BATCH_CANCELED.copy()
             resp["data"][0]["ordId"] = exch_order_id1
             self.web_app.update_response("delete", API_BASE_URL, '/' + MEXC_BATCH_ORDER_CANCEL, resp)
 

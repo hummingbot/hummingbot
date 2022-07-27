@@ -3,16 +3,14 @@
 import logging
 import datetime
 from typing import (
-    Any,
     Dict,
-    List,
     Optional,
 )
 from datetime import datetime
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.event.events import TradeType
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType,

@@ -17,3 +17,14 @@ exclude = '''
 
 [build-system]
 requires = ["setuptools", "wheel", "numpy", "cython==0.29.15"]
+
+[tool.isort]
+line_length = 120
+multi_line_output = 3
+include_trailing_comma = true
+use_parentheses = true
+ensure_newline_before_comments = true
+combine_as_imports = true
+conda_env = "hummingbot"
+filter_files = true
+skip = ["setup.py"]

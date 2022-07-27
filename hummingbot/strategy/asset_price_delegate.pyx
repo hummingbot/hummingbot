@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.core.event.events import PriceType
+from hummingbot.core.data_type.common import PriceType
 
 cdef class AssetPriceDelegate:
     # The following exposed Python functions are meant for unit tests

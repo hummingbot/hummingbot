@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 cdef class BittrexInFlightOrder(InFlightOrderBase):
@@ -14,6 +14,7 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 creation_timestamp: float,
                  initial_state: str = "OPEN"):
         super().__init__(
             client_order_id,
@@ -23,7 +24,8 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
-            initial_state
+            creation_timestamp,
+            initial_state,
         )
 
         self.trade_id_set = set()
@@ -35,11 +37,11 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"CANCELLED", "FAILURE"}
+        return self.last_state in {"CANCELED", "FAILURE"}
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"CANCELLED"}
+        return self.last_state in {"CANCELED"}
 
     @property
     def order_type_description(self) -> str:
@@ -49,7 +51,7 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        order = cls._basic_from_json(data)
+        order = super().from_json(data)
         order.check_filled_condition()
         return order
 

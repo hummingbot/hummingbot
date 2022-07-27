@@ -2,7 +2,7 @@ from decimal import Decimal
 from unittest import TestCase
 
 from hummingbot.connector.exchange.bittrex.bittrex_in_flight_order import BittrexInFlightOrder
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class BittrexInFlightOrderTests(TestCase):
@@ -22,6 +22,7 @@ class BittrexInFlightOrderTests(TestCase):
             "trade_type": TradeType.BUY.name,
             "price": "1000",
             "amount": "1",
+            "creation_timestamp": 1640001112.0,
             "executed_amount_base": "0.5",
             "executed_amount_quote": "500",
             "fee_asset": "USDT",
@@ -53,7 +54,8 @@ class BittrexInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0
         )
 
         trade_event_info = {
@@ -87,7 +89,8 @@ class BittrexInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0
         )
 
         trade_event_info = {
@@ -144,7 +147,8 @@ class BittrexInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0
         )
 
         trade_event_info = {

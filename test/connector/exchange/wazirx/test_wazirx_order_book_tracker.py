@@ -1,17 +1,16 @@
-#!/usr/bin/env python
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-import math
-import time
 import asyncio
 import logging
+import math
+import time
 import unittest
 from typing import Dict, Optional, List
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
-from hummingbot.connector.exchange.wazirx.wazirx_order_book_tracker import WazirxOrderBookTracker
+
 from hummingbot.connector.exchange.wazirx.wazirx_api_order_book_data_source import WazirxAPIOrderBookDataSource
+from hummingbot.connector.exchange.wazirx.wazirx_order_book_tracker import WazirxOrderBookTracker
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent
 
 
 class WazirxOrderBookTrackerUnitTest(unittest.TestCase):

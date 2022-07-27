@@ -4,12 +4,14 @@ import re
 import time
 from decimal import Decimal
 from functools import partial
-from typing import Awaitable, List, Dict
+from typing import Awaitable, Dict, List
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
 from hummingbot.connector.exchange.altmarkets.altmarkets_exchange import AltmarketsExchange
 from hummingbot.connector.exchange.altmarkets.altmarkets_in_flight_order import AltmarketsInFlightOrder
@@ -18,11 +20,11 @@ from hummingbot.connector.exchange.altmarkets.altmarkets_utils import (
     get_new_client_order_id,
 )
 from hummingbot.connector.trading_rule import TradingRule
-
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import MarketEvent, TradeType, OrderType
+from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.time_iterator import TimeIterator
 
@@ -47,7 +49,10 @@ class AltmarketsExchangeTests(TestCase):
         super().setUp()
         self.log_records = []
         self.async_tasks: List[asyncio.Task] = []
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+
         self.exchange = AltmarketsExchange(
+            client_config_map=self.client_config_map,
             altmarkets_api_key=self.api_key,
             altmarkets_secret_key=self.api_secret_key,
             trading_pairs=[self.trading_pair]
@@ -152,6 +157,7 @@ class AltmarketsExchangeTests(TestCase):
             TradeType.BUY,
             price=Decimal(price),
             amount=Decimal(amount),
+            creation_timestamp=1640001112.223
         )
         return order
 

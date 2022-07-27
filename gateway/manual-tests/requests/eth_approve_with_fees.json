@@ -1,0 +1,7 @@
+{
+  "address": "$ETH_ADDRESS",
+  "spender": "uniswap",
+  "token": "DAI",
+  "maxFeePerGas": "5000000000",
+  "maxPriorityFeePerGas": "5000000000"
+}

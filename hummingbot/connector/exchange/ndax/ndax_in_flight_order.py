@@ -6,10 +6,7 @@ from typing import (
 )
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 WORKING_LOCAL_STATUS = "WorkingLocal"
 
@@ -27,6 +24,7 @@ class NdaxInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 creation_timestamp: float,
                  initial_state: str = WORKING_LOCAL_STATUS):
         super().__init__(
             client_order_id,
@@ -36,6 +34,7 @@ class NdaxInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
         )
         self.fee_asset = self.base_asset if self.trade_type is TradeType.BUY else self.quote_asset
@@ -63,14 +62,6 @@ class NdaxInFlightOrder(InFlightOrderBase):
 
     def mark_as_filled(self):
         self.last_state = "FullyExecuted"
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        """
-        :param data: json data from API
-        :return: formatted InFlightOrder
-        """
-        return cls._basic_from_json(data)
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
         """

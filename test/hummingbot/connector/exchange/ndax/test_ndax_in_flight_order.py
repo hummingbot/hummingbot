@@ -1,9 +1,8 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from hummingbot.connector.exchange.ndax.ndax_in_flight_order import \
-    NdaxInFlightOrder, WORKING_LOCAL_STATUS
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder, WORKING_LOCAL_STATUS
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class NdaxInFlightOrderTests(TestCase):
@@ -16,6 +15,7 @@ class NdaxInFlightOrderTests(TestCase):
                 "trade_type": "BUY",
                 "price": "35000",
                 "amount": "1.1",
+                "creation_timestamp": 1640001112.0,
                 "last_state": "Working",
                 "executed_amount_base": "0.5",
                 "executed_amount_quote": "15000",
@@ -29,7 +29,8 @@ class NdaxInFlightOrderTests(TestCase):
                                   order_type=OrderType.LIMIT,
                                   trade_type=TradeType.SELL,
                                   price=Decimal("35000"),
-                                  amount=Decimal("1.1"))
+                                  amount=Decimal("1.1"),
+                                  creation_timestamp=1640001112.0)
 
         self.assertEqual("C1", order.client_order_id)
         self.assertEqual("1", order.exchange_order_id)

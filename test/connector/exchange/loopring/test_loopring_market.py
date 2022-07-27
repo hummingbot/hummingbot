@@ -1,33 +1,26 @@
-
-from os.path import join, realpath
-import sys
-
 import asyncio
-import conf
 import contextlib
 import logging
 import os
 import time
-from typing import List
 import unittest
 from decimal import Decimal
+from os.path import join, realpath
+from typing import List
 
-from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    # WalletEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    OrderCancelledEvent,
-    TradeType,
-)
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+import conf
 from hummingbot.connector.exchange.loopring.loopring_exchange import LoopringExchange
 from hummingbot.connector.exchange_base import OrderType
-# from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
-
-sys.path.insert(0, realpath(join(__file__, "../../../../../")))
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.common import TradeType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import (
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    OrderCancelledEvent,
+    SellOrderCreatedEvent,
+)
 
 
 class LoopringExchangeUnitTest(unittest.TestCase):

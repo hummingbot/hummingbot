@@ -1,49 +1,41 @@
-#!/usr/bin/env python
+import asyncio
+import contextlib
+import logging
 import time
+import unittest
+from decimal import Decimal
 from os import unlink
 from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
+from typing import List, Optional
 
+import conf
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
 from hummingbot.connector.exchange.kraken.kraken_utils import convert_to_exchange_trading_pair
 from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.core.clock import (
+    Clock,
+    ClockMode,
+)
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
+from hummingbot.model.market_state import MarketState
+from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType
 )
-from hummingbot.model.market_state import MarketState
-from hummingbot.model.order import Order
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.core.event.events import (
-    OrderType
-)
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    TradeType,
-)
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-import asyncio
-import contextlib
-import logging
-from typing import (
-    Optional,
-    List,
-)
-from decimal import Decimal
-import unittest
-import conf
 
 PAIR = "ETH-USDC"
 BASE = "ETH"

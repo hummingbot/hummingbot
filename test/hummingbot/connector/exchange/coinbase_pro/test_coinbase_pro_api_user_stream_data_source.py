@@ -6,11 +6,11 @@ from typing import Dict, List
 from unittest.mock import AsyncMock, patch
 
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_user_stream_data_source import (
-    CoinbaseProAPIUserStreamDataSource
+    CoinbaseProAPIUserStreamDataSource,
 )
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_utils import build_coinbase_pro_web_assistant_factory
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 
 
 class TestCoinbaseProAPIUserStreamDataSource(unittest.TestCase):
@@ -120,7 +120,7 @@ class TestCoinbaseProAPIUserStreamDataSource(unittest.TestCase):
         )
         output_queue = asyncio.Queue()
 
-        t = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        t = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output_queue))
         self.async_tasks.append(t)
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
@@ -140,7 +140,7 @@ class TestCoinbaseProAPIUserStreamDataSource(unittest.TestCase):
         )
         output_queue = asyncio.Queue()
 
-        t = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        t = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output_queue))
         self.async_tasks.append(t)
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
@@ -160,7 +160,7 @@ class TestCoinbaseProAPIUserStreamDataSource(unittest.TestCase):
         )
         output_queue = asyncio.Queue()
 
-        t = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        t = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output_queue))
         self.async_tasks.append(t)
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
@@ -180,7 +180,7 @@ class TestCoinbaseProAPIUserStreamDataSource(unittest.TestCase):
         )
         output_queue = asyncio.Queue()
 
-        t = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        t = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output_queue))
         self.async_tasks.append(t)
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
@@ -204,7 +204,7 @@ class TestCoinbaseProAPIUserStreamDataSource(unittest.TestCase):
         )
         output_queue = asyncio.Queue()
 
-        t = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        t = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output_queue))
         self.async_tasks.append(t)
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
@@ -227,7 +227,7 @@ class TestCoinbaseProAPIUserStreamDataSource(unittest.TestCase):
         )
         output_queue = asyncio.Queue()
 
-        t = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        t = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output_queue))
         self.async_tasks.append(t)
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
@@ -251,7 +251,7 @@ class TestCoinbaseProAPIUserStreamDataSource(unittest.TestCase):
         )
         output_queue = asyncio.Queue()
 
-        t = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        t = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output_queue))
         self.async_tasks.append(t)
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)

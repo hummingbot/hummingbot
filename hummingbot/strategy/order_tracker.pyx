@@ -2,7 +2,6 @@ from collections import (
     deque,
     OrderedDict
 )
-import pandas as pd
 from decimal import Decimal
 from typing import (
     Dict,
@@ -10,11 +9,13 @@ from typing import (
     Tuple
 )
 
+import pandas as pd
+
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
-from hummingbot.connector.connector_base import ConnectorBase
-from .market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 NaN = float("nan")
 
@@ -88,12 +89,11 @@ cdef class OrderTracker(TimeIterator):
         return self._tracked_limit_orders
 
     @property
-    def tracked_limit_orders_data_frame(self) -> List[pd.DataFrame]:
+    def tracked_limit_orders_data_frame(self) -> pd.DataFrame:
         limit_orders = [
             [market_trading_pair_tuple.market.display_name, market_trading_pair_tuple.trading_pair, order_id,
              order.quantity,
-             "n/a" if "//" in order.client_order_id else
-             pd.Timestamp(int(order.client_order_id[-16:]) / 1e6, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S')
+             pd.Timestamp(order.creation_timestamp / 1e6, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S')
              ]
             for market_trading_pair_tuple, order_map in self._tracked_limit_orders.items()
             for order_id, order in order_map.items()]
@@ -153,7 +153,7 @@ cdef class OrderTracker(TimeIterator):
 
     cdef bint c_check_and_track_cancel(self, str order_id):
         """
-        :param order_id: the order id to be cancelled
+        :param order_id: the order id to be canceled
         :return: True if there's no existing in flight cancel for the order id, False otherwise.
         """
         cdef:
@@ -226,7 +226,8 @@ cdef class OrderTracker(TimeIterator):
                                                 market_pair.base_asset,
                                                 market_pair.quote_asset,
                                                 price,
-                                                quantity)
+                                                quantity,
+                                                creation_timestamp=int(self._current_timestamp * 1e6))
         self._tracked_limit_orders[market_pair][order_id] = limit_order
         self._shadow_tracked_limit_orders[market_pair][order_id] = limit_order
         self._order_id_to_market_pair[order_id] = market_pair

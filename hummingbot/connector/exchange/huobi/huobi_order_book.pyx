@@ -6,11 +6,11 @@ from typing import (
     Dict
 )
 
-from aiokafka import ConsumerRecord
 import ujson
+from aiokafka import ConsumerRecord
 
 from hummingbot.connector.exchange.huobi.huobi_utils import convert_from_exchange_trading_pair
-from hummingbot.core.event.events import TradeType
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
@@ -58,7 +58,7 @@ cdef class HuobiOrderBook(OrderBook):
             "amount": msg["amount"],
             "price": msg["price"]
         }
-        return OrderBookMessage(OrderBookMessageType.DIFF, content, timestamp or msg_ts)
+        return OrderBookMessage(OrderBookMessageType.TRADE, content, timestamp or msg_ts)
 
     @classmethod
     def diff_message_from_exchange(cls,

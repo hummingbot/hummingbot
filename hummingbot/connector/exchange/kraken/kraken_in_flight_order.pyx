@@ -1,16 +1,13 @@
 import math
-
 from decimal import Decimal
 from typing import (
     Any,
-    Dict
+    Dict,
+    List,
 )
 
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 s_decimal_0 = Decimal(0)
 
@@ -28,6 +25,7 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 creation_timestamp: float,
                  userref: int,
                  initial_state: str = "local"):
         super().__init__(
@@ -38,7 +36,8 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
-            initial_state
+            creation_timestamp,
+            initial_state,
         )
         self.trade_id_set = set()
         self.userref = userref
@@ -60,41 +59,15 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
         return self.last_state in {"canceled"}
 
     @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        cdef:
-            KrakenInFlightOrder retval = KrakenInFlightOrder(
-                client_order_id=data["client_order_id"],
-                exchange_order_id=data["exchange_order_id"],
-                trading_pair=data["trading_pair"],
-                order_type=getattr(OrderType, data["order_type"]),
-                trade_type=getattr(TradeType, data["trade_type"]),
-                price=Decimal(data["price"]),
-                amount=Decimal(data["amount"]),
-                initial_state=data["last_state"],
-                userref=data["userref"]
-            )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        return retval
+    def _instance_creation_parameters_from_json(cls, data: Dict[str, Any]) -> List[Any]:
+        arguments: List[Any] = super()._instance_creation_parameters_from_json(data)
+        arguments.insert(-1, data["userref"])
+        return arguments
 
-    def to_json(self) -> Dict[str, Any]:
-        return {
-            "client_order_id": self.client_order_id,
-            "exchange_order_id": self.exchange_order_id,
-            "trading_pair": self.trading_pair,
-            "order_type": self.order_type.name,
-            "trade_type": self.trade_type.name,
-            "price": str(self.price),
-            "amount": str(self.amount),
-            "executed_amount_base": str(self.executed_amount_base),
-            "executed_amount_quote": str(self.executed_amount_quote),
-            "fee_asset": self.fee_asset,
-            "fee_paid": str(self.fee_paid),
-            "last_state": self.last_state,
-            "userref": self.userref
-        }
+    def to_json(self):
+        json = super().to_json()
+        json.update({"userref": self.userref})
+        return json
 
     def update_exchange_order_id(self, exchange_id: str):
         super().update_exchange_order_id(exchange_id)

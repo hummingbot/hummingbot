@@ -1,32 +1,26 @@
 #!/usr/bin/env python
 
-import dateutil.parser as dp
-
 from datetime import datetime
-from typing import (
-    Any,
-    Dict,
-    List,
-    Tuple
+from decimal import Decimal
+from typing import Any, Dict, List, Tuple
+
+import dateutil.parser as dp
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.002"),
+    taker_percent_fee_decimal=Decimal("0.002"),
 )
 
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
-
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
 
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "ETH-USDT"
-
-DEFAULT_FEES = [0.2, 0.2]
-
-
-def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
-    side = "B" if is_buy else "S"
-    return f"{side}-{trading_pair}-{get_tracking_nonce()}"
 
 
 def convert_iso_to_epoch(ts: str) -> float:
@@ -72,38 +66,62 @@ def convert_diff_message_to_order_book_row(message: OrderBookMessage) -> Tuple[L
     return bids, asks
 
 
-KEYS = {
-    "probit_api_key":
-        ConfigVar(key="probit_api_key",
-                  prompt="Enter your ProBit Client ID >>> ",
-                  required_if=using_exchange("probit"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "probit_secret_key":
-        ConfigVar(key="probit_secret_key",
-                  prompt="Enter your ProBit secret key >>> ",
-                  required_if=using_exchange("probit"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class ProbitConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="probit", client_data=None)
+    probit_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your ProBit Client ID",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    probit_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your ProBit secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "probit"
+
+
+KEYS = ProbitConfigMap.construct()
 
 OTHER_DOMAINS = ["probit_kr"]
 OTHER_DOMAINS_PARAMETER = {"probit_kr": "kr"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"probit_kr": "BTC-USDT"}
 OTHER_DOMAINS_DEFAULT_FEES = {"probit_kr": [0.2, 0.2]}
-OTHER_DOMAINS_KEYS = {
-    "probit_kr": {
-        "probit_kr_api_key":
-            ConfigVar(key="probit_kr_api_key",
-                      prompt="Enter your ProBit KR Client ID >>> ",
-                      required_if=using_exchange("probit_kr"),
-                      is_secure=True,
-                      is_connect_key=True),
-        "probit_kr_secret_key":
-            ConfigVar(key="probit_kr_secret_key",
-                      prompt="Enter your ProBit KR secret key >>> ",
-                      required_if=using_exchange("probit_kr"),
-                      is_secure=True,
-                      is_connect_key=True),
-    }
-}
+
+
+class ProbitKrConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="probit_kr", client_data=None)
+    probit_kr_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your ProBit KR Client ID",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    probit_kr_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your ProBit KR secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "probit_kr"
+
+
+OTHER_DOMAINS_KEYS = {"probit_kr": ProbitKrConfigMap.construct()}

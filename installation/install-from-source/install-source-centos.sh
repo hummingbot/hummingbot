@@ -8,7 +8,7 @@ export CONDAPATH="$(pwd)/miniconda3" && \
 export PYTHON="$(pwd)/miniconda3/envs/hummingbot/bin/python3" && \
 # INSTALL HUMMINGBOT
 # 3) Clone Hummingbot
-git clone https://github.com/CoinAlpha/hummingbot.git && \
+git clone https://github.com/hummingbot/hummingbot.git && \
 # 4) Install Hummingbot
 export hummingbotPath="$(pwd)/hummingbot" && cd $hummingbotPath && ./install && \
 # 5) Activate environment and compile code

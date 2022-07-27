@@ -2,7 +2,7 @@ from decimal import Decimal
 from unittest import TestCase
 
 from hummingbot.connector.exchange.huobi.huobi_in_flight_order import HuobiInFlightOrder
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class HuobiInFlightOrderTests(TestCase):
@@ -22,6 +22,7 @@ class HuobiInFlightOrderTests(TestCase):
             "trade_type": TradeType.BUY.name,
             "price": "1000",
             "amount": "1",
+            "creation_timestamp": 1640001112.0,
             "executed_amount_base": "0.5",
             "executed_amount_quote": "500",
             "fee_asset": "USDT",
@@ -38,6 +39,7 @@ class HuobiInFlightOrderTests(TestCase):
         self.assertEqual(TradeType.BUY, order.trade_type)
         self.assertEqual(Decimal(order_info["price"]), order.price)
         self.assertEqual(Decimal(order_info["amount"]), order.amount)
+        self.assertEqual(1640001112.0, order.creation_timestamp)
         self.assertEqual(order_info["last_state"], order.last_state)
         self.assertEqual(Decimal(order_info["executed_amount_base"]), order.executed_amount_base)
         self.assertEqual(Decimal(order_info["executed_amount_quote"]), order.executed_amount_quote)
@@ -53,7 +55,8 @@ class HuobiInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0
         )
 
         trade_event_info = {
@@ -99,7 +102,8 @@ class HuobiInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0
         )
 
         trade_event_info = {
@@ -181,7 +185,8 @@ class HuobiInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0
         )
 
         trade_event_info = {

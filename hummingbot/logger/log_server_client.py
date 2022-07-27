@@ -1,10 +1,7 @@
 import asyncio
 import logging
-from typing import (
-    Optional,
-    Dict,
-    Any
-)
+from typing import Any, Dict, Optional
+
 import aiohttp
 
 from hummingbot.core.network_base import NetworkBase
@@ -19,7 +16,7 @@ class LogServerClient(NetworkBase):
     _lsc_shared_instance: "LogServerClient" = None
 
     @classmethod
-    def get_instance(cls, log_server_url: str = "https://api.coinalpha.com/reporting-proxy/") -> "LogServerClient":
+    def get_instance(cls, log_server_url: str = "https://api.coinalpha.com/reporting-proxy-v2/") -> "LogServerClient":
         if cls._lsc_shared_instance is None:
             cls._lsc_shared_instance = LogServerClient(log_server_url=log_server_url)
         return cls._lsc_shared_instance
@@ -30,7 +27,7 @@ class LogServerClient(NetworkBase):
             cls.lsc_logger = logging.getLogger(__name__)
         return cls.lsc_logger
 
-    def __init__(self, log_server_url: str = "https://api.coinalpha.com/reporting-proxy/"):
+    def __init__(self, log_server_url: str = "https://api.coinalpha.com/reporting-proxy-v2/"):
         super().__init__()
         self.queue: asyncio.Queue = asyncio.Queue()
         self.consume_queue_task: Optional[asyncio.Task] = None
@@ -93,17 +90,10 @@ class LogServerClient(NetworkBase):
             async with aiohttp.ClientSession(loop=loop,
                                              connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
                 async with session.get(self.log_server_url) as resp:
-                    status_text = await resp.text()
-                    if status_text != "OK":
+                    if resp.status != 200:
                         raise Exception("Log proxy server is down.")
         except asyncio.CancelledError:
             raise
         except Exception:
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
-
-    def start(self):
-        NetworkBase.start(self)
-
-    def stop(self):
-        NetworkBase.stop(self)

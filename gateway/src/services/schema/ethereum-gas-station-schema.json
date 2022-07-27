@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "enabled": { "type": "boolean" },
+    "gasStationURL": { "type": "string" },
+    "APIKey": { "type": ["string", "null"] },
+    "gasLevel": { "enum": ["fast", "fastest", "safeLow", "average"] }
+  },
+  "additionalProperties": false,
+  "required": ["enabled"]
+}

@@ -2,7 +2,7 @@ from decimal import Decimal
 from unittest import TestCase
 
 from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import CoinzoomInFlightOrder
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class CoinzoomInFlightOrderTests(TestCase):
@@ -15,7 +15,8 @@ class CoinzoomInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(45000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0
         )
 
         self.assertTrue(order.is_local)
@@ -28,7 +29,8 @@ class CoinzoomInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(45000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0
         )
 
         order.update_exchange_order_id("EOID1")

@@ -3,7 +3,7 @@ from decimal import Decimal
 from unittest import TestCase
 
 from hummingbot.connector.exchange.ftx.ftx_in_flight_order import FtxInFlightOrder
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class FtxInFlightOrderTests(TestCase):
@@ -15,7 +15,6 @@ class FtxInFlightOrderTests(TestCase):
         self.trading_pair = f"{self.base_token}-{self.quote_token}"
 
     def test_creation_from_json(self):
-        creation_timestamp = datetime.now().timestamp()
         order_info = {
             "client_order_id": "OID1",
             "exchange_order_id": "EOID1",
@@ -24,12 +23,12 @@ class FtxInFlightOrderTests(TestCase):
             "trade_type": TradeType.BUY.name,
             "price": "1000",
             "amount": "1",
+            "creation_timestamp": 1640001112.0,
             "executed_amount_base": "0.5",
             "executed_amount_quote": "500",
             "fee_asset": "USDT",
             "fee_paid": "5",
             "last_state": "closed",
-            "created_at": str(creation_timestamp)
         }
 
         order = FtxInFlightOrder.from_json(order_info)
@@ -41,6 +40,7 @@ class FtxInFlightOrderTests(TestCase):
         self.assertEqual(TradeType.BUY, order.trade_type)
         self.assertEqual(Decimal(order_info["price"]), order.price)
         self.assertEqual(Decimal(order_info["amount"]), order.amount)
+        self.assertEqual(1640001112.0, order.creation_timestamp)
         self.assertEqual(order_info["last_state"], order.last_state)
         self.assertEqual(Decimal(order_info["executed_amount_base"]), order.executed_amount_base)
         self.assertEqual(Decimal(order_info["executed_amount_quote"]), order.executed_amount_quote)
@@ -57,7 +57,7 @@ class FtxInFlightOrderTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10000),
             amount=Decimal(1),
-            created_at=datetime.now().timestamp()
+            creation_timestamp=datetime.now().timestamp()
         )
 
         self.assertEqual(order.base_asset, order.fee_asset)
@@ -70,7 +70,7 @@ class FtxInFlightOrderTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10000),
             amount=Decimal(1),
-            created_at=datetime.now().timestamp()
+            creation_timestamp=datetime.now().timestamp()
         )
 
         self.assertEqual(order.base_asset, order.fee_asset)
@@ -83,7 +83,7 @@ class FtxInFlightOrderTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10000),
             amount=Decimal(1),
-            created_at=datetime.now().timestamp()
+            creation_timestamp=datetime.now().timestamp()
         )
 
         self.assertEqual(order.quote_asset, order.fee_asset)
@@ -97,7 +97,7 @@ class FtxInFlightOrderTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10000),
             amount=Decimal(1),
-            created_at=datetime.now().timestamp()
+            creation_timestamp=datetime.now().timestamp()
         )
 
         trade_event_info = {
@@ -137,7 +137,7 @@ class FtxInFlightOrderTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10000),
             amount=Decimal(1),
-            created_at=datetime.now().timestamp()
+            creation_timestamp=datetime.now().timestamp()
         )
 
         trade_event_info = {
@@ -206,7 +206,7 @@ class FtxInFlightOrderTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10000),
             amount=Decimal(1),
-            created_at=datetime.now().timestamp()
+            creation_timestamp=datetime.now().timestamp()
         )
 
         trade_event_info = {
