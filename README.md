@@ -2,8 +2,9 @@
 
 ----
 [![License](https://img.shields.io/badge/License-Apache%202.0-informational.svg)](https://github.com/hummingbot/hummingbot/blob/master/LICENSE)
-[![Discord](https://img.shields.io/discord/690203284119617602?logo=discord&logoColor=white)](https://discord.hummingbot.io/)
-[![Twitter Follow](https://img.shields.io/twitter/follow/hummingbot_org.svg?style=social&label=hummingbot)](https://twitter.com/hummingbot_io)
+[![Twitter](https://img.shields.io/twitter/follow/hummingbot_io.svg?style=social&label=hummingbot)](https://twitter.com/hummingbot_io)
+[![Discord](https://img.shields.io/discord/530578568154054663?logo=discord&logoColor=white&style=flat-square)](https://discord.gg/hummingbot/)
+[![Discourse](https://img.shields.io/discourse/https/hummingbot.discourse.group/topics.svg?style=flat-square)](https://hummingbot.discourse.group)
 
 Hummingbot is an open source client-side framework that helps you build, manage, and run automated trading strategies, or **bots**. This code is free and publicly available under the Apache 2.0 open source license!
 
@@ -54,7 +55,7 @@ Help us **democratize high-frequency trading** and make powerful trading algorit
 | <img src="assets/probit_kr-logo.jpg" alt="Probit Korea" width="90" /> | [Probit Korea](https://www.probit.kr/en-us/) | [spot](https://hummingbot.org/exchanges/probit-korea/) |
 | <img src="assets/wazirX-logo.jpg" alt="Wazirx" width="90" /> | [WazirX](https://wazirx.com/) | [spot](https://hummingbot.org/exchanges/wazirx/) |
 
-## Decentralized Exchange (DEX) Connectors
+## Decentralized Exchange Connectors
 
 | logo | name | docs / market type |
 |:----:|------|-----------------------|
@@ -78,7 +79,7 @@ Help us **democratize high-frequency trading** and make powerful trading algorit
 
 - [Discord](https://discord.gg/hummingbot)
 - [Youtube](https://www.youtube.com/c/hummingbot)
-- [Twitter](https://twitter.com/hummingbot_org)
+- [Twitter](https://twitter.com/hummingbot_io)
 - [Reddit](https://www.reddit.com/r/Hummingbot/)
 - [Forum](https://hummingbot.discourse.group/)
 
