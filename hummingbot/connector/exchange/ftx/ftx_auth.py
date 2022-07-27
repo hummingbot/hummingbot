@@ -3,7 +3,7 @@ import hmac
 import time
 from collections import OrderedDict
 from typing import Any, Dict, Optional
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlsplit
 
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
@@ -48,10 +48,9 @@ class FtxAuth(AuthBase):
     def authentication_headers(self, request: RESTRequest) -> Dict[str, Any]:
         timestamp = int(self._time() * 1e3)
 
-        path_url = f"/{request.url.split('/')[-1]}"
+        path_url = urlsplit(request.url).path
         if request.params:
-            sorted_params = self.keysort(request.params)
-            query_string_components = urlencode(sorted_params)
+            query_string_components = urlencode(request.params, safe="/")
             path_url = f"{path_url}?{query_string_components}"
 
         header = {
@@ -60,7 +59,7 @@ class FtxAuth(AuthBase):
             "FTX-SIGN": self._generate_signature(timestamp, request.method.value.upper(), path_url, request.data),
         }
 
-        if self.subaccount is not None:
+        if self.subaccount:
             header["FTX-SUBACCOUNT"] = quote(self.subaccount)
 
         return header
@@ -75,7 +74,7 @@ class FtxAuth(AuthBase):
             "time": timestamp,
         }
 
-        if self.subaccount is not None:
+        if self.subaccount:
             payload["subaccount"] = quote(self.subaccount)
 
         return payload
