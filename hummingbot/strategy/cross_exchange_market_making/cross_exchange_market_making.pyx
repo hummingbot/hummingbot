@@ -247,13 +247,13 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         return market_info.market.name in AllConnectorSettings.get_gateway_evm_amm_connector_names()
 
     def log_conversion_rates(self):
-        quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, gas_rate = \
-            self._config_map.conversion_rate_mode.get_conversion_rates()
-        if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
-            self.logger().info(f"{quote_pair} ({quote_rate_source}) conversion rate: {PerformanceMetrics.smart_round(quote_rate)}")
-        if base_pair.split("-")[0] != base_pair.split("-")[1]:
-            self.logger().info(f"{base_pair} ({base_rate_source}) conversion rate: {PerformanceMetrics.smart_round(base_rate)}")
         for market_pair in self._market_pairs.values():
+            quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, gas_rate = \
+                self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
+            if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
+                self.logger().info(f"{quote_pair} ({quote_rate_source}) conversion rate: {PerformanceMetrics.smart_round(quote_rate)}")
+            if base_pair.split("-")[0] != base_pair.split("-")[1]:
+                self.logger().info(f"{base_pair} ({base_rate_source}) conversion rate: {PerformanceMetrics.smart_round(base_rate)}")
             if self.is_gateway_market(market_pair.taker):
                 if gas_pair is not None and gas_pair.split("-")[0] != gas_pair.split("-")[1]:
                     self.logger().info(f"{gas_pair} ({gas_rate_source}) conversion rate: {PerformanceMetrics.smart_round(gas_rate)}")
@@ -261,17 +261,17 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
     def oracle_status_df(self):
         columns = ["Source", "Pair", "Rate"]
         data = []
-        quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, gas_rate = \
-            self._config_map.conversion_rate_mode.get_conversion_rates()
-        if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
-            data.extend([
-                [quote_rate_source, quote_pair, PerformanceMetrics.smart_round(quote_rate)],
-            ])
-        if base_pair.split("-")[0] != base_pair.split("-")[1]:
-            data.extend([
-                [base_rate_source, base_pair, PerformanceMetrics.smart_round(base_rate)],
-            ])
         for market_pair in self._market_pairs.values():
+            quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, gas_rate = \
+                self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
+            if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
+                data.extend([
+                    [quote_rate_source, quote_pair, PerformanceMetrics.smart_round(quote_rate)],
+                ])
+            if base_pair.split("-")[0] != base_pair.split("-")[1]:
+                data.extend([
+                    [base_rate_source, base_pair, PerformanceMetrics.smart_round(base_rate)],
+                ])
             if self.is_gateway_market(market_pair.taker):
                 if gas_pair is not None and gas_pair.split("-")[0] != gas_pair.split("-")[1]:
                     data.extend([
@@ -428,8 +428,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
     async def get_gateway_quotes(self):
         for market_pair in self._market_pairs.values():
             if self.is_gateway_market(market_pair.taker):
-                _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates()
-                order_amount = self._order_amount * base_rate
+                _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
+                order_amount = self._config_map.order_amount * base_rate
                 order_price = await market_pair.taker.market.get_order_price(
                     market_pair.taker.trading_pair,
                     True,
@@ -845,7 +845,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         taker_market = market_pair.taker.market
 
         # Convert maker order size (in maker base asset) to taker order size (in taker base asset)
-        _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates()
+        _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
 
         if buy_fill_quantity > 0:
             # Maker buy
@@ -855,7 +855,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             hedged_order_quantity = min(
                 buy_fill_quantity * base_rate,
                 taker_market.get_available_balance(market_pair.taker.base_asset) *
-                self._order_size_taker_balance_factor
+                self._config_map.order_size_taker_balance_factor
             )
             quantized_hedge_amount = taker_market.quantize_order_amount(taker_trading_pair, Decimal(hedged_order_quantity))
 
@@ -936,7 +936,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             hedged_order_quantity = min(
                 sell_fill_quantity * base_rate,
                 taker_market.get_available_balance(market_pair.taker.quote_asset) /
-                taker_price * self._order_size_taker_balance_factor
+                taker_price * self._config_map.order_size_taker_balance_factor
             )
             quantized_hedge_amount = taker_market.quantize_order_amount(
                 taker_trading_pair,
@@ -1013,8 +1013,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         """
         maker_market = market_pair.maker.market
         trading_pair = market_pair.maker.trading_pair
-        if self._order_amount and self._order_amount > 0:
-            base_order_size = self._order_amount
+        if self._config_map.order_amount and self._config_map.order_amount > 0:
+            base_order_size = self._config_map.order_amount
             return maker_market.quantize_order_amount(trading_pair, Decimal(base_order_size))
         else:
             return self.get_order_size_after_portfolio_ratio_limit(market_pair)
@@ -1064,7 +1064,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         size = self.get_adjusted_limit_order_size(market_pair)
 
         # Convert maker order size (in maker base asset) to taker order size (in taker base asset)
-        _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates()
+        _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
         size *= base_rate
 
         if is_bid:
@@ -1072,7 +1072,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # Taker sell
             maker_balance_in_quote = maker_market.get_available_balance(market_pair.maker.quote_asset)
             taker_balance = taker_market.get_available_balance(market_pair.taker.base_asset) * \
-                self._order_size_taker_balance_factor
+                self._config_map.order_size_taker_balance_factor
 
             if self.is_gateway_market(market_pair.taker):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
@@ -1097,7 +1097,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # Taker buy
             maker_balance = maker_market.get_available_balance(market_pair.maker.base_asset)
             taker_balance_in_quote = taker_market.get_available_balance(market_pair.taker.quote_asset) * \
-                self._order_size_taker_balance_factor
+                self._config_map.order_size_taker_balance_factor
 
             if self.is_gateway_market(market_pair.taker):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
@@ -1141,7 +1141,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         next_price_below_top_ask = s_decimal_nan
 
         # Convert maker order size (in maker base asset) to taker order size (in taker base asset)
-        _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates()
+        _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
         size *= base_rate
 
         top_bid_price, top_ask_price = self.get_top_bid_ask_from_price_samples(market_pair)
@@ -1169,7 +1169,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
             # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
-                taker_price *= self.markettaker_to_maker_base_conversion_rate()
+                taker_price *= self.markettaker_to_maker_base_conversion_rate(market_pair)
 
             # you are buying on the maker market and selling on the taker market
             maker_price = taker_price / (1 + self.min_profitability)
@@ -1211,7 +1211,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     return s_decimal_nan
 
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
-                taker_price *= self.markettaker_to_maker_base_conversion_rate()
+                taker_price *= self.markettaker_to_maker_base_conversion_rate(market_pair)
 
             # You are selling on the maker market and buying on the taker market
             maker_price = taker_price * (1 + self.min_profitability)
@@ -1247,7 +1247,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         taker_market = market_pair.taker.market
 
         # Convert maker order size (in maker base asset) to taker order size (in taker base asset)
-        _, _, quote_rate, _, _, base_rate, _, _, gas_rate = self._config_map.conversion_rate_mode.get_conversion_rates()
+        _, _, quote_rate, _, _, base_rate, _, _, gas_rate = self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
         size *= base_rate
 
         # Calculate the next price from the top, and the order size limit.
@@ -1266,7 +1266,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
             # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
-                taker_price *= self.markettaker_to_maker_base_conversion_rate()
+                taker_price *= self.markettaker_to_maker_base_conversion_rate(market_pair)
 
             return taker_price
         else:
@@ -1284,7 +1284,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
             # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
-                taker_price *= self.markettaker_to_maker_base_conversion_rate()
+                taker_price *= self.markettaker_to_maker_base_conversion_rate(market_pair)
 
             return taker_price
 
@@ -1309,7 +1309,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         trading_pair = market_pair.maker.trading_pair
         maker_market = market_pair.maker.market
 
-        if self._top_depth_tolerance == 0:
+        if self._config_map.top_depth_tolerance == 0:
             top_bid_price = maker_market.get_price(trading_pair, False)
             top_ask_price = maker_market.get_price(trading_pair, True)
 
@@ -1317,12 +1317,12 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # Use bid entries in maker order book
             top_bid_price = maker_market.get_price_for_volume(trading_pair,
                                                               False,
-                                                              self._top_depth_tolerance).result_price
+                                                              self._config_map.top_depth_tolerance).result_price
 
             # Use ask entries in maker order book
             top_ask_price = maker_market.get_price_for_volume(trading_pair,
                                                               True,
-                                                              self._top_depth_tolerance).result_price
+                                                              self._config_map.top_depth_tolerance).result_price
 
         return top_bid_price, top_ask_price
 
@@ -1413,7 +1413,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         pl = 0
         if self.is_gateway_market(market_pair.taker):
             if hasattr(market_pair.taker.market, "network_transaction_fee"):
-                _, _, quote_rate, _, _, base_rate, _, _, gas_rate = self._config_map.conversion_rate_mode.get_conversion_rates()
+                _, _, quote_rate, _, _, base_rate, _, _, gas_rate = self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
                 transaction_fee: TokenAmount = getattr(market_pair.taker.market, "network_transaction_fee")
                 transaction_fee = transaction_fee.amount
                 # Transaction fee in maker quote asset
@@ -1430,7 +1430,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     hedged_order_quantity = min(
                         quantity_remaining * base_rate,
                         market_pair.taker.market.get_available_balance(market_pair.taker.base_asset) *
-                        self._order_size_taker_balance_factor
+                        self._config_map.order_size_taker_balance_factor
                     )
                     # Convert from taker to maker order amount
                     hedged_order_quantity = hedged_order_quantity / base_rate
@@ -1449,7 +1449,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     hedged_order_quantity = min(
                         quantity_remaining * base_rate,
                         market_pair.taker.market.get_available_balance(market_pair.taker.quote_asset) /
-                        taker_price * self._order_size_taker_balance_factor
+                        taker_price * self._config_map.order_size_taker_balance_factor
                     )
                     # Convert from taker to maker order amount
                     hedged_order_quantity = hedged_order_quantity / base_rate
@@ -1495,12 +1495,12 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         taker_trading_pair = market_pair.taker.trading_pair
 
         # Convert maker order size (in maker base asset) to taker order size (in taker base asset)
-        _, _, quote_rate, _, _, base_rate, _, _, gas_rate = self._config_map.conversion_rate_mode.get_conversion_rates()
+        _, _, quote_rate, _, _, base_rate, _, _, gas_rate = self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
         size *= base_rate
 
         taker_market = market_pair.taker.market
         quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, gas_rate = \
-            self._config_map.conversion_rate_mode.get_conversion_rates()
+            self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
 
         if is_buy:
             # Maker buy
@@ -1545,11 +1545,11 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             return False
         return True
 
-    def markettaker_to_maker_base_conversion_rate(self) -> Decimal:
+    def markettaker_to_maker_base_conversion_rate(self, market_pair: MarketTradingPairTuple) -> Decimal:
         """
         Return price conversion rate for from taker quote asset to maker quote asset
         """
-        _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates()
+        _, _, quote_rate, _, _, base_rate, _, _, _ = self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
         return quote_rate / base_rate
         # else:
         #     market_pairs = list(self._market_pairs.values())[0]
@@ -1586,7 +1586,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                         bid_size
                     )
                     effective_hedging_price_adjusted = effective_hedging_price / \
-                        self.markettaker_to_maker_base_conversion_rate()
+                        self.markettaker_to_maker_base_conversion_rate(market_pair)
                     if LogOption.CREATE_ORDER in self.logging_options:
                         self.log_with_clock(
                             logging.INFO,
@@ -1625,7 +1625,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                         ask_size
                     )
                     effective_hedging_price_adjusted = effective_hedging_price / \
-                        self.markettaker_to_maker_base_conversion_rate()
+                        self.markettaker_to_maker_base_conversion_rate(market_pair)
                     if LogOption.CREATE_ORDER in self.logging_options:
                         self.log_with_clock(
                             logging.INFO,
