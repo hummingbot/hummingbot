@@ -52,7 +52,8 @@ class FtxAuthTests(TestCase):
         expected_timestamp = str(int(time_mock.return_value * 1e3))
         self.assertEqual(self.api_key, request.headers["FTX-KEY"])
         self.assertEqual(expected_timestamp, request.headers["FTX-TS"])
-        expected_signature = self._sign(expected_timestamp + "GET" + request.throttler_limit_id, key=self.secret_key)
+        path = urllib.parse.urlsplit(request.url).path
+        expected_signature = self._sign(expected_timestamp + "GET" + path, key=self.secret_key)
         self.assertEqual(expected_signature, request.headers["FTX-SIGN"])
         self.assertEqual(urllib.parse.quote(self.subaccount_name), request.headers["FTX-SUBACCOUNT"])
 
@@ -68,8 +69,7 @@ class FtxAuthTests(TestCase):
             throttler_limit_id="/endpoint"
         )
 
-        sorted_params = {"param1": "value1", "param2": "value2"}
-        full_request_path = f"{request.throttler_limit_id}?{urllib.parse.urlencode(sorted_params)}"
+        full_request_path = f"{urllib.parse.urlsplit(request.url).path}?{urllib.parse.urlencode(request.params)}"
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
 
@@ -96,7 +96,8 @@ class FtxAuthTests(TestCase):
         expected_timestamp = str(int(time_mock.return_value * 1e3))
         self.assertEqual(self.api_key, request.headers["FTX-KEY"])
         self.assertEqual(expected_timestamp, request.headers["FTX-TS"])
-        expected_signature = self._sign(expected_timestamp + "POST" + request.throttler_limit_id + json.dumps(body),
+        path = urllib.parse.urlsplit(request.url).path
+        expected_signature = self._sign(expected_timestamp + "POST" + path + json.dumps(body),
                                         key=self.secret_key)
         self.assertEqual(expected_signature, request.headers["FTX-SIGN"])
         self.assertEqual(urllib.parse.quote(self.subaccount_name), request.headers["FTX-SUBACCOUNT"])
