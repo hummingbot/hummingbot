@@ -378,12 +378,9 @@ class FtxExchange(ExchangePyBase):
         state = order.current_state
         msg_status = order_status_msg["status"]
         if msg_status == "new":
-            # Do nothing because pending creation is the first natural status of InFlightOrders
-            pass
-        elif msg_status == "open":
-            state = (OrderState.PARTIALLY_FILLED
-                     if Decimal(str(order_status_msg["filledSize"])) > s_decimal_0
-                     else OrderState.OPEN)
+            state = OrderState.OPEN
+        elif msg_status == "open" and (Decimal(str(order_status_msg["filledSize"])) > s_decimal_0):
+            state = OrderState.PARTIALLY_FILLED
         elif msg_status == "closed":
             state = (OrderState.CANCELED
                      if Decimal(str(order_status_msg["filledSize"])) == s_decimal_0

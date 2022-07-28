@@ -47,16 +47,16 @@ FTX_PER_SECOND_ORDER_SPOT_LIMIT_ID = "FTXPerSecondOrderSpot"
 FTX_PER_MS_ORDER_SPOT_LIMIT_ID = "FTXPerMSOrderSpot"
 # The limits are configured considering Tiers 1-5 defaults. They have to be changed for other tiers according to
 # https://help.ftx.com/hc/en-us/articles/360052595091-2020-11-20-Ratelimit-Updates
-PER_SECOND_SPOT_LIMIT = 12
+PER_SECOND_SPOT_LIMIT = 7
 PER_200_MS_SPOT_LIMIT = 2
 
-TOW_HUNDRED_MS = 2 / 1000
+TWO_HUNDRED_MS = 200 / 1000
 
 RATE_LIMITS = [
     RateLimit(WS_CONNECTION_LIMIT_ID, limit=NO_LIMIT, time_interval=1),
     RateLimit(WS_REQUEST_LIMIT_ID, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=FTX_PER_SECOND_ORDER_SPOT_LIMIT_ID, limit=PER_SECOND_SPOT_LIMIT, time_interval=1),
-    RateLimit(limit_id=FTX_PER_MS_ORDER_SPOT_LIMIT_ID, limit=PER_200_MS_SPOT_LIMIT, time_interval=TOW_HUNDRED_MS),
+    RateLimit(limit_id=FTX_PER_MS_ORDER_SPOT_LIMIT_ID, limit=PER_200_MS_SPOT_LIMIT, time_interval=TWO_HUNDRED_MS),
     RateLimit(limit_id=FTX_NETWORK_STATUS_PATH, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=FTX_ORDER_BOOK_LIMIT_ID, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=FTX_MARKETS_PATH, limit=NO_LIMIT, time_interval=1),

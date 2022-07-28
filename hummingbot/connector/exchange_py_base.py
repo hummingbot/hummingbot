@@ -427,7 +427,7 @@ class ExchangePyBase(ExchangeBase, ABC):
                             order_type: OrderType,
                             price: Optional[Decimal] = None):
         """
-        Creates a an order in the exchange using the parameters to configure it
+        Creates an order in the exchange using the parameters to configure it
 
         :param trade_type: the side of the order (BUY of SELL)
         :param order_id: the id that should be assigned to the order (the client id)

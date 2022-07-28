@@ -566,7 +566,7 @@ class FtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "reduceOnly": False,
                 "ioc": False,
                 "postOnly": False,
-                "status": "open",
+                "status": "new",
                 "filledSize": 0.0,
                 "remainingSize": float(order.amount),
                 "avgFillPrice": 0.0,
