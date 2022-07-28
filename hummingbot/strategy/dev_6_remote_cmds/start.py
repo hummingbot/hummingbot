@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-from hummingbot.strategy.dev_6_remote_cmds.dev_6_remote_cmds_config_map import dev_6_remote_cmds_config_map
 from hummingbot.strategy.dev_6_remote_cmds import RemoteCmdsStrategy
+from hummingbot.strategy.dev_6_remote_cmds.dev_6_remote_cmds_config_map import dev_6_remote_cmds_config_map
 
 
 def start(self):

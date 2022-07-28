@@ -306,9 +306,10 @@ class HummingbotApplication(*commands):
         self.markets_recorder.start()
 
     def _initialize_remote_command_executor(self):
-        if global_config_map.get("remote_commands_enabled").value:
-            if not self.remote_command_executor:
-                self.remote_command_executor = RemoteCommandExecutor.get_instance()
+        if not self.remote_command_executor:
+            rce = self.client_config_map.remote_command_executor_mode.get_remote_command_executor(self)
+            if rce:
+                self.remote_command_executor = rce
                 self.remote_command_executor.start()
 
     def _initialize_notifiers(self):

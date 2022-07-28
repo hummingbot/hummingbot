@@ -27,6 +27,7 @@ from hummingbot.connector.exchange.gate_io.gate_io_utils import GateIOConfigMap
 from hummingbot.connector.exchange.kucoin.kucoin_utils import KuCoinConfigMap
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
+from hummingbot.core.remote_control.remote_command_executor import RemoteCommandExecutor
 from hummingbot.core.utils.kill_switch import ActiveKillSwitch, KillSwitch, PassThroughKillSwitch
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.pmm_script.pmm_script_iterator import PMMScriptIterator
@@ -269,6 +270,66 @@ class TelegramDisabledMode(TelegramMode):
 TELEGRAM_MODES = {
     TelegramEnabledMode.Config.title: TelegramEnabledMode,
     TelegramDisabledMode.Config.title: TelegramDisabledMode,
+}
+
+
+class RemoteCommandExecutorMode(BaseClientModel, ABC):
+    @abstractmethod
+    def get_remote_command_executor(self, hb: "HummingbotApplication") -> Optional[RemoteCommandExecutor]:
+        ...
+
+
+class RemoteCommandExecutorEnabledMode(RemoteCommandExecutorMode):
+    remote_command_executor_api_key: str = Field(
+        default=...,
+        client_data=ClientFieldData(prompt=lambda cm: "What is your Remote Commands Executor API key?"),
+    )
+    remote_command_executor_ws_url: str = Field(
+        default=...,
+        client_data=ClientFieldData(prompt=lambda cm: "What is your Remote Commands Executor websocket url?"),
+    )
+    remote_command_executor_routing_name: Optional[str] = Field(
+        default=None,
+        client_data=ClientFieldData(prompt=lambda cm: "What is your Remote Commands Executor routing name?"),
+    )
+    remote_command_executor_ignore_first_event: bool = Field(
+        default=True,
+        client_data=ClientFieldData(prompt=lambda cm: "Whether to ignore the first event received?"),
+    )
+    remote_command_executor_disable_console_commands: bool = Field(
+        default=False,
+        client_data=ClientFieldData(prompt=lambda cm: "Whether to disable console command processing?"),
+    )
+    remote_command_executor_translate_commands: Dict[str, str] = Field(
+        default=None,
+        client_data=ClientFieldData(prompt=lambda cm: "How to translate received commands to Hummingbot commands?"),
+    )
+
+    class Config:
+        title = "remote_command_executor_enabled"
+
+    def get_remote_command_executor(self, hb: "HummingbotApplication") -> Optional[RemoteCommandExecutor]:
+        return RemoteCommandExecutor.create_instance(
+            api_key=self.remote_command_executor_api_key,
+            ws_url=self.remote_command_executor_ws_url,
+            ignore_first_event=self.remote_command_executor_ignore_first_event,
+            disable_console_commands=self.remote_command_executor_disable_console_commands,
+            routing_name=self.remote_command_executor_routing_name,
+            translate_commands=self.remote_command_executor_translate_commands)
+
+
+class RemoteCommandExecutorDisabledMode(RemoteCommandExecutorMode):
+    class Config:
+        title = "remote_command_executor_disabled"
+
+    def get_remote_command_executor(self, hb: "HummingbotApplication") -> Optional[RemoteCommandExecutor]:
+        RemoteCommandExecutor.purge_instance()
+        return None
+
+
+REMOTE_COMMANDS_EXECUTOR_MODES = {
+    RemoteCommandExecutorEnabledMode.Config.title: RemoteCommandExecutorEnabledMode,
+    RemoteCommandExecutorDisabledMode.Config.title: RemoteCommandExecutorDisabledMode,
 }
 
 
@@ -615,6 +676,12 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: f"Select the desired telegram mode ({'/'.join(list(TELEGRAM_MODES.keys()))})"
         )
     )
+    remote_command_executor_mode: Union[tuple(REMOTE_COMMANDS_EXECUTOR_MODES.values())] = Field(
+        default=RemoteCommandExecutorDisabledMode(),
+        client_data=ClientFieldData(
+            prompt=lambda cm: f"Select the desired Remote Command Executor mode ({'/'.join(list(REMOTE_COMMANDS_EXECUTOR_MODES.keys()))})"
+        )
+    )
     send_error_logs: bool = Field(
         default=True,
         description="Error log sharing",
@@ -768,6 +835,18 @@ class ClientConfigMap(BaseClientModel):
             )
         else:
             sub_model = TELEGRAM_MODES[v].construct()
+        return sub_model
+
+    @validator("remote_command_executor_mode", pre=True)
+    def validate_remote_command_executor_mode(cls, v: Union[(str, Dict) + tuple(REMOTE_COMMANDS_EXECUTOR_MODES.values())]):
+        if isinstance(v, tuple(REMOTE_COMMANDS_EXECUTOR_MODES.values()) + (Dict,)):
+            sub_model = v
+        elif v not in REMOTE_COMMANDS_EXECUTOR_MODES:
+            raise ValueError(
+                f"Invalid Remote Commands Executor mode, please choose a value from {list(REMOTE_COMMANDS_EXECUTOR_MODES.keys())}."
+            )
+        else:
+            sub_model = REMOTE_COMMANDS_EXECUTOR_MODES[v].construct()
         return sub_model
 
     @validator("send_error_logs", pre=True)

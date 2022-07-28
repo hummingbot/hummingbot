@@ -1,31 +1,21 @@
 import asyncio
-from copy import deepcopy
 import json
 import multiprocessing as mp
 import time
+from typing import Awaitable, List
 from unittest import TestCase
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
+from websockets.exceptions import ConnectionClosed, InvalidMessage, InvalidStatusCode
 
-from websockets.exceptions import (
-    ConnectionClosed,
-    InvalidStatusCode,
-    InvalidMessage,
-)
-from typing import (
-    Awaitable,
-    List,
-)
-
-from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.client_config_map import ClientConfigMap, RemoteCommandExecutorEnabledMode
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.event.events import RemoteCmdEvent
 from hummingbot.core.remote_control.remote_command_executor import RemoteCommandExecutor
-from hummingbot.script.script_base import ScriptBase
-
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.pmm_script.pmm_script_base import PMMScriptBase
 
 
 class DummyScriptIterator:
@@ -54,16 +44,18 @@ class RemoteControlTest(TestCase):
         self.received_messages: int = 0
         self.ev_loop = asyncio.get_event_loop()
 
-        self.async_run_with_timeout(read_system_configs_from_yml())
+        self.client_config = ClientConfigMap()
+        self.config_adapter = ClientConfigAdapter(self.client_config)
 
-        self.remote_cmds = RemoteCommandExecutor.get_instance()
-        self.app = HummingbotApplication()
-        self.global_config_backup = deepcopy(global_config_map)
-        self.remote_url = "ws://localhost:10073/wss"
+        self.app = HummingbotApplication(client_config_map=self.config_adapter)
 
-        global_config_map["remote_commands_enabled"].value = True
-        global_config_map["remote_commands_api_key"].value = "someAPIKey"
-        global_config_map["remote_commands_ws_url"].value = self.remote_url
+        self.app.client_config_map.remote_command_executor_mode = RemoteCommandExecutorEnabledMode(
+            remote_command_executor_api_key="someAPIKey",
+            remote_command_executor_ws_url="ws://localhost:10073/wss")
+
+        self.app.remote_command_executor = self.app.client_config_map.remote_command_executor_mode.get_remote_command_executor(self)
+
+        self.remote_cmds = self.app.remote_command_executor
 
         self.app.logger().setLevel(1)
         self.app.logger().addHandler(self)
@@ -75,7 +67,6 @@ class RemoteControlTest(TestCase):
 
     def tearDown(self) -> None:
         self.remote_cmds.stop()
-        self._reset_global_config()
         RemoteCommandExecutor._rce_shared_instance = None
         self.app.remote_command_executor = None
         self.remote_cmds._hb._script_iterator = None
@@ -96,10 +87,6 @@ class RemoteControlTest(TestCase):
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage().startswith(message)
                    for record in self.log_records)
-
-    def _reset_global_config(self):
-        for key, value in self.global_config_backup.items():
-            global_config_map[key] = value
 
     async def _wait_til_ready(self):
         while True:
@@ -143,7 +130,7 @@ class RemoteControlTest(TestCase):
         self._remote_cmds_start_wait_stopped(websocket_mock, wait_for_delivered=False)
 
     def _setup_script(self):
-        script_base = ScriptBase()
+        script_base = PMMScriptBase()
         script_parent_queue = mp.Queue()
         script_child_queue = mp.Queue()
         script_base.assign_init(script_parent_queue, script_child_queue, 0.0)
@@ -541,7 +528,7 @@ class RemoteControlTest(TestCase):
 
     @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    @patch('hummingbot.script.script_base.ScriptBase.on_remote_command_event')
+    @patch('hummingbot.pmm_script.pmm_script_base.PMMScriptBase.on_remote_command_event')
     def test_remote_commands_scripting(self, mock_api, script_remote_evt_mock, ws_connect_mock):
         self._dummy_rest_responses(mock_api)
         done_callback_event = asyncio.Event()

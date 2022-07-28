@@ -3,26 +3,18 @@ import logging
 import re
 import socket
 import time
+from typing import Any, AsyncIterable, Dict, Optional, Set
+
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    Optional,
-    Set,
-)
+
 import hummingbot
-from hummingbot.logger import HummingbotLogger
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.core.event.events import (
-    RemoteEvent,
-    RemoteCmdEvent)
+from hummingbot.core.event.events import RemoteCmdEvent, RemoteEvent
 from hummingbot.core.pubsub import PubSub
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_ensure_future
-
+from hummingbot.logger import HummingbotLogger
 
 DISABLED_COMMANDS = {
     "connect",             # disabled
@@ -34,7 +26,7 @@ DISABLED_COMMANDS = {
 
 class RemoteCommandExecutor(PubSub):
     rce_logger: Optional[HummingbotLogger] = None
-    _rce_shared_instance = None
+    _rce_shared_instance: Optional["RemoteCommandExecutor"] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -43,20 +35,43 @@ class RemoteCommandExecutor(PubSub):
         return cls.rce_logger
 
     @classmethod
-    def get_instance(cls) -> "RemoteCommandExecutor":
-        if cls._rce_shared_instance is None:
-            cls._rce_shared_instance = RemoteCommandExecutor()
+    def create_instance(cls,
+                        api_key: str,
+                        ws_url: str,
+                        ignore_first_event: bool = True,
+                        disable_console_commands: bool = False,
+                        routing_name: Optional[str] = None,
+                        translate_commands: Optional[Dict[str, str]] = None,) -> "RemoteCommandExecutor":
+        cls._rce_shared_instance = RemoteCommandExecutor(
+            api_key,
+            ws_url,
+            ignore_first_event,
+            disable_console_commands,
+            routing_name,
+            translate_commands)
+        return cls._rce_shared_instance
+
+    @classmethod
+    def purge_instance(cls):
+        cls._rce_shared_instance = None
+
+    @classmethod
+    def get_instance(cls) -> Optional["RemoteCommandExecutor"]:
         return cls._rce_shared_instance
 
     def __init__(self,
-                 api_key: str = None,
-                 ws_url: str = None,) -> None:
-        self._api_key: str = api_key or global_config_map.get("remote_commands_api_key").value
-        self._ws_url: str = ws_url or global_config_map.get("remote_commands_ws_url").value
-        self._ignore_first_event: bool = global_config_map.get("remote_commands_ignore_first_event").value
-        self._disable_console_commands: bool = global_config_map.get("remote_commands_disable_console_commands").value
-        self._routing_name: Optional[str] = global_config_map.get("remote_commands_routing_name").value
-        self._cmd_translate_dict: Optional[Dict[str, str]] = global_config_map.get("remote_commands_translate_commands").value
+                 api_key: str,
+                 ws_url: str,
+                 ignore_first_event: bool,
+                 disable_console_commands: bool,
+                 routing_name: Optional[str] = None,
+                 translate_commands: Optional[Dict[str, str]] = None,) -> None:
+        self._api_key: str = api_key
+        self._ws_url: str = ws_url
+        self._ignore_first_event: bool = ignore_first_event
+        self._disable_console_commands: bool = disable_console_commands
+        self._routing_name: Optional[str] = routing_name
+        self._cmd_translate_dict: Optional[Dict[str, str]] = translate_commands
         self._client: Optional[websockets.WebSocketClientProtocol] = None
         self._ws_timeout: int = 1200
         self._alpha_num = re.compile(r"^[a-zA-Z0-9 _\-]+$")
@@ -175,8 +190,8 @@ class RemoteCommandExecutor(PubSub):
         self._last_event_received = remote_event
 
         # Send event to script iterator
-        if self._hb._script_iterator is not None:
-            self._hb._script_iterator.process_remote_command_event(remote_event)
+        if self._hb._pmm_script_iterator is not None:
+            self._hb._pmm_script_iterator.process_remote_command_event(remote_event)
 
         # Trigger event for event reporter
         self.trigger_event(RemoteEvent.RemoteCmdEvent, remote_event)

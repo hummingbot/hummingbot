@@ -1,10 +1,8 @@
 from datetime import datetime
-from os.path import realpath, join
-from hummingbot.script.script_base import ScriptBase
-from hummingbot.core.event.events import (
-    RemoteCmdEvent
-)
+from os.path import join, realpath
 
+from hummingbot.core.event.events import RemoteCmdEvent
+from hummingbot.script.script_base import ScriptBase
 
 LOGS_PATH = realpath(join(__file__, "../../logs/"))
 SCRIPT_LOG_FILE = f"{LOGS_PATH}/logs_script.log"

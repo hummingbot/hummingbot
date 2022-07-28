@@ -2,11 +2,11 @@
 
 import logging
 
-
-from hummingbot.core.clock import Clock
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
+
 from .remote_commands_delegate import RemoteCommandsDelegate
 
 hws_logger = None

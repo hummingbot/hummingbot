@@ -1,6 +1,7 @@
 import asyncio
 from typing import Awaitable
 from unittest import TestCase
+
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.core.remote_control.remote_command_executor import RemoteCommandExecutor
 

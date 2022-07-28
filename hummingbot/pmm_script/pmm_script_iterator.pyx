@@ -12,9 +12,11 @@ from hummingbot.core.clock import Clock
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
+    RemoteCmdEvent,
     SellOrderCompletedEvent,
 )
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
+from hummingbot.core.remote_control.remote_command_executor import RemoteCommandExecutor
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.pmm_script.pmm_script_interface import (
     CallLog,
@@ -131,6 +133,12 @@ cdef class PMMScriptIterator(TimeIterator):
                     # ignore this on unit testing as the below import will mess up unit testing.
                     from hummingbot.client.hummingbot_application import HummingbotApplication
                     HummingbotApplication.main_application().notify(item.msg)
+                elif isinstance(item, RemoteCmdEvent) and not self._is_unit_testing_mode:
+                    # ignore this on unit testing as the below import will mess up unit testing.
+                    from hummingbot.client.hummingbot_application import HummingbotApplication
+                    rce = HummingbotApplication.main_application().remote_command_executor
+                    if rce:
+                        rce.broadcast(item)
                 elif isinstance(item, CallLog):
                     self.logger().info(f"script - {item.msg}")
                 elif isinstance(item, ScriptError):
@@ -145,6 +153,9 @@ cdef class PMMScriptIterator(TimeIterator):
 
     def request_command(self, cmd: str, args: List[str]):
         self._parent_queue.put(OnCommand(cmd, args))
+
+    def process_remote_command_event(self, event):
+        self._parent_queue.put(event)
 
     def all_total_balances(self):
         all_bals = {m.name: m.get_all_balances() for m in self._markets}

@@ -91,6 +91,7 @@ class StartCommand(GatewayChainApiManager):
             appnope.nope()
 
         self._initialize_remote_command_executor()
+
         self._initialize_notifiers()
         try:
             self._initialize_strategy(self.strategy_name)

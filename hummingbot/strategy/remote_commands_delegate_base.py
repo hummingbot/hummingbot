@@ -2,11 +2,9 @@ import logging
 from decimal import Decimal
 from typing import List, Tuple, Union
 
-from hummingbot.core.remote_control.remote_command_executor import RemoteCommandExecutor
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
-from hummingbot.core.event.events import (
-    RemoteEvent,
-    RemoteCmdEvent)
+from hummingbot.core.event.events import RemoteCmdEvent, RemoteEvent
+from hummingbot.core.remote_control.remote_command_executor import RemoteCommandExecutor
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_base import StrategyBase
 

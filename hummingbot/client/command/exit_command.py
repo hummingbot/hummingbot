@@ -36,7 +36,7 @@ class ExitCommand:
             notifier.stop()
 
         if self.remote_command_executor:
-            self._notify("Winding down remote command executor...")
+            self.notify("Winding down remote command executor...")
             self.remote_command_executor.stop()
 
         self.app.exit()
