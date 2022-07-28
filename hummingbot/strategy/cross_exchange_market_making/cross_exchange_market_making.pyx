@@ -1694,6 +1694,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         if order_type is OrderType.MARKET:
             price = s_decimal_nan
         expiration_seconds = self._config_map.order_refresh_mode.get_expiration_seconds()
+        order_id = None
         if is_buy:
             try:
                 order_id = self.buy_with_specific_market(market_info, amount,
@@ -1710,6 +1711,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             except ValueError as e:
                 self.logger().warning(f"Placing an order on market {str(market_info.market.name)} "
                                       f"failed with the following error: {str(e)}")
+        if order_id is None:
+            return
         self._sb_order_tracker.add_create_order_pending(order_id)
         self._market_pair_tracker.start_tracking_order_id(order_id, market_info.market, market_pair)
         if is_maker:
