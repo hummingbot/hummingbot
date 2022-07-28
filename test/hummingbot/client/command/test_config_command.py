@@ -59,26 +59,27 @@ class ConfigCommandTest(unittest.TestCase):
         self.assertEqual(6, len(captures))
         self.assertEqual("\nGlobal Configurations:", captures[0])
 
-        df_str_expected = ("    +--------------------------+----------------------+\n"
-                           "    | Key                      | Value                |\n"
-                           "    |--------------------------+----------------------|\n"
-                           "    | kill_switch_mode         | kill_switch_disabled |\n"
-                           "    | autofill_import          | disabled             |\n"
-                           "    | telegram_mode            | telegram_disabled    |\n"
-                           "    | send_error_logs          | True                 |\n"
-                           "    | pmm_script_mode          | pmm_script_disabled  |\n"
-                           "    | gateway                  |                      |\n"
-                           "    | ∟ gateway_api_host       | localhost            |\n"
-                           "    | ∟ gateway_api_port       | 5000                 |\n"
-                           "    | rate_oracle_source       | binance              |\n"
-                           "    | global_token             |                      |\n"
-                           "    | ∟ global_token_symbol    | $                    |\n"
-                           "    | rate_limits_share_pct    | 100                  |\n"
-                           "    | commands_timeout         |                      |\n"
-                           "    | ∟ create_command_timeout | 10                   |\n"
-                           "    | ∟ other_commands_timeout | 30                   |\n"
-                           "    | tables_format            | psql                 |\n"
-                           "    +--------------------------+----------------------+")
+        df_str_expected = ("    +------------------------------+----------------------------------+\n"
+                           "    | Key                          | Value                            |\n"
+                           "    |------------------------------+----------------------------------|\n"
+                           "    | kill_switch_mode             | kill_switch_disabled             |\n"
+                           "    | autofill_import              | disabled                         |\n"
+                           "    | telegram_mode                | telegram_disabled                |\n"
+                           "    | remote_command_executor_mode | remote_command_executor_disabled |\n"
+                           "    | send_error_logs              | True                             |\n"
+                           "    | pmm_script_mode              | pmm_script_disabled              |\n"
+                           "    | gateway                      |                                  |\n"
+                           "    | ∟ gateway_api_host           | localhost                        |\n"
+                           "    | ∟ gateway_api_port           | 5000                             |\n"
+                           "    | rate_oracle_source           | binance                          |\n"
+                           "    | global_token                 |                                  |\n"
+                           "    | ∟ global_token_symbol        | $                                |\n"
+                           "    | rate_limits_share_pct        | 100                              |\n"
+                           "    | commands_timeout             |                                  |\n"
+                           "    | ∟ create_command_timeout     | 10                               |\n"
+                           "    | ∟ other_commands_timeout     | 30                               |\n"
+                           "    | tables_format                | psql                             |\n"
+                           "    +------------------------------+----------------------------------+")
 
         self.assertEqual(df_str_expected, captures[1])
         self.assertEqual("\nColor Settings:", captures[2])
