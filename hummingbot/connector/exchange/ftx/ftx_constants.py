@@ -48,7 +48,7 @@ FTX_PER_MS_ORDER_SPOT_LIMIT_ID = "FTXPerMSOrderSpot"
 # The limits are configured considering Tiers 1-5 defaults. They have to be changed for other tiers according to
 # https://help.ftx.com/hc/en-us/articles/360052595091-2020-11-20-Ratelimit-Updates
 PER_SECOND_SPOT_LIMIT = 12
-PER_200_MS_SPOT_LIMIT = 7
+PER_200_MS_SPOT_LIMIT = 2
 
 TOW_HUNDRED_MS = 2 / 1000
 
