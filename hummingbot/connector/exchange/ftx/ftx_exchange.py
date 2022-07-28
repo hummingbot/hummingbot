@@ -187,10 +187,11 @@ class FtxExchange(ExchangePyBase):
                 elif channel == CONSTANTS.WS_PRIVATE_ORDERS_CHANNEL:
                     client_order_id = data["clientId"]
                     order = self._order_tracker.all_updatable_orders.get(client_order_id)
-                    order_update = self._create_order_update_with_order_status_data(
-                        order_status_msg=data,
-                        order=order)
-                    self._order_tracker.process_order_update(order_update=order_update)
+                    if order is not None:
+                        order_update = self._create_order_update_with_order_status_data(
+                            order_status_msg=data,
+                            order=order)
+                        self._order_tracker.process_order_update(order_update=order_update)
 
             except asyncio.CancelledError:
                 raise
