@@ -11,7 +11,8 @@ from hummingbot.client.settings import SCRIPT_STRATEGIES_MODULE
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import OrderType, PositionAction
+from hummingbot.core.event.events import OrderType, PositionAction, RemoteCmdEvent
+from hummingbot.core.remote_control.remote_command_executor import RemoteCommandExecutor
 from hummingbot.exceptions import InvalidScriptModule
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -219,6 +220,15 @@ class ScriptStrategyBase(StrategyPyBase):
         df = pd.DataFrame(data=data, columns=columns)
         df.sort_values(by=["Exchange", "Market", "Side"], inplace=True)
         return df
+
+    def broadcast_remote_event(self, event: RemoteCmdEvent):
+        """
+        Broadcast remote command event via the remote command executor websocket.
+        :param event: The event.
+        """
+        executor = RemoteCommandExecutor.get_instance()
+        if executor:
+            executor.broadcast(event)
 
     def format_status(self) -> str:
         """
