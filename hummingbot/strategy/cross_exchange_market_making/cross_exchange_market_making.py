@@ -6,8 +6,8 @@ from functools import lru_cache
 from math import ceil, floor
 from typing import Dict, List, Tuple, cast
 
-from bidict import bidict
 import pandas as pd
+from bidict import bidict
 
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import AllConnectorSettings
@@ -19,23 +19,22 @@ from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketOrderFailureEvent,
-    SellOrderCompletedEvent,
     OrderCancelledEvent,
     OrderExpiredEvent,
     OrderFilledEvent,
+    SellOrderCompletedEvent,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map_pydantic import (
+    CrossExchangeMarketMakingConfigMap,
+    PassiveOrderRefreshMode,
+)
 from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 
 from .order_id_market_pair_tracker import OrderIDMarketPairTracker
-
-from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map_pydantic import (
-    CrossExchangeMarketMakingConfigMap,
-    PassiveOrderRefreshMode
-)
 
 s_float_nan = float("nan")
 s_decimal_zero = Decimal(0)
