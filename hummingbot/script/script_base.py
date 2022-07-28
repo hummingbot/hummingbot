@@ -1,25 +1,22 @@
 import asyncio
 import traceback
-from multiprocessing import Queue
-from typing import List, Optional, Dict, Any, Callable
 from decimal import Decimal
-from statistics import mean, median
+from multiprocessing import Queue
 from operator import itemgetter
+from statistics import mean, median
+from typing import Any, Callable, Dict, List, Optional
+
+from hummingbot.core.event.events import BuyOrderCompletedEvent, RemoteCmdEvent, SellOrderCompletedEvent
 
 from .script_interface import (
-    OnTick,
-    OnStatus,
-    OnCommand,
-    PMMParameters,
-    CallNotify,
     CallLog,
+    CallNotify,
+    OnCommand,
+    OnStatus,
+    OnTick,
     PmmMarketInfo,
-    ScriptError
-)
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    RemoteCmdEvent
+    PMMParameters,
+    ScriptError,
 )
 
 

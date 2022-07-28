@@ -23,14 +23,6 @@ class AscendExUtilsTests(TestCase):
             self.assertEqual('HMBot17c3b65d7a9jklmnop1234p5678', order_id[0])
             self.assertEqual(1633084102569, order_id[1])
 
-    def test_convert_to_exchange_trading_pair(self):
-        trading_pair = "BTC-USDT"
-        self.assertEqual("BTC/USDT", utils.convert_to_exchange_trading_pair(trading_pair))
-
-    def test_convert_from_exchange_trading_pair(self):
-        trading_pair = "BTC/USDT"
-        self.assertEqual("BTC-USDT", utils.convert_from_exchange_trading_pair(trading_pair))
-
     def test_rest_api_url_private(self):
         account_id = "1234"
 

@@ -26,6 +26,8 @@ from .inventory_cost_price_delegate import InventoryCostPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from .inventory_skew_calculator import calculate_total_order_size
 from .pure_market_making_order_tracker import PureMarketMakingOrderTracker
+from .moving_price_band import MovingPriceBand
+
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -82,10 +84,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     split_order_levels_enabled: bool = False,
                     bid_order_level_spreads: List[Decimal] = None,
                     ask_order_level_spreads: List[Decimal] = None,
-                    should_wait_order_cancel_confirmation = True,
+                    should_wait_order_cancel_confirmation: bool = True,
+                    moving_price_band: Optional[MovingPriceBand] = None
                     ):
         if order_override is None:
             order_override = {}
+        if moving_price_band is None:
+            moving_price_band = MovingPriceBand()
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
         self._sb_order_tracker = PureMarketMakingOrderTracker()
@@ -138,7 +143,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._status_report_interval = status_report_interval
         self._last_own_trade_price = Decimal('nan')
         self._should_wait_order_cancel_confirmation = should_wait_order_cancel_confirmation
-
+        self._moving_price_band = moving_price_band
         self.c_add_markets([market_info.market])
 
     def all_markets_ready(self):
@@ -373,6 +378,45 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @order_override.setter
     def order_override(self, value: Dict[str, List[str]]):
         self._order_override = value
+
+    @property
+    def moving_price_band_enabled(self) -> bool:
+        return self._moving_price_band.enabled
+
+    @moving_price_band_enabled.setter
+    def moving_price_band_enabled(self, value: bool):
+        self._moving_price_band.switch(value)
+
+    @property
+    def price_ceiling_pct(self) -> Decimal:
+        return self._moving_price_band.price_ceiling_pct
+
+    @price_ceiling_pct.setter
+    def price_ceiling_pct(self, value: Decimal):
+        self._moving_price_band.price_ceiling_pct = value
+        self._moving_price_band.update(self._current_timestamp, self.get_price())
+
+    @property
+    def price_floor_pct(self) -> Decimal:
+        return self._moving_price_band.price_floor_pct
+
+    @price_floor_pct.setter
+    def price_floor_pct(self, value: Decimal):
+        self._moving_price_band.price_floor_pct = value
+        self._moving_price_band.update(self._current_timestamp, self.get_price())
+
+    @property
+    def price_band_refresh_time(self) -> float:
+        return self._moving_price_band.price_band_refresh_time
+
+    @price_band_refresh_time.setter
+    def price_band_refresh_time(self, value: Decimal):
+        self._moving_price_band.price_band_refresh_time = value
+        self._moving_price_band.update(self._current_timestamp, self.get_price())
+
+    @property
+    def moving_price_band(self) -> MovingPriceBand:
+        return self._moving_price_band
 
     def get_price(self) -> Decimal:
         price_provider = self._asset_price_delegate or self._market_info
@@ -806,6 +850,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     cdef c_apply_order_levels_modifiers(self, proposal):
         self.c_apply_price_band(proposal)
+        if self.moving_price_band_enabled:
+            self.c_apply_moving_price_band(proposal)
         if self._ping_pong_enabled:
             self.c_apply_ping_pong(proposal)
 
@@ -813,6 +859,15 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if self._price_ceiling > 0 and self.get_price() >= self._price_ceiling:
             proposal.buys = []
         if self._price_floor > 0 and self.get_price() <= self._price_floor:
+            proposal.sells = []
+
+    cdef c_apply_moving_price_band(self, proposal):
+        price = self.get_price()
+        self._moving_price_band.check_and_update_price_band(
+            self.current_timestamp, price)
+        if self._moving_price_band.check_price_ceiling_exceeded(price):
+            proposal.buys = []
+        if self._moving_price_band.check_price_floor_exceeded(price):
             proposal.sells = []
 
     cdef c_apply_ping_pong(self, object proposal):
@@ -1185,7 +1240,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             negation = -1 if order.is_buy else 1
             if (negation * (order.price - price) / price) < self._minimum_spread:
                 self.logger().info(f"Order is below minimum spread ({self._minimum_spread})."
-                                   f" Cancelling Order: ({'Buy' if order.is_buy else 'Sell'}) "
+                                   f" Canceling Order: ({'Buy' if order.is_buy else 'Sell'}) "
                                    f"ID - {order.client_order_id}")
                 self.c_cancel_order(self._market_info, order.client_order_id)
 

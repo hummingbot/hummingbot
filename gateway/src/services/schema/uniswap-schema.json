@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "allowedSlippage": { "type": "string" },
+    "gasLimitEstimate": { "type": "integer" },
+    "ttl": { "type": "integer" },
+    "maximumHops": { "type": "integer" },
+    "contractAddresses": {
+      "type": "object",
+      "patternProperties": {
+        "^\\w+$": {
+          "type": "object",
+          "properties": {
+            "uniswapV3SmartOrderRouterAddress": { "type": "string" },
+            "uniswapV3NftManagerAddress": { "type": "string" }
+          },
+          "required": [
+            "uniswapV3SmartOrderRouterAddress",
+            "uniswapV3NftManagerAddress"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "allowedSlippage",
+    "gasLimitEstimate",
+    "ttl",
+    "maximumHops",
+    "contractAddresses"
+  ]
+}

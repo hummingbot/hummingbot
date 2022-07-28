@@ -1,11 +1,19 @@
+from decimal import Decimal
 from typing import Any, Dict
 
-from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.config_var import ConfigVar
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "ZRX-ETH"
-DEFAULT_FEES = [0.1, 0.1]
+
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.001"),
+    taker_percent_fee_decimal=Decimal("0.001"),
+    buy_percent_fee_deducted_from_returns=True
+)
 
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
@@ -17,36 +25,62 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     return exchange_info.get("status", None) == "TRADING" and "SPOT" in exchange_info.get("permissions", list())
 
 
-KEYS = {
-    "binance_api_key":
-        ConfigVar(key="binance_api_key",
-                  prompt="Enter your Binance API key >>> ",
-                  required_if=using_exchange("binance"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "binance_api_secret":
-        ConfigVar(key="binance_api_secret",
-                  prompt="Enter your Binance API secret >>> ",
-                  required_if=using_exchange("binance"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class BinanceConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="binance", const=True, client_data=None)
+    binance_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    binance_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "binance"
+
+
+KEYS = BinanceConfigMap.construct()
 
 OTHER_DOMAINS = ["binance_us"]
 OTHER_DOMAINS_PARAMETER = {"binance_us": "us"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"binance_us": "BTC-USDT"}
-OTHER_DOMAINS_DEFAULT_FEES = {"binance_us": [0.1, 0.1]}
-OTHER_DOMAINS_KEYS = {"binance_us": {
-    "binance_us_api_key":
-        ConfigVar(key="binance_us_api_key",
-                  prompt="Enter your Binance US API key >>> ",
-                  required_if=using_exchange("binance_us"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "binance_us_api_secret":
-        ConfigVar(key="binance_us_api_secret",
-                  prompt="Enter your Binance US API secret >>> ",
-                  required_if=using_exchange("binance_us"),
-                  is_secure=True,
-                  is_connect_key=True),
-}}
+OTHER_DOMAINS_DEFAULT_FEES = {"binance_us": DEFAULT_FEES}
+
+
+class BinanceUSConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="binance_us", const=True, client_data=None)
+    binance_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance US API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    binance_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance US API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "binance_us"
+
+
+OTHER_DOMAINS_KEYS = {"binance_us": BinanceUSConfigMap.construct()}

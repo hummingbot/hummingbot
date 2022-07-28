@@ -1,17 +1,14 @@
 import os
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 import pandas as pd
-from sqlalchemy.orm import (
-    Session,
-    Query
-)
+from sqlalchemy.orm import Query, Session
 
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import DEFAULT_LOG_FILE_PATH
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.model.trade_fill import TradeFill
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -20,7 +17,7 @@ class ExportCommand:
     def export(self,  # type: HummingbotApplication
                option):
         if option is None or option not in ("keys", "trades"):
-            self._notify("Invalid export option.")
+            self.notify("Invalid export option.")
             return
         elif option == "keys":
             safe_ensure_future(self.export_keys())
@@ -29,24 +26,20 @@ class ExportCommand:
 
     async def export_keys(self,  # type: HummingbotApplication
                           ):
-        if not Security.any_encryped_files() and not Security.any_wallets():
-            self._notify("There are no keys to export.")
-            return
         await Security.wait_til_decryption_done()
+        if not Security.any_secure_configs():
+            self.notify("There are no keys to export.")
+            return
         self.placeholder_mode = True
         self.app.hide_input = True
         if await self.check_password():
-            await Security.wait_til_decryption_done()
-            self._notify("\nWarning: Never disclose API keys or private keys. Anyone with your keys can steal any "
-                         "assets held in your account.")
-            if Security.all_decrypted_values():
-                self._notify("\nAPI keys:")
-            for key, value in Security.all_decrypted_values().items():
-                self._notify(f"{key}: {value}")
-            if Security.private_keys():
-                self._notify("\nEthereum wallets:")
-            for key, value in Security.private_keys().items():
-                self._notify(f"Public address: {key}\nPrivate Key: {value.hex()}")
+            self.notify("\nWarning: Never disclose API keys or private keys. Anyone with your keys can steal any "
+                        "assets held in your account.")
+            self.notify("\nAPI keys:")
+            for key, cm in Security.all_decrypted_values().items():
+                for el in cm.traverse(secure=False):
+                    if el.client_field_data is not None and el.client_field_data.is_secure:
+                        self.notify(f"{el.attr}: {el.printable_value}")
         self.app.change_prompt(prompt=">>> ")
         self.app.hide_input = False
         self.placeholder_mode = False
@@ -55,13 +48,13 @@ class ExportCommand:
                                           path):
         input = await self.app.prompt(prompt="Enter a new csv file name >>> ")
         if input is None or input == "":
-            self._notify("Value is required.")
+            self.notify("Value is required.")
             return await self.prompt_new_export_file_name(path)
         if "." not in input:
             input = input + ".csv"
         file_path = os.path.join(path, input)
         if os.path.exists(file_path):
-            self._notify(f"{input} file already exists, please enter a new name.")
+            self.notify(f"{input} file already exists, please enter a new name.")
             return await self.prompt_new_export_file_name(path)
         else:
             return input
@@ -73,21 +66,21 @@ class ExportCommand:
                 int(self.init_time * 1e3),
                 session=session)
             if len(trades) == 0:
-                self._notify("No past trades to export.")
+                self.notify("No past trades to export.")
                 return
             self.placeholder_mode = True
             self.app.hide_input = True
-            path = global_config_map["log_file_path"].value
+            path = self.client_config_map.log_file_path
             if path is None:
-                path = DEFAULT_LOG_FILE_PATH
+                path = str(DEFAULT_LOG_FILE_PATH)
             file_name = await self.prompt_new_export_file_name(path)
             file_path = os.path.join(path, file_name)
             try:
                 df: pd.DataFrame = TradeFill.to_pandas(trades)
                 df.to_csv(file_path, header=True)
-                self._notify(f"Successfully exported trades to {file_path}")
+                self.notify(f"Successfully exported trades to {file_path}")
             except Exception as e:
-                self._notify(f"Error exporting trades to {path}: {e}")
+                self.notify(f"Error exporting trades to {path}: {e}")
             self.app.change_prompt(prompt=">>> ")
             self.placeholder_mode = False
             self.app.hide_input = False

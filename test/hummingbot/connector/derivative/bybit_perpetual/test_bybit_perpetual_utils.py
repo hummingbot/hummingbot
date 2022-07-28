@@ -15,7 +15,7 @@ class BybitPerpetualUtilsTests(TestCase):
                     "non_linear": "/testEndpoint/non_linear"}
 
         api_path = utils.rest_api_path_for_endpoint(endpoint=endpoint)
-        self.assertEqual("/testEndpoint/non_linear", api_path)
+        self.assertEqual("/testEndpoint/linear", api_path)
 
         api_path = utils.rest_api_path_for_endpoint(endpoint=endpoint, trading_pair="BTC-USD")
         self.assertEqual("/testEndpoint/non_linear", api_path)

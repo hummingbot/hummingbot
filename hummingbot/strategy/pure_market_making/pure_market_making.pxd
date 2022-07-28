@@ -57,6 +57,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         object _last_own_trade_price
         bint _should_wait_order_cancel_confirmation
 
+        object _moving_price_band
+
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
     cdef tuple c_get_adjusted_available_balance(self, list orders)
@@ -78,3 +80,4 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef bint c_to_create_orders(self, object proposal)
     cdef c_execute_orders_proposal(self, object proposal)
     cdef set_timers(self)
+    cdef c_apply_moving_price_band(self, object proposal)

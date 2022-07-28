@@ -1,229 +1,219 @@
-"""
-Unit tests for hummingbot.strategy.uniswap_v3_lp.uniswap_v3_lp
-"""
-
-from decimal import Decimal
-import pandas as pd
-import numpy as np
-from typing import Dict, List
-import unittest.mock
 import asyncio
+import contextlib
+import unittest
+from decimal import Decimal
+from typing import List, Optional
+from unittest.mock import patch
 
+from aiounittest import async_test
+
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.gateway_in_flight_lp_order import GatewayInFlightLPOrder
 from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.in_flight_order import OrderState
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeSchema
+from hummingbot.core.event.events import LPType
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.uniswap_v3_lp.uniswap_v3_lp import UniswapV3LpStrategy
-from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position import UniswapV3InFlightPosition
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from test.mock.mock_paper_exchange import MockPaperExchange
+
+TRADING_PAIR: str = "HBOT-USDT"
+BASE_ASSET: str = TRADING_PAIR.split("-")[0]
+QUOTE_ASSET: str = TRADING_PAIR.split("-")[1]
+
+ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+s_decimal_0 = Decimal(0)
 
 
-class ExtendedMockPaperExchange(MockPaperExchange):
-    def __init__(self):
-        super().__init__()
-        self._trading_pairs = ["ETH-USDT"]
-        np.random.seed(123456789)
-        self._in_flight_positions = {}
+class MockAMMLP(ConnectorBase):
+    def __init__(self, name):
+        self._name = name
+        super().__init__(ClientConfigAdapter(ClientConfigMap()))
+        self._pool_price = {}
         self._in_flight_orders = {}
+        self._network_transaction_fee = TokenAmount("ETH", s_decimal_0)
 
-    async def get_price_by_fee_tier(self, trading_pair: str, tier: str, seconds: int = 1, twap: bool = False):
-        if twap:
-            original_price = 100
-            volatility = 0.1
-            return np.random.normal(original_price, volatility, 3599)
-        else:
-            return Decimal("100")
+    @property
+    def name(self):
+        return self._name
 
-    def add_position(self,
-                     trading_pair: str,
-                     fee_tier: str,
-                     base_amount: Decimal,
-                     quote_amount: Decimal,
-                     lower_price: Decimal,
-                     upper_price: Decimal,
-                     token_id: int = 0):
-        self._in_flight_positions["pos1"] = UniswapV3InFlightPosition(hb_id="pos1",
-                                                                      token_id=token_id,
-                                                                      trading_pair=trading_pair,
-                                                                      fee_tier=fee_tier,
-                                                                      base_amount=base_amount,
-                                                                      quote_amount=quote_amount,
-                                                                      lower_price=lower_price,
-                                                                      upper_price=upper_price)
+    @property
+    def network_transaction_fee(self) -> TokenAmount:
+        return self._network_transaction_fee
 
-    async def _remove_position(self, hb_id: str, token_id: str = "1", reducePercent: Decimal = Decimal("100.0"), fee_estimate: bool = False):
-        return self.remove_position(hb_id, token_id, reducePercent, fee_estimate)
+    @network_transaction_fee.setter
+    def network_transaction_fee(self, fee: TokenAmount):
+        self._network_transaction_fee = fee
 
-    def remove_position(self, hb_id: str, token_id: str = "1", reducePercent: Decimal = Decimal("100.0"), fee_estimate: bool = False):
-        if fee_estimate:
-            return Decimal("0")
-        else:
-            self._in_flight_positions.pop(hb_id)
-
-
-class UniswapV3LpStrategyTest(unittest.TestCase):
-    start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
-    end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
-    start_timestamp: float = start.timestamp()
-    end_timestamp: float = end.timestamp()
-    market_infos: Dict[str, MarketTradingPairTuple] = {}
+    @property
+    def connector_name(self):
+        return "uniswapLP"
 
     @staticmethod
-    def create_market(trading_pairs: List[str], mid_price, balances: Dict[str, int]) -> (MockPaperExchange, Dict[str, MarketTradingPairTuple]):
-        """
-        Create a BacktestMarket and marketinfo dictionary to be used by the liquidity mining strategy
-        """
-        market: ExtendedMockPaperExchange = ExtendedMockPaperExchange()
-        market_infos: Dict[str, MarketTradingPairTuple] = {}
+    def is_approval_order(in_flight_order: GatewayInFlightLPOrder) -> bool:
+        return False
 
-        for trading_pair in trading_pairs:
-            base_asset = trading_pair.split("-")[0]
-            quote_asset = trading_pair.split("-")[1]
+    @property
+    def amm_lp_orders(self):
+        return [
+            in_flight_order
+            for in_flight_order in self._in_flight_orders.values()
+            if not self.is_approval_order(in_flight_order)
+            and not in_flight_order.is_pending_cancel_confirmation
+        ]
 
-            market.set_balanced_order_book(trading_pair=trading_pair,
-                                           mid_price=mid_price,
-                                           min_price=1,
-                                           max_price=200,
-                                           price_step_size=1,
-                                           volume_step_size=10)
-            market.set_quantization_param(QuantizationParams(trading_pair, 6, 6, 6, 6))
-            market_infos[trading_pair] = MarketTradingPairTuple(market, trading_pair, base_asset, quote_asset)
+    async def get_price(self, trading_pair: str, fee: str) -> Decimal:
+        return self._pool_price[trading_pair]
 
-        for asset, value in balances.items():
-            market.set_balance(asset, value)
+    def set_price(self, trading_pair, price):
+        self._pool_price[trading_pair] = [Decimal(str(price))]
 
-        return market, market_infos
+    def set_balance(self, token, balance):
+        self._account_balances[token] = Decimal(str(balance))
+        self._account_available_balances[token] = Decimal(str(balance))
 
-    def setUp(self) -> None:
-        self.loop = asyncio.get_event_loop()
-        self.clock_tick_size = 1
-        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
+    def add_liquidity(self, trading_pair: str, amount_0: Decimal, amount_1: Decimal, lower_price: Decimal, upper_price: Decimal, fee: str, **request_args) -> str:
+        order_id = f"add-{trading_pair}-{get_tracking_nonce()}"
+        self._in_flight_orders[order_id] = GatewayInFlightLPOrder(client_order_id=order_id,
+                                                                  exchange_order_id="",
+                                                                  trading_pair=trading_pair,
+                                                                  lp_type=LPType.ADD,
+                                                                  lower_price=lower_price,
+                                                                  upper_price=upper_price,
+                                                                  amount_0=amount_0,
+                                                                  amount_1=amount_1,
+                                                                  token_id=1234,
+                                                                  creation_timestamp=self.current_timestamp,
+                                                                  gas_price=Decimal("1"))
+        self._in_flight_orders[order_id].current_state = OrderState.CREATED
+        return order_id
 
-        self.mid_price = 100
-        self.bid_spread = 0.01
-        self.ask_spread = 0.01
-        self.order_refresh_time = 1
+    def remove_liquidity(self, trading_pair: str, token_id: int, reduce_percent: Optional[int] = 100, **request_args) -> str:
+        order_id = f"remove-{trading_pair}-{get_tracking_nonce()}"
+        self._in_flight_orders[order_id] = GatewayInFlightLPOrder(client_order_id=order_id,
+                                                                  exchange_order_id="",
+                                                                  trading_pair=trading_pair,
+                                                                  lp_type=LPType.REMOVE,
+                                                                  lower_price=s_decimal_0,
+                                                                  upper_price=s_decimal_0,
+                                                                  amount_0=s_decimal_0,
+                                                                  amount_1=s_decimal_0,
+                                                                  token_id=1234,
+                                                                  creation_timestamp=self.current_timestamp,
+                                                                  gas_price=Decimal("1"))
+        return order_id
 
-        trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BTC"]))
-        market, market_infos = self.create_market(trading_pairs, self.mid_price, {"USDT": 5000, "ETH": 500, "BTC": 100})
-        self.market = market
-        self.market_infos = market_infos
+    def collect_fees(self, trading_pair: str, token_id: int, **request_args) -> str:
+        order_id = f"collect-{trading_pair}-{get_tracking_nonce()}"
+        self._in_flight_orders[order_id] = GatewayInFlightLPOrder(client_order_id=order_id,
+                                                                  exchange_order_id="",
+                                                                  trading_pair=trading_pair,
+                                                                  lp_type=LPType.COLLECT,
+                                                                  lower_price=s_decimal_0,
+                                                                  upper_price=s_decimal_0,
+                                                                  amount_0=s_decimal_0,
+                                                                  amount_1=s_decimal_0,
+                                                                  token_id=1234,
+                                                                  creation_timestamp=self.current_timestamp,
+                                                                  gas_price=Decimal("1"))
+        return order_id
 
-        self.default_strategy = UniswapV3LpStrategy(
-            self.market_infos[trading_pairs[0]],
-            "MEDIUM",
-            True,
-            Decimal('144'),
-            Decimal('2'),
-            Decimal('0.01'),
-            Decimal('0.01'),
-            Decimal('1'),
-            Decimal('1'),
-            Decimal('0.05')
+    def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
+        return Decimal("0.01")
+
+    def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
+        return Decimal("0.01")
+
+    def ready(self):
+        return True
+
+    async def check_network(self) -> NetworkStatus:
+        return NetworkStatus.CONNECTED
+
+    async def cancel_outdated_orders(self, _: int) -> List:
+        return []
+
+
+class UniswapV3LpUnitTest(unittest.TestCase):
+    def setUp(self):
+        self.clock: Clock = Clock(ClockMode.REALTIME)
+        self.stack: contextlib.ExitStack = contextlib.ExitStack()
+        self.lp: MockAMMLP = MockAMMLP("onion")
+        self.lp.set_balance(BASE_ASSET, 500)
+        self.lp.set_balance(QUOTE_ASSET, 500)
+        self.market_info = MarketTradingPairTuple(self.lp, TRADING_PAIR, BASE_ASSET, QUOTE_ASSET)
+
+        # Set some default price.
+        self.lp.set_price(TRADING_PAIR, 1)
+
+        self.strategy = UniswapV3LpStrategy(
+            self.market_info,
+            "LOW",
+            Decimal("0.2"),
+            Decimal("1"),
+            Decimal("10"),
         )
+        self.clock.add_iterator(self.lp)
+        self.clock.add_iterator(self.strategy)
 
-    def test_generate_proposal_with_volatility_above_zero(self):
-        """
-        Test generate proposal function works correctly when volatility is above zero
-        """
+        self.stack.enter_context(self.clock)
+        self.stack.enter_context(patch(
+            "hummingbot.client.config.trade_fee_schema_loader.TradeFeeSchemaLoader.configured_schema_for_exchange",
+            return_value=TradeFeeSchema()
+        ))
+        self.clock_task: asyncio.Task = safe_ensure_future(self.clock.run())
 
-        orders = self.loop.run_until_complete(self.default_strategy.propose_position_creation())
-        self.assertEqual(orders[0][0], Decimal("0"))
-        self.assertEqual(orders[0][1], Decimal("100"))
-        self.assertEqual(orders[1][0], Decimal("100"))
-        self.assertAlmostEqual(orders[1][1], Decimal("305.35"), 1)
+    def tearDown(self) -> None:
+        self.stack.close()
+        self.clock_task.cancel()
+        try:
+            ev_loop.run_until_complete(self.clock_task)
+        except asyncio.CancelledError:
+            pass
 
-    def test_generate_proposal_with_volatility_equal_zero(self):
-        """
-        Test generate proposal function works correctly when volatility is zero
-        """
+    @async_test(loop=ev_loop)
+    async def test_propose_position_boundary(self):
+        lower_price, upper_price = await self.strategy.propose_position_boundary()
+        self.assertEqual(lower_price, Decimal("0.9"))
+        self.assertEqual(upper_price, Decimal("1.1"))
 
-        for x in range(3600):
-            self.default_strategy._volatility.add_sample(100)
-        orders = self.loop.run_until_complete(self.default_strategy.propose_position_creation())
-        self.assertEqual(orders[0][0], Decimal("99"))
-        self.assertEqual(orders[0][1], Decimal("100"))
-        self.assertEqual(orders[1][0], Decimal("100"))
-        self.assertEqual(orders[1][1], Decimal("101"))
+    @async_test(loop=ev_loop)
+    async def test_format_status(self):
+        self.lp.set_price(TRADING_PAIR, 0)
+        await asyncio.sleep(2)
+        expected_status = """  Markets:
+    Exchange    Market Pool Price
+       onion HBOT-USDT       0E-8
 
-    def test_generate_proposal_without_volatility(self):
-        """
-        Test generate proposal function works correctly using user set spreads
-        """
+  No active positions.
 
-        self.default_strategy._use_volatility = False
-        orders = self.loop.run_until_complete(self.default_strategy.propose_position_creation())
-        self.assertEqual(orders[0][0], Decimal("99"))
-        self.assertEqual(orders[0][1], Decimal("100"))
-        self.assertEqual(orders[1][0], Decimal("100"))
-        self.assertEqual(orders[1][1], Decimal("101"))
+  Assets:
+      Exchange Asset  Total Balance  Available Balance
+    0    onion  HBOT            500                500
+    1    onion  USDT            500                500"""
+        current_status = await self.strategy.format_status()
+        print(current_status)
+        self.assertTrue(expected_status in current_status)
 
-    def test_profitability_calculation(self):
-        """
-        Test profitability calculation function works correctly
-        """
+    @async_test(loop=ev_loop)
+    async def test_any_active_position(self):
+        await asyncio.sleep(2)
+        self.assertTrue(self.strategy.any_active_position(Decimal("1")))
 
-        pos = UniswapV3InFlightPosition(hb_id="pos1",
-                                        token_id=1,
-                                        trading_pair="HBOT-USDT",
-                                        fee_tier="MEDIUM",
-                                        base_amount=Decimal("0"),
-                                        quote_amount=Decimal("100"),
-                                        lower_price=Decimal("100"),
-                                        upper_price=Decimal("101"))
-        pos.current_base_amount = Decimal("1")
-        pos.current_quote_amount = Decimal("0")
-        pos.unclaimed_base_amount = Decimal("1")
-        pos.unclaimed_quote_amount = Decimal("10")
-        pos.gas_price = Decimal("5")
-        self.default_strategy._last_price = Decimal("100")
-        result = self.loop.run_until_complete(self.default_strategy.calculate_profitability(pos))
-        self.assertEqual(result["profitability"], (Decimal("110") - result["tx_fee"]) / Decimal("100"))
-
-    def test_position_creation(self):
-        """
-        Test that positions are created properly.
-        """
-        self.assertEqual(len(self.default_strategy._market_info.market._in_flight_positions), 0)
-        self.default_strategy.execute_proposal([[95, 100], []])
-        self.assertEqual(len(self.default_strategy._market_info.market._in_flight_positions), 1)
-
-    def test_range_calculation(self):
-        """
-        Test that the overall range of all positions cover are calculated correctly.
-        """
-        self.default_strategy._market_info.market._in_flight_positions["pos1"] = UniswapV3InFlightPosition(hb_id="pos1",
-                                                                                                           token_id=1,
-                                                                                                           trading_pair="ETH-USDT",
-                                                                                                           fee_tier="MEDIUM",
-                                                                                                           base_amount=Decimal("0"),
-                                                                                                           quote_amount=Decimal("100"),
-                                                                                                           lower_price=Decimal("90"),
-                                                                                                           upper_price=Decimal("95"))
-        self.default_strategy._market_info.market._in_flight_positions["pos2"] = UniswapV3InFlightPosition(hb_id="pos2",
-                                                                                                           token_id=2,
-                                                                                                           trading_pair="ETH-USDT",
-                                                                                                           fee_tier="MEDIUM",
-                                                                                                           base_amount=Decimal("0"),
-                                                                                                           quote_amount=Decimal("100"),
-                                                                                                           lower_price=Decimal("95"),
-                                                                                                           upper_price=Decimal("100"))
-        self.default_strategy._market_info.market._in_flight_positions["pos3"] = UniswapV3InFlightPosition(hb_id="pos3",
-                                                                                                           token_id=3,
-                                                                                                           trading_pair="ETH-USDT",
-                                                                                                           fee_tier="MEDIUM",
-                                                                                                           base_amount=Decimal("0"),
-                                                                                                           quote_amount=Decimal("100"),
-                                                                                                           lower_price=Decimal("100"),
-                                                                                                           upper_price=Decimal("105"))
-        self.default_strategy._market_info.market._in_flight_positions["pos4"] = UniswapV3InFlightPosition(hb_id="pos4",
-                                                                                                           token_id=4,
-                                                                                                           trading_pair="ETH-USDT",
-                                                                                                           fee_tier="MEDIUM",
-                                                                                                           base_amount=Decimal("0"),
-                                                                                                           quote_amount=Decimal("100"),
-                                                                                                           lower_price=Decimal("105"),
-                                                                                                           upper_price=Decimal("110"))
-        self.assertEqual(len(self.default_strategy._market_info.market._in_flight_positions), 4)
-        lower_bound, upper_bound = self.default_strategy.total_position_range()
-        self.assertEqual(lower_bound, Decimal("90"))
-        self.assertEqual(upper_bound, Decimal("110"))
+    @async_test(loop=ev_loop)
+    async def test_positions_are_created_with_price(self):
+        await asyncio.sleep(2)
+        self.assertEqual(len(self.strategy.active_positions), 1)
+        self.lp.set_price(TRADING_PAIR, 2)
+        await asyncio.sleep(2)
+        self.assertEqual(len(self.strategy.active_positions), 2)
+        self.lp.set_price(TRADING_PAIR, 3)
+        await asyncio.sleep(2)
+        self.assertEqual(len(self.strategy.active_positions), 3)
+        self.lp.set_price(TRADING_PAIR, 2)  # price falls back
+        await asyncio.sleep(2)
+        self.assertEqual(len(self.strategy.active_positions), 3)  # no new position created when there's an active position

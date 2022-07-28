@@ -1,13 +1,7 @@
-#!/usr/bin/env python
-
 from collections import namedtuple
 from enum import Enum
 from functools import total_ordering
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from typing import Dict, List, Optional
 
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
@@ -87,6 +81,9 @@ class OrderBookMessage(namedtuple("_OrderBookMessage", "type, content, timestamp
             )
         )
         return eq
+
+    def __hash__(self):
+        return hash(self.type, self.update_id, self.trade_id)
 
     def __lt__(self, other: "OrderBookMessage") -> bool:
         eq = (

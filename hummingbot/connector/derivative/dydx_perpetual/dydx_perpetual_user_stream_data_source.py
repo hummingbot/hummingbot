@@ -1,16 +1,13 @@
-#!/usr/bin/env python
-
 import asyncio
 import logging
-
 from typing import Optional
-import hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_constants as CONSTANTS
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_utils import build_api_factory
 
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+import hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import DydxPerpetualAuth
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book import DydxPerpetualOrderBook
-from hummingbot.core.web_assistant.connections.data_types import WSRequest
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_utils import build_api_factory
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -49,7 +46,7 @@ class DydxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             self._ws_assistant = await self._api_factory.get_ws_assistant()
         return self._ws_assistant
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         ws = None
         while True:
             try:
@@ -58,7 +55,7 @@ class DydxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 await ws.connect(ws_url=CONSTANTS.DYDX_WS_URL, ping_timeout=self.HEARTBEAT_INTERVAL)
 
                 auth_params = self._dydx_auth.get_ws_auth_params()
-                auth_request: WSRequest = WSRequest(auth_params)
+                auth_request: WSJSONRequest = WSJSONRequest(auth_params)
                 await ws.send(auth_request)
                 self.logger().info("Authenticated user stream...")
 

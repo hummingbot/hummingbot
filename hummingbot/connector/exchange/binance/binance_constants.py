@@ -4,7 +4,7 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 DEFAULT_DOMAIN = "com"
 
 HBOT_ORDER_ID_PREFIX = "x-XEKWYICX"
-MAX_ORDER_ID_LEN = 36
+MAX_ORDER_ID_LEN = 32
 
 # Base URL
 REST_URL = "https://api.binance.{}/api/"
@@ -56,7 +56,7 @@ ORDER_STATE = {
     "FILLED": OrderState.FILLED,
     "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
     "PENDING_CANCEL": OrderState.OPEN,
-    "CANCELED": OrderState.CANCELLED,
+    "CANCELED": OrderState.CANCELED,
     "REJECTED": OrderState.FAILED,
     "EXPIRED": OrderState.FAILED,
 }

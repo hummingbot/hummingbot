@@ -1,18 +1,24 @@
+from decimal import Decimal
 from typing import Dict, List, Optional
 
-from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.config_var import ConfigVar
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+
+# Bybit fees: https://help.bybit.com/hc/en-us/articles/360039261154
+# Fees have to be expressed as percent value
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.0006"),
+    taker_percent_fee_decimal=Decimal("0.0001"),
+)
 
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USD"
-
-# Bybit fees: https://help.bybit.com/hc/en-us/articles/360039261154
-# Fees have to be expressed as percent value
-DEFAULT_FEES = [-0.025, 0.075]
 
 # USE_ETHEREUM_WALLET not required because default value is false
 # FEE_TYPE not required because default value is Percentage
@@ -32,7 +38,9 @@ def is_linear_perpetual(trading_pair: str) -> bool:
 
 
 def get_rest_api_market_for_endpoint(trading_pair: Optional[str] = None) -> str:
-    if trading_pair and is_linear_perpetual(trading_pair):
+    # The default selection should be linear because general requests such as setting position mode
+    # exists only for linear market and is without a trading pair
+    if trading_pair is None or is_linear_perpetual(trading_pair):
         market = CONSTANTS.LINEAR_MARKET
     else:
         market = CONSTANTS.NON_LINEAR_MARKET
@@ -94,40 +102,66 @@ def get_next_funding_timestamp(current_timestamp: float) -> float:
     return float(int_ts - mod + eight_hours)
 
 
-KEYS = {
-    "bybit_perpetual_api_key":
-        ConfigVar(key="bybit_perpetual_api_key",
-                  prompt="Enter your Bybit Perpetual API key >>> ",
-                  required_if=using_exchange("bybit_perpetual"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "bybit_perpetual_secret_key":
-        ConfigVar(key="bybit_perpetual_secret_key",
-                  prompt="Enter your Bybit Perpetual secret key >>> ",
-                  required_if=using_exchange("bybit_perpetual"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class BybitPerpetualConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="bybit_perpetual", client_data=None)
+    bybit_perpetual_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Bybit Perpetual API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    bybit_perpetual_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Bybit Perpetual secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "bybit_perpetual"
+
+
+KEYS = BybitPerpetualConfigMap.construct()
 
 OTHER_DOMAINS = ["bybit_perpetual_testnet"]
 OTHER_DOMAINS_PARAMETER = {"bybit_perpetual_testnet": "bybit_perpetual_testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"bybit_perpetual_testnet": "BTC-USDT"}
 OTHER_DOMAINS_DEFAULT_FEES = {"bybit_perpetual_testnet": [-0.025, 0.075]}
+
+
+class BybitPerpetualTestnetConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="bybit_perpetual_testnet", client_data=None)
+    bybit_perpetual_testnet_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Bybit Perpetual Testnet API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    bybit_perpetual_testnet_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Bybit Perpetual Testnet secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "bybit_perpetual_testnet"
+
+
 OTHER_DOMAINS_KEYS = {
-    "bybit_perpetual_testnet": {
-        "bybit_perpetual_testnet_api_key":
-            ConfigVar(key="bybit_perpetual_testnet_api_key",
-                      prompt="Enter your Bybit Perpetual Testnet API key >>> ",
-                      required_if=using_exchange("bybit_perpetual_testnet"),
-                      is_secure=True,
-                      is_connect_key=True),
-        "bybit_perpetual_testnet_secret_key":
-            ConfigVar(key="bybit_perpetual_testnet_secret_key",
-                      prompt="Enter your Bybit Perpetual Testnet secret key >>> ",
-                      required_if=using_exchange("bybit_perpetual_testnet"),
-                      is_secure=True,
-                      is_connect_key=True),
-    }
+    "bybit_perpetual_testnet": BybitPerpetualTestnetConfigMap.construct()
 }
 
 
@@ -146,6 +180,13 @@ def _build_private_general_rate_limits() -> List[RateLimit]:
     rate_limits = [
         RateLimit(  # same for linear and non-linear
             limit_id=CONSTANTS.GET_WALLET_BALANCE_PATH_URL[CONSTANTS.NON_LINEAR_MARKET],
+            limit=120,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID),
+                           LinkedLimitWeightPair(CONSTANTS.NON_LINEAR_PRIVATE_BUCKET_120_B_LIMIT_ID)],
+        ),
+        RateLimit(  # same for linear and non-linear
+            limit_id=CONSTANTS.SET_POSITION_MODE_URL[CONSTANTS.LINEAR_MARKET],
             limit=120,
             time_interval=60,
             linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID),

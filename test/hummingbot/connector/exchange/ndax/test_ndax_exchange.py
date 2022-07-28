@@ -6,31 +6,28 @@ import time
 from decimal import Decimal
 from typing import Any, Awaitable, Callable, Dict, List
 from unittest import TestCase
-from unittest.mock import AsyncMock, patch, PropertyMock
+from unittest.mock import AsyncMock, PropertyMock, patch
 
 import pandas as pd
 from aioresponses import aioresponses
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
 from hummingbot.connector.exchange.ndax.ndax_in_flight_order import (
+    WORKING_LOCAL_STATUS,
     NdaxInFlightOrder,
     NdaxInFlightOrderNotCreated,
-    WORKING_LOCAL_STATUS,
 )
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    MarketOrderFailureEvent,
-    OrderCancelledEvent,
-    OrderFilledEvent,
-)
 from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import MarketEvent, MarketOrderFailureEvent, OrderCancelledEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class NdaxExchangeTests(TestCase):
@@ -54,8 +51,10 @@ class NdaxExchangeTests(TestCase):
         self.log_records = []
         self.resume_test_event = asyncio.Event()
         self._account_name = "hbot"
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.exchange = NdaxExchange(ndax_uid='001',
+        self.exchange = NdaxExchange(client_config_map=self.client_config_map,
+                                     ndax_uid='001',
                                      ndax_api_key='testAPIKey',
                                      ndax_secret_key='testSecret',
                                      ndax_account_name=self._account_name,
@@ -303,7 +302,7 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual("Canceled", inflight_order.last_state)
         self.assertTrue(inflight_order.is_cancelled)
         self.assertFalse(inflight_order.client_order_id in self.exchange.in_flight_orders)
-        self.assertTrue(self._is_logged("INFO", f"Successfully cancelled order {inflight_order.client_order_id}"))
+        self.assertTrue(self._is_logged("INFO", f"Successfully canceled order {inflight_order.client_order_id}"))
         self.assertEqual(1, len(self.cancel_order_logger.event_log))
         cancel_event = self.cancel_order_logger.event_log[0]
         self.assertEqual(OrderCancelledEvent, type(cancel_event))
@@ -809,7 +808,7 @@ class NdaxExchangeTests(TestCase):
             "")
 
         # Simulate _trading_pair_id_map initialized.
-        self.exchange._order_book_tracker.data_source._trading_pair_id_map.update({
+        self.exchange.order_book_tracker.data_source._trading_pair_id_map.update({
             self.trading_pair: 5
         })
 
@@ -901,7 +900,7 @@ class NdaxExchangeTests(TestCase):
             "")
 
         # Simulate _trading_pair_id_map initialized.
-        self.exchange._order_book_tracker.data_source._trading_pair_id_map.update({
+        self.exchange.order_book_tracker.data_source._trading_pair_id_map.update({
             self.trading_pair: 5
         })
 
@@ -931,7 +930,7 @@ class NdaxExchangeTests(TestCase):
         })
 
         # Simulate _trading_pair_id_map initialized.
-        self.exchange._order_book_tracker.data_source._trading_pair_id_map.update({
+        self.exchange.order_book_tracker.data_source._trading_pair_id_map.update({
             self.trading_pair: 5
         })
         self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._update_order_status())
@@ -1142,7 +1141,7 @@ class NdaxExchangeTests(TestCase):
 
     def test_get_order_book_for_valid_trading_pair(self):
         dummy_order_book = NdaxOrderBook()
-        self.exchange._order_book_tracker.order_books["BTC-USDT"] = dummy_order_book
+        self.exchange.order_book_tracker.order_books["BTC-USDT"] = dummy_order_book
         self.assertEqual(dummy_order_book, self.exchange.get_order_book("BTC-USDT"))
 
     def test_get_order_book_for_invalid_trading_pair_raises_error(self):
@@ -1472,7 +1471,7 @@ class NdaxExchangeTests(TestCase):
         })
 
         # Simulate _trading_pair_id_map initialized.
-        self.exchange._order_book_tracker.data_source._trading_pair_id_map.update({
+        self.exchange.order_book_tracker.data_source._trading_pair_id_map.update({
             self.trading_pair: 5
         })
 
@@ -1655,7 +1654,8 @@ class NdaxExchangeTests(TestCase):
             self.exchange._execute_cancel(self.trading_pair, order.client_order_id)
         )
 
-        self._is_logged("WARNING", f"Order {order.client_order_id} does not seem to be active, will stop tracking order...")
+        self._is_logged("WARNING",
+                        f"Order {order.client_order_id} does not seem to be active, will stop tracking order...")
 
     @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._execute_cancel", new_callable=AsyncMock)
     def test_cancel(self, mock_cancel):
@@ -1702,7 +1702,7 @@ class NdaxExchangeTests(TestCase):
 
         # Simulate all components initialized
         self.exchange._account_id = 1
-        self.exchange._order_book_tracker._order_books_initialized.set()
+        self.exchange.order_book_tracker._order_books_initialized.set()
         self.exchange._account_balances = {
             self.base_asset: Decimal(str(10.0))
         }
@@ -1716,7 +1716,7 @@ class NdaxExchangeTests(TestCase):
 
         # Simulate all components but account_id not initialized
         self.exchange._account_id = None
-        self.exchange._order_book_tracker._order_books_initialized.set()
+        self.exchange.order_book_tracker._order_books_initialized.set()
         self.exchange._account_balances = {}
         self._simulate_trading_rules_initialized()
         self.exchange._user_stream_tracker.data_source._last_recv_time = 0
@@ -1728,7 +1728,7 @@ class NdaxExchangeTests(TestCase):
 
         # Simulate all components but account_id not initialized
         self.exchange._account_id = None
-        self.exchange._order_book_tracker._order_books_initialized.set()
+        self.exchange.order_book_tracker._order_books_initialized.set()
         self.exchange._account_balances = {}
         self._simulate_trading_rules_initialized()
         self.exchange._user_stream_tracker.data_source._last_recv_time = 0
@@ -1828,3 +1828,9 @@ class NdaxExchangeTests(TestCase):
 
         self.assertTrue("Error: The exchange API request limit has been reached (original error 'TOO MANY REQUESTS')"
                         in f"{exception_context.exception}")
+
+    def test_start_network_warning_is_logged(self):
+        self.async_run_with_timeout(self.exchange.start_network())
+
+        self.assertTrue(self._is_logged('WARNING', "This exchange connector does not provide trades feed. "
+                                                   "Strategies which depend on it will not work properly."))

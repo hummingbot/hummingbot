@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "allowedSlippage": { "type": "string" },
+    "gasLimitEstimate": { "type": "integer" },
+    "ttl": { "type": "integer" },
+    "contractAddresses": {
+      "type": "object",
+      "patternProperties": {
+        "^\\w+$": {
+          "type": "object",
+          "properties": {
+            "routerAddress": { "type": "string" }
+          },
+          "required": ["routerAddress"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "required": ["allowedSlippage", "ttl", "contractAddresses"]
+}

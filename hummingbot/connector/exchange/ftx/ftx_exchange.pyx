@@ -9,6 +9,7 @@ from typing import (
     Dict,
     List,
     Optional,
+    TYPE_CHECKING,
 )
 
 import aiohttp
@@ -17,6 +18,7 @@ import simplejson
 from async_timeout import timeout
 from libc.stdint cimport int64_t
 
+from hummingbot.connector.exchange.ftx.ftx_api_order_book_data_source import FtxAPIOrderBookDataSource
 from hummingbot.connector.exchange.ftx.ftx_auth import FtxAuth
 from hummingbot.connector.exchange.ftx.ftx_in_flight_order import FtxInFlightOrder
 from hummingbot.connector.exchange.ftx.ftx_order_book_tracker import FtxOrderBookTracker
@@ -25,7 +27,7 @@ from hummingbot.connector.exchange.ftx.ftx_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair
 )
-from hummingbot.connector.exchange_base import NaN
+from hummingbot.connector.exchange_base import s_decimal_NaN
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -50,6 +52,9 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 bm_logger = None
 s_decimal_0 = Decimal(0)
 UNRECOGNIZED_ORDER_DEBOUCE = 20  # seconds
@@ -71,7 +76,7 @@ cdef class FtxExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -81,6 +86,7 @@ cdef class FtxExchange(ExchangeBase):
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
+    REFERRAL_PROGRAM = "hummingbot1"
 
     FTX_API_ENDPOINT = "https://ftx.com/api"
 
@@ -92,13 +98,14 @@ cdef class FtxExchange(ExchangeBase):
         return bm_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  ftx_secret_key: str,
                  ftx_api_key: str,
                  ftx_subaccount_name: str = None,
                  poll_interval: float = 5.0,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
-        super().__init__()
+        super().__init__(client_config_map)
         self._real_time_balance_update = False
         self._account_available_balances = {}
         self._account_balances = {}
@@ -108,7 +115,7 @@ cdef class FtxExchange(ExchangeBase):
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
-        self._order_book_tracker = FtxOrderBookTracker(trading_pairs=trading_pairs)
+        self._set_order_book_tracker(FtxOrderBookTracker(trading_pairs=trading_pairs))
         self._order_not_found_records = {}
         self._poll_notifier = asyncio.Event()
         self._poll_interval = poll_interval
@@ -131,7 +138,7 @@ cdef class FtxExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def ftx_auth(self) -> FtxAuth:
@@ -140,7 +147,7 @@ cdef class FtxExchange(ExchangeBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "order_book_initialized": self._order_book_tracker.ready,
+            "order_book_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True
         }
@@ -196,9 +203,9 @@ cdef class FtxExchange(ExchangeBase):
         for (market_event, new_amount, new_price, new_fee) in issuable_events:
             base, quote = self.split_trading_pair(tracked_order.trading_pair)
             if market_event == MarketEvent.OrderCancelled:
-                self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}")
+                self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}")
                 self.c_stop_tracking_order(tracked_order.client_order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp,
                                                          tracked_order.client_order_id))
 
@@ -471,7 +478,7 @@ cdef class FtxExchange(ExchangeBase):
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef:
-            dict order_books = self._order_book_tracker.order_books
+            dict order_books = self.order_book_tracker.order_books
 
         if trading_pair not in order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
@@ -579,6 +586,7 @@ cdef class FtxExchange(ExchangeBase):
             }
         else:
             raise ValueError(f"Unknown order_type for FTX: {order_type}")
+        body["externalReferralProgram"] = self.REFERRAL_PROGRAM
 
         api_response = await self._api_request("POST", path_url=path_url, body=body)
 
@@ -699,7 +707,7 @@ cdef class FtxExchange(ExchangeBase):
                    str trading_pair,
                    object amount,
                    object order_type=OrderType.LIMIT,
-                   object price=NaN,
+                   object price = s_decimal_NaN,
                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t> get_tracking_nonce()
@@ -712,7 +720,7 @@ cdef class FtxExchange(ExchangeBase):
                            trading_pair: str,
                            amount: Decimal,
                            order_type: OrderType = OrderType.LIMIT,
-                           price: Optional[Decimal] = NaN):
+                           price: Optional[Decimal] = s_decimal_NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
             double quote_amount
@@ -838,11 +846,11 @@ cdef class FtxExchange(ExchangeBase):
         try:
             cancel_result = await self._api_request("DELETE", path_url=path_url)
 
-            if cancel_result["success"] or (cancel_result["error"] in ["Order already closed", "Order already queued for cancellation"]):
-                self.logger().info(f"Requested cancellation of order {order_id}.")
+            if cancel_result["success"] or (cancel_result["error"] in ["Order already closed", "Order already queued for cancelation"]):
+                self.logger().info(f"Requested cancelation of order {order_id}.")
                 return order_id
             else:
-                self.logger().info(f"Could not request cancellation of order {order_id} as FTX returned: {cancel_result}")
+                self.logger().info(f"Could not request cancelation of order {order_id} as FTX returned: {cancel_result}")
                 return order_id
         except Exception as e:
             self.logger().network(
@@ -873,7 +881,7 @@ cdef class FtxExchange(ExchangeBase):
                         successful_cancellation.append(CancellationResult(order_id, True))
         except Exception:
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                f"Unexpected error canceling orders.",
                 app_warning_msg="Failed to cancel order on ftx. Check API key and network connection."
             )
 
@@ -926,7 +934,7 @@ cdef class FtxExchange(ExchangeBase):
         return NetworkStatus.CONNECTED
 
     def _stop_network(self):
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._user_stream_tracker_task is not None:
@@ -941,7 +949,7 @@ cdef class FtxExchange(ExchangeBase):
 
     async def start_network(self):
         self._stop_network()
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -965,6 +973,14 @@ cdef class FtxExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = Decimal('NaN'),
+                price: Decimal = s_decimal_NaN,
                 is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await FtxAPIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await FtxAPIOrderBookDataSource.get_last_traded_prices(trading_pairs=trading_pairs)

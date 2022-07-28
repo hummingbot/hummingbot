@@ -240,7 +240,7 @@ class WazirxExchangeUnitTest(unittest.TestCase):
         price = self.connector.quantize_order_price(self.trading_pair, price)
         amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("15"))
         cl_order_id = self._place_order(True, amount, OrderType.LIMIT_MAKER, price, 1, None, None,
-                                        fixture.WS_ORDER_CANCELLED)
+                                        fixture.WS_ORDER_CANCELED)
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
@@ -248,7 +248,7 @@ class WazirxExchangeUnitTest(unittest.TestCase):
         price = self.connector.quantize_order_price(self.trading_pair, price)
         amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("15"))
         cl_order_id = self._place_order(False, amount, OrderType.LIMIT_MAKER, price, 2, None, None,
-                                        fixture.WS_ORDER_CANCELLED)
+                                        fixture.WS_ORDER_CANCELED)
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 

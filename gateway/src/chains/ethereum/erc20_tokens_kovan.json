@@ -1,0 +1,83 @@
+{
+  "name": "kovan",
+  "tokens": [
+    {
+      "symbol": "BAT",
+      "chainId": 42,
+      "address": "0x1f1f156E0317167c11Aa412E3d1435ea29Dc3cCE",
+      "decimals": 18
+    },
+    {
+      "symbol": "WETH",
+      "chainId": 42,
+      "address": "0xd0A1E359811322d97991E03f863a0C30C2cF029C",
+      "decimals": 18
+    },
+    {
+      "symbol": "DAI",
+      "chainId": 42,
+      "address": "0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa",
+      "decimals": 18
+    },
+    {
+      "symbol": "MKR",
+      "chainId": 42,
+      "address": "0xef13C0c8abcaf5767160018d268f9697aE4f5375",
+      "decimals": 18
+    },
+    {
+      "symbol": "USDC",
+      "chainId": 42,
+      "address": "0x2F375e94FC336Cdec2Dc0cCB5277FE59CBf1cAe5",
+      "decimals": 6
+    },
+    {
+      "symbol": "REP",
+      "chainId": 42,
+      "address": "0x8c9e6c40d3402480ACE624730524fACC5482798c",
+      "decimals": 18
+    },
+    {
+      "symbol": "WBTC",
+      "chainId": 42,
+      "address": "0xe0C9275E44Ea80eF17579d33c55136b7DA269aEb",
+      "decimals": 18
+    },
+    {
+      "symbol": "SNX",
+      "chainId": 42,
+      "address": "0x86436BcE20258a6DcfE48C9512d4d49A30C4d8c4",
+      "decimals": 18
+    },
+    {
+      "symbol": "ANT",
+      "chainId": 42,
+      "address": "0x37f03a12241E9FD3658ad6777d289c3fb8512Bc9",
+      "decimals": 18
+    },
+    {
+      "symbol": "ZRX",
+      "chainId": 42,
+      "address": "0xccb0F4Cf5D3F97f4a55bb5f5cA321C3ED033f244",
+      "decimals": 18
+    },
+    {
+      "symbol": "COIN1",
+      "chainId": 42,
+      "address": "0x809F5A762e7b0CC75C42cd76098b85CB7BD2BA64",
+      "decimals": 18
+    },
+    {
+      "symbol": "COIN2",
+      "chainId": 42,
+      "address": "0x9866c4043bc6cf47eaf845c56f6ab221c204e0df",
+      "decimals": 8
+    },
+    {
+      "symbol": "COIN3",
+      "chainId": 42,
+      "address": "0x3D2097889B97A9eF23B3eA8FC10c626fbda29099",
+      "decimals": 18
+    }
+  ]
+}
