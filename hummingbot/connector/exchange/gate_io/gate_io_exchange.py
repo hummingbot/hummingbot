@@ -260,7 +260,7 @@ class GateIoExchange(ExchangePyBase):
             for trade_fill in all_fills_response:
                 trade_update = self._create_trade_update_with_order_fill_data(
                     order_fill=trade_fill,
-                    client_order_id=order.client_order_id)
+                    order=order)
                 trade_updates.append(trade_update)
 
         except asyncio.TimeoutError:
@@ -319,7 +319,7 @@ class GateIoExchange(ExchangePyBase):
         ]
         async for event_message in self._iter_user_event_queue():
             channel: str = event_message.get("channel", None)
-            results: str = event_message.get("result", None)
+            results: List[Dict[str, Any]] = event_message.get("result", None)
             try:
                 if channel not in user_channels:
                     self.logger().error(
@@ -396,7 +396,7 @@ class GateIoExchange(ExchangePyBase):
         https://www.gate.io/docs/apiv4/en/#list-orders
         """
         client_order_id = str(order_msg.get("text", ""))
-        tracked_order = self.in_flight_orders.get(client_order_id, None)
+        tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
         if not tracked_order:
             self.logger().debug(f"Ignoring order message with id {client_order_id}: not in in_flight_orders.")
             return
@@ -407,13 +407,11 @@ class GateIoExchange(ExchangePyBase):
     def _create_trade_update_with_order_fill_data(
             self,
             order_fill: Dict[str, Any],
-            client_order_id: Optional[str] = None):
-
-        tracked_order = self.in_flight_orders.get(client_order_id, None)
+            order: InFlightOrder):
 
         fee = TradeFeeBase.new_spot_fee(
             fee_schema=self.trade_fee_schema(),
-            trade_type=tracked_order.trade_type,
+            trade_type=order.trade_type,
             percent_token=order_fill["fee_currency"],
             flat_fees=[TokenAmount(
                 amount=Decimal(order_fill["fee"]),
@@ -422,9 +420,9 @@ class GateIoExchange(ExchangePyBase):
         )
         trade_update = TradeUpdate(
             trade_id=str(order_fill["id"]),
-            client_order_id=tracked_order.client_order_id,
-            exchange_order_id=tracked_order.exchange_order_id,
-            trading_pair=tracked_order.trading_pair,
+            client_order_id=order.client_order_id,
+            exchange_order_id=order.exchange_order_id,
+            trading_pair=order.trading_pair,
             fee=fee,
             fill_base_amount=Decimal(order_fill["amount"]),
             fill_quote_amount=Decimal(order_fill["amount"]) * Decimal(order_fill["price"]),
@@ -441,13 +439,13 @@ class GateIoExchange(ExchangePyBase):
         https://www.gate.io/docs/apiv4/en/#retrieve-market-trades
         """
         client_order_id = client_order_id or str(trade["text"])
-        tracked_order = self.in_flight_orders.get(client_order_id, None)
+        tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
         if tracked_order is None:
             self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
         else:
             trade_update = self._create_trade_update_with_order_fill_data(
                 order_fill=trade,
-                client_order_id=client_order_id)
+                order=tracked_order)
             self._order_tracker.process_trade_update(trade_update)
 
     def _process_balance_message(self, balance_update):
