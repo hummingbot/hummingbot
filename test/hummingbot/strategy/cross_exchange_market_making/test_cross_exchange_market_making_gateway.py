@@ -8,7 +8,6 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
@@ -178,31 +177,31 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             MarketTradingPairTuple(self.taker_market, *self.trading_pairs_taker),
         )
 
-        self.config_map_raw = CrossExchangeMarketMakingConfigMap(   
-            maker_market=self.exchange_name_maker,  
-            taker_market=self.exchange_name_taker,  
-            maker_market_trading_pair=self.trading_pairs_maker[0],  
-            taker_market_trading_pair=self.trading_pairs_taker[0],  
-            min_profitability=Decimal(self.min_profitability),  
-            slippage_buffer=Decimal("0"),   
-            order_amount=Decimal("0"),  
-            # Default values folllow    
-            order_size_taker_volume_factor=Decimal("25"),   
-            order_size_taker_balance_factor=Decimal("99.5"),    
-            order_size_portfolio_ratio_limit=Decimal("30"), 
-            adjust_order_enabled=True,  
-            anti_hysteresis_duration=60.0,  
-            order_refresh_mode=ActiveOrderRefreshMode(),    
-            top_depth_tolerance=Decimal(0), 
-            conversion_rate_mode=TakerToMakerConversionRateMode(),  
-        )   
-        self.config_map_raw.conversion_rate_mode.taker_to_maker_base_conversion_rate = Decimal("1.0")   
-        self.config_map_raw.conversion_rate_mode.taker_to_maker_quote_conversion_rate = Decimal("1.0")  
-        self.config_map = ClientConfigAdapter(self.config_map_raw)  
-        config_map_with_top_depth_tolerance_raw = deepcopy(self.config_map_raw) 
-        config_map_with_top_depth_tolerance_raw.top_depth_tolerance = Decimal("1")  
-        config_map_with_top_depth_tolerance = ClientConfigAdapter(  
-            config_map_with_top_depth_tolerance_raw 
+        self.config_map_raw = CrossExchangeMarketMakingConfigMap(
+            maker_market=self.exchange_name_maker,
+            taker_market=self.exchange_name_taker,
+            maker_market_trading_pair=self.trading_pairs_maker[0],
+            taker_market_trading_pair=self.trading_pairs_taker[0],
+            min_profitability=Decimal(self.min_profitability),
+            slippage_buffer=Decimal("0"),
+            order_amount=Decimal("0"),
+            # Default values folllow
+            order_size_taker_volume_factor=Decimal("25"),
+            order_size_taker_balance_factor=Decimal("99.5"),
+            order_size_portfolio_ratio_limit=Decimal("30"),
+            adjust_order_enabled=True,
+            anti_hysteresis_duration=60.0,
+            order_refresh_mode=ActiveOrderRefreshMode(),
+            top_depth_tolerance=Decimal(0),
+            conversion_rate_mode=TakerToMakerConversionRateMode(),
+        )
+        self.config_map_raw.conversion_rate_mode.taker_to_maker_base_conversion_rate = Decimal("1.0")
+        self.config_map_raw.conversion_rate_mode.taker_to_maker_quote_conversion_rate = Decimal("1.0")
+        self.config_map = ClientConfigAdapter(self.config_map_raw)
+        config_map_with_top_depth_tolerance_raw = deepcopy(self.config_map_raw)
+        config_map_with_top_depth_tolerance_raw.top_depth_tolerance = Decimal("1")
+        config_map_with_top_depth_tolerance = ClientConfigAdapter(
+            config_map_with_top_depth_tolerance_raw
         )
 
         logging_options = (
@@ -216,13 +215,13 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         )
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         self.strategy.init_params(
-            config_map=self.config_map, 
+            config_map=self.config_map,
             market_pairs=[self.market_pair],
             logging_options=logging_options
         )
         self.strategy_with_top_depth_tolerance: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         self.strategy_with_top_depth_tolerance.init_params(
-            config_map=config_map_with_top_depth_tolerance, 
+            config_map=config_map_with_top_depth_tolerance,
             market_pairs=[self.market_pair],
             logging_options=logging_options
         )
@@ -715,18 +714,18 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         )
         self.maker_market.set_balanced_order_book("COINALPHA-QETH", 1.05, 0.55, 1.55, 0.01, 10)
 
-        config_map_raw = deepcopy(self.config_map_raw)  
-        config_map_raw.order_size_portfolio_ratio_limit = Decimal("30") 
+        config_map_raw = deepcopy(self.config_map_raw)
+        config_map_raw.order_size_portfolio_ratio_limit = Decimal("30")
         config_map_raw.taker_to_maker_base_conversion_rate = Decimal("0.95")
-        config_map_raw.min_profitability = Decimal("0.5")   
-        config_map_raw.adjust_order_enabled = True  
-        config_map = ClientConfigAdapter(   
-            config_map_raw  
+        config_map_raw.min_profitability = Decimal("0.5")
+        config_map_raw.adjust_order_enabled = True
+        config_map = ClientConfigAdapter(
+            config_map_raw
         )
 
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         self.strategy.init_params(
-            config_map=config_map,  
+            config_map=config_map,
             market_pairs=[self.market_pair],
             logging_options=self.logging_options,
         )
@@ -783,17 +782,17 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             MarketTradingPairTuple(self.taker_market, *self.trading_pairs_taker),
         )
 
-        config_map_raw = deepcopy(self.config_map_raw)  
-        config_map_raw.order_size_portfolio_ratio_limit = Decimal("30") 
-        config_map_raw.min_profitability = Decimal("0.5")   
-        config_map_raw.adjust_order_enabled = False 
-        config_map = ClientConfigAdapter(   
-            config_map_raw  
+        config_map_raw = deepcopy(self.config_map_raw)
+        config_map_raw.order_size_portfolio_ratio_limit = Decimal("30")
+        config_map_raw.min_profitability = Decimal("0.5")
+        config_map_raw.adjust_order_enabled = False
+        config_map = ClientConfigAdapter(
+            config_map_raw
         )
 
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         self.strategy.init_params(
-            config_map=config_map,  
+            config_map=config_map,
             market_pairs=[self.market_pair],
             logging_options=self.logging_options,
         )
@@ -840,17 +839,17 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             MarketTradingPairTuple(self.taker_market, *self.trading_pairs_taker),
         )
 
-        config_map_raw = deepcopy(self.config_map_raw)  
-        config_map_raw.order_size_portfolio_ratio_limit = Decimal("30") 
-        config_map_raw.min_profitability = Decimal("0.5")   
-        config_map_raw.adjust_order_enabled = True  
-        config_map = ClientConfigAdapter(   
-            config_map_raw  
+        config_map_raw = deepcopy(self.config_map_raw)
+        config_map_raw.order_size_portfolio_ratio_limit = Decimal("30")
+        config_map_raw.min_profitability = Decimal("0.5")
+        config_map_raw.adjust_order_enabled = True
+        config_map = ClientConfigAdapter(
+            config_map_raw
         )
 
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         self.strategy.init_params(
-            config_map=config_map,  
+            config_map=config_map,
             market_pairs=[self.market_pair],
             logging_options=self.logging_options,
         )
@@ -919,43 +918,43 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             False,
             0.95
         )
-        
-        config_map_raw = deepcopy(self.config_map_raw)  
-        config_map_raw.order_size_taker_volume_factor = Decimal("100")  
-        config_map_raw.order_size_taker_balance_factor = Decimal("100") 
-        config_map_raw.order_size_portfolio_ratio_limit = Decimal("100")    
-        config_map_raw.min_profitability = Decimal("25")    
-        config_map_raw.slippage_buffer = Decimal("0")   
-        config_map_raw.order_amount = Decimal("4")  
-        config_map = ClientConfigAdapter(   
-            config_map_raw  
+
+        config_map_raw = deepcopy(self.config_map_raw)
+        config_map_raw.order_size_taker_volume_factor = Decimal("100")
+        config_map_raw.order_size_taker_balance_factor = Decimal("100")
+        config_map_raw.order_size_portfolio_ratio_limit = Decimal("100")
+        config_map_raw.min_profitability = Decimal("25")
+        config_map_raw.slippage_buffer = Decimal("0")
+        config_map_raw.order_amount = Decimal("4")
+        config_map = ClientConfigAdapter(
+            config_map_raw
         )
 
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         self.strategy.init_params(
-            config_map=config_map,  
+            config_map=config_map,
             market_pairs=[self.market_pair],
             logging_options=self.logging_options,
         )
 
-        config_map_with_slippage_buffer = ClientConfigAdapter(  
-            CrossExchangeMarketMakingConfigMap( 
-                maker_market=self.exchange_name_maker,  
-                taker_market=self.exchange_name_taker,  
-                maker_market_trading_pair=self.trading_pairs_maker[0],  
-                taker_market_trading_pair=self.trading_pairs_taker[0],  
-                order_amount=Decimal("4"),  
-                min_profitability=Decimal("25"),    
-                order_size_taker_volume_factor=Decimal("100"),  
-                order_size_taker_balance_factor=Decimal("100"), 
-                order_size_portfolio_ratio_limit=Decimal("100"),    
-                slippage_buffer=Decimal("25"),  
-            )   
+        config_map_with_slippage_buffer = ClientConfigAdapter(
+            CrossExchangeMarketMakingConfigMap(
+                maker_market=self.exchange_name_maker,
+                taker_market=self.exchange_name_taker,
+                maker_market_trading_pair=self.trading_pairs_maker[0],
+                taker_market_trading_pair=self.trading_pairs_taker[0],
+                order_amount=Decimal("4"),
+                min_profitability=Decimal("25"),
+                order_size_taker_volume_factor=Decimal("100"),
+                order_size_taker_balance_factor=Decimal("100"),
+                order_size_portfolio_ratio_limit=Decimal("100"),
+                slippage_buffer=Decimal("25"),
+            )
         )
 
         strategy_with_slippage_buffer: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         strategy_with_slippage_buffer.init_params(
-            config_map=config_map_with_slippage_buffer, 
+            config_map=config_map_with_slippage_buffer,
             market_pairs=[self.market_pair],
             logging_options=self.logging_options,
         )
@@ -1017,19 +1016,19 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         )
 
         config_map_raw = deepcopy(self.config_map_raw)
-        config_map_raw.order_size_taker_volume_factor = Decimal("100")  
-        config_map_raw.order_size_taker_balance_factor = Decimal("100") 
-        config_map_raw.order_size_portfolio_ratio_limit = Decimal("100")    
-        config_map_raw.min_profitability = Decimal("25")    
-        config_map_raw.slippage_buffer = Decimal("25")  
-        config_map_raw.order_amount = Decimal("4")  
-        config_map = ClientConfigAdapter(   
-            config_map_raw  
+        config_map_raw.order_size_taker_volume_factor = Decimal("100")
+        config_map_raw.order_size_taker_balance_factor = Decimal("100")
+        config_map_raw.order_size_portfolio_ratio_limit = Decimal("100")
+        config_map_raw.min_profitability = Decimal("25")
+        config_map_raw.slippage_buffer = Decimal("25")
+        config_map_raw.order_amount = Decimal("4")
+        config_map = ClientConfigAdapter(
+            config_map_raw
         )
 
         strategy_with_slippage_buffer: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         strategy_with_slippage_buffer.init_params(
-            config_map=config_map,  
+            config_map=config_map,
             market_pairs=[self.market_pair],
             logging_options=self.logging_options
         )
