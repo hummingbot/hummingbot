@@ -22,6 +22,7 @@ import { PangolinConfig } from './connectors/pangolin/pangolin.config';
 import { QuickswapConfig } from './connectors/quickswap/quickswap.config';
 import { TraderjoeConfig } from './connectors/traderjoe/traderjoe.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
+import { OpenoceanConfig } from './connectors/openocean/openocean.config';
 import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
 import { ClobRoutes } from './clob/clob.routes';
@@ -77,6 +78,7 @@ interface ConnectorsResponse {
   pangolin: Array<AvailableNetworks>;
   quickswap: Array<AvailableNetworks>;
   sushiswap: Array<AvailableNetworks>;
+  openocean: Array<AvailableNetworks>;
   traderjoe: Array<AvailableNetworks>;
   serum: Array<AvailableNetworks>;
 }
@@ -89,6 +91,7 @@ gatewayApp.get(
       pangolin: PangolinConfig.config.availableNetworks,
       quickswap: QuickswapConfig.config.availableNetworks,
       sushiswap: SushiswapConfig.config.availableNetworks,
+      openocean: OpenoceanConfig.config.availableNetworks,
       traderjoe: TraderjoeConfig.config.availableNetworks,
       serum: SerumConfig.config.availableNetworks,
     });
