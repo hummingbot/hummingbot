@@ -7,10 +7,10 @@ PING_TIMEOUT = 10.0
 MAX_RETRIES = 20
 MESSAGE_TIMEOUT = 30.0
 SNAPSHOT_TIMEOUT = 10.0
-NaN = float("nan")
 
 BITTREX_REST_URL = "https://api.bittrex.com/v3"
 BITTREX_WS_URL = "https://socket-v3.bittrex.com/signalr"
+DEFAULT_DOMAIN = ""
 
 # WEBSOCKET CHANNEl KEYS
 TRADE_EVENT_KEY = "trade"
@@ -31,6 +31,7 @@ BALANCES_URL = "/balances"
 ORDERBOOK_SNAPSHOT_URL = "/markets/{}/orderbook"
 EXCHANGE_INFO_PATH_URL = "/markets"
 ORDER_CREATION_URL = "/orders"
+ALL_TRADES_URL = "/executions"
 ORDER_DETAIL_URL = "/orders/{}"
 ALL_OPEN_ORDERS_URL = "/orders/open"
 ALL_CLOSED_ORDERS_URL = "/orders/closed"
@@ -53,4 +54,6 @@ RATE_LIMITS = [
     RateLimit(limit_id=SYMBOL_TICKER_LIMIT_ID, limit=60, time_interval=60),
     RateLimit(limit_id=FEES_URL, limit=60, time_interval=60),
     RateLimit(limit_id=BALANCES_URL, limit=60, time_interval=60),
+    RateLimit(limit_id=ALL_TRADES_URL, limit=60, time_interval=60),
+
 ]

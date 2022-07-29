@@ -2,13 +2,14 @@ import asyncio
 import json
 import unittest
 from typing import Awaitable, Optional
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.connector.exchange.bittrex import bittrex_constants as CONSTANTS
 from hummingbot.connector.exchange.bittrex.bittrex_api_user_stream_data_source import BittrexAPIUserStreamDataSource
 from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
 from hummingbot.connector.exchange.bittrex.bittrex_web_utils import build_api_factory
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
@@ -32,9 +33,14 @@ class BittrexAPIUserStreamDataSourceTest(unittest.TestCase):
         self.log_records = []
         self.mocking_assistant = NetworkMockingAssistant()
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
-
+        self.mock_time_provider = MagicMock()
+        self.mock_time_provider.time.return_value = 1000
+        self.time_synchronizer = TimeSynchronizer()
+        self.time_synchronizer.add_time_offset_ms_sample(0)
         self.data_source = BittrexAPIUserStreamDataSource(
-            auth=BittrexAuth(self.api_key, self.secret_key),
+            auth=BittrexAuth(api_key=self.api_key,
+                             secret_key= self.secret_key,
+                             time_provider=self.mock_time_provider),
             connector=AsyncMock(),
             api_factory=build_api_factory()
         )

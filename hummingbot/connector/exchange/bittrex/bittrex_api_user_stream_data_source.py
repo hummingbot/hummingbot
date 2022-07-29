@@ -37,8 +37,9 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "I": 1
                 }
             )
-            auth_ws_request = await self._auth.ws_authenticate(ws_request)
-            await ws.send(auth_ws_request)
+            auth_params = self._auth.generate_WS_auth_params()
+            ws_request.payload['A'] = auth_params
+            await ws.send(ws_request)
             resp: WSResponse = await ws.receive()
             auth_response = resp.data["R"]
             if not auth_response["Success"]:

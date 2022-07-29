@@ -7,8 +7,6 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
 
-EXAMPLE_PAIR = "ZRX-ETH"
-
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.0035"),
     taker_percent_fee_decimal=Decimal("0.0035"),
