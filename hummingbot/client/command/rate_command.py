@@ -38,6 +38,7 @@ class RateCommand:
     @staticmethod
     async def oracle_rate_msg(pair: str,
                               ):
+        pair = pair.upper().strip('\"').strip("'")
         rate = await RateOracle.rate_async(pair)
         if rate is None:
             raise OracleRateUnavailable
