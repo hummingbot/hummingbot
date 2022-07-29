@@ -74,8 +74,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.taker_market.set_quantization_param(QuantizationParams(self.trading_pairs_taker[0], 5, 5, 5, 5))
 
         self.market_pair: MakerTakerMarketPair = MakerTakerMarketPair(
-            MarketTradingPairTuple(self.maker_market, *self.maker_trading_pairs),
-            MarketTradingPairTuple(self.taker_market, *self.taker_trading_pairs),
+            MarketTradingPairTuple(self.maker_market, *self.trading_pairs_maker),
+            MarketTradingPairTuple(self.taker_market, *self.trading_pairs_taker),
         )
 
         self.config_map_raw = CrossExchangeMarketMakingConfigMap(
@@ -153,7 +153,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         return ret
 
     def simulate_maker_market_trade(self, is_buy: bool, quantity: Decimal, price: Decimal):
-        maker_trading_pair: str = self.maker_trading_pairs[0]
+        maker_trading_pair: str = self.trading_pairs_maker[0]
         order_book: OrderBook = self.maker_market.get_order_book(maker_trading_pair)
         trade_event: OrderBookTradeEvent = OrderBookTradeEvent(
             maker_trading_pair, self.clock.current_timestamp, TradeType.BUY if is_buy else TradeType.SELL, price, quantity
@@ -369,7 +369,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         prev_maker_orders_created_len = len(self.maker_order_created_logger.event_log)
 
-        self.simulate_order_book_widening(self.taker_market.order_books[self.taker_trading_pairs[0]], 0.99, 1.01)
+        self.simulate_order_book_widening(self.taker_market.order_books[self.trading_pairs_taker[0]], 0.99, 1.01)
 
         self.clock.backtest_til(self.start_timestamp + 100)
         self.ev_loop.run_until_complete(asyncio.sleep(0.5))
@@ -426,7 +426,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         prev_maker_orders_created_len = len(self.maker_order_created_logger.event_log)
 
-        self.simulate_order_book_widening(self.taker_market.order_books[self.taker_trading_pairs[0]], 0.99, 1.01)
+        self.simulate_order_book_widening(self.taker_market.order_books[self.trading_pairs_taker[0]], 0.99, 1.01)
 
         self.clock.backtest_til(self.start_timestamp + 100)
         self.ev_loop.run_until_complete(asyncio.sleep(0.5))
@@ -614,10 +614,10 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         bid_order: LimitOrder = self.strategy.active_maker_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_maker_asks[0][1]
         bid_maker_price = sell_taker_price * (1 - self.min_profitability)
-        price_quantum = self.maker_market.get_order_price_quantum(self.maker_trading_pairs[0], bid_maker_price)
+        price_quantum = self.maker_market.get_order_price_quantum(self.trading_pairs_maker[0], bid_maker_price)
         bid_maker_price = (floor(bid_maker_price / price_quantum)) * price_quantum
         ask_maker_price = buy_taker_price * (1 + self.min_profitability)
-        price_quantum = self.maker_market.get_order_price_quantum(self.maker_trading_pairs[0], ask_maker_price)
+        price_quantum = self.maker_market.get_order_price_quantum(self.trading_pairs_maker[0], ask_maker_price)
         ask_maker_price = (ceil(ask_maker_price / price_quantum) * price_quantum)
         self.assertEqual(round(bid_maker_price, 4), round(bid_order.price, 4))
         self.assertEqual(round(ask_maker_price, 4), round(ask_order.price, 4))
@@ -630,10 +630,10 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.maker_market: MockPaperExchange = MockPaperExchange(
             client_config_map=ClientConfigAdapter(ClientConfigMap())
         )
-        self.maker_market.set_balanced_order_book(self.maker_trading_pairs[0], 1.0, 0.5, 1.5, 0.1, 10)
+        self.maker_market.set_balanced_order_book(self.trading_pairs_maker[0], 1.0, 0.5, 1.5, 0.1, 10)
         self.market_pair: MakerTakerMarketPair = MakerTakerMarketPair(
-            MarketTradingPairTuple(self.maker_market, *self.maker_trading_pairs),
-            MarketTradingPairTuple(self.taker_market, *self.taker_trading_pairs),
+            MarketTradingPairTuple(self.maker_market, *self.trading_pairs_maker),
+            MarketTradingPairTuple(self.taker_market, *self.trading_pairs_taker),
         )
 
         config_map_raw = deepcopy(self.config_map_raw)
@@ -676,11 +676,11 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             client_config_map=ClientConfigAdapter(ClientConfigMap())
         )
 
-        self.maker_market.set_balanced_order_book(self.maker_trading_pairs[0], 1.0, 0.5, 1.5, 0.1, 10)
-        self.taker_market.set_balanced_order_book(self.taker_trading_pairs[0], 1.0, 0.5, 1.5, 0.001, 20)
+        self.maker_market.set_balanced_order_book(self.trading_pairs_maker[0], 1.0, 0.5, 1.5, 0.1, 10)
+        self.taker_market.set_balanced_order_book(self.trading_pairs_taker[0], 1.0, 0.5, 1.5, 0.001, 20)
         self.market_pair: MakerTakerMarketPair = MakerTakerMarketPair(
-            MarketTradingPairTuple(self.maker_market, *self.maker_trading_pairs),
-            MarketTradingPairTuple(self.taker_market, *self.taker_trading_pairs),
+            MarketTradingPairTuple(self.maker_market, *self.trading_pairs_maker),
+            MarketTradingPairTuple(self.taker_market, *self.trading_pairs_taker),
         )
 
         config_map_raw = deepcopy(self.config_map_raw)
@@ -715,7 +715,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("3"), round(ask_order.quantity, 4))
 
     def test_price_and_size_limit_calculation(self):
-        self.taker_market.set_balanced_order_book(self.taker_trading_pairs[0], 1.0, 0.5, 1.5, 0.001, 20)
+        self.taker_market.set_balanced_order_book(self.trading_pairs_taker[0], 1.0, 0.5, 1.5, 0.001, 20)
 
         task = self.ev_loop.create_task(self.strategy.get_market_making_size(self.market_pair, True))
         bid_size: Decimal = self.ev_loop.run_until_complete(task)
@@ -925,10 +925,10 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         )
 
         # Orderbook is empty
-        self.maker_market.new_empty_order_book(self.maker_trading_pairs[0])
+        self.maker_market.new_empty_order_book(self.trading_pairs_maker[0])
         self.market_pair: MakerTakerMarketPair = MakerTakerMarketPair(
-            MarketTradingPairTuple(self.maker_market, *self.maker_trading_pairs),
-            MarketTradingPairTuple(self.taker_market, *self.taker_trading_pairs),
+            MarketTradingPairTuple(self.maker_market, *self.trading_pairs_maker),
+            MarketTradingPairTuple(self.taker_market, *self.trading_pairs_taker),
         )
 
         config_map_raw = deepcopy(self.config_map_raw)

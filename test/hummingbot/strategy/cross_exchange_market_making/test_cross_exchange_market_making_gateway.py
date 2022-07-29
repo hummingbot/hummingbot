@@ -10,6 +10,8 @@ import pandas as pd
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.settings import ConnectorSetting, ConnectorType
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
@@ -18,7 +20,7 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeSchema
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -149,7 +151,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
 
-    def setUp(self):
+    @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
+    def setUp(self, all_connector_settings_mock):
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
         self.min_profitability = Decimal("0.005")
         self.maker_market: MockPaperExchange = MockPaperExchange(
@@ -180,6 +183,47 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             MarketTradingPairTuple(self.maker_market, *self.trading_pairs_maker),
             MarketTradingPairTuple(self.taker_market, *self.trading_pairs_taker),
         )
+
+        all_connector_settings_mock.return_value = {
+            "binance": ConnectorSetting(
+                name='binance',
+                type=ConnectorType.Exchange,
+                example_pair='ZRX-ETH',
+                centralised=True,
+                use_ethereum_wallet=False,
+                trade_fee_schema=TradeFeeSchema(
+                    percent_fee_token=None,
+                    maker_percent_fee_decimal=Decimal('0.001'),
+                    taker_percent_fee_decimal=Decimal('0.001'),
+                    buy_percent_fee_deducted_from_returns=False,
+                    maker_fixed_fees=[],
+                    taker_fixed_fees=[]),
+                config_keys={
+                    'binance_api_key': ConfigVar(key='binance_api_key', prompt=""),
+                    'binance_api_secret': ConfigVar(key='binance_api_secret', prompt="")},
+                is_sub_domain=False,
+                parent_name=None,
+                domain_parameter=None,
+                use_eth_gas_lookup=False),
+            "uniswap_ethereum_kovan": ConnectorSetting(
+                name='uniswap_ethereum_kovan',
+                type=ConnectorType.Exchange,
+                example_pair='WETH-DAI',
+                centralised=False,
+                use_ethereum_wallet=True,
+                trade_fee_schema=TradeFeeSchema(
+                    percent_fee_token=None,
+                    maker_percent_fee_decimal=Decimal('0.001'),
+                    taker_percent_fee_decimal=Decimal('0.001'),
+                    buy_percent_fee_deducted_from_returns=False,
+                    maker_fixed_fees=[],
+                    taker_fixed_fees=[]),
+                config_keys={},
+                is_sub_domain=False,
+                parent_name=None,
+                domain_parameter=None,
+                use_eth_gas_lookup=False)
+        }
 
         self.config_map_raw = CrossExchangeMarketMakingConfigMap(
             maker_market=self.exchange_name_maker,
@@ -908,12 +952,14 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual((Decimal("0.94995"), Decimal("5.2631")), (bid_price, bid_size))
         self.assertEqual((Decimal("1.0501"), Decimal("5.0000")), (ask_price, ask_size))
 
+    @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
     @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
            "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
     @patch.object(MockAMM, "cancel_outdated_orders")
     def test_price_and_size_limit_calculation_with_slippage_buffer(self,
                                                                    cancel_outdated_orders_func: unittest.mock.AsyncMock,
-                                                                   _: unittest.mock.Mock):
+                                                                   _: unittest.mock.Mock,
+                                                                   all_connector_settings_mock):
         self.taker_market.set_balance("ETH", 3)
         self.taker_market.set_prices(
             self.trading_pairs_taker[0],
@@ -943,6 +989,47 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             market_pairs=[self.market_pair],
             logging_options=self.logging_options,
         )
+
+        all_connector_settings_mock.return_value = {
+            "binance": ConnectorSetting(
+                name='binance',
+                type=ConnectorType.Exchange,
+                example_pair='ZRX-ETH',
+                centralised=True,
+                use_ethereum_wallet=False,
+                trade_fee_schema=TradeFeeSchema(
+                    percent_fee_token=None,
+                    maker_percent_fee_decimal=Decimal('0.001'),
+                    taker_percent_fee_decimal=Decimal('0.001'),
+                    buy_percent_fee_deducted_from_returns=False,
+                    maker_fixed_fees=[],
+                    taker_fixed_fees=[]),
+                config_keys={
+                    'binance_api_key': ConfigVar(key='binance_api_key', prompt=""),
+                    'binance_api_secret': ConfigVar(key='binance_api_secret', prompt="")},
+                is_sub_domain=False,
+                parent_name=None,
+                domain_parameter=None,
+                use_eth_gas_lookup=False),
+            "uniswap_ethereum_kovan": ConnectorSetting(
+                name='uniswap_ethereum_kovan',
+                type=ConnectorType.Exchange,
+                example_pair='WETH-DAI',
+                centralised=False,
+                use_ethereum_wallet=True,
+                trade_fee_schema=TradeFeeSchema(
+                    percent_fee_token=None,
+                    maker_percent_fee_decimal=Decimal('0.001'),
+                    taker_percent_fee_decimal=Decimal('0.001'),
+                    buy_percent_fee_deducted_from_returns=False,
+                    maker_fixed_fees=[],
+                    taker_fixed_fees=[]),
+                config_keys={},
+                is_sub_domain=False,
+                parent_name=None,
+                domain_parameter=None,
+                use_eth_gas_lookup=False)
+        }
 
         config_map_with_slippage_buffer = ClientConfigAdapter(
             CrossExchangeMarketMakingConfigMap(
