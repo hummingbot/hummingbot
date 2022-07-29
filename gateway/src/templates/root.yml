@@ -68,6 +68,10 @@ configurations:
     configurationPath: uniswap.yml
     schemaPath: uniswap-schema.json
 
+  $namespace openocean:
+    configurationPath: openocean.yml
+    schemaPath: openocean-schema.json
+
   $namespace serum:
     configurationPath: serum.yml
     schemaPath: serum-schema.json
