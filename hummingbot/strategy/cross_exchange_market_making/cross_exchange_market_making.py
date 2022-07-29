@@ -869,7 +869,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             hedged_order_quantity = min(
                 buy_fill_quantity * base_rate,
                 taker_market.get_available_balance(market_pair.taker.base_asset) *
-                self._config_map.order_size_taker_balance_factor
+                self.order_size_taker_balance_factor
             )
             quantized_hedge_amount = taker_market.quantize_order_amount(taker_trading_pair, Decimal(hedged_order_quantity))
 
@@ -956,7 +956,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             hedged_order_quantity = min(
                 sell_fill_quantity * base_rate,
                 taker_market.get_available_balance(market_pair.taker.quote_asset) /
-                taker_price * self._config_map.order_size_taker_balance_factor
+                taker_price * self.order_size_taker_balance_factor
             )
             quantized_hedge_amount = taker_market.quantize_order_amount(
                 taker_trading_pair,
@@ -1060,7 +1060,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         current_price = (maker_market.get_price(trading_pair, True) +
                          maker_market.get_price(trading_pair, False)) * Decimal(0.5)
         maker_portfolio_value = base_balance + quote_balance / current_price
-        adjusted_order_size = maker_portfolio_value * self._config_map.order_size_portfolio_ratio_limit
+        adjusted_order_size = maker_portfolio_value * self.order_size_portfolio_ratio_limit
 
         return maker_market.quantize_order_amount(trading_pair, Decimal(adjusted_order_size))
 
@@ -1095,7 +1095,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # Taker sell
             maker_balance_in_quote = maker_market.get_available_balance(market_pair.maker.quote_asset)
             taker_balance = taker_market.get_available_balance(market_pair.taker.base_asset) * \
-                self._config_map.order_size_taker_balance_factor
+                self.order_size_taker_balance_factor
 
             if self.is_gateway_market(market_pair.taker):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
@@ -1128,7 +1128,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # Taker buy
             maker_balance = maker_market.get_available_balance(market_pair.maker.base_asset)
             taker_balance_in_quote = taker_market.get_available_balance(market_pair.taker.quote_asset) * \
-                self._config_map.order_size_taker_balance_factor
+                self.order_size_taker_balance_factor
 
             if self.is_gateway_market(market_pair.taker):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
@@ -1491,7 +1491,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     hedged_order_quantity = min(
                         quantity_remaining * base_rate,
                         market_pair.taker.market.get_available_balance(market_pair.taker.base_asset) *
-                        self._config_map.order_size_taker_balance_factor
+                        self.order_size_taker_balance_factor
                     )
                     # Convert from taker to maker order amount
                     hedged_order_quantity = hedged_order_quantity / base_rate
@@ -1510,7 +1510,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     hedged_order_quantity = min(
                         quantity_remaining * base_rate,
                         market_pair.taker.market.get_available_balance(market_pair.taker.quote_asset) /
-                        taker_price * self._config_map.order_size_taker_balance_factor
+                        taker_price * self.order_size_taker_balance_factor
                     )
                     # Convert from taker to maker order amount
                     hedged_order_quantity = hedged_order_quantity / base_rate
