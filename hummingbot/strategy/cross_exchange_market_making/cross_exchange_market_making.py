@@ -183,7 +183,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
     @property
     def taker_to_maker_base_conversion_rate(self):
-        return self._config_map.taker_to_maker_base_conversion_rate
+        return self._config_map.conversion_rate_mode.taker_to_maker_base_conversion_rate
 
     @property
     def taker_to_maker_quote_conversion_rate(self):
