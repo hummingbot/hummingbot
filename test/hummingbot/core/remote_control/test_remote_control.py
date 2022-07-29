@@ -69,8 +69,8 @@ class RemoteControlTest(TestCase):
         self.remote_cmds.stop()
         RemoteCommandExecutor._rce_shared_instance = None
         self.app.remote_command_executor = None
-        self.remote_cmds._hb._script_iterator = None
-        self.app._script_iterator = None
+        self.remote_cmds._hb._pmm_script_iterator = None
+        self.app._pmm_script_iterator = None
         super().tearDown()
 
     @classmethod
@@ -134,7 +134,7 @@ class RemoteControlTest(TestCase):
         script_parent_queue = mp.Queue()
         script_child_queue = mp.Queue()
         script_base.assign_init(script_parent_queue, script_child_queue, 0.0)
-        self.remote_cmds._hb._script_iterator = DummyScriptIterator(queue=script_parent_queue)
+        self.remote_cmds._hb._pmm_script_iterator = DummyScriptIterator(queue=script_parent_queue)
         return script_base
 
     def _get_ignored_event(self):
@@ -366,7 +366,7 @@ class RemoteControlTest(TestCase):
     @patch('hummingbot.core.remote_control.remote_command_executor.RemoteCommandExecutor._finish_processing_event_hook')
     def test_remote_commands_processing_error(self, mock_api, handle_event_done_mock, ws_connect_mock):
         self._dummy_rest_responses(mock_api)
-        self.remote_cmds._hb._script_iterator = True
+        self.remote_cmds._hb._pmm_script_iterator = True
         done_callback_event = asyncio.Event()
         ws_connect_mock.return_value = self._rce_setup()
         handle_event_done_mock.side_effect = lambda: done_callback_event.set()
@@ -552,7 +552,7 @@ class RemoteControlTest(TestCase):
             asyncio.get_event_loop().run_until_complete(task)
 
         self.assertEqual("test 1", self.remote_cmds.last_event_received.event_descriptor)
-        self.assertTrue(self.remote_cmds._hb._script_iterator is not None)
+        self.assertTrue(self.remote_cmds._hb._pmm_script_iterator is not None)
         self.assertTrue(done_callback_event.is_set())
 
     @aioresponses()
