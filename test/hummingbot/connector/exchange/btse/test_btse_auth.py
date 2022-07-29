@@ -40,7 +40,7 @@ class BtseAuthTests(TestCase):
         }
 
         auth = BtseAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
-        request = RESTRequest(method=RESTMethod.GET, url=url, data=params, is_auth_required=True)
+        request = RESTRequest(method=RESTMethod.GET, url=url, params=params, is_auth_required=True)
         configured_request = self.async_run_with_timeout(auth.rest_authenticate(request))
 
         self.assertEqual(now * 1e3, configured_request.headers["btse-nonce"])

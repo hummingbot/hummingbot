@@ -7,18 +7,19 @@ HBOT_ORDER_ID_PREFIX = "x-XEKWYICX"
 MAX_ORDER_ID_LEN = 32
 
 # Base URL
-REST_URL = "https://api.btse.com/spot"
-WSS_URL = "wss://ws.btse.com/ws/spot"
+REST_URL = "https://api.btse.{}/spot/api/"
+WSS_URL = "wss://ws.btse.{}/ws/oss/spot"
 
-PUBLIC_API_VERSION = "v3"
-PRIVATE_API_VERSION = "v3"
+PUBLIC_API_VERSION = "v3.2"
+PRIVATE_API_VERSION = "v3.2"
 
 # Public API endpoints or Btse Client function
-TICKER_PRICE_CHANGE_PATH_URL = "/ticker/24hr"
-EXCHANGE_INFO_PATH_URL = "/exchangeInfo"
-PING_PATH_URL = "/ping"
-SNAPSHOT_PATH_URL = "/depth"
+TICKER_PRICE_CHANGE_PATH_URL = "/price"
 SERVER_TIME_PATH_URL = "/time"
+PING_PATH_URL = "/time"
+SNAPSHOT_PATH_URL = "/orderbook"
+
+EXCHANGE_INFO_PATH_URL = "/exchangeInfo"
 
 # Private API endpoints or Btse Client function
 ACCOUNTS_PATH_URL = "/account"
@@ -62,8 +63,8 @@ ORDER_STATE = {
 }
 
 # Websocket event types
-DIFF_EVENT_TYPE = "depthUpdate"
-TRADE_EVENT_TYPE = "trade"
+DIFF_EVENT_TYPE = "update"
+TRADE_EVENT_TYPE = "tradeHistoryApi"
 
 RATE_LIMITS = [
     # Pools
