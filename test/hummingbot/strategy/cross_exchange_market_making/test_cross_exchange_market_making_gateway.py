@@ -141,8 +141,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    exchange_name_maker = "binance"
-    exchange_name_taker = "uniswap_ethereum_kovan"
+    exchange_name_maker = "mock_paper_exchange"
+    exchange_name_taker = "mock_paper_decentralized_exchange"
     trading_pairs_maker: List[str] = ["ETH-USDT", "ETH", "USDT"]
     trading_pairs_taker: List[str] = ["WETH-DAI", "WETH", "DAI"]
 
@@ -151,14 +151,18 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
 
-    @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
-    def setUp(self, all_connector_settings_mock):
+    @patch("hummingbot.client.settings.GatewayConnectionSetting.get_connector_spec_from_market_name")
+    @patch("hummingbot.client.settings.AllConnectorSettings.get_connector_settings")
+    def setUp(self, get_connector_settings_mock, get_connector_spec_from_market_name_mock):
+        get_connector_spec_from_market_name_mock.return_value = self.get_mock_gateway_settings()
+        get_connector_settings_mock.return_value = self.get_mock_connector_settings()
+
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
         self.min_profitability = Decimal("0.005")
         self.maker_market: MockPaperExchange = MockPaperExchange(
             client_config_map=ClientConfigAdapter(ClientConfigMap()))
         self.taker_market: MockAMM = MockAMM(
-            name="uniswap_ethereum_kovan",
+            name="mock_paper_decentralized_exchange",
             client_config_map=ClientConfigAdapter(ClientConfigMap()))
         self.maker_market.set_balanced_order_book(self.trading_pairs_maker[0], 1.0, 0.5, 1.5, 0.01, 10)
         self.taker_market.set_prices(
@@ -183,47 +187,6 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             MarketTradingPairTuple(self.maker_market, *self.trading_pairs_maker),
             MarketTradingPairTuple(self.taker_market, *self.trading_pairs_taker),
         )
-
-        all_connector_settings_mock.return_value = {
-            "binance": ConnectorSetting(
-                name='binance',
-                type=ConnectorType.Exchange,
-                example_pair='ZRX-ETH',
-                centralised=True,
-                use_ethereum_wallet=False,
-                trade_fee_schema=TradeFeeSchema(
-                    percent_fee_token=None,
-                    maker_percent_fee_decimal=Decimal('0.001'),
-                    taker_percent_fee_decimal=Decimal('0.001'),
-                    buy_percent_fee_deducted_from_returns=False,
-                    maker_fixed_fees=[],
-                    taker_fixed_fees=[]),
-                config_keys={
-                    'binance_api_key': ConfigVar(key='binance_api_key', prompt=""),
-                    'binance_api_secret': ConfigVar(key='binance_api_secret', prompt="")},
-                is_sub_domain=False,
-                parent_name=None,
-                domain_parameter=None,
-                use_eth_gas_lookup=False),
-            "uniswap_ethereum_kovan": ConnectorSetting(
-                name='uniswap_ethereum_kovan',
-                type=ConnectorType.Exchange,
-                example_pair='WETH-DAI',
-                centralised=False,
-                use_ethereum_wallet=True,
-                trade_fee_schema=TradeFeeSchema(
-                    percent_fee_token=None,
-                    maker_percent_fee_decimal=Decimal('0.001'),
-                    taker_percent_fee_decimal=Decimal('0.001'),
-                    buy_percent_fee_deducted_from_returns=False,
-                    maker_fixed_fees=[],
-                    taker_fixed_fees=[]),
-                config_keys={},
-                is_sub_domain=False,
-                parent_name=None,
-                domain_parameter=None,
-                use_eth_gas_lookup=False)
-        }
 
         self.config_map_raw = CrossExchangeMarketMakingConfigMap(
             maker_market=self.exchange_name_maker,
@@ -294,6 +257,70 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
+
+    def get_mock_connector_settings(self):
+
+        conf_var_connector_cex = ConfigVar(key='mock_paper_exchange', prompt="")
+        conf_var_connector_cex.value = 'mock_paper_exchange'
+
+        conf_var_connector_dex = ConfigVar(key='mock_paper_decentralized_exchange', prompt="")
+        conf_var_connector_dex.value = 'mock_paper_decentralized_exchange'
+
+        settings = {
+            "mock_paper_exchange": ConnectorSetting(
+                name='mock_paper_exchange',
+                type=ConnectorType.Exchange,
+                example_pair='ZRX-ETH',
+                centralised=True,
+                use_ethereum_wallet=False,
+                trade_fee_schema=TradeFeeSchema(
+                    percent_fee_token=None,
+                    maker_percent_fee_decimal=Decimal('0.001'),
+                    taker_percent_fee_decimal=Decimal('0.001'),
+                    buy_percent_fee_deducted_from_returns=False,
+                    maker_fixed_fees=[],
+                    taker_fixed_fees=[]),
+                config_keys={
+                    'connector': conf_var_connector_cex
+                },
+                is_sub_domain=False,
+                parent_name=None,
+                domain_parameter=None,
+                use_eth_gas_lookup=False),
+            "mock_paper_decentralized_exchange": ConnectorSetting(
+                name='mock_paper_decentralized_exchange',
+                type=ConnectorType.EVM_AMM,
+                example_pair='WETH-USDC',
+                centralised=False,
+                use_ethereum_wallet=False,
+                trade_fee_schema=TradeFeeSchema(
+                    percent_fee_token=None,
+                    maker_percent_fee_decimal=Decimal('0.0'),
+                    taker_percent_fee_decimal=Decimal('0.0'),
+                    buy_percent_fee_deducted_from_returns=False,
+                    maker_fixed_fees=[],
+                    taker_fixed_fees=[]),
+                config_keys={},
+                is_sub_domain=False,
+                parent_name=None,
+                domain_parameter=None,
+                use_eth_gas_lookup=False)
+        }
+
+        return settings
+
+    def get_mock_gateway_settings(self):
+
+        settings = {
+            'connector': 'mock_paper_decentralized_exchange',
+            'chain': 'ethereum',
+            'network': 'kovan',
+            'trading_type': 'EVM_AMM',
+            'wallet_address': '0xXXXXX',
+            'additional_spenders': []
+        }
+
+        return settings
 
     def simulate_maker_market_trade(self, is_buy: bool, quantity: Decimal, price: Decimal):
         maker_trading_pair: str = self.trading_pairs_maker[0]
@@ -427,13 +454,20 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             )
         )
 
+    @patch("hummingbot.client.settings.GatewayConnectionSetting.get_connector_spec_from_market_name")
+    @patch("hummingbot.client.settings.AllConnectorSettings.get_connector_settings")
     @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
            "CrossExchangeMarketMakingStrategy.is_gateway_market")
     @patch.object(MockAMM, "cancel_outdated_orders")
     def test_both_sides_profitable(self,
                                    cancel_outdated_orders_func: unittest.mock.AsyncMock,
-                                   is_gateway_mock: unittest.mock.Mock):
+                                   is_gateway_mock: unittest.mock.Mock,
+                                   get_connector_settings_mock,
+                                   get_connector_spec_from_market_name_mock):
         is_gateway_mock.return_value = True
+
+        get_connector_spec_from_market_name_mock.return_value = self.get_mock_gateway_settings()
+        get_connector_settings_mock.return_value = self.get_mock_connector_settings()
 
         self.clock.backtest_til(self.start_timestamp + 5)
         if len(self.maker_order_created_logger.event_log) == 0:
@@ -952,14 +986,16 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual((Decimal("0.94995"), Decimal("5.2631")), (bid_price, bid_size))
         self.assertEqual((Decimal("1.0501"), Decimal("5.0000")), (ask_price, ask_size))
 
-    @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
+    @patch("hummingbot.client.settings.GatewayConnectionSetting.get_connector_spec_from_market_name")
+    @patch("hummingbot.client.settings.AllConnectorSettings.get_connector_settings")
     @patch("hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
            "CrossExchangeMarketMakingStrategy.is_gateway_market", return_value=True)
     @patch.object(MockAMM, "cancel_outdated_orders")
     def test_price_and_size_limit_calculation_with_slippage_buffer(self,
                                                                    cancel_outdated_orders_func: unittest.mock.AsyncMock,
                                                                    _: unittest.mock.Mock,
-                                                                   all_connector_settings_mock):
+                                                                   get_connector_settings_mock,
+                                                                   get_connector_spec_from_market_name_mock):
         self.taker_market.set_balance("ETH", 3)
         self.taker_market.set_prices(
             self.trading_pairs_taker[0],
@@ -990,46 +1026,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             logging_options=self.logging_options,
         )
 
-        all_connector_settings_mock.return_value = {
-            "binance": ConnectorSetting(
-                name='binance',
-                type=ConnectorType.Exchange,
-                example_pair='ZRX-ETH',
-                centralised=True,
-                use_ethereum_wallet=False,
-                trade_fee_schema=TradeFeeSchema(
-                    percent_fee_token=None,
-                    maker_percent_fee_decimal=Decimal('0.001'),
-                    taker_percent_fee_decimal=Decimal('0.001'),
-                    buy_percent_fee_deducted_from_returns=False,
-                    maker_fixed_fees=[],
-                    taker_fixed_fees=[]),
-                config_keys={
-                    'binance_api_key': ConfigVar(key='binance_api_key', prompt=""),
-                    'binance_api_secret': ConfigVar(key='binance_api_secret', prompt="")},
-                is_sub_domain=False,
-                parent_name=None,
-                domain_parameter=None,
-                use_eth_gas_lookup=False),
-            "uniswap_ethereum_kovan": ConnectorSetting(
-                name='uniswap_ethereum_kovan',
-                type=ConnectorType.Exchange,
-                example_pair='WETH-DAI',
-                centralised=False,
-                use_ethereum_wallet=True,
-                trade_fee_schema=TradeFeeSchema(
-                    percent_fee_token=None,
-                    maker_percent_fee_decimal=Decimal('0.001'),
-                    taker_percent_fee_decimal=Decimal('0.001'),
-                    buy_percent_fee_deducted_from_returns=False,
-                    maker_fixed_fees=[],
-                    taker_fixed_fees=[]),
-                config_keys={},
-                is_sub_domain=False,
-                parent_name=None,
-                domain_parameter=None,
-                use_eth_gas_lookup=False)
-        }
+        get_connector_spec_from_market_name_mock.return_value = self.get_mock_gateway_settings()
+        get_connector_settings_mock.return_value = self.get_mock_connector_settings()
 
         config_map_with_slippage_buffer = ClientConfigAdapter(
             CrossExchangeMarketMakingConfigMap(
