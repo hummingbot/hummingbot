@@ -55,7 +55,7 @@ class MockAMM(ConnectorBase):
         super().__init__(client_config_map)
         self._buy_prices = {}
         self._sell_prices = {}
-        self._network_transaction_fee = TokenAmount("ETH", s_decimal_0)
+        self._network_transaction_fee = TokenAmount("COINALPHA", s_decimal_0)
 
     @property
     def name(self):
@@ -143,8 +143,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     end_timestamp: float = end.timestamp()
     exchange_name_maker = "mock_paper_exchange"
     exchange_name_taker = "mock_paper_decentralized_exchange"
-    trading_pairs_maker: List[str] = ["ETH-USDT", "ETH", "USDT"]
-    trading_pairs_taker: List[str] = ["WETH-DAI", "WETH", "DAI"]
+    trading_pairs_maker: List[str] = ["COINALPHA-HBOT", "COINALPHA", "HBOT"]
+    trading_pairs_taker: List[str] = ["WCOINALPHA-WHBOT", "WCOINALPHA", "WHBOT"]
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -176,11 +176,11 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             0.95
         )
 
-        self.maker_market.set_balance("ETH", 5)
-        self.maker_market.set_balance("USDT", 5)
-        self.maker_market.set_balance("QETH", 5)
-        self.taker_market.set_balance("WETH", 5)
-        self.taker_market.set_balance("DAI", 5)
+        self.maker_market.set_balance("COINALPHA", 5)
+        self.maker_market.set_balance("HBOT", 5)
+        self.maker_market.set_balance("QCOINALPHA", 5)
+        self.taker_market.set_balance("WCOINALPHA", 5)
+        self.taker_market.set_balance("WHBOT", 5)
         self.maker_market.set_quantization_param(QuantizationParams(self.trading_pairs_maker[0], 5, 5, 5, 5))
 
         self.market_pair: MakerTakerMarketPair = MakerTakerMarketPair(
@@ -270,7 +270,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             "mock_paper_exchange": ConnectorSetting(
                 name='mock_paper_exchange',
                 type=ConnectorType.Exchange,
-                example_pair='ZRX-ETH',
+                example_pair='ZRX-COINALPHA',
                 centralised=True,
                 use_ethereum_wallet=False,
                 trade_fee_schema=TradeFeeSchema(
@@ -290,7 +290,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             "mock_paper_decentralized_exchange": ConnectorSetting(
                 name='mock_paper_decentralized_exchange',
                 type=ConnectorType.EVM_AMM,
-                example_pair='WETH-USDC',
+                example_pair='WCOINALPHA-USDC',
                 centralised=False,
                 use_ethereum_wallet=False,
                 trade_fee_schema=TradeFeeSchema(
@@ -791,10 +791,10 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         self.clock.remove_iterator(self.strategy)
         self.market_pair: MakerTakerMarketPair = MakerTakerMarketPair(
-            MarketTradingPairTuple(self.maker_market, *["QETH-USDT", "QETH", "USDT"]),
+            MarketTradingPairTuple(self.maker_market, *["QCOINALPHA-HBOT", "QCOINALPHA", "HBOT"]),
             MarketTradingPairTuple(self.taker_market, *self.trading_pairs_taker),
         )
-        self.maker_market.set_balanced_order_book("QETH-USDT", 1.05, 0.55, 1.55, 0.01, 10)
+        self.maker_market.set_balanced_order_book("QCOINALPHA-HBOT", 1.05, 0.55, 1.55, 0.01, 10)
 
         config_map_raw = deepcopy(self.config_map_raw)
         config_map_raw.order_size_portfolio_ratio_limit = Decimal("30")
@@ -880,9 +880,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             market_pairs=[self.market_pair],
             logging_options=self.logging_options,
         )
-        self.maker_market.set_balance("ETH", 5)
-        self.maker_market.set_balance("USDT", 5)
-        self.maker_market.set_balance("QETH", 5)
+        self.maker_market.set_balance("COINALPHA", 5)
+        self.maker_market.set_balance("HBOT", 5)
+        self.maker_market.set_balance("QCOINALPHA", 5)
         self.maker_market.set_quantization_param(QuantizationParams(self.trading_pairs_maker[0], 4, 4, 4, 4))
         self.clock.add_iterator(self.strategy)
         self.clock.add_iterator(self.maker_market)
@@ -938,9 +938,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             market_pairs=[self.market_pair],
             logging_options=self.logging_options,
         )
-        self.maker_market.set_balance("ETH", 5)
-        self.maker_market.set_balance("USDT", 5)
-        self.maker_market.set_balance("QETH", 5)
+        self.maker_market.set_balance("COINALPHA", 5)
+        self.maker_market.set_balance("HBOT", 5)
+        self.maker_market.set_balance("QCOINALPHA", 5)
         self.maker_market.set_quantization_param(QuantizationParams(self.trading_pairs_maker[0], 4, 4, 4, 4))
         self.clock.add_iterator(self.strategy)
         self.clock.add_iterator(self.maker_market)
@@ -996,7 +996,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                                                                    _: unittest.mock.Mock,
                                                                    get_connector_settings_mock,
                                                                    get_connector_spec_from_market_name_mock):
-        self.taker_market.set_balance("ETH", 3)
+        self.taker_market.set_balance("COINALPHA", 3)
         self.taker_market.set_prices(
             self.trading_pairs_taker[0],
             True,
@@ -1094,8 +1094,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     def test_check_if_sufficient_balance_adjusts_including_slippage(self,
                                                                     cancel_outdated_orders_func: unittest.mock.AsyncMock,
                                                                     _: unittest.mock.Mock):
-        self.taker_market.set_balance("WETH", 4)
-        self.taker_market.set_balance("DAI", 3)
+        self.taker_market.set_balance("WCOINALPHA", 4)
+        self.taker_market.set_balance("WHBOT", 3)
         self.taker_market.set_prices(
             self.trading_pairs_taker[0],
             True,
@@ -1161,8 +1161,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             self.trading_pairs_taker[0], active_ask.quantity
         )
 
-        self.taker_market.set_balance("WETH", Decimal("4") - bids_quantum)
-        self.taker_market.set_balance("DAI", Decimal("3") - asks_quantum * 1)
+        self.taker_market.set_balance("WCOINALPHA", Decimal("4") - bids_quantum)
+        self.taker_market.set_balance("WHBOT", Decimal("3") - asks_quantum * 1)
 
         self.clock.backtest_til(self.start_timestamp + 4)
         self.ev_loop.run_until_complete(asyncio.sleep(0.5))
@@ -1226,9 +1226,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             market_pairs=[self.market_pair],
             logging_options=self.logging_options
         )
-        self.maker_market.set_balance("ETH", 5)
-        self.maker_market.set_balance("USDT", 5)
-        self.maker_market.set_balance("QETH", 5)
+        self.maker_market.set_balance("COINALPHA", 5)
+        self.maker_market.set_balance("HBOT", 5)
+        self.maker_market.set_balance("QCOINALPHA", 5)
         self.maker_market.set_quantization_param(QuantizationParams(self.trading_pairs_maker[0], 4, 4, 4, 4))
         self.clock.add_iterator(self.strategy)
         self.clock.add_iterator(self.maker_market)
