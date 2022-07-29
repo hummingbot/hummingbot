@@ -504,4 +504,16 @@ class BtseExchange(ExchangePyBase):
             params=params
         )
 
-        return float(resp_json["lastPrice"])
+        """
+        resp_json data
+        [
+            {
+                "symbol": "BTC-USD",
+                "indexPrice": 36288.949684967,
+                "lastPrice": 36286.5,
+                "markPrice": 0
+            }
+        ]
+        """
+
+        return float(resp_json[0]["lastPrice"])

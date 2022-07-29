@@ -50,7 +50,8 @@ class BtseAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         params = {
             "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "limit": "1000"
+            "limit_bids": 1000,
+            "limit_asks": 1000,
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -73,19 +74,19 @@ class BtseAPIOrderBookDataSource(OrderBookTrackerDataSource):
             depth_params = []
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                trade_params.append(f"{symbol.lower()}@trade")
-                depth_params.append(f"{symbol.lower()}@depth@100ms")
+                trade_params.append(f"tradeHistoryApi:{symbol.upper()}")
+
+                depth_params.append(f"update:{symbol.upper()}")
+
             payload = {
-                "method": "SUBSCRIBE",
-                "params": trade_params,
-                "id": 1
+                "op": "subscribe",
+                "args": trade_params
             }
             subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
             payload = {
-                "method": "SUBSCRIBE",
-                "params": depth_params,
-                "id": 2
+                "op": "subscribe",
+                "args": depth_params
             }
             subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
@@ -120,22 +121,23 @@ class BtseAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "result" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
-            trade_message = BtseOrderBook.trade_message_from_exchange(
-                raw_message, {"trading_pair": trading_pair})
-            message_queue.put_nowait(trade_message)
+            for msg in raw_message["data"]:
+                trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=msg["symbol"])
+                trade_message = BtseOrderBook.trade_message_from_exchange(
+                    msg, {"trading_pair": trading_pair})
+                message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "result" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
-            order_book_message: OrderBookMessage = BtseOrderBook.diff_message_from_exchange(
-                raw_message, time.time(), {"trading_pair": trading_pair})
-            message_queue.put_nowait(order_book_message)
+            for msg in raw_message["data"]:
+                trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=msg["symbol"])
+                order_book_message: OrderBookMessage = BtseOrderBook.diff_message_from_exchange(
+                    msg, time.time(), {"trading_pair": trading_pair})
+                message_queue.put_nowait(order_book_message)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
         if "result" not in event_message:
-            event_type = event_message.get("e")
-            channel = (self._diff_messages_queue_key if event_type == CONSTANTS.DIFF_EVENT_TYPE
-                       else self._trade_messages_queue_key)
+            event_type = event_message.get("topic")
+            channel = (self._diff_messages_queue_key if event_type.startswith(CONSTANTS.DIFF_EVENT_TYPE) else self._trade_messages_queue_key)
         return channel

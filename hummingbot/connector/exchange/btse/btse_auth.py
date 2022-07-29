@@ -10,7 +10,7 @@ from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WS
 
 class BtseAuth(AuthBase):
     """
-    Auth class required by AscendEx API
+    Auth class
     Learn more at https://btsecom.github.io/docs/spot/en/#authentication
     """
     def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
@@ -28,7 +28,7 @@ class BtseAuth(AuthBase):
             return request
 
         # Generates auth headers
-        headers_auth = self.get_auth_headers(request.url, request.data)
+        headers_auth = self.get_auth_headers(request.url, request.params)
 
         headers = {}
         if request.headers is not None:
