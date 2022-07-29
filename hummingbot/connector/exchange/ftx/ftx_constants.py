@@ -33,9 +33,6 @@ WS_EVENT_ERROR_CODE = 400
 WS_EVENT_NOT_LOGGED_IN_MESSAGE = "Not logged in"
 WS_EVENT_INVALID_LOGIN_MESSAGE = "Invalid login credentials"
 
-ORDER_STATE = {
-}
-
 NO_LIMIT = sys.maxsize
 # FTX_NETWORK_STATUS_LIMIT_ID = "FTXNetworkStatusHTTPRequest"
 FTX_ORDER_BOOK_LIMIT_ID = "FTXOrderBookHTTPRequest"

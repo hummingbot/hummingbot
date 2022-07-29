@@ -17,7 +17,7 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
-class OkxUserStreamDataSourceUnitTests(TestCase):
+class FtxUserStreamDataSourceUnitTests(TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
