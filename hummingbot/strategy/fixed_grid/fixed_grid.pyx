@@ -538,15 +538,6 @@ cdef class FixedGridStrategy(StrategyBase):
                     self.c_filter_out_takers(proposal)
 	    
             elif self._started and int(self._current_timestamp % 20) == 0:
-                
-                price = self._market_info.get_mid_price()
-                # Find level closest to market
-                min_diff = 1e8
-                for i in range(self._n_levels):
-                    if min(min_diff, abs(self._price_levels[i]-price)) < min_diff:
-                        min_diff = abs(self._price_levels[i]-price)
-                        self._current_level = i
-		
                 proposal = self.c_create_grid_proposal()
                 if proposal:
                     numPropOrders = len(proposal.buys)+len(proposal.sells)
@@ -572,22 +563,37 @@ cdef class FixedGridStrategy(StrategyBase):
             list sells = []
 
         if len(self.active_orders) >= len(self._price_levels) - 1:
-            return None	
-	
+            return None
+
+        currentLevel = self._current_level
+
         # Proposal will be created according to grid price levels
-        for i in range(self._current_level):
+        sellStartLevel = currentLevel + 1
+        lastAddedLevel = Decimal("-999")
+        for i in range(currentLevel+1):
             price = self._price_levels[i]
             price = market.c_quantize_order_price(self.trading_pair, price)
             size = self._order_amount
             size = market.c_quantize_order_amount(self.trading_pair, size)
 		
-            if [o for o in self.active_orders if o.price == price]:
+            lso = [o for o in self.active_orders if o.price == price]
+            if lso:
+                if i == currentLevel:
+                    ao = lso[0]
+                    if ao.is_buy:
+                        sellStartLevel += 1
+                    elif lastAddedLevel == i-1:
+                        buys.pop()
+                
+                continue
+            elif i == currentLevel:
                 continue
 		
             if size > 0:
+                lastAddedLevel = i
                 buys.append(PriceSize(price, size))
 
-        for i in range(self._current_level+1,self._n_levels):
+        for i in range(sellStartLevel,self._n_levels):
             price = self._price_levels[i]
             price = market.c_quantize_order_price(self.trading_pair, price)
             size = self._order_amount
@@ -907,6 +913,8 @@ cdef class FixedGridStrategy(StrategyBase):
             # Number of pair of orders to track for hanging orders
             number_of_pairs = 0
 
+            proposal.buys[:] = [p for p in proposal.buys if p.price not in [o.price for o in self.active_orders]]
+
             if len(proposal.buys) > 0:
                 if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                     price_quote_str = [f"{buy.size.normalize()} {self.base_asset}, "
@@ -927,6 +935,8 @@ cdef class FixedGridStrategy(StrategyBase):
                     orders_created = True
                     if idx < number_of_pairs:
                         order = next((o for o in self.active_orders if o.client_order_id == bid_order_id))
+            
+            proposal.sells[:] = [p for p in proposal.sells if p.price not in [o.price for o in self.active_orders]]
 
             if len(proposal.sells) > 0:
                 if self._logging_options & self.OPTION_LOG_CREATE_ORDER:

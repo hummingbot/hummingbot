@@ -159,9 +159,12 @@ class HistoryCommand:
         assets_df: pd.DataFrame = pd.DataFrame(data=assets_data, columns=assets_columns)
         lines.extend(["", "  Assets:"] + ["    " + line for line in assets_df.to_string(index=False).split("\n")])
 
+        initialValue = perf.start_base_bal * perf.start_price + perf.start_quote_bal
         perf_data = [
+            ["Initial portfolio value ", f"{PerformanceMetrics.smart_round(initialValue, precision)} {quote}"],
             ["Hold portfolio value    ", f"{PerformanceMetrics.smart_round(perf.hold_value, precision)} {quote}"],
             ["Current portfolio value ", f"{PerformanceMetrics.smart_round(perf.cur_value, precision)} {quote}"],
+            ["Permanent/Grid P&L      ", f"{PerformanceMetrics.smart_round(perf.hold_value * 2 - initialValue - perf.cur_value, precision)} {quote}"],
             ["Trade P&L               ", f"{PerformanceMetrics.smart_round(perf.trade_pnl, precision)} {quote}"]
         ]
         perf_data.extend(
