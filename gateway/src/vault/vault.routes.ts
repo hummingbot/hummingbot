@@ -2,11 +2,7 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../services/error-handler';
-import {
-  price,
-  trade,
-  estimateGas,
-} from './vault.controllers';
+import { price, trade, estimateGas } from './vault.controllers';
 import {
   EstimateGasResponse,
   PriceRequest,

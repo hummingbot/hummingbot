@@ -6,6 +6,7 @@ import { PerpConfig } from './perp/perp.config';
 import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
+import { CortexConfig } from './cortex/cortex.config';
 
 export namespace ConnectorsRoutes {
   export const router = Router();

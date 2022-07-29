@@ -1,6 +1,4 @@
-import {
-  NetworkSelectionRequest,
-} from '../services/common-interfaces';
+import { NetworkSelectionRequest } from '../services/common-interfaces';
 
 export interface PriceRequest extends NetworkSelectionRequest {
   tradeType: string;
@@ -16,14 +14,12 @@ export interface PriceResponse {
   gasPrice: number;
   gasPriceToken: string;
   gasLimit: number;
-  gasCost: string; 
+  gasCost: string;
 }
 
-export interface TradeRequest extends NetworkSelectionRequest {
-}
+export type TradeRequest = NetworkSelectionRequest;
 
-export interface TradeResponse {
-}
+export interface TradeResponse {}
 
 export interface EstimateGasResponse {
   network: string;

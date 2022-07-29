@@ -6,9 +6,9 @@ import {
   TradeResponse,
 } from './vault.requests';
 import {
-    price as vaultPrice,
-    trade as vaultTrade,
-    estimateGas as vaultEstimateGas,
+  price as vaultPrice,
+  trade as vaultTrade,
+  estimateGas as vaultEstimateGas,
 } from '../connectors/cortex/cortex.controllers';
 import { getChain, getConnector } from '../services/connection-manager';
 import {
