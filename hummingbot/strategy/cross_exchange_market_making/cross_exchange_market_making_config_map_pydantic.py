@@ -11,11 +11,7 @@ from hummingbot.client.config.config_data_types import (
     ClientConfigEnum,
     ClientFieldData,
 )
-from hummingbot.client.config.config_validators import (
-    validate_bool,
-    validate_connector,
-    validate_exchange
-)
+from hummingbot.client.config.config_validators import validate_bool, validate_connector, validate_exchange
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
@@ -494,7 +490,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     )
     def validate_exchange(cls, v: str, field: Field):
         """Used for client-friendly error output."""
-        if field.name == "maker_market_trading_pair":
+        if field.name == "maker_market":
             ret = validate_exchange(v)
             if ret is not None:
                 raise ValueError(ret)
@@ -503,7 +499,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
                 names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
                 type=str,
             )
-        if field.name == "taker_market_trading_pair":
+        if field.name == "taker_market":
             ret = validate_connector(v)
             if ret is not None:
                 raise ValueError(ret)

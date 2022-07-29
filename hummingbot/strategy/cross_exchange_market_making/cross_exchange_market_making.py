@@ -550,7 +550,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         # If order adjustment is needed in the next tick, set the anti-hysteresis timer s.t. the next order adjustment
         # for the same pair wouldn't happen within the time limit.
         if need_adjust_order:
-            self._anti_hysteresis_timers[market_pair] = timestamp + self._anti_hysteresis_duration
+            self._anti_hysteresis_timers[market_pair] = timestamp + self._config_map.anti_hysteresis_duration
 
         # If there's both an active bid and ask, then there's no need to think about making new limit orders.
         if has_active_bid and has_active_ask:
@@ -891,6 +891,9 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     taker_trading_pair,
                     False,
                     quantized_hedge_amount)
+                if order_price is None:
+                    self.logger().warning("Gateway: failed to obtain order price. No hedging order will be submitted.")
+                    return
                 taker_top = order_price
             else:
                 taker_top = taker_market.get_price(taker_trading_pair, False)
@@ -940,6 +943,9 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     True,
                     sell_fill_quantity * base_rate
                 )
+                if taker_price is None:
+                    self.logger().warning("Gateway: failed to obtain order price. No hedging order will be submitted.")
+                    return
             else:
                 taker_price = taker_market.get_price_for_volume(
                     taker_trading_pair,
@@ -975,6 +981,9 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     taker_trading_pair,
                     True,
                     quantized_hedge_amount)
+                if order_price is None:
+                    self.logger().warning("Gateway: failed to obtain order price. No hedging order will be submitted.")
+                    return
                 taker_top = order_price
             else:
                 taker_top = taker_market.get_price(taker_trading_pair, True)
@@ -1051,7 +1060,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         current_price = (maker_market.get_price(trading_pair, True) +
                          maker_market.get_price(trading_pair, False)) * Decimal(0.5)
         maker_portfolio_value = base_balance + quote_balance / current_price
-        adjusted_order_size = maker_portfolio_value * self._order_size_portfolio_ratio_limit
+        adjusted_order_size = maker_portfolio_value * self._config_map.order_size_portfolio_ratio_limit
 
         return maker_market.quantize_order_amount(trading_pair, Decimal(adjusted_order_size))
 
@@ -1092,6 +1101,10 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
                                                                  False,
                                                                  size)
+                if taker_price is None:
+                    self.logger().warning("Gateway: failed to obtain order price."
+                                          "No market making order will be submitted.")
+                    return s_decimal_zero
             else:
                 try:
                     taker_price = taker_market.get_vwap_for_volume(
@@ -1121,6 +1134,10 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
                                                                  True,
                                                                  size)
+                if taker_price is None:
+                    self.logger().warning("Gateway: failed to obtain order price."
+                                          "No market making order will be submitted.")
+                    return s_decimal_zero
             else:
                 try:
                     taker_price = taker_market.get_price_for_quote_volume(
@@ -1186,11 +1203,18 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
                                                                  False,
                                                                  size)
+                if taker_price is None:
+                    self.logger().warning("Gateway: failed to obtain order price."
+                                          "No market making order will be submitted.")
+                    return s_decimal_nan
             else:
                 try:
                     taker_price = taker_market.get_vwap_for_volume(taker_trading_pair, False, size).result_price
                 except ZeroDivisionError:
                     return s_decimal_nan
+
+            if taker_price is None:
+                return
 
             # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
@@ -1229,6 +1253,10 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
                                                                  True,
                                                                  size)
+                if taker_price is None:
+                    self.logger().warning("Gateway: failed to obtain order price."
+                                          "No market making order will be submitted.")
+                    return s_decimal_nan
             else:
                 try:
                     taker_price = taker_market.get_vwap_for_volume(taker_trading_pair, True, size).result_price
@@ -1283,6 +1311,10 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
                                                                  False,
                                                                  size)
+                if taker_price is None:
+                    self.logger().warning("Gateway: failed to obtain order price."
+                                          "Failed to calculate effective hedging price.")
+                    return s_decimal_nan
             else:
                 try:
                     taker_price = taker_market.get_vwap_for_volume(taker_trading_pair, False, size).result_price
@@ -1301,6 +1333,10 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
                                                                  True,
                                                                  size)
+                if taker_price is None:
+                    self.logger().warning("Gateway: failed to obtain order price."
+                                          "Failed to calculate effective hedging price.")
+                    return s_decimal_nan
             else:
                 try:
                     taker_price = taker_market.get_vwap_for_volume(taker_trading_pair, True, size).result_price
@@ -1548,6 +1584,10 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
                                                                  True,
                                                                  size)
+                if taker_price is None:
+                    self.logger().warning("Gateway: failed to obtain order price."
+                                          "Failed to determine sufficient balance.")
+                    return False
             else:
                 taker_price = taker_market.get_price_for_quote_volume(
                     taker_trading_pair, True, quote_asset_amount
