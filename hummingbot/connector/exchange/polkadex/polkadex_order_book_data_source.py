@@ -1,17 +1,14 @@
 import asyncio
 import time
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
-from urllib.parse import urlparse
 
 from gql import Client
-from gql.transport.appsync_auth import AppSyncApiKeyAuthentication
 from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
 
-from hummingbot.connector.exchange.polkadex.graphql.market.market import get_recent_trades
+from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
 from hummingbot.connector.exchange.polkadex.graphql.general.streams import websocket_streams_session_provided
 from hummingbot.connector.exchange.polkadex.graphql.market.market import get_orderbook
 from hummingbot.connector.exchange.polkadex.polkadex_order_book import PolkadexOrderbook
-from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -74,7 +71,7 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
             for trading_pair in self._trading_pairs:
                 tasks.append(
                     asyncio.create_task(
-                        websocket_streams_session_provided(trading_pair + "-raw-trade", session,
+                        websocket_streams_session_provided(trading_pair + "-recent-trades", session,
                                                            self.on_recent_trade_callback)))
                 tasks.append(
                     asyncio.create_task(
@@ -86,11 +83,7 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
         pass
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
-        ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        print("Connecting to websocket: ", self._connector.wss_url)
-        # TODO: Build the headers and stuff for connection
-        await ws.connect(ws_url=self._connector.wss_url, ping_timeout=CONSTANTS.WS_PING_INTERVAL)
-        return ws
+        return await self._api_factory.get_ws_assistant()
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         self.logger().error(

@@ -21,3 +21,25 @@ KEYS = {
                   is_secure=True,
                   is_connect_key=True),
 }
+
+
+def convert_asset_to_ticker(asset):
+    if "asset" in asset:
+        return asset["asset"]
+    elif "polkadex" in asset:
+        return "PDEX"
+
+
+def convert_pair_to_market(pair):
+    base = ""
+    quote = ""
+    if "asset" in pair["base_asset"]:
+        base = pair["base_asset"]["asset"]
+    elif "polkadex" in pair["base_asset"]:
+        base = "PDEX"
+    if "asset" in pair["quote_asset"]:
+        quote = pair["quote_asset"]["asset"]
+    elif "polkadex" in pair["quote_asset"]:
+        quote = "PDEX"
+
+    return base + "-" + quote, base, quote

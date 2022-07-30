@@ -18,13 +18,12 @@ MIN_ORDER_SIZE = Decimal(10.0)
 MIN_PRICE = Decimal(0.0001)
 MIN_QTY = Decimal(0.0001)
 TRADE_EVENT_TYPE = "trade"
-DIFF_EVENT_TYPE  = "diff"
+DIFF_EVENT_TYPE = "diff"
 GRAPHQL_ENDPOINT = "https://x6sbwzrbzvbabpujfy2phgq6ka.appsync-api.ap-south-1.amazonaws.com/graphql"
 GRAPHQL_WSS_ENDPOINT = "wss://x6sbwzrbzvbabpujfy2phgq6ka.appsync-realtime-api.ap-south-1.amazonaws.com/graphql"
 GRAPHQL_API_KEY = "da2-uga2aiqob5bqxhcktazox3ve6e"
-ENCLAVE_ENDPOINT = "wss://sgx.polkadex.trade:443"
 
-POLKADEX_SS58_PREFIX = 88
+POLKADEX_SS58_PREFIX = 42
 
 UPDATE_ORDER_STATUS_MIN_INTERVAL = 10
 
@@ -40,9 +39,7 @@ ONE_MINUTE = 60
 ONE_SECOND = 1
 ONE_DAY = 86400
 
-
 RATE_LIMITS = [
     # Pools
     RateLimit(limit_id="polkadex", limit=1200, time_interval=ONE_MINUTE),
 ]
-

@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional
 
-from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
+
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
@@ -15,14 +15,29 @@ class PolkadexOrderbook(OrderBook):
         :param timestamp: the snapshot timestamp
         :param metadata: a dictionary with extra information to add to the snapshot data
         :return: a snapshot message with the snapshot information received from the exchange
+
+
+        Expected msgs
+        [
+            {
+              "p": "3",
+              "q": "2",
+              "s": "Ask"
+            },
+            {
+              "p": "2",
+              "q": "2",
+              "s": "Bid"
+            }
+       ]
         """
 
         bids = []
         asks = []
         print("Recvd snapshot msgs: ",msgs)
         for price_level in msgs:
-            if price_level["side"] == "Bid":
-                bids.append((float(price_level["price"]), float(price_level["qty"]), int(-1)))
+            if price_level["s"] == "Bid":
+                bids.append((float(price_level["p"]), float(price_level["q"]), int(-1)))
             else:
                 asks.append((float(price_level["price"]), float(price_level["qty"]), int(-1)))
 
@@ -44,22 +59,30 @@ class PolkadexOrderbook(OrderBook):
         :param timestamp: the timestamp of the difference
         :param metadata: a dictionary with extra information to add to the difference data
         :return: a diff message with the changes in the order book notified by the exchange
+
+
+
+
+        Expected data structure
+        {
+          "data": {
+            "websocket_streams": {
+              "data": "[{\"side\":\"Ask\",\"price\":3,\"qty\":2,\"seq\":0},{\"side\":\"Bid\",\"price\":2,\"qty\":2,\"seq\":0}]"
+            }
+          }
+        }
         """
+        changes = msg["data"]["websocket_streams"]["data"]
         if metadata:
             msg.update(metadata)
 
         bids = []
         asks = []
-        for put in msg["puts"]:
-            if put["side"] == "Bid":
-                bids.append((float(put["price"]), float(put["qty"]), float(msg["seq"])))
+        for change in changes:
+            if change["side"] == "Ask":
+                asks.append((float(change["price"]), float(change["qty"]), float(change["seq"])))
             else:
-                asks.append((float(put["price"]), float(put["qty"]), float(msg["seq"])))
-        for dels in msg["dels"]:
-            if dels["side"] == "Bid":
-                bids.append((float(dels["price"]), float(0), float(msg["seq"])))
-            else:
-                asks.append((float(dels["price"]), float(0), float(msg["seq"])))
+                bids.append((float(change["price"]), float(change["qty"]), float(change["seq"])))
 
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": msg["trading_pair"],
@@ -75,20 +98,28 @@ class PolkadexOrderbook(OrderBook):
         :param msg: the trade event details sent by the exchange
         :param metadata: a dictionary with extra information to add to trade message
         :return: a trade message with the details of the trade as provided by the exchange
+
+
+
+        expected data structure
+        {
+          "data": {
+            "websocket_streams": {
+              "data": "{\"m\":\"PDEX-1\",\"p\":10,\"q\":1000,\"tid\":0,\"t\":1234567890}"
+            }
+          }
+        }
         """
+        msg = msg["data"]["websocket_streams"]["data"]
         if metadata:
             msg.update(metadata)
-        ts = msg["time"]
 
-        # if msg["s"] == "Bid":
-        #     trade_type = float(TradeType.BUY.value)
-        # else:
-        #     trade_type = float(TradeType.SELL.value)
+        ts = msg["t"]
+
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": msg["market"],
-            # "trade_type": trade_type,
-            # "trade_id": msg["t"],
+            "trading_pair": msg["m"],
+            "trade_id": msg["tid"],
             "update_id": ts,
-            "price": float(msg["price"]),
-            "amount": float(msg["quantity"])
+            "price": float(msg["p"]),
+            "amount": float(msg["q"])
         }, timestamp=ts * 1e-3)

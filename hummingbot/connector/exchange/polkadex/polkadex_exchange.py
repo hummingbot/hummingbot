@@ -1,28 +1,26 @@
 import asyncio
-import datetime
-import json
+import time
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
-import websockets
 from bidict import bidict
 from dateutil import parser
 from gql import Client
 from gql.transport.appsync_auth import AppSyncApiKeyAuthentication
 from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
-from scalecodec import ScaleBytes
+from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.network_iterator import NetworkStatus
 from substrateinterface import Keypair, KeypairType, SubstrateInterface
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
+from hummingbot.connector.exchange.polkadex.graphql.general.streams import websocket_streams_session_provided
 from hummingbot.connector.exchange.polkadex.graphql.market.market import get_all_markets, get_recent_trades
-from hummingbot.connector.exchange.polkadex.python_user_stream_data_source import PolkadexUserStreamDataSource
-from hummingbot.connector.exchange.polkadex.graphql.user.streams import on_balance_update, on_order_update
 from hummingbot.connector.exchange.polkadex.graphql.user.user import (
     find_order_by_main_account,
     get_all_balances_by_main_account,
-    get_main_acc_from_proxy_acc,
+    get_main_acc_from_proxy_acc, place_order, cancel_order,
 )
 from hummingbot.connector.exchange.polkadex.polkadex_auth import PolkadexAuth
 from hummingbot.connector.exchange.polkadex.polkadex_constants import (
@@ -32,15 +30,15 @@ from hummingbot.connector.exchange.polkadex.polkadex_constants import (
     UPDATE_ORDER_STATUS_MIN_INTERVAL,
 )
 from hummingbot.connector.exchange.polkadex.polkadex_order_book_data_source import PolkadexOrderbookDataSource
-from hummingbot.connector.exchange.polkadex.polkadex_payload import cancel_order, create_order
+from hummingbot.connector.exchange.polkadex.polkadex_payload import create_order, create_cancel_order_req
+from hummingbot.connector.exchange.polkadex.polkadex_utils import convert_pair_to_market, convert_asset_to_ticker
+from hummingbot.connector.exchange.polkadex.python_user_stream_data_source import PolkadexUserStreamDataSource
 from hummingbot.connector.exchange_py_base import ExchangePyBase
-from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
@@ -56,7 +54,6 @@ class PolkadexExchange(ExchangePyBase):
                  trading_required: bool = True,
                  trading_pairs: Optional[List[str]] = None):
 
-        self.enclave_endpoint = CONSTANTS.ENCLAVE_ENDPOINT
         self.endpoint = CONSTANTS.GRAPHQL_ENDPOINT
         self.wss_url = CONSTANTS.GRAPHQL_WSS_ENDPOINT
         self.api_key = CONSTANTS.GRAPHQL_API_KEY
@@ -74,6 +71,7 @@ class PolkadexExchange(ExchangePyBase):
             print("trading account: ", self.user_proxy_address)
         self.user_main_address = None
         self.nonce = 0  # TODO: We need to fetch the nonce from enclave
+        self.event_id = 0  # Tracks the event_id from websocket messages
         custom_types = {
             "runtime_id": 1,
             "versioning": [
@@ -222,27 +220,15 @@ class PolkadexExchange(ExchangePyBase):
         pass
 
     async def check_network(self) -> NetworkStatus:
-        try:
-            print("Connecting to enclave")
-            await websockets.connect(self.enclave_endpoint)
-        except asyncio.CancelledError:
-            print("Error connecting to enclave")
-            raise
-        except Exception:
-            print("Error connecting to enclave")
-            return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         # TODO; Convert client_order_id to enclave_order_id
         print("Cancelling orders...")
-        encoded_cancel_req = cancel_order(self.blockchain, order_id)
+        encoded_cancel_req = create_cancel_order_req(self.blockchain, order_id)
         signature = self.proxy_pair.sign(encoded_cancel_req)
-        params = ["enclave_cancelOrder", encoded_cancel_req, signature]
-        async with websockets.connect(self.enclave_endpoint) as websocket:
-            await websocket.send(params)
-            result = await websocket.recv()
-            print(result)
+        params = [encoded_cancel_req, signature]
+        await cancel_order(params)
 
     async def _place_order(self, order_id: str, trading_pair: str, amount: Decimal, trade_type: TradeType,
                            order_type: OrderType, price: Decimal) -> Tuple[str, float]:
@@ -251,29 +237,15 @@ class PolkadexExchange(ExchangePyBase):
             self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address,
                                                                        self.endpoint, self.api_key)
             print("Main account: ", self.user_main_address)
-        async with websockets.connect(self.enclave_endpoint) as websocket:
-            params = json.dumps({"jsonrpc": "2.0", "method": "enclave_getNonce",
-                                 "params": [self.user_main_address], "id": 1})
-            print(params)
-            await websocket.send(params)
-            result = json.loads(await websocket.recv())
-            print(result)
-            self.nonce = result["result"] + 1
-            # TODO; Include client order id
-            print("nonce: ", self.nonce)
-            encoded_order, order = create_order(self.blockchain, price, amount, order_type,
-                                                trade_type, self.user_proxy_address,
-                                                trading_pair.split("-")[0],
-                                                trading_pair.split("-")[1],
-                                                self.nonce)
-            signature = self.proxy_pair.sign(encoded_order)
-            params = json.dumps({"jsonrpc": "2.0", "method": "enclave_placeOrder",
-                                 "params": [order, {"Sr25519": signature.hex()}], "id": 1})
-            print(params)
-            await websocket.send(params)
-            result = json.loads(await websocket.recv())
-            print(result)
-            return result["result"], datetime.datetime.now().timestamp()
+        encoded_order, order = create_order(self.blockchain, price, amount, order_type,
+                                            trade_type, self.user_proxy_address,
+                                            trading_pair.split("-")[0],
+                                            trading_pair.split("-")[1],
+                                            self.nonce)
+        signature = self.proxy_pair.sign(encoded_order)
+        params = [order, {"Sr25519": signature.hex()}]
+        result = await place_order(params)
+        return result["st"], result["cid"]
 
     def _get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
                  amount: Decimal, price: Decimal = s_decimal_NaN,
@@ -282,21 +254,20 @@ class PolkadexExchange(ExchangePyBase):
 
     def balance_update_callback(self, message):
         """ Expected message structure
-        {
-  "data": {
-    "onBalanceUpdate": {
-      "asset": "PDEX",
-      "free": "0.10",
-      "main_account": "eskmPnwDNLNCuZKa3aWuvNS6PshJoKsgBtwbdxyyipS2F2TR5",
-      "pending_withdrawal": "0.00001",
-      "reserved": "0.001"
-                    }
+        {"SetBalance":
+            {
+                "event_id":0,
+                "user":"5C62Ck4UrFPiBtoCmeSrgF7x9yv9mn38446dhCpsi2mLHiFT",
+                "asset":"polkadex",
+                "free":0,
+                "pending_withdrawal":0,
+                "reserved":0
             }
         }
         """
 
-        message = message["data"]["onBalanceUpdate"]
-        asset_name = message["asset"]
+        message = message["data"]["websocket_streams"]["data"]["SetBalance"]
+        asset_name = convert_asset_to_ticker(message["asset"])
         free_balance = Decimal(message["free"])
         total_balance = Decimal(message["free"]) + Decimal(message["reserved"])
         self._account_available_balances[asset_name] = free_balance
@@ -304,38 +275,39 @@ class PolkadexExchange(ExchangePyBase):
 
     def order_update_callback(self, message):
         """ Expected message structure
-
         {
-  "data": {
-    "onOrderUpdate": {
-      "avg_filled_price": "0.10",
-      "fee": "0.00000001",
-      "filled_quantity": "0.01",
-      "id": "1234567889",
-      "m": "PDEX-100",
-      "order_type": "LIMIT",
-      "price": "0.10",
-      "qty": "0.10",
-      "side": "Bid",
-      "status": "OPEN",
-      "time": "2022-07-04T13:56:21.390508+00:00"
-    }
-  }
-}
+            "SetOrder":{
+                "event_id":10,
+                "client_order_id":"0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e",
+                "avg_filled_price":10,
+                "fee":100,
+                "filled_quantity":100,
+                "status":"OPEN",
+                "id":0,
+                "user":"5C62Ck4UrFPiBtoCmeSrgF7x9yv9mn38446dhCpsi2mLHiFT",
+                "pair":{"base_asset":"polkadex","quote_asset":{"asset":1}},
+                "side":"Ask",
+                "order_type":"LIMIT",
+                "qty":10,
+                "price":10,
+                "nonce":100
+            }
+        }
         """
-        message = message["data"]["onOrderUpdate"]
-        print("trading pair split", message["m"])
-        base_asset = message["m"].split("-")[0]
-        quote_asset = message["m"].split("-")[1]
+        # TODO: Update based on event id
+        message = message["data"]["websocket_streams"]["data"]["SetOrder"]
+        market, base_asset, quote_asset = convert_pair_to_market(message["pair"])
+        print("trading pair", market)
 
-        ts = parser.parse(message["time"]).timestamp()
-        tracked_order = self.in_flight_orders.get(message["id"])
+        # ts = parser.parse(message["time"]).timestamp()
+        ts = time.time()
+        tracked_order = self.in_flight_orders.get(message["client_order_id"])
         if tracked_order is not None:
             order_update = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
                 update_timestamp=ts,
                 new_state=CONSTANTS.ORDER_STATE[message["status"]],
-                client_order_id=message["id"],
+                client_order_id=message["client_order_id"],
                 exchange_order_id=str(message["id"]),
             )
             self._order_tracker.process_order_update(order_update=order_update)
@@ -349,7 +321,7 @@ class PolkadexExchange(ExchangePyBase):
             )
             trade_update = TradeUpdate(
                 trade_id=str(ts),  # TODO: Add trade id to event
-                client_order_id=message["id"],
+                client_order_id=message["client_order_id"],
                 exchange_order_id=str(message["id"]),
                 trading_pair=tracked_order.trading_pair,
                 fee=fee,
@@ -363,6 +335,15 @@ class PolkadexExchange(ExchangePyBase):
     async def _update_trading_fees(self):
         raise NotImplementedError
 
+    def handle_websocket_message(self, message: Dict):
+        print("New websocket message: ", message)
+        if "SetBalance" in message["data"]["websocket_streams"]["data"]:
+            self.balance_update_callback(message)
+        elif "SetOrder" in message["data"]["websocket_streams"]["data"]:
+            self.order_update_callback(message)
+        else:
+            print("Unknown message from user websocket stream")
+
     async def _user_stream_event_listener(self):
         if self.user_main_address is None:
             self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.endpoint,
@@ -371,9 +352,9 @@ class PolkadexExchange(ExchangePyBase):
         tasks = []
         async with Client(transport=transport, fetch_schema_from_transport=False) as session:
             tasks.append(
-                asyncio.create_task(on_balance_update(self.user_main_address, session, self.balance_update_callback)))
-            tasks.append(
-                asyncio.create_task(on_order_update(self.user_main_address, session, self.order_update_callback)))
+                asyncio.create_task(
+                    websocket_streams_session_provided(self.user_main_address, session,
+                                                       self.handle_websocket_message)))
             await asyncio.wait(tasks)
 
     def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
@@ -412,11 +393,11 @@ class PolkadexExchange(ExchangePyBase):
 
                 else:
                     # Update order execution status
-                    new_state = CONSTANTS.ORDER_STATE[result["status"]]
-                    ts = parser.parse(result["time"]).timestamp()
+                    new_state = CONSTANTS.ORDER_STATE[result["st"]]
+                    ts = parser.parse(result["t"]).timestamp()
                     update = OrderUpdate(
                         client_order_id=tracked_order.client_order_id,
-                        exchange_order_id=str(tracked_order.client_order_id),
+                        exchange_order_id=str(tracked_order.exchange_order_id),
                         trading_pair=tracked_order.trading_pair,
                         update_timestamp=ts,
                         new_state=new_state,
@@ -433,18 +414,17 @@ class PolkadexExchange(ExchangePyBase):
         """
       [
         {
-          "asset": "PDEX",
-          "free": "0.10",
-          "pending_withdrawal": "0.00001",
-          "reserved": "0.001"
+          "a": "PDEX",
+          "f": "0.10",
+          "r": "0.001"
         }
       ]
         """
 
         for balance_entry in balances:
-            asset_name = balance_entry["asset"]
-            free_balance = Decimal(balance_entry["free"])
-            total_balance = Decimal(balance_entry["free"]) + Decimal(balance_entry["reserved"])
+            asset_name = balance_entry["a"]
+            free_balance = Decimal(balance_entry["f"])
+            total_balance = Decimal(balance_entry["f"]) + Decimal(balance_entry["r"])
             self._account_available_balances[asset_name] = free_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)

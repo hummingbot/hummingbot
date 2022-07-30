@@ -1,6 +1,46 @@
+import json
+
 from gql import gql
 
 from hummingbot.connector.exchange.polkadex.graphql.auth.client import execute_query_command
+
+
+async def cancel_order(params):
+    mutation = gql(
+        """
+    mutation MyMutation {
+        cancel_order(input: {payload: String!}) {
+            cid
+            id
+            st
+        }
+    }
+        """
+    )
+    encoded_params = json.dumps({"CancelOrder": params});
+    variables = {"input": {"payload": encoded_params}}
+    result = await execute_query_command(mutation, variables)
+    print("Cancel order result: ", result)
+    return result["cancel_order"]
+
+
+async def place_order(params):
+    mutation = gql(
+        """
+    mutation MyMutation {
+        place_order(input: {payload: String!}) {
+            cid
+            id
+            st
+        }
+    }
+        """
+    )
+    encoded_params = json.dumps({"PlaceOrder": params});
+    variables = {"input": {"payload": encoded_params}}
+    result = await execute_query_command(mutation, variables)
+    print("Place order result: ", result)
+    return result["place_order"]
 
 
 async def list_transaction_by_main_account(main, from_date, to_date, nextToken, limit):
@@ -76,10 +116,9 @@ async def get_all_balances_by_main_account(main, endpoint, api_key):
 query getAllBalancesByMainAccount($main: String!) {
   getAllBalancesByMainAccount(main_account: $main) {
     items {
-      asset
-      free
-      pending_withdrawal
-      reserved
+      a
+      f
+      r
     }
   }
 }
@@ -106,20 +145,24 @@ query findUserByMainAccount($main: String!) {
 
 
 async def find_order_by_main_account(main, order_id, market, endpoint, api_key):
+    # TODO: Should We change this to client order id???
     query = gql(
         """
 query findOrderByMainAccount($main: String!, $market: String!, $order_id: String!) {
   findOrderByMainAccount(main_account: $main, market: $market, order_id: $order_id) {
-    avg_filled_price
+    afp
+    cid
     fee
-    filled_quantity
+    fq
     id
-    order_type
-    price
-    qty
-    side
-    status
-    time
+    m
+    ot
+    p
+    q
+    s
+    st
+    t
+    u
   }
 }
 """)
@@ -215,6 +258,7 @@ query findUserByProxyAccount($proxy_account: String!) {
     variables = {"proxy_account": proxy}
 
     result = await execute_query_command(query, variables, endpoint, api_key)
+    print("FindUser by proxy result: ", result)
     # TODO: Handle error if main account not found
     return result["findUserByProxyAccount"]["items"][0].split("=")[2].replace("}", "")
 

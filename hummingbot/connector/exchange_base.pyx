@@ -3,13 +3,13 @@ from decimal import Decimal
 from typing import Dict, List, Iterator, Mapping, Optional
 
 from bidict import bidict
-
-from hummingbot.connector.budget_checker import BudgetChecker
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_query_result import ClientOrderBookQueryResult, OrderBookQueryResult
+
+from hummingbot.connector.budget_checker import BudgetChecker
+from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
@@ -156,7 +156,6 @@ cdef class ExchangeBase(ConnectorBase):
             object top_price
         try:
             top_price = Decimal(str(order_book.c_get_price(is_buy)))
-            print("Top price is :",top_price)
         except EnvironmentError as e:
             self.logger().warning(f"{'Ask' if is_buy else 'Bid'} orderbook for {trading_pair} is empty.")
             return s_decimal_NaN

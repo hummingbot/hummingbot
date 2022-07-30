@@ -3,21 +3,23 @@ import time
 from decimal import Decimal
 from typing import Dict, List, Set, Tuple
 
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.core.clock cimport
+
+Clock
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.network_iterator import NetworkIterator
+
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
 from hummingbot.connector.connector_metrics_collector import TradeVolumeMetricCollector
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.constants import s_decimal_NaN, s_decimal_0
 from hummingbot.connector.utils import split_hb_trading_pair, TradeFillOrderDetails
-from hummingbot.connector.constants import NaN, s_decimal_NaN, s_decimal_0
-from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
-from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.estimate_fee import estimate_fee
-
 
 cdef class ConnectorBase(NetworkIterator):
     MARKET_EVENTS = [
@@ -389,7 +391,6 @@ cdef class ConnectorBase(NetworkIterator):
         if price.is_nan():
             return price
         price_quantum = self.c_get_order_price_quantum(trading_pair, price)
-        print("Price quantum: ",price_quantum)
         return (price // price_quantum) * price_quantum
 
     def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:

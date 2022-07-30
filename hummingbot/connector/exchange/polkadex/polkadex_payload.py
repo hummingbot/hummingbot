@@ -11,7 +11,7 @@ def create_asset(asset):
         return {"asset": int(asset)}
 
 
-def cancel_order(runtime_config, order_id):
+def create_cancel_order_req(runtime_config, order_id):
     cancel_req = {
         "id": str(order_id)
     }
