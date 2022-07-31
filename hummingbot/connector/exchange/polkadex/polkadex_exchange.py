@@ -470,11 +470,12 @@ class PolkadexExchange(ExchangePyBase):
     #     }
     async def _initialize_trading_pair_symbol_map(self):
         markets = await get_all_markets(self.endpoint, self.api_key)
+        print("Get all markets result: ", markets)
         mapping = bidict()
         for market in markets:
-            base = market["m"].split("-")[0]
-            quote = market["m"].split("-")[1]
-            mapping[market["m"]] = combine_to_hb_trading_pair(base=base, quote=quote)
+            base = market["market"].split("-")[0]
+            quote = market["market"].split("-")[1]
+            mapping[market["market"]] = combine_to_hb_trading_pair(base=base, quote=quote)
         self._set_trading_pair_symbol_map(mapping)
 
     def c_stop_tracking_order(self, order_id):

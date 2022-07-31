@@ -59,11 +59,13 @@ async def get_all_markets(endpoint, api_key):
     query = gql(
         """
 query getAllMarketTickers {
-  getAllMarketTickers {
+ getAllMarkets {
     items {
-      m
+      market
+      max_trade_amount
+      min_qty
+      min_trade_amount
     }
-    nextToken
   }
 }
 """)
@@ -71,7 +73,8 @@ query getAllMarketTickers {
     variables = {}
 
     result = await execute_query_command(query, variables, endpoint, api_key)
-    return result["getAllMarketTickers"]["items"]
+    print("Result pf get all markets: ",result)
+    return result["getAllMarkets"]["items"]
 
 
 async def get_all_market_tickers():
