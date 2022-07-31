@@ -29,7 +29,7 @@ from hummingbot.connector.exchange.polkadex.polkadex_constants import (
     MIN_PRICE,
     MIN_QTY,
     POLKADEX_SS58_PREFIX,
-    UPDATE_ORDER_STATUS_MIN_INTERVAL,
+    UPDATE_ORDER_STATUS_MIN_INTERVAL, UNIT_BALANCE,
 )
 from hummingbot.connector.exchange.polkadex.polkadex_order_book_data_source import PolkadexOrderbookDataSource
 from hummingbot.connector.exchange.polkadex.polkadex_payload import create_cancel_order_req, create_order
@@ -430,10 +430,10 @@ class PolkadexExchange(ExchangePyBase):
 
         for balance_entry in balances:
             asset_name = balance_entry["a"]
-            free_balance = Decimal(balance_entry["f"])
+            free_balance = Decimal(balance_entry["f"]) / UNIT_BALANCE
             total_balance = Decimal(balance_entry["f"]) + Decimal(balance_entry["r"])
             self._account_available_balances[asset_name] = free_balance
-            self._account_balances[asset_name] = total_balance
+            self._account_balances[asset_name] = total_balance / UNIT_BALANCE
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
