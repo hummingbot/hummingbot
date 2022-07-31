@@ -9,7 +9,7 @@ import {
 } from 'ethers';
 import { EthereumBase } from './ethereum-base';
 import { Provider } from '@ethersproject/abstract-provider';
-import { CurrencyAmount, Token } from '@uniswap/sdk';
+import { CurrencyAmount, Token, Trade as TradeUniswap } from '@uniswap/sdk';
 import { Trade } from '@uniswap/router-sdk';
 import { Trade as UniswapV3Trade } from '@uniswap/v3-sdk';
 import {
@@ -63,6 +63,7 @@ export type UniswapishTrade =
   | TradeTraderjoe
   | SushiswapTrade<SushiToken, SushiToken, SushiTradeType>
   | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
+  | TradeUniswap
   | DefiraTrade<UniswapCoreToken, UniswapCoreToken, TradeType>;
 
 export type UniswapishAmount =
