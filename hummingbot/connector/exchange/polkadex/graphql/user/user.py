@@ -258,9 +258,10 @@ query findUserByProxyAccount($proxy_account: String!) {
     variables = {"proxy_account": proxy}
 
     result = await execute_query_command(query, variables, endpoint, api_key)
-    print("FindUser by proxy result: ", result)
+    main = result["findUserByProxyAccount"]["items"][0].split(",")[2][11:-1]
+    print("FindUser by proxy result: ", main)
     # TODO: Handle error if main account not found
-    return result["findUserByProxyAccount"]["items"][0].split("=")[2].replace("}", "")
+    return main
 
 
 async def get_asset_balance_by_main_account(main, asset):

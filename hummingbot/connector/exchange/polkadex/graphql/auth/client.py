@@ -29,7 +29,7 @@ async def execute_query_command(query, variable_values, url,api_key):
     transport = AIOHTTPTransport(url=url, auth=auth)
 
     async with Client(transport=transport, fetch_schema_from_transport=False) as session:
-        return await session.execute(query, variable_values=variable_values, parse_result=True)
+        return await session.execute(query, variable_values=variable_values, parse_result=False)
 
 
 # Calls the callback with the message from subscription endpoint

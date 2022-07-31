@@ -36,11 +36,13 @@ from hummingbot.connector.exchange.polkadex.polkadex_payload import create_cance
 from hummingbot.connector.exchange.polkadex.polkadex_utils import convert_asset_to_ticker, convert_pair_to_market
 from hummingbot.connector.exchange.polkadex.python_user_stream_data_source import PolkadexUserStreamDataSource
 from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
@@ -89,6 +91,7 @@ class PolkadexExchange(ExchangePyBase):
                         ["qty", "u128"],
                         ["price", "u128"],
                         ["nonce", "u32"],
+                        ["client_order_id", "H256"]
                     ]
                 },
                 "CancelOrderPayload": {
@@ -412,7 +415,9 @@ class PolkadexExchange(ExchangePyBase):
         if self.user_main_address is None:
             self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.endpoint,
                                                                        self.api_key)
+        print("Checking balances for: ", self.user_main_address)
         balances = await get_all_balances_by_main_account(self.user_main_address, self.endpoint, self.api_key)
+        print("Updating balances: {:?}", balances)
         """
       [
         {
