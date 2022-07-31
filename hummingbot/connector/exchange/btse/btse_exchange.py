@@ -112,6 +112,7 @@ class BtseExchange(ExchangePyBase):
         return self._trading_required
 
     def supported_order_types(self):
+        # TODO: need comfirm
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
@@ -161,83 +162,134 @@ class BtseExchange(ExchangePyBase):
         type_str = BtseExchange.btse_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        api_params = {"symbol": symbol,
-                      "side": side_str,
-                      "quantity": amount_str,
-                      "type": type_str,
-                      "newClientOrderId": order_id,
-                      "price": price_str}
+        api_params = {
+            "symbol": symbol,
+            "side": side_str,
+            "size": amount_str,
+            "type": type_str,
+            "price": price_str,
+            "clOrderID": order_id,
+            "trailValue": 0,
+            "triggerPrice": 0,
+            "postOnly": False,
+            "txType": "LIMIT"
+        }
         if order_type == OrderType.LIMIT:
-            api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
+            api_params["time_in_force"] = CONSTANTS.TIME_IN_FORCE_GTC
 
         order_result = await self._api_post(
             path_url=CONSTANTS.ORDER_PATH_URL,
             data=api_params,
             is_auth_required=True)
-        o_id = str(order_result["orderId"])
-        transact_time = order_result["transactTime"] * 1e-3
+        """
+        order_result schema
+        {
+            "averageFillPrice": 0,
+            "clOrderID": "string",
+            "deviation": 0,
+            "fillSize": 0,
+            "message": "string",
+            "orderID": "string",
+            "orderType": 76,
+            "price": 0,
+            "side": "BUY",
+            "size": 4,
+            "status": 0,
+            "stealth": 0,
+            "stopPrice": 8300,
+            "symbol": "BTC-USD",
+            "timestamp": 1576812000872,
+            "trigger": true,
+            "triggerPrice": 8300,
+            "remainingSize": 2,
+            "orginialSize": 4
+        }
+        """
+        o_id = str(order_result["orderID"])
+        transact_time = order_result["timestamp"] * 1e-3
         return (o_id, transact_time)
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         api_params = {
             "symbol": symbol,
-            "origClientOrderId": order_id,
+            "orderID": order_id,
         }
-        cancel_result = await self._api_delete(
+        cancel_result: List[Dict[str, Any]] = await self._api_delete(
             path_url=CONSTANTS.ORDER_PATH_URL,
             params=api_params,
             is_auth_required=True)
-        if cancel_result.get("status") == "CANCELED":
+        """
+        [
+            {
+                "price": 36164,
+                "size": 0.035,
+                "side": "SELL",
+                "symbol": "BTC-USD",
+                "serialId": 85997835,
+                "timestamp": 1624990097000
+            }
+        ]
+        """
+        if cancel_result is not None and len(cancel_result) == 1:
             return True
         return False
 
-    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+    async def _format_trading_rules(self, exchange_info_list: List[Dict[str, Any]]) -> List[TradingRule]:
         """
-        Example:
-        {
-            "symbol": "ETHBTC",
-            "baseAssetPrecision": 8,
-            "quotePrecision": 8,
-            "orderTypes": ["LIMIT", "MARKET"],
-            "filters": [
-                {
-                    "filterType": "PRICE_FILTER",
-                    "minPrice": "0.00000100",
-                    "maxPrice": "100000.00000000",
-                    "tickSize": "0.00000100"
-                }, {
-                    "filterType": "LOT_SIZE",
-                    "minQty": "0.00100000",
-                    "maxQty": "100000.00000000",
-                    "stepSize": "0.00100000"
-                }, {
-                    "filterType": "MIN_NOTIONAL",
-                    "minNotional": "0.00100000"
-                }
-            ]
-        }
+        [
+            {
+                "symbol": "BTC-USD",
+                "last": 36976,
+                "lowestAsk": 37012,
+                "highestBid": 36972,
+                "percentageChange": -4.633438649,
+                "volume": 81456627.51106991,
+                "high24Hr": 39478.5,
+                "low24Hr": 36821.5,
+                "base": "BTC",
+                "quote": "USD",
+                "active": true,
+                "size": 2117.88522,
+                "minValidPrice": 0.5,
+                "minPriceIncrement": 0.5,
+                "minOrderSize": 0.00001,
+                "maxOrderSize": 2000,
+                "minSizeIncrement": 0.00001,
+                "openInterest": 0,
+                "openInterestUSD": 0,
+                "contractStart": 0,
+                "contractEnd": 0,
+                "timeBasedContract": false,
+                "openTime": 0,
+                "closeTime": 0,
+                "startMatching": 0,
+                "inactiveTime": 0,
+                "fundingRate": 0,
+                "contractSize": 0,
+                "maxPosition": 0,
+                "minRiskLimit": 0,
+                "maxRiskLimit": 0,
+                "availableSettlement": null,
+                "futures": false
+            }
+        ]
         """
-        trading_pair_rules = exchange_info_dict.get("symbols", [])
+        trading_pair_rules = exchange_info_list
         retval = []
         for rule in filter(btse_utils.is_exchange_information_valid, trading_pair_rules):
             try:
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
-                filters = rule.get("filters")
-                price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
-                lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]
-                min_notional_filter = [f for f in filters if f.get("filterType") == "MIN_NOTIONAL"][0]
-
-                min_order_size = Decimal(lot_size_filter.get("minQty"))
-                tick_size = price_filter.get("tickSize")
-                step_size = Decimal(lot_size_filter.get("stepSize"))
-                min_notional = Decimal(min_notional_filter.get("minNotional"))
-
+                min_order_size = rule.get("minOrderSize")
+                min_price_increment = rule.get("minPriceIncrement")
+                min_base_amount_increment = rule.get("minSizeIncrement")
+                # TODO: need comfirm min_notional
+                min_notional = 0.0
                 retval.append(
                     TradingRule(trading_pair,
-                                min_order_size=min_order_size,
-                                min_price_increment=Decimal(tick_size),
-                                min_base_amount_increment=Decimal(step_size),
+                                min_order_size=Decimal(min_order_size),
+                                min_price_increment=Decimal(min_price_increment),
+                                min_base_amount_increment=Decimal(min_base_amount_increment),
                                 min_notional_size=Decimal(min_notional)))
 
             except Exception:
@@ -486,11 +538,11 @@ class BtseExchange(ExchangePyBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info_list: List[Dict[str, Any]]):
         mapping = bidict()
-        for symbol_data in filter(btse_utils.is_exchange_information_valid, exchange_info["symbols"]):
-            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseAsset"],
-                                                                        quote=symbol_data["quoteAsset"])
+        for symbol_data in filter(btse_utils.is_exchange_information_valid, exchange_info_list):
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["base"],
+                                                                        quote=symbol_data["quote"])
         self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:

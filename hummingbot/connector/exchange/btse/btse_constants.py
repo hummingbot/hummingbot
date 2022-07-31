@@ -3,7 +3,7 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 DEFAULT_DOMAIN = "com"
 
-HBOT_ORDER_ID_PREFIX = "x-XEKWYICX"
+HBOT_ORDER_ID_PREFIX = "hummingbot"
 MAX_ORDER_ID_LEN = 32
 
 # Base URL
@@ -18,14 +18,13 @@ TICKER_PRICE_CHANGE_PATH_URL = "/price"
 SERVER_TIME_PATH_URL = "/time"
 PING_PATH_URL = "/time"
 SNAPSHOT_PATH_URL = "/orderbook"
-
-EXCHANGE_INFO_PATH_URL = "/exchangeInfo"
+EXCHANGE_INFO_PATH_URL = "/market_summary"
 
 # Private API endpoints or Btse Client function
 ACCOUNTS_PATH_URL = "/account"
 MY_TRADES_PATH_URL = "/myTrades"
 ORDER_PATH_URL = "/order"
-Btse_USER_STREAM_PATH_URL = "/userDataStream"
+BTSE_USER_STREAM_PATH_URL = "/userDataStream"
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
@@ -78,7 +77,7 @@ RATE_LIMITS = [
               linked_limits=[(LinkedLimitWeightPair(REQUEST_WEIGHT, 10))]),
     RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 50)]),
-    RateLimit(limit_id=Btse_USER_STREAM_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    RateLimit(limit_id=BTSE_USER_STREAM_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1)]),
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1)]),
