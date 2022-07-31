@@ -68,6 +68,10 @@ configurations:
     configurationPath: uniswap.yml
     schemaPath: uniswap-schema.json
 
+  $namespace openocean:
+    configurationPath: openocean.yml
+    schemaPath: openocean-schema.json
+
   $namespace defikingdoms:
     configurationPath: defikingdoms.yml
     schemaPath: defikingdoms-schema.json
