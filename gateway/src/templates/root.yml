@@ -71,3 +71,7 @@ configurations:
   $namespace uniswap:
     configurationPath: uniswap.yml
     schemaPath: uniswap-schema.json
+
+  $namespace openocean:
+    configurationPath: openocean.yml
+    schemaPath: openocean-schema.json
