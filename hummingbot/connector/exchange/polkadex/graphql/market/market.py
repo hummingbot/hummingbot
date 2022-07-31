@@ -52,7 +52,7 @@ async def get_orderbook(market, limit, next_token, endpoint, api_key):
         variables["nextToken"] = next_token
 
     result = await execute_query_command(query, variables, endpoint, api_key)
-    return result["data"]["getOrderbook"]["items"]
+    return result["getOrderbook"]["items"]
 
 
 async def get_all_markets(endpoint, api_key):

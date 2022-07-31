@@ -18,9 +18,11 @@ from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTAN
 from hummingbot.connector.exchange.polkadex.graphql.general.streams import websocket_streams_session_provided
 from hummingbot.connector.exchange.polkadex.graphql.market.market import get_all_markets, get_recent_trades
 from hummingbot.connector.exchange.polkadex.graphql.user.user import (
+    cancel_order,
     find_order_by_main_account,
     get_all_balances_by_main_account,
-    get_main_acc_from_proxy_acc, place_order, cancel_order,
+    get_main_acc_from_proxy_acc,
+    place_order,
 )
 from hummingbot.connector.exchange.polkadex.polkadex_auth import PolkadexAuth
 from hummingbot.connector.exchange.polkadex.polkadex_constants import (
@@ -30,8 +32,8 @@ from hummingbot.connector.exchange.polkadex.polkadex_constants import (
     UPDATE_ORDER_STATUS_MIN_INTERVAL,
 )
 from hummingbot.connector.exchange.polkadex.polkadex_order_book_data_source import PolkadexOrderbookDataSource
-from hummingbot.connector.exchange.polkadex.polkadex_payload import create_order, create_cancel_order_req
-from hummingbot.connector.exchange.polkadex.polkadex_utils import convert_pair_to_market, convert_asset_to_ticker
+from hummingbot.connector.exchange.polkadex.polkadex_payload import create_cancel_order_req, create_order
+from hummingbot.connector.exchange.polkadex.polkadex_utils import convert_asset_to_ticker, convert_pair_to_market
 from hummingbot.connector.exchange.polkadex.python_user_stream_data_source import PolkadexUserStreamDataSource
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.utils import combine_to_hb_trading_pair

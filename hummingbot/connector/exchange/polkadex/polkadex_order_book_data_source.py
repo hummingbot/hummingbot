@@ -1,6 +1,6 @@
 import asyncio
 import time
-from typing import Dict, Any, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from gql import Client
 from gql.transport.appsync_websockets import AppSyncWebsocketsTransport

@@ -8,8 +8,8 @@ from hummingbot.connector.exchange.polkadex.graphql.auth.client import execute_q
 async def cancel_order(params):
     mutation = gql(
         """
-    mutation MyMutation {
-        cancel_order(input: {payload: String!}) {
+    mutation CancelOrder($input: UserActionInput!) {
+        cancel_order(input: $input) {
             cid
             id
             st
@@ -27,8 +27,8 @@ async def cancel_order(params):
 async def place_order(params):
     mutation = gql(
         """
-    mutation MyMutation {
-        place_order(input: {payload: String!}) {
+    mutation PlaceOrder($input: UserActionInput!) {
+        place_order(input: $input) {
             cid
             id
             st
