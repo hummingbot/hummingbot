@@ -3,7 +3,7 @@ import { AvailableNetworks } from '../../services/config-manager-types';
 export namespace DefiraConfig {
   export interface NetworkConfig {
     allowedSlippage: () => string;
-    gasLimit: () => number;
+    gasLimitEstimate: () => number;
     ttl: () => number;
     routerAddress: (network: string) => string;
     initCodeHash: (network: string) => string;
@@ -14,7 +14,8 @@ export namespace DefiraConfig {
   export const config: NetworkConfig = {
     allowedSlippage: () =>
       ConfigManagerV2.getInstance().get(`defira.allowedSlippage`),
-    gasLimit: () => ConfigManagerV2.getInstance().get(`defira.gasLimit`),
+    gasLimitEstimate: () =>
+      ConfigManagerV2.getInstance().get(`defira.gasLimitEstimate`),
     ttl: () => ConfigManagerV2.getInstance().get(`defira.ttl`),
     routerAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(
