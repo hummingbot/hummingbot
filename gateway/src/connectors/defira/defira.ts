@@ -29,7 +29,7 @@ export class Defira implements Uniswapish {
   private _factory: string | null;
   private _routerAbi: ContractInterface;
   private _initCodeHash: string;
-  private _gasLimit: number;
+  private _gasLimitEstimate: number;
   private _ttl: number;
   private chainId;
   private tokenList: Record<string, Token> = {};
@@ -41,7 +41,7 @@ export class Defira implements Uniswapish {
     this.chainId = this.harmony.chainId;
     this._ttl = config.ttl();
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = config.gasLimit();
+    this._gasLimitEstimate = config.gasLimitEstimate();
     this._router = config.routerAddress(network);
     this._initCodeHash = config.initCodeHash(network);
     this._factory = null;
@@ -147,7 +147,7 @@ export class Defira implements Uniswapish {
    * Default gas limit for swap transactions.
    */
   public get gasLimitEstimate(): number {
-    return this._gasLimit;
+    return this._gasLimitEstimate;
   }
 
   /**
