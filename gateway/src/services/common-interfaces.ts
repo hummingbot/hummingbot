@@ -46,6 +46,7 @@ import {
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
 import { PerpPosition } from '../connectors/perp/perp';
+import { PriceResponse } from '../vault/vault.requests';
 
 export type Tokenish =
   | Token
@@ -196,7 +197,22 @@ export interface Uniswapish {
     allowedSlippage?: string
   ): Promise<Transaction>;
 }
+export interface Vaultish {
+  // init(): Promise<void>;
 
+  // ready(): boolean;
+
+  /**
+   * Given the type of transaction and amount of shares or assets to put into a transaction, calculate the
+   * amount of shares or tokens that can be expected from the transaction.
+   *
+   * This is typically used for calculating mint or redeem pricing.
+   *
+   * @param tradeType: 'redeem' or 'mint'
+   * @param amount Amount of assets or shares to trade
+   */
+  price(tradeType: string, amount: BigNumber): Promise<PriceResponse>;
+}
 export interface UniswapLPish {
   /**
    * Router address.
@@ -417,8 +433,6 @@ export interface Perpish {
    */
   closePosition(tickerSymbol: string): Promise<Transaction>;
 }
-
-export interface Vaultish {}
 
 export interface Ethereumish extends EthereumBase {
   cancelTx(wallet: Wallet, nonce: number): Promise<Transaction>;

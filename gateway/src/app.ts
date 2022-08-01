@@ -26,7 +26,7 @@ import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
 import { CortexConfig } from './connectors/cortex/cortex.config';
-
+import { VaultRoutes } from './vault/vault.routes';
 const swaggerUi = require('swagger-ui-express');
 
 const childProcess = require('child_process');
