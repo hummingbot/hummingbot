@@ -147,8 +147,14 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
-        target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_AUTH_TIMESTAMP_ERROR)
-        is_time_synchronizer_related = target_str in error_description
+        ts_error_target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_AUTH_TIMESTAMP_ERROR)
+        param_error_target_str = (
+            f"{self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_PARAMS_ERROR)} - invalid timestamp"
+        )
+        is_time_synchronizer_related = (
+            ts_error_target_str in error_description
+            or param_error_target_str in error_description
+        )
         return is_time_synchronizer_related
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
