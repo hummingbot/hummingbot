@@ -709,7 +709,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
+            endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL, trading_pair=order.trading_pair
         )
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_full_fill_mock_response(order=order)
@@ -779,7 +779,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         }
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
 
-        return url, f"{error_code} - {error_msg}"
+        return url, f"ret_code <{error_code}> - {error_msg}"
 
     def configure_failed_set_leverage(
         self,
@@ -807,7 +807,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         }
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
 
-        return url, f"{err_code} - {err_msg}"
+        return url, f"ret_code <{err_code}> - {err_msg}"
 
     def configure_successful_set_leverage(
         self,
@@ -1247,6 +1247,15 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
                 ),
             )
         )
+
+    def test_time_synchronizer_related_reqeust_error_detection(self):
+        error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_AUTH_TIMESTAMP_ERROR)
+        exception = IOError(f"{error_code_str} - Failed to cancel order for timestamp reason.")
+        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+        error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_ORDER_NOT_EXISTS)
+        exception = IOError(f"{error_code_str} - Failed to cancel order because it was not found.")
+        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {
