@@ -1,12 +1,14 @@
 import json
 import re
 from decimal import Decimal
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple, Union
 from unittest.mock import patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bittrex import bittrex_constants as CONSTANTS, bittrex_web_utils as web_utils
 from hummingbot.connector.exchange.bittrex.bittrex_exchange import BittrexExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
@@ -239,21 +241,21 @@ class BittrexExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def expected_exchange_order_id(self):
-        return "OID"
+        return "EOID1"
 
     @property
     def expected_partial_fill_price(self) -> Decimal:
-        return Decimal(10500)
+        return Decimal(10000)
 
     @property
     def expected_partial_fill_amount(self) -> Decimal:
-        return Decimal("0.5")
+        return Decimal("17")
 
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
         return AddedToCostTradeFee(
             percent_token=self.quote_asset,
-            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))])
+            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("63"))])
 
     @property
     def expected_fill_trade_id(self) -> str:
@@ -265,19 +267,21 @@ class BittrexExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
-        return False
+        return True
 
     @property
     def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
-        return False
+        return True
 
     def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
         return f"{base_token}{quote_token}"
 
     def create_exchange_instance(self):
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return BittrexExchange(
-            self.api_key,
-            self.secret_key,
+            client_config_map=client_config_map,
+            bittrex_api_key=self.api_key,
+            bittrex_secret_key=self.secret_key,
             trading_pairs=[self.trading_pair]
         )
 
@@ -309,10 +313,7 @@ class BittrexExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual("SPOT", request_params["instType"])
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["instId"])
-        self.assertEqual(order.exchange_order_id, request_params["ordId"])
+        self.assertEqual(None, request_params)
 
     def configure_successful_cancelation_response(
             self,
@@ -365,7 +366,7 @@ class BittrexExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_DETAIL_URL.format(order.exchange_order_id))
-        regex_url = re.compile(url + r"\?.*")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return regex_url
@@ -377,7 +378,7 @@ class BittrexExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
 
         url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_DETAIL_URL.format(order.exchange_order_id))
-        regex_url = re.compile(url + r"\?.*")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_canceled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return regex_url
@@ -419,37 +420,37 @@ class BittrexExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_TRADE_FILLS_PATH)
-        regex_url = re.compile(url + r"\?.*")
-        response = self._order_fills_request_partial_fill_mock_response(order=order)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.ALL_TRADES_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self._trade_fills_request_partial_fill_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
-        return url
+        return regex_url
 
     def configure_full_fill_trade_response(
             self,
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_TRADE_FILLS_PATH)
-        regex_url = re.compile(url + r"\?.*")
-        response = self._order_fills_request_full_fill_mock_response(order=order)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.ALL_TRADES_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self._trade_fills_request_full_fill_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
-        return url
+        return regex_url
 
     def configure_erroneous_http_fill_trade_response(
             self,
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_TRADE_FILLS_PATH)
-        regex_url = re.compile(url + r"\?.*")
+        url = web_utils.private_rest_url(path_url=CONSTANTS.ALL_TRADES_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, status=400, callback=callback)
-        return url
+        return regex_url
 
     @property
     def order_creation_request_successful_mock_response(self):
         return {
-            "id": "OID",
+            "id": "EOID1",
             "marketSymbol": "string",
             "direction": "string",
             "type": "string",
@@ -485,7 +486,7 @@ class BittrexExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 "ceiling": "number (double)",
                 "timeInForce": "string",
                 "clientOrderId": "OID1",
-                "fillQuantity": "0.0",
+                "fillQuantity": 0.0,
                 "commission": "number (double)",
                 "proceeds": "number (double)",
                 "status": "OPEN",
@@ -537,7 +538,7 @@ class BittrexExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 "direction": "BUY",
                 "type": "LIMIT",
                 "quantity": 1.0,
-                "limit": 1000.0,
+                "limit": 10000.0,
                 "ceiling": "number (double)",
                 "timeInForce": "string",
                 "clientOrderId": "OID1",
@@ -565,9 +566,9 @@ class BittrexExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "marketSymbol": "COINALPHAHBOT",
                     "executedAt": "2018-06-29 08:15:27.243860",
                     "quantity": 1.0,
-                    "rate": 1000.0,
+                    "rate": 10000.0,
                     "orderId": "EOID1",
-                    "commission": "number (double)",
+                    "commission": 63.0,
                     "isTaker": True
                 }
             ]
@@ -632,7 +633,7 @@ class BittrexExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "id": "EOID1",
+            "id": "4",
             "marketSymbol": "COINALPHAHBOT",
             "direction": "BUY",
             "type": "LIMIT",
@@ -680,7 +681,7 @@ class BittrexExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "id": "EOID1",
+            "id": "4",
             "marketSymbol": "COINALPHAHBOT",
             "direction": "string",
             "type": "string",
@@ -704,7 +705,7 @@ class BittrexExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "id": "EOID1",
+            "id": "4",
             "marketSymbol": "COINALPHAHBOT",
             "direction": "string",
             "type": "string",
@@ -726,13 +727,39 @@ class BittrexExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             }
         }
 
-    def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
-        pass
+    def _all_executed_requests(self, api_mock: aioresponses, url: Union[str, re.Pattern]) -> List[RequestCall]:
+        request_calls = []
+        if isinstance(url, str):
+            url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        for key, value in api_mock.requests.items():
+            if url.search(key[1].human_repr()):
+                request_calls.extend(value)
+        return request_calls
 
-    def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
-        pass
+    def _trade_fills_request_full_fill_mock_response(self, order):
+        return [
+            {
+                "id": "EOID1",
+                "marketSymbol": "COINALPHAHBOT",
+                "executedAt": "2018-06-29 08:15:27.243860",
+                "quantity": 1.0,
+                "rate": 10000.0,
+                "orderId": str(order.exchange_order_id),
+                "commission": 63.0,
+                "isTaker": "boolean"
+            }
+        ]
 
-    @aioresponses()
-    def test_update_order_status_when_order_has_not_changed_and_one_partial_fill(self, mock_api):
-        # Suppressing test as Bittrex does not provide a partial-filled state
-        pass
+    def _trade_fills_request_partial_fill_mock_response(self, order):
+        return [
+            {
+                "id": "EOID1",
+                "marketSymbol": "COINALPHAHBOT",
+                "executedAt": "2018-06-29 08:15:27.243860",
+                "quantity": 17.0,
+                "rate": 10000.0,
+                "orderId": str(order.exchange_order_id),
+                "commission": 63.0,
+                "isTaker": "boolean"
+            }
+        ]

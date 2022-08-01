@@ -99,9 +99,8 @@ class BittrexExchange(ExchangePyBase):
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.MARKET]
 
-    # TODO implement
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        pass
+        return False
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -216,7 +215,7 @@ class BittrexExchange(ExchangePyBase):
 
     # TODO Look into fees
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
-        exchange_order_id = order.get_exchange_order_id()
+        exchange_order_id = await order.get_exchange_order_id()
         trades_from_exchange = await self._api_get(
             path_url=CONSTANTS.ALL_TRADES_URL,
             is_auth_required=True,
@@ -228,8 +227,8 @@ class BittrexExchange(ExchangePyBase):
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
                 trade_type=order.trade_type,
-                percent_token=trade["commission"],
-                flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
+                percent_token=order.trading_pair.split("-")[-1],
+                flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=order.trading_pair.split("-")[-1])]
             )
             trade_update = TradeUpdate(
                 trade_id=str(trade["id"]),
@@ -247,7 +246,7 @@ class BittrexExchange(ExchangePyBase):
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        exchange_order_id = tracked_order.get_exchange_order_id()
+        exchange_order_id = await tracked_order.get_exchange_order_id()
         params = {
             "orderId": exchange_order_id
         }
@@ -271,18 +270,17 @@ class BittrexExchange(ExchangePyBase):
     async def _user_stream_event_listener(self):
         async for stream_message in self._iter_user_event_queue():
             try:
-                if "lastId" in stream_message:
-                    safe_ensure_future(self._process_execution_event(stream_message))
+                content = stream_message.get("delta") or stream_message.get("deltas")
+                if isinstance(content, List):
+                    safe_ensure_future(self._process_execution_event(content))
+                elif "marketSymbol" not in content:
+                    asset_name = content["currencySymbol"]
+                    total_balance = content["total"]
+                    available_balance = content["available"]
+                    self._account_available_balances[asset_name] = available_balance
+                    self._account_balances[asset_name] = total_balance
                 else:
-                    content = stream_message.get("delta")
-                    if "marketSymbol" not in content:
-                        asset_name = content["currencySymbol"]
-                        total_balance = content["total"]
-                        available_balance = content["available"]
-                        self._account_available_balances[asset_name] = available_balance
-                        self._account_balances[asset_name] = total_balance
-                    else:
-                        safe_ensure_future(self._process_order_update_event(content))
+                    safe_ensure_future(self._process_order_update_event(content))
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -293,7 +291,7 @@ class BittrexExchange(ExchangePyBase):
         order_id = msg["id"]
         update_time = self._get_timestamp(msg["updatedAt"])
         order_state = self._get_order_status(msg)
-        tracked_order = self.in_flight_orders.get(msg["clientOrderId"])
+        tracked_order = self._order_tracker.all_updatable_orders.get(msg["clientOrderId"])
         if tracked_order is not None:
             order_update = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
@@ -305,47 +303,35 @@ class BittrexExchange(ExchangePyBase):
             self._order_tracker.process_order_update(order_update=order_update)
 
     # TODO fees
-    async def _process_execution_event(self, msg: Dict[str, Any]):
-        """
-        Bittrex websocket trade messages provide the id of last trade on
-        user account instead of the trade itself
-        """
-        exec_id = msg.get("lastId")
-        exec_event = await self._api_get(
-            path_url=CONSTANTS.ALL_TRADES_URL + exec_id,
-            params={
-                "executionId": exec_id
-            },
-            is_auth_required=True,
-            limit_id=CONSTANTS.ALL_TRADES_URL
-        )
-        order_id = exec_event["orderId"]
-        tracked_order = None
-        for order in self.in_flight_orders.values():
-            exchange_order_id = await order.get_exchange_order_id()
-            if exchange_order_id == order_id:
-                tracked_order = order
-                break
-        if tracked_order is not None:
-            fee = TradeFeeBase.new_spot_fee(
-                fee_schema=self.trade_fee_schema(),
-                trade_type=tracked_order.trade_type,
-                percent_token=tracked_order.trading_pair.split("-")[-1],
-                flat_fees=[TokenAmount(amount=exec_event["commission"],
-                                       token=tracked_order.trading_pair.split("-")[-1])]
-            )
-            trade_update = TradeUpdate(
-                trade_id=exec_id,
-                client_order_id=tracked_order.client_order_id,
-                exchange_order_id=order_id,
-                trading_pair=tracked_order.trading_pair,
-                fee=fee,
-                fill_base_amount=Decimal(exec_event["quantity"]),
-                fill_quote_amount=Decimal(exec_event["quantity"] * exec_event["rate"]),
-                fill_price=Decimal(exec_event["rate"]),
-                fill_timestamp=await self._get_timestamp(exec_event["executedAt"]),
-            )
-            self._order_tracker.process_trade_update(trade_update)
+    async def _process_execution_event(self, events: Dict[str, Any]):
+        for execution_event in events:
+            order_id = execution_event["orderId"]
+            tracked_order = None
+            for order in self._order_tracker.all_fillable_orders.values():
+                exchange_order_id = await order.get_exchange_order_id()
+                if exchange_order_id == order_id:
+                    tracked_order = order
+                    break
+            if tracked_order is not None:
+                fee = TradeFeeBase.new_spot_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    trade_type=tracked_order.trade_type,
+                    percent_token=tracked_order.trading_pair.split("-")[-1],
+                    flat_fees=[TokenAmount(amount=Decimal(execution_event["commission"]),
+                                           token=tracked_order.trading_pair.split("-")[-1])]
+                )
+                trade_update = TradeUpdate(
+                    trade_id=execution_event["id"],
+                    client_order_id=tracked_order.client_order_id,
+                    exchange_order_id=order_id,
+                    trading_pair=tracked_order.trading_pair,
+                    fee=fee,
+                    fill_base_amount=Decimal(execution_event["quantity"]),
+                    fill_quote_amount=Decimal(execution_event["quantity"] * execution_event["rate"]),
+                    fill_price=Decimal(execution_event["rate"]),
+                    fill_timestamp=self._get_timestamp(execution_event["executedAt"]),
+                )
+                self._order_tracker.process_trade_update(trade_update)
 
     # TODO change this method
     def _get_fee(self,
@@ -399,7 +385,10 @@ class BittrexExchange(ExchangePyBase):
         order_state = order["status"]
         new_state = ""
         if order_state == "OPEN":
-            new_state = CONSTANTS.ORDER_STATE[order_state]
+            if order["fillQuantity"] < order["quantity"] and order["fillQuantity"] > 0:
+                new_state = CONSTANTS.ORDER_STATE[order_state + "-PARTIAL"]
+            else:
+                new_state = CONSTANTS.ORDER_STATE[order_state]
         else:
             if order["fillQuantity"] == order["quantity"]:
                 new_state = CONSTANTS.ORDER_STATE[order_state + "-FILLED"]

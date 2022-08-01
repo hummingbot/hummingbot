@@ -19,6 +19,7 @@ DIFF_EVENT_KEY = "orderbook_25"
 # Order States
 ORDER_STATE = {
     "OPEN": OrderState.OPEN,
+    "OPEN-PARTIAL": OrderState.PARTIALLY_FILLED,
     "CLOSED-CANCELLED": OrderState.CANCELED,
     "CLOSED-FILLED": OrderState.FILLED
 }
