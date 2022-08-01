@@ -1,25 +1,26 @@
-import {
-  BigNumber,
-  Contract,
-  logger,
-  providers,
-  Transaction,
-  utils,
-  Wallet,
-} from 'ethers';
+// Ethereum
+import { Wallet } from 'ethers';
 import axios from 'axios';
 // import fs from 'fs/promises';
 import { promises as fs } from 'fs';
 import { TokenListType, TokenValue, walletPath } from './base';
-import { EVMNonceManager } from './evm.nonce';
+// import { EVMNonceManager } from './evm.nonce';
 import NodeCache from 'node-cache';
 import { EvmTxStorage } from './evm.tx-storage';
 import fse from 'fs-extra';
 import { ConfigManagerCertPassphrase } from './config-manager-cert-passphrase';
+import { BigNumber } from 'ethers';
+// import { assets } from 'chain-registry';
 
+//Cosmos
+const { DirectSecp256k1Wallet, decodeTxRaw } = require('@cosmjs/proto-signing');
+const { StargateClient } = require('@cosmjs/stargate');
+const { toBase64, fromBase64, fromHex } = require('@cosmjs/encoding');
+const crypto = require('crypto').webcrypto;
+const { assets: assetsRegistry } = require('chain-registry');
 // information about an Ethereum token
 export interface Token {
-  chainId: number;
+  base: string;
   address: string;
   name: string;
   symbol: string;
@@ -40,32 +41,29 @@ export class CosmosBase {
   private _initPromise: Promise<void> = Promise.resolve();
 
   public chainName;
-  public chainId;
   public rpcUrl;
   public gasPriceConstant;
   public tokenListSource: string;
   public tokenListType: TokenListType;
   public cache: NodeCache;
-  private _nonceManager: EVMNonceManager;
+  // private _nonceManager: EVMNonceManager;
   private _txStorage: EvmTxStorage;
 
   constructor(
     chainName: string,
-    chainId: number,
     rpcUrl: string,
     tokenListSource: string,
     tokenListType: TokenListType,
     gasPriceConstant: number
   ) {
-    this._provider = new providers.StaticJsonRpcProvider(rpcUrl);
+    this._provider = StargateClient.connect(rpcUrl);
     this.chainName = chainName;
-    this.chainId = chainId;
     this.rpcUrl = rpcUrl;
     this.gasPriceConstant = gasPriceConstant;
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
-    this._nonceManager = new EVMNonceManager(chainName, chainId, 60);
-    this._nonceManager.init(this.provider);
+    // this._nonceManager = new EVMNonceManager(chainName, chainId, 60);
+    // this._nonceManager.init(this.provider);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
     this._txStorage = new EvmTxStorage('transactions.level');
   }
@@ -78,11 +76,11 @@ export class CosmosBase {
     return this._provider;
   }
 
-  public events() {
-    this._provider._events.map(function (event) {
-      return [event.tag];
-    });
-  }
+  // public events() {
+  //   this._provider._events.map(function (event) {
+  //     return [event.tag];
+  //   });
+  // }
 
   public onNewBlock(func: NewBlockHandler) {
     this._provider.on('block', func);
@@ -111,6 +109,7 @@ export class CosmosBase {
     tokenListType: TokenListType
   ): Promise<void> {
     this.tokenList = await this.getTokenList(tokenListSource, tokenListType);
+
     if (this.tokenList) {
       this.tokenList.forEach(
         (token: Token) => (this._tokenMap[token.symbol] = token)
@@ -125,18 +124,16 @@ export class CosmosBase {
   ): Promise<Token[]> {
     let tokens;
     if (tokenListType === 'URL') {
-      ({
-        data: { tokens },
-      } = await axios.get(tokenListSource));
+      ({ data: tokens } = await axios.get(tokenListSource));
     } else {
       ({ tokens } = JSON.parse(await fs.readFile(tokenListSource, 'utf8')));
     }
     return tokens;
   }
 
-  public get nonceManager() {
-    return this._nonceManager;
-  }
+  // public get nonceManager() {
+  //   return this._nonceManager;
+  // }
 
   public get txStorage(): EvmTxStorage {
     return this._txStorage;
@@ -154,17 +151,38 @@ export class CosmosBase {
     return this._tokenMap[symbol] ? this._tokenMap[symbol] : null;
   }
 
-  getWalletFromPrivateKey(privateKey: string): Wallet {
-    return new Wallet(privateKey, this._provider);
+  async getWalletFromPrivateKey(privateKey: string): Promise<any> {
+    const wallet = await DirectSecp256k1Wallet.fromKey(fromHex(privateKey));
+
+    // Private key can be exported by using - gaiad keys export [key name] --unsafe --unarmored-hex
+    return wallet;
   }
+
+  async getAccountsfromPrivateKey(privateKey: string): Promise<any> {
+    const wallet = await this.getWalletFromPrivateKey(privateKey);
+
+    const accounts = await wallet.getAccounts();
+
+    return accounts[0];
+  }
+
   // returns Wallet for an address
   // TODO: Abstract-away into base.ts
   async getWallet(address: string): Promise<Wallet> {
     const path = `${walletPath}/${this.chainName}`;
 
-    const encryptedPrivateKey: string = await fse.readFile(
-      `${path}/${address}.json`,
-      'utf8'
+    const encryptedPrivateKey: any = JSON.parse(
+      await fse.readFile(`${path}/${address}.json`, 'utf8'),
+      (key, value) => {
+        switch (key) {
+          case 'ciphertext':
+          case 'salt':
+          case 'iv':
+            return fromBase64(value);
+          default:
+            return value;
+        }
+      }
     );
 
     const passphrase = ConfigManagerCertPassphrase.readPassphrase();
@@ -174,129 +192,146 @@ export class CosmosBase {
     return await this.decrypt(encryptedPrivateKey, passphrase);
   }
 
-  encrypt(privateKey: string, password: string): Promise<string> {
-    const wallet = this.getWalletFromPrivateKey(privateKey);
-    return wallet.encrypt(password);
-  }
-
-  async decrypt(
-    encryptedPrivateKey: string,
-    password: string
-  ): Promise<Wallet> {
-    const wallet = await Wallet.fromEncryptedJson(
-      encryptedPrivateKey,
-      password
+  private static async getKeyMaterial(password: string) {
+    const enc = new TextEncoder();
+    return await crypto.subtle.importKey(
+      'raw',
+      enc.encode(password),
+      'PBKDF2',
+      false,
+      ['deriveBits', 'deriveKey']
     );
-    return wallet.connect(this._provider);
   }
 
-  // returns the Native balance, convert BigNumber to string
-  async getNativeBalance(wallet: Wallet): Promise<TokenValue> {
-    const balance = await wallet.getBalance();
-    return { value: balance, decimals: 18 };
-  }
-
-  // returns the balance for an ERC-20 token
-  async getERC20Balance(
-    contract: Contract,
-    wallet: Wallet,
-    decimals: number
-  ): Promise<TokenValue> {
-    logger.info('Requesting balance for owner ' + wallet.address + '.');
-    const balance = await contract.balanceOf(wallet.address);
-    logger.info(balance);
-    return { value: balance, decimals: decimals };
-  }
-
-  // returns the allowance for an ERC-20 token
-  async getERC20Allowance(
-    contract: Contract,
-    wallet: Wallet,
-    spender: string,
-    decimals: number
-  ): Promise<TokenValue> {
-    logger.info(
-      'Requesting spender ' +
-        spender +
-        ' allowance for owner ' +
-        wallet.address +
-        '.'
+  private static async getKey(
+    keyAlgorithm: {
+      salt: Uint8Array;
+      name: string;
+      iterations: number;
+      hash: string;
+    },
+    keyMaterial: CryptoKey
+  ) {
+    return await crypto.subtle.deriveKey(
+      keyAlgorithm,
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      true,
+      ['encrypt', 'decrypt']
     );
-    const allowance = await contract.allowance(wallet.address, spender);
-    logger.info(allowance);
-    return { value: allowance, decimals: decimals };
   }
 
-  // returns an ethereum TransactionResponse for a txHash.
-  async getTransaction(txHash: string): Promise<providers.TransactionResponse> {
-    return this._provider.getTransaction(txHash);
-  }
+  // from Solana.ts
+  async encrypt(privateKey: string, password: string): Promise<string> {
+    // const mnemonic =
+    // 'load emerge gallery goddess inhale appear middle nominee grain hammer remember real memory access cruise time before chapter poet slice hope vast engage buzz';
+    // orchard trade soup stool oven private fuel curtain exhaust tragic behind camera desk useful gold type stool knee hub stable soon meat snap tomato
 
-  // caches transaction receipt once they arrive
-  cacheTransactionReceipt(tx: providers.TransactionReceipt) {
-    this.cache.set(tx.transactionHash, tx); // transaction hash is used as cache key since it is unique enough
-  }
-
-  // returns an ethereum TransactionReceipt for a txHash if the transaction has been mined.
-  async getTransactionReceipt(
-    txHash: string
-  ): Promise<providers.TransactionReceipt | null> {
-    if (this.cache.keys().includes(txHash)) {
-      // If it's in the cache, return the value in cache, whether it's null or not
-      return this.cache.get(txHash) as providers.TransactionReceipt;
-    } else {
-      // If it's not in the cache,
-      const fetchedTxReceipt = await this._provider.getTransactionReceipt(
-        txHash
-      );
-
-      this.cache.set(txHash, fetchedTxReceipt); // Cache the fetched receipt, whether it's null or not
-
-      if (!fetchedTxReceipt) {
-        this._provider.once(txHash, this.cacheTransactionReceipt.bind(this));
-      }
-
-      return fetchedTxReceipt;
-    }
-  }
-
-  // adds allowance by spender to transfer the given amount of Token
-  async approveERC20(
-    contract: Contract,
-    wallet: Wallet,
-    spender: string,
-    amount: BigNumber,
-    nonce?: number,
-    maxFeePerGas?: BigNumber,
-    maxPriorityFeePerGas?: BigNumber,
-    gasPrice?: number
-  ): Promise<Transaction> {
-    logger.info(
-      'Calling approve method called for spender ' +
-        spender +
-        ' requesting allowance ' +
-        amount.toString() +
-        ' from owner ' +
-        wallet.address +
-        '.'
-    );
-    if (!nonce) {
-      nonce = await this.nonceManager.getNonce(wallet.address);
-    }
-    const params: any = {
-      gasLimit: 100000,
-      nonce: nonce,
+    // const wallet = await this.getWalletFromPrivateKey(privateKey);
+    const iv = crypto.getRandomValues(new Uint8Array(16));
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const keyMaterial = await CosmosBase.getKeyMaterial(password);
+    const keyAlgorithm = {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 500000,
+      hash: 'SHA-256',
     };
-    if (maxFeePerGas || maxPriorityFeePerGas) {
-      params.maxFeePerGas = maxFeePerGas;
-      params.maxPriorityFeePerGas = maxPriorityFeePerGas;
-    } else if (gasPrice) {
-      params.gasPrice = (gasPrice * 1e9).toString();
-    }
-    const response = await contract.approve(spender, amount, params);
-    logger.info(response);
-    await this.nonceManager.commitNonce(wallet.address, nonce);
-    return response;
+    const key = await CosmosBase.getKey(keyAlgorithm, keyMaterial);
+
+    const cipherAlgorithm = {
+      name: 'AES-GCM',
+      iv: iv,
+    };
+    const enc = new TextEncoder();
+    const ciphertext: ArrayBuffer = await crypto.subtle.encrypt(
+      cipherAlgorithm,
+      key,
+      enc.encode(privateKey)
+    );
+
+    return JSON.stringify(
+      {
+        keyAlgorithm,
+        cipherAlgorithm,
+        ciphertext: new Uint8Array(ciphertext),
+      },
+      (key, value) => {
+        switch (key) {
+          case 'ciphertext':
+          case 'salt':
+          case 'iv':
+            return toBase64(value);
+          default:
+            return value;
+        }
+      }
+    );
+  }
+
+  async decrypt(encryptedPrivateKey: any, password: string): Promise<any> {
+    const keyMaterial = await CosmosBase.getKeyMaterial(password);
+    const key = await CosmosBase.getKey(
+      encryptedPrivateKey.keyAlgorithm,
+      keyMaterial
+    );
+    const decrypted = await crypto.subtle.decrypt(
+      encryptedPrivateKey.cipherAlgorithm,
+      key,
+      encryptedPrivateKey.ciphertext
+    );
+    const dec = new TextDecoder();
+    dec.decode(decrypted);
+
+    return await this.getWalletFromPrivateKey(dec.decode(decrypted));
+  }
+
+  getChainAssetsData(chain: string) {
+    return assetsRegistry.find(
+      ({ chain_name }: { chain_name: string }) => chain_name === chain
+    );
+  }
+
+  async getDenomMetadata(provider: any, denom: string): Promise<any> {
+    return await provider.queryClient.bank.denomMetadata(denom);
+  }
+
+  async getBalances(wallet: any): Promise<Record<string, TokenValue>> {
+    const balances: Record<string, TokenValue> = {};
+
+    const provider = await this._provider;
+
+    const accounts = await wallet.getAccounts();
+
+    const { address } = accounts[0];
+
+    const allTokens = await provider.getAllBalances(address);
+    await Promise.all(
+      allTokens.map(async (t: { denom: string; amount: string }) => {
+        const token = this.getTokenByBase(t.denom);
+
+        // Not all tokens are added in the registry so we use the denom if the token doesn't exist
+        balances[token ? token.symbol : t.denom] = {
+          value: BigNumber.from(parseInt(t.amount, 10)),
+          decimals: token
+            ? token.denom_units[token.denom_units.length - 1].exponent // Last denom unit has the decimal amount we need from our list
+            : 6,
+        };
+      })
+    );
+
+    return balances;
+  }
+
+  // returns a cosmos tx for a txHash.
+  // TODO: update response type
+  async getTransaction(id: string): Promise<any> {
+    const provider = await this._provider;
+    const transaction = await provider.getTx(id);
+
+    const { tx } = transaction;
+
+    return decodeTxRaw(tx);
   }
 
   public getTokenBySymbol(tokenSymbol: string): Token | undefined {
@@ -305,27 +340,33 @@ export class CosmosBase {
     );
   }
 
+  public getTokenByBase(base: string): any {
+    return this.tokenList.find((token: Token) => token.base === base);
+  }
+
   // returns the current block number
   async getCurrentBlockNumber(): Promise<number> {
-    return this._provider.getBlockNumber();
+    const provider = await this._provider;
+
+    return await provider.getHeight();
   }
 
-  // cancel transaction
-  async cancelTx(
-    wallet: Wallet,
-    nonce: number,
-    gasPrice: number
-  ): Promise<Transaction> {
-    const tx = {
-      from: wallet.address,
-      to: wallet.address,
-      value: utils.parseEther('0'),
-      nonce: nonce,
-      gasPrice: gasPrice * 1e9 * 2,
-    };
-    const response = await wallet.sendTransaction(tx);
-    logger.info(response);
+  //   // cancel transaction
+  //   async cancelTx(
+  //     wallet: Wallet,
+  //     nonce: number,
+  //     gasPrice: number
+  //   ): Promise<Transaction> {
+  //     const tx = {
+  //       from: wallet.address,
+  //       to: wallet.address,
+  //       value: utils.parseEther('0'),
+  //       nonce: nonce,
+  //       gasPrice: gasPrice * 1e9 * 2,
+  //     };
+  //     const response = await wallet.sendTransaction(tx);
+  //     logger.info(response);
 
-    return response;
-  }
+  //     return response;
+  //   }
 }

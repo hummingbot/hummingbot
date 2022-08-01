@@ -3,6 +3,7 @@ import express from 'express';
 import { Server } from 'http';
 import { Request, Response, NextFunction } from 'express';
 import { SolanaRoutes } from './chains/solana/solana.routes';
+import { CosmosRoutes } from './chains/cosmos/cosmos.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
 import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
@@ -42,6 +43,7 @@ gatewayApp.use('/connectors', ConnectorsRoutes.router);
 gatewayApp.use('/amm', AmmRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
+gatewayApp.use('/cosmos', CosmosRoutes.router);
 
 // a simple route to test that the server is running
 gatewayApp.get('/', (_req: Request, res: Response) => {
@@ -99,6 +101,9 @@ gatewayApp.post(
 
       logger.info('Reloading Solana routes.');
       SolanaRoutes.reload();
+
+      // logger.info('Reloading Cosmos routes.');
+      // CosmosRoutes.reload();
 
       logger.info('Restarting gateway.');
       await stopGateway();
@@ -159,6 +164,7 @@ export const startGateway = async () => {
     );
   }
   logger.info(`⚡️ Gateway API listening on port ${port}`);
+
   if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
     gatewayServer = await gatewayApp.listen(port);

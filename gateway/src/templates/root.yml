@@ -16,6 +16,10 @@ configurations:
     configurationPath: ethereum.yml
     schemaPath: ethereum-schema.json
 
+  $namespace cosmos:
+    configurationPath: cosmos.yml
+    schemaPath: cosmos-schema.json
+
   $namespace ethereumGasStation:
     configurationPath: ethereum-gas-station.yml
     schemaPath: ethereum-gas-station-schema.json
