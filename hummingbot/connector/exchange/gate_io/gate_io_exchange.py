@@ -17,7 +17,6 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -107,6 +106,10 @@ class GateIoExchange(ExchangePyBase):
 
     def supported_order_types(self):
         return [OrderType.LIMIT]
+
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+        # API documentation does not clarify the error message for timestamp related problems
+        return False
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -239,70 +242,53 @@ class GateIoExchange(ExchangePyBase):
             raise e
         return account_info
 
-    async def _update_order_status(self):
-        """
-        Calls REST API to get status update for each in-flight order.
-        """
-        orders_tasks = []
-        trades_tasks = []
-        reviewed_orders = []
-        tracked_orders = list(self.in_flight_orders.values())
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        trade_updates = []
 
-        # Prepare requests to update trades and orders
-        for tracked_order in tracked_orders:
-            try:
-                exchange_order_id = await tracked_order.get_exchange_order_id()
-                reviewed_orders.append(tracked_order)
-            except asyncio.TimeoutError:
-                self.logger().network(
-                    f"Skipped order status update for {tracked_order.client_order_id} "
-                    "- waiting for exchange order id.")
-                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
-                continue
-
-            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
-
-            trades_tasks.append(self._api_get(
+        try:
+            exchange_order_id = await order.get_exchange_order_id()
+            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
+            all_fills_response = await self._api_get(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
                 params={
                     "currency_pair": trading_pair,
                     "order_id": exchange_order_id
                 },
                 is_auth_required=True,
-                limit_id=CONSTANTS.MY_TRADES_PATH_URL,
-            ))
-            orders_tasks.append(self._api_get(
+                limit_id=CONSTANTS.MY_TRADES_PATH_URL)
+
+            for trade_fill in all_fills_response:
+                trade_update = self._create_trade_update_with_order_fill_data(
+                    order_fill=trade_fill,
+                    order=order)
+                trade_updates.append(trade_update)
+
+        except asyncio.TimeoutError:
+            raise IOError(f"Skipped order update with order fills for {order.client_order_id} "
+                          "- waiting for exchange order id.")
+
+        return trade_updates
+
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        try:
+            exchange_order_id = await tracked_order.get_exchange_order_id()
+            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
+            updated_order_data = await self._api_get(
                 path_url=CONSTANTS.ORDER_STATUS_PATH_URL.format(order_id=exchange_order_id),
                 params={
                     "currency_pair": trading_pair
                 },
                 is_auth_required=True,
-                limit_id=CONSTANTS.ORDER_STATUS_LIMIT_ID,
-            ))
+                limit_id=CONSTANTS.ORDER_STATUS_LIMIT_ID)
 
-        # Process order trades first before processing order statuses
-        responses = await safe_gather(*trades_tasks, return_exceptions=True)
-        self.logger().debug(f"Polled trade updates for {len(tracked_orders)} orders: {len(responses)}.")
-        for response, tracked_order in zip(responses, reviewed_orders):
-            if not isinstance(response, Exception):
-                for trade_fills in response:
-                    self._process_trade_message(trade_fills, tracked_order.client_order_id)
-            else:
-                self.logger().warning(
-                    f"Failed to fetch trade updates for order {tracked_order.client_order_id}. "
-                    f"Response: {response}")
+            order_update = self._create_order_update_with_order_status_data(
+                order_status=updated_order_data,
+                order=tracked_order)
+        except asyncio.TimeoutError:
+            raise IOError(f"Skipped order status update for {tracked_order.client_order_id}"
+                          f" - waiting for exchange order id.")
 
-        # Process order statuses
-        responses = await safe_gather(*orders_tasks, return_exceptions=True)
-        self.logger().debug(f"Polled order updates for {len(tracked_orders)} orders: {len(responses)}.")
-        for response, tracked_order in zip(responses, tracked_orders):
-            if not isinstance(response, Exception):
-                self._process_order_message(response)
-            else:
-                self.logger().warning(
-                    f"Failed to fetch order status updates for order {tracked_order.client_order_id}. "
-                    f"Response: {response}")
-                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
+        return order_update
 
     def _get_fee(self,
                  base_currency: str,
@@ -333,7 +319,7 @@ class GateIoExchange(ExchangePyBase):
         ]
         async for event_message in self._iter_user_event_queue():
             channel: str = event_message.get("channel", None)
-            results: str = event_message.get("result", None)
+            results: List[Dict[str, Any]] = event_message.get("result", None)
             try:
                 if channel not in user_channels:
                     self.logger().error(
@@ -387,6 +373,19 @@ class GateIoExchange(ExchangePyBase):
                 state = OrderState.CANCELED
         return state
 
+    def _create_order_update_with_order_status_data(self, order_status: Dict[str, Any], order: InFlightOrder):
+        client_order_id = str(order_status.get("text", ""))
+        state = self._normalise_order_message_state(order_status, order) or order.current_state
+
+        order_update = OrderUpdate(
+            trading_pair=order.trading_pair,
+            update_timestamp=int(order_status["update_time"]),
+            new_state=state,
+            client_order_id=client_order_id,
+            exchange_order_id=str(order_status["id"]),
+        )
+        return order_update
+
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
         Updates in-flight order and triggers cancelation or failure event if needed.
@@ -396,24 +395,41 @@ class GateIoExchange(ExchangePyBase):
         Example Order:
         https://www.gate.io/docs/apiv4/en/#list-orders
         """
-        state = None
         client_order_id = str(order_msg.get("text", ""))
-        tracked_order = self.in_flight_orders.get(client_order_id, None)
+        tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
         if not tracked_order:
             self.logger().debug(f"Ignoring order message with id {client_order_id}: not in in_flight_orders.")
             return
 
-        state = self._normalise_order_message_state(order_msg, tracked_order)
-        if state:
-            order_update = OrderUpdate(
-                trading_pair=tracked_order.trading_pair,
-                update_timestamp=int(order_msg["update_time"]),
-                new_state=state,
-                client_order_id=client_order_id,
-                exchange_order_id=str(order_msg["id"]),
-            )
-            self._order_tracker.process_order_update(order_update=order_update)
-            self.logger().info(f"Successfully updated order {tracked_order.client_order_id}.")
+        order_update = self._create_order_update_with_order_status_data(order_status=order_msg, order=tracked_order)
+        self._order_tracker.process_order_update(order_update=order_update)
+
+    def _create_trade_update_with_order_fill_data(
+            self,
+            order_fill: Dict[str, Any],
+            order: InFlightOrder):
+
+        fee = TradeFeeBase.new_spot_fee(
+            fee_schema=self.trade_fee_schema(),
+            trade_type=order.trade_type,
+            percent_token=order_fill["fee_currency"],
+            flat_fees=[TokenAmount(
+                amount=Decimal(order_fill["fee"]),
+                token=order_fill["fee_currency"]
+            )]
+        )
+        trade_update = TradeUpdate(
+            trade_id=str(order_fill["id"]),
+            client_order_id=order.client_order_id,
+            exchange_order_id=order.exchange_order_id,
+            trading_pair=order.trading_pair,
+            fee=fee,
+            fill_base_amount=Decimal(order_fill["amount"]),
+            fill_quote_amount=Decimal(order_fill["amount"]) * Decimal(order_fill["price"]),
+            fill_price=Decimal(order_fill["price"]),
+            fill_timestamp=order_fill["create_time"],
+        )
+        return trade_update
 
     def _process_trade_message(self, trade: Dict[str, Any], client_order_id: Optional[str] = None):
         """
@@ -423,32 +439,14 @@ class GateIoExchange(ExchangePyBase):
         https://www.gate.io/docs/apiv4/en/#retrieve-market-trades
         """
         client_order_id = client_order_id or str(trade["text"])
-        tracked_order = self.in_flight_orders.get(client_order_id, None)
-        if not tracked_order:
+        tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+        if tracked_order is None:
             self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
-            return
-
-        fee = TradeFeeBase.new_spot_fee(
-            fee_schema=self.trade_fee_schema(),
-            trade_type=tracked_order.trade_type,
-            percent_token=trade["fee_currency"],
-            flat_fees=[TokenAmount(
-                amount=Decimal(trade["fee"]),
-                token=trade["fee_currency"]
-            )]
-        )
-        trade_update = TradeUpdate(
-            trade_id=str(trade["id"]),
-            client_order_id=tracked_order.client_order_id,
-            exchange_order_id=tracked_order.exchange_order_id,
-            trading_pair=tracked_order.trading_pair,
-            fee=fee,
-            fill_base_amount=Decimal(trade["amount"]),
-            fill_quote_amount=Decimal(trade["amount"]) * Decimal(trade["price"]),
-            fill_price=Decimal(trade["price"]),
-            fill_timestamp=trade["create_time"],
-        )
-        self._order_tracker.process_trade_update(trade_update)
+        else:
+            trade_update = self._create_trade_update_with_order_fill_data(
+                order_fill=trade,
+                order=tracked_order)
+            self._order_tracker.process_trade_update(trade_update)
 
     def _process_balance_message(self, balance_update):
         local_asset_names = set(self._account_balances.keys())

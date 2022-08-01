@@ -377,7 +377,7 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
     @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
-        return False
+        return True
 
     @property
     def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
@@ -441,7 +441,10 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         self.assertEqual(order.client_order_id, request_params["origClientOrderId"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
-        self.fail()
+        request_params = request_call.kwargs["params"]
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_params["symbol"])
+        self.assertEqual(order.exchange_order_id, request_params["orderId"])
 
     def configure_successful_cancelation_response(
             self,
@@ -506,8 +509,10 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        # Trade fills not requested during status update in this connector
-        pass
+        url = web_utils.private_rest_url(path_url=CONSTANTS.MY_TRADES_PATH_URL)
+        regex_url = re.compile(url + r"\?.*")
+        mock_api.get(regex_url, status=400, callback=callback)
+        return url
 
     def configure_open_order_status_response(
             self,
@@ -549,19 +554,22 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        # Trade fills are not requested in Binance as part of the status update
-        pass
+        url = web_utils.private_rest_url(path_url=CONSTANTS.MY_TRADES_PATH_URL)
+        regex_url = re.compile(url + r"\?.*")
+        response = self._order_fills_request_partial_fill_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return url
 
     def configure_full_fill_trade_response(
             self,
             order: InFlightOrder,
             mock_api: aioresponses,
-            callback: Optional[Callable]) -> str:
-        """
-        :return: the URL configured
-        """
-        # Trade fills are not requested in Binance as part of the status update
-        pass
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.MY_TRADES_PATH_URL)
+        regex_url = re.compile(url + r"\?.*")
+        response = self._order_fills_request_full_fill_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return url
 
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
         return {
@@ -1072,6 +1080,25 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
         self.assertEqual(result, expected_client_order_id)
 
+    def test_time_synchronizer_related_reqeust_error_detection(self):
+        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+                            "Error: {'code':-1021,'msg':'Timestamp for this request is outside of the recvWindow.'}")
+        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+                            "Error: {'code':-1021,'msg':'Timestamp for this request was 1000ms ahead of the server's "
+                            "time.'}")
+        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+                            "Error: {'code':-1022,'msg':'Timestamp for this request was 1000ms ahead of the server's "
+                            "time.'}")
+        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+                            "Error: {'code':-1021,'msg':'Other error.'}")
+        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
     def _validate_auth_credentials_taking_parameters_from_argument(self,
                                                                    request_call_tuple: RequestCall,
                                                                    params: Dict[str, Any]):
@@ -1185,3 +1212,41 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             "isWorking": True,
             "origQuoteOrderQty": str(order.price * order.amount)
         }
+
+    def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
+        return [
+            {
+                "symbol": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                "id": self.expected_fill_trade_id,
+                "orderId": int(order.exchange_order_id),
+                "orderListId": -1,
+                "price": str(self.expected_partial_fill_price),
+                "qty": str(self.expected_partial_fill_amount),
+                "quoteQty": str(self.expected_partial_fill_amount * self.expected_partial_fill_price),
+                "commission": str(self.expected_fill_fee.flat_fees[0].amount),
+                "commissionAsset": self.expected_fill_fee.flat_fees[0].token,
+                "time": 1499865549590,
+                "isBuyer": True,
+                "isMaker": False,
+                "isBestMatch": True
+            }
+        ]
+
+    def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
+        return [
+            {
+                "symbol": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                "id": self.expected_fill_trade_id,
+                "orderId": int(order.exchange_order_id),
+                "orderListId": -1,
+                "price": str(order.price),
+                "qty": str(order.amount),
+                "quoteQty": str(order.amount * order.price),
+                "commission": str(self.expected_fill_fee.flat_fees[0].amount),
+                "commissionAsset": self.expected_fill_fee.flat_fees[0].token,
+                "time": 1499865549590,
+                "isBuyer": True,
+                "isMaker": False,
+                "isBestMatch": True
+            }
+        ]
