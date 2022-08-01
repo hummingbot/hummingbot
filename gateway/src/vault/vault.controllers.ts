@@ -17,7 +17,7 @@ import {
 } from '../services/common-interfaces';
 
 export async function price(req: PriceRequest): Promise<PriceResponse> {
-  const chain = await getChain(req.chain, req.network);
+  // const chain = await getChain(req.chain, req.network);
   const connector: Vaultish = await getConnector<Vaultish>(
     req.chain,
     req.network,
