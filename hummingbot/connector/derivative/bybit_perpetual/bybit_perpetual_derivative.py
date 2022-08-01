@@ -161,7 +161,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
-        return [order.to_limit_order() for order in self._client_order_tracker.all_orders.values()]
+        return [order.to_limit_order() for order in self.in_flight_orders.values()]
 
     @property
     def tracking_states(self) -> Dict[str, Any]:
