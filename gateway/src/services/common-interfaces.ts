@@ -45,7 +45,7 @@ import {
   Trade as TradeTraderjoe,
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
-// import { PerpPosition } from '../connectors/perp/perp';
+import { PerpPosition } from '../connectors/perp/perp';
 import { PriceResponse } from '../vault/vault.requests';
 
 export type Tokenish =
@@ -411,7 +411,7 @@ export interface Perpish {
    * @param tickerSymbol An optional parameter to get specific position.
    * @returns Return all Positions or specific position.
    */
-  // getPositions(tickerSymbol: string): Promise<PerpPosition | undefined>;
+  getPositions(tickerSymbol: string): Promise<PerpPosition | undefined>;
 
   /**
    * Given the necessary parameters, open a position.
