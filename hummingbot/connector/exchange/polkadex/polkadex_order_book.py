@@ -39,7 +39,7 @@ class PolkadexOrderbook(OrderBook):
             if price_level["s"] == "Bid":
                 bids.append((float(price_level["p"]), float(price_level["q"]), int(-1)))
             else:
-                asks.append((float(price_level["price"]), float(price_level["qty"]), int(-1)))
+                asks.append((float(price_level["p"]), float(price_level["q"]), int(-1)))
 
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": metadata["trading_pair"],
