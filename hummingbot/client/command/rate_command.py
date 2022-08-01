@@ -1,10 +1,9 @@
-from decimal import Decimal
 import threading
-from typing import (
-    TYPE_CHECKING,
-)
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from decimal import Decimal
+from typing import TYPE_CHECKING
+
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import OracleRateUnavailable
 
 s_float_0 = float(0)
@@ -39,7 +38,7 @@ class RateCommand:
     @staticmethod
     async def oracle_rate_msg(pair: str,
                               ):
-        pair = pair.upper()
+        pair = pair.upper().strip('\"').strip("'")
         rate = await RateOracle.rate_async(pair)
         if rate is None:
             raise OracleRateUnavailable
