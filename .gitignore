@@ -112,5 +112,4 @@ coverage.xml
 # Debug console
 .debug_console_ssh_host_key
 
-# password file
-.password_verification
+/conf_backup
