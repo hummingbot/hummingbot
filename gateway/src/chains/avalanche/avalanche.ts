@@ -6,9 +6,9 @@ import { getEthereumConfig as getAvalancheConfig } from '../ethereum/ethereum.co
 import { Provider } from '@ethersproject/abstract-provider';
 import { TraderjoeConfig } from '../../connectors/traderjoe/traderjoe.config';
 import { PangolinConfig } from '../../connectors/pangolin/pangolin.config';
+import { OpenoceanConfig } from '../../connectors/openocean/openocean.config';
 import { Ethereumish } from '../../services/common-interfaces';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
-import { replaceOrAppend } from '../../services/base';
 
 export class Avalanche extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: Avalanche };
@@ -22,11 +22,11 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     super(
       'avalanche',
       config.network.chainID,
-      replaceOrAppend(config.network.nodeURL, config.nodeAPIKey),
+      config.network.nodeURL,
       config.network.tokenListSource,
       config.network.tokenListType,
       config.manualGasPrice,
-      config.gasLimit,
+      config.gasLimitTransaction,
       ConfigManagerV2.getInstance().get('database.nonceDbPath'),
       ConfigManagerV2.getInstance().get('database.transactionDbPath')
     );
@@ -80,6 +80,8 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     let spender: string;
     if (reqSpender === 'pangolin') {
       spender = PangolinConfig.config.routerAddress(this._chain);
+    } else if (reqSpender === 'openocean') {
+      spender = OpenoceanConfig.config.routerAddress(this._chain);
     } else if (reqSpender === 'traderjoe') {
       spender = TraderjoeConfig.config.routerAddress(this._chain);
     } else {

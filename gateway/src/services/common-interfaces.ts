@@ -9,7 +9,7 @@ import {
 } from 'ethers';
 import { EthereumBase } from './ethereum-base';
 import { Provider } from '@ethersproject/abstract-provider';
-import { CurrencyAmount, Token } from '@uniswap/sdk';
+import { CurrencyAmount, Token, Trade as TradeUniswap } from '@uniswap/sdk';
 import { Trade } from '@uniswap/router-sdk';
 import { Trade as UniswapV3Trade } from '@uniswap/v3-sdk';
 import {
@@ -26,9 +26,15 @@ import {
   Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
 import {
+  Token as TokenQuickswap,
+  CurrencyAmount as CurrencyAmountQuickswap,
+  Trade as TradeQuickswap,
+  Fraction as QuickswapFraction,
+} from 'quickswap-sdk';
+import {
   Trade as SushiswapTrade,
   Token as SushiToken,
-  CurrencyAmount as sushiCurrencyAmount,
+  CurrencyAmount as SushiCurrencyAmount,
   TradeType as SushiTradeType,
   Currency as SushiCurrency,
   Fraction as SushiFraction,
@@ -44,28 +50,33 @@ import { PerpPosition } from '../connectors/perp/perp';
 export type Tokenish =
   | Token
   | TokenPangolin
+  | TokenQuickswap
   | TokenTraderjoe
   | UniswapCoreToken
   | SushiToken;
 export type UniswapishTrade =
   | Trade<Currency, Currency, TradeType>
   | TradePangolin
+  | TradeQuickswap
   | TradeTraderjoe
   | SushiswapTrade<
       SushiToken,
       SushiToken,
       SushiTradeType.EXACT_INPUT | SushiTradeType.EXACT_OUTPUT
     >
-  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
+  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
+  | TradeUniswap;
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
+  | CurrencyAmountQuickswap
   | UniswapCoreCurrencyAmount<Currency>
   | CurrencyAmountTraderjoe
-  | sushiCurrencyAmount<SushiCurrency | SushiToken>;
+  | SushiCurrencyAmount<SushiCurrency | SushiToken>;
 export type Fractionish =
   | UniswapFraction
   | PangolinFraction
+  | QuickswapFraction
   | TraderjoeFraction
   | SushiFraction;
 
@@ -103,9 +114,9 @@ export interface Uniswapish {
   abiDecoder?: any;
 
   /**
-   * Default gas limit for swap transactions.
+   * Default gas estiamte for swap transactions.
    */
-  gasLimit: number;
+  gasLimitEstimate: number;
 
   /**
    * Default time-to-live for swap transactions, in seconds.
@@ -219,9 +230,9 @@ export interface UniswapLPish {
   abiDecoder: any;
 
   /**
-   * Default gas limit for swap transactions.
+   * Default gas limit used to estimate gasCost for swap transactions.
    */
-  gasLimit: number;
+  gasLimitEstimate: number;
 
   /**
    * Default time-to-live for swap transactions, in seconds.
