@@ -29,7 +29,7 @@ from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.clock import Clock
-from hummingbot.core.gateway.status_monitor import StatusMonitor as GatewayStatusMonitor
+from hummingbot.core.gateway.gateway_status_monitor import GatewayStatusMonitor
 from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.data_feed.data_feed_base import DataFeedBase
@@ -69,7 +69,6 @@ class HummingbotApplication(*commands):
         self.client_config_map: Union[ClientConfigMap, ClientConfigAdapter] = (  # type-hint enables IDE auto-complete
             client_config_map or load_client_config_map_from_file()
         )
-
         # This is to start fetching trading pairs for auto-complete
         TradingPairFetcher.get_instance(self.client_config_map)
         self.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()

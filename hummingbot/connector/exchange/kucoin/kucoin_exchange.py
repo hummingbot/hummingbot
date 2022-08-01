@@ -19,9 +19,8 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -31,7 +30,6 @@ if TYPE_CHECKING:
 
 
 class KucoinExchange(ExchangePyBase):
-
     web_utils = web_utils
 
     def __init__(self,
@@ -104,6 +102,10 @@ class KucoinExchange(ExchangePyBase):
 
     def supported_order_types(self):
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+        # API documentation does not clarify the error message for timestamp related problems
+        return False
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -225,38 +227,39 @@ class KucoinExchange(ExchangePyBase):
                     order_event_type = execution_data["type"]
                     client_order_id: Optional[str] = execution_data.get("clientOid")
 
-                    tracked_order = self._order_tracker.fetch_order(client_order_id=client_order_id)
+                    fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+                    updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
-                    if tracked_order is not None:
-                        event_timestamp = execution_data["ts"] * 1e-9
+                    event_timestamp = execution_data["ts"] * 1e-9
 
-                        if order_event_type == "match":
-                            execute_amount_diff = Decimal(execution_data["matchSize"])
-                            execute_price = Decimal(execution_data["matchPrice"])
+                    if fillable_order is not None and order_event_type == "match":
+                        execute_amount_diff = Decimal(execution_data["matchSize"])
+                        execute_price = Decimal(execution_data["matchPrice"])
 
-                            fee = self.get_fee(
-                                tracked_order.base_asset,
-                                tracked_order.quote_asset,
-                                tracked_order.order_type,
-                                tracked_order.trade_type,
-                                execute_price,
-                                execute_amount_diff,
-                            )
+                        fee = self.get_fee(
+                            fillable_order.base_asset,
+                            fillable_order.quote_asset,
+                            fillable_order.order_type,
+                            fillable_order.trade_type,
+                            execute_price,
+                            execute_amount_diff,
+                        )
 
-                            trade_update = TradeUpdate(
-                                trade_id=execution_data["tradeId"],
-                                client_order_id=client_order_id,
-                                exchange_order_id=execution_data["orderId"],
-                                trading_pair=tracked_order.trading_pair,
-                                fee=fee,
-                                fill_base_amount=execute_amount_diff,
-                                fill_quote_amount=execute_amount_diff * execute_price,
-                                fill_price=execute_price,
-                                fill_timestamp=event_timestamp,
-                            )
-                            self._order_tracker.process_trade_update(trade_update)
+                        trade_update = TradeUpdate(
+                            trade_id=execution_data["tradeId"],
+                            client_order_id=client_order_id,
+                            exchange_order_id=execution_data["orderId"],
+                            trading_pair=updatable_order.trading_pair,
+                            fee=fee,
+                            fill_base_amount=execute_amount_diff,
+                            fill_quote_amount=execute_amount_diff * execute_price,
+                            fill_price=execute_price,
+                            fill_timestamp=event_timestamp,
+                        )
+                        self._order_tracker.process_trade_update(trade_update)
 
-                        updated_status = tracked_order.current_state
+                    if updatable_order is not None:
+                        updated_status = updatable_order.current_state
                         if order_event_type == "open":
                             updated_status = OrderState.OPEN
                         elif order_event_type == "match":
@@ -267,7 +270,7 @@ class KucoinExchange(ExchangePyBase):
                             updated_status = OrderState.CANCELED
 
                         order_update = OrderUpdate(
-                            trading_pair=tracked_order.trading_pair,
+                            trading_pair=updatable_order.trading_pair,
                             update_timestamp=event_timestamp,
                             new_state=updated_status,
                             client_order_id=client_order_id,
@@ -343,68 +346,67 @@ class KucoinExchange(ExchangePyBase):
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=fee_json["symbol"])
             self._trading_fees[trading_pair] = fee_json
 
-    async def _update_order_status(self):
-        tracked_orders = list(self.in_flight_orders.values())
-        if len(tracked_orders) <= 0:
-            return
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        trade_updates = []
 
-        reviewed_orders = []
-        request_tasks = []
+        if order.exchange_order_id is not None:
+            exchange_order_id = order.exchange_order_id
+            all_fills_response = await self._api_get(
+                path_url=CONSTANTS.ORDER_FILLS_URL,
+                params={
+                    "orderId": exchange_order_id,
+                    "pageSize": 500,
+                },
+                is_auth_required=True)
 
-        for tracked_order in tracked_orders:
-            try:
-                exchange_order_id = await tracked_order.get_exchange_order_id()
-            except asyncio.TimeoutError:
-                self.logger().debug(
-                    f"Tracked order {tracked_order.client_order_id} does not have an exchange id. "
-                    f"Attempting fetch in next polling interval."
+            for trade in all_fills_response.get("items", []):
+                fee = TradeFeeBase.new_spot_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    trade_type=order.trade_type,
+                    percent_token=trade["feeCurrency"],
+                    flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=trade["feeCurrency"])]
                 )
-                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
-                continue
+                trade_update = TradeUpdate(
+                    trade_id=str(trade["tradeId"]),
+                    client_order_id=order.client_order_id,
+                    exchange_order_id=exchange_order_id,
+                    trading_pair=order.trading_pair,
+                    fee=fee,
+                    fill_base_amount=Decimal(trade["size"]),
+                    fill_quote_amount=Decimal(trade["funds"]),
+                    fill_price=Decimal(trade["price"]),
+                    fill_timestamp=trade["createdAt"] * 1e-3,
+                )
+                trade_updates.append(trade_update)
 
-            reviewed_orders.append(tracked_order)
-            request_tasks.append(asyncio.get_event_loop().create_task(self._api_get(
-                path_url=f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}",
-                is_auth_required=True,
-                limit_id=CONSTANTS.GET_ORDER_LIMIT_ID)))
+        return trade_updates
 
-        self.logger().debug(f"Polling for order status updates of {len(reviewed_orders)} orders.")
-        responses = await safe_gather(*request_tasks, return_exceptions=True)
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        exchange_order_id = await tracked_order.get_exchange_order_id()
+        updated_order_data = await self._api_get(
+            path_url=f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}",
+            is_auth_required=True,
+            limit_id=CONSTANTS.GET_ORDER_LIMIT_ID)
 
-        for update_result, tracked_order in zip(responses, reviewed_orders):
-            client_order_id = tracked_order.client_order_id
+        ordered_canceled = updated_order_data["data"]["cancelExist"]
+        is_active = updated_order_data["data"]["isActive"]
+        op_type = updated_order_data["data"]["opType"]
 
-            # If the order has already been canceled or has failed do nothing
-            if client_order_id in self.in_flight_orders:
-                if isinstance(update_result, Exception):
-                    self.logger().network(
-                        f"Error fetching status update for the order {client_order_id}: {update_result}.",
-                        app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
-                    )
-                    # Wait until the order not found error have repeated a few times before actually treating
-                    # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
-                    await self._order_tracker.process_order_not_found(client_order_id)
+        new_state = tracked_order.current_state
+        if ordered_canceled or op_type == "CANCEL":
+            new_state = OrderState.CANCELED
+        elif not is_active:
+            new_state = OrderState.FILLED
 
-                else:
-                    # Update order execution status
-                    ordered_canceled = update_result["data"]["cancelExist"]
-                    is_active = update_result["data"]["isActive"]
-                    op_type = update_result["data"]["opType"]
+        order_update = OrderUpdate(
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=updated_order_data["data"]["id"],
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=new_state,
+        )
 
-                    new_state = tracked_order.current_state
-                    if ordered_canceled or op_type == "CANCEL":
-                        new_state = OrderState.CANCELED
-                    elif not is_active:
-                        new_state = OrderState.FILLED
-
-                    update = OrderUpdate(
-                        client_order_id=client_order_id,
-                        exchange_order_id=update_result["data"]["id"],
-                        trading_pair=tracked_order.trading_pair,
-                        update_timestamp=self.current_timestamp,
-                        new_state=new_state,
-                    )
-                    self._order_tracker.process_order_update(update)
+        return order_update
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {
