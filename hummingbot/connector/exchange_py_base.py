@@ -762,7 +762,7 @@ class ExchangePyBase(ExchangeBase, ABC):
                                     "Check API key and network connection.")
                 await self._sleep(0.5)
 
-    async def _update_time_synchronizer(self):
+    async def _update_time_synchronizer(self, pass_on_non_cancelled_error: bool = False):
         try:
             await self._time_synchronizer.update_server_time_offset_with_time_provider(
                 time_provider=self.web_utils.get_current_server_time(
@@ -773,8 +773,9 @@ class ExchangePyBase(ExchangeBase, ABC):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().exception(f"Error requesting time from {self.name_cap} server")
-            raise
+            if not pass_on_non_cancelled_error:
+                self.logger().exception(f"Error requesting time from {self.name_cap} server")
+                raise
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         """
@@ -863,19 +864,19 @@ class ExchangePyBase(ExchangeBase, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _user_stream_event_listener(self):
+    async def _user_stream_event_listener(self):
         raise NotImplementedError
 
     @abstractmethod
-    def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         raise NotImplementedError
 
     @abstractmethod
-    def _update_order_status(self):
+    async def _update_order_status(self):
         raise NotImplementedError
 
     @abstractmethod
-    def _update_balances(self):
+    async def _update_balances(self):
         raise NotImplementedError
 
     @abstractmethod
