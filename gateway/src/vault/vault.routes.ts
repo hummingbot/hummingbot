@@ -8,18 +8,18 @@ import {
   // estimateGas
 } from './vault.controllers';
 import {
-  EstimateGasResponse,
+  // EstimateGasResponse,
   PriceRequest,
   PriceResponse,
-  TradeRequest,
-  TradeResponse,
+  // TradeRequest,
+  // TradeResponse,
 } from './vault.requests';
 import {
-  validateEstimateGasRequest,
+  // validateEstimateGasRequest,
   validatePriceRequest,
-  validateTradeRequest,
+  // validateTradeRequest,
 } from './vault.validators';
-import { NetworkSelectionRequest } from '../services/common-interfaces';
+// import { NetworkSelectionRequest } from '../services/common-interfaces';
 
 export namespace VaultRoutes {
   export const router = Router();
@@ -32,7 +32,7 @@ export namespace VaultRoutes {
         res: Response<PriceResponse | string, {}>
       ) => {
         validatePriceRequest(req.body);
-        res.status(200).json(await price(req.tradeType));
+        res.status(200).json(await price(req.body));
       }
     )
   );
