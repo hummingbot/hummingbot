@@ -4,24 +4,24 @@ import {
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
   // UniswapishPriceError,
 } from '../../services/error-handler';
-import { CortexConfig } from './cortex.config';
+// import { CortexConfig } from './cortex.config';
 import {
-  EstimateGasResponse,
-  PriceRequest,
+  // EstimateGasResponse,
+  // PriceRequest,
   PriceResponse,
-  TradeRequest,
-  TradeResponse,
+  // TradeRequest,
+  // TradeResponse,
 } from '../../vault/vault.requests';
 
 // import { ContractInterface } from '@ethersproject/contracts';
 
 import {
-  NetworkSelectionRequest,
+  // NetworkSelectionRequest,
   Vaultish,
 } from '../../services/common-interfaces';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import {
-  BigNumber,
+  // BigNumber,
   // Wallet,
   // Transaction,
   // Contract,
@@ -29,7 +29,7 @@ import {
   utils,
 } from 'ethers';
 import { logger } from '../../services/logger';
-import { getCurves } from 'crypto';
+// import { getCurves } from 'crypto';
 
 export class Cortex implements Vaultish {
   private static _instances: { [name: string]: Cortex };
@@ -37,7 +37,7 @@ export class Cortex implements Vaultish {
   private _chain: string;
   // private _router: string;
   // private _routerAbi: ContractInterface;
-  private _gasLimit: number;
+  // private _gasLimit: number;
   // private _ttl: number;
   // private chainId;
   // private tokenList: Record<string, Token> = {};
@@ -45,7 +45,7 @@ export class Cortex implements Vaultish {
 
   private constructor(chain: string, network: string) {
     this._chain = chain;
-    const config = CortexConfig.config;
+    // const config = CortexConfig.config;
     this.ethereum = Ethereum.getInstance(network);
     // this.chainId = this.ethereum.chainId;
     // this._ttl = CortexConfig.config.ttl;
@@ -85,7 +85,7 @@ export class Cortex implements Vaultish {
     return this._ready;
   }
 
-  async price(tradeType: string, amount: BigNumber): Promise<PriceResponse> {
+  async price(tradeType: string, amount: number): Promise<PriceResponse> {
     logger.info(`Fetting price data for ${tradeType}-${amount}`);
 
     // const tradeType_ = req.tradeType
@@ -111,8 +111,8 @@ export class Cortex implements Vaultish {
       data: encodePreviewRedeem,
     });
     console.log(previewRedeemHexString);
-    const assetAmountWithFee = previewRedeemHexString.string().number();
-    return { assetAmountWithFee };
+    const assetAmountWithFee = previewRedeemHexString.toString();
+    return { assetAmountWithFee: assetAmountWithFee };
   }
 
   // async trade(network: string, req: TradeRequest): Promise<TradeResponse> {}

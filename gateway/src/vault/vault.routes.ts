@@ -2,10 +2,10 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../services/error-handler';
-import { 
-  price, 
-  // trade, 
-  // estimateGas 
+import {
+  price,
+  // trade,
+  // estimateGas
 } from './vault.controllers';
 import {
   EstimateGasResponse,
@@ -32,7 +32,7 @@ export namespace VaultRoutes {
         res: Response<PriceResponse | string, {}>
       ) => {
         validatePriceRequest(req.body);
-        res.status(200).json(await price(req.tradeType, ));
+        res.status(200).json(await price(req.tradeType));
       }
     )
   );

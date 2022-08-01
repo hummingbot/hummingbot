@@ -25,12 +25,12 @@ import {
   Trade as TradePangolin,
   Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
-import {
-  Token as TokenQuickswap,
-  CurrencyAmount as CurrencyAmountQuickswap,
-  Trade as TradeQuickswap,
-  Fraction as QuickswapFraction,
-} from 'quickswap-sdk';
+// import {
+//   Token as TokenQuickswap,
+//   CurrencyAmount as CurrencyAmountQuickswap,
+//   Trade as TradeQuickswap,
+//   Fraction as QuickswapFraction,
+// } from 'quickswap-sdk';
 import {
   Trade as SushiswapTrade,
   Token as SushiToken,
@@ -51,14 +51,14 @@ import { PriceResponse } from '../vault/vault.requests';
 export type Tokenish =
   | Token
   | TokenPangolin
-  | TokenQuickswap
+  // | TokenQuickswap
   | TokenTraderjoe
   | UniswapCoreToken
   | SushiToken;
 export type UniswapishTrade =
   | Trade<Currency, Currency, TradeType>
   | TradePangolin
-  | TradeQuickswap
+  // | TradeQuickswap
   | TradeTraderjoe
   | SushiswapTrade<
       SushiToken,
@@ -69,14 +69,14 @@ export type UniswapishTrade =
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
-  | CurrencyAmountQuickswap
+  // | CurrencyAmountQuickswap
   | UniswapCoreCurrencyAmount<Currency>
   | CurrencyAmountTraderjoe
   | SushiCurrencyAmount<SushiCurrency | SushiToken>;
 export type Fractionish =
   | UniswapFraction
   | PangolinFraction
-  | QuickswapFraction
+  // | QuickswapFraction
   | TraderjoeFraction
   | SushiFraction;
 
@@ -198,9 +198,9 @@ export interface Uniswapish {
   ): Promise<Transaction>;
 }
 export interface Vaultish {
-  // init(): Promise<void>;
+  init(): Promise<void>;
 
-  // ready(): boolean;
+  ready(): boolean;
 
   /**
    * Given the type of transaction and amount of shares or assets to put into a transaction, calculate the
@@ -211,7 +211,7 @@ export interface Vaultish {
    * @param tradeType: 'redeem' or 'mint'
    * @param amount Amount of assets or shares to trade
    */
-  price(tradeType: string, amount: BigNumber): Promise<PriceResponse>;
+  price(tradeType: string, amount: number): Promise<PriceResponse>;
 }
 export interface UniswapLPish {
   /**
