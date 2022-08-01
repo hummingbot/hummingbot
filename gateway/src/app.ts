@@ -35,10 +35,10 @@ export const gatewayApp = express();
 
 // parse body for application/json
 gatewayApp.use(express.json());
-
+console.log('using express');
 // parse url for application/x-www-form-urlencoded
 gatewayApp.use(express.urlencoded({ extended: true }));
-
+console.log('expess urlencoded');
 // logging middleware
 // skip logging path '/' or `/network/status`
 gatewayApp.use(
@@ -50,7 +50,7 @@ gatewayApp.use(
     },
   })
 );
-
+console.log('gateway use morgan');
 // mount sub routers
 gatewayApp.use('/config', ConfigRoutes.router);
 gatewayApp.use('/network', NetworkRoutes.router);
@@ -63,11 +63,13 @@ gatewayApp.use('/amm/liquidity', AmmLiquidityRoutes.router);
 gatewayApp.use('/vault', VaultRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
+console.log('mounted subrouters');
 
 // a simple route to test that the server is running
 gatewayApp.get('/', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 });
+console.log('gatewayApp.get /');
 
 interface ConnectorsResponse {
   uniswap: Array<AvailableNetworks>;
@@ -77,6 +79,7 @@ interface ConnectorsResponse {
   traderjoe: Array<AvailableNetworks>;
   cortex: Array<AvailableNetworks>;
 }
+console.log('set interface ConnectorsResponse');
 
 gatewayApp.get(
   '/connectors',
@@ -91,7 +94,7 @@ gatewayApp.get(
     });
   })
 );
-
+console.log('gatewayApp.get /connectors');
 // watch the exit even, spawn an independent process with the same args and
 // pass the stdio from this process to it.
 process.on('exit', function (code) {

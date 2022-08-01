@@ -1,0 +1,22 @@
+
+# how much the execution price is allowed to move unfavorably from the trade
+# execution price. It uses a rational number for precision.
+allowedSlippage: '2/100'
+
+# the maximum gas allowed for a unsiwap trade.
+# TODO: find best values for sushi swap
+gasLimit: 150688
+
+# how long a trade is valid in seconds. After time passes sushiswap will not
+# perform the trade, but the gas will still be sent.
+ttl: 600
+
+contractAddresses:
+  mainnet: 
+    cortexRouterAddress: '0x82E4bb17a00B32e5672d5EBe122Cd45bEEfD32b3'
+  kovan: 
+    cortexRouterAddress: '0x82E4bb17a00B32e5672d5EBe122Cd45bEEfD32b3'
+  ropsten: 
+    cortexRouterAddress: '0x82E4bb17a00B32e5672d5EBe122Cd45bEEfD32b3'
+
+
