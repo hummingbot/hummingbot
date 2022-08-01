@@ -10,9 +10,6 @@ async def cancel_order(params, url ,api_key):
         """
     mutation CancelOrder($input: UserActionInput!) {
         cancel_order(input: $input) {
-            cid
-            id
-            st
         }
     }
         """

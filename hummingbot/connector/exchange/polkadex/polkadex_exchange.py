@@ -86,6 +86,7 @@ class PolkadexExchange(ExchangePyBase):
                 "OrderPayload": {
                     "type": "struct",
                     "type_mapping": [
+                        ["client_order_id", "H256"],
                         ["user", "AccountId"],
                         ["pair", "TradingPair"],
                         ["side", "OrderSide"],
@@ -93,7 +94,6 @@ class PolkadexExchange(ExchangePyBase):
                         ["qty", "u128"],
                         ["price", "u128"],
                         ["nonce", "u32"],
-                        ["client_order_id", "H256"]
                     ]
                 },
                 "CancelOrderPayload": {
@@ -250,7 +250,8 @@ class PolkadexExchange(ExchangePyBase):
                                             trade_type, user,
                                             trading_pair.split("-")[0],
                                             trading_pair.split("-")[1],
-                                            self.nonce)
+                                            self.nonce + 1)
+        self.nonce = self.nonce + 1
         signature = self.proxy_pair.sign(encoded_order)
         params = [order, {"Sr25519": signature.hex()}]
         result = await place_order(params, self.endpoint, self.api_key)
@@ -280,8 +281,8 @@ class PolkadexExchange(ExchangePyBase):
 
         message = message["data"]["websocket_streams"]["data"]["SetBalance"]
         asset_name = convert_asset_to_ticker(message["asset"])
-        free_balance = Decimal(message["free"])/ UNIT_BALANCE
-        total_balance = (Decimal(message["free"]) / UNIT_BALANCE)+ (Decimal(message["reserved"])/ UNIT_BALANCE)
+        free_balance = Decimal(message["free"]) / UNIT_BALANCE
+        total_balance = (Decimal(message["free"]) / UNIT_BALANCE) + (Decimal(message["reserved"]) / UNIT_BALANCE)
         self._account_available_balances[asset_name] = free_balance
         self._account_balances[asset_name] = total_balance
 
@@ -337,9 +338,10 @@ class PolkadexExchange(ExchangePyBase):
                 exchange_order_id=str(message["id"]),
                 trading_pair=tracked_order.trading_pair,
                 fee=fee,
-                fill_base_amount=Decimal(message["filled_quantity"])/ UNIT_BALANCE,
-                fill_quote_amount=(Decimal(message["filled_quantity"])/ UNIT_BALANCE) * (Decimal(message["avg_filled_price"])/ UNIT_BALANCE),
-                fill_price=Decimal(message["avg_filled_price"])/ UNIT_BALANCE,
+                fill_base_amount=Decimal(message["filled_quantity"]) / UNIT_BALANCE,
+                fill_quote_amount=(Decimal(message["filled_quantity"]) / UNIT_BALANCE) * (
+                            Decimal(message["avg_filled_price"]) / UNIT_BALANCE),
+                fill_price=Decimal(message["avg_filled_price"]) / UNIT_BALANCE,
                 fill_timestamp=ts,
             )
             self._order_tracker.process_trade_update(trade_update)
