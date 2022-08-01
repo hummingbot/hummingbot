@@ -40,6 +40,14 @@ configurations:
     configurationPath: pangolin.yml
     schemaPath: pangolin-schema.json
 
+  $namespace quickswap:
+    configurationPath: quickswap.yml
+    schemaPath: quickswap-schema.json
+    
+  $namespace perp:
+    configurationPath: perp.yml
+    schemaPath: perp-schema.json
+
   $namespace sushiswap:
     configurationPath: sushiswap.yml
     schemaPath: sushiswap-schema.json
@@ -59,3 +67,7 @@ configurations:
   $namespace uniswap:
     configurationPath: uniswap.yml
     schemaPath: uniswap-schema.json
+
+  $namespace openocean:
+    configurationPath: openocean.yml
+    schemaPath: openocean-schema.json

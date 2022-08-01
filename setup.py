@@ -32,7 +32,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20220531"
+    version = "20220725"
     packages = find_packages(include=["hummingbot", "hummingbot.*"])
     package_data = {
         "hummingbot": [
@@ -132,7 +132,7 @@ def main():
     setup(name="hummingbot",
           version=version,
           description="Hummingbot",
-          url="https://github.com/CoinAlpha/hummingbot",
+          url="https://github.com/hummingbot/hummingbot",
           author="CoinAlpha, Inc.",
           author_email="dev@hummingbot.io",
           license="Apache 2.0",
