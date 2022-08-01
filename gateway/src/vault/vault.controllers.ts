@@ -10,7 +10,10 @@ import {
 //   trade as vaultTrade,
 //   estimateGas as vaultEstimateGas,
 // } from '../connectors/cortex/cortex';
-import { getChain, getConnector } from '../services/connection-manager';
+import {
+  // getChain,
+  getConnector,
+} from '../services/connection-manager';
 import {
   // NetworkSelectionRequest,
   Vaultish,
