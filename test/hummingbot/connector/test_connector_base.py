@@ -7,7 +7,6 @@ from typing import Dict, List
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.connector_base import ConnectorBase, OrderFilledEvent
-from hummingbot.connector.constants import s_decimal_0
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
@@ -42,21 +41,6 @@ class MockTestConnector(ConnectorBase):
     @property
     def event_logs(self) -> List:
         return self._event_logs
-
-    def apply_balance_update_since_snapshot(self, currency: str, available_balance: Decimal) -> Decimal:
-        """
-        Applies available balance update as followings
-        :param currency: the token symbol
-        :param available_balance: the current available_balance, this is also the snap balance taken since last
-        _update_balances()
-        :returns the real available that accounts for changes in flight orders and filled orders
-        """
-        snapshot_bal = self.in_flight_asset_balances(self._in_flight_orders_snapshot).get(currency, s_decimal_0)
-        in_flight_bal = self.in_flight_asset_balances(self.in_flight_orders).get(currency, s_decimal_0)
-        orders_filled_bal = self.order_filled_balances(self._in_flight_orders_snapshot_timestamp).get(currency,
-                                                                                                      s_decimal_0)
-        actual_available = available_balance + snapshot_bal - in_flight_bal + orders_filled_bal
-        return actual_available
 
 
 class ConnectorBaseUnitTest(unittest.TestCase):
