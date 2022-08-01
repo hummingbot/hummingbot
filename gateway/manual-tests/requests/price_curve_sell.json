@@ -1,0 +1,9 @@
+{
+  "connector": "curve",
+  "chain": "ethereum",
+  "network": "mainnet",
+  "quote": "USDC",
+  "base": "DAI",
+  "amount": "10",
+  "side": "SELL"
+}
