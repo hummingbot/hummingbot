@@ -18,7 +18,10 @@ def create_cancel_order_req(runtime_config, order_id):
     return runtime_config.create_scale_object("CancelOrderPayload").encode(cancel_req)
 
 
-def create_order(runtime_config, price: Decimal, qty: Decimal, order_type, side, proxy, base, quote, nonce):
+def create_order(runtime_config, price: Decimal, qty: Decimal, order_type, order_id: str, side, proxy, base, quote, nonce):
+    cid = bytearray()
+    cid.extend(order_id.encode())
+    cid = "0x" + bytes(cid).hex()
     order = {
         "user": proxy,
         "pair": {
@@ -28,6 +31,7 @@ def create_order(runtime_config, price: Decimal, qty: Decimal, order_type, side,
         "qty": int(qty * UNIT_BALANCE),
         "price": int(price * UNIT_BALANCE),
         "nonce": nonce,
+        "client_order_id": cid
     }
     if order_type == OrderType.LIMIT:
         order["order_type"] = "LIMIT"

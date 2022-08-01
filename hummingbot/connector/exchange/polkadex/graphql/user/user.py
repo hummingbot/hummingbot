@@ -5,7 +5,7 @@ from gql import gql
 from hummingbot.connector.exchange.polkadex.graphql.auth.client import execute_query_command
 
 
-async def cancel_order(params):
+async def cancel_order(params, url ,api_key):
     mutation = gql(
         """
     mutation CancelOrder($input: UserActionInput!) {
@@ -19,28 +19,24 @@ async def cancel_order(params):
     )
     encoded_params = json.dumps({"CancelOrder": params});
     variables = {"input": {"payload": encoded_params}}
-    result = await execute_query_command(mutation, variables)
+    result = await execute_query_command(mutation, variables, url, api_key)
     print("Cancel order result: ", result)
     return result["cancel_order"]
 
 
-async def place_order(params):
+async def place_order(params, url, api_key):
     mutation = gql(
         """
     mutation PlaceOrder($input: UserActionInput!) {
-        place_order(input: $input) {
-            cid
-            id
-            st
-        }
+        place_order(input: $input)
     }
         """
     )
     encoded_params = json.dumps({"PlaceOrder": params});
     variables = {"input": {"payload": encoded_params}}
-    result = await execute_query_command(mutation, variables)
+    result = await execute_query_command(mutation, variables, url, api_key)
     print("Place order result: ", result)
-    return result["place_order"]
+    return result["data"]
 
 
 async def list_transaction_by_main_account(main, from_date, to_date, nextToken, limit):

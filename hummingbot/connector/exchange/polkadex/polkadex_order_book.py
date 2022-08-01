@@ -1,7 +1,9 @@
+from decimal import Decimal
 from typing import Dict, List, Optional
 
 from hummingbot.core.data_type.order_book import OrderBook
 
+from hummingbot.connector.exchange.polkadex.polkadex_constants import UNIT_BALANCE
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
@@ -37,9 +39,9 @@ class PolkadexOrderbook(OrderBook):
         print("Recvd snapshot msgs: ",msgs)
         for price_level in msgs:
             if price_level["s"] == "Bid":
-                bids.append((float(price_level["p"]), float(price_level["q"]), int(-1)))
+                bids.append((float(Decimal(price_level["p"]) / UNIT_BALANCE), float(Decimal(price_level["q"]) / UNIT_BALANCE), int(-1)))
             else:
-                asks.append((float(price_level["p"]), float(price_level["q"]), int(-1)))
+                asks.append((float(Decimal(price_level["p"]) / UNIT_BALANCE), float(Decimal(price_level["q"]) / UNIT_BALANCE), int(-1)))
 
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": metadata["trading_pair"],

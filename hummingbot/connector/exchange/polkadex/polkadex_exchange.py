@@ -12,6 +12,7 @@ from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.network_iterator import NetworkStatus
 from substrateinterface import Keypair, KeypairType, SubstrateInterface
+from substrateinterface.utils.ss58 import ss58_encode, ss58_decode
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
@@ -29,7 +30,7 @@ from hummingbot.connector.exchange.polkadex.polkadex_constants import (
     MIN_PRICE,
     MIN_QTY,
     POLKADEX_SS58_PREFIX,
-    UPDATE_ORDER_STATUS_MIN_INTERVAL, UNIT_BALANCE,
+    UPDATE_ORDER_STATUS_MIN_INTERVAL, UNIT_BALANCE, ORDER_STATE,
 )
 from hummingbot.connector.exchange.polkadex.polkadex_order_book_data_source import PolkadexOrderbookDataSource
 from hummingbot.connector.exchange.polkadex.polkadex_payload import create_cancel_order_req, create_order
@@ -44,6 +45,7 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.model.order_status import OrderStatus
 
 
 def fee_levied_asset(side, base, quote):
@@ -172,7 +174,7 @@ class PolkadexExchange(ExchangePyBase):
 
     @property
     def client_order_id_max_length(self):
-        return 36
+        return 32
 
     @property
     def client_order_id_prefix(self):
@@ -233,7 +235,7 @@ class PolkadexExchange(ExchangePyBase):
         encoded_cancel_req = create_cancel_order_req(self.blockchain, order_id)
         signature = self.proxy_pair.sign(encoded_cancel_req)
         params = [encoded_cancel_req, signature]
-        await cancel_order(params)
+        await cancel_order(params, self.endpoint, self.api_key)
 
     async def _place_order(self, order_id: str, trading_pair: str, amount: Decimal, trade_type: TradeType,
                            order_type: OrderType, price: Decimal) -> Tuple[str, float]:
@@ -242,15 +244,20 @@ class PolkadexExchange(ExchangePyBase):
             self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address,
                                                                        self.endpoint, self.api_key)
             print("Main account: ", self.user_main_address)
-        encoded_order, order = create_order(self.blockchain, price, amount, order_type,
-                                            trade_type, self.user_proxy_address,
+        pk = ss58_decode(self.user_proxy_address, valid_ss58_format=42)
+        user = ss58_encode(pk, ss58_format=88)
+        encoded_order, order = create_order(self.blockchain, price, amount, order_type, order_id,
+                                            trade_type, user,
                                             trading_pair.split("-")[0],
                                             trading_pair.split("-")[1],
                                             self.nonce)
         signature = self.proxy_pair.sign(encoded_order)
         params = [order, {"Sr25519": signature.hex()}]
-        result = await place_order(params)
-        return result["st"], result["cid"]
+        result = await place_order(params, self.endpoint, self.api_key)
+        if result is not None:
+            return ORDER_STATE["OPEN"], result
+        else:
+            return ORDER_STATE["REJECTED"], 0
 
     def _get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
                  amount: Decimal, price: Decimal = s_decimal_NaN,
@@ -273,8 +280,8 @@ class PolkadexExchange(ExchangePyBase):
 
         message = message["data"]["websocket_streams"]["data"]["SetBalance"]
         asset_name = convert_asset_to_ticker(message["asset"])
-        free_balance = Decimal(message["free"])
-        total_balance = Decimal(message["free"]) + Decimal(message["reserved"])
+        free_balance = Decimal(message["free"])/ UNIT_BALANCE
+        total_balance = (Decimal(message["free"]) / UNIT_BALANCE)+ (Decimal(message["reserved"])/ UNIT_BALANCE)
         self._account_available_balances[asset_name] = free_balance
         self._account_balances[asset_name] = total_balance
 
@@ -320,8 +327,8 @@ class PolkadexExchange(ExchangePyBase):
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
                 trade_type=tracked_order.trade_type,
-                percent_token=message["fee"],
-                flat_fees=[TokenAmount(amount=Decimal(message["fee"]),
+                percent_token=Decimal(message["fee"]) / UNIT_BALANCE,
+                flat_fees=[TokenAmount(amount=Decimal(message["fee"]) / UNIT_BALANCE,
                                        token=fee_levied_asset(message["side"], base_asset, quote_asset))]
             )
             trade_update = TradeUpdate(
@@ -330,9 +337,9 @@ class PolkadexExchange(ExchangePyBase):
                 exchange_order_id=str(message["id"]),
                 trading_pair=tracked_order.trading_pair,
                 fee=fee,
-                fill_base_amount=Decimal(message["filled_quantity"]),
-                fill_quote_amount=Decimal(message["filled_quantity"]) * Decimal(message["avg_filled_price"]),
-                fill_price=Decimal(message["avg_filled_price"]),
+                fill_base_amount=Decimal(message["filled_quantity"])/ UNIT_BALANCE,
+                fill_quote_amount=(Decimal(message["filled_quantity"])/ UNIT_BALANCE) * (Decimal(message["avg_filled_price"])/ UNIT_BALANCE),
+                fill_price=Decimal(message["avg_filled_price"])/ UNIT_BALANCE,
                 fill_timestamp=ts,
             )
             self._order_tracker.process_trade_update(trade_update)
