@@ -39,10 +39,6 @@ class WebAssistantsFactory:
         self._throttler = throttler
 
     @property
-    def auth(self) -> Optional[AuthBase]:
-        return self._auth
-
-    @property
     def throttler(self) -> AsyncThrottlerBase:
         return self._throttler
 
