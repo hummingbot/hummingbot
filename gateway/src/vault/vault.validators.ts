@@ -9,7 +9,7 @@ import {
   validateChain,
   validateNetwork,
   validateNonce,
-  validateAddress,
+  // validateAddress,
   validateMaxFeePerGas,
   validateMaxPriorityFeePerGas,
 } from '../chains/ethereum/ethereum.validators';
