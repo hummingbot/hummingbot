@@ -46,6 +46,10 @@ class WebAssistantsFactory:
     def throttler(self) -> AsyncThrottlerBase:
         return self._throttler
 
+    @property
+    def auth(self) -> Optional[AuthBase]:
+        return self._auth
+
     async def get_rest_assistant(self) -> RESTAssistant:
         connection = await self._connections_factory.get_rest_connection()
         assistant = RESTAssistant(
