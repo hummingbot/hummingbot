@@ -2,7 +2,11 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../services/error-handler';
-import { price, trade, estimateGas } from './vault.controllers';
+import { 
+  price, 
+  // trade, 
+  // estimateGas 
+} from './vault.controllers';
 import {
   EstimateGasResponse,
   PriceRequest,
@@ -28,34 +32,34 @@ export namespace VaultRoutes {
         res: Response<PriceResponse | string, {}>
       ) => {
         validatePriceRequest(req.body);
-        res.status(200).json(await price(req.body));
+        res.status(200).json(await price(req.tradeType, ));
       }
     )
   );
 
-  router.post(
-    '/trade',
-    asyncHandler(
-      async (
-        req: Request<{}, {}, TradeRequest>,
-        res: Response<TradeResponse | string, {}>
-      ) => {
-        validateTradeRequest(req.body);
-        res.status(200).json(await trade(req.body));
-      }
-    )
-  );
+  // router.post(
+  //   '/trade',
+  //   asyncHandler(
+  //     async (
+  //       req: Request<{}, {}, TradeRequest>,
+  //       res: Response<TradeResponse | string, {}>
+  //     ) => {
+  //       validateTradeRequest(req.body);
+  //       res.status(200).json(await trade(req.body));
+  //     }
+  //   )
+  // );
 
-  router.post(
-    '/estimateGas',
-    asyncHandler(
-      async (
-        req: Request<{}, {}, NetworkSelectionRequest>,
-        res: Response<EstimateGasResponse | string, {}>
-      ) => {
-        validateEstimateGasRequest(req.body);
-        res.status(200).json(await estimateGas(req.body));
-      }
-    )
-  );
+  // router.post(
+  //   '/estimateGas',
+  //   asyncHandler(
+  //     async (
+  //       req: Request<{}, {}, NetworkSelectionRequest>,
+  //       res: Response<EstimateGasResponse | string, {}>
+  //     ) => {
+  //       validateEstimateGasRequest(req.body);
+  //       res.status(200).json(await estimateGas(req.body));
+  //     }
+  //   )
+  // );
 }
