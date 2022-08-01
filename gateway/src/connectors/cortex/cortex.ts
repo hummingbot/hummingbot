@@ -1,9 +1,9 @@
-import {
-  InitializationError,
-  SERVICE_UNITIALIZED_ERROR_CODE,
-  SERVICE_UNITIALIZED_ERROR_MESSAGE,
+// import {
+  // InitializationError,
+  // SERVICE_UNITIALIZED_ERROR_CODE,
+  // SERVICE_UNITIALIZED_ERROR_MESSAGE,
   // UniswapishPriceError,
-} from '../../services/error-handler';
+// } from '../../services/error-handler';
 // import { CortexConfig } from './cortex.config';
 import {
   // EstimateGasResponse,
@@ -34,20 +34,21 @@ import { logger } from '../../services/logger';
 export class Cortex implements Vaultish {
   private static _instances: { [name: string]: Cortex };
   private ethereum: Ethereum;
-  private _chain: string;
+  // private _chain;
+  // private _chain: string;
   // private _router: string;
   // private _routerAbi: ContractInterface;
   // private _gasLimit: number;
   // private _ttl: number;
-  // private chainId;
+  
   // private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
-  private constructor(chain: string, network: string) {
-    this._chain = chain;
+  private constructor(network: string) {
+    // this._chain = this.ethereum.chainId
     // const config = CortexConfig.config;
     this.ethereum = Ethereum.getInstance(network);
-    // this.chainId = this.ethereum.chainId;
+    // this._chain = this.ethereum.chainId;
     // this._ttl = CortexConfig.config.ttl;
     // this._routerAbi = routerAbi.abi;
   }
@@ -57,27 +58,23 @@ export class Cortex implements Vaultish {
       Cortex._instances = {};
     }
     if (!(chain + network in Cortex._instances)) {
-      Cortex._instances[chain + network] = new Cortex(chain, network);
+      Cortex._instances[chain + network] = new Cortex(network);
     }
     // logger.info()
     return Cortex._instances[chain + network];
   }
 
   public async init() {
-    if (this._chain == 'ethereum' && !this.ethereum.ready())
-      throw new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
-        SERVICE_UNITIALIZED_ERROR_CODE
-      );
-    // for (const token of this.ethereum.storedTokenList) {
-    //   this.tokenList[token.address] = new Token(
-    //     this.chainId,
-    //     token.address,
-    //     token.decimals,
-    //     token.symbol,
-    //     token.name
+    if (!this.ethereum.ready()) {
+      await this.ethereum.init();
+      console.log('this.ethereum.init()');
+    }
+    // if (this._chain == 'ethereum' && !this.ethereum.ready())
+    //   console.log('if (this.chain == ethereum ^^ ... ');  
+    //   throw new InitializationError(
+    //     SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
+    //     SERVICE_UNITIALIZED_ERROR_CODE
     //   );
-    // }
     this._ready = true;
   }
 
@@ -86,7 +83,7 @@ export class Cortex implements Vaultish {
   }
 
   async price(tradeType: string, amount: number): Promise<PriceResponse> {
-    logger.info(`Fetting price data for ${tradeType}-${amount}`);
+    logger.info(`Fetching price data for ${tradeType}-${amount}`);
 
     // const tradeType_ = req.tradeType
     // const chain_ = chain
@@ -95,11 +92,15 @@ export class Cortex implements Vaultish {
       4: '0x82E4bb17a00B32e5672d5EBe122Cd45bEEfD32b3',
     };
     const CXD_IDX_Address = CORTEX_INDEX_ADDRESSES[1];
+    console.log('set cortex address');
+
     const ifacePreviewRedeem = new utils.Interface([
       'function previewRedeem(uint256 shares) public view returns (uint256)',
     ]);
+    console.log('create contract function fragment')
+    
     const encodePreviewRedeem = ifacePreviewRedeem.encodeFunctionData(
-      amount.toString()
+      'previewRedeem', [amount.toString()]
     );
     console.log(`Encoded Request: ${encodePreviewRedeem}`);
 
@@ -111,6 +112,9 @@ export class Cortex implements Vaultish {
       data: encodePreviewRedeem,
     });
     console.log(previewRedeemHexString);
+    console.log(previewRedeemHexString.toString());
+    // const assetAnmount_big = BigNumber.from(previewRedeemHexString.toString());
+    // console.log(assetAnmount_big)
     const assetAmountWithFee = previewRedeemHexString.toString();
     return { assetAmountWithFee: assetAmountWithFee };
   }

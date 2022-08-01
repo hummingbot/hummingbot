@@ -1,0 +1,7 @@
+{
+  "connector": "cortex",
+  "chain": "ethereum",
+  "network": "mainnet",
+  "tradeType": "redeem",
+  "amount": 1000000
+}
