@@ -7,6 +7,7 @@ import {
   ethers,
 } from 'ethers';
 import { EthereumBase } from './ethereum-base';
+import { CosmosBase } from './cosmos-base';
 import { Provider } from '@ethersproject/abstract-provider';
 import { CurrencyAmount, Token, Trade } from '@uniswap/sdk';
 import { Trade as UniswapV3Trade } from '@uniswap/v3-sdk';
@@ -75,6 +76,17 @@ export interface Ethereumish extends EthereumBase {
   ): Contract;
   gasPrice: number;
   nativeTokenSymbol: string;
+  chain: string;
+}
+export interface Cosmosish extends CosmosBase {
+  // cancelTx(wallet: Wallet, nonce: number): Promise<Transaction>;
+  // getSpender(reqSpender: string): string;
+  // getContract(
+  //   tokenAddress: string,
+  //   signerOrProvider?: Wallet | Provider
+  // ): Contract;
+  // gasPrice: number;
+  // nativeTokenSymbol: string;
   chain: string;
 }
 

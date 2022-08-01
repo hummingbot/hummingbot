@@ -14,6 +14,9 @@ export const invalidEthPrivateKeyError: string =
 export const invalidSolPrivateKeyError: string =
   'The privateKey param is not a valid Solana private key (64 bytes, base 58 encoded).';
 
+export const invalidCosmosPrivateKeyError: string =
+  'The privateKey param is not a valid Cosmos private key (64 bytes, base 58 encoded).';
+
 // test if a string matches the shape of an Ethereum private key
 export const isEthPrivateKey = (str: string): boolean => {
   return /^(0x)?[a-fA-F0-9]{64}$/.test(str);
@@ -24,14 +27,17 @@ export const isSolPrivateKey = (str: string): boolean => {
   return isBase58(str) && bs58.decode(str).length == 64;
 };
 
+// test if a string matches the shape of a Cosmos private key
+export const isCosmosPrivateKey = true;
+
 // given a request, look for a key called privateKey that is an Ethereum private key
 export const validatePrivateKey: Validator = mkBranchingValidator(
   'chain',
-  (req, key) => req[key] === 'solana',
+  (req, key) => req[key] === 'cosmos',
   mkValidator(
     'privateKey',
-    invalidSolPrivateKeyError,
-    (val) => typeof val === 'string' && isSolPrivateKey(val)
+    invalidCosmosPrivateKeyError,
+    (val) => typeof val === 'string' && isCosmosPrivateKey
   ),
   mkValidator(
     'privateKey',
@@ -41,7 +47,7 @@ export const validatePrivateKey: Validator = mkBranchingValidator(
 );
 
 export const invalidChainError: string =
-  'chain must be "ethereum", "solana", "avalanche" or "harmony"';
+  'chain must be "ethereum", "solana", "avalanche", "cosmos" or "harmony"';
 
 export const invalidNetworkError: string =
   'expected a string for the network key';
@@ -56,7 +62,8 @@ export const validateChain: Validator = mkValidator(
     (val === 'ethereum' ||
       val === 'avalanche' ||
       val === 'solana' ||
-      val === 'harmony')
+      val === 'harmony' ||
+      val === 'cosmos')
 );
 
 export const validateNetwork: Validator = mkValidator(

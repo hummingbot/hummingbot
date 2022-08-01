@@ -2,6 +2,7 @@ import fse from 'fs-extra';
 import { Avalanche } from '../../chains/avalanche/avalanche';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import { Solana } from '../../chains/solana/solana';
+import { Cosmos } from '../../chains/cosmos/cosmos';
 import { Harmony } from '../../chains/harmony/harmony';
 
 import {
@@ -22,6 +23,7 @@ import {
 const walletPath = './conf/wallets';
 
 const solana = Solana.getInstance();
+const cosmos = Cosmos.getInstance('mainnet');
 
 export async function mkdirIfDoesNotExist(path: string): Promise<void> {
   const exists = await fse.pathExists(path);
@@ -43,6 +45,7 @@ export async function addWallet(
     const ethereum = Ethereum.getInstance(req.network);
     address = ethereum.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await ethereum.encrypt(req.privateKey, passphrase);
+    console.log(encryptedPrivateKey);
   } else if (req.chain === 'avalanche') {
     const avalanche = Avalanche.getInstance(req.network);
     address = avalanche.getWalletFromPrivateKey(req.privateKey).address;
@@ -56,6 +59,10 @@ export async function addWallet(
     const harmony = Harmony.getInstance(req.network);
     address = harmony.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await harmony.encrypt(req.privateKey, passphrase);
+  } else if (req.chain === 'cosmos') {
+    const wallet = await cosmos.getAccountsfromPrivateKey(req.privateKey);
+    address = wallet.address;
+    encryptedPrivateKey = await cosmos.encrypt(req.privateKey, passphrase);
   } else {
     throw new HttpException(
       500,

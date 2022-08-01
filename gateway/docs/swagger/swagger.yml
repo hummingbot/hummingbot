@@ -10,7 +10,7 @@ info:
     name: 'Apache 2.0'
     url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
 
-host: 'localhost:5000'
+host: 'localhost:5230'
 
 tags:
   - name: 'system'
