@@ -32,7 +32,7 @@ class WSConnectionTest(unittest.TestCase):
             task.cancel()
         super().tearDown()
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 3):
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
