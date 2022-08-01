@@ -25,12 +25,12 @@ import {
   Trade as TradePangolin,
   Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
-// import {
-//   Token as TokenQuickswap,
-//   CurrencyAmount as CurrencyAmountQuickswap,
-//   Trade as TradeQuickswap,
-//   Fraction as QuickswapFraction,
-// } from 'quickswap-sdk';
+import {
+  Token as TokenQuickswap,
+  CurrencyAmount as CurrencyAmountQuickswap,
+  Trade as TradeQuickswap,
+  Fraction as QuickswapFraction,
+} from 'quickswap-sdk';
 import {
   Trade as SushiswapTrade,
   Token as SushiToken,
@@ -45,20 +45,20 @@ import {
   Trade as TradeTraderjoe,
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
-import { PerpPosition } from '../connectors/perp/perp';
+// import { PerpPosition } from '../connectors/perp/perp';
 import { PriceResponse } from '../vault/vault.requests';
 
 export type Tokenish =
   | Token
   | TokenPangolin
-  // | TokenQuickswap
+  | TokenQuickswap
   | TokenTraderjoe
   | UniswapCoreToken
   | SushiToken;
 export type UniswapishTrade =
   | Trade<Currency, Currency, TradeType>
   | TradePangolin
-  // | TradeQuickswap
+  | TradeQuickswap
   | TradeTraderjoe
   | SushiswapTrade<
       SushiToken,
@@ -69,14 +69,14 @@ export type UniswapishTrade =
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
-  // | CurrencyAmountQuickswap
+  | CurrencyAmountQuickswap
   | UniswapCoreCurrencyAmount<Currency>
   | CurrencyAmountTraderjoe
   | SushiCurrencyAmount<SushiCurrency | SushiToken>;
 export type Fractionish =
   | UniswapFraction
   | PangolinFraction
-  // | QuickswapFraction
+  | QuickswapFraction
   | TraderjoeFraction
   | SushiFraction;
 
@@ -411,7 +411,7 @@ export interface Perpish {
    * @param tickerSymbol An optional parameter to get specific position.
    * @returns Return all Positions or specific position.
    */
-  getPositions(tickerSymbol: string): Promise<PerpPosition | undefined>;
+  // getPositions(tickerSymbol: string): Promise<PerpPosition | undefined>;
 
   /**
    * Given the necessary parameters, open a position.

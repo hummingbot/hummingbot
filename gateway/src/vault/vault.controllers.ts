@@ -1,18 +1,18 @@
 import {
-  EstimateGasResponse,
+  // EstimateGasResponse,
   PriceRequest,
   PriceResponse,
-  TradeRequest,
-  TradeResponse,
+  // TradeRequest,
+  // TradeResponse,
 } from './vault.requests';
-import {
-  price,
-  trade as vaultTrade,
-  estimateGas as vaultEstimateGas,
-} from '../connectors/cortex/cortex';
+// import {
+//   price as vaultPrice,
+//   trade as vaultTrade,
+//   estimateGas as vaultEstimateGas,
+// } from '../connectors/cortex/cortex';
 import { getChain, getConnector } from '../services/connection-manager';
 import {
-  NetworkSelectionRequest,
+  // NetworkSelectionRequest,
   Vaultish,
 } from '../services/common-interfaces';
 
