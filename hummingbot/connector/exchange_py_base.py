@@ -891,7 +891,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         Called by _status_polling_loop, which executes after each tick() is executed
         """
         await safe_gather(
-            self._update_balances(),
+            self._update_all_balances(),
             self._update_order_status(),
         )
 
