@@ -5,3 +5,4 @@
 /.git
 /.github
 .DS_Store
+/conf_backup

@@ -17,10 +17,12 @@ import { SwaggerManager } from './services/swagger-manager';
 import { NetworkRoutes } from './network/network.routes';
 import { ConnectorsRoutes } from './connectors/connectors.routes';
 import { EVMRoutes } from './evm/evm.routes';
-import { AmmRoutes, AmmLiquidityRoutes } from './amm/amm.routes';
+import { AmmRoutes, AmmLiquidityRoutes, PerpAmmRoutes } from './amm/amm.routes';
 import { PangolinConfig } from './connectors/pangolin/pangolin.config';
+import { QuickswapConfig } from './connectors/quickswap/quickswap.config';
 import { TraderjoeConfig } from './connectors/traderjoe/traderjoe.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
+import { OpenoceanConfig } from './connectors/openocean/openocean.config';
 import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
@@ -39,11 +41,13 @@ gatewayApp.use(express.json());
 gatewayApp.use(express.urlencoded({ extended: true }));
 
 // logging middleware
-// skip logging path '/'
+// skip logging path '/' or `/network/status`
 gatewayApp.use(
   morgan('combined', {
     skip: function (req, _res) {
-      return req.path === '/' || req.path == '/network/status';
+      return (
+        req.originalUrl === '/' || req.originalUrl.includes('/network/status')
+      );
     },
   })
 );
@@ -55,6 +59,7 @@ gatewayApp.use('/evm', EVMRoutes.router);
 gatewayApp.use('/connectors', ConnectorsRoutes.router);
 
 gatewayApp.use('/amm', AmmRoutes.router);
+gatewayApp.use('/amm/perp', PerpAmmRoutes.router);
 gatewayApp.use('/amm/liquidity', AmmLiquidityRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
@@ -67,7 +72,9 @@ gatewayApp.get('/', (_req: Request, res: Response) => {
 interface ConnectorsResponse {
   uniswap: Array<AvailableNetworks>;
   pangolin: Array<AvailableNetworks>;
+  quickswap: Array<AvailableNetworks>;
   sushiswap: Array<AvailableNetworks>;
+  openocean: Array<AvailableNetworks>;
   traderjoe: Array<AvailableNetworks>;
   balancer: Array<AvailableNetworks>;
 }
@@ -78,7 +85,9 @@ gatewayApp.get(
     res.status(200).json({
       uniswap: UniswapConfig.config.availableNetworks,
       pangolin: PangolinConfig.config.availableNetworks,
+      quickswap: QuickswapConfig.config.availableNetworks,
       sushiswap: SushiswapConfig.config.availableNetworks,
+      openocean: OpenoceanConfig.config.availableNetworks,
       traderjoe: TraderjoeConfig.config.availableNetworks,
       balancer: BalancerConfig.config.availableNetworks,
     });
@@ -87,12 +96,14 @@ gatewayApp.get(
 
 // watch the exit even, spawn an independent process with the same args and
 // pass the stdio from this process to it.
-process.on('exit', function () {
-  childProcess.spawn(process.argv.shift(), process.argv, {
-    cwd: process.cwd(),
-    detached: true,
-    stdio: 'inherit',
-  });
+process.on('exit', function (code) {
+  // don't restart when signal is 2.
+  if (code !== 2)
+    childProcess.spawn(process.argv.shift(), process.argv, {
+      cwd: process.cwd(),
+      detached: true,
+      stdio: 'inherit',
+    });
 });
 
 gatewayApp.post(
@@ -166,7 +177,7 @@ export const startGateway = async () => {
       logger.error(
         `Failed to start the server with https. Confirm that the SSL certificate files exist and are correct. Error: ${e}`
       );
-      process.exit(1);
+      process.exit(2);
     }
     logger.info('The gateway server is secured behind HTTPS.');
   }

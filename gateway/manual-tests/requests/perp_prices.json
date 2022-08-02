@@ -1,0 +1,7 @@
+{
+  "connector": "perp",
+  "chain": "ethereum",
+  "network": "optimism",
+  "quote": "USD",
+  "base": "AAVE"
+}
