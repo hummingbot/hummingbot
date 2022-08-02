@@ -29,6 +29,7 @@ import {
   utils,
 } from 'ethers';
 import { logger } from '../../services/logger';
+// import { encode } from 'bs58';
 // import { getCurves } from 'crypto';
 
 export class Cortex implements Vaultish {
@@ -85,6 +86,7 @@ export class Cortex implements Vaultish {
   async price(tradeType: string, amount: number): Promise<PriceResponse> {
     logger.info(`Fetching price data for ${tradeType}-${amount}`);
 
+    const provider = this.ethereum.provider;
     // const tradeType_ = req.tradeType
     // const chain_ = chain
     const CORTEX_INDEX_ADDRESSES = {
@@ -94,18 +96,37 @@ export class Cortex implements Vaultish {
     const CXD_IDX_Address = CORTEX_INDEX_ADDRESSES[1];
     console.log('set cortex address');
 
+    // const ifaceGetUsdValue = new utils.Interface([
+    //   'function getUsdValue(uint256 shareAmount) view returns (uint256)',
+    // ]);
+    // const encodeGetUsdValue = ifaceGetUsdValue.encodeFunctionData(
+    //   'getUsdValue', [234345]
+    // );
+    // const getUsdValueHexString = await provider.call({
+    //   to: CXD_IDX_Address,
+    //   data: encodeGetUsdValue,
+    // }); 
+    // console.log(getUsdValueHexString)
+
     const ifacePreviewRedeem = new utils.Interface([
-      'function previewRedeem(uint256 shares) public view returns (uint256)',
-    ]);
+      'function convertToShares(uint256 assets) public view virtual override returns (unint256)']);
     console.log('create contract function fragment')
     
     const encodePreviewRedeem = ifacePreviewRedeem.encodeFunctionData(
-      'previewRedeem', [amount.toString()]
+      'convertToShares', [amount.toString()]
     );
     console.log(`Encoded Request: ${encodePreviewRedeem}`);
 
-    const provider = this.ethereum.provider;
-    logger.info(`Provider: ${provider._network}`);
+    const ifaceGetPoolTotalValue = new utils.Interface([
+      'function getPoolTotalValue() public view returns (uint256)']);
+    const encodeGetPoolTotalValue = ifaceGetPoolTotalValue.encodeFunctionData('getPoolTotalValue');
+    const getPoolTotalValueHexString = await provider.call({
+      to: CXD_IDX_Address,
+      data: encodeGetPoolTotalValue,
+    });
+    console.log(getPoolTotalValueHexString)
+
+    // logger.info(`Provider: ${provider._network}`);
 
     const previewRedeemHexString = await provider.call({
       to: CXD_IDX_Address,
