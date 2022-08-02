@@ -24,7 +24,7 @@ from hummingbot.core.gateway import (
     stop_gateway,
 )
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-from hummingbot.core.gateway.status_monitor import Status
+from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display,
@@ -291,7 +291,7 @@ class GatewayCommand(GatewayChainApiManager):
                         "work without it. Please install or start Docker and restart Hummingbot.")
             return
 
-        if self._gateway_monitor.current_status == Status.ONLINE:
+        if self._gateway_monitor.gateway_status is GatewayStatus.ONLINE:
             try:
                 status = await self._get_gateway_instance().get_gateway_status()
                 if status is None or status == []:
