@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.connector.exchange.polkadex.polkadex_payload import create_asset
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
@@ -43,3 +44,11 @@ def convert_pair_to_market(pair):
         quote = "PDEX"
 
     return base + "-" + quote, base, quote
+
+
+def convert_ticker_to_enclave_trading_pair(market):
+    pair = {
+        "base_asset": create_asset(market.split("-")[0]),
+        "quote_asset": create_asset(market.split("-")[1])
+    }
+    return pair

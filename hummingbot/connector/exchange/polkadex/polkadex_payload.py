@@ -6,19 +6,17 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 
 def create_asset(asset):
     if asset == "PDEX":
-        return  "polkadex"
+        return "polkadex"
     else:
         return {"asset": int(asset)}
 
 
 def create_cancel_order_req(runtime_config, order_id):
-    cancel_req = {
-        "id": str(order_id)
-    }
-    return runtime_config.create_scale_object("CancelOrderPayload").encode(cancel_req)
+    print("order id for encoding ", order_id)
+    return runtime_config.create_scale_object("H256").encode(order_id)
 
 
-def create_order(runtime_config, price: Decimal, qty: Decimal, order_type, order_id: str, side, proxy, base, quote, nonce):
+def create_order(runtime_config, price: Decimal, qty: Decimal, order_type, order_id: str, side, proxy, base, quote, ts):
     cid = bytearray()
     cid.extend(order_id.encode())
     cid = "0x" + bytes(cid).hex()
@@ -30,7 +28,7 @@ def create_order(runtime_config, price: Decimal, qty: Decimal, order_type, order
         },
         "qty": int(qty * UNIT_BALANCE),
         "price": int(price * UNIT_BALANCE),
-        "nonce": nonce,
+        "timestamp": ts,
         "client_order_id": cid
     }
     if order_type == OrderType.LIMIT:

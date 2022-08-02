@@ -8,7 +8,7 @@ ORDER_STATE = {
     "OPEN": OrderState.OPEN,
     "CLOSED": OrderState.FILLED,
     "PARTIAL": OrderState.PARTIALLY_FILLED,
-    "CANCELED": OrderState.CANCELED,
+    "CANCELLED": OrderState.CANCELED,
     "REJECTED": OrderState.FAILED,
     "EXPIRED": OrderState.FAILED,
 }
@@ -19,9 +19,9 @@ MIN_PRICE = Decimal(0.0001)
 MIN_QTY = Decimal(0.0001)
 TRADE_EVENT_TYPE = "trade"
 DIFF_EVENT_TYPE = "diff"
-GRAPHQL_ENDPOINT = "https://xh7jwqrqznhnfncbfkeiajgiza.appsync-api.ap-south-1.amazonaws.com/graphql"
-GRAPHQL_WSS_ENDPOINT = "wss://xh7jwqrqznhnfncbfkeiajgiza.appsync-realtime-api.ap-south-1.amazonaws.com/graphql"
-GRAPHQL_API_KEY = "da2-ycmofoliwrhkxo5peqhdninx4i"
+GRAPHQL_ENDPOINT = "https://zzvrbxjadfdljgidnpquh6tafm.appsync-api.ap-south-1.amazonaws.com/graphql"
+GRAPHQL_WSS_ENDPOINT = "wss://zzvrbxjadfdljgidnpquh6tafm.appsync-realtime-api.ap-south-1.amazonaws.com/graphql"
+GRAPHQL_API_KEY = "da2-4hnejjcgfncdhmh7rqcpf44hj4"
 
 POLKADEX_SS58_PREFIX = 42
 

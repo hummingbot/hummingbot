@@ -36,11 +36,22 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
                                      domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
-    async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trade_message = PolkadexOrderbook.trade_message_from_exchange(raw_message)
-        message_queue.put_nowait(trade_message)
+    async def _parse_trade_message(self, raw_message: Dict[str,Any],
+                                   message_queue: asyncio.Queue):
+        print("Raw message from trade subciption")
+        for msg in raw_message["websocket_streams"]["data"]:
+            trade_message = PolkadexOrderbook.trade_message_from_exchange(msg)
+            message_queue.put_nowait(trade_message)
 
-    async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+    async def _parse_order_book_diff_message(self, raw_message: Dict[str, Dict[str, List[Dict[str, str]]]],
+                                             message_queue: asyncio.Queue):
+        """
+               {
+                   'websocket_streams': {
+                       'data': '[{"side":"Ask","price":5554500000000,"qty":7999200000000 ,"seq":20}]'
+                   }
+               }
+        """
         diff_message = PolkadexOrderbook.diff_message_from_exchange(raw_message)
         message_queue.put_nowait(diff_message)
 
@@ -56,13 +67,15 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
         )
         return snapshot_msg
 
-    def on_recent_trade_callback(self, message):
+    def on_recent_trade_callback(self, message, trading_pair):
         print("Recent trade: ", message)
+        message["market"] = trading_pair
         self._message_queue[self._trade_messages_queue_key].put_nowait(message)
 
-    def on_ob_increment(self, message):
+    def on_ob_increment(self, message, trading_pair):
         print("ob inc: ", message)
-        self._message_queue[self._trade_messages_queue_key].put_nowait(message)
+        message["market"] = trading_pair
+        self._message_queue[self._diff_messages_queue_key].put_nowait(message)
 
     async def listen_for_subscriptions(self):
         transport = AppSyncWebsocketsTransport(url=self._connector.endpoint, auth=self._connector.auth)
@@ -72,11 +85,11 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
                 tasks.append(
                     asyncio.create_task(
                         websocket_streams_session_provided(trading_pair + "-recent-trades", session,
-                                                           self.on_recent_trade_callback)))
+                                                           self.on_recent_trade_callback, trading_pair)))
                 tasks.append(
                     asyncio.create_task(
                         websocket_streams_session_provided(trading_pair + "-ob-inc", session,
-                                                           self.on_ob_increment)))
+                                                           self.on_ob_increment, trading_pair)))
                 await asyncio.wait(tasks)
 
     async def _subscribe_channels(self, ws: WSAssistant):

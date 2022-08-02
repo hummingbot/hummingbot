@@ -1,3 +1,5 @@
+import ast
+import json
 from decimal import Decimal
 from typing import Dict, List, Optional
 
@@ -36,12 +38,14 @@ class PolkadexOrderbook(OrderBook):
 
         bids = []
         asks = []
-        print("Recvd snapshot msgs: ",msgs)
+        print("Recvd snapshot msgs: ", msgs)
         for price_level in msgs:
             if price_level["s"] == "Bid":
-                bids.append((float(Decimal(price_level["p"]) / UNIT_BALANCE), float(Decimal(price_level["q"]) / UNIT_BALANCE), int(-1)))
+                bids.append((float(Decimal(price_level["p"]) / UNIT_BALANCE),
+                             float(Decimal(price_level["q"]) / UNIT_BALANCE), int(-1)))
             else:
-                asks.append((float(Decimal(price_level["p"]) / UNIT_BALANCE), float(Decimal(price_level["q"]) / UNIT_BALANCE), int(-1)))
+                asks.append((float(Decimal(price_level["p"]) / UNIT_BALANCE),
+                             float(Decimal(price_level["q"]) / UNIT_BALANCE), int(-1)))
 
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": metadata["trading_pair"],
@@ -67,28 +71,35 @@ class PolkadexOrderbook(OrderBook):
 
         Expected data structure
         {
-          "data": {
             "websocket_streams": {
               "data": "[{\"side\":\"Ask\",\"price\":3,\"qty\":2,\"seq\":0},{\"side\":\"Bid\",\"price\":2,\"qty\":2,\"seq\":0}]"
             }
-          }
         }
         """
-        changes = msg["data"]["websocket_streams"]["data"]
         if metadata:
             msg.update(metadata)
+        print("IV: ",msg)
+        market = msg["market"]
+        msg = msg["websocket_streams"]["data"]
+        print("Input msgs: ", msg)
+        msg = ast.literal_eval(msg)
+        print("Changed: ", msg)
 
         bids = []
         asks = []
-        for change in changes:
+        seq = 0
+        for change in msg:
+            print("Change: ", change)
             if change["side"] == "Ask":
                 asks.append((float(change["price"]), float(change["qty"]), float(change["seq"])))
+                seq = float(change["seq"])
             else:
                 bids.append((float(change["price"]), float(change["qty"]), float(change["seq"])))
+                seq = float(change["seq"])
 
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["trading_pair"],
-            "update_id": int(msg["seq"]),
+            "trading_pair": market,
+            "update_id": int(seq),
             "bids": bids,
             "asks": asks
         }, timestamp=timestamp)
@@ -104,15 +115,11 @@ class PolkadexOrderbook(OrderBook):
 
 
         expected data structure
-        {
-          "data": {
-            "websocket_streams": {
-              "data": "{\"m\":\"PDEX-1\",\"p\":10,\"q\":1000,\"tid\":0,\"t\":1234567890}"
-            }
-          }
-        }
+
+        {"side":"Ask","price":5554500000000,"qty":7999200000000,HBOTBPX221825c769eb1f581587e1bb1v ,"seq":20}
         """
-        msg = msg["data"]["websocket_streams"]["data"]
+        print("Public trade message: ", msg)
+        msg = msg["websocket_streams"]["data"]
         if metadata:
             msg.update(metadata)
 

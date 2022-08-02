@@ -1,25 +1,28 @@
 import json
 
 from gql import gql
+from gql.transport.exceptions import TransportQueryError
 
 from hummingbot.connector.exchange.polkadex.graphql.auth.client import execute_query_command
 
 
-async def cancel_order(params, url ,api_key):
+async def cancel_order(params, url, api_key):
     mutation = gql(
         """
     mutation CancelOrder($input: UserActionInput!) {
-        cancel_order(input: $input) {
-        }
+        cancel_order(input: $input)
     }
         """
     )
+    print("params: ",params)
     encoded_params = json.dumps({"CancelOrder": params});
     variables = {"input": {"payload": encoded_params}}
-    result = await execute_query_command(mutation, variables, url, api_key)
-    print("Cancel order result: ", result)
-    return result["cancel_order"]
-
+    try:
+        result = await execute_query_command(mutation, variables, url, api_key)
+        print("Cancel order result: ", result)
+        return result["cancel_order"]
+    except TransportQueryError():
+        print("Errorr")
 
 async def place_order(params, url, api_key):
     mutation = gql(
@@ -33,7 +36,7 @@ async def place_order(params, url, api_key):
     variables = {"input": {"payload": encoded_params}}
     result = await execute_query_command(mutation, variables, url, api_key)
     print("Place order result: ", result)
-    return result["data"]
+    return result["place_order"]
 
 
 async def list_transaction_by_main_account(main, from_date, to_date, nextToken, limit):
@@ -160,7 +163,6 @@ query findOrderByMainAccount($main: String!, $market: String!, $order_id: String
 }
 """)
     variables = {"order_id": order_id, "market": market, "main": main}
-
     result = await execute_query_command(query, variables, endpoint, api_key)
     return result["findOrderByMainAccount"]
 

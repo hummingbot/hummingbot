@@ -34,7 +34,8 @@ from hummingbot.connector.exchange.polkadex.polkadex_constants import (
 )
 from hummingbot.connector.exchange.polkadex.polkadex_order_book_data_source import PolkadexOrderbookDataSource
 from hummingbot.connector.exchange.polkadex.polkadex_payload import create_cancel_order_req, create_order
-from hummingbot.connector.exchange.polkadex.polkadex_utils import convert_asset_to_ticker, convert_pair_to_market
+from hummingbot.connector.exchange.polkadex.polkadex_utils import convert_asset_to_ticker, convert_pair_to_market, \
+    convert_ticker_to_enclave_trading_pair
 from hummingbot.connector.exchange.polkadex.python_user_stream_data_source import PolkadexUserStreamDataSource
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
@@ -93,7 +94,7 @@ class PolkadexExchange(ExchangePyBase):
                         ["order_type", "OrderType"],
                         ["qty", "u128"],
                         ["price", "u128"],
-                        ["nonce", "u32"],
+                        ["timestamp", "i64"],
                     ]
                 },
                 "CancelOrderPayload": {
@@ -232,9 +233,10 @@ class PolkadexExchange(ExchangePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         # TODO; Convert client_order_id to enclave_order_id
         print("Cancelling orders...")
-        encoded_cancel_req = create_cancel_order_req(self.blockchain, order_id)
+        encoded_cancel_req = create_cancel_order_req(self.blockchain, tracked_order.exchange_order_id)
         signature = self.proxy_pair.sign(encoded_cancel_req)
-        params = [encoded_cancel_req, signature]
+        market = convert_ticker_to_enclave_trading_pair(tracked_order.trading_pair)
+        params = [tracked_order.exchange_order_id, self.user_proxy_address, market, {"Sr25519": signature.hex()}]
         await cancel_order(params, self.endpoint, self.api_key)
 
     async def _place_order(self, order_id: str, trading_pair: str, amount: Decimal, trade_type: TradeType,
@@ -245,20 +247,22 @@ class PolkadexExchange(ExchangePyBase):
                                                                        self.endpoint, self.api_key)
             print("Main account: ", self.user_main_address)
         pk = ss58_decode(self.user_proxy_address, valid_ss58_format=42)
-        user = ss58_encode(pk, ss58_format=88)
+        user_proxy = ss58_encode(pk, ss58_format=88)
+        ts = int(time.time())
+
         encoded_order, order = create_order(self.blockchain, price, amount, order_type, order_id,
-                                            trade_type, user,
+                                            trade_type, user_proxy,
                                             trading_pair.split("-")[0],
                                             trading_pair.split("-")[1],
-                                            self.nonce + 1)
-        self.nonce = self.nonce + 1
+                                            ts)
         signature = self.proxy_pair.sign(encoded_order)
         params = [order, {"Sr25519": signature.hex()}]
         result = await place_order(params, self.endpoint, self.api_key)
+        print("Exchange order id: ", result)
         if result is not None:
-            return ORDER_STATE["OPEN"], result
+            return result, ts
         else:
-            return ORDER_STATE["REJECTED"], 0
+            return "", ts
 
     def _get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
                  amount: Decimal, price: Decimal = s_decimal_NaN,
@@ -340,7 +344,7 @@ class PolkadexExchange(ExchangePyBase):
                 fee=fee,
                 fill_base_amount=Decimal(message["filled_quantity"]) / UNIT_BALANCE,
                 fill_quote_amount=(Decimal(message["filled_quantity"]) / UNIT_BALANCE) * (
-                            Decimal(message["avg_filled_price"]) / UNIT_BALANCE),
+                        Decimal(message["avg_filled_price"]) / UNIT_BALANCE),
                 fill_price=Decimal(message["avg_filled_price"]) / UNIT_BALANCE,
                 fill_timestamp=ts,
             )
@@ -376,10 +380,10 @@ class PolkadexExchange(ExchangePyBase):
         for market in self.trading_pairs:
             # TODO: Update this with a real endpoint and config
             rules.append(TradingRule(market,
-                                     min_order_size=MIN_QTY,
+                                     min_order_size=Decimal(1000000000000) / UNIT_BALANCE,
                                      min_price_increment=MIN_PRICE,
                                      min_base_amount_increment=MIN_QTY,
-                                     min_notional_size=MIN_PRICE * MIN_QTY))
+                                     min_notional_size=MIN_PRICE * (Decimal(1000000000000) / UNIT_BALANCE)))
         return rules
 
     async def _update_order_status(self):
@@ -393,22 +397,36 @@ class PolkadexExchange(ExchangePyBase):
         if current_tick > last_tick and len(tracked_orders) > 0:
 
             for tracked_order in tracked_orders:
-                result = await find_order_by_main_account(self.user_main_address, tracked_order.client_order_id,
-                                                          tracked_order.trading_pair, self.endpoint, self.api_key)
+                if tracked_order.exchange_order_id is not None:
+                    result = await find_order_by_main_account(self.user_proxy_address, tracked_order.exchange_order_id,
+                                                              tracked_order.trading_pair, self.endpoint, self.api_key)
+                    # TODO: Fix order update
+                    print("Result of find order by main: ", result)
+                    if result is None:
+                        self.logger().network(
+                            f"Error fetching status update for the order {tracked_order.exchange_order_id}: {result}.",
+                            app_warning_msg=f"Failed to fetch status update for the order {tracked_order.exchange_order_id}."
+                        )
+                        # Wait until the order not found error have repeated a few times before actually treating
+                        # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
+                        await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
 
-                if isinstance(result, Exception):
-                    self.logger().network(
-                        f"Error fetching status update for the order {tracked_order.client_order_id}: {result}.",
-                        app_warning_msg=f"Failed to fetch status update for the order {tracked_order.client_order_id}."
-                    )
-                    # Wait until the order not found error have repeated a few times before actually treating
-                    # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
-                    await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
-
+                    else:
+                        # Update order execution status
+                        new_state = CONSTANTS.ORDER_STATE[result["st"]]
+                        ts = result["t"]
+                        update = OrderUpdate(
+                            client_order_id=tracked_order.client_order_id,
+                            exchange_order_id=str(tracked_order.exchange_order_id),
+                            trading_pair=tracked_order.trading_pair,
+                            update_timestamp=ts,
+                            new_state=new_state,
+                        )
+                        self._order_tracker.process_order_update(update)
                 else:
-                    # Update order execution status
-                    new_state = CONSTANTS.ORDER_STATE[result["st"]]
-                    ts = parser.parse(result["t"]).timestamp()
+                    print("Tracked order's eid is None, cid: ", tracked_order.client_order_id)
+                    new_state = CONSTANTS.ORDER_STATE["CANCELED"]
+                    ts = time.time()
                     update = OrderUpdate(
                         client_order_id=tracked_order.client_order_id,
                         exchange_order_id=str(tracked_order.exchange_order_id),
