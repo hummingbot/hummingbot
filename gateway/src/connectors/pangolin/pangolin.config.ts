@@ -25,7 +25,7 @@ export namespace PangolinConfig {
       ),
     tradingTypes: ['EVM_AMM'],
     availableNetworks: [
-      { chain: 'avalanche', networks: ['avalanche', 'fuji'] },
+      { chain: ['avalanche'], networks: ['avalanche', 'fuji'] },
     ],
   };
 }

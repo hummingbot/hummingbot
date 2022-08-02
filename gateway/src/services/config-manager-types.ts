@@ -1,4 +1,4 @@
 export interface AvailableNetworks {
-  chain: string;
+  chain: Array<string>;
   networks: Array<string>;
 }
