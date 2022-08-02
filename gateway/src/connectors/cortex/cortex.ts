@@ -93,23 +93,25 @@ export class Cortex implements Vaultish {
       1: '0x82E4bb17a00B32e5672d5EBe122Cd45bEEfD32b3',
       4: '0x82E4bb17a00B32e5672d5EBe122Cd45bEEfD32b3',
     };
+
+
     const CXD_IDX_Address = CORTEX_INDEX_ADDRESSES[1];
     console.log('set cortex address');
-
-    // const ifaceGetUsdValue = new utils.Interface([
-    //   'function getUsdValue(uint256 shareAmount) view returns (uint256)',
-    // ]);
-    // const encodeGetUsdValue = ifaceGetUsdValue.encodeFunctionData(
-    //   'getUsdValue', [234345]
-    // );
-    // const getUsdValueHexString = await provider.call({
-    //   to: CXD_IDX_Address,
-    //   data: encodeGetUsdValue,
-    // }); 
-    // console.log(getUsdValueHexString)
+    // console.log(await provider.getCode(CXD_IDX_Address));
+    const ifaceGetUsdValue = new utils.Interface([
+      'function getUsdValue(uint256 shareAmount) view returns (uint256)',
+    ]);
+    const encodeGetUsdValue = ifaceGetUsdValue.encodeFunctionData(
+      'getUsdValue', [234345]
+    );
+    const getUsdValueHexString = await provider.call({
+      to: CXD_IDX_Address,
+      data: encodeGetUsdValue,
+    }); 
+    console.log(getUsdValueHexString)
 
     const ifacePreviewRedeem = new utils.Interface([
-      'function convertToShares(uint256 assets) public view virtual override returns (unint256)']);
+      'function convertToShares(uint256 assets) public view returns (unint256)']);
     console.log('create contract function fragment')
     
     const encodePreviewRedeem = ifacePreviewRedeem.encodeFunctionData(
@@ -125,8 +127,11 @@ export class Cortex implements Vaultish {
       data: encodeGetPoolTotalValue,
     });
     console.log(getPoolTotalValueHexString)
+    const decodedPoolTotalValueResult = ifaceGetPoolTotalValue.decodeFunctionResult('getPoolTotalValue', getPoolTotalValueHexString)
+    console.log(`decoded pool totals: ${decodedPoolTotalValueResult}`)
 
-    // logger.info(`Provider: ${provider._network}`);
+    logger.info(`Provider: ${provider._network.chainId}`);
+    logger.info(`Provider: ${provider._network.name}`);
 
     const previewRedeemHexString = await provider.call({
       to: CXD_IDX_Address,
