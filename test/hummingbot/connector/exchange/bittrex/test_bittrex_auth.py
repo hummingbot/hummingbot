@@ -37,9 +37,9 @@ class BittrexAuthTests(TestCase):
             throttler_limit_id="/api/endpoint"
         )
         test_hash = self.auth.construct_content_hash({})
-        test_sign_content = "".join(["1000", "https://test.url/api/endpoint", "GET", test_hash, ""])
+        test_sign_content = "".join(["1000000", "https://test.url/api/endpoint", "GET", test_hash, ""])
         expected_signature = hmac.new(self.secret_key.encode(), test_sign_content.encode(), hashlib.sha512).hexdigest()
-        expected_timestamp = 1000
+        expected_timestamp = "1000000"
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
 
