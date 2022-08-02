@@ -872,6 +872,15 @@ class AscendExExchange(ExchangeBase):
                     f"Unexpected error during processing order status. The Ascend Ex Response: {resp}", exc_info=True
                 )
 
+    def _update_order_after_failure(self, order_id: str, trading_pair: str):
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order_id,
+            trading_pair=trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=OrderState.FAILED,
+        )
+        self._in_flight_order_tracker.process_order_update(order_update)
+
     def _stop_tracking_order_exceed_no_exchange_id_limit(self, tracked_order: InFlightOrder):
         """
         Increments and checks if the tracked order has exceed the STOP_TRACKING_ORDER_NOT_FOUND_LIMIT limit.
@@ -909,12 +918,30 @@ class AscendExExchange(ExchangeBase):
         :param order_type: The order type
         :param price: The order price
         """
+        # For MarketEvents to be emitted, the order needs to be already tracked
+        self.start_tracking_order(
+            order_id=order_id,
+            trading_pair=trading_pair,
+            trade_type=trade_type,
+            price=price,
+            amount=amount,
+            order_type=order_type,
+        )
+
+        trading_rule = self._trading_rules[trading_pair]
+
         if not order_type.is_limit_type():
+            self._update_order_after_failure(order_id, trading_pair)
             raise Exception(f"Unsupported order type: {order_type}")
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
-        if amount <= s_decimal_0:
-            raise ValueError("Order amount must be greater than zero.")
+        side = "Buy" if trade_type == TradeType.BUY else "Sell"
+        if amount < trading_rule.min_order_size:
+            self._update_order_after_failure(order_id, trading_pair)
+            self.logger().error(
+                f"{side} order amount {amount} is lower than the minimum order size "
+                f"{trading_rule.min_order_size}.")
+            return
         try:
             timestamp = ascend_ex_utils.get_ms_timestamp()
             # Order UUID is strictly used to enable AscendEx to construct a unique(still questionable) exchange_order_id
@@ -928,17 +955,9 @@ class AscendExExchange(ExchangeBase):
                 "orderPrice": f"{price:f}",
                 "orderQty": f"{amount:f}",
                 "orderType": "limit",
-                "side": "buy" if trade_type == TradeType.BUY else "sell",
+                "side": side.lower(),
                 "respInst": "ACCEPT",
             }
-            self.start_tracking_order(
-                order_id=order_id,
-                trading_pair=trading_pair,
-                trade_type=trade_type,
-                price=price,
-                amount=amount,
-                order_type=order_type,
-            )
 
             try:
                 resp = await self._api_request(
@@ -983,13 +1002,15 @@ class AscendExExchange(ExchangeBase):
                 self._in_flight_order_tracker.process_order_update(order_update)
             except IOError:
                 self.logger().exception(f"The request to create the order {order_id} failed")
-                self.stop_tracking_order(order_id)
+                self._update_order_after_failure(order_id, trading_pair)
         except asyncio.CancelledError:
+            self._update_order_after_failure(order_id, trading_pair)
             raise
         except Exception:
             msg = (f"Error submitting {trade_type.name} {order_type.name} order to AscendEx for "
                    f"{amount} {trading_pair} {price}.")
             self.logger().exception(msg)
+            self._update_order_after_failure(order_id, trading_pair)
 
     async def _trading_rules_polling_loop(self):
         """

@@ -44,7 +44,7 @@ class RateCommand:
         if not validate_trading_pair(pair):
             self.notify(f"Invalid trading pair {pair}")
         else:
-            pair = pair.upper()
+            pair = pair.upper().strip('\"').strip("'")
             rate = await RateOracle.get_instance().rate_async(pair)
             if rate is None:
                 raise OracleRateUnavailable
