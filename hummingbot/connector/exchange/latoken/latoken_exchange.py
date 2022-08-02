@@ -115,6 +115,10 @@ class LatokenExchange(ExchangePyBase):
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT]
 
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+        # API documentation does not clarify the error message for timestamp related problems
+        return False
+
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
         exchange_order_id = await tracked_order.get_exchange_order_id()
         cancel_result = await self._api_post(
@@ -308,77 +312,32 @@ class LatokenExchange(ExchangePyBase):
                 self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
         return trading_rules
 
-    async def _update_to_tracked_order(self, tracked_orders: List[InFlightOrder]) -> Tuple[List[Any], List[Any]]:
-        reviewed_orders = []
-        tasks = []
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        # This has to be implemented to bring Latoken up to the latest standards
+        return []
 
-        for tracked_order in tracked_orders:
-            try:
-                exchange_order_id = await tracked_order.get_exchange_order_id()
-            except asyncio.TimeoutError:
-                self.logger().debug(
-                    f"Tracked order {tracked_order.client_order_id} does not have an exchange id. "
-                    f"Attempting fetch in next polling interval."
-                )
-                await self._order_tracker.process_order_not_found(client_order_id=tracked_order.client_order_id)
-                continue
-            reviewed_orders.append(tracked_order)
-            tasks.append(
-                self._api_get(
-                    path_url=f"{CONSTANTS.GET_ORDER_PATH_URL}/{exchange_order_id}",
-                    is_auth_required=True,
-                    limit_id=CONSTANTS.GET_ORDER_PATH_URL))
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        exchange_order_id = await tracked_order.get_exchange_order_id()
+        updated_order_data = await self._api_get(
+            path_url=f"{CONSTANTS.GET_ORDER_PATH_URL}/{exchange_order_id}",
+            is_auth_required=True,
+            limit_id=CONSTANTS.GET_ORDER_PATH_URL)
 
-        self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
-        results = await safe_gather(*tasks, return_exceptions=True)
+        status = updated_order_data["status"]
+        filled = Decimal(updated_order_data["filled"])
+        quantity = Decimal(updated_order_data["quantity"])
 
-        return results, reviewed_orders
+        new_state = web_utils.get_order_status_rest(status=status, filled=filled, quantity=quantity)
 
-    async def _update_order_status(self):
-        # This is intended to be a backup measure to close straggler orders, in case Latoken's user stream events
-        # are not working.
-        # The minimum poll interval for order status is 10 seconds.
-        last_tick = self._last_poll_timestamp / CONSTANTS.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        current_tick = self.current_timestamp / CONSTANTS.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        order_update = OrderUpdate(
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=updated_order_data["id"],
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=float(updated_order_data["timestamp"]) * 1e-3,
+            new_state=new_state,
+        )
 
-        tracked_orders: List[InFlightOrder] = list(self.in_flight_orders.values())
-
-        if current_tick <= last_tick or len(tracked_orders) == 0:
-            return
-
-        update_to_tracked = await self._update_to_tracked_order(tracked_orders=tracked_orders)
-        for order_update, tracked_order in zip(*update_to_tracked):
-
-            client_order_id = tracked_order.client_order_id
-
-            # If the order has already been cancelled or has failed do nothing
-            if client_order_id not in self.in_flight_orders:
-                continue
-
-            if isinstance(order_update, Exception):
-                self.logger().network(
-                    f"Error fetching status update for the order {client_order_id}: {order_update}.",
-                    app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
-                )
-                # Wait until the order not found error have repeated a few times before actually treating
-                # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
-                await self._order_tracker.process_order_not_found(client_order_id=client_order_id)
-            else:
-                # Update order execution status
-                status = order_update["status"]
-                filled = Decimal(order_update["filled"])
-                quantity = Decimal(order_update["quantity"])
-
-                new_state = web_utils.get_order_status_rest(status=status, filled=filled, quantity=quantity)
-
-                update = OrderUpdate(
-                    client_order_id=client_order_id,
-                    exchange_order_id=order_update["id"],
-                    trading_pair=tracked_order.trading_pair,
-                    update_timestamp=float(order_update["timestamp"]) * 1e-3,
-                    new_state=new_state,
-                )
-                self._order_tracker.process_order_update(update)
+        return order_update
 
     async def _update_balances(self):
         try:
