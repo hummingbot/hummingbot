@@ -3,9 +3,8 @@ import json
 import re
 import time
 import unittest
-from decimal import Decimal
 from typing import Any, Awaitable, Dict, List
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import aiohttp
 from aioresponses.core import aioresponses
@@ -14,9 +13,8 @@ from bidict import bidict
 from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_api_order_book_data_source import (
     FtxPerpetualAPIOrderBookDataSource,
 )
-from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_utils import convert_to_exchange_trading_pair
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 
 FTX_REST_URL = "https://ftx.com/api"
 FTX_EXCHANGE_INFO_PATH = "/markets"
@@ -34,7 +32,7 @@ class FtxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "USD"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}"
+        cls.ex_trading_pair = f"{cls.base_asset}-PERP"
         cls.domain = "ftx_perpetual_testnet"
 
     def setUp(self) -> None:
@@ -148,12 +146,12 @@ class FtxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertIsInstance(result, OrderBook)
         self.assertTrue((time.time() - result.snapshot_uid) < 1)
 
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    @patch("websockets.connect")
     def test_listen_for_trades(self, ws_connect_mock):
         trades_queue = asyncio.Queue()
 
         websocket_mock = self.mocking_assistant.create_websocket_mock()
-        websocket_mock.receive_json.side_effect = Exception()
+        websocket_mock.recv.side_effect = Exception()
         websocket_mock.close.side_effect = lambda: trades_queue.put_nowait(1)
         ws_connect_mock.return_value = websocket_mock
 
@@ -166,7 +164,7 @@ class FtxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         # Add trade event message be processed
 
         # Lock the test to let the async task run
-        first_trade = asyncio.get_event_loop().run_until_complete(trades_queue.get())
+        asyncio.get_event_loop().run_until_complete(trades_queue.get())
 
         try:
             task.cancel()
@@ -175,41 +173,17 @@ class FtxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             # The exception will happen when cancelling the task
             pass
 
-        self.assertTrue(first_trade.content['price'] > Decimal('0'))
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                "Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
 
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    def test_listen_for_order_book_snapshot_event(self, ws_connect_mock):
+    @patch("websockets.connect")
+    def test_listen_for_order_book_diff_event_logs_exception(self, ws_connect_mock):
         order_book_messages = asyncio.Queue()
 
         websocket_mock = self.mocking_assistant.create_websocket_mock()
-        websocket_mock.receive_json.side_effect = Exception()
-        websocket_mock.close.side_effect = lambda: order_book_messages.put_nowait(1)
-        ws_connect_mock.return_value = websocket_mock
-
-        self.data_source = FtxPerpetualAPIOrderBookDataSource(
-            trading_pairs=["BTC-PERP"]
-        )
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_order_book_snapshots(ev_loop=asyncio.get_event_loop(), output=order_book_messages))
-
-        # Lock the test to let the async task run
-        order_book_message = asyncio.get_event_loop().run_until_complete(order_book_messages.get())
-
-        try:
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        self.assertTrue(order_book_message.asks[0].price > Decimal('0'))
-
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    def test_listen_for_order_book_diff_event(self, ws_connect_mock):
-        order_book_messages = asyncio.Queue()
-
-        websocket_mock = self.mocking_assistant.create_websocket_mock()
-        websocket_mock.receive_json.side_effect = Exception()
+        websocket_mock.recv.side_effect = Exception()
         websocket_mock.close.side_effect = lambda: order_book_messages.put_nowait(1)
         ws_connect_mock.return_value = websocket_mock
 
@@ -220,7 +194,7 @@ class FtxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.data_source.listen_for_order_book_diffs(ev_loop=asyncio.get_event_loop(), output=order_book_messages))
 
         # Lock the test to let the async task run
-        order_book_message = asyncio.get_event_loop().run_until_complete(order_book_messages.get())
+        asyncio.get_event_loop().run_until_complete(order_book_messages.get())
 
         try:
             task.cancel()
@@ -228,92 +202,103 @@ class FtxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         except asyncio.CancelledError:
             # The exception will happen when cancelling the task
             pass
-        if len(order_book_message.bids) > 0:
-            price = order_book_message.bids[0].price
-        else:
-            price = order_book_message.asks[0].price
 
-        self.assertTrue(price > Decimal('0'))
-
-    @aioresponses()
-    def test_fetch_trading_pairs(self, mock_api):
-        url = f"{FTX_REST_URL}{FTX_EXCHANGE_INFO_PATH}"
-        regex_url = re.compile(f"^{url}")
-        mock_response: Dict[str, Any] = {
-            "success": True,
-            "result": [
-                {
-                    "name": "HBOT-PERP",
-                    "baseCurrency": None,
-                    "quoteCurrency": None,
-                    "quoteVolume24h": 28914.76,
-                    "change1h": 0.012,
-                    "change24h": 0.0299,
-                    "changeBod": 0.0156,
-                    "highLeverageFeeExempt": False,
-                    "minProvideSize": 0.001,
-                    "type": "future",
-                    "underlying": "HBOT",
-                    "enabled": True,
-                    "ask": 3949.25,
-                    "bid": 3949,
-                    "last": 10579.52,
-                    "postOnly": False,
-                    "price": 10579.52,
-                    "priceIncrement": 0.25,
-                    "sizeIncrement": 0.0001,
-                    "restricted": False,
-                    "volumeUsd24h": 28914.76,
-                    "largeOrderThreshold": 5000.0,
-                    "isEtfMarket": False,
-                }
-            ]
-        }
-        mock_api.get(regex_url, body=json.dumps(mock_response))
-
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.fetch_trading_pairs())
-        trading_pairs = asyncio.get_event_loop().run_until_complete(task)
-        self.assertTrue(len(trading_pairs) > 0)
-        self.assertEqual(trading_pairs[0], "HBOT-USD")
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                "Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
 
     @aioresponses()
-    def test_get_mid_prices(self, mock_api):
-        trading_pair = "HBOT-PERP"
-        url = f"{FTX_REST_URL}{FTX_EXCHANGE_INFO_PATH}/{convert_to_exchange_trading_pair(trading_pair)}"
-        regex_url = re.compile(f"^{url}")
-        mock_response: Dict[str, Any] = {
+    @patch("hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_api_order_book_data_source"
+           ".FtxPerpetualAPIOrderBookDataSource._time")
+    def test_get_new_order_book_successful(self, mock_api, time_mock):
+        time_mock.return_value = 1640001112.223334
+        url = f"{FTX_REST_URL}/markets/{self.ex_trading_pair}/orderbook"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        resp = {
             "success": True,
             "result": {
-                "name": trading_pair,
-                "baseCurrency": None,
-                "quoteCurrency": None,
-                "quoteVolume24h": 28914.76,
-                "change1h": 0.012,
-                "change24h": 0.0299,
-                "changeBod": 0.0156,
-                "highLeverageFeeExempt": False,
-                "minProvideSize": 0.001,
-                "type": "future",
-                "underlying": "HBOT",
-                "enabled": True,
-                "ask": 3949.25,
-                "bid": 3949,
-                "last": 10579.52,
-                "postOnly": False,
-                "price": 10579.52,
-                "priceIncrement": 0.25,
-                "sizeIncrement": 0.0001,
-                "restricted": False,
-                "volumeUsd24h": 28914.76,
-                "largeOrderThreshold": 5000.0,
-                "isEtfMarket": False,
+                "asks": [
+                    [
+                        4114.25,
+                        6.263
+                    ]
+                ],
+                "bids": [
+                    [
+                        4112.25,
+                        49.29
+                    ]
+                ]
             }
         }
-        mock_api.get(regex_url, body=json.dumps(mock_response))
 
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.get_mid_price(trading_pair))
-        mid_price = asyncio.get_event_loop().run_until_complete(task)
-        self.assertTrue(mid_price > Decimal('0'))
-        self.assertEqual(mid_price, Decimal('3949.125'))
+        mock_api.get(regex_url, body=json.dumps(resp))
+
+        order_book: OrderBook = self.async_run_with_timeout(
+            self.data_source.get_new_order_book(self.trading_pair)
+        )
+
+        expected_update_id = int(time_mock.return_value)
+
+        self.assertEqual(expected_update_id, order_book.snapshot_uid)
+        bids = list(order_book.bid_entries())
+        asks = list(order_book.ask_entries())
+        self.assertEqual(1, len(bids))
+        self.assertEqual(4112.25, bids[0].price)
+        self.assertEqual(49.29, bids[0].amount)
+        self.assertEqual(expected_update_id, bids[0].update_id)
+        self.assertEqual(1, len(asks))
+        self.assertEqual(4114.25, asks[0].price)
+        self.assertEqual(6.263, asks[0].amount)
+        self.assertEqual(expected_update_id, asks[0].update_id)
+
+    @aioresponses()
+    @patch("hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_api_order_book_data_source"
+           ".FtxPerpetualAPIOrderBookDataSource._time")
+    def test_listen_for_order_book_snapshots_successful(self, mock_api, time_mock):
+        time_mock.return_value = 1640001112.223334
+        url = f"{FTX_REST_URL}/markets/{self.ex_trading_pair}/orderbook"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        resp = {
+            "success": True,
+            "result": {
+                "asks": [
+                    [
+                        4114.25,
+                        6.263
+                    ]
+                ],
+                "bids": [
+                    [
+                        4112.25,
+                        49.29
+                    ]
+                ]
+            }
+        }
+
+        mock_api.get(regex_url, body=json.dumps(resp))
+
+        output_queue = asyncio.Queue()
+        self.listening_task = asyncio.get_event_loop().create_task(
+            self.data_source.listen_for_order_book_snapshots(
+                ev_loop=self.ev_loop, output=output_queue)
+        )
+
+        snapshot_msg: OrderBookMessage = self.async_run_with_timeout(output_queue.get())
+        expected_update_id = int(time_mock.return_value)
+
+        self.assertEqual(expected_update_id, snapshot_msg.update_id)
+        bids = list(snapshot_msg.bids)
+        asks = list(snapshot_msg.asks)
+        self.assertEqual(1, len(bids))
+        self.assertEqual(4112.25, bids[0].price)
+        self.assertEqual(49.29, bids[0].amount)
+        self.assertEqual(expected_update_id, bids[0].update_id)
+        self.assertEqual(1, len(asks))
+        self.assertEqual(4114.25, asks[0].price)
+        self.assertEqual(6.263, asks[0].amount)
+        self.assertEqual(expected_update_id, asks[0].update_id)

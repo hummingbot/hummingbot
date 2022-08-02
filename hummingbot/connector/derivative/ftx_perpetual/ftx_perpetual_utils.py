@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from pydantic import Field, SecretStr
 
@@ -15,6 +15,15 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[s
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("USD", "PERP")
+
+
+def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its exchange information
+    :param exchange_info: the exchange information for a trading pair
+    :return: True if the trading pair is enabled, False otherwise
+    """
+    return exchange_info.get("futureType", None) == "perpetual" and exchange_info.get("enabled", False)
 
 
 class FtxPerpetualConfigMap(BaseConnectorConfigMap):

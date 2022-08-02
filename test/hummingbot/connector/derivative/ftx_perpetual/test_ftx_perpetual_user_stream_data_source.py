@@ -1,7 +1,8 @@
 import asyncio
+import json
 import unittest
 from typing import Awaitable, Optional
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import ujson
 from aioresponses.core import aioresponses
@@ -92,7 +93,7 @@ class FtxPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         return ujson.dumps(resp)
 
     @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("websockets.connect")
     def test_listen_for_user_stream_unsuccessful(self, mock_api, mock_ws):
         url = f"{FTX_API_ENDPOINT}"
 
@@ -109,3 +110,54 @@ class FtxPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
             self.async_run_with_timeout(msg_queue.get())
         except Exception:
             pass
+
+    @patch("websockets.connect")
+    def test_listen_for_user_stream_subscribes_to_orders_and_fill_events(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        result_subscribe_fills = {
+            "type": "subscribed",
+            "channel": "fills"}
+        result_subscribe_orders = {
+            "type": "subscribed",
+            "channel": "orders"}
+
+        self.mocking_assistant.add_websocket_text_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_fills))
+        self.mocking_assistant.add_websocket_text_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_orders))
+
+        output_queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(
+            ev_loop=self.ev_loop,
+            output=output_queue))
+
+        self.mocking_assistant.run_until_all_text_messages_delivered(ws_connect_mock.return_value)
+
+        sent_messages = self.mocking_assistant.text_messages_sent_through_websocket(
+            websocket_mock=ws_connect_mock.return_value)
+
+        self.assertEqual(3, len(sent_messages))
+
+        message = json.loads(sent_messages[0])
+        self.assertEqual("login", message["op"])
+        self.assertIn("key", message["args"])
+        self.assertIn("sign", message["args"])
+        self.assertIn("time", message["args"])
+
+        expected_orders_subscription = {
+            "op": "subscribe",
+            "channel": "orders",
+        }
+        message = json.loads(sent_messages[1])
+        self.assertEqual(expected_orders_subscription, message)
+
+        expected_fills_subscription = {
+            "op": "subscribe",
+            "channel": "fills",
+        }
+        message = json.loads(sent_messages[2])
+        self.assertEqual(expected_fills_subscription, message)

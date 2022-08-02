@@ -10,8 +10,10 @@ import pandas as pd
 import requests
 import simplejson
 from async_timeout import timeout
+from bidict import bidict
 from dateutil.parser import parse as dataparse
 
+from hummingbot.connector.derivative.ftx_perpetual import ftx_perpetual_utils as utils
 from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_api_order_book_data_source import (
     FtxPerpetualAPIOrderBookDataSource,
 )
@@ -26,18 +28,21 @@ from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
 )
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.derivative_base import NaN
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import PositionSide
+from hummingbot.core.data_type.common import PositionMode, PositionSide
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
+    AccountEvent,
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     FundingInfo,
@@ -48,6 +53,7 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     OrderType,
     PositionAction,
+    PositionModeChangeEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
     TradeType,
@@ -128,6 +134,7 @@ class FtxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._poll_interval = poll_interval
         self._shared_client = None
         self._polling_update_task = None
+        self._polling_update_task = None
         self._trading_required = trading_required
         self._trading_rules = {}
         self._trading_rules_polling_task = None
@@ -137,6 +144,7 @@ class FtxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                                   trading_pairs=trading_pairs)
         self._user_stream_tracker_task = None
         self._trading_pairs = trading_pairs
+        self._budget_checker = PerpetualBudgetChecker(exchange=self)
 
     @property
     def name(self) -> str:
@@ -973,3 +981,61 @@ class FtxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 price: Decimal = None):
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("ftx_perpetual", is_maker)
+
+    async def _initialize_trading_pair_symbol_map(self):
+        try:
+            exchange_info = await self._api_request("GET", path_url="/markets")
+            self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
+        except Exception:
+            self.logger().exception("There was an error requesting exchange info.")
+
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        mapping = bidict()
+        for symbol_data in filter(utils.is_exchange_information_valid, exchange_info["result"]):
+            base_currency, _ = symbol_data["name"].split("-")
+            mapping[symbol_data["name"]] = combine_to_hb_trading_pair(base=base_currency,
+                                                                      quote="USD")
+        self._set_trading_pair_symbol_map(mapping)
+
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+        resp_json = await self._api_request(
+            http_method="GET",
+            path_url=f"/markets/{symbol}".format(symbol),
+        )
+
+        return float(resp_json["result"][0]["last"])
+
+    def supported_position_modes(self):
+        """
+        This method needs to be overridden to provide the accurate information depending on the exchange.
+        """
+        return [PositionMode.ONEWAY]
+
+    def set_position_mode(self, position_mode: PositionMode):
+        """
+        CoinFLEX only supports ONEWAY position mode.
+        """
+        self._position_mode = PositionMode.ONEWAY
+
+        if self._trading_pairs is not None:
+            for trading_pair in self._trading_pairs:
+                if position_mode in self.supported_position_modes():
+                    self.trigger_event(AccountEvent.PositionModeChangeSucceeded,
+                                       PositionModeChangeEvent(
+                                           self.current_timestamp,
+                                           trading_pair,
+                                           position_mode
+                                       ))
+                    self.logger().info(f"Using {position_mode.name} position mode.")
+                else:
+                    self.trigger_event(AccountEvent.PositionModeChangeFailed,
+                                       PositionModeChangeEvent(
+                                           self.current_timestamp,
+                                           trading_pair,
+                                           position_mode,
+                                           "FTX Perpetual only supports ONEWAY position mode."
+                                       ))
+                    self.logger().error(f"Unable to set position mode to {position_mode.name}.")
+                    self.logger().info(f"Using {self._position_mode.name} position mode.")

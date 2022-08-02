@@ -1,7 +1,5 @@
-#!/usr/bin/env python
 import asyncio
 import logging
-import time
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
@@ -63,39 +61,6 @@ class FtxPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_trading_pairs(self) -> List[str]:
         return self._trading_pairs
 
-    @staticmethod
-    async def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        try:
-            async with aiohttp.ClientSession() as client:
-                async with client.get(f"{FTX_REST_URL}{FTX_EXCHANGE_INFO_PATH}/{convert_to_exchange_trading_pair(trading_pair)}", timeout=API_CALL_TIMEOUT) as response:
-                    if response.status == 200:
-                        resp: Dict[str, Any] = await response.json()
-                        record = resp["result"]
-                        result = (Decimal(record.get("bid", "0")) + Decimal(record.get("ask", "0"))) / Decimal("2")
-                        return result if result else None
-        except Exception:
-            pass
-
-        return None
-
-    @staticmethod
-    async def fetch_trading_pairs() -> List[str]:
-        try:
-            async with aiohttp.ClientSession() as client:
-                async with client.get(f"{FTX_REST_URL}{FTX_EXCHANGE_INFO_PATH}", timeout=API_CALL_TIMEOUT) as response:
-                    if response.status == 200:
-                        all_trading_pairs: Dict[str, Any] = await response.json()
-                        valid_trading_pairs: list = []
-                        for item in all_trading_pairs["result"]:
-                            name_indicator = item['name'][-4:]
-                            if name_indicator == "PERP":
-                                valid_trading_pairs.append(convert_from_exchange_trading_pair(item["name"]))
-                        return valid_trading_pairs
-        except Exception:
-            pass
-
-        return []
-
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000) -> Dict[str, Any]:
         async with client.get(f"{FTX_REST_URL}{FTX_EXCHANGE_INFO_PATH}/{convert_to_exchange_trading_pair(trading_pair)}/orderbook?depth=100") as response:
             response: aiohttp.ClientResponse = response
@@ -109,7 +74,7 @@ class FtxPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         async with aiohttp.ClientSession() as client:
             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000)
-            snapshot_timestamp: float = time.time()
+            snapshot_timestamp: float = self._time()
             snapshot_msg: OrderBookMessage = FtxPerpetualOrderBook.restful_snapshot_message_from_exchange(
                 snapshot,
                 snapshot_timestamp,
@@ -118,6 +83,31 @@ class FtxPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             order_book: OrderBook = self.order_book_create_function()
             order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
             return order_book
+
+    async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
+        async with aiohttp.ClientSession() as client:
+            snapshot_response: Dict[str, Any] = await self.get_snapshot(
+                client=client,
+                trading_pair=trading_pair)
+        snapshot_data: Dict[str, Any] = snapshot_response["result"]
+        snapshot_timestamp: float = self._time()
+        update_id: int = int(snapshot_timestamp)
+
+        order_book_message_content = {
+            "market": convert_to_exchange_trading_pair(trading_pair),
+            "trading_pair": trading_pair,
+            "update_id": update_id,
+            "data": {
+                "bids": [(price, amount) for price, amount in snapshot_data.get("bids", [])],
+                "asks": [(price, amount) for price, amount in snapshot_data.get("asks", [])],
+            }
+        }
+        snapshot_msg: OrderBookMessage = FtxPerpetualOrderBook.snapshot_message_from_exchange(
+            msg=order_book_message_content,
+            timestamp=snapshot_timestamp,
+        )
+
+        return snapshot_msg
 
     async def _inner_messages(self,
                               ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
@@ -139,77 +129,61 @@ class FtxPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             await ws.close()
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        ws = None
         while True:
             try:
-                async with websockets.connect(FTX_WS_FEED) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    for pair in self._trading_pairs:
-                        subscribe_request: Dict[str, Any] = {
-                            "op": "subscribe",
-                            "channel": "trades",
-                            "market": convert_to_exchange_trading_pair(pair)
-                        }
-                        await ws.send(ujson.dumps(subscribe_request))
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = simplejson.loads(raw_msg, parse_float=Decimal)
-                        if "channel" in msg:
-                            if msg["channel"] == "trades" and msg["type"] == "update":
-                                for trade in msg["data"]:
-                                    trade_msg: OrderBookMessage = FtxPerpetualOrderBook.trade_message_from_exchange(msg, trade)
-                                    output.put_nowait(trade_msg)
+                ws = websockets.connect(FTX_WS_FEED)
+                for pair in self._trading_pairs:
+                    subscribe_request: Dict[str, Any] = {
+                        "op": "subscribe",
+                        "channel": "trades",
+                        "market": convert_to_exchange_trading_pair(pair)
+                    }
+                    await ws.send(ujson.dumps(subscribe_request))
+                async for raw_msg in self._inner_messages(ws):
+                    msg = simplejson.loads(raw_msg, parse_float=Decimal)
+                    if "channel" in msg:
+                        if msg["channel"] == "trades" and msg["type"] == "update":
+                            for trade in msg["data"]:
+                                trade_msg: OrderBookMessage = FtxPerpetualOrderBook.trade_message_from_exchange(msg, trade)
+                                output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
                 await asyncio.sleep(30.0)
+            finally:
+                if ws is not None:
+                    ws.close()
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        ws = None
         while True:
             try:
-                async with websockets.connect(FTX_WS_FEED) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    for pair in self._trading_pairs:
-                        subscribe_request: Dict[str, Any] = {
-                            "op": "subscribe",
-                            "channel": "orderbook",
-                            "market": convert_to_exchange_trading_pair(pair)
-                        }
-                        await ws.send(ujson.dumps(subscribe_request))
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = simplejson.loads(raw_msg, parse_float=Decimal)
-                        if "channel" in msg:
-                            if msg["channel"] == "orderbook" and msg["type"] == "update":
-                                order_book_message: OrderBookMessage = FtxPerpetualOrderBook.diff_message_from_exchange(msg, msg["data"]["time"])
-                                output.put_nowait(order_book_message)
+                ws = websockets.connect(FTX_WS_FEED)
+                for pair in self._trading_pairs:
+                    subscribe_request: Dict[str, Any] = {
+                        "op": "subscribe",
+                        "channel": "orderbook",
+                        "market": convert_to_exchange_trading_pair(pair)
+                    }
+                    await ws.send(ujson.dumps(subscribe_request))
+                async for raw_msg in self._inner_messages(ws):
+                    msg = simplejson.loads(raw_msg, parse_float=Decimal)
+                    if "channel" in msg:
+                        if msg["channel"] == "orderbook" and msg["type"] == "update":
+                            order_book_message: OrderBookMessage = FtxPerpetualOrderBook.diff_message_from_exchange(msg, msg["data"]["time"])
+                            output.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
                 await asyncio.sleep(30.0)
+            finally:
+                if ws is not None:
+                    ws.close()
 
-    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        while True:
-            try:
-                async with websockets.connect(FTX_WS_FEED) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    for pair in self._trading_pairs:
-                        subscribe_request: Dict[str, Any] = {
-                            "op": "subscribe",
-                            "channel": "orderbook",
-                            "market": convert_to_exchange_trading_pair(pair)
-                        }
-                        await ws.send(ujson.dumps(subscribe_request))
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = simplejson.loads(raw_msg, parse_float=Decimal)
-                        if "channel" in msg:
-                            if msg["channel"] == "orderbook" and msg["type"] == "partial":
-                                order_book_message: OrderBookMessage = FtxPerpetualOrderBook.snapshot_message_from_exchange(msg, msg["data"]["time"])
-                                output.put_nowait(order_book_message)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
-                                    exc_info=True)
-                await asyncio.sleep(30.0)
+    async def listen_for_subscriptions(self):
+        pass

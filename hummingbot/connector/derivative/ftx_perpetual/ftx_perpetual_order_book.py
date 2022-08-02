@@ -44,7 +44,7 @@ class FtxPerpetualOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": convert_from_exchange_trading_pair(msg["market"]),
-            "update_id": timestamp,
+            "update_id": int(timestamp),
             "bids": msg["data"]["bids"],
             "asks": msg["data"]["asks"]
         }, timestamp=timestamp)

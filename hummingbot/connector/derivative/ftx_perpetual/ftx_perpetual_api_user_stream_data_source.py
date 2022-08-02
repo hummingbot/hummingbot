@@ -49,7 +49,7 @@ class FtxPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                ws = await self.get_ws_connection()
+                ws = self.get_ws_connection()
                 await self.set_subscriptions(ws)
                 async for message in self._inner_messages(ws):
                     decoded: Dict[str, any] = simplejson.loads(message, parse_float=Decimal)
