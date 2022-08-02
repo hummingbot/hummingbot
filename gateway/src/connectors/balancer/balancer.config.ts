@@ -5,7 +5,7 @@ export namespace BalancerConfig {
   export interface NetworkConfig {
     maximumHops: number;
     allowedSlippage: string;
-    gasLimit: number;
+    gasLimitEstimate: number;
     balancerVaultAddress: (network: string) => string;
     ttl: number;
     tradingTypes: Array<string>;
@@ -13,11 +13,13 @@ export namespace BalancerConfig {
   }
 
   export const config: NetworkConfig = {
-    maximumHops: ConfigManagerV2.getInstance().get(`uniswap.maximumHops`),
+    maximumHops: ConfigManagerV2.getInstance().get(`balancer.maximumHops`),
     allowedSlippage: ConfigManagerV2.getInstance().get(
       'balancer.allowedSlippage'
     ),
-    gasLimit: ConfigManagerV2.getInstance().get('balancer.gasLimit'),
+    gasLimitEstimate: ConfigManagerV2.getInstance().get(
+      `balancer.gasLimitEstimate`
+    ),
     ttl: ConfigManagerV2.getInstance().get('balancer.ttl'),
     balancerVaultAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(

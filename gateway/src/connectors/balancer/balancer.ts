@@ -39,7 +39,7 @@ export class Balancer implements Uniswapish {
   private ethereum: Ethereum;
   private _chain: string;
   private _routerAbi: ContractInterface;
-  private _gasLimit: number;
+  private _gasLimitEstimate: number;
   private _ttl: number;
   private chainId;
   private tokenList: Record<string, Token> = {};
@@ -54,7 +54,7 @@ export class Balancer implements Uniswapish {
     this.chainId = this.ethereum.chainId;
     this._ttl = BalancerConfig.config.ttl;
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = BalancerConfig.config.gasLimit;
+    this._gasLimitEstimate = BalancerConfig.config.gasLimitEstimate;
     // ['mainnet', 'kovan', 'rinkeby']
     let balancerNetwork = Network.MAINNET;
     if (network === 'mainnet') {
@@ -139,8 +139,8 @@ export class Balancer implements Uniswapish {
   /**
    * Default gas limit for swap transactions.
    */
-  public get gasLimit(): number {
-    return this._gasLimit;
+  public get gasLimitEstimate(): number {
+    return this._gasLimitEstimate;
   }
 
   /**
