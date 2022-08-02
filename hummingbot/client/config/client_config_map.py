@@ -597,7 +597,7 @@ class BinanceRateSourceMode(ExchangeRateSourceModeBase):
 
 class CoinGeckoRateSourceMode(RateSourceModeBase):
     extra_tokens: List[str] = Field(
-        default=...,
+        default=[],
         client_data=ClientFieldData(
             prompt=lambda cm: (
                 "List of comma-delimited CoinGecko token ids to always include"
