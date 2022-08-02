@@ -5,6 +5,7 @@ import { Polygon } from '../chains/polygon/polygon';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { Pangolin } from '../connectors/pangolin/pangolin';
+import { Openocean } from '../connectors/openocean/openocean';
 import { Quickswap } from '../connectors/quickswap/quickswap';
 import { Perp } from '../connectors/perp/perp';
 import {
@@ -51,6 +52,8 @@ export async function getConnector<T>(
     connectorInstance = Perp.getInstance(chain, network, address);
   } else if (chain === 'avalanche' && connector === 'pangolin') {
     connectorInstance = Pangolin.getInstance(chain, network);
+  } else if (chain === 'avalanche' && connector === 'openocean') {
+    connectorInstance = Openocean.getInstance(chain, network);
   } else if (chain === 'avalanche' && connector === 'traderjoe') {
     connectorInstance = Traderjoe.getInstance(chain, network);
   } else {

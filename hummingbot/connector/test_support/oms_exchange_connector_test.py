@@ -374,7 +374,7 @@ class OMSExchangeTests:
 
         @property
         def is_order_fill_http_update_included_in_status_update(self) -> bool:
-            return False
+            return True
 
         @property
         def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
@@ -414,12 +414,11 @@ class OMSExchangeTests:
             self.assertEqual(request_data[CONSTANTS.CL_ORDER_ID_FIELD], int(order.client_order_id))
 
         def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
-            instrument_id = str(self.pair_id)
-            request_data = json.loads(request_call.kwargs["data"])
+            request_data = request_call.kwargs["params"]
             self.assertEqual(request_data[CONSTANTS.OMS_ID_FIELD], self.oms_id)
             self.assertEqual(request_data[CONSTANTS.ACCOUNT_ID_FIELD], self.account_id)
             self.assertEqual(request_data[CONSTANTS.USER_ID_FIELD], self.user_id)
-            self.assertEqual(request_data[CONSTANTS.INSTRUMENT_ID_FIELD], instrument_id)
+            self.assertEqual(request_data[CONSTANTS.ORDER_ID_FIELD], int(order.exchange_order_id))
 
         def configure_successful_cancelation_response(
             self,

@@ -16,15 +16,14 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-class Status(Enum):
+class GatewayStatus(Enum):
     ONLINE = 1
     OFFLINE = 2
 
 
-class StatusMonitor:
+class GatewayStatusMonitor:
     _monitor_task: Optional[asyncio.Task]
-    _current_status: Status
-    _current_connector_conn_status: Status
+    _gateway_status: GatewayStatus
     _sm_logger: Optional[logging.Logger] = None
 
     @classmethod
@@ -35,18 +34,22 @@ class StatusMonitor:
 
     def __init__(self, app: "HummingbotApplication"):
         self._app = app
-        self._current_status = Status.OFFLINE
-        self._current_connector_conn_status = Status.OFFLINE
+        self._gateway_status = GatewayStatus.OFFLINE
         self._monitor_task = None
         self._gateway_config_keys: List[str] = []
+        self._gateway_ready_event: asyncio.Event = asyncio.Event()
 
     @property
-    def current_status(self) -> Status:
-        return self._current_status
+    def ready(self) -> bool:
+        return self.gateway_status is GatewayStatus.ONLINE
 
     @property
-    def current_connector_conn_status(self) -> Status:
-        return self._current_connector_conn_status
+    def ready_event(self) -> asyncio.Event:
+        return self._gateway_ready_event
+
+    @property
+    def gateway_status(self) -> GatewayStatus:
+        return self._gateway_status
 
     @property
     def gateway_config_keys(self) -> List[str]:
@@ -73,32 +76,28 @@ class StatusMonitor:
         :param max_tries: maximum number of retries (default is 30)
         """
         while True:
-            if self._current_status is Status.ONLINE or max_tries <= 0:
-                return self._current_status
+            if self.ready or max_tries <= 0:
+                return self.ready
             await asyncio.sleep(POLL_INTERVAL)
             max_tries = max_tries - 1
 
     async def _monitor_loop(self):
         while True:
             try:
-                gateway_instance = self._get_gateway_instance()
-                if await asyncio.wait_for(gateway_instance.ping_gateway(), timeout=POLL_TIMEOUT):
-                    if self._current_status is Status.OFFLINE:
-                        gateway_connectors = await gateway_instance.get_connectors(fail_silently=True)
+                gateway_http_client = self._get_gateway_instance()
+                if await asyncio.wait_for(gateway_http_client.ping_gateway(), timeout=POLL_TIMEOUT):
+                    if self.gateway_status is GatewayStatus.OFFLINE:
+                        gateway_connectors = await gateway_http_client.get_connectors(fail_silently=True)
                         GATEWAY_CONNECTORS.clear()
                         GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
                         await self.update_gateway_config_key_list()
-                        self.logger().info("Connection to Gateway established.")
-                    elif self._current_connector_conn_status is Status.OFFLINE:
-                        gateway_connectors_status = await GatewayHttpClient.get_instance().get_gateway_status(fail_silently=True)
-                        self._current_connector_conn_status = Status.ONLINE \
-                            if any([status["currentBlockNumber"] > 0 for status in gateway_connectors_status]) else Status.OFFLINE
-                    self._current_status = Status.ONLINE
+
+                    self._gateway_status = GatewayStatus.ONLINE
                 else:
-                    if self._current_status is Status.ONLINE:
-                        self.logger().info("Connection to Gateway lost...")
-                        self._current_status = Status.OFFLINE
-                        self._current_connector_conn_status = Status.OFFLINE
+                    if self._gateway_status is GatewayStatus.ONLINE:
+                        self.logger().info("Connection to Gateway container lost...")
+                        self._gateway_status = GatewayStatus.OFFLINE
+
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -107,7 +106,14 @@ class StatusMonitor:
                 the try block. They wouldn't be as a result of http related error because they're expected to fail silently.
                 """
                 pass
-            await asyncio.sleep(POLL_INTERVAL)
+            finally:
+                if self.gateway_status is GatewayStatus.ONLINE:
+                    if not self._gateway_ready_event.is_set():
+                        self.logger().info("Gateway Service is ONLINE.")
+                    self._gateway_ready_event.set()
+                else:
+                    self._gateway_ready_event.clear()
+                await asyncio.sleep(POLL_INTERVAL)
 
     async def _fetch_gateway_configs(self) -> Dict[str, Any]:
         return await self._get_gateway_instance().get_configuration(fail_silently=True)
