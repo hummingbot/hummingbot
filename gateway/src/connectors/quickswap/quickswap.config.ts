@@ -24,6 +24,8 @@ export namespace QuickswapConfig {
         'quickswap.contractAddresses.' + network + '.routerAddress'
       ),
     tradingTypes: ['EVM_AMM'],
-    availableNetworks: [{ chain: 'polygon', networks: ['mainnet', 'mumbai'] }],
+    availableNetworks: [
+      { chain: ['polygon'], networks: ['mainnet', 'mumbai'] },
+    ],
   };
 }
