@@ -54,6 +54,8 @@ PAPER_TRADE_EXCHANGES = [  # todo: fix after global config map refactor
     "mock_paper_exchange",
 ]
 
+CONNECTOR_SUBMODULES_THAT_ARE_NOT_TYPES = ["test_support", "utilities"]
+
 
 class ConnectorType(Enum):
     """
@@ -268,7 +270,7 @@ class AllConnectorSettings:
 
         type_dirs: List[DirEntry] = [
             cast(DirEntry, f) for f in scandir(f"{root_path() / 'hummingbot' / 'connector'}")
-            if f.is_dir()
+            if f.is_dir() and f.name not in CONNECTOR_SUBMODULES_THAT_ARE_NOT_TYPES
         ]
         for type_dir in type_dirs:
             connector_dirs: List[DirEntry] = [
