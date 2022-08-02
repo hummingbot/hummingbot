@@ -29,18 +29,21 @@ class AsyncThrottlerBase(ABC):
                  rate_limits: List[RateLimit],
                  retry_interval: float = 0.1,
                  safety_margin_pct: Optional[float] = 0.05,  # An extra safety margin, in percentage.
+                 limits_share_percentage: Optional[Decimal] = None
                  ):
         """
         :param rate_limits: List of RateLimit(s).
         :param retry_interval: Time between every capacity check.
-        :param safety_margin: Percentage of limit to be added as a safety margin when calculating capacity to ensure calls are within the limit.
+        :param safety_margin_pct: Percentage of limit to be added as a safety margin when calculating capacity to ensure calls are within the limit.
+        :param limits_share_percentage: Percentage of the limits to be used by this instance (important when multiple
+            bots operate with the same account)
         """
         # Rate Limit Definitions
         self._rate_limits: List[RateLimit] = copy.deepcopy(rate_limits)
-        client_config = self._client_config_map()
 
         # If configured, users can define the percentage of rate limits to allocate to the throttler.
-        self.limits_pct: Decimal = client_config.rate_limits_share_pct / 100
+        share_percentage = limits_share_percentage or self._client_config_map().rate_limits_share_pct
+        self.limits_pct: Decimal = share_percentage / 100
         for rate_limit in self._rate_limits:
             rate_limit.limit = max(Decimal("1"),
                                    math.floor(Decimal(str(rate_limit.limit)) * self.limits_pct))
