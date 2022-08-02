@@ -16,7 +16,7 @@ from hummingbot.connector.exchange.bittrex.bittrex_api_user_stream_data_source i
 from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -100,7 +100,9 @@ class BittrexExchange(ExchangePyBase):
         return [OrderType.LIMIT, OrderType.MARKET]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        return False
+        error_description = str(request_exception)
+        is_time_synchronizer_related = '{"code":"INVALID_TIMESTAMP"}' in error_description
+        return is_time_synchronizer_related
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -200,6 +202,8 @@ class BittrexExchange(ExchangePyBase):
                                           min_base_amount_increment=Decimal(precision),
                                           min_notional_size=Decimal(precision)
                                           ))
+            except KeyError:
+                continue
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {market}. Skipping.", exc_info=True)
         return retval
@@ -213,7 +217,6 @@ class BittrexExchange(ExchangePyBase):
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=fees["marketSymbol"])
             self._trading_fees[trading_pair] = fees
 
-    # TODO Look into fees
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         exchange_order_id = await order.get_exchange_order_id()
         trades_from_exchange = await self._api_get(
@@ -224,11 +227,12 @@ class BittrexExchange(ExchangePyBase):
         for trade in trades_from_exchange:
             if trade["orderId"] != exchange_order_id:
                 continue
+            percent_token = split_hb_trading_pair(order.trading_pair)[-1]
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
                 trade_type=order.trade_type,
-                percent_token=order.trading_pair.split("-")[-1],
-                flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=order.trading_pair.split("-")[-1])]
+                percent_token=percent_token,
+                flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=percent_token)]
             )
             trade_update = TradeUpdate(
                 trade_id=str(trade["id"]),
@@ -302,7 +306,6 @@ class BittrexExchange(ExchangePyBase):
             )
             self._order_tracker.process_order_update(order_update=order_update)
 
-    # TODO fees
     async def _process_execution_event(self, events: Dict[str, Any]):
         for execution_event in events:
             order_id = execution_event["orderId"]
@@ -313,12 +316,13 @@ class BittrexExchange(ExchangePyBase):
                     tracked_order = order
                     break
             if tracked_order is not None:
+                percent_token = split_hb_trading_pair(tracked_order.trading_pair)[-1]
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=self.trade_fee_schema(),
                     trade_type=tracked_order.trade_type,
-                    percent_token=tracked_order.trading_pair.split("-")[-1],
+                    percent_token=percent_token,
                     flat_fees=[TokenAmount(amount=Decimal(execution_event["commission"]),
-                                           token=tracked_order.trading_pair.split("-")[-1])]
+                                           token=percent_token)]
                 )
                 trade_update = TradeUpdate(
                     trade_id=execution_event["id"],
@@ -333,7 +337,6 @@ class BittrexExchange(ExchangePyBase):
                 )
                 self._order_tracker.process_trade_update(trade_update)
 
-    # TODO change this method
     def _get_fee(self,
                  base_currency: str,
                  quote_currency: str,
@@ -342,7 +345,6 @@ class BittrexExchange(ExchangePyBase):
                  amount: Decimal,
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
-
         is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
         fee = build_trade_fee(
             self.name,

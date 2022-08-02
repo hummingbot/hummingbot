@@ -37,7 +37,7 @@ class BittrexAuth(AuthBase):
         return hashlib.sha512(json_byte).hexdigest()
 
     def generate_REST_auth_params(self, request: RESTRequest) -> Dict[str, Any]:
-        timestamp = self.time_provider.time()
+        timestamp = str(int(self.time_provider.time() * 1000))
         url = request.url
         request_body = {}
         if "body" in request.__dict__:
@@ -46,7 +46,7 @@ class BittrexAuth(AuthBase):
         if request.params:
             param_str = urllib.parse.urlencode(request.params)
             url = f"{url}?{param_str}"
-        content_to_sign = "".join([str(timestamp), url, request.method.name, content_hash, ""])
+        content_to_sign = "".join([timestamp, url, request.method.name, content_hash, ""])
         signature = hmac.new(self.secret_key.encode(), content_to_sign.encode(), hashlib.sha512).hexdigest()
         headers = {
             "Api-Key": self.api_key,
