@@ -331,7 +331,7 @@ export class EthereumBase {
       }
     }
     const params: any = {
-      gasLimitTransaction: this._gasLimitTransaction,
+      gasLimit: this._gasLimitTransaction,
       nonce: nonce,
     };
     if (maxFeePerGas || maxPriorityFeePerGas) {
