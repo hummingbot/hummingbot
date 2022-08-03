@@ -67,3 +67,11 @@ configurations:
   $namespace uniswap:
     configurationPath: uniswap.yml
     schemaPath: uniswap-schema.json
+
+  $namespace curve:
+    configurationPath: curve.yml
+    schemaPath: curve-schema.json
+
+  $namespace cortex:
+    configurationPath: cortex.yml
+    schemaPath: cortex-schema.json

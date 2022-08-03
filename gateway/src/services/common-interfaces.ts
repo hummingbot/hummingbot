@@ -45,6 +45,12 @@ import {
   Trade as TradeTraderjoe,
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
+import {
+  // Token as CurveToken,
+  Trade as CurveTrade,
+  // CurrencyAmount as CurveAmount,
+  // Fraction as CurveFraction,
+} from '../connectors/curve/curve_helper';
 import { PerpPosition } from '../connectors/perp/perp';
 import { PriceResponse } from '../vault/vault.requests';
 
@@ -60,6 +66,7 @@ export type UniswapishTrade =
   | TradePangolin
   | TradeQuickswap
   | TradeTraderjoe
+  | CurveTrade
   | SushiswapTrade<
       SushiToken,
       SushiToken,
