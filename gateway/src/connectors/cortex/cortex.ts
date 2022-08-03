@@ -88,7 +88,6 @@ export class Cortex implements Vaultish {
     const ifacePreviewRedeem = new utils.Interface([
       'function previewRedeem(uint256 shareAmount) public view virtual override returns (uint256)',
     ]);
-    console.log('create contract function fragment');
     const encodePreviewRedeem = ifacePreviewRedeem.encodeFunctionData(
       'previewRedeem',
       [amount.toString()]
@@ -97,13 +96,6 @@ export class Cortex implements Vaultish {
       to: CXD_IDX_Address,
       data: encodePreviewRedeem,
     });
-    const decodedPreviewRedeemResults = ifacePreviewRedeem.decodeFunctionResult(
-      'previewRedeem',
-      previewRedeemHexString
-    );
-    console.log(
-      `decoded Preview Redeem totals: ${decodedPreviewRedeemResults}`
-    );
     const assetAmountWithFee = previewRedeemHexString.toString();
     return { assetAmountWithFee: assetAmountWithFee };
   }
@@ -119,7 +111,6 @@ export class Cortex implements Vaultish {
     const ifacePreviewMint = new utils.Interface([
       'function previewMint(uint256 shares) public view virtual override returns (uint256)',
     ]);
-    console.log('create contract function fragment');
     const encodePreviewMint = ifacePreviewMint.encodeFunctionData(
       'previewMint',
       [amount.toString()]
@@ -132,18 +123,14 @@ export class Cortex implements Vaultish {
       'previewMint',
       previewMintHexString
     );
-    console.log(`decoded Preview Mint totals: ${decodedPreviewMintResults}`);
     const assetAmountWithFee = decodedPreviewMintResults.toString();
-    console.log(`new assetAmountWithFee_tostring: ${assetAmountWithFee}`);
     return { assetAmountWithFee };
   }
 
   async price(tradeType: string, amount: number): Promise<PriceResponse> {
     let returns_;
     if (tradeType == 'mint') {
-      console.log(`trade type: ${tradeType}, amount: ${amount}`);
       returns_ = await this.previewMint(tradeType, amount);
-      console.log(`returns_ .: ${returns_.assetAmountWithFee}`);
     } else if (tradeType == 'redeem') {
       returns_ = await this.previewRedeem(tradeType, amount);
     } else {
