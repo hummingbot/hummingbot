@@ -363,9 +363,9 @@ class FtxExchange(ExchangePyBase):
             )]
         )
         trade_update = TradeUpdate(
-            trade_id=str(order_fill_msg["id"]),
+            trade_id=str(order_fill_msg["tradeId"]),
             client_order_id=order.client_order_id,
-            exchange_order_id=order.exchange_order_id,
+            exchange_order_id=str(order_fill_msg.get("orderId", order.exchange_order_id)),
             trading_pair=order.trading_pair,
             fee=fee,
             fill_base_amount=Decimal(str(order_fill_msg["size"])),

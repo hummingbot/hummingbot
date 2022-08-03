@@ -1,6 +1,6 @@
 import base64
 import os
-import socket
+import platform
 from collections import namedtuple
 from hashlib import md5
 from typing import Callable, Dict, Optional, Tuple
@@ -61,6 +61,10 @@ def combine_to_hb_trading_pair(base: str, quote: str) -> str:
     return trading_pair
 
 
+def _bot_instance_id() -> str:
+    return md5(f"{platform.uname()}_pid:{os.getpid()}_ppid:{os.getppid()}".encode("utf-8")).hexdigest()
+
+
 def get_new_client_order_id(
     is_buy: bool, trading_pair: str, hbot_order_id_prefix: str = "", max_id_len: Optional[int] = None
 ) -> str:
@@ -82,7 +86,7 @@ def get_new_client_order_id(
     quote = symbols[1].upper()
     base_str = f"{base[0]}{base[-1]}"
     quote_str = f"{quote[0]}{quote[-1]}"
-    client_instance_id = md5(f"{socket.gethostname()}{os.getpid()}".encode("utf-8")).hexdigest()
+    client_instance_id = _bot_instance_id()
     ts_hex = hex(get_tracking_nonce())[2:]
     client_order_id = f"{hbot_order_id_prefix}{side}{base_str}{quote_str}{ts_hex}{client_instance_id}"
 
@@ -98,7 +102,7 @@ def get_new_client_order_id(
 
 
 def get_new_numeric_client_order_id(nonce_creator: NonceCreator, max_id_bit_count: Optional[int] = None) -> int:
-    hexa_hash = md5(f"{socket.gethostname()}{os.getpid()}".encode("utf-8")).hexdigest()
+    hexa_hash = _bot_instance_id()
     host_part = int(hexa_hash, 16)
     client_order_id = int(f"{host_part}{nonce_creator.get_tracking_nonce()}")
     if max_id_bit_count:

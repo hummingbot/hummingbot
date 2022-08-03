@@ -155,17 +155,22 @@ class ClientOrderTracker:
         tracked_order: Optional[InFlightOrder] = self.all_fillable_orders.get(client_order_id)
 
         if tracked_order:
-            previous_executed_amount_base: Decimal = tracked_order.executed_amount_base
 
-            updated: bool = tracked_order.update_with_trade_update(trade_update)
-            if updated:
-                self._trigger_order_fills(
-                    tracked_order=tracked_order,
-                    prev_executed_amount_base=previous_executed_amount_base,
-                    fill_amount=trade_update.fill_base_amount,
-                    fill_price=trade_update.fill_price,
-                    fill_fee=trade_update.fee,
-                    trade_id=trade_update.trade_id)
+            if tracked_order.exchange_order_id == trade_update.exchange_order_id:
+                previous_executed_amount_base: Decimal = tracked_order.executed_amount_base
+
+                updated: bool = tracked_order.update_with_trade_update(trade_update)
+                if updated:
+                    self._trigger_order_fills(
+                        tracked_order=tracked_order,
+                        prev_executed_amount_base=previous_executed_amount_base,
+                        fill_amount=trade_update.fill_base_amount,
+                        fill_price=trade_update.fill_price,
+                        fill_fee=trade_update.fee,
+                        trade_id=trade_update.trade_id)
+            else:
+                self.logger().debug("Received a trade update for a tracked order but with different exchange order id."
+                                    f" The update will not be processed ({trade_update})")
 
     async def process_order_not_found(self, client_order_id: str):
         """
