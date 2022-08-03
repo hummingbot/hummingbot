@@ -1,8 +1,8 @@
 // import {
-  // InitializationError,
-  // SERVICE_UNITIALIZED_ERROR_CODE,
-  // SERVICE_UNITIALIZED_ERROR_MESSAGE,
-  // UniswapishPriceError,
+// InitializationError,
+// SERVICE_UNITIALIZED_ERROR_CODE,
+// SERVICE_UNITIALIZED_ERROR_MESSAGE,
+// UniswapishPriceError,
 // } from '../../services/error-handler';
 // import { CortexConfig } from './cortex.config';
 import {
@@ -29,8 +29,6 @@ import {
   utils,
 } from 'ethers';
 import { logger } from '../../services/logger';
-// import { encode } from 'bs58';
-// import { getCurves } from 'crypto';
 
 export class Cortex implements Vaultish {
   private static _instances: { [name: string]: Cortex };
@@ -41,7 +39,7 @@ export class Cortex implements Vaultish {
   // private _routerAbi: ContractInterface;
   // private _gasLimit: number;
   // private _ttl: number;
-  
+
   // private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
@@ -61,7 +59,6 @@ export class Cortex implements Vaultish {
     if (!(chain + network in Cortex._instances)) {
       Cortex._instances[chain + network] = new Cortex(network);
     }
-    // logger.info()
     return Cortex._instances[chain + network];
   }
 
@@ -70,12 +67,6 @@ export class Cortex implements Vaultish {
       await this.ethereum.init();
       console.log('this.ethereum.init()');
     }
-    // if (this._chain == 'ethereum' && !this.ethereum.ready())
-    //   console.log('if (this.chain == ethereum ^^ ... ');  
-    //   throw new InitializationError(
-    //     SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
-    //     SERVICE_UNITIALIZED_ERROR_CODE
-    //   );
     this._ready = true;
   }
 
@@ -83,72 +74,88 @@ export class Cortex implements Vaultish {
     return this._ready;
   }
 
-  async price(tradeType: string, amount: number): Promise<PriceResponse> {
+  async previewRedeem(
+    tradeType: string,
+    amount: number
+  ): Promise<PriceResponse> {
     logger.info(`Fetching price data for ${tradeType}-${amount}`);
-
     const provider = this.ethereum.provider;
-    // const tradeType_ = req.tradeType
-    // const chain_ = chain
     const CORTEX_INDEX_ADDRESSES = {
       1: '0x82E4bb17a00B32e5672d5EBe122Cd45bEEfD32b3',
       4: '0x82E4bb17a00B32e5672d5EBe122Cd45bEEfD32b3',
     };
-
-
     const CXD_IDX_Address = CORTEX_INDEX_ADDRESSES[1];
-    console.log('set cortex address');
-    // console.log(await provider.getCode(CXD_IDX_Address));
-    const ifaceGetUsdValue = new utils.Interface([
-      'function getUsdValue(uint256 shareAmount) view returns (uint256)',
-    ]);
-    const encodeGetUsdValue = ifaceGetUsdValue.encodeFunctionData(
-      'getUsdValue', [234345]
-    );
-    const getUsdValueHexString = await provider.call({
-      to: CXD_IDX_Address,
-      data: encodeGetUsdValue,
-    }); 
-    console.log(getUsdValueHexString)
-
     const ifacePreviewRedeem = new utils.Interface([
-      'function convertToShares(uint256 assets) public view returns (unint256)']);
-    console.log('create contract function fragment')
-    
+      'function previewRedeem(uint256 shareAmount) public view virtual override returns (uint256)',
+    ]);
+    console.log('create contract function fragment');
     const encodePreviewRedeem = ifacePreviewRedeem.encodeFunctionData(
-      'convertToShares', [amount.toString()]
+      'previewRedeem',
+      [amount.toString()]
     );
-    console.log(`Encoded Request: ${encodePreviewRedeem}`);
-
-    const ifaceGetPoolTotalValue = new utils.Interface([
-      'function getPoolTotalValue() public view returns (uint256)']);
-    const encodeGetPoolTotalValue = ifaceGetPoolTotalValue.encodeFunctionData('getPoolTotalValue');
-    const getPoolTotalValueHexString = await provider.call({
-      to: CXD_IDX_Address,
-      data: encodeGetPoolTotalValue,
-    });
-    console.log(getPoolTotalValueHexString)
-    const decodedPoolTotalValueResult = ifaceGetPoolTotalValue.decodeFunctionResult('getPoolTotalValue', getPoolTotalValueHexString)
-    console.log(`decoded pool totals: ${decodedPoolTotalValueResult}`)
-
-    logger.info(`Provider: ${provider._network.chainId}`);
-    logger.info(`Provider: ${provider._network.name}`);
-
     const previewRedeemHexString = await provider.call({
       to: CXD_IDX_Address,
       data: encodePreviewRedeem,
     });
-    console.log(previewRedeemHexString);
-    console.log(previewRedeemHexString.toString());
-    // const assetAnmount_big = BigNumber.from(previewRedeemHexString.toString());
-    // console.log(assetAnmount_big)
+    const decodedPreviewRedeemResults = ifacePreviewRedeem.decodeFunctionResult(
+      'previewRedeem',
+      previewRedeemHexString
+    );
+    console.log(
+      `decoded Preview Redeem totals: ${decodedPreviewRedeemResults}`
+    );
     const assetAmountWithFee = previewRedeemHexString.toString();
     return { assetAmountWithFee: assetAmountWithFee };
   }
 
-  // async trade(network: string, req: TradeRequest): Promise<TradeResponse> {}
+  async previewMint(tradeType: string, amount: number) {
+    logger.info(`Fetching price data for ${tradeType}-${amount}`);
+    const provider = this.ethereum.provider;
+    const CORTEX_INDEX_ADDRESSES = {
+      1: '0x82E4bb17a00B32e5672d5EBe122Cd45bEEfD32b3',
+      4: '0x82E4bb17a00B32e5672d5EBe122Cd45bEEfD32b3',
+    };
+    const CXD_IDX_Address = CORTEX_INDEX_ADDRESSES[1];
+    const ifacePreviewMint = new utils.Interface([
+      'function previewMint(uint256 shares) public view virtual override returns (uint256)',
+    ]);
+    console.log('create contract function fragment');
+    const encodePreviewMint = ifacePreviewMint.encodeFunctionData(
+      'previewMint',
+      [amount.toString()]
+    );
+    const previewMintHexString = await provider.call({
+      to: CXD_IDX_Address,
+      data: encodePreviewMint,
+    });
+    const decodedPreviewMintResults = ifacePreviewMint.decodeFunctionResult(
+      'previewMint',
+      previewMintHexString
+    );
+    console.log(`decoded Preview Mint totals: ${decodedPreviewMintResults}`);
+    const assetAmountWithFee = decodedPreviewMintResults.toString();
+    console.log(`new assetAmountWithFee_tostring: ${assetAmountWithFee}`);
+    return { assetAmountWithFee };
+  }
 
-  // async estimateGas(
-  //   network: string,
-  //   req: NetworkSelectionRequest
-  // ): Promise<EstimateGasResponse> {}
+  async price(tradeType: string, amount: number): Promise<PriceResponse> {
+    let returns_;
+    if (tradeType == 'mint') {
+      console.log(`trade type: ${tradeType}, amount: ${amount}`);
+      returns_ = await this.previewMint(tradeType, amount);
+      console.log(`returns_ .: ${returns_.assetAmountWithFee}`);
+    } else if (tradeType == 'redeem') {
+      returns_ = await this.previewRedeem(tradeType, amount);
+    } else {
+      throw new Error('tradeType needs to be "mint" or "redeem"');
+    }
+    return { assetAmountWithFee: returns_.assetAmountWithFee };
+  }
 }
+
+// async trade(network: string, req: TradeRequest): Promise<TradeResponse> {}
+
+// async estimateGas(
+//   network: string,
+//   req: NetworkSelectionRequest
+// ): Promise<EstimateGasResponse> {}
