@@ -760,7 +760,7 @@ class GatewayHttpClient:
         }
 
         if owner_address is not None:
-            request["owner_address"] = owner_address
+            request["ownerAddress"] = owner_address
 
         if order is not None:
             request["order"] = order
@@ -834,7 +834,7 @@ class GatewayHttpClient:
         }
 
         if owner_address is not None:
-            request["owner_address"] = owner_address
+            request["ownerAddress"] = owner_address
 
         if order is not None:
             request["order"] = order
@@ -860,7 +860,7 @@ class GatewayHttpClient:
         }
 
         if owner_address is not None:
-            request["owner_address"] = owner_address
+            request["ownerAddress"] = owner_address
 
         if order is not None:
             request["order"] = order
@@ -886,7 +886,7 @@ class GatewayHttpClient:
         }
 
         if owner_address is not None:
-            request["owner_address"] = owner_address
+            request["ownerAddress"] = owner_address
 
         if market_name is not None:
             request["market_name"] = market_name
@@ -990,7 +990,7 @@ class GatewayHttpClient:
         }
 
         if owner_address is not None:
-            request["owner_address"] = owner_address
+            request["ownerAddress"] = owner_address
 
         if order is not None:
             request["order"] = order
@@ -1038,7 +1038,7 @@ class GatewayHttpClient:
         }
 
         if owner_address is not None:
-            request["owner_address"] = owner_address
+            request["ownerAddress"] = owner_address
 
         if order is not None:
             request["order"] = order
@@ -1064,7 +1064,7 @@ class GatewayHttpClient:
         }
 
         if owner_address is not None:
-            request["owner_address"] = owner_address
+            request["ownerAddress"] = owner_address
 
         if order is not None:
             request["order"] = order
@@ -1090,7 +1090,7 @@ class GatewayHttpClient:
         }
 
         if owner_address is not None:
-            request["owner_address"] = owner_address
+            request["ownerAddress"] = owner_address
 
         if order is not None:
             request["order"] = order
@@ -1116,7 +1116,7 @@ class GatewayHttpClient:
         }
 
         if owner_address is not None:
-            request["owner_address"] = owner_address
+            request["ownerAddress"] = owner_address
 
         if market_name is not None:
             request["market_name"] = market_name
