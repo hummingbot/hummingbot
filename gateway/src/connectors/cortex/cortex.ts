@@ -74,10 +74,7 @@ export class Cortex implements Vaultish {
     return this._ready;
   }
 
-  async previewRedeem(
-    tradeType: string,
-    amount: number
-  ): Promise<PriceResponse> {
+  async previewRedeem(tradeType: string, amount: number) {
     logger.info(`Fetching price data for ${tradeType}-${amount}`);
     const provider = this.ethereum.provider;
     const CORTEX_INDEX_ADDRESSES = {
@@ -96,8 +93,12 @@ export class Cortex implements Vaultish {
       to: CXD_IDX_Address,
       data: encodePreviewRedeem,
     });
-    const assetAmountWithFee = previewRedeemHexString.toString();
-    return { assetAmountWithFee: assetAmountWithFee };
+    const decodedPreviewRedeemResults = ifacePreviewRedeem.decodeFunctionResult(
+      'previewRedeem',
+      previewRedeemHexString
+    );
+    const assetAmountWithFee = decodedPreviewRedeemResults.toString();
+    return { assetAmountWithFee };
   }
 
   async previewMint(tradeType: string, amount: number) {
@@ -130,9 +131,9 @@ export class Cortex implements Vaultish {
   async price(tradeType: string, amount: number): Promise<PriceResponse> {
     let previewMintRedeem;
     if (tradeType == 'mint') {
-    previewMintRedeem= await this.previewMint(tradeType, amount);
+      previewMintRedeem = await this.previewMint(tradeType, amount);
     } else if (tradeType == 'redeem') {
-    previewMintRedeem = await this.previewRedeem(tradeType, amount);
+      previewMintRedeem = await this.previewRedeem(tradeType, amount);
     } else {
       throw new Error('tradeType needs to be "mint" or "redeem"');
     }
