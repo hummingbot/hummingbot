@@ -128,15 +128,15 @@ export class Cortex implements Vaultish {
   }
 
   async price(tradeType: string, amount: number): Promise<PriceResponse> {
-    let returns_;
+    let previewMintRedeem;
     if (tradeType == 'mint') {
-      returns_ = await this.previewMint(tradeType, amount);
+    previewMintRedeem= await this.previewMint(tradeType, amount);
     } else if (tradeType == 'redeem') {
-      returns_ = await this.previewRedeem(tradeType, amount);
+    previewMintRedeem = await this.previewRedeem(tradeType, amount);
     } else {
       throw new Error('tradeType needs to be "mint" or "redeem"');
     }
-    return { assetAmountWithFee: returns_.assetAmountWithFee };
+    return { assetAmountWithFee: previewMintRedeem.assetAmountWithFee };
   }
 }
 
