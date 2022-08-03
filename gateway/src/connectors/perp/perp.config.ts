@@ -13,6 +13,6 @@ export namespace PerpConfig {
     ttl: ConfigManagerV2.getInstance().get(`perp.versions.ttl`),
     tradingTypes: (type: string) =>
       type === 'perp' ? ['EVM_Perpetual'] : ['EVM_AMM_LP'],
-    availableNetworks: [{ chain: ['ethereum'], networks: ['optimism'] }],
+    availableNetworks: [{ chain: 'ethereum', networks: ['optimism'] }],
   };
 }
