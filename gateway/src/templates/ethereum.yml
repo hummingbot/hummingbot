@@ -1,5 +1,5 @@
 networks:
-  arbitrum_one:
+  arbitrum-one:
     chainID: 42161
     nodeURL: https://arbitrum-mainnet.infura.io/v3/704d2cf21d9b4fd285798ccc860778c9
     tokenListType: URL
