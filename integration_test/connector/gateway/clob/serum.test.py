@@ -25,6 +25,55 @@ class Serum:
             self.__connector
         )
 
+    async def get_order_books(self):
+        return await self.__gateway_http_client.clob_get_order_books(
+            self.__chain,
+            self.__network,
+            self.__connector
+        )
+
+    async def get_tickers(self):
+        return await self.__gateway_http_client.clob_get_tickers(
+            self.__chain,
+            self.__network,
+            self.__connector
+        )
+
+    async def get_all_orders(self):
+        return await self.__gateway_http_client.clob_get_orders(
+            self.__chain,
+            self.__network,
+            self.__connector
+        )
+
+    async def get_all_open_orders(self):
+        return await self.__gateway_http_client.clob_get_open_orders(
+            self.__chain,
+            self.__network,
+            self.__connector
+        )
+
+    async def get_all_filled_orders(self):
+        return await self.__gateway_http_client.clob_get_filled_orders(
+            self.__chain,
+            self.__network,
+            self.__connector
+        )
+
+    async def cancel_all_orders(self):
+        return await self.__gateway_http_client.clob_delete_orders(
+            self.__chain,
+            self.__network,
+            self.__connector
+        )
+
+    async def settle_all_funds(self):
+        return await self.__gateway_http_client.clob_post_settle_funds(
+            self.__chain,
+            self.__network,
+            self.__connector
+        )
+
 
 if __name__ == "__main__":
     """
