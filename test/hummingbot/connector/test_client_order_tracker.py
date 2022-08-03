@@ -666,6 +666,50 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_filled_event.trade_fee, AddedToCostTradeFee(flat_fees=[TokenAmount(self.quote_asset, fee_paid)])
         )
 
+    def test_process_trade_update_is_ignored_if_exchange_order_id_does_not_match(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id="someClientOrderId",
+            exchange_order_id="someExchangeOrderId",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
+            price=Decimal("1.0"),
+            initial_state=OrderState.OPEN,
+        )
+        self.tracker.start_tracking_order(order)
+
+        fee_paid: Decimal = self.trade_fee_percent * order.amount
+        trade_update: TradeUpdate = TradeUpdate(
+            trade_id="1",
+            client_order_id=order.client_order_id,
+            exchange_order_id="other_exchange_id",
+            trading_pair=order.trading_pair,
+            fill_price=order.price,
+            fill_base_amount=order.amount,
+            fill_quote_amount=order.price * order.amount,
+            fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token=self.quote_asset, amount=fee_paid)]),
+            fill_timestamp=1,
+        )
+
+        self.tracker.process_trade_update(trade_update)
+
+        fetched_order: InFlightOrder = self.tracker.fetch_order(order.client_order_id)
+        self.assertFalse(fetched_order.is_filled)
+        self.assertIn(fetched_order.client_order_id, self.tracker.active_orders)
+        self.assertNotIn(fetched_order.client_order_id, self.tracker.cached_orders)
+
+        self.assertTrue(
+            self._is_logged(
+                "DEBUG",
+                f"Received a trade update for a tracked order but with different exchange order id."
+                f" The update will not be processed ({trade_update})",
+            )
+        )
+
+        self.assertEqual(0, len(self.order_filled_logger.event_log))
+
     def test_updating_order_states_with_both_process_order_update_and_process_trade_update(self):
         order: InFlightOrder = InFlightOrder(
             client_order_id="someClientOrderId",
@@ -844,7 +888,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         trade_update: TradeUpdate = TradeUpdate(
             trade_id="1",
             client_order_id=order.client_order_id,
-            exchange_order_id=order.exchange_order_id,
+            exchange_order_id="someExchangeOrderId",
             trading_pair=order.trading_pair,
             fill_price=Decimal("1100"),
             fill_base_amount=order.amount,

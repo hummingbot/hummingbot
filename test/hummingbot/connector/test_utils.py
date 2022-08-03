@@ -1,6 +1,6 @@
 import importlib
 import os
-import socket
+import platform
 import unittest
 from hashlib import md5
 from os import DirEntry, scandir
@@ -59,7 +59,7 @@ class UtilsTest(unittest.TestCase):
 
         expected_id_prefix = f"{host_prefix}B{self.base[0]}{self.base[-1]}{self.quote[0]}{self.quote[-1]}"
         expected_time_text = hex(nonce_mock.return_value)[2:]
-        expected_client_instance_id = md5(f"{socket.gethostname()}{os.getpid()}".encode("utf-8")).hexdigest()
+        expected_client_instance_id = md5(f"{platform.uname()}_pid:{os.getpid()}_ppid:{os.getppid()}".encode("utf-8")).hexdigest()
 
         expected_full_length_id = f"{expected_id_prefix}{expected_time_text}{expected_client_instance_id}"
         expected_shortened_id = f"{expected_id_prefix}{expected_time_text}{expected_client_instance_id[:5]}"

@@ -631,7 +631,7 @@ class FtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "id": 7828307,
                 "liquidity": "maker",
                 "market": "BTC-PERP",
-                "orderId": 38065410,
+                "orderId": int(order.exchange_order_id),
                 "tradeId": self.expected_fill_trade_id,
                 "price": float(order.price),
                 "side": order.trade_type.name.lower(),
