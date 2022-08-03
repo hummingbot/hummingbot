@@ -7,6 +7,7 @@ import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
 import { CortexConfig } from './cortex/cortex.config';
+import { CurveConfig } from './curve/curve.config';
 
 export namespace ConnectorsRoutes {
   export const router = Router();
@@ -55,6 +56,11 @@ export namespace ConnectorsRoutes {
             name: 'cortex',
             trading_type: CortexConfig.config.tradingTypes,
             available_networks: CortexConfig.config.availableNetworks,
+          },
+          {
+            name: 'curve',
+            trading_type: CurveConfig.config.tradingTypes,
+            available_networks: CurveConfig.config.availableNetworks,
           },
         ],
       });

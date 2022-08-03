@@ -27,6 +27,8 @@ import morgan from 'morgan';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
 import { CortexConfig } from './connectors/cortex/cortex.config';
 import { VaultRoutes } from './vault/vault.routes';
+import { CurveConfig } from './connectors/curve/curve.config';
+
 const swaggerUi = require('swagger-ui-express');
 
 const childProcess = require('child_process');
@@ -78,6 +80,7 @@ interface ConnectorsResponse {
   sushiswap: Array<AvailableNetworks>;
   traderjoe: Array<AvailableNetworks>;
   cortex: Array<AvailableNetworks>;
+  curve: Array<AvailableNetworks>;
 }
 console.log('set interface ConnectorsResponse');
 
@@ -91,6 +94,7 @@ gatewayApp.get(
       sushiswap: SushiswapConfig.config.availableNetworks,
       traderjoe: TraderjoeConfig.config.availableNetworks,
       cortex: CortexConfig.config.availableNetworks,
+      curve: CurveConfig.config.availableNetworks,
     });
   })
 );
