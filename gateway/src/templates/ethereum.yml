@@ -7,6 +7,14 @@ networks:
       https://bridge.arbitrum.io/token-list-42161.json  
     nativeCurrencySymbol: ETH
     gasPriceRefreshInterval: 60
+  arbitrum_rinkeby:
+    chainID: 421611
+    nodeURL: https://arbitrum-rinkeby.infura.io/v3/704d2cf21d9b4fd285798ccc860778c9
+    tokenListType: URL
+    tokenListSource: >-
+      https://bridge.arbitrum.io/token-list-421611.json
+    nativeCurrencySymbol: ETH
+    gasPriceRefreshInterval: 60
   mainnet:
     chainID: 1
     nodeURL: https://main-rpc.linkpool.io/
