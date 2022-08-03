@@ -34,7 +34,7 @@ export namespace UniswapConfig {
     },
     availableNetworks: [
       {
-        chain: ['ethereum'],
+        chain: 'ethereum',
         networks: Object.keys(
           ConfigManagerV2.getInstance().get('uniswap.contractAddresses')
         ),
