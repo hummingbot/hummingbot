@@ -14,7 +14,6 @@ from bidict import bidict
 import hummingbot.connector.exchange.latoken.latoken_web_utils as web_utils
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.latoken import latoken_constants as CONSTANTS
 from hummingbot.connector.exchange.latoken.latoken_api_order_book_data_source import LatokenAPIOrderBookDataSource
 from hummingbot.connector.exchange.latoken.latoken_exchange import LatokenExchange
@@ -897,7 +896,7 @@ class LatokenExchangeTests(TestCase):
 
         mock_api.get(regex_url, status=401)
 
-        for i in range(ClientOrderTracker.ORDER_NOT_FOUND_COUNT_LIMIT + 1):
+        for i in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(self.exchange._update_order_status())
 
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
