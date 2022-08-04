@@ -1,15 +1,16 @@
+import asyncio
 import json
 import re
 from decimal import Decimal
 from typing import Any, Callable, List, Optional, Tuple
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.connector_base import OrderType
+from hummingbot.connector.connector_base import OrderType, TradeType
 from hummingbot.connector.exchange.ftx import ftx_constants as CONSTANTS, ftx_web_utils as web_utils
 from hummingbot.connector.exchange.ftx.ftx_exchange import FtxExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
@@ -679,6 +680,82 @@ class FtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     def test_time_synchronizer_related_request_error_detection(self):
         exception = IOError("FTX does not have a documented error for wrong timestamp")
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+    def test_user_stream_update_for_order_full_fill_for_different_exchange_order_id_is_ignored(self):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id="11",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders["11"]
+
+        order_event = {
+            "channel": "orders",
+            "data": {
+                "id": 1,
+                "clientId": "UNKNOWN_ORDER_ID",
+                "market": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "type": "limit",
+                "side": order.trade_type.name.lower(),
+                "size": float(order.amount),
+                "price": float(order.price),
+                "reduceOnly": False,
+                "ioc": False,
+                "postOnly": False,
+                "status": "closed",
+                "filledSize": float(order.amount),
+                "remainingSize": 0,
+                "avgFillPrice": float(order.price),
+                "createdAt": "2021-05-02T22:40:07.217963+00:00"
+            },
+            "type": "update"
+        }
+        trade_event = {
+            "channel": "fills",
+            "data": {
+                "fee": float(self.expected_fill_fee.flat_fees[0].amount),
+                "feeRate": 0.0014,
+                "future": None,
+                "id": 7828307,
+                "liquidity": "maker",
+                "market": "BTC-PERP",
+                "orderId": 1,
+                "tradeId": self.expected_fill_trade_id,
+                "price": float(order.price),
+                "side": order.trade_type.name.lower(),
+                "size": float(order.amount),
+                "time": "2019-05-07T16:40:58.358438+00:00",
+                "type": "order"
+            },
+            "type": "update"
+        }
+
+        mock_queue = AsyncMock()
+        event_messages = []
+        if trade_event:
+            event_messages.append(trade_event)
+        if order_event:
+            event_messages.append(order_event)
+        event_messages.append(asyncio.CancelledError)
+        mock_queue.get.side_effect = event_messages
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+        except asyncio.CancelledError:
+            pass
+
+        self.assertEqual(0, len(self.order_filled_logger.event_log))
+
+        self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
+        self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertTrue(order.is_open)
+        self.assertFalse(order.is_filled)
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {
