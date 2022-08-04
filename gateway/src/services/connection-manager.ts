@@ -17,6 +17,7 @@ import {
 import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Sushiswap } from '../connectors/sushiswap/sushiswap';
 import { Cortex } from '../connectors/cortex/cortex';
+import { Curve } from '../connectors/curve/curve';
 
 export async function getChain(chain: string, network: string) {
   let chainInstance: Ethereumish;
@@ -57,6 +58,8 @@ export async function getConnector<T>(
     connectorInstance = Traderjoe.getInstance(chain, network);
   } else if (chain === 'ethereum' && connector === 'cortex') {
     connectorInstance = Cortex.getInstance(chain, network);
+  } else if (chain === 'ethereum' && connector === 'curve') {
+    connectorInstance = Curve.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
   }
