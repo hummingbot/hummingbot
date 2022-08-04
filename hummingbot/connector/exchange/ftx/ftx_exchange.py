@@ -176,8 +176,9 @@ class FtxExchange(ExchangePyBase):
                 channel: str = event_message["channel"]
                 data: Dict[str, Any] = event_message["data"]
                 if channel == CONSTANTS.WS_PRIVATE_FILLS_CHANNEL:
+                    exchange_order_id = str(data["orderId"])
                     order = next((order for order in self._order_tracker.all_fillable_orders.values()
-                                  if order.exchange_order_id),
+                                  if order.exchange_order_id == exchange_order_id),
                                  None)
                     if order is not None:
                         trade_update = self._create_trade_update_with_order_fill_data(
