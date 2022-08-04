@@ -39,6 +39,12 @@ export namespace UniswapConfig {
           ConfigManagerV2.getInstance().get('uniswap.contractAddresses')
         ),
       },
+      {
+        chain: 'polygon',
+        networks: Object.keys(
+          ConfigManagerV2.getInstance().get('uniswap.contractAddresses')
+        ),
+      },
     ],
   };
 }
