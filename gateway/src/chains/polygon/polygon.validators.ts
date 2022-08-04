@@ -23,6 +23,7 @@ export const validateSpender: Validator = mkValidator(
   (val) =>
     typeof val === 'string' &&
     (val === 'uniswap' ||
+      val === 'uniswapLP' ||
       val === 'sushi' ||
       val === 'quickswap' ||
       isAddress(val))
