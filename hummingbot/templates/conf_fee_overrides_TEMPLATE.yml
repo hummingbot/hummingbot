@@ -80,6 +80,12 @@ bittrex_maker_percent_fee:
 bittrex_percent_fee_token:
 bittrex_taker_fixed_fees:
 bittrex_taker_percent_fee:
+bitzlato_buy_percent_fee_deducted_from_returns:
+bitzlato_maker_fixed_fees:
+bitzlato_maker_percent_fee:
+bitzlato_percent_fee_token:
+bitzlato_taker_fixed_fees:
+bitzlato_taker_percent_fee:
 blocktane_buy_percent_fee_deducted_from_returns:
 blocktane_maker_fixed_fees:
 blocktane_maker_percent_fee:
