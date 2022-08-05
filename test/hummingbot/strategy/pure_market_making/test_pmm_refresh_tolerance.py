@@ -197,7 +197,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual([o.client_order_id for o in old_sells], [o.client_order_id for o in new_sells])
         self.assertEqual([o.client_order_id for o in old_buys], [o.client_order_id for o in new_buys])
 
-    def test_hanging_orders_multiple_orders_with_refresh_tolerance(self):
+    def test_hanging_buy_orders_multiple_orders_with_refresh_tolerance(self):
         strategy = self.hanging_order_multiple_strategy
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
@@ -237,6 +237,52 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + strategy.filled_order_delay + 1)
         self.assertEqual(6, len(strategy.active_buys))
         self.assertEqual(5, len(strategy.active_sells))
+
+        new_buys = [o for o in strategy.active_buys if o.client_order_id not in strategy.hanging_order_ids]
+        new_sells = [o for o in strategy.active_sells if o.client_order_id not in strategy.hanging_order_ids]
+        self.assertEqual([o.client_order_id for o in old_sells], [o.client_order_id for o in new_sells])
+        self.assertEqual([o.client_order_id for o in old_buys], [o.client_order_id for o in new_buys])
+
+    def test_hanging_sell_orders_multiple_orders_with_refresh_tolerance(self):
+        strategy = self.hanging_order_multiple_strategy
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(5, len(strategy.active_buys))
+        self.assertEqual(5, len(strategy.active_sells))
+
+        self.simulate_maker_market_trade(False, Decimal("100"), Decimal("98.9"))
+
+        # Before refresh_time hanging orders are not yet created
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time / 2)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+        self.assertEqual(4, len(strategy.active_buys))
+        self.assertEqual(5, len(strategy.active_sells))
+        self.assertEqual(0, len(strategy.hanging_order_ids))
+
+        # At order_refresh_time (4 seconds), hanging order are created
+        # Bid is filled and due to delay is not replenished immediately
+        # Ask orders are now hanging and active
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + 1)
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        self.assertEqual(1, len(strategy.hanging_order_ids))
+
+        # At filled_order_delay (8 seconds), new sets of bid and ask orders are created
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + strategy.filled_order_delay + 1)
+        self.assertEqual(5, len(strategy.active_buys))
+        self.assertEqual(6, len(strategy.active_sells))
+        self.assertEqual(1, len(strategy.hanging_order_ids))
+
+        # Check all hanging order ids are indeed in active bids list
+        self.assertTrue(all(h in [order.client_order_id for order in strategy.active_sells]
+                            for h in strategy.hanging_order_ids))
+
+        old_buys = [o for o in strategy.active_buys if o.client_order_id not in strategy.hanging_order_ids]
+        old_sells = [o for o in strategy.active_sells if o.client_order_id not in strategy.hanging_order_ids]
+
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + strategy.filled_order_delay + 1)
+        self.assertEqual(5, len(strategy.active_buys))
+        self.assertEqual(6, len(strategy.active_sells))
 
         new_buys = [o for o in strategy.active_buys if o.client_order_id not in strategy.hanging_order_ids]
         new_sells = [o for o in strategy.active_sells if o.client_order_id not in strategy.hanging_order_ids]

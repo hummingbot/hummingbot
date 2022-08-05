@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 24
+template_version: 25
 strategy: null
 
 # Exchange and token parameters.
@@ -90,6 +90,14 @@ filled_order_delay: null
 # Whether to stop cancellations of orders on the other side (of the order book),
 # when one side is filled (hanging orders feature) (true/false).
 hanging_orders_enabled: null
+
+# Whether to stop cancellations of BUY orders on the other side (of the order book),
+# when one SELL is filled (hanging orders feature) (true/false).
+hanging_buy_orders_enabled: null
+
+# Whether to stop cancellations of SELL orders on the other side (of the order book),
+# when one BUY is filled (hanging orders feature) (true/false).
+hanging_sell_orders_enabled: null
 
 # Spread (from mid price, in percentage) hanging orders will be canceled (Enter 1 to indicate 1%)
 hanging_orders_cancel_pct: null
