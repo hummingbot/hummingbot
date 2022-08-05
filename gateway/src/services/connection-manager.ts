@@ -18,6 +18,7 @@ import {
 } from './common-interfaces';
 import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Sushiswap } from '../connectors/sushiswap/sushiswap';
+import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
 import { Serumish } from '../connectors/serum/serum';
 
 export type ChainUnion = Ethereumish | Solanaish;
@@ -69,14 +70,19 @@ export async function getConnector<T>(
   address?: string
 ): Promise<Connector<T>> {
   let connectorInstance: ConnectorUnion;
-
-  if (chain === 'ethereum' && connector === 'uniswap') {
+  if (
+    (chain === 'ethereum' || chain === 'polygon') &&
+    connector === 'uniswap'
+  ) {
     connectorInstance = Uniswap.getInstance(chain, network);
   } else if (chain === 'polygon' && connector === 'quickswap') {
     connectorInstance = Quickswap.getInstance(chain, network);
   } else if (chain === 'ethereum' && connector === 'sushiswap') {
     connectorInstance = Sushiswap.getInstance(chain, network);
-  } else if (chain === 'ethereum' && connector === 'uniswapLP') {
+  } else if (
+    (chain === 'ethereum' || chain === 'polygon') &&
+    connector === 'uniswapLP'
+  ) {
     connectorInstance = UniswapLP.getInstance(chain, network);
   } else if (chain === 'ethereum' && connector === 'perp') {
     connectorInstance = Perp.getInstance(chain, network, address);
@@ -86,6 +92,8 @@ export async function getConnector<T>(
     connectorInstance = Openocean.getInstance(chain, network);
   } else if (chain === 'avalanche' && connector === 'traderjoe') {
     connectorInstance = Traderjoe.getInstance(chain, network);
+  } else if (chain === 'harmony' && connector === 'defikingdoms') {
+    connectorInstance = Defikingdoms.getInstance(chain, network);
   } else if (chain === 'solana' && connector === 'serum') {
     connectorInstance = await Serum.getInstance(chain, network);
   } else {

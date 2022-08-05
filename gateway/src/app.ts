@@ -28,11 +28,11 @@ import morgan from 'morgan';
 import { ClobRoutes } from './clob/clob.routes';
 import { SerumRoutes } from './connectors/serum/serum.routes';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
+import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.config';
 import { SerumConfig } from './connectors/serum/serum.config';
 
-const swaggerUi = require('swagger-ui-express');
-
-const childProcess = require('child_process');
+import swaggerUi from 'swagger-ui-express';
+import childProcess from 'child_process';
 
 export const gatewayApp = express();
 
@@ -80,6 +80,7 @@ interface ConnectorsResponse {
   sushiswap: Array<AvailableNetworks>;
   openocean: Array<AvailableNetworks>;
   traderjoe: Array<AvailableNetworks>;
+  defikingdoms: Array<AvailableNetworks>;
   serum: Array<AvailableNetworks>;
 }
 
@@ -93,6 +94,7 @@ gatewayApp.get(
       sushiswap: SushiswapConfig.config.availableNetworks,
       openocean: OpenoceanConfig.config.availableNetworks,
       traderjoe: TraderjoeConfig.config.availableNetworks,
+      defikingdoms: DefikingdomsConfig.config.availableNetworks,
       serum: SerumConfig.config.availableNetworks,
     });
   })
@@ -103,7 +105,7 @@ gatewayApp.get(
 process.on('exit', function (code) {
   // don't restart when signal is 2.
   if (code !== 2)
-    childProcess.spawn(process.argv.shift(), process.argv, {
+    childProcess.spawn(process.argv.shift() as string, process.argv, {
       cwd: process.cwd(),
       detached: true,
       stdio: 'inherit',
