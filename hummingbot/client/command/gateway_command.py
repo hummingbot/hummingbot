@@ -9,12 +9,7 @@ import pandas as pd
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager, begin_placeholder_mode
 from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import (
-    CLIENT_CONFIG_PATH,
-    GATEWAY_CONNECTORS,
-    AllConnectorSettings,
-    GatewayConnectionSetting,
-)
+from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, GatewayConnectionSetting
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.gateway import (
     GATEWAY_DOCKER_REPO,
@@ -370,14 +365,15 @@ class GatewayCommand(GatewayChainApiManager):
                 else:
                     # chains as options
                     while True:
+                        self.app.input_field.completer.set_gateway_chains(chains)
                         chain = await self.app.prompt(
-                            prompt=f"Which chain do you want {connector} to connect to?({', '.join(chains)}) >>> "
+                            prompt=f"Which chain do you want {connector} to connect to? ({', '.join(chains)}) >>> "
                         )
                         if self.app.to_stop_config:
                             self.app.to_stop_config = False
                             return
 
-                        if chain in GATEWAY_CONNECTORS:
+                        if chain in chains:
                             break
                         self.notify(f"{chain} chain not supported.\n")
 

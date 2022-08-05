@@ -72,6 +72,10 @@ configurations:
     configurationPath: openocean.yml
     schemaPath: openocean-schema.json
 
+  $namespace defikingdoms:
+    configurationPath: defikingdoms.yml
+    schemaPath: defikingdoms-schema.json
+
   $namespace serum:
     configurationPath: serum.yml
     schemaPath: serum-schema.json
