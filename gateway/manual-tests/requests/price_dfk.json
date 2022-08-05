@@ -1,0 +1,9 @@
+{
+  "connector": "defikingdoms",
+  "chain": "harmony",
+  "network": "mainnet",
+  "quote": "USDC",
+  "base": "ETH",
+  "amount": "0.01",
+  "side": "SELL"
+}
