@@ -8,6 +8,7 @@ import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
 import { OpenoceanConfig } from './openocean/openocean.config';
+import { DefikingdomsConfig } from './defikingdoms/defikingdoms.config';
 
 export namespace ConnectorsRoutes {
   export const router = Router();
@@ -57,6 +58,11 @@ export namespace ConnectorsRoutes {
             name: 'traderjoe',
             trading_type: TraderjoeConfig.config.tradingTypes,
             available_networks: TraderjoeConfig.config.availableNetworks,
+          },
+          {
+            name: 'defikingdoms',
+            trading_type: DefikingdomsConfig.config.tradingTypes,
+            available_networks: DefikingdomsConfig.config.availableNetworks,
           },
           {
             name: 'defira',

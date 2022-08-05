@@ -44,6 +44,7 @@ export const validateSpender: Validator = mkValidator(
     typeof val === 'string' &&
     (val === 'sushiswap' ||
       val === 'viperswap' ||
+      val === 'defikingdoms' ||
       val === 'defira' ||
       isValidAddress(val))
 );
