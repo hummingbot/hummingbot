@@ -2,7 +2,7 @@ import asyncio
 from abc import abstractmethod
 from collections import defaultdict
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Awaitable, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from bidict import bidict
 
@@ -32,7 +32,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -184,6 +184,10 @@ class OMSExchange(ExchangePyBase):
             price=price))
         return order_id
 
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+        # Not required for OMS connectors
+        return False
+
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         """
         This implementation specific function is called by _cancel, and returns True if successful
@@ -280,7 +284,7 @@ class OMSExchange(ExchangePyBase):
         return str(send_order_resp[CONSTANTS.ORDER_ID_FIELD]), self.current_timestamp
 
     async def _update_trading_fees(self):
-        raise NotImplementedError
+        pass
 
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
@@ -291,9 +295,15 @@ class OMSExchange(ExchangePyBase):
                 if endpoint == CONSTANTS.WS_ACC_POS_EVENT:
                     self._process_account_position_event(payload)
                 elif endpoint == CONSTANTS.WS_ORDER_STATE_EVENT:
-                    self._process_order_event_message(payload)
+                    order = self._order_tracker.all_updatable_orders.get(str(payload[CONSTANTS.CLIENT_ORDER_ID_FIELD]))
+                    if order is not None:
+                        order_update = self._create_order_update(order_msg=payload, order=order)
+                        self._order_tracker.process_order_update(order_update)
                 elif endpoint == CONSTANTS.WS_ORDER_TRADE_EVENT:
-                    self._process_trade_event_message(payload)
+                    order = self._order_tracker.all_fillable_orders.get(str(payload[CONSTANTS.CLIENT_ORDER_ID_FIELD]))
+                    if order is not None:
+                        trade_update = self._create_trade_update(trade_event=payload, order=order)
+                        self._order_tracker.process_trade_update(trade_update)
                 elif endpoint == CONSTANTS.WS_CANCEL_ORDER_REJECTED_EVENT:
                     pass
                 else:
@@ -373,79 +383,46 @@ class OMSExchange(ExchangePyBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    async def _update_order_status(self):
-        tracked_orders = list(self.in_flight_orders.values())
-        if len(tracked_orders) > 0:
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        trade_updates = []
 
-            await self._update_time_synchronizer(pass_on_non_cancelled_error=True)
+        if order.exchange_order_id is not None:
+            exchange_order_id = int(order.exchange_order_id)
+            params = {
+                CONSTANTS.OMS_ID_FIELD: self.oms_id,
+                CONSTANTS.ACCOUNT_ID_FIELD: self._auth.account_id,
+                CONSTANTS.USER_ID_FIELD: self._auth.user_id,
+                CONSTANTS.ORDER_ID_FIELD: exchange_order_id
+            }
 
-            self.logger().debug(f"Polling for order status updates of {len(tracked_orders)} orders.")
+            all_fills_response = await self._api_request(
+                path_url=CONSTANTS.REST_TRADE_HISTORY_ENDPOINT,
+                params=params,
+                is_auth_required=True,
+            )
 
-            order_tasks = [
-                asyncio.create_task(self._request_order_update(order))
-                for order in tracked_orders
-                if order.exchange_order_id is not None  # don't update orders that are not yet acknowledged by server
-            ]
-            status_responses = await self._gather_tasks(order_tasks, task_name="order status")
-            status_responses = await self._validate_status_responses(status_responses, tracked_orders)
+            for trade in all_fills_response:  # trades must be handled before order status updates
+                trade_update = self._create_trade_update(trade_event=trade, order=order)
+                trade_updates.append(trade_update)
 
-            if len(status_responses) > 0:
-                min_ts: int = min(
-                    [order_status[CONSTANTS.RECEIVE_TIME_FIELD] for order_status in status_responses]
-                )
-                trade_history_tasks = [
-                    asyncio.create_task(self._request_order_fills(trading_pair, min_ts))
-                    for trading_pair in self._trading_pairs
-                ]
-                trade_responses = await self._gather_tasks(trade_history_tasks, task_name="trades history")
+        return trade_updates
 
-                for trades in trade_responses:  # trades must be handled before order status updates
-                    for trade in trades:
-                        self._process_trade_event_message(trade)
-
-                for order_status in status_responses:
-                    self._process_order_event_message(order_status)
-
-    async def _request_order_update(self, order: InFlightOrder) -> Dict[str, Any]:
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        exchange_order_id = await tracked_order.get_exchange_order_id()
         params = {
             CONSTANTS.OMS_ID_FIELD: self.oms_id,
             CONSTANTS.ACCOUNT_ID_FIELD: self._auth.account_id,
-            CONSTANTS.ORDER_ID_FIELD: int(await order.get_exchange_order_id()),
+            CONSTANTS.ORDER_ID_FIELD: int(exchange_order_id),
         }
-        resp = await self._api_request(
+        updated_order_data = await self._api_request(
             path_url=CONSTANTS.REST_ORDER_STATUS_ENDPOINT,
             params=params,
             is_auth_required=True,
         )
-        return resp
 
-    async def _request_order_fills(self, trading_pair: str, min_ts: int) -> Dict[str, Any]:
-        instrument_id = await self.exchange_symbol_associated_to_pair(trading_pair)
-        params = {
-            CONSTANTS.OMS_ID_FIELD: self.oms_id,
-            CONSTANTS.ACCOUNT_ID_FIELD: self._auth.account_id,
-            CONSTANTS.USER_ID_FIELD: self._auth.user_id,
-            CONSTANTS.INSTRUMENT_ID_FIELD: instrument_id,
-            CONSTANTS.START_TIME_FIELD: min_ts
-        }
-        resp = await self._api_request(
-            path_url=CONSTANTS.REST_TRADE_HISTORY_ENDPOINT,
-            params=params,
-            is_auth_required=True,
-        )
-        return resp
+        order_update = self._create_order_update(order_msg=updated_order_data, order=tracked_order)
 
-    async def _gather_tasks(self, tasks: List[Awaitable], task_name: str) -> List[Dict[str, Any]]:
-        raw_responses: List[Dict[str, Any]] = await safe_gather(*tasks, return_exceptions=True)
-
-        parsed_responses: List[Dict[str, Any]] = []
-        for resp in raw_responses:
-            if not isinstance(resp, Exception):
-                parsed_responses.append(resp)
-            else:
-                self.logger().error(f"Error fetching {task_name}. Response: {resp}")
-
-        return parsed_responses
+        return order_update
 
     async def _validate_status_responses(
         self, status_responses: List[Dict[str, Any]], associated_orders: List[InFlightOrder]
@@ -466,60 +443,52 @@ class OMSExchange(ExchangePyBase):
         self._account_balances[token] = amount
         self._account_available_balances[token] = (amount - on_hold)
 
-    def _process_order_event_message(self, order_msg: Dict[str, Any]):
+    def _create_order_update(self, order_msg: Dict[str, Any], order: InFlightOrder):
         status_from_update = order_msg[CONSTANTS.ORDER_STATE_FIELD]
-        tracked_order = self._order_tracker.fetch_order(
-            client_order_id=str(order_msg[CONSTANTS.CLIENT_ORDER_ID_FIELD])
-        )
-        if tracked_order is not None:
-            if status_from_update == CONSTANTS.ACTIVE_ORDER_STATE:
-                filled_amount = order_msg[CONSTANTS.QUANTITY_EXECUTED_FIELD]
-                if filled_amount != 0:
-                    order_status = OrderState.PARTIALLY_FILLED
-                else:
-                    order_status = OrderState.OPEN
+        if status_from_update == CONSTANTS.ACTIVE_ORDER_STATE:
+            filled_amount = order_msg[CONSTANTS.QUANTITY_EXECUTED_FIELD]
+            if filled_amount != 0:
+                order_status = OrderState.PARTIALLY_FILLED
             else:
-                order_status = CONSTANTS.ORDER_STATE_MAP[status_from_update]
-            order_update = OrderUpdate(
-                trading_pair=tracked_order.trading_pair,
-                update_timestamp=order_msg[CONSTANTS.ORDER_UPDATE_TS_FIELD] * 1e-3,
-                new_state=order_status,
-                client_order_id=tracked_order.client_order_id,
-                exchange_order_id=str(order_msg[CONSTANTS.ORDER_ID_FIELD]),
-            )
-            self._order_tracker.process_order_update(order_update=order_update)
-
-    def _process_trade_event_message(self, trade: Dict[str, Any]):
-        tracked_order = self._order_tracker.fetch_order(
-            client_order_id=str(trade[CONSTANTS.CLIENT_ORDER_ID_FIELD])
+                order_status = OrderState.OPEN
+        else:
+            order_status = CONSTANTS.ORDER_STATE_MAP[status_from_update]
+        order_update = OrderUpdate(
+            trading_pair=order.trading_pair,
+            update_timestamp=order_msg[CONSTANTS.ORDER_UPDATE_TS_FIELD] * 1e-3,
+            new_state=order_status,
+            client_order_id=order.client_order_id,
+            exchange_order_id=str(order_msg[CONSTANTS.ORDER_ID_FIELD]),
         )
-        if tracked_order is not None:
-            order_action = trade[CONSTANTS.SIDE_FIELD]
-            trade_type = CONSTANTS.ORDER_SIDE_MAP[order_action]
-            token_asset_id = trade[CONSTANTS.FEE_PRODUCT_ID_FIELD]
-            fee_amount = Decimal(str(trade[CONSTANTS.FEE_AMOUNT_FIELD]))
-            fee_token = self._token_id_map[token_asset_id] if fee_amount else tracked_order.quote_asset
-            fee = TradeFeeBase.new_spot_fee(
-                fee_schema=self.trade_fee_schema(),
-                trade_type=trade_type,
-                percent_token=fee_token,
-                flat_fees=[TokenAmount(amount=fee_amount, token=fee_token)],
-            )
-            fill_amount = Decimal(str(trade[CONSTANTS.QUANTITY_FIELD.capitalize()]))
-            fill_price = Decimal(str(trade[CONSTANTS.PRICE_FIELD]))
-            trade_time = trade[CONSTANTS.TRADE_TIME_MS_FIELD]
-            trade_update = TradeUpdate(
-                trade_id=str(trade[CONSTANTS.TRADE_ID_FIELD]),
-                client_order_id=tracked_order.client_order_id,
-                exchange_order_id=str(trade[CONSTANTS.ORDER_ID_FIELD]),
-                trading_pair=tracked_order.trading_pair,
-                fee=fee,
-                fill_base_amount=fill_amount,
-                fill_quote_amount=fill_amount * fill_price,
-                fill_price=fill_price,
-                fill_timestamp=int(trade_time * 1e-3),
-            )
-            self._order_tracker.process_trade_update(trade_update)
+        return order_update
+
+    def _create_trade_update(self, trade_event: Dict[str, Any], order: InFlightOrder):
+        order_action = trade_event[CONSTANTS.SIDE_FIELD]
+        trade_type = CONSTANTS.ORDER_SIDE_MAP[order_action]
+        token_asset_id = trade_event[CONSTANTS.FEE_PRODUCT_ID_FIELD]
+        fee_amount = Decimal(str(trade_event[CONSTANTS.FEE_AMOUNT_FIELD]))
+        fee_token = self._token_id_map[token_asset_id] if fee_amount else order.quote_asset
+        fee = TradeFeeBase.new_spot_fee(
+            fee_schema=self.trade_fee_schema(),
+            trade_type=trade_type,
+            percent_token=fee_token,
+            flat_fees=[TokenAmount(amount=fee_amount, token=fee_token)],
+        )
+        fill_amount = Decimal(str(trade_event[CONSTANTS.QUANTITY_FIELD.capitalize()]))
+        fill_price = Decimal(str(trade_event[CONSTANTS.PRICE_FIELD]))
+        trade_time = trade_event[CONSTANTS.TRADE_TIME_MS_FIELD]
+        trade_update = TradeUpdate(
+            trade_id=str(trade_event[CONSTANTS.TRADE_ID_FIELD]),
+            client_order_id=order.client_order_id,
+            exchange_order_id=str(trade_event[CONSTANTS.ORDER_ID_FIELD]),
+            trading_pair=order.trading_pair,
+            fee=fee,
+            fill_base_amount=fill_amount,
+            fill_quote_amount=fill_amount * fill_price,
+            fill_price=fill_price,
+            fill_timestamp=int(trade_time * 1e-3),
+        )
+        return trade_update
 
     def _create_web_assistants_factory(self) -> OMSConnectorWebAssistantsFactory:
         """We create a new authenticator to store the new session token."""
@@ -578,12 +547,14 @@ class OMSExchange(ExchangePyBase):
             )
             if instrument_id in mapping:
                 self.logger().error(
-                    f"Instrument ID {instrument_id} (trading pair {trading_pair}) already present in the map."
+                    f"Instrument ID {instrument_id} (trading pair {trading_pair}) already present in the map "
+                    f"(with trading pair {mapping[instrument_id]})."
                 )
                 continue
             elif trading_pair in mapping.inverse:
                 self.logger().error(
-                    f"Trading pair {trading_pair} (instrument ID {instrument_id}) already present in the map."
+                    f"Trading pair {trading_pair} (instrument ID {instrument_id}) already present in the map "
+                    f"(with ID {mapping.inverse[trading_pair]})."
                 )
                 continue
             mapping[instrument_id] = trading_pair
