@@ -32,6 +32,8 @@ from .moving_price_band import MovingPriceBand
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 s_decimal_neg_one = Decimal(-1)
+s_decimal_nan = Decimal(NaN)
+
 pmm_logger = None
 
 
@@ -65,6 +67,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     inventory_range_multiplier: Decimal = s_decimal_zero,
                     hanging_orders_enabled: bool = False,
                     hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
+                    hanging_buy_orders_enabled: bool = False,
+                    hanging_sell_orders_enabled: bool = False,
                     order_optimization_enabled: bool = False,
                     ask_order_optimization_depth: Decimal = s_decimal_zero,
                     bid_order_optimization_depth: Decimal = s_decimal_zero,
@@ -113,6 +117,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._inventory_range_multiplier = inventory_range_multiplier
         self._hanging_orders_enabled = hanging_orders_enabled
         self._hanging_orders_tracker = HangingOrdersTracker(self, hanging_orders_cancel_pct)
+        self._hanging_buy_orders_enabled = hanging_orders_enabled or hanging_buy_orders_enabled
+        self._hanging_sell_orders_enabled = hanging_orders_enabled or hanging_sell_orders_enabled
         self._order_optimization_enabled = order_optimization_enabled
         self._ask_order_optimization_depth = ask_order_optimization_depth
         self._bid_order_optimization_depth = bid_order_optimization_depth
@@ -259,21 +265,61 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     def inventory_range_multiplier(self, value: Decimal):
         self._inventory_range_multiplier = value
 
+    # Nested hanging order enabled  getter properties
     @property
     def hanging_orders_enabled(self) -> bool:
         return self._hanging_orders_enabled
 
+    @property
+    def hanging_buy_orders_enabled(self) -> bool:
+        return self._hanging_buy_orders_enabled
+
+    @property
+    def hanging_sell_orders_enabled(self) -> bool:
+        return self._hanging_sell_orders_enabled
+
     @hanging_orders_enabled.setter
     def hanging_orders_enabled(self, value: bool):
         self._hanging_orders_enabled = value
+        # For backward compatibility (old .yml not having buy/sell) enable/disable buy/sell
+        self._hanging_buy_orders_enabled = value
+        self._hanging_sell_orders_enabled = value
+
+    @hanging_buy_orders_enabled.setter
+    def hanging_buy_orders_enabled(self, value: bool):
+        self._hanging_buy_orders_enabled = value
+        # If BUY is set, force the default flag set
+        if value is True and self.hanging_orders_enabled is False:
+            self._hanging_orders_enabled = value
+        # If SELL is unset and BUY is unset, unset the default flag
+        if value is False and self.hanging_sell_orders_enabled is False:
+            self._hanging_orders_enabled = False
+
+    @hanging_sell_orders_enabled.setter
+    def hanging_sell_orders_enabled(self, value: bool):
+        self._hanging_sell_orders_enabled = value
+        # If SELL is set, force the default flag set
+        if value is True and self.hanging_orders_enabled is False:
+            self._hanging_orders_enabled = value
+        # If SELL is unset and BUY is unset, unset the default flag
+        if value is False and self.hanging_buy_orders_enabled is False:
+            self._hanging_orders_enabled = False
 
     @property
     def hanging_orders_cancel_pct(self) -> Decimal:
-        return self._hanging_orders_tracker._hanging_orders_cancel_pct
+        if not self.hanging_orders_enabled:
+            return s_decimal_nan
+        else:
+            return (self._hanging_orders_tracker.hanging_buy_orders_cancel_pct +
+                    self._hanging_orders_tracker.hanging_sell_orders_cancel_pct) * Decimal("0.5")
 
     @hanging_orders_cancel_pct.setter
     def hanging_orders_cancel_pct(self, value: Decimal):
-        self._hanging_orders_tracker._hanging_orders_cancel_pct = value
+        if not self.hanging_orders_enabled:
+            raise ValueError("Cannot set the hanging order percentage when this mode is not enabled")
+        else:
+            self._hanging_orders_tracker.hanging_buy_orders_cancel_pct = value
+            self._hanging_orders_tracker.hanging_sell_orders_cancel_pct = value
 
     @property
     def bid_spread(self) -> Decimal:
@@ -306,14 +352,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @order_refresh_time.setter
     def order_refresh_time(self, value: float):
         self._order_refresh_time = value
-
-    @property
-    def filled_order_delay(self) -> float:
-        return self._filled_order_delay
-
-    @filled_order_delay.setter
-    def filled_order_delay(self, value: float):
-        self._filled_order_delay = value
 
     @property
     def filled_order_delay(self) -> float:
@@ -450,6 +488,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return [o.order_id for o in self._hanging_orders_tracker.strategy_current_hanging_orders]
 
     @property
+    def hanging_buy_order_ids(self) -> List[str]:
+        return [o.order_id for o in self._hanging_orders_tracker.strategy_current_hanging_orders if o.is_buy]
+
+    @property
+    def hanging_sell_order_ids(self) -> List[str]:
+        return [o.order_id for o in self._hanging_orders_tracker.strategy_current_hanging_orders if not o.is_buy]
+
+    @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
 
@@ -470,6 +516,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @property
     def active_non_hanging_orders(self) -> List[LimitOrder]:
         orders = [o for o in self.active_orders if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id)]
+        return orders
+
+    def active_non_hanging_buy_orders(self) -> List[LimitOrder]:
+        orders = [o for o in self.active_orders if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id) if o.is_buy]
+        return orders
+
+    def active_non_hanging_sell_orders(self) -> List[LimitOrder]:
+        orders = [o for o in self.active_orders if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id) if not o.is_buy]
         return orders
 
     @property
@@ -1099,7 +1153,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             return
         active_sell_ids = [x.client_order_id for x in self.active_orders if not x.is_buy]
 
-        if self._hanging_orders_enabled:
+        if self.hanging_buy_orders_enabled:
             # If the filled order is a hanging order, do nothing
             if order_id in self.hanging_order_ids:
                 self.log_with_clock(
@@ -1139,7 +1193,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if limit_order_record is None:
             return
         active_buy_ids = [x.client_order_id for x in self.active_orders if x.is_buy]
-        if self._hanging_orders_enabled:
+        if self.hanging_sell_orders_enabled:
             # If the filled order is a hanging order, do nothing
             if order_id in self.hanging_order_ids:
                 self.log_with_clock(
@@ -1258,8 +1312,15 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             double expiration_seconds = NaN
             str bid_order_id, ask_order_id
             bint orders_created = False
-        # Number of pair of orders to track for hanging orders
-        number_of_pairs = min((len(proposal.buys), len(proposal.sells))) if self._hanging_orders_enabled else 0
+            list list_pair_of_orders = []
+        # Number of pairs of orders to track for hanging orders
+        # this is independent of whether it is symmetric or not
+        number_of_pairs = 0
+
+        if self.hanging_orders_enabled:
+            number_of_pairs = min((len(proposal.buys), len(proposal.sells)))
+            # Need to initialized as partially filled. They must be marked unfilled if initialized
+            [list_pair_of_orders.append(CreatedPairOfOrders(None, None, True, True)) for i in range(number_of_pairs)]
 
         if len(proposal.buys) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
@@ -1279,11 +1340,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     expiration_seconds=expiration_seconds
                 )
                 orders_created = True
-                if idx < number_of_pairs:
+                if idx < number_of_pairs and self.hanging_buy_orders_enabled:
                     order = next((o for o in self.active_orders if o.client_order_id == bid_order_id))
                     if order:
-                        self._hanging_orders_tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(
-                            CreatedPairOfOrders(order, None))
+                        list_pair_of_orders[idx].buy_order = order
+                        list_pair_of_orders[idx].filled_buy = False
         if len(proposal.sells) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                 price_quote_str = [f"{sell.size.normalize()} {self.base_asset}, "
@@ -1302,10 +1363,15 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     expiration_seconds=expiration_seconds
                 )
                 orders_created = True
-                if idx < number_of_pairs:
+                if idx < number_of_pairs and self.hanging_sell_orders_enabled:
                     order = next((o for o in self.active_orders if o.client_order_id == ask_order_id))
                     if order:
-                        self._hanging_orders_tracker.current_created_pairs_of_orders[idx].sell_order = order
+                        list_pair_of_orders[idx].sell_order = order
+                        list_pair_of_orders[idx].filled_sell = False
+
+        # Registering the hanging orders
+        [self._hanging_orders_tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(o) for o in list_pair_of_orders]
+
         if orders_created:
             self.set_timers()
 

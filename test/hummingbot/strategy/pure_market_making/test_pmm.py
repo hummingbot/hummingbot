@@ -648,6 +648,76 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(strategy.active_sells[1].price / strategy.active_sells[0].price, Decimal("1.025"))
         self.assertEqual(strategy.active_sells[2].price / strategy.active_sells[0].price, Decimal("1.05"))
 
+    def test_hanging_flag_mechanic(self):
+        strategy = self.one_level_strategy
+        strategy.hanging_orders_enabled = True
+
+        # Disabling
+        strategy.hanging_orders_enabled = False
+
+        self.assertFalse(strategy.hanging_orders_enabled)
+        # buy/sell are set to False when disabling hanging orders
+        self.assertFalse(strategy.hanging_buy_orders_enabled)
+        self.assertFalse(strategy.hanging_sell_orders_enabled)
+        self.assertTrue(strategy.hanging_orders_cancel_pct.is_nan())
+        # Setting BUY True triggers the 'master switch'
+        strategy.hanging_buy_orders_enabled = True
+        self.assertTrue(strategy.hanging_buy_orders_enabled)
+        self.assertTrue(strategy.hanging_orders_enabled)
+        # Resetting 'master' to False sets BUY/SELL to False
+        strategy.hanging_orders_enabled = False
+        self.assertFalse(strategy.hanging_buy_orders_enabled)
+        self.assertFalse(strategy.hanging_sell_orders_enabled)
+        # Setting SELL True triggers the 'master switch'
+        strategy.hanging_sell_orders_enabled = True
+        self.assertTrue(strategy.hanging_sell_orders_enabled)
+        self.assertTrue(strategy.hanging_orders_enabled)
+        strategy.hanging_orders_enabled = False
+        self.assertFalse(strategy.hanging_buy_orders_enabled)
+        self.assertFalse(strategy.hanging_sell_orders_enabled)
+
+        # Enabling
+        strategy.hanging_orders_enabled = True
+
+        self.assertTrue(strategy.hanging_orders_enabled)
+        # buy/sell follows the master switch
+        self.assertTrue(strategy.hanging_buy_orders_enabled)
+        self.assertTrue(strategy.hanging_sell_orders_enabled)
+        # Returns the default value of HangingOrders initialized to
+        # Decimal("0.1") by this 'strategy' instance call to init_params()
+        # without hanging_orders_cancel_pct argument that defaults to Decimal("0.1")
+        self.assertTrue(Decimal("0.1"), strategy.hanging_orders_cancel_pct)
+
+        # Disabling Sell
+        strategy.hanging_orders_enabled = True
+        strategy.hanging_sell_orders_enabled = False
+
+        self.assertTrue(strategy.hanging_orders_enabled)
+        self.assertTrue(strategy.hanging_buy_orders_enabled)
+        # sell was reset to False when disabling previously
+        self.assertFalse(strategy.hanging_sell_orders_enabled)
+        self.assertTrue(Decimal("0.1"), strategy.hanging_orders_cancel_pct)
+
+        # Disabling Buy
+        strategy.hanging_orders_enabled = True
+        strategy.hanging_buy_orders_enabled = False
+
+        self.assertTrue(strategy.hanging_orders_enabled)
+        self.assertTrue(strategy.hanging_sell_orders_enabled)
+        # buy set to False
+        self.assertFalse(strategy.hanging_buy_orders_enabled)
+        self.assertTrue(Decimal("0.1"), strategy.hanging_orders_cancel_pct)
+
+        # Disabling Buy & Sell
+        strategy.hanging_buy_orders_enabled = False
+        strategy.hanging_sell_orders_enabled = False
+
+        self.assertFalse(strategy.hanging_buy_orders_enabled)
+        self.assertFalse(strategy.hanging_sell_orders_enabled)
+        # Setting buy&sell to False, effectively disables hanging orders
+        self.assertFalse(strategy.hanging_orders_enabled)
+        self.assertTrue(strategy.hanging_orders_cancel_pct.is_nan())
+
     def test_hanging_orders(self):
         strategy = self.one_level_strategy
         strategy.order_refresh_time = 4.0
@@ -668,8 +738,11 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(0, len(strategy.active_buys))
         self.assertEqual(1, len(strategy.active_sells))
         self.assertEqual(1, len(strategy.hanging_order_ids))
+        self.assertEqual(0, len(strategy.hanging_buy_order_ids))
+        self.assertEqual(1, len(strategy.hanging_sell_order_ids))
         hanging_sell = strategy.active_sells[0]
         self.assertEqual(hanging_sell.client_order_id, strategy.hanging_order_ids[0])
+        self.assertEqual(hanging_sell.client_order_id, strategy.hanging_sell_order_ids[0])
 
         # At order_refresh_time, hanging order remains.
         self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time * 2 + 1)
@@ -690,15 +763,178 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.active_buys))
         self.assertEqual(1, len(strategy.active_sells))
         self.assertNotIn(strategy.active_sells[0].client_order_id, strategy.hanging_order_ids)
+        self.assertNotIn(strategy.active_sells[0].client_order_id, strategy.hanging_sell_order_ids)
 
         self.order_fill_logger.clear()
 
-    def test_hanging_order_max_order_age(self):
+    def test_hanging_sell_orders(self):
+        strategy = self.one_level_strategy
+        strategy.order_refresh_time = 4.0
+        strategy.filled_order_delay = 8.0
+        strategy.hanging_orders_enabled = True
+        strategy.hanging_sell_orders_enabled = True
+        strategy.hanging_orders_cancel_pct = Decimal("0.05")
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+
+        self.simulate_maker_market_trade(False, 100, 98.9)
+
+        # Bid is filled and due to delay is not replenished immediately
+        # Ask order is now hanging but is active
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + 1)
+        self.assertEqual(1, len(self.order_fill_logger.event_log))
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        self.assertEqual(1, len(strategy.hanging_order_ids))
+        self.assertEqual(0, len(strategy.hanging_buy_order_ids))
+        self.assertEqual(1, len(strategy.hanging_sell_order_ids))
+        hanging_sell = strategy.active_sells[0]
+        self.assertEqual(hanging_sell.client_order_id, strategy.hanging_order_ids[0])
+        self.assertEqual(hanging_sell.client_order_id, strategy.hanging_sell_order_ids[0])
+
+        # At order_refresh_time, hanging order remains.
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time * 2 + 1)
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+
+        # At filled_order_delay, a new set of bid and ask orders (one each) is created
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time * 2 + 2)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(2, len(strategy.active_sells))
+
+        self.assertIn(hanging_sell.client_order_id, [order.client_order_id for order in strategy.active_sells])
+
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], 80, 100)
+        # As book bids moving lower, the ask hanging order price spread is now more than the hanging_orders_cancel_pct
+        # Hanging order is canceled and removed from the active list
+        self.clock.backtest_til(self.start_timestamp + 11 * self.clock_tick_size)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        self.assertNotIn(strategy.active_sells[0].client_order_id, strategy.hanging_order_ids)
+        self.assertNotIn(strategy.active_sells[0].client_order_id, strategy.hanging_sell_order_ids)
+
+        self.order_fill_logger.clear()
+
+    def test_hanging_sell_orders_not_enabled(self):
+        strategy = self.one_level_strategy
+        strategy.order_refresh_time = 4.0
+        strategy.filled_order_delay = 8.0
+        strategy.hanging_orders_enabled = True
+        strategy.hanging_orders_cancel_pct = Decimal("0.05")
+        strategy.hanging_sell_orders_enabled = False
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+
+        self.simulate_maker_market_trade(False, 100, 98.9)
+
+        # Bid is filled and due to delay is not replenished immediately
+        # Ask order is now hanging but is active
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + 1)
+        self.assertEqual(1, len(self.order_fill_logger.event_log))
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
+        self.assertEqual(0, len(strategy.hanging_order_ids))
+        self.assertEqual(0, len(strategy.hanging_buy_order_ids))
+        self.assertEqual(0, len(strategy.hanging_sell_order_ids))
+
+        # At filled_order_delay, a new set of bid and ask orders (one each) is created
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time * 2 + 2)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+
+        self.order_fill_logger.clear()
+
+    def test_hanging_buy_orders(self):
+        strategy = self.one_level_strategy
+        strategy.order_refresh_time = 4.0
+        strategy.filled_order_delay = 8.0
+        strategy.hanging_orders_enabled = True
+        strategy.hanging_sell_orders_enabled = False
+        strategy.hanging_orders_cancel_pct = Decimal("0.05")
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+
+        self.simulate_maker_market_trade(True, 100, 101.1)
+
+        # Ask is filled and due to delay is not replenished immediately
+        # Bid order is now hanging but is active
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + 1)
+        self.assertEqual(1, len(self.order_fill_logger.event_log))
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
+        self.assertEqual(1, len(strategy.hanging_order_ids))
+        self.assertEqual(1, len(strategy.hanging_buy_order_ids))
+        self.assertEqual(0, len(strategy.hanging_sell_order_ids))
+        hanging_buy = strategy.active_buys[0]
+        self.assertEqual(hanging_buy.client_order_id, strategy.hanging_order_ids[0])
+        self.assertEqual(hanging_buy.client_order_id, strategy.hanging_buy_order_ids[0])
+
+        # At order_refresh_time, hanging order remains.
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time * 2 + 1)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
+
+        # At filled_order_delay, a new set of bid and ask orders (one each) is created
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time * 2 + 2)
+        self.assertEqual(2, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+
+        self.assertIn(hanging_buy.client_order_id, [order.client_order_id for order in strategy.active_buys])
+
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], 100, 120)
+        # As book bids moving lower, the ask hanging order price spread is now more than the hanging_orders_cancel_pct
+        # Hanging order is canceled and removed from the active list
+        self.clock.backtest_til(self.start_timestamp + 11 * self.clock_tick_size)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        self.assertNotIn(strategy.active_buys[0].client_order_id, strategy.hanging_order_ids)
+        self.assertNotIn(strategy.active_buys[0].client_order_id, strategy.hanging_sell_order_ids)
+
+        self.order_fill_logger.clear()
+
+    def test_hanging_buy_orders_not_enabled(self):
+        strategy = self.one_level_strategy
+        strategy.order_refresh_time = 4.0
+        strategy.filled_order_delay = 8.0
+        strategy.hanging_orders_enabled = True
+        strategy.hanging_buy_orders_enabled = False
+        strategy.hanging_orders_cancel_pct = Decimal("0.05")
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(1, len(strategy.active_buys))
+
+        self.simulate_maker_market_trade(False, 100, 101.1)
+
+        # Bid is filled and due to delay is not replenished immediately
+        # Ask order is now hanging but is active
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + 1)
+        self.assertEqual(0, len(self.order_fill_logger.event_log))
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        self.assertEqual(1, len(strategy.hanging_order_ids))
+        self.assertEqual(0, len(strategy.hanging_buy_order_ids))
+        self.assertEqual(1, len(strategy.hanging_sell_order_ids))
+
+        # At filled_order_delay, a new set of bid and ask orders (one each) is created
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time * 2 + 2)
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(2, len(strategy.active_sells))
+
+        self.order_fill_logger.clear()
+
+    def test_hanging_sell_order_max_order_age(self):
         # Note: Due to orders created by backtest market don't have timestamp in their IDs, thus max order age cannot
         # be calculated. We manually add the order to to_recreate_hanging_orders and trigger order cancel event here to
         # simulate the recreate.
         strategy = self.one_level_strategy
         strategy.hanging_orders_enabled = True
+        strategy.hanging_sell_orders_enabled = True
 
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
@@ -711,8 +947,11 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(0, len(strategy.active_buys))
         self.assertEqual(1, len(strategy.active_sells))
         self.assertEqual(1, len(strategy.hanging_order_ids))
+        self.assertEqual(0, len(strategy.hanging_buy_order_ids))
+        self.assertEqual(1, len(strategy.hanging_sell_order_ids))
         hanging_sell: LimitOrder = strategy.active_sells[0]
         self.assertEqual(hanging_sell.client_order_id, strategy.hanging_order_ids[0])
+        self.assertEqual(hanging_sell.client_order_id, strategy.hanging_sell_order_ids[0])
 
         self.market.trigger_event(MarketEvent.OrderCancelled, OrderCancelledEvent(
             self.market.current_timestamp,
@@ -725,12 +964,47 @@ class PMMUnitTest(unittest.TestCase):
 
         self.assertNotEqual(hanging_sell.client_order_id, new_hang[0].client_order_id)
 
-    def test_hanging_orders_multiple_orders(self):
+    def test_hanging_buy_order_max_order_age(self):
+        # Note: Due to orders created by backtest market don't have timestamp in their IDs, thus max order age cannot
+        # be calculated. We manually add the order to to_recreate_hanging_orders and trigger order cancel event here to
+        # simulate the recreate.
+        strategy = self.one_level_strategy
+        strategy.hanging_orders_enabled = True
+        strategy.hanging_buy_orders_enabled = True
+
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(1, len(strategy.active_buys))
+
+        self.simulate_maker_market_trade(True, 100, 101.1)
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + 1)
+        self.assertEqual(1, len(self.order_fill_logger.event_log))
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.hanging_order_ids))
+        self.assertEqual(1, len(strategy.hanging_buy_order_ids))
+        hanging_buy: LimitOrder = strategy.active_buys[0]
+        self.assertEqual(hanging_buy.client_order_id, strategy.hanging_order_ids[0])
+        self.assertEqual(hanging_buy.client_order_id, strategy.hanging_buy_order_ids[0])
+
+        self.market.trigger_event(MarketEvent.OrderCancelled, OrderCancelledEvent(
+            self.market.current_timestamp,
+            hanging_buy.client_order_id
+        ))
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time * 2 + 1)
+        self.assertEqual(1, len(strategy.active_buys))
+        new_hang: LimitOrder = [o for o in strategy.active_buys if o.price == hanging_buy.price
+                                and o.quantity == hanging_buy.quantity]
+
+        self.assertNotEqual(hanging_buy.client_order_id, new_hang[0].client_order_id)
+
+    def test_hanging_sell_orders_multiple_orders(self):
         strategy = self.multi_levels_strategy
         strategy.order_refresh_time = 4.0
         strategy.filled_order_delay = 8.0
         strategy.hanging_orders_enabled = True
         strategy.hanging_orders_cancel_pct = Decimal("0.05")
+        strategy.hanging_buy_orders_enabled = True
+        strategy.hanging_sell_orders_enabled = True
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
         self.assertEqual(3, len(strategy.active_buys))
@@ -746,6 +1020,8 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(2, len(strategy.active_buys))
         self.assertEqual(3, len(strategy.active_sells))
         self.assertEqual(0, len(strategy.hanging_order_ids))
+        self.assertEqual(0, len(strategy.hanging_buy_order_ids))
+        self.assertEqual(0, len(strategy.hanging_sell_order_ids))
 
         # At order_refresh_time, hanging orders are created, active orders are cancelled
         self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + 1)
@@ -753,6 +1029,8 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(0, len(strategy.active_buys))
         self.assertEqual(1, len(strategy.active_sells))
         self.assertEqual(1, len(strategy.hanging_order_ids))
+        self.assertEqual(0, len(strategy.hanging_buy_order_ids))
+        self.assertEqual(1, len(strategy.hanging_sell_order_ids))
 
         # At filled_order_delay, a new set of bid and ask orders (one each) is created
         self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + strategy.filled_order_delay + 1)
@@ -761,6 +1039,8 @@ class PMMUnitTest(unittest.TestCase):
 
         self.assertTrue(all(id in (order.client_order_id for order in strategy.active_sells)
                             for id in strategy.hanging_order_ids))
+        self.assertTrue(all(id in (order.client_order_id for order in strategy.active_sells)
+                            for id in strategy.hanging_sell_order_ids))
 
         simulate_order_book_widening(self.market.order_books[self.trading_pair], 80, 100)
         # As book bids moving lower, the ask hanging order price spread is now more than the hanging_orders_cancel_pct
@@ -769,6 +1049,177 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(3, len(strategy.active_buys))
         self.assertEqual(3, len(strategy.active_sells))
         self.assertFalse(any(o.client_order_id in strategy.hanging_order_ids for o in strategy.active_sells))
+        self.assertFalse(any(o.client_order_id in strategy.hanging_sell_order_ids for o in strategy.active_sells))
+
+        self.order_fill_logger.clear()
+
+    def test_hanging_sell_orders_multiple_orders_sell_not_enabled(self):
+        strategy = self.multi_levels_strategy
+        strategy.order_refresh_time = 4.0
+        strategy.filled_order_delay = 8.0
+        strategy.hanging_orders_enabled = True
+        strategy.hanging_orders_cancel_pct = Decimal("0.05")
+        strategy.hanging_buy_orders_enabled = True
+        strategy.hanging_sell_orders_enabled = False
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+
+        self.simulate_maker_market_trade(False, 100, 98.9)
+
+        # Bid is filled and due to delay is not replenished immediately
+        # Ask order is active
+        # Hanging orders are not yet created
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time / 2)
+        self.assertEqual(1, len(self.order_fill_logger.event_log))
+        self.assertEqual(2, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+        self.assertEqual(0, len(strategy.hanging_order_ids))
+        self.assertEqual(0, len(strategy.hanging_sell_order_ids))
+        self.assertEqual(0, len(strategy.hanging_buy_order_ids))
+
+        # At order_refresh_time, hanging BUY orders are created.
+        # Hanging orders proposed for the buy side since sells were canceled
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + 1)
+
+        self.assertEqual(2, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
+        self.assertEqual(2, len(strategy.hanging_order_ids))
+        self.assertEqual(0, len(strategy.hanging_sell_order_ids))
+        self.assertEqual(2, len(strategy.hanging_buy_order_ids))
+
+        # At filled_order_delay, a new set of bid and ask orders (one each) is created
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + strategy.filled_order_delay + 1)
+        self.assertEqual(5, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+
+        self.assertTrue(all(id in (order.client_order_id for order in strategy.active_buys)
+                            for id in strategy.hanging_order_ids))
+        self.assertTrue(all(id in (order.client_order_id for order in strategy.active_buys)
+                            for id in strategy.hanging_buy_order_ids))
+
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], 100, 120)
+        # As book bids moving lower, the ask hanging order price spread is now more than the hanging_orders_cancel_pct
+        # Hanging order is canceled and removed from the active list
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time * 2 + strategy.filled_order_delay + 1)
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+        self.assertFalse(any(o.client_order_id in strategy.hanging_order_ids for o in strategy.active_sells))
+        self.assertFalse(any(o.client_order_id in strategy.hanging_sell_order_ids for o in strategy.active_sells))
+
+        self.order_fill_logger.clear()
+
+    def test_hanging_buy_orders_multiple_orders(self):
+        strategy = self.multi_levels_strategy
+        strategy.order_refresh_time = 4.0
+        strategy.filled_order_delay = 8.0
+        strategy.hanging_orders_enabled = True
+        strategy.hanging_orders_cancel_pct = Decimal("0.05")
+        strategy.hanging_buy_orders_enabled = True
+        strategy.hanging_sell_orders_enabled = True
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+
+        self.simulate_maker_market_trade(True, 100, 101.1)
+
+        # Bid is filled and due to delay is not replenished immediately
+        # Ask order is active
+        # Hanging orders are not yet created
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time / 2)
+        self.assertEqual(1, len(self.order_fill_logger.event_log))
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(2, len(strategy.active_sells))
+        self.assertEqual(0, len(strategy.hanging_order_ids))
+        self.assertEqual(0, len(strategy.hanging_buy_order_ids))
+        self.assertEqual(0, len(strategy.hanging_sell_order_ids))
+
+        # At order_refresh_time, hanging orders are created, active orders are cancelled
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + 1)
+
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
+        self.assertEqual(1, len(strategy.hanging_order_ids))
+        self.assertEqual(1, len(strategy.hanging_buy_order_ids))
+        self.assertEqual(0, len(strategy.hanging_sell_order_ids))
+
+        # At filled_order_delay, a new set of bid and ask orders (one each) is created
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + strategy.filled_order_delay + 1)
+        self.assertEqual(4, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+
+        self.assertTrue(all(id in (order.client_order_id for order in strategy.active_buys)
+                            for id in strategy.hanging_order_ids))
+        self.assertTrue(all(id in (order.client_order_id for order in strategy.active_buys)
+                            for id in strategy.hanging_buy_order_ids))
+
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], 80, 100)
+        # As book bids moving lower, the ask hanging order price spread is now more than the hanging_orders_cancel_pct
+        # Hanging order is canceled and removed from the active list
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time * 2 + strategy.filled_order_delay + 1)
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+        self.assertFalse(any(o.client_order_id in strategy.hanging_order_ids for o in strategy.active_sells))
+        self.assertFalse(any(o.client_order_id in strategy.hanging_sell_order_ids for o in strategy.active_sells))
+
+        self.order_fill_logger.clear()
+
+    def test_hanging_buy_orders_multiple_orders_buy_not_enabled(self):
+        strategy = self.multi_levels_strategy
+        strategy.order_refresh_time = 4.0
+        strategy.filled_order_delay = 8.0
+        strategy.hanging_orders_enabled = True
+        strategy.hanging_orders_cancel_pct = Decimal("0.05")
+        strategy.hanging_buy_orders_enabled = False
+        strategy.hanging_sell_orders_enabled = True
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+
+        self.simulate_maker_market_trade(True, 100, 101.1)
+
+        # Bid is filled and due to delay is not replenished immediately
+        # Ask order is active
+        # Hanging orders are not yet created
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time / 2)
+        self.assertEqual(1, len(self.order_fill_logger.event_log))
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(2, len(strategy.active_sells))
+        self.assertEqual(0, len(strategy.hanging_order_ids))
+        self.assertEqual(0, len(strategy.hanging_buy_order_ids))
+        self.assertEqual(0, len(strategy.hanging_sell_order_ids))
+
+        # At order_refresh_time, hanging orders are created for SELL,
+        # since active BUY orders are cancelled
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + 1)
+
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(2, len(strategy.active_sells))
+        self.assertEqual(2, len(strategy.hanging_order_ids))
+        self.assertEqual(0, len(strategy.hanging_buy_order_ids))
+        self.assertEqual(2, len(strategy.hanging_sell_order_ids))
+
+        # At filled_order_delay, a new set of bid and ask orders (one each) is created
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + strategy.filled_order_delay + 1)
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(5, len(strategy.active_sells))
+
+        self.assertTrue(all(id in (order.client_order_id for order in strategy.active_sells)
+                            for id in strategy.hanging_order_ids))
+        self.assertTrue(all(id in (order.client_order_id for order in strategy.active_sells)
+                            for id in strategy.hanging_sell_order_ids))
+
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], 80, 100)
+        # As book bids moving lower, the ask hanging order price spread is now more than the hanging_orders_cancel_pct
+        # Hanging order is canceled and removed from the active list
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time * 2 + strategy.filled_order_delay + 1)
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+        self.assertFalse(any(o.client_order_id in strategy.hanging_order_ids for o in strategy.active_sells))
+        self.assertFalse(any(o.client_order_id in strategy.hanging_sell_order_ids for o in strategy.active_sells))
 
         self.order_fill_logger.clear()
 

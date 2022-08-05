@@ -289,7 +289,19 @@ pure_market_making_config_map = {
                   default=60),
     "hanging_orders_enabled":
         ConfigVar(key="hanging_orders_enabled",
-                  prompt="Do you want to enable hanging orders? (Yes/No) >>> ",
+                  prompt="Do you want to enable hanging BUY&SELL orders? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "hanging_buy_orders_enabled":
+        ConfigVar(key="hanging_buy_orders_enabled",
+                  prompt="Do you want to enable hanging BUY orders? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "hanging_sell_orders_enabled":
+        ConfigVar(key="hanging_sell_orders_enabled",
+                  prompt="Do you want to enable hanging SELL orders? (Yes/No) >>> ",
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
@@ -297,7 +309,7 @@ pure_market_making_config_map = {
         ConfigVar(key="hanging_orders_cancel_pct",
                   prompt="At what spread percentage (from mid price) will hanging orders be canceled? "
                          "(Enter 1 to indicate 1%) >>> ",
-                  required_if=lambda: pure_market_making_config_map.get("hanging_orders_enabled").value,
+                  required_if=lambda: pure_market_making_config_map.get("hanging_orders_enabled").value or pure_market_making_config_map.get("hanging_buy_orders_enabled").value or pure_market_making_config_map.get("hanging_sell_orders_enabled").value,
                   type_str="decimal",
                   default=Decimal("10"),
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False)),
