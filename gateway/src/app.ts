@@ -22,6 +22,7 @@ import { AmmRoutes } from './amm/amm.routes';
 import { PangolinConfig } from './connectors/pangolin/pangolin.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
 import { AvailableNetworks } from './services/config-manager-types';
+import { SifchainConnectorConfig } from './connectors/sifchain/sifchain.config';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -53,6 +54,7 @@ gatewayApp.get('/', (_req: Request, res: Response) => {
 interface ConnectorsResponse {
   uniswap: Array<AvailableNetworks>;
   pangolin: Array<AvailableNetworks>;
+  sifchain: Array<AvailableNetworks>;
 }
 
 gatewayApp.get(
@@ -61,6 +63,7 @@ gatewayApp.get(
     res.status(200).json({
       uniswap: UniswapConfig.config.availableNetworks,
       pangolin: PangolinConfig.config.availableNetworks,
+      sifchain: SifchainConnectorConfig.config.availableNetworks,
     });
   })
 );

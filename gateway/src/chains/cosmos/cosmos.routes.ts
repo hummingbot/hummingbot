@@ -27,8 +27,6 @@ export namespace CosmosRoutes {
     asyncHandler(async (_req: Request, res: Response) => {
       const { rpcUrl } = cosmos;
 
-      console.log(await cosmos.getCurrentBlockNumber());
-
       res.status(200).json({
         network: CosmosConfig.config.network.name,
         rpcUrl: rpcUrl,

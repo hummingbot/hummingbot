@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../services/error-handler';
 import { PangolinConfig } from './pangolin/pangolin.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
+import { SifchainConnectorConfig } from './sifchain/sifchain.config';
 
 export namespace ConnectorsRoutes {
   export const router = Router();
@@ -20,6 +21,12 @@ export namespace ConnectorsRoutes {
             name: 'pangolin',
             trading_type: PangolinConfig.config.tradingTypes,
             available_networks: PangolinConfig.config.availableNetworks,
+          },
+          {
+            name: 'sifchain',
+            trading_type: SifchainConnectorConfig.config.tradingTypes,
+            available_networks:
+              SifchainConnectorConfig.config.availableNetworks,
           },
         ],
       });
