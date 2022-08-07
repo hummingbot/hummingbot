@@ -14,15 +14,16 @@ async def cancel_order(params, url, api_key):
     }
         """
     )
-    print("params: ",params)
+    print("params: ", params)
     encoded_params = json.dumps({"CancelOrder": params});
     variables = {"input": {"payload": encoded_params}}
     try:
         result = await execute_query_command(mutation, variables, url, api_key)
         print("Cancel order result: ", result)
         return result["cancel_order"]
-    except TransportQueryError():
-        print("Errorr")
+    except TransportQueryError as executionErr:
+        print("Error while cancelling orders: ", executionErr.errors)
+
 
 async def place_order(params, url, api_key):
     mutation = gql(

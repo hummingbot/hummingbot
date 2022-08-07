@@ -9,6 +9,7 @@ from dateutil import parser
 from gql import Client
 from gql.transport.appsync_auth import AppSyncApiKeyAuthentication
 from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
+from gql.transport.exceptions import TransportQueryError
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.network_iterator import NetworkStatus
 from substrateinterface import Keypair, KeypairType, SubstrateInterface
@@ -233,11 +234,12 @@ class PolkadexExchange(ExchangePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         # TODO; Convert client_order_id to enclave_order_id
         print("Cancelling orders...")
-        encoded_cancel_req = create_cancel_order_req(self.blockchain, tracked_order.exchange_order_id)
-        signature = self.proxy_pair.sign(encoded_cancel_req)
-        market = convert_ticker_to_enclave_trading_pair(tracked_order.trading_pair)
-        params = [tracked_order.exchange_order_id, self.user_proxy_address, market, {"Sr25519": signature.hex()}]
-        await cancel_order(params, self.endpoint, self.api_key)
+        if tracked_order.exchange_order_id is not None:
+            encoded_cancel_req = create_cancel_order_req(self.blockchain, tracked_order.exchange_order_id)
+            signature = self.proxy_pair.sign(encoded_cancel_req)
+            market = convert_ticker_to_enclave_trading_pair(tracked_order.trading_pair)
+            params = [tracked_order.exchange_order_id, self.user_proxy_address, market, {"Sr25519": signature.hex()}]
+            await cancel_order(params, self.endpoint, self.api_key)
 
     async def _place_order(self, order_id: str, trading_pair: str, amount: Decimal, trade_type: TradeType,
                            order_type: OrderType, price: Decimal) -> Tuple[str, float]:
@@ -257,12 +259,22 @@ class PolkadexExchange(ExchangePyBase):
                                             ts)
         signature = self.proxy_pair.sign(encoded_order)
         params = [order, {"Sr25519": signature.hex()}]
-        result = await place_order(params, self.endpoint, self.api_key)
-        print("Exchange order id: ", result)
-        if result is not None:
-            return result, ts
-        else:
-            return "", ts
+        try:
+            result = await place_order(params, self.endpoint, self.api_key)
+            print("Exchange order id: ", result)
+            if result is not None:
+                return result, ts
+            else:
+                return "", ts
+        except TransportQueryError:
+            order_update = OrderUpdate(
+                trading_pair=trading_pair,
+                update_timestamp=ts,
+                new_state=CONSTANTS.ORDER_STATE["REJECTED"],
+                client_order_id=order_id,
+                exchange_order_id=None,
+            )
+            self._order_tracker.process_order_update(order_update)
 
     def _get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
                  amount: Decimal, price: Decimal = s_decimal_NaN,
@@ -425,7 +437,7 @@ class PolkadexExchange(ExchangePyBase):
                         self._order_tracker.process_order_update(update)
                 else:
                     print("Tracked order's eid is None, cid: ", tracked_order.client_order_id)
-                    new_state = CONSTANTS.ORDER_STATE["CANCELED"]
+                    new_state = CONSTANTS.ORDER_STATE["CANCELLED"]
                     ts = time.time()
                     update = OrderUpdate(
                         client_order_id=tracked_order.client_order_id,
