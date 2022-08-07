@@ -89,6 +89,31 @@ export interface Cosmosish extends CosmosBase {
   // nativeTokenSymbol: string;
   chain: string;
 }
+export interface Sifchainish extends CosmosBase {
+  // cancelTx(wallet: Wallet, nonce: number): Promise<Transaction>;
+  // getSpender(reqSpender: string): string;
+  // getContract(
+  //   tokenAddress: string,
+  //   signerOrProvider?: Wallet | Provider
+  // ): Contract;
+  // gasPrice: number;
+  // nativeTokenSymbol: string;
+  chain: string;
+}
+
+export interface SifchainishConnector {
+  priceSwapIn(
+    baseToken: any,
+    quoteToken: any,
+    amount: any
+  ): Promise<ExpectedTrade | string>;
+  priceSwapOut(
+    quoteToken: any,
+    baseToken: any,
+    amount: any
+  ): Promise<ExpectedTrade | string>;
+  chain: string;
+}
 
 export interface NetworkSelectionRequest {
   connector?: string; //the target connector (e.g. uniswap or pangolin)

@@ -16,5 +16,5 @@ networks:
     tokenListType: FILE
     tokenListSource: src/chains/ethereum/erc20_tokens_ropsten.json  
 nativeCurrencySymbol: ETH
-nodeAPIKey: ''
+nodeAPIKey: '2d3ad90cd71e440cabfeb64109a7abea'
 manualGasPrice: 110

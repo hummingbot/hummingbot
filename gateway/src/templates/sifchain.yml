@@ -1,8 +1,13 @@
-# list the Cosmos networks available to gateway
 networks:
-  sifchain: 
-    chainID: 43113
-    nodeURL: 'https://rpc.test.sifchain.finance'
-    tokenListType: 'FILE'
-    tokenListSource: 'src/chains/avalanche/avalanche_tokens_fuji.json'
-
+  mainnet:
+    rpcURL: https://rpc.sifchain.finance
+    tokenListType: URL
+    tokenListSource: >-
+      https://sifchain-token-registry-list.vercel.app/list.json
+  testnet:
+    rpcURL: https://rpc-testnet.sifchain.finance
+    tokenListType: URL
+    tokenListSource: https://sifchain-token-registry-list.vercel.app/list.json
+nativeCurrencySymbol: ROWAN
+nodeAPIKey: 3712b320394b413fb4c42fdadcebdf54
+manualGasPrice: 110

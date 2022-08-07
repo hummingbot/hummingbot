@@ -10,7 +10,6 @@ import { EvmTxStorage } from './evm.tx-storage';
 import fse from 'fs-extra';
 import { ConfigManagerCertPassphrase } from './config-manager-cert-passphrase';
 import { BigNumber } from 'ethers';
-// import { assets } from 'chain-registry';
 
 //Cosmos
 const { DirectSecp256k1Wallet, decodeTxRaw } = require('@cosmjs/proto-signing');
@@ -151,15 +150,24 @@ export class CosmosBase {
     return this._tokenMap[symbol] ? this._tokenMap[symbol] : null;
   }
 
-  async getWalletFromPrivateKey(privateKey: string): Promise<any> {
-    const wallet = await DirectSecp256k1Wallet.fromKey(fromHex(privateKey));
+  async getWalletFromPrivateKey(
+    privateKey: string,
+    prefix: string
+  ): Promise<any> {
+    const wallet = await DirectSecp256k1Wallet.fromKey(
+      fromHex(privateKey),
+      prefix
+    );
 
     // Private key can be exported by using - gaiad keys export [key name] --unsafe --unarmored-hex
     return wallet;
   }
 
-  async getAccountsfromPrivateKey(privateKey: string): Promise<any> {
-    const wallet = await this.getWalletFromPrivateKey(privateKey);
+  async getAccountsfromPrivateKey(
+    privateKey: string,
+    prefix: string
+  ): Promise<any> {
+    const wallet = await this.getWalletFromPrivateKey(privateKey, prefix);
 
     const accounts = await wallet.getAccounts();
 
@@ -189,7 +197,7 @@ export class CosmosBase {
     if (!passphrase) {
       throw new Error('missing passphrase');
     }
-    return await this.decrypt(encryptedPrivateKey, passphrase);
+    return await this.decrypt(encryptedPrivateKey, passphrase, 'cosmos');
   }
 
   private static async getKeyMaterial(password: string) {
@@ -269,7 +277,11 @@ export class CosmosBase {
     );
   }
 
-  async decrypt(encryptedPrivateKey: any, password: string): Promise<any> {
+  async decrypt(
+    encryptedPrivateKey: any,
+    password: string,
+    prefix: string
+  ): Promise<any> {
     const keyMaterial = await CosmosBase.getKeyMaterial(password);
     const key = await CosmosBase.getKey(
       encryptedPrivateKey.keyAlgorithm,
@@ -283,7 +295,7 @@ export class CosmosBase {
     const dec = new TextDecoder();
     dec.decode(decrypted);
 
-    return await this.getWalletFromPrivateKey(dec.decode(decrypted));
+    return await this.getWalletFromPrivateKey(dec.decode(decrypted), prefix);
   }
 
   getChainAssetsData(chain: string) {
@@ -294,6 +306,10 @@ export class CosmosBase {
 
   async getDenomMetadata(provider: any, denom: string): Promise<any> {
     return await provider.queryClient.bank.denomMetadata(denom);
+  }
+
+  getTokenDecimals(token: any) {
+    return token ? token.denom_units[token.denom_units.length - 1].exponent : 6; // Last denom unit has the decimal amount we need from our list
   }
 
   async getBalances(wallet: any): Promise<Record<string, TokenValue>> {
@@ -313,9 +329,7 @@ export class CosmosBase {
         // Not all tokens are added in the registry so we use the denom if the token doesn't exist
         balances[token ? token.symbol : t.denom] = {
           value: BigNumber.from(parseInt(t.amount, 10)),
-          decimals: token
-            ? token.denom_units[token.denom_units.length - 1].exponent // Last denom unit has the decimal amount we need from our list
-            : 6,
+          decimals: this.getTokenDecimals(token),
         };
       })
     );
