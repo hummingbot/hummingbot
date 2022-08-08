@@ -3,7 +3,7 @@
   "type": "object",
   "properties": {
     "allowedSlippage": { "type": "string" },
-    "gasLimitEstimate": { "type": "integer" },
+    "gasLimit": { "type": "integer" },
     "ttl": { "type": "integer" },
     "contractAddresses": {
       "type": "object",
@@ -11,9 +11,9 @@
         "^\\w+$": {
           "type": "object",
           "properties": {
-            "sushiswapRouterAddress": { "type": "string" }
+            "routerAddress": { "type": "string" }
           },
-          "required": ["sushiswapRouterAddress"],
+          "required": ["routerAddress"],
           "additionalProperties": false
         }
       },
@@ -21,10 +21,5 @@
     }
   },
   "additionalProperties": false,
-  "required": [
-    "allowedSlippage",
-    "gasLimitEstimate",
-    "ttl",
-    "contractAddresses"
-  ]
+  "required": ["allowedSlippage", "gasLimit", "ttl", "contractAddresses"]
 }
