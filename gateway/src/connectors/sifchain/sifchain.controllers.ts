@@ -54,14 +54,14 @@ export async function price(
 
   const result: ExpectedTrade | string =
     req.side === 'BUY'
-      ? await sifchainishConnector.priceSwapOut(
-          quoteToken, // tokenIn is quote asset
-          baseToken, // tokenOut is base asset
+      ? await sifchainishConnector.estimateBuyTrade(
+          quoteToken,
+          baseToken,
           amount
         )
-      : await sifchainishConnector.priceSwapIn(
-          baseToken, // tokenIn is base asset
-          quoteToken, // tokenOut is quote asset
+      : await sifchainishConnector.estimateSellTrade(
+          baseToken,
+          quoteToken,
           amount
         );
 

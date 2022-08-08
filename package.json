@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.32.0"
+  }
+}

@@ -93,6 +93,7 @@ coverage.xml
 
 # node installs
 /gateway/node_modules/
+node_modules
 
 # debug logs
 /gateway/npm-debug.log
