@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime
 from decimal import Decimal
+from unittest.mock import patch
 
 from mock import MagicMock, PropertyMock
 
@@ -88,17 +89,12 @@ class HangingOrdersTrackerTest(unittest.TestCase):
         self.assertEqual(self.tracker.hanging_buy_orders_cancel_pct, Decimal("0.2"))
         self.assertEqual(self.tracker.hanging_sell_orders_cancel_pct, Decimal("0.3"))
 
-        # This method is being obsoleted. The new mechanic is to assign the asymmetric buy/sell
+        # The new mechanic is to get the asymmetric buy/sell
         # The getter emits a logging warning and error buy/sell are not equal
         self.assertEqual(self.tracker.hanging_orders_cancel_pct, (Decimal("0.2") + Decimal("0.3")) * Decimal("0.5"))
-        self.assertTrue(self._is_logged("WARNING", "The HangingOrder class is asymmetric, select buy or sell method.\n"
-                                                   "This method is being obsoleted."))
-        self.assertTrue(self._is_logged("ERROR", "This method returns an incorrect value for asymmetric HangingOrder."))
 
         # The setter emits a logging warning, assigns the same value to the asymmetric members
         self.tracker.hanging_orders_cancel_pct = Decimal("0.1")
-        self.assertTrue(self._is_logged("WARNING", "The HangingOrder class is asymmetric, select buy or sell method.\n"
-                                                   "This method is being obsoleted."))
         self.assertEqual(self.tracker.hanging_buy_orders_cancel_pct, Decimal("0.1"))
         self.assertEqual(self.tracker.hanging_sell_orders_cancel_pct, Decimal("0.1"))
 
@@ -720,7 +716,87 @@ class HangingOrdersTrackerTest(unittest.TestCase):
         self.assertIn(hanging_order_1, self.tracker.strategy_current_hanging_orders)
         self.assertTrue(self.tracker.is_potential_hanging_order(sell_order_1))
 
-    def test_add_orders_from_partially_executed_pairs(self):
+    def test_add_buy_orders_from_partially_executed_pairs(self):
+        active_orders = []
+        type(self.strategy).active_orders = PropertyMock(return_value=active_orders)
+
+        buy_order_1 = LimitOrder("Order-1234569960000000",
+                                 "BTC-USDT",
+                                 True,
+                                 "BTC",
+                                 "USDT",
+                                 Decimal(101),
+                                 Decimal(1),
+                                 creation_timestamp=1234569960000000)
+        buy_order_2 = LimitOrder("Order-1234569961000000",
+                                 "BTC-USDT",
+                                 True,
+                                 "BTC",
+                                 "USDT",
+                                 Decimal(102),
+                                 Decimal(2),
+                                 creation_timestamp=1234569961000000)
+        buy_order_3 = LimitOrder("Order-1234569962000000",
+                                 "BTC-USDT",
+                                 True,
+                                 "BTC",
+                                 "USDT",
+                                 Decimal(103),
+                                 Decimal(3),
+                                 creation_timestamp=1234569962000000)
+        sell_order_1 = LimitOrder("Order-1234569980000000",
+                                  "BTC-USDT",
+                                  False,
+                                  "BTC",
+                                  "USDT",
+                                  Decimal(120),
+                                  Decimal(1),
+                                  creation_timestamp=1234569980000000)
+        sell_order_2 = LimitOrder("Order-1234569981000000",
+                                  "BTC-USDT",
+                                  False,
+                                  "BTC",
+                                  "USDT",
+                                  Decimal(122),
+                                  Decimal(2),
+                                  creation_timestamp=1234569981000000)
+        sell_order_3 = LimitOrder("Order-1234569982000000",
+                                  "BTC-USDT",
+                                  False,
+                                  "BTC",
+                                  "USDT",
+                                  Decimal(123),
+                                  Decimal(3),
+                                  creation_timestamp=1234569982000000)
+
+        non_executed_pair = CreatedPairOfOrders(buy_order_1, sell_order_1)
+        partially_executed_pair = CreatedPairOfOrders(buy_order_2, sell_order_2)
+        partially_executed_pair.filled_sell = True
+        executed_pair = CreatedPairOfOrders(buy_order_3, sell_order_3)
+        executed_pair.filled_buy = True
+        executed_pair.filled_sell = True
+
+        active_orders.append(buy_order_1)
+        active_orders.append(buy_order_2)
+        active_orders.append(buy_order_3)
+        active_orders.append(sell_order_1)
+        active_orders.append(sell_order_2)
+        active_orders.append(sell_order_3)
+
+        self.tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(non_executed_pair)
+        self.tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(partially_executed_pair)
+        self.tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(executed_pair)
+
+        self.tracker._add_hanging_orders_based_on_partially_executed_pairs()
+
+        self.assertNotIn(buy_order_1, self.tracker.original_orders)
+        self.assertIn(buy_order_2, self.tracker.original_orders)
+        self.assertNotIn(buy_order_3, self.tracker.original_orders)
+        self.assertNotIn(sell_order_1, self.tracker.original_orders)
+        self.assertNotIn(sell_order_2, self.tracker.original_orders)
+        self.assertNotIn(sell_order_3, self.tracker.original_orders)
+
+    def test_add_sell_orders_from_partially_executed_pairs(self):
         active_orders = []
         type(self.strategy).active_orders = PropertyMock(return_value=active_orders)
 
@@ -800,13 +876,87 @@ class HangingOrdersTrackerTest(unittest.TestCase):
         self.assertIn(sell_order_2, self.tracker.original_orders)
         self.assertNotIn(sell_order_3, self.tracker.original_orders)
 
-    def test_add_order_as_hanging_order(self):
+    def test_add_buy_order_as_hanging_order(self):
         order = LimitOrder("Order-number-1", "BTC-USDT", True, "BTC", "USDT", Decimal(100), Decimal(1))
         self.tracker.add_as_hanging_order(order)
 
         self.assertIn(order, self.tracker.original_orders)
         self.assertEqual(1, len(self.tracker.strategy_current_hanging_orders))
+        # Internal structure
+        self.assertEqual(1, len(self.tracker._strategy_current_hanging_orders[OrdS.BUY]))
 
         hanging_order = next((hanging_order for hanging_order in self.tracker.strategy_current_hanging_orders))
 
         self.assertEqual(order.client_order_id, hanging_order.order_id)
+
+    def test_add_sell_order_as_hanging_order(self):
+        order = LimitOrder("Order-number-1", "BTC-USDT", False, "BTC", "USDT", Decimal(100), Decimal(1))
+        self.tracker.add_as_hanging_order(order)
+
+        self.assertIn(order, self.tracker.original_orders)
+        self.assertEqual(1, len(self.tracker.strategy_current_hanging_orders))
+        # Internal structure
+        self.assertEqual(1, len(self.tracker._strategy_current_hanging_orders[OrdS.SELL]))
+
+        hanging_order = next((hanging_order for hanging_order in self.tracker.strategy_current_hanging_orders))
+
+        self.assertEqual(order.client_order_id, hanging_order.order_id)
+
+    def test__process_cancel_buy_as_part_of_renew(self):
+        strategy_active_orders = []
+        type(self.strategy).current_timestamp = PropertyMock(return_value=1234967891)
+        type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
+        buy_order = LimitOrder("Order-number-1", "BTC-USDT", True, "BTC", "USDT", Decimal(100), Decimal(1), Decimal(0))
+        hanging_buy_order = HangingOrder("Order-number-1",
+                                         buy_order.trading_pair,
+                                         buy_order.is_buy,
+                                         buy_order.price,
+                                         buy_order.quantity,
+                                         1234567890)
+        self.tracker.add_order(buy_order)
+        strategy_active_orders.append(buy_order)
+        self.tracker.update_strategy_orders_with_equivalent_orders()
+        self.assertIn(hanging_buy_order, self.tracker.strategy_current_hanging_orders)
+        self.assertIn(hanging_buy_order, self.tracker._strategy_current_hanging_orders[OrdS.BUY])
+        self.tracker.orders_being_renewed.add(hanging_buy_order)
+        event = OrderCancelledEvent(1234567890, "Order-number-1")
+
+        with patch.object(HangingOrdersTracker, '_execute_orders_in_strategy') as mocked_execution:
+            mocked_execution.return_value = {hanging_buy_order}
+            self.tracker._process_cancel_as_part_of_renew(event)
+
+        self.assertTrue(
+            self._is_logged("INFO", f"({buy_order.trading_pair}) Hanging BUY order {buy_order.client_order_id} "
+                                    f"has been canceled as part of the renew process. "
+                                    f"Now the replacing order will be created."))
+        self.assertIn(buy_order, self.tracker.original_orders)
+
+    def test__process_cancel_sell_as_part_of_renew(self):
+        strategy_active_orders = []
+        type(self.strategy).current_timestamp = PropertyMock(return_value=1234967891)
+        type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
+        sell_order = LimitOrder("Order-number-1", "BTC-USDT", False, "BTC", "USDT", Decimal(100), Decimal(1),
+                                Decimal(0))
+        hanging_sell_order = HangingOrder("Order-number-1",
+                                          sell_order.trading_pair,
+                                          sell_order.is_buy,
+                                          sell_order.price,
+                                          sell_order.quantity,
+                                          1234567890)
+        self.tracker.add_order(sell_order)
+        strategy_active_orders.append(sell_order)
+        self.tracker.update_strategy_orders_with_equivalent_orders()
+        self.assertIn(hanging_sell_order, self.tracker.strategy_current_hanging_orders)
+        self.assertIn(hanging_sell_order, self.tracker._strategy_current_hanging_orders[OrdS.SELL])
+        self.tracker.orders_being_renewed.add(hanging_sell_order)
+        event = OrderCancelledEvent(1234567890, "Order-number-1")
+
+        with patch.object(HangingOrdersTracker, '_execute_orders_in_strategy') as mocked_execution:
+            mocked_execution.return_value = {hanging_sell_order}
+            self.tracker._process_cancel_as_part_of_renew(event)
+
+        self.assertTrue(
+            self._is_logged("INFO", f"({sell_order.trading_pair}) Hanging SELL order {sell_order.client_order_id} "
+                                    f"has been canceled as part of the renew process. "
+                                    f"Now the replacing order will be created."))
+        self.assertIn(sell_order, self.tracker.original_orders)

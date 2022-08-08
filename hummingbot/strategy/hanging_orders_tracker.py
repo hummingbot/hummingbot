@@ -94,16 +94,12 @@ class HangingOrdersTracker:
 
     @property
     def hanging_orders_cancel_pct(self):
-        self.logger().warning("The HangingOrder class is asymmetric, select buy or sell method.\n"
-                              "This method is being obsoleted.")
         if self._hanging_buy_orders_cancel_pct != self._hanging_sell_orders_cancel_pct:
             self.logger().error("This method returns an incorrect value for asymmetric HangingOrder.")
         return (self._hanging_buy_orders_cancel_pct + self._hanging_sell_orders_cancel_pct) * Decimal("0.5")
 
     @hanging_orders_cancel_pct.setter
     def hanging_orders_cancel_pct(self, value):
-        self.logger().warning("The HangingOrder class is asymmetric, select buy or sell method.\n"
-                              "This method is being obsoleted.")
         self._hanging_buy_orders_cancel_pct = value
         self._hanging_sell_orders_cancel_pct = value
 
@@ -269,7 +265,7 @@ class HangingOrdersTracker:
                 self._strategy_current_hanging_orders[OrdS.BUY] = self._strategy_current_hanging_orders[OrdS.BUY].union(
                     {o for o in executed_orders if o.is_buy})
             else:
-                self._strategy_current_hanging_orders[OrdS.BUY] = self._strategy_current_hanging_orders[
+                self._strategy_current_hanging_orders[OrdS.SELL] = self._strategy_current_hanging_orders[
                     OrdS.SELL].union(
                     {o for o in executed_orders if not o.is_buy})
 
@@ -297,20 +293,10 @@ class HangingOrdersTracker:
         self.original_orders.clear()
 
     def remove_all_buys(self):
-        to_be_removed = []
-        for order in self.original_orders:
-            if order.is_buy:
-                to_be_removed.append(order)
-        for order in to_be_removed:
-            self.original_orders.remove(order)
+        [self.original_orders.remove(order) for order in self.original_orders if order.is_buy]
 
     def remove_all_sells(self):
-        to_be_removed = []
-        for order in self.original_orders:
-            if not order.is_buy:
-                to_be_removed.append(order)
-        for order in to_be_removed:
-            self.original_orders.remove(order)
+        [self.original_orders.remove(order) for order in self.original_orders if not order.is_buy]
 
     def hanging_order_age(self, hanging_order: HangingOrder) -> float:
         """
