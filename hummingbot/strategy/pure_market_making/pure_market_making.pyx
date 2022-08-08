@@ -32,8 +32,7 @@ from .moving_price_band import MovingPriceBand
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 s_decimal_neg_one = Decimal(-1)
-s_decimal_nan = Decimal(NaN)
-
+s_decimal_nan = Decimal("nan")
 pmm_logger = None
 
 
@@ -133,9 +132,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._ping_pong_warning_lines = []
         self._hb_app_notification = hb_app_notification
         self._order_override = order_override
-        self._split_order_levels_enabled=split_order_levels_enabled
-        self._bid_order_level_spreads=bid_order_level_spreads
-        self._ask_order_level_spreads=ask_order_level_spreads
+        self._split_order_levels_enabled = split_order_levels_enabled
+        self._bid_order_level_spreads = bid_order_level_spreads
+        self._ask_order_level_spreads = ask_order_level_spreads
         self._cancel_timestamp = 0
         self._create_timestamp = 0
         self._limit_order_type = self._market_info.market.get_maker_order_type()
@@ -515,15 +514,18 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     @property
     def active_non_hanging_orders(self) -> List[LimitOrder]:
-        orders = [o for o in self.active_orders if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id)]
+        orders = [o for o in self.active_orders if
+                  not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id)]
         return orders
 
     def active_non_hanging_buy_orders(self) -> List[LimitOrder]:
-        orders = [o for o in self.active_orders if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id) if o.is_buy]
+        orders = [o for o in self.active_orders if
+                  not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id) if o.is_buy]
         return orders
 
     def active_non_hanging_sell_orders(self) -> List[LimitOrder]:
-        orders = [o for o in self.active_orders if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id) if not o.is_buy]
+        orders = [o for o in self.active_orders if
+                  not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id) if not o.is_buy]
         return orders
 
     @property
@@ -622,7 +624,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         total_in_quote = base_value + quote_balance
         base_ratio = base_value / total_in_quote if total_in_quote > 0 else 0
         quote_ratio = quote_balance / total_in_quote if total_in_quote > 0 else 0
-        data=[
+        data = [
             ["", base_asset, quote_asset],
             ["Total Balance", round(base_balance, 4), round(quote_balance, 4)],
             ["Available Balance", round(available_base_balance, 4), round(available_quote_balance, 4)],
@@ -653,7 +655,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 else:
                     level = no_sells - lvl_sell
                     lvl_sell += 1
-            spread = 0 if price == 0 else abs(order.price - price)/price
+            spread = 0 if price == 0 else abs(order.price - price) / price
             age = pd.Timestamp(order_age(order, self._current_timestamp), unit='s').strftime('%H:%M:%S')
 
             if is_hanging_order:
@@ -769,7 +771,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             for order_id in restored_order_ids:
                 order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
                 if order:
-                    self._hanging_orders_tracker.add_as_hanging_order(order)
+                    if (order.is_buy and self.hanging_buy_orders_enabled) or (not order.is_buy and self.hanging_sell_orders_enabled):
+                        self._hanging_orders_tracker.add_as_hanging_order(order)
 
     cdef c_stop(self, Clock clock):
         self._hanging_orders_tracker.unregister_events(self.active_markets)
@@ -980,7 +983,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             size = market.c_quantize_order_amount(self.trading_pair, size, sell.price)
             sell.size = size
 
-    def adjusted_available_balance_for_orders_budget_constrain(self):
+    def adjusted_available_balance_for_orders_budget_constraint(self):
         candidate_hanging_orders = self.hanging_orders_tracker.candidate_hanging_orders_from_pairs()
         non_hanging = []
         if self.market_info in self._sb_order_tracker.get_limit_orders():
@@ -997,7 +1000,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             object base_size
             object adjusted_amount
 
-        base_balance, quote_balance = self.adjusted_available_balance_for_orders_budget_constrain()
+        base_balance, quote_balance = self.adjusted_available_balance_for_orders_budget_constraint()
 
         for buy in proposal.buys:
             buy_fee = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
@@ -1233,7 +1236,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         proposal_prices = sorted(proposal_prices)
         for current, proposal in zip(current_prices, proposal_prices):
             # if spread diff is more than the tolerance or order quantities are different, return false.
-            if abs(proposal - current)/current > self._order_refresh_tolerance_pct:
+            if abs(proposal - current) / current > self._order_refresh_tolerance_pct:
                 return False
         return True
 
@@ -1340,11 +1343,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     expiration_seconds=expiration_seconds
                 )
                 orders_created = True
-                if idx < number_of_pairs and self.hanging_buy_orders_enabled:
+                if idx < number_of_pairs:
                     order = next((o for o in self.active_orders if o.client_order_id == bid_order_id))
                     if order:
                         list_pair_of_orders[idx].buy_order = order
                         list_pair_of_orders[idx].filled_buy = False
+                        list_pair_of_orders[idx].hanging_buy_enabled = self.hanging_buy_orders_enabled
         if len(proposal.sells) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                 price_quote_str = [f"{sell.size.normalize()} {self.base_asset}, "
@@ -1363,11 +1367,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     expiration_seconds=expiration_seconds
                 )
                 orders_created = True
-                if idx < number_of_pairs and self.hanging_sell_orders_enabled:
+                if idx < number_of_pairs:
                     order = next((o for o in self.active_orders if o.client_order_id == ask_order_id))
                     if order:
                         list_pair_of_orders[idx].sell_order = order
                         list_pair_of_orders[idx].filled_sell = False
+                        list_pair_of_orders[idx].hanging_sell_enabled = self.hanging_sell_orders_enabled
 
         # Registering the hanging orders
         [self._hanging_orders_tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(o) for o in list_pair_of_orders]
