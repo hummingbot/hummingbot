@@ -243,6 +243,8 @@ class ClientOrderTracker:
                 order.client_order_id,
                 order.creation_timestamp,
                 exchange_order_id=order.exchange_order_id,
+                leverage=order.leverage,
+                position=order.position.value,
             ),
         )
 
@@ -276,7 +278,7 @@ class ClientOrderTracker:
                 trade_fee=fill_fee,
                 exchange_trade_id=trade_id,
                 leverage=int(order.leverage),
-                position=order.position.name,
+                position=order.position.value,
             ),
         )
 
@@ -311,10 +313,7 @@ class ClientOrderTracker:
 
     def _trigger_order_creation(self, tracked_order: InFlightOrder, previous_state: OrderState, new_state: OrderState):
         if previous_state == OrderState.PENDING_CREATE and new_state == OrderState.OPEN:
-            self.logger().info(
-                f"Created {tracked_order.order_type.name.upper()} {tracked_order.trade_type.name.upper()} order "
-                f"{tracked_order.client_order_id} for {tracked_order.amount} {tracked_order.trading_pair}."
-            )
+            self.logger().info(tracked_order.build_order_created_message())
             self._trigger_created_event(tracked_order)
 
     def _trigger_order_fills(self,
