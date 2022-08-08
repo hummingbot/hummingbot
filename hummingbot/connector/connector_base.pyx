@@ -1,26 +1,24 @@
+import asyncio
 import time
 from decimal import Decimal
-from typing import (
-    Dict,
-    List,
-    Tuple,
-    Set,
-)
+from typing import Dict, List, Set, Tuple, TYPE_CHECKING, Union
 
 from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.utils import split_hb_trading_pair, TradeFillOrderDetails
+from hummingbot.connector.constants import s_decimal_NaN, s_decimal_0
+from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.network_iterator import NetworkIterator
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.connector.utils import split_hb_trading_pair, TradeFillOrderDetails
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.network_iterator import NetworkIterator
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
-NaN = float("nan")
-s_decimal_NaN = Decimal("nan")
-s_decimal_0 = Decimal(0)
+if TYPE_CHECKING:
+    from hummingbot.client.config.client_config_map import ClientConfigMap
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
 cdef class ConnectorBase(NetworkIterator):
@@ -37,14 +35,14 @@ cdef class ConnectorBase(NetworkIterator):
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
         MarketEvent.FundingPaymentCompleted,
-        MarketEvent.RangePositionCreated,
-        MarketEvent.RangePositionRemoved,
-        MarketEvent.RangePositionUpdated,
-        MarketEvent.RangePositionFailure,
-        MarketEvent.RangePositionInitiated,
+        MarketEvent.RangePositionLiquidityAdded,
+        MarketEvent.RangePositionLiquidityRemoved,
+        MarketEvent.RangePositionUpdate,
+        MarketEvent.RangePositionUpdateFailure,
+        MarketEvent.RangePositionFeeCollected,
     ]
 
-    def __init__(self):
+    def __init__(self, client_config_map: "ClientConfigAdapter"):
         super().__init__()
 
         self._event_reporter = EventReporter(event_source=self.display_name)
@@ -65,6 +63,12 @@ cdef class ConnectorBase(NetworkIterator):
         self._current_trade_fills = set()
         self._exchange_order_ids = dict()
         self._trade_fee_schema = None
+        self._trade_volume_metric_collector = client_config_map.anonymized_metrics_mode.get_collector(
+            connector=self,
+            rate_provider=RateOracle.get_instance(),
+            instance_id=client_config_map.instance_id,
+        )
+        self._client_config: Union[ClientConfigAdapter, ClientConfigMap] = client_config_map  # for IDE autocomplete
 
     @property
     def real_time_balance_update(self) -> bool:
@@ -160,10 +164,7 @@ cdef class ConnectorBase(NetworkIterator):
         """
         Retrieves the Balance Limits for the specified market.
         """
-        all_ex_limit = global_config_map["balance_asset_limit"].value
-        if all_ex_limit is None:
-            return {}
-        exchange_limits = all_ex_limit.get(market, {})
+        exchange_limits = self._client_config.balance_asset_limit.get(market, {})
         return exchange_limits if exchange_limits is not None else {}
 
     @property
@@ -216,13 +217,25 @@ cdef class ConnectorBase(NetworkIterator):
     cdef c_tick(self, double timestamp):
         NetworkIterator.c_tick(self, timestamp)
         self.tick(timestamp)
+        self._trade_volume_metric_collector.process_tick(timestamp)
+
+    cdef c_start(self, Clock clock, double timestamp):
+        self.start(clock=clock, timestamp=timestamp)
+
+    def start(self, Clock clock, double timestamp):
+        NetworkIterator.c_start(self, clock, timestamp)
+        self._trade_volume_metric_collector.start()
+
+    cdef c_stop(self, Clock clock):
+        NetworkIterator.c_stop(self, clock)
+        self._trade_volume_metric_collector.stop()
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
         Cancels all in-flight orders and waits for cancellation results.
         Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
         :param timeout_seconds: The timeout at which the operation will be canceled.
-        :returns List of CancellationResult which indicates whether each order is successfully cancelled.
+        :returns List of CancellationResult which indicates whether each order is successfully canceled.
         """
         raise NotImplementedError
 
@@ -332,7 +345,7 @@ cdef class ConnectorBase(NetworkIterator):
 
     def get_available_balance(self, currency: str) -> Decimal:
         """
-        Return availalbe balance for a given currency. The function accounts for balance changes since the last time
+        Return available balance for a given currency. The function accounts for balance changes since the last time
         the snapshot was taken if no real time balance update. The function applied limit if configured.
         :param currency: The currency (token) name
         :returns: Balance available for trading for the specified currency
@@ -450,9 +463,29 @@ cdef class ConnectorBase(NetworkIterator):
             self._trade_fee_schema = TradeFeeSchemaLoader.configured_schema_for_exchange(exchange_name=self.name)
         return self._trade_fee_schema
 
+    async def all_trading_pairs(self) -> List[str]:
+        """
+        List of all trading pairs supported by the connector
+
+        :return: List of trading pair symbols in the Hummingbot format
+        """
+        raise NotImplementedError
+
+    async def _update_balances(self):
+        """
+        Update local balances requesting the latest information from the exchange.
+        """
+        raise NotImplementedError
+
     def _time(self) -> float:
         """
         Method created to enable tests to mock the machine time
         :return: The machine time (time.time())
         """
         return time.time()
+
+    async def _sleep(self, delay: float):
+        """
+        Method created to enable tests to prevent processes from sleeping
+        """
+        await asyncio.sleep(delay)

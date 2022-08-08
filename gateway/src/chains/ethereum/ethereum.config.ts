@@ -6,6 +6,7 @@ export interface NetworkConfig {
   nodeURL: string;
   tokenListType: TokenListType;
   tokenListSource: string;
+  gasPriceRefreshInterval: number | undefined;
 }
 
 export interface EthereumGasStationConfig {
@@ -13,14 +14,13 @@ export interface EthereumGasStationConfig {
   gasStationURL: string;
   APIKey: string;
   gasLevel: string;
-  refreshTime: number;
 }
 
 export interface Config {
   network: NetworkConfig;
-  nodeAPIKey: string;
   nativeCurrencySymbol: string;
   manualGasPrice: number;
+  gasLimitTransaction: number;
 }
 
 export namespace EthereumConfig {
@@ -31,9 +31,6 @@ export namespace EthereumConfig {
     ),
     APIKey: ConfigManagerV2.getInstance().get('ethereumGasStation.APIKey'),
     gasLevel: ConfigManagerV2.getInstance().get('ethereumGasStation.gasLevel'),
-    refreshTime: ConfigManagerV2.getInstance().get(
-      'ethereumGasStation.refreshTime'
-    ),
   };
 }
 
@@ -57,13 +54,18 @@ export function getEthereumConfig(
       tokenListSource: ConfigManagerV2.getInstance().get(
         chainName + '.networks.' + network + '.tokenListSource'
       ),
+      gasPriceRefreshInterval: ConfigManagerV2.getInstance().get(
+        chainName + '.networks.' + network + '.gasPriceRefreshInterval'
+      ),
     },
-    nodeAPIKey: ConfigManagerV2.getInstance().get(chainName + '.nodeAPIKey'),
     nativeCurrencySymbol: ConfigManagerV2.getInstance().get(
-      chainName + '.nativeCurrencySymbol'
+      chainName + '.networks.' + network + '.nativeCurrencySymbol'
     ),
     manualGasPrice: ConfigManagerV2.getInstance().get(
       chainName + '.manualGasPrice'
+    ),
+    gasLimitTransaction: ConfigManagerV2.getInstance().get(
+      chainName + '.gasLimitTransaction'
     ),
   };
 }

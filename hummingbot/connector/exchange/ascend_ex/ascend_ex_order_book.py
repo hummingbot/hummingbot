@@ -1,19 +1,10 @@
 import logging
-
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, Dict, List, Optional
 
 import hummingbot.connector.exchange.ascend_ex.ascend_ex_constants as constants
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_message import AscendExOrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage,
-    OrderBookMessageType,
-)
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 
 _logger = None
@@ -57,6 +48,8 @@ class AscendExOrderBook(OrderBook):
         Convert json diff data into standard OrderBookMessage format
         :param msg: json diff data from live web socket stream
         :param timestamp: timestamp attached to incoming data
+        :param metadata: a dictionary with extra information to add to diff message
+
         :return: AscendExOrderBookMessage
         """
 
@@ -75,9 +68,13 @@ class AscendExOrderBook(OrderBook):
                                     timestamp: Optional[float] = None,
                                     metadata: Optional[Dict] = None):
         """
-        Convert a trade data into standard OrderBookMessage format
-        :param record: a trade data from the database
-        :return: AscendExOrderBookMessage
+        Creates a trade message with the information from the trade event sent by the exchange
+
+        :param msg: the trade event details sent by the exchange
+        :param timestamp: timestamp attached to incoming data
+        :param metadata: a dictionary with extra information to add to trade message
+
+        :return: a trade message with the details of the trade as provided by the exchange
         """
 
         if metadata:

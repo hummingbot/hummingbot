@@ -52,18 +52,18 @@ class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         *required
         Subscribe to user stream via web socket, and keep the connection open for incoming messages
-        :param ev_loop: ev_loop to execute this function in
+
         :param output: an async queue where the incoming messages are stored
         """
         while True:
             try:
                 async with websockets.connect(Constants.BAEE_WS_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
-                    ev_loop.create_task(self.custom_ping(ws))
+                    asyncio.get_event_loop().create_task(self.custom_ping(ws))
 
                     # Send a auth request first
                     auth_request: Dict[str, Any] = {

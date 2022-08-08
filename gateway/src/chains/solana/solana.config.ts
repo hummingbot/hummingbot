@@ -29,7 +29,7 @@ export function getSolanaConfig(chainName: string): Config {
       rpcUrl: configManager.get(chainName + '.networks.' + network + '.rpcURL'),
     },
     nativeCurrencySymbol: configManager.get(
-      chainName + '.nativeCurrencySymbol'
+      chainName + '.networks.' + network + '.nativeCurrencySymbol'
     ),
     tokenProgram: configManager.get(chainName + '.tokenProgram'),
     transactionLamports: configManager.get(chainName + '.transactionLamports'),

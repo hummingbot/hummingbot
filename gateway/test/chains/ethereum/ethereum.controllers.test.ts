@@ -1,9 +1,10 @@
 import { BigNumber } from 'ethers';
 import { Ethereum } from '../../../src/chains/ethereum/ethereum';
 import { patch, unpatch } from '../../services/patch';
-import { Token } from '../../../src/services/ethereum-base';
+import { TokenInfo } from '../../../src/services/ethereum-base';
 import {
   nonce,
+  nextNonce,
   getTokenSymbolsToTokens,
   allowances,
   approve,
@@ -18,14 +19,28 @@ import {
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
   TOKEN_NOT_SUPPORTED_ERROR_CODE,
 } from '../../../src/services/error-handler';
-
+import { patchEVMNonceManager } from '../../evm.nonce.mock';
 let eth: Ethereum;
+
 beforeAll(async () => {
   eth = Ethereum.getInstance('kovan');
+
+  patchEVMNonceManager(eth.nonceManager);
+
   await eth.init();
 });
 
-afterEach(() => unpatch());
+beforeEach(() => {
+  patchEVMNonceManager(eth.nonceManager);
+});
+
+afterEach(() => {
+  unpatch();
+});
+
+afterAll(async () => {
+  await eth.close();
+});
 
 const zeroAddress =
   '0000000000000000000000000000000000000000000000000000000000000000'; // noqa: mock
@@ -45,9 +60,24 @@ describe('nonce', () => {
     });
     expect(n).toEqual({ nonce: 2 });
   });
+
+  it('return next nonce for a wallet', async () => {
+    patch(eth, 'getWallet', () => {
+      return {
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      };
+    });
+    patch(eth.nonceManager, 'getNextNonce', () => 3);
+    const n = await nextNonce(eth, {
+      chain: 'ethereum',
+      network: 'kovan',
+      address: zeroAddress,
+    });
+    expect(n).toEqual({ nonce: 3 });
+  });
 });
 
-const weth: Token = {
+const weth: TokenInfo = {
   chainId: 42,
   name: 'WETH',
   symbol: 'WETH',

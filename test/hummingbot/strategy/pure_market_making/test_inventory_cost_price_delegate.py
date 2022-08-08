@@ -1,14 +1,13 @@
 import unittest
 from decimal import Decimal
 
-from hummingbot.core.event.events import OrderFilledEvent
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.model.inventory_cost import InventoryCost
-from hummingbot.model.sql_connection_manager import (
-    SQLConnectionManager,
-    SQLConnectionType,
-)
+from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.strategy.pure_market_making.inventory_cost_price_delegate import InventoryCostPriceDelegate
 
 
@@ -16,7 +15,7 @@ class TestInventoryCostPriceDelegate(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.trade_fill_sql = SQLConnectionManager(
-            SQLConnectionType.TRADE_FILLS, db_path=""
+            ClientConfigAdapter(ClientConfigMap()), SQLConnectionType.TRADE_FILLS, db_path=""
         )
         cls.trading_pair = "BTC-USDT"
         cls.base_asset, cls.quote_asset = cls.trading_pair.split("-")

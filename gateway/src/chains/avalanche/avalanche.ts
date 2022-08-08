@@ -4,12 +4,16 @@ import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
 import { getEthereumConfig as getAvalancheConfig } from '../ethereum/ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
+import { TraderjoeConfig } from '../../connectors/traderjoe/traderjoe.config';
 import { PangolinConfig } from '../../connectors/pangolin/pangolin.config';
+import { OpenoceanConfig } from '../../connectors/openocean/openocean.config';
 import { Ethereumish } from '../../services/common-interfaces';
+import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
 export class Avalanche extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: Avalanche };
   private _gasPrice: number;
+  private _gasPriceRefreshInterval: number | null;
   private _nativeTokenSymbol: string;
   private _chain: string;
 
@@ -21,11 +25,22 @@ export class Avalanche extends EthereumBase implements Ethereumish {
       config.network.nodeURL,
       config.network.tokenListSource,
       config.network.tokenListType,
-      config.manualGasPrice
+      config.manualGasPrice,
+      config.gasLimitTransaction,
+      ConfigManagerV2.getInstance().get('database.nonceDbPath'),
+      ConfigManagerV2.getInstance().get('database.transactionDbPath')
     );
     this._chain = config.network.name;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
+
     this._gasPrice = config.manualGasPrice;
+
+    this._gasPriceRefreshInterval =
+      config.network.gasPriceRefreshInterval !== undefined
+        ? config.network.gasPriceRefreshInterval
+        : null;
+
+    this.updateGasPrice();
   }
 
   public static getInstance(network: string): Avalanche {
@@ -65,6 +80,10 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     let spender: string;
     if (reqSpender === 'pangolin') {
       spender = PangolinConfig.config.routerAddress(this._chain);
+    } else if (reqSpender === 'openocean') {
+      spender = OpenoceanConfig.config.routerAddress(this._chain);
+    } else if (reqSpender === 'traderjoe') {
+      spender = TraderjoeConfig.config.routerAddress(this._chain);
     } else {
       spender = reqSpender;
     }
@@ -76,6 +95,34 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     logger.info(
       'Canceling any existing transaction(s) with nonce number ' + nonce + '.'
     );
-    return super.cancelTx(wallet, nonce, this._gasPrice);
+    return super.cancelTxWithGasPrice(wallet, nonce, this._gasPrice * 2);
+  }
+
+  /**
+   * Automatically update the prevailing gas price on the network.
+   */
+  async updateGasPrice(): Promise<void> {
+    if (this._gasPriceRefreshInterval === null) {
+      return;
+    }
+
+    const gasPrice = await this.getGasPrice();
+    if (gasPrice !== null) {
+      this._gasPrice = gasPrice;
+    } else {
+      logger.info('gasPrice is unexpectedly null.');
+    }
+
+    setTimeout(
+      this.updateGasPrice.bind(this),
+      this._gasPriceRefreshInterval * 1000
+    );
+  }
+
+  async close() {
+    await super.close();
+    if (this._chain in Avalanche._instances) {
+      delete Avalanche._instances[this._chain];
+    }
   }
 }

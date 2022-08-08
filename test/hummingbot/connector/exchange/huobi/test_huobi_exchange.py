@@ -2,18 +2,17 @@ import asyncio
 from decimal import Decimal
 from typing import Awaitable, Optional
 from unittest import TestCase
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
-import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.exchange.huobi import huobi_constants as CONSTANTS, huobi_utils
 from hummingbot.connector.exchange.huobi.huobi_exchange import HuobiExchange
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    MarketEvent,
-    OrderFilledEvent,
-)
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 
 
 class HuobiExchangeTests(TestCase):
@@ -34,8 +33,10 @@ class HuobiExchangeTests(TestCase):
 
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = HuobiExchange(
+            client_config_map=self.client_config_map,
             huobi_api_key="testAPIKey",
             huobi_secret_key="testSecret",
             trading_pairs=[self.trading_pair],
@@ -191,6 +192,34 @@ class HuobiExchangeTests(TestCase):
 
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
 
+    def test_order_fill_update_event_ignored_for_untracked_orders(self):
+        partial_fill = {
+            "eventType": "trade",
+            "symbol": "choinalphahbot",
+            "orderId": 99998888,
+            "tradePrice": "10050.0",
+            "tradeVolume": "0.1",
+            "orderSide": "buy",
+            "aggressor": True,
+            "tradeId": 1,
+            "tradeTime": 998787897878,
+            "transactFee": "10.00",
+            "feeDeduct ": "0",
+            "feeDeductType": "",
+            "feeCurrency": "usdt",
+            "accountId": 9912791,
+            "source": "spot-api",
+            "orderPrice": "10000",
+            "orderSize": "1",
+            "orderCreateTime": 998787897878,
+            "orderStatus": "partial-filled"
+        }
+
+        self.async_run_with_timeout(self.exchange._process_trade_event(partial_fill))
+
+        self.assertEqual(0, len(self.order_filled_logger.event_log))
+        self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
+
     def test_order_fill_event_processed_before_order_complete_event(self):
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -290,6 +319,31 @@ class HuobiExchangeTests(TestCase):
         ))
 
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
-        buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
-        self.assertEqual(complete_fill["feeCurrency"].upper(), buy_event.fee_asset)
-        self.assertEqual(Decimal(complete_fill["transactFee"]), buy_event.fee_amount)
+
+    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
+    def test_client_order_id_on_order(self, mocked_nonce):
+        mocked_nonce.return_value = 8
+
+        result = self.exchange.buy(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=True, trading_pair=self.trading_pair, hbot_order_id_prefix=huobi_utils.BROKER_ID
+        )
+
+        self.assertEqual(result, expected_client_order_id)
+
+        result = self.exchange.sell(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=False, trading_pair=self.trading_pair, hbot_order_id_prefix=huobi_utils.BROKER_ID
+        )
+
+        self.assertEqual(result, expected_client_order_id)

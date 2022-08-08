@@ -7,8 +7,8 @@ import {
 import { Avalanche } from '../chains/avalanche/avalanche';
 import { Ethereum } from '../chains/ethereum/ethereum';
 import { Harmony } from '../chains/harmony/harmony';
-import { Token } from '../services/ethereum-base';
-
+import { Polygon } from '../chains/polygon/polygon';
+import { TokenInfo } from '../services/ethereum-base';
 import {
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,
@@ -24,7 +24,8 @@ export async function getStatus(
   let chain: string;
   let chainId: number;
   let rpcUrl: string;
-  let currentBlockNumber: number;
+  let currentBlockNumber: number | undefined;
+  let nativeCurrency: string;
 
   if (req.chain) {
     if (req.chain === 'avalanche') {
@@ -33,6 +34,8 @@ export async function getStatus(
       connections.push(Harmony.getInstance(req.network as string));
     } else if (req.chain === 'ethereum') {
       connections.push(Ethereum.getInstance(req.network as string));
+    } else if (req.chain === 'polygon') {
+      connections.push(Polygon.getInstance(req.network as string));
     } else {
       throw new HttpException(
         500,
@@ -41,9 +44,9 @@ export async function getStatus(
       );
     }
   } else {
-    const avalanceConnections = Avalanche.getConnectedInstances();
+    const avalancheConnections = Avalanche.getConnectedInstances();
     connections = connections.concat(
-      avalanceConnections ? Object.values(avalanceConnections) : []
+      avalancheConnections ? Object.values(avalancheConnections) : []
     );
     const harmonyConnections = Harmony.getConnectedInstances();
     connections = connections.concat(
@@ -53,18 +56,33 @@ export async function getStatus(
     connections = connections.concat(
       ethereumConnections ? Object.values(ethereumConnections) : []
     );
+    const polygonConnections = Polygon.getConnectedInstances();
+    connections = connections.concat(
+      polygonConnections ? Object.values(polygonConnections) : []
+    );
   }
 
   for (const connection of connections) {
+    if (!connection.ready()) {
+      await connection.init();
+    }
+
     chain = connection.chain;
     chainId = connection.chainId;
     rpcUrl = connection.rpcUrl;
-    currentBlockNumber = await connection.getCurrentBlockNumber();
+    nativeCurrency = connection.nativeTokenSymbol;
+
+    try {
+      currentBlockNumber = await connection.getCurrentBlockNumber();
+    } catch (_e) {
+      // do nothing, this means we are not able to connect to the network
+    }
     statuses.push({
       chain,
       chainId,
       rpcUrl,
       currentBlockNumber,
+      nativeCurrency,
     });
   }
 
@@ -73,7 +91,7 @@ export async function getStatus(
 
 export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
   let connection: EthereumBase;
-  let tokens: Token[] = [];
+  let tokens: TokenInfo[] = [];
 
   if (req.chain && req.network) {
     if (req.chain === 'avalanche') {
@@ -82,6 +100,8 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
       connection = Harmony.getInstance(req.network);
     } else if (req.chain === 'ethereum') {
       connection = Ethereum.getInstance(req.network);
+    } else if (req.chain === 'polygon') {
+      connection = Polygon.getInstance(req.network);
     } else {
       throw new HttpException(
         500,
@@ -105,7 +125,7 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
     tokens = connection.storedTokenList;
   } else {
     for (const t of req.tokenSymbols as []) {
-      tokens.push(connection.getTokenForSymbol(t) as Token);
+      tokens.push(connection.getTokenForSymbol(t) as TokenInfo);
     }
   }
 

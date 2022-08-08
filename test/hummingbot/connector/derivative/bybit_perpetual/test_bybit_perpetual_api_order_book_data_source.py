@@ -1,44 +1,70 @@
 import asyncio
 import json
 import re
-import pandas as pd
-
-import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
-
-from aioresponses import aioresponses
-from collections import deque
 from decimal import Decimal
+from typing import Awaitable, Dict
 from unittest import TestCase
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pandas as pd
+from aioresponses import aioresponses
+from bidict import bidict
+
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_web_utils as web_utils
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import BybitPerpetualAPIOrderBookDataSource
-from hummingbot.core.data_type.funding_info import FundingInfo
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import (
+    BybitPerpetualAPIOrderBookDataSource,
+)
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_derivative import BybitPerpetualDerivative
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
 class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls.ev_loop = asyncio.get_event_loop()
+        cls.base_asset = "COINALPHA"
+        cls.quote_asset = "HBOT"
+        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.ex_trading_pair = cls.base_asset + cls.quote_asset
+        cls.domain = "bybit_perpetual_testnet"
+
     def setUp(self) -> None:
         super().setUp()
-        self.base_asset = "BTC"
-        self.quote_asset = "USDT"
-        self.trading_pair = f"{self.base_asset}-{self.quote_asset}"
-        self.domain = "bybit_perpetual_testnet"
-
         self.log_records = []
         self.listening_task = None
+        self.mocking_assistant = NetworkMockingAssistant()
 
-        self.data_source = BybitPerpetualAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
-                                                                domain=self.domain)
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.connector = BybitPerpetualDerivative(
+            client_config_map,
+            bybit_perpetual_api_key="",
+            bybit_perpetual_secret_key="",
+            trading_pairs=[self.trading_pair],
+            trading_required=False,
+            domain=self.domain,
+        )
+        self.data_source = BybitPerpetualAPIOrderBookDataSource(
+            trading_pairs=[self.trading_pair],
+            connector=self.connector,
+            api_factory=self.connector._web_assistants_factory,
+            domain=self.domain,
+        )
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
-        self.data_source._trading_pair_symbol_map = {}
 
-        self.mocking_assistant = NetworkMockingAssistant()
+        self.resume_test_event = asyncio.Event()
+
+        self.connector._set_trading_pair_symbol_map(
+            bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair}))
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -51,266 +77,187 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
 
-    @aioresponses()
-    def test_get_trading_pair_symbols(self, mock_get):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {}
-        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.QUERY_SYMBOL_ENDPOINT, self.trading_pair)
-        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
-        regex_url = re.compile(f"^{url}")
+    def _create_exception_and_unlock_test_with_event(self, exception):
+        self.resume_test_event.set()
+        raise exception
 
-        mock_response = {
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
+
+    def get_rest_snapshot_msg(self) -> Dict:
+        return {
             "ret_code": 0,
             "ret_msg": "OK",
             "ext_code": "",
             "ext_info": "",
             "result": [
                 {
-                    "name": "EOSUSD",
-                    "alias": "EOSUSD",
-                    "status": "Closed",
-                    "base_currency": "EOS",
-                    "quote_currency": "USD",
-                    "price_scale": 3,
-                    "taker_fee": "0.00075",
-                    "maker_fee": "-0.00025",
-                    "leverage_filter": {
-                        "min_leverage": 1,
-                        "max_leverage": 50,
-                        "leverage_step": "0.01"
-                    },
-                    "price_filter": {
-                        "min_price": "0.001",
-                        "max_price": "1999.999",
-                        "tick_size": "0.001"
-                    },
-                    "lot_size_filter": {
-                        "max_trading_qty": 1000000,
-                        "min_trading_qty": 1,
-                        "qty_step": 1
-                    }
+                    "symbol": self.ex_trading_pair,
+                    "price": "9487",
+                    "size": 336241,
+                    "side": "Buy"
                 },
                 {
-                    "name": "BTCUSD",
-                    "alias": "BTCUSD",
-                    "status": "Trading",
-                    "base_currency": "BTC",
-                    "quote_currency": "USD",
-                    "price_scale": 2,
-                    "taker_fee": "0.00075",
-                    "maker_fee": "-0.00025",
-                    "leverage_filter": {
-                        "min_leverage": 1,
-                        "max_leverage": 100,
-                        "leverage_step": "0.01"
-                    },
-                    "price_filter": {
-                        "min_price": "0.5",
-                        "max_price": "999999.5",
-                        "tick_size": "0.5"
-                    },
-                    "lot_size_filter": {
-                        "max_trading_qty": 1000000,
-                        "min_trading_qty": 1,
-                        "qty_step": 1
-                    }
-                },
-                {
-                    "name": "BTCUSDT",
-                    "alias": "BTCUSDT",
-                    "status": "Trading",
-                    "base_currency": "BTC",
-                    "quote_currency": "USDT",
-                    "price_scale": 2,
-                    "taker_fee": "0.00075",
-                    "maker_fee": "-0.00025",
-                    "leverage_filter": {
-                        "min_leverage": 1,
-                        "max_leverage": 100,
-                        "leverage_step": "0.01"
-                    },
-                    "price_filter": {
-                        "min_price": "0.5",
-                        "max_price": "999999.5",
-                        "tick_size": "0.5"
-                    },
-                    "lot_size_filter": {
-                        "max_trading_qty": 100,
-                        "min_trading_qty": 0.001,
-                        "qty_step": 0.001
-                    }
-                },
-                {
-                    "name": "BTCUSDM21",
-                    "alias": "BTCUSD0625",
-                    "status": "Trading",
-                    "base_currency": "BTC",
-                    "quote_currency": "USD",
-                    "price_scale": 2,
-                    "taker_fee": "0.00075",
-                    "maker_fee": "-0.00025",
-                    "leverage_filter": {
-                        "min_leverage": 1,
-                        "max_leverage": 100,
-                        "leverage_step": "0.01"
-                    },
-                    "price_filter": {
-                        "min_price": "0.5",
-                        "max_price": "999999.5",
-                        "tick_size": "0.5"
-                    },
-                    "lot_size_filter": {
-                        "max_trading_qty": 1000000,
-                        "min_trading_qty": 1,
-                        "qty_step": 1
-                    }
+                    "symbol": self.ex_trading_pair,
+                    "price": "9487.5",
+                    "size": 522147,
+                    "side": "Sell"
                 }
             ],
-            "time_now": "1615801223.589808"
+            "time_now": "1567108756.834357"
         }
-        mock_get.get(regex_url, body=json.dumps(mock_response))
 
-        symbols_map = asyncio.get_event_loop().run_until_complete(self.data_source.trading_pair_symbol_map(domain=self.domain))
-
-        self.assertEqual(1, len(symbols_map))
-        self.assertEqual("BTC-USDT", symbols_map["BTCUSDT"])
-
-    @aioresponses()
-    def test_fetch_trading_pairs(self, mock_get):
-        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.QUERY_SYMBOL_ENDPOINT, self.trading_pair)
-        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
-        regex_url = re.compile(f"^{url}")
-
-        mock_response = {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": [
+    def get_ws_snapshot_msg(self) -> Dict:
+        return {
+            "topic": f"orderBook_200.100ms.{self.ex_trading_pair}",
+            "type": "snapshot",
+            "data": [
                 {
-                    "name": "EOSUSD",
-                    "alias": "EOSUSD",
-                    "status": "Closed",
-                    "base_currency": "EOS",
-                    "quote_currency": "USD",
-                    "price_scale": 3,
-                    "taker_fee": "0.00075",
-                    "maker_fee": "-0.00025",
-                    "leverage_filter": {
-                        "min_leverage": 1,
-                        "max_leverage": 50,
-                        "leverage_step": "0.01"
-                    },
-                    "price_filter": {
-                        "min_price": "0.001",
-                        "max_price": "1999.999",
-                        "tick_size": "0.001"
-                    },
-                    "lot_size_filter": {
-                        "max_trading_qty": 1000000,
-                        "min_trading_qty": 1,
-                        "qty_step": 1
-                    }
+                    "price": "2999.00",
+                    "symbol": self.ex_trading_pair,
+                    "id": 29990000,
+                    "side": "Buy",
+                    "size": 9
                 },
                 {
-                    "name": "BTCUSD",
-                    "alias": "BTCUSD",
-                    "status": "Trading",
-                    "base_currency": "BTC",
-                    "quote_currency": "USD",
-                    "price_scale": 2,
-                    "taker_fee": "0.00075",
-                    "maker_fee": "-0.00025",
-                    "leverage_filter": {
-                        "min_leverage": 1,
-                        "max_leverage": 100,
-                        "leverage_step": "0.01"
-                    },
-                    "price_filter": {
-                        "min_price": "0.5",
-                        "max_price": "999999.5",
-                        "tick_size": "0.5"
-                    },
-                    "lot_size_filter": {
-                        "max_trading_qty": 1000000,
-                        "min_trading_qty": 1,
-                        "qty_step": 1
-                    }
-                },
-                {
-                    "name": "BTCUSDT",
-                    "alias": "BTCUSDT",
-                    "status": "Trading",
-                    "base_currency": "BTC",
-                    "quote_currency": "USDT",
-                    "price_scale": 2,
-                    "taker_fee": "0.00075",
-                    "maker_fee": "-0.00025",
-                    "leverage_filter": {
-                        "min_leverage": 1,
-                        "max_leverage": 100,
-                        "leverage_step": "0.01"
-                    },
-                    "price_filter": {
-                        "min_price": "0.5",
-                        "max_price": "999999.5",
-                        "tick_size": "0.5"
-                    },
-                    "lot_size_filter": {
-                        "max_trading_qty": 100,
-                        "min_trading_qty": 0.001,
-                        "qty_step": 0.001
-                    }
-                },
-                {
-                    "name": "BTCUSDM21",
-                    "alias": "BTCUSD0625",
-                    "status": "Trading",
-                    "base_currency": "BTC",
-                    "quote_currency": "USD",
-                    "price_scale": 2,
-                    "taker_fee": "0.00075",
-                    "maker_fee": "-0.00025",
-                    "leverage_filter": {
-                        "min_leverage": 1,
-                        "max_leverage": 100,
-                        "leverage_step": "0.01"
-                    },
-                    "price_filter": {
-                        "min_price": "0.5",
-                        "max_price": "999999.5",
-                        "tick_size": "0.5"
-                    },
-                    "lot_size_filter": {
-                        "max_trading_qty": 1000000,
-                        "min_trading_qty": 1,
-                        "qty_step": 1
-                    }
+                    "price": "3001.00",
+                    "symbol": self.ex_trading_pair,
+                    "id": 30010000,
+                    "side": "Sell",
+                    "size": 10
                 }
             ],
-            "time_now": "1615801223.589808"
+            "cross_seq": 11518,
+            "timestamp_e6": 1555647164875373
         }
-        mock_get.get(regex_url, body=json.dumps(mock_response))
 
-        trading_pairs = asyncio.get_event_loop().run_until_complete(self.data_source.fetch_trading_pairs(domain=self.domain))
+    def get_ws_diff_msg(self) -> Dict:
+        return {
+            "topic": f"orderBook_200.100ms.{self.ex_trading_pair}",
+            "type": "delta",
+            "data": {
+                "delete": [
+                    {
+                        "price": "3001.00",
+                        "symbol": self.ex_trading_pair,
+                        "id": 30010000,
+                        "side": "Sell"
+                    }
+                ],
+                "update": [
+                    {
+                        "price": "2999.00",
+                        "symbol": self.ex_trading_pair,
+                        "id": 29990000,
+                        "side": "Buy",
+                        "size": 8
+                    }
+                ],
+                "insert": [
+                    {
+                        "price": "2998.00",
+                        "symbol": self.ex_trading_pair,
+                        "id": 29980000,
+                        "side": "Buy",
+                        "size": 8
+                    }
+                ],
+                "transactTimeE6": 0
+            },
+            "cross_seq": 11519,
+            "timestamp_e6": 1555647221331673
+        }
 
-        self.assertEqual(1, len(trading_pairs))
-        self.assertEqual("BTC-USDT", trading_pairs[0])
+    def get_funding_info_msg(self) -> Dict:
+        return {
+            "topic": f"instrument_info.100ms.{self.ex_trading_pair}",
+            "type": "snapshot",
+            "data": {
+                "id": 1,
+                "symbol": self.ex_trading_pair,
+                "last_price_e4": 81165000,
+                "last_price": "81165000",
+                "bid1_price_e4": 400025000,
+                "bid1_price": "400025000",
+                "ask1_price_e4": 475450000,
+                "ask1_price": "475450000",
+                "last_tick_direction": "ZeroPlusTick",
+                "prev_price_24h_e4": 81585000,
+                "prev_price_24h": "81585000",
+                "price_24h_pcnt_e6": -5148,
+                "high_price_24h_e4": 82900000,
+                "high_price_24h": "82900000",
+                "low_price_24h_e4": 79655000,
+                "low_price_24h": "79655000",
+                "prev_price_1h_e4": 81395000,
+                "prev_price_1h": "81395000",
+                "price_1h_pcnt_e6": -2825,
+                "mark_price_e4": 81178500,
+                "mark_price": "81178500",
+                "index_price_e4": 81172800,
+                "index_price": "81172800",
+                "open_interest": 154418471,
+                "open_value_e8": 1997561103030,
+                "total_turnover_e8": 2029370141961401,
+                "turnover_24h_e8": 9072939873591,
+                "total_volume": 175654418740,
+                "volume_24h": 735865248,
+                "funding_rate_e6": 100,
+                "predicted_funding_rate_e6": 100,
+                "cross_seq": 1053192577,
+                "created_at": "2018-11-14T16:33:26Z",
+                "updated_at": "2020-01-12T18:25:16Z",
+                "next_funding_time": "2020-01-13T00:00:00Z",
 
-    @aioresponses()
-    def test_get_last_traded_prices_requests_rest_api_price_when_subscription_price_not_available(self, mock_get):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSDT": "BTC-USDT"}}
-        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT, self.trading_pair)
-        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
-        regex_url = re.compile(f"^{url}")
+                "countdown_hour": 6,
+                "funding_rate_interval": 8
+            },
+            "cross_seq": 9267002,
+            "timestamp_e6": 1615794861826248
+        }
 
-        mock_response = {
+    def get_funding_info_event(self):
+        return {
+            "topic": f"instrument_info.100ms.{self.ex_trading_pair}",
+            "type": "delta",
+            "data": {
+                "delete": [],
+                "update": [
+                    {
+                        "id": 1,
+                        "symbol": self.ex_trading_pair,
+                        "prev_price_24h_e4": 81565000,
+                        "prev_price_24h": "81565000",
+                        "price_24h_pcnt_e6": -4904,
+                        "open_value_e8": 2000479681106,
+                        "total_turnover_e8": 2029370495672976,
+                        "turnover_24h_e8": 9066215468687,
+                        "volume_24h": 735316391,
+                        "cross_seq": 1053192657,
+                        "created_at": "2018-11-14T16:33:26Z",
+                        "updated_at": "2020-01-12T18:25:25Z",
+                        "index_price": 123,
+                        "mark_price": 234,
+                        "next_funding_time": "2020-01-12T18:25:25Z",
+                        "predicted_funding_rate_e6": 456,
+                    }
+                ],
+                "insert": []
+            },
+            "cross_seq": 1053192657,
+            "timestamp_e6": 1578853525691123
+        }
+
+    def get_funding_info_rest_msg(self):
+        return {
             "ret_code": 0,
             "ret_msg": "OK",
             "ext_code": "",
             "ext_info": "",
             "result": [
                 {
-                    "symbol": "BTCUSDT",
+                    "symbol": self.ex_trading_pair,
                     "bid_price": "7230",
                     "ask_price": "7230.5",
                     "last_price": "7230.00",
@@ -336,851 +283,439 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
                     "delivery_fee_rate": "0",
                     "predicted_delivery_price": "0.00",
                     "delivery_time": ""
-                }
-            ],
-            "time_now": "1577484619.817968"
-        }
-        mock_get.get(regex_url, body=json.dumps(mock_response))
-
-        results = asyncio.get_event_loop().run_until_complete(
-            self.data_source.get_last_traded_prices([self.trading_pair], domain=self.domain))
-
-        self.assertEqual(results[self.trading_pair], float(mock_response["result"][0]["last_price"]))
-
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    def test_listen_for_subscriptions_registers_to_orders_trades_and_instruments(self, ws_connect_mock):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSDT": "BTC-USDT"}}
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        task = asyncio.get_event_loop().create_task(self.data_source.listen_for_subscriptions())
-        # Add message to be processed after subscriptions, to unlock the test
-        self.mocking_assistant.add_websocket_json_message(ws_connect_mock.return_value, {"topic": "test_topic.BTCUSDT"})
-        # Lock the test to let the async task run
-        received_messages_queue = self.data_source._messages_queues["test_topic"]
-        asyncio.get_event_loop().run_until_complete(received_messages_queue.get())
-
-        try:
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
-        self.assertEqual(3, len(sent_messages))
-        expected_orders_subscription = {'op': 'subscribe', 'args': ['orderBook_200.100ms.BTCUSDT']}
-        expected_trades_subscription = {'op': 'subscribe', 'args': ['trade.BTCUSDT']}
-        expected_instruments_subscription = {'op': 'subscribe', 'args': ['instrument_info.100ms.BTCUSDT']}
-        self.assertEqual(expected_orders_subscription, sent_messages[0])
-        self.assertEqual(expected_trades_subscription, sent_messages[1])
-        self.assertEqual(expected_instruments_subscription, sent_messages[2])
-
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    def test_listen_for_subscriptions_raises_cancel_exceptions(self, ws_connect_mock):
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        self.listening_task = asyncio.get_event_loop().create_task(self.data_source.listen_for_subscriptions())
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.listening_task.cancel()
-            asyncio.get_event_loop().run_until_complete(self.listening_task)
-
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    def test_listen_for_subscriptions_raises_cancel_exception_when_canceled_during_ws_connection(self, ws_connect_mock):
-        ws_connect_mock.side_effect = asyncio.CancelledError()
-
-        self.listening_task = asyncio.get_event_loop().create_task(self.data_source.listen_for_subscriptions())
-
-        with self.assertRaises(asyncio.CancelledError):
-            asyncio.get_event_loop().run_until_complete(self.listening_task)
-
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    def test_listen_for_subscriptions_ws_connection_exception_details_are_logged(self, ws_connect_mock):
-        ws_connect_mock.side_effect = Exception()
-
-        self.listening_task = asyncio.get_event_loop().create_task(self.data_source.listen_for_subscriptions())
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
-
-        self.assertTrue(self._is_logged("NETWORK", "Unexpected error occurred during bybit_perpetual WebSocket Connection ()"))
-
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    def test_listen_for_subscriptions_logs_exceptions_details(self, ws_connect_mock):
-        sync_queue = asyncio.Queue()
-
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSDT": "BTC-USDT"}}
-        websocket_mock = self.mocking_assistant.create_websocket_mock()
-        websocket_mock.receive_json.side_effect = Exception()
-        websocket_mock.close.side_effect = lambda: sync_queue.put_nowait(1)
-        ws_connect_mock.return_value = websocket_mock
-
-        self.listening_task = asyncio.get_event_loop().create_task(self.data_source.listen_for_subscriptions())
-        # Block the test until the subscription function advances
-        asyncio.get_event_loop().run_until_complete(sync_queue.get())
-
-        try:
-            self.listening_task.cancel()
-            asyncio.get_event_loop().run_until_complete(self.listening_task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        self.assertTrue(
-            self._is_logged("NETWORK",
-                            "Unexpected error with WebSocket connection on wss://stream-testnet.bybit.com/realtime_public ()"))
-
-    def test_listen_for_trades(self, ):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSDT": "BTC-USDT"}}
-
-        trades_queue = asyncio.Queue()
-
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_trades(ev_loop=asyncio.get_event_loop(), output=trades_queue))
-
-        # Add trade event message be processed
-        data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_TRADES_TOPIC]
-        data_source_queue.put_nowait({'topic': 'trade.BTCUSDT',
-                                      'data': [{'trade_time_ms': 1628618168965,
-                                                'timestamp': '2021-08-10T17:56:08.000Z',
-                                                'symbol': 'BTCUSDT',
-                                                'side': 'Buy',
-                                                'size': 5,
-                                                'price': 45011,
-                                                'tick_direction': 'PlusTick',
-                                                'trade_id': '6b78ccb1-b967-5b55-b237-025f8ce38f3f',
-                                                'cross_seq': 8926514939},
-                                               {'trade_time_ms': 1628618168987,
-                                                'timestamp': '2021-08-10T17:56:08.000Z',
-                                                'symbol': 'BTCUSDT',
-                                                'side': 'Sell',
-                                                'size': 1,
-                                                'price': 45010.5,
-                                                'tick_direction': 'MinusTick',
-                                                'trade_id': '1cab862b-1682-597d-96fc-d31cbbe28981',
-                                                'cross_seq': 8926514939}
-                                               ]})
-
-        # Lock the test to let the async task run
-        first_trade = asyncio.get_event_loop().run_until_complete(trades_queue.get())
-        second_trade = asyncio.get_event_loop().run_until_complete(trades_queue.get())
-
-        try:
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        self.assertTrue(trades_queue.empty())
-        self.assertEqual("6b78ccb1-b967-5b55-b237-025f8ce38f3f", first_trade.trade_id)
-        self.assertEqual("1cab862b-1682-597d-96fc-d31cbbe28981", second_trade.trade_id)
-
-    def test_listen_for_trades_raises_cancel_exceptions(self):
-        trades_queue = asyncio.Queue()
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_trades(ev_loop=asyncio.get_event_loop(), output=trades_queue))
-
-        with self.assertRaises(asyncio.CancelledError):
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-
-    def test_listen_for_trades_logs_exception_details(self, ):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSDT": "BTC-USDT"}}
-
-        trades_queue = asyncio.Queue()
-
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_trades(ev_loop=asyncio.get_event_loop(), output=trades_queue))
-
-        # Add trade event message be processed
-        data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_TRADES_TOPIC]
-        # Add an invalid message to trigger the excepton, and a valid one to unlock the test process.
-        data_source_queue.put_nowait({})
-        data_source_queue.put_nowait({'topic': 'trade.BTCUSDT',
-                                      'data': [{'trade_time_ms': 1628618168965,
-                                                'timestamp': '2021-08-10T17:56:08.000Z',
-                                                'symbol': 'BTCUSDT',
-                                                'side': 'Buy',
-                                                'size': 5,
-                                                'price': 45011,
-                                                'tick_direction': 'PlusTick',
-                                                'trade_id': '6b78ccb1-b967-5b55-b237-025f8ce38f3f',
-                                                'cross_seq': 8926514939}]})
-
-        asyncio.get_event_loop().run_until_complete(trades_queue.get())
-
-        try:
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error ('data')"))
-
-    def test_listen_for_order_book_snapshot_event(self, ):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSD": "BTC-USD"}}
-
-        order_book_messages = asyncio.Queue()
-
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_order_book_diffs(ev_loop=asyncio.get_event_loop(), output=order_book_messages))
-
-        # Add trade event message be processed
-        data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC]
-        data_source_queue.put_nowait({'topic': 'orderBook_200.100ms.BTCUSD',
-                                      'type': 'snapshot',
-                                      'data': [
-                                          {'price': '46272.00',
-                                           'symbol': 'BTCUSD',
-                                           'id': 462720000,
-                                           'side': 'Buy',
-                                           'size': 2},
-                                          {'price': '46380.00',
-                                           'symbol': 'BTCUSD',
-                                           'id': 463800000,
-                                           'side': 'Sell',
-                                           'size': 89041}],
-                                      'cross_seq': 8945092523,
-                                      'timestamp_e6': "1628703196211205"})
-
-        # Lock the test to let the async task run
-        order_book_message = asyncio.get_event_loop().run_until_complete(order_book_messages.get())
-
-        try:
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        self.assertTrue(order_book_messages.empty())
-        self.assertEqual(1628703196211205, order_book_message.update_id)
-        self.assertEqual(1628703196211205 * 1e-6, order_book_message.timestamp)
-        self.assertEqual(46272.00, order_book_message.bids[0].price)
-        self.assertEqual(46380.0, order_book_message.asks[0].price)
-
-    def test_listen_for_order_book_diff_event(self, ):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSD": "BTC-USD"}}
-
-        order_book_messages = asyncio.Queue()
-
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_order_book_diffs(ev_loop=asyncio.get_event_loop(), output=order_book_messages))
-
-        # Add trade event message be processed
-        data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC]
-        data_source_queue.put_nowait({'topic': 'orderBook_200.100ms.BTCUSD',
-                                      'type': 'delta',
-                                      'data':
-                                          {
-                                              'delete': [
-                                                  {'price': '46331.00',
-                                                   'symbol': 'BTCUSD',
-                                                   'id': 463310000,
-                                                   'side': 'Sell'}],
-                                              'update': [
-                                                  {'price': '46181.00',
-                                                   'symbol': 'BTCUSD',
-                                                   'id': 461810000,
-                                                   'side': 'Buy',
-                                                   'size': 2928}],
-                                              'insert': [
-                                                  {'price': '46332.50',
-                                                   'symbol': 'BTCUSD',
-                                                   'id': 463325000,
-                                                   'side': 'Sell',
-                                                   'size': 153}],
-                                              'transactTimeE6': 0},
-                                      'cross_seq': 8946119966,
-                                      'timestamp_e6': 1628709816411166})
-
-        # Lock the test to let the async task run
-        order_book_message = asyncio.get_event_loop().run_until_complete(order_book_messages.get())
-
-        try:
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        self.assertTrue(order_book_messages.empty())
-        self.assertEqual(1628709816411166, order_book_message.update_id)
-        self.assertEqual(1628709816411166 * 1e-6, order_book_message.timestamp)
-        self.assertEqual(46181.0, order_book_message.bids[0].price)
-        self.assertEqual(46331.0, order_book_message.asks[0].price)
-        self.assertEqual(46332.5, order_book_message.asks[1].price)
-
-    def test_listen_for_order_book_diff_raises_cancel_exceptions(self):
-        trades_queue = asyncio.Queue()
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_order_book_diffs(ev_loop=asyncio.get_event_loop(), output=trades_queue))
-
-        with self.assertRaises(asyncio.CancelledError):
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-
-    def test_listen_for_order_book_diff_logs_exception_details(self, ):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSD": "BTC-USD"}}
-
-        order_book_messages = asyncio.Queue()
-
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_order_book_diffs(ev_loop=asyncio.get_event_loop(), output=order_book_messages))
-
-        # Add trade event message be processed
-        data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC]
-        # Add an invalid message to trigger the excepton, and a valid one to unlock the test process.
-        data_source_queue.put_nowait({})
-        data_source_queue.put_nowait({'topic': 'orderBook_200.100ms.BTCUSD',
-                                      'type': 'snapshot',
-                                      'data': [
-                                          {'price': '46272.00',
-                                           'symbol': 'BTCUSD',
-                                           'id': 462720000,
-                                           'side': 'Buy',
-                                           'size': 2}],
-                                      'cross_seq': 8945092523,
-                                      'timestamp_e6': 1628703196211205})
-
-        asyncio.get_event_loop().run_until_complete(order_book_messages.get())
-
-        try:
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error ('topic')"))
-
-    def test_listen_for_instruments_info_snapshot_event_trading_info_does_not_exist(self):
-        BybitPerpetualAPIOrderBookDataSource._last_traded_prices = {self.domain: {"BTC-USDT": 0.0}}
-
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_instruments_info())
-
-        # Add trade event message be processed
-        data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC]
-        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSDT',
-                                      'type': 'snapshot',
-                                      'data': {
-                                          'id': 1,
-                                          'symbol': 'BTCUSDT',
-                                          'last_price_e4': 463550000,
-                                          'last_price': '46355.00',
-                                          'bid1_price_e4': 463545000,
-                                          'bid1_price': '46354.50',
-                                          'ask1_price_e4': 463550000,
-                                          'ask1_price': '46355.00',
-                                          'mark_price': 50147.03,
-                                          'index_price': 50147.08,
-                                          'predicted_funding_rate_e6': -15,
-                                          'next_funding_time': '2021-08-23T08:00:00Z',
-                                      },
-                                      'cross_seq': 8946315343,
-                                      'timestamp_e6': 1628711274147854})
-
-        # Lock the test to let the async task run
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
-        last_traded_prices = asyncio.get_event_loop().run_until_complete(
-            BybitPerpetualAPIOrderBookDataSource.get_last_traded_prices(["BTC-USDT"], domain=self.domain))
-        funding_info = asyncio.get_event_loop().run_until_complete(
-            self.data_source.get_funding_info("BTC-USDT"))
-
-        try:
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        self.assertEqual(46355.0, last_traded_prices["BTC-USDT"])
-        self.assertEqual(Decimal('50147.03'), funding_info.mark_price)
-        self.assertEqual(Decimal('50147.08'), funding_info.index_price)
-        self.assertEqual((Decimal('-15') * Decimal(1e-6)), funding_info.rate)
-        self.assertEqual(int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()), funding_info.next_funding_utc_timestamp)
-
-    def test_listen_for_instruments_info_delta_event(self):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSD": "BTC-USD"}}
-        BybitPerpetualAPIOrderBookDataSource._last_traded_prices = {self.domain: {"BTC-USD": 0.0}}
-        self.data_source._funding_info = {
-            "BTC-USD": FundingInfo(
-                trading_pair="BTC-USD",
-                index_price=Decimal("50000"),
-                mark_price=Decimal("50000"),
-                next_funding_utc_timestamp=int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()),
-                rate=(Decimal('-15') * Decimal(1e-6)),
-            )
-        }
-
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_instruments_info())
-
-        # Add trade event message be processed
-        data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC]
-        # Add an instrument info message without las traded price that should be ignored
-        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSD',
-                                      'type': 'delta',
-                                      'data': {
-                                          'delete': [],
-                                          'update': [{
-                                              'id': 1,
-                                              'symbol': 'BTCUSD',
-                                              'last_tick_direction': 'MinusTick'}],
-                                          'insert': []},
-                                      'cross_seq': 8946315837,
-                                      'timestamp_e6': 1628711277742874})
-        # And one with last traded price that should be processed
-        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSD',
-                                      'type': 'delta',
-                                      'data': {
-                                          'delete': [],
-                                          'update': [{
-                                              'id': 1,
-                                              'symbol': 'BTCUSD',
-                                              'last_price_e4': 463545000,
-                                              'last_price': '46354.50',
-                                              'last_tick_direction': 'MinusTick'}],
-                                          'insert': []},
-                                      'cross_seq': 8946315838,
-                                      'timestamp_e6': 1628711277743874})
-        # Update message with updated predicted_funding_rate
-        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSD',
-                                      'type': 'delta',
-                                      'data': {
-                                          'update': [
-                                              {
-                                                  'id': 1,
-                                                  'symbol': 'BTCUSD',
-                                                  'predicted_funding_rate_e6': '-347',
-                                                  'cross_seq': '7085522375',
-                                                  'created_at': '1970-01-01T00:00:00.000Z',
-                                                  'updated_at': '2021-08-23T07:58:07.000Z'
-                                              }
-                                          ]
-                                      },
-                                      'cross_seq': '7085522444',
-                                      'timestamp_e6': '1629705487804991'
-                                      }
-                                     )
-        # Update message with updated index and mark price
-        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSD',
-                                      'type': 'delta',
-                                      'data': {
-                                          'update': [
-                                              {
-                                                  'id': 1,
-                                                  'symbol': 'BTCUSD',
-                                                  'mark_price_e4': '501353600',
-                                                  'mark_price': '50135.36',
-                                                  'index_price_e4': '501303500',
-                                                  'index_price': '50130.35',
-                                                  'cross_seq': '7085530086',
-                                                  'created_at': '1970-01-01T00:00:00.000Z',
-                                                  'updated_at': '2021-08-23T07:59:58.000Z'
-                                              }
-                                          ]
-                                      },
-                                      'cross_seq': '7085530240',
-                                      'timestamp_e6': '1629705601304084'
-                                      })
-        # Update message with updated index and next_funding_timestamp
-        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSD',
-                                      'type': 'delta',
-                                      'data': {
-                                          'update': [
-                                              {
-                                                  'id': 1,
-                                                  'symbol': 'BTCUSD',
-                                                  'index_price_e4': '501313400',
-                                                  'index_price': '50131.34',
-                                                  'total_turnover_e8': '-8861738985507851616',
-                                                  'turnover_24h_e8': '277455604387899960',
-                                                  'total_volume_e8': '1458835785899924',
-                                                  'volume_24h_e8': '5640266599999',
-                                                  'cross_seq': '7085530253',
-                                                  'created_at': '1970-01-01T00:00:00.000Z',
-                                                  'updated_at': '2021-08-23T08:00:01.000Z',
-                                                  'next_funding_time': '2021-08-23T16:00:00Z',
-                                                  'count_down_hour': '8'
-                                              }
-                                          ]
-                                      },
-                                      'cross_seq': '7085530254',
-                                      'timestamp_e6': '1629705602003689'
-                                      })
-
-        # Lock the test to let the async task run
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
-        last_traded_prices = asyncio.get_event_loop().run_until_complete(
-            BybitPerpetualAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD"], domain=self.domain))
-        funding_info = asyncio.get_event_loop().run_until_complete(
-            self.data_source.get_funding_info("BTC-USD"))
-        try:
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        self.assertEqual(0, data_source_queue.qsize())
-        self.assertEqual(46354.5, last_traded_prices["BTC-USD"])
-        self.assertEqual(Decimal('50135.36'), funding_info.mark_price)
-        self.assertEqual(Decimal('50131.34'), funding_info.index_price)
-        self.assertEqual((Decimal('-347') * Decimal(1e-6)), funding_info.rate)
-        self.assertEqual(int(pd.Timestamp('2021-08-23T16:00:00Z', tz="UTC").timestamp()), funding_info.next_funding_utc_timestamp)
-
-    @aioresponses()
-    def test_listen_for_instruments_info_delta_event_trading_info_does_not_exist(self, mock_get):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSDT": "BTC-USDT"}}
-
-        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT, self.trading_pair)
-        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
-        regex_url = re.compile(f"^{url}")
-
-        mock_response = {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": [
-                # Truncated Response
-                {
-                    "symbol": "BTCUSDT",
-                    "mark_price": "50000",
-                    "index_price": "50000",
-                    "funding_rate": "-15",
-                    "predicted_funding_rate": "-15",
-                    "next_funding_time": "2021-08-23T08:00:00Z",
-                }
-            ],
-            "time_now": "1577484619.817968"
-        }
-        mock_get.get(regex_url, body=json.dumps(mock_response))
-
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_instruments_info())
-
-        # Add message queue to be processed
-        data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC]
-
-        # Update message with updated predicted_funding_rate
-        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSDT',
-                                      'type': 'delta',
-                                      'data': {
-                                          'update': [
-                                              {
-                                                  'id': 1,
-                                                  'symbol': 'BTCUSDT',
-                                                  'predicted_funding_rate_e6': '-347',
-                                                  'cross_seq': '7085522375',
-                                                  'created_at': '1970-01-01T00:00:00.000Z',
-                                                  'updated_at': '2021-08-23T07:58:07.000Z'
-                                              }
-                                          ]
-                                      },
-                                      'cross_seq': '7085522444',
-                                      'timestamp_e6': '1629705487804991'
-                                      }
-                                     )
-
-        # Lock the test to let the async task run
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
-        funding_info = asyncio.get_event_loop().run_until_complete(
-            self.data_source.get_funding_info("BTC-USDT"))
-        try:
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        self.assertEqual(Decimal('50000'), funding_info.mark_price)
-        self.assertEqual(Decimal('50000'), funding_info.index_price)
-        # Note: Only funding rate is updated.
-        self.assertEqual((Decimal('-347') * Decimal(1e-6)), funding_info.rate)
-        self.assertEqual(int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()), funding_info.next_funding_utc_timestamp)
-
-    def test_listen_for_instruments_info_raises_cancel_exceptions(self):
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_instruments_info())
-
-        with self.assertRaises(asyncio.CancelledError):
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-
-    def test_listen_for_instruments_info_logs_exception_details(self, ):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSDT": "BTC-USDT"}}
-
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_instruments_info())
-
-        # Add trade event message be processed
-        data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC]
-        # Add an invalid message to trigger the excepton
-        data_source_queue.put_nowait({})
-
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
-
-        try:
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error ('topic')"))
-
-    @aioresponses()
-    @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source.BybitPerpetualAPIOrderBookDataSource._sleep",
-           new_callable=AsyncMock)
-    def test_listen_for_snapshots_successful(self, mock_get, mock_sleep):
-        # the queue and the division by zero error are used just to synchronize the test
-        sync_queue = deque()
-        sync_queue.append(1)
-        sync_queue.append(2)
-
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSD": "BTC-USDT"}}
-
-        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.ORDER_BOOK_ENDPOINT, self.trading_pair)
-        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
-        regex_url = re.compile(f"^{url}")
-        mock_response = {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": [
-                {
-                    "symbol": "BTCUSDT",
-                    "price": "9487",
-                    "size": 336241,
-                    "side": "Buy"
                 },
-                {
-                    "symbol": "BTCUSDT",
-                    "price": "9487.5",
-                    "size": 522147,
-                    "side": "Sell"
-                }
             ],
-            "time_now": "1567108756.834357"
+            "time_now": "1577484619.817968",
         }
-        mock_get.get(regex_url, body=json.dumps(mock_response))
-
-        mock_sleep.side_effect = lambda delay: 1 / 0 if len(sync_queue) == 0 else sync_queue.pop()
-
-        msg_queue: asyncio.Queue = asyncio.Queue()
-        with self.assertRaises(ZeroDivisionError):
-            self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_order_book_snapshots(asyncio.get_event_loop(), msg_queue))
-            asyncio.get_event_loop().run_until_complete(self.listening_task)
-
-        self.assertEqual(1, msg_queue.qsize())
-
-        snapshot_msg: OrderBookMessage = msg_queue.get_nowait()
-        self.assertEqual(1567108756834357, snapshot_msg.update_id)
-        self.assertEqual(self.trading_pair, snapshot_msg.trading_pair)
-        self.assertEqual(9487, snapshot_msg.bids[0].price)
-        self.assertEqual(9487.5, snapshot_msg.asks[0].price)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source.BybitPerpetualAPIOrderBookDataSource._sleep",
-           new_callable=AsyncMock)
-    def test_listen_for_snapshots_for_unknown_pair_fails(self, mock_get, mock_sleep):
-        # the queue and the division by zero error are used just to synchronize the test
-        sync_queue = deque()
-        sync_queue.append(1)
-        sync_queue.append(2)
+    def test_get_new_order_book_successful(self, mock_api):
+        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
+        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self.get_rest_snapshot_msg()
+        mock_api.get(regex_url, body=json.dumps(resp))
 
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"UNKNOWN": "UNK-NOWN"}}
+        order_book = self.async_run_with_timeout(
+            self.data_source.get_new_order_book(self.trading_pair)
+        )
 
-        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.ORDER_BOOK_ENDPOINT, self.trading_pair)
-        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
-        regex_url = re.compile(f"^{url}")
-        mock_get.get(regex_url)
+        expected_update_id = int(float(resp["time_now"]) * 1e6)
 
-        mock_sleep.side_effect = lambda delay: 1 / 0 if len(sync_queue) == 0 else sync_queue.pop()
-
-        msg_queue: asyncio.Queue = asyncio.Queue()
-        with self.assertRaises(ZeroDivisionError):
-            self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_order_book_snapshots(asyncio.get_event_loop(), msg_queue))
-            asyncio.get_event_loop().run_until_complete(self.listening_task)
-
-        self.assertEqual(0, msg_queue.qsize())
-
-        self.assertTrue(self._is_logged("ERROR",
-                                        "Unexpected error occurred listening for orderbook snapshots."
-                                        " Retrying in 5 secs. (There is no symbol mapping for trading pair BTC-USDT)"))
-
-    @aioresponses()
-    @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source.BybitPerpetualAPIOrderBookDataSource._sleep",
-           new_callable=AsyncMock)
-    def test_listen_for_snapshots_fails_when_api_request_fails(self, mock_get, mock_sleep):
-        # the queue and the division by zero error are used just to synchronize the test
-        sync_queue = deque()
-        sync_queue.append(1)
-        sync_queue.append(2)
-
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSDT": "BTC-USDT"}}
-
-        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.ORDER_BOOK_ENDPOINT, self.trading_pair)
-        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
-        regex_url = re.compile(f"^{url}")
-        mock_get.get(regex_url, status=405, body=json.dumps({}))
-
-        mock_sleep.side_effect = lambda delay: 1 / 0 if len(sync_queue) == 0 else sync_queue.pop()
-
-        msg_queue: asyncio.Queue = asyncio.Queue()
-        with self.assertRaises(ZeroDivisionError):
-            self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_order_book_snapshots(asyncio.get_event_loop(), msg_queue))
-            asyncio.get_event_loop().run_until_complete(self.listening_task)
-
-        self.assertEqual(0, msg_queue.qsize())
-
-        self.assertTrue(self._is_logged("ERROR",
-                                        "Unexpected error occurred listening for orderbook snapshots."
-                                        f" Retrying in 5 secs. (Error fetching OrderBook for {self.trading_pair} "
-                                        "at https://api-testnet.bybit.com/v2/public/orderBook/L2. "
-                                        f"HTTP 405. Response: {dict()})"))
-
-    def test_listen_for_snapshots_raises_cancel_exceptions(self):
-        trades_queue = asyncio.Queue()
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_order_book_diffs(ev_loop=asyncio.get_event_loop(), output=trades_queue))
-
-        with self.assertRaises(asyncio.CancelledError):
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-
-    @aioresponses()
-    def test_get_new_order_book(self, mock_get):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSD": "BTC-USDT"}}
-
-        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.ORDER_BOOK_ENDPOINT, self.trading_pair)
-        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
-        regex_url = re.compile(f"^{url}")
-        mock_response = {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": [
-                {
-                    "symbol": "BTCUSDT",
-                    "price": "9487",
-                    "size": 336241,
-                    "side": "Buy"
-                },
-                {
-                    "symbol": "BTCUSDT",
-                    "price": "9487.5",
-                    "size": 522147,
-                    "side": "Sell"
-                }
-            ],
-            "time_now": "1567108756.834357"
-        }
-        mock_get.get(regex_url, body=json.dumps(mock_response))
-
-        self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source.get_new_order_book(self.trading_pair))
-        order_book = asyncio.get_event_loop().run_until_complete(self.listening_task)
+        self.assertEqual(expected_update_id, order_book.snapshot_uid)
         bids = list(order_book.bid_entries())
         asks = list(order_book.ask_entries())
-
         self.assertEqual(1, len(bids))
-        self.assertEqual(9487.0, bids[0].price)
+        self.assertEqual(9487, bids[0].price)
         self.assertEqual(336241, bids[0].amount)
-        self.assertEqual(1567108756834357, bids[0].update_id)
+        self.assertEqual(expected_update_id, bids[0].update_id)
         self.assertEqual(1, len(asks))
         self.assertEqual(9487.5, asks[0].price)
         self.assertEqual(522147, asks[0].amount)
-        self.assertEqual(1567108756834357, asks[0].update_id)
-
-    def test_get_funding_info_trading_pair_exist(self):
-        self.data_source._funding_info = {
-            "BTC-USD": FundingInfo(
-                trading_pair="BTC-USD",
-                index_price=Decimal("50000"),
-                mark_price=Decimal("50000"),
-                next_funding_utc_timestamp=int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()),
-                rate=(Decimal('-15') * Decimal(1e-6)),
-            )
-        }
-        task = asyncio.get_event_loop().create_task(
-            self.data_source.get_funding_info("BTC-USD"))
-
-        funding_info = asyncio.get_event_loop().run_until_complete(task)
-
-        try:
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        self.assertEqual(Decimal('50000'), funding_info.mark_price)
-        self.assertEqual(Decimal('50000'), funding_info.index_price)
-        self.assertEqual((Decimal('-15') * Decimal(1e-6)), funding_info.rate)
-        self.assertEqual(int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()), funding_info.next_funding_utc_timestamp)
+        self.assertEqual(expected_update_id, asks[0].update_id)
 
     @aioresponses()
-    def test_get_funding_info_trading_pair_does_not_exist(self, mock_get):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSDT": "BTC-USDT"}}
-        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT, self.trading_pair)
-        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
-        regex_url = re.compile(f"^{url}")
-        mock_response = {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": [
-                # Truncated Response
+    def test_get_new_order_book_raises_exception(self, mock_api):
+        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
+        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, status=400)
+        with self.assertRaises(IOError):
+            self.async_run_with_timeout(
+                self.data_source.get_new_order_book(self.trading_pair)
+            )
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_subscriptions_subscribes_to_trades_diffs_and_funding_info(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        result_subscribe_diffs = self.get_ws_snapshot_msg()
+        result_subscribe_funding_info = self.get_funding_info_msg()
+
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_diffs),
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_funding_info),
+        )
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
+            websocket_mock=ws_connect_mock.return_value
+        )
+
+        self.assertEqual(3, len(sent_subscription_messages))
+        expected_trade_subscription = {
+            "op": "subscribe",
+            "args": [f"trade.{self.ex_trading_pair}"],
+        }
+        self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
+        expected_diff_subscription = {
+            "op": "subscribe",
+            "args": [f"orderBook_200.100ms.{self.ex_trading_pair}"],
+        }
+        self.assertEqual(expected_diff_subscription, sent_subscription_messages[1])
+        expected_funding_info_subscription = {
+            "op": "subscribe",
+            "args": [f"instrument_info.100ms.{self.ex_trading_pair}"],
+        }
+        self.assertEqual(expected_funding_info_subscription, sent_subscription_messages[2])
+
+        self.assertTrue(
+            self._is_logged("INFO", "Subscribed to public order book, trade and funding info channels...")
+        )
+
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    @patch("aiohttp.ClientSession.ws_connect")
+    def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
+        mock_ws.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+            self.async_run_with_timeout(self.listening_task)
+
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
+        mock_ws.side_effect = Exception("TEST ERROR.")
+        sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+
+        self.async_run_with_timeout(self.resume_test_event.wait())
+
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                "Unexpected error occurred when listening to order book streams"
+                " wss://stream-testnet.bybit.com/realtime. Retrying in 5 seconds...",
+            )
+        )
+
+    def test_subscribe_to_channels_raises_cancel_exception(self):
+        mock_ws = MagicMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source._subscribe_to_channels(mock_ws, [self.trading_pair])
+            )
+            self.async_run_with_timeout(self.listening_task)
+
+    def test_subscribe_to_channels_raises_exception_and_logs_error(self):
+        mock_ws = MagicMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+
+        with self.assertRaises(Exception):
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source._subscribe_to_channels(mock_ws, [self.trading_pair])
+            )
+            self.async_run_with_timeout(self.listening_task)
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book trading and delta streams...")
+        )
+
+    def test_listen_for_trades_cancelled_when_listening(self):
+        mock_queue = MagicMock()
+        mock_queue.get.side_effect = asyncio.CancelledError()
+        self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source.listen_for_trades(self.ev_loop, msg_queue)
+            )
+            self.async_run_with_timeout(self.listening_task)
+
+    def test_listen_for_trades_logs_exception(self):
+        incomplete_resp = {
+            "topic": f"trade.{self.ex_trading_pair}",
+            "data": [
                 {
-                    "symbol": "BTCUSDT",
-                    "mark_price": "50000",
-                    "index_price": "50000",
-                    "funding_rate": "-15",
-                    "predicted_funding_rate": "-15",
-                    "next_funding_time": "2021-08-23T08:00:00Z",
+                    "timestamp": "2020-01-12T16:59:59.000Z",
+                    "symbol": self.ex_trading_pair,
+                    "side": "Sell",
+                    "size": 328,
+                    "price": 8098,
+                    "tick_direction": "MinusTick",
+                    "trade_id": "00c706e1-ba52-5bb0-98d0-bf694bdc69f7",
+                    "cross_seq": 1052816407
                 }
-            ],
-            "time_now": "1577484619.817968"
-        }
-        mock_get.get(regex_url, body=json.dumps(mock_response))
-
-        funding_info = asyncio.get_event_loop().run_until_complete(
-            self.data_source.get_funding_info("BTC-USDT")
-        )
-
-        self.assertEqual(Decimal('50000'), funding_info.mark_price)
-        self.assertEqual(Decimal('50000'), funding_info.index_price)
-        self.assertEqual(Decimal('-15'), funding_info.rate)
-        self.assertEqual(int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()), funding_info.next_funding_utc_timestamp)
-
-    def test_funding_info_property(self):
-        self.assertEqual(0, len(self.data_source.funding_info))
-
-        expected_funding_info: FundingInfo = FundingInfo(
-            trading_pair="BTC-USD",
-            index_price=Decimal("50000"),
-            mark_price=Decimal("50000"),
-            next_funding_utc_timestamp=int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()),
-            rate=(Decimal('-15') * Decimal(1e-6)),
-        )
-
-        self.data_source._funding_info = {
-            "BTC-USD": expected_funding_info
+            ]
         }
 
-        self.assertEqual(1, len(self.data_source.funding_info))
-        self.assertEqual(expected_funding_info.trading_pair, self.data_source.funding_info["BTC-USD"].trading_pair)
-        self.assertEqual(expected_funding_info.index_price, self.data_source.funding_info["BTC-USD"].index_price)
-        self.assertEqual(expected_funding_info.mark_price, self.data_source.funding_info["BTC-USD"].mark_price)
-        self.assertEqual(expected_funding_info.next_funding_utc_timestamp, self.data_source.funding_info["BTC-USD"].next_funding_utc_timestamp)
-        self.assertEqual(expected_funding_info.rate, self.data_source.funding_info["BTC-USD"].rate)
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_trades(self.ev_loop, msg_queue)
+        )
+
+        try:
+            self.async_run_with_timeout(self.listening_task)
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+
+    def test_listen_for_trades_successful(self):
+        mock_queue = AsyncMock()
+        trade_event = {
+            "topic": f"trade.{self.ex_trading_pair}",
+            "data": [
+                {
+                    "timestamp": "2020-01-12T16:59:59.000Z",
+                    "trade_time_ms": 1582793344685,
+                    "symbol": self.ex_trading_pair,
+                    "side": "Sell",
+                    "size": 328,
+                    "price": 8098,
+                    "tick_direction": "MinusTick",
+                    "trade_id": "00c706e1-ba52-5bb0-98d0-bf694bdc69f7",
+                    "cross_seq": 1052816407
+                }
+            ]
+        }
+        mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_trades(self.ev_loop, msg_queue))
+
+        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+
+        self.assertEqual(OrderBookMessageType.TRADE, msg.type)
+        self.assertEqual(trade_event["data"][0]["trade_id"], msg.trade_id)
+        self.assertEqual(trade_event["data"][0]["trade_time_ms"] * 1e-3, msg.timestamp)
+
+    def test_listen_for_order_book_diffs_cancelled(self):
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = asyncio.CancelledError()
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
+            )
+            self.async_run_with_timeout(self.listening_task)
+
+    def test_listen_for_order_book_diffs_logs_exception(self):
+        incomplete_resp = self.get_ws_diff_msg()
+        del incomplete_resp["timestamp_e6"]
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
+        )
+
+        try:
+            self.async_run_with_timeout(self.listening_task)
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
+
+    def test_listen_for_order_book_diffs_successful(self):
+        mock_queue = AsyncMock()
+        diff_event = self.get_ws_diff_msg()
+        mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
+
+        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+
+        self.assertEqual(OrderBookMessageType.DIFF, msg.type)
+        self.assertEqual(-1, msg.trade_id)
+        self.assertEqual(diff_event["timestamp_e6"] * 1e-6, msg.timestamp)
+        expected_update_id = int(diff_event["timestamp_e6"])
+        self.assertEqual(expected_update_id, msg.update_id)
+
+        bids = msg.bids
+        asks = msg.asks
+        self.assertEqual(2, len(bids))
+        self.assertEqual(2999.0, bids[0].price)
+        self.assertEqual(8, bids[0].amount)
+        self.assertEqual(expected_update_id, bids[0].update_id)
+        self.assertEqual(1, len(asks))
+        self.assertEqual(3001, asks[0].price)
+        self.assertEqual(0, asks[0].amount)
+        self.assertEqual(expected_update_id, asks[0].update_id)
+
+    @aioresponses()
+    def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
+        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
+        url = web_utils.get_rest_url_for_endpoint(
+            endpoint=endpoint, trading_pair=self.trading_pair, domain=self.domain
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, exception=asyncio.CancelledError)
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.async_run_with_timeout(
+                self.data_source.listen_for_order_book_snapshots(self.ev_loop, asyncio.Queue())
+            )
+
+    @aioresponses()
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
+
+        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
+        url = web_utils.get_rest_url_for_endpoint(
+            endpoint=endpoint, trading_pair=self.trading_pair, domain=self.domain
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, exception=Exception)
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
+        )
+        self.async_run_with_timeout(self.resume_test_event.wait())
+
+        self.assertTrue(
+            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}.")
+        )
+
+    @aioresponses()
+    def test_listen_for_order_book_snapshots_successful(self, mock_api):
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
+        url = web_utils.get_rest_url_for_endpoint(
+            endpoint=endpoint, trading_pair=self.trading_pair, domain=self.domain
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        resp = self.get_rest_snapshot_msg()
+
+        mock_api.get(regex_url, body=json.dumps(resp))
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
+        )
+
+        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+
+        self.assertEqual(OrderBookMessageType.SNAPSHOT, msg.type)
+        self.assertEqual(-1, msg.trade_id)
+        self.assertEqual(float(resp["time_now"]), msg.timestamp)
+        expected_update_id = int(float(resp["time_now"]) * 1e6)
+        self.assertEqual(expected_update_id, msg.update_id)
+
+        bids = msg.bids
+        asks = msg.asks
+        self.assertEqual(1, len(bids))
+        self.assertEqual(9487, bids[0].price)
+        self.assertEqual(336241, bids[0].amount)
+        self.assertEqual(expected_update_id, bids[0].update_id)
+        self.assertEqual(1, len(asks))
+        self.assertEqual(9487.5, asks[0].price)
+        self.assertEqual(522147, asks[0].amount)
+        self.assertEqual(expected_update_id, asks[0].update_id)
+
+    def test_listen_for_funding_info_cancelled_when_listening(self):
+        mock_queue = MagicMock()
+        mock_queue.get.side_effect = asyncio.CancelledError()
+        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source.listen_for_funding_info(msg_queue)
+            )
+            self.async_run_with_timeout(self.listening_task)
+
+    def test_listen_for_funding_info_logs_exception(self):
+        incomplete_resp = self.get_funding_info_event()
+        del incomplete_resp["type"]
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
+
+        try:
+            self.async_run_with_timeout(self.listening_task)
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
+
+    def test_listen_for_funding_info_successful(self):
+        funding_info_event = self.get_funding_info_event()
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [funding_info_event, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
+
+        msg: FundingInfoUpdate = self.async_run_with_timeout(msg_queue.get())
+        funding_update = funding_info_event["data"]["update"][0]
+
+        self.assertEqual(self.trading_pair, msg.trading_pair)
+        expected_index_price = Decimal(str(funding_update["index_price"]))
+        self.assertEqual(expected_index_price, msg.index_price)
+        expected_mark_price = Decimal(str(funding_update["mark_price"]))
+        self.assertEqual(expected_mark_price, msg.mark_price)
+        expected_funding_time = int(
+            pd.Timestamp(str(funding_update["next_funding_time"]), tz="UTC").timestamp()
+        )
+        self.assertEqual(expected_funding_time, msg.next_funding_utc_timestamp)
+        expected_rate = Decimal(str(funding_update["predicted_funding_rate_e6"])) * Decimal(1e-6)
+        self.assertEqual(expected_rate, msg.rate)
+
+    @aioresponses()
+    def test_get_funding_info(self, mock_api):
+        endpoint = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
+        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self.get_funding_info_rest_msg()
+        mock_api.get(regex_url, body=json.dumps(resp))
+
+        funding_info: FundingInfo = self.async_run_with_timeout(
+            self.data_source.get_funding_info(self.trading_pair)
+        )
+        msg_result = resp["result"][0]
+
+        self.assertEqual(self.trading_pair, funding_info.trading_pair)
+        self.assertEqual(Decimal(str(msg_result["index_price"])), funding_info.index_price)
+        self.assertEqual(Decimal(str(msg_result["mark_price"])), funding_info.mark_price)
+        expected_utc_timestamp = int(pd.Timestamp(msg_result["next_funding_time"]).timestamp())
+        self.assertEqual(expected_utc_timestamp, funding_info.next_funding_utc_timestamp)
+        self.assertEqual(Decimal(str(msg_result["predicted_funding_rate"])), funding_info.rate)

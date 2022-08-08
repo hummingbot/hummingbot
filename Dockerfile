@@ -21,7 +21,7 @@ RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py38_4.10.3-Linux-x86_64
     /bin/bash ~/miniconda.sh -b && \
     rm ~/miniconda.sh && \
     ~/miniconda3/bin/conda update -n base conda -y && \
-    ~/miniconda3/bin/conda clean -tipsy
+    ~/miniconda3/bin/conda clean -tipy
 
 # Dropping default ~/.bashrc because it will return if not running as interactive shell, thus not invoking PATH settings
 RUN :> ~/.bashrc
@@ -42,7 +42,7 @@ COPY --chown=hummingbot:hummingbot setup/environment-linux.yml setup/
 
 # ./install | create hummingbot environment
 RUN ~/miniconda3/bin/conda env create -f setup/environment-linux.yml && \
-    ~/miniconda3/bin/conda clean -tipsy && \
+    ~/miniconda3/bin/conda clean -tipy && \
     # clear pip cache
     rm -rf /home/hummingbot/.cache
 
@@ -97,20 +97,25 @@ RUN groupadd -g 8211 hummingbot && \
 RUN ln -s /conf /home/hummingbot/conf && \
   ln -s /logs /home/hummingbot/logs && \
   ln -s /data /home/hummingbot/data && \
+  ln -s /pmm_scripts /home/hummingbot/pmm_scripts && \
   ln -s /scripts /home/hummingbot/scripts
 
 # Create mount points
-RUN mkdir -p /conf /logs /data /scripts \
+RUN mkdir -p /conf /logs /data /pmm_scripts /scripts \
     /home/hummingbot/.hummingbot-gateway/conf \
     /home/hummingbot/.hummingbot-gateway/certs && \
-  chown -R hummingbot:hummingbot /conf /logs /data /scripts \
+  chown -R hummingbot:hummingbot /conf /logs /data /pmm_scripts /scripts \
     /home/hummingbot/.hummingbot-gateway
-VOLUME /conf /logs /data /scripts \
+VOLUME /conf /logs /data /pmm_scripts /scripts \
   /home/hummingbot/.hummingbot-gateway/conf \
   /home/hummingbot/.hummingbot-gateway/certs
 
+# Pre-populate pmm_scripts/ volume with default pmm_scripts
+COPY --chown=hummingbot:hummingbot pmm_scripts/ pmm_scripts/
 # Pre-populate scripts/ volume with default scripts
 COPY --chown=hummingbot:hummingbot scripts/ scripts/
+# Copy the conf folder structure
+COPY --chown=hummingbot:hummingbot conf/ conf/
 
 # Install packages required in runtime
 RUN apt-get update && \

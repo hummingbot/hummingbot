@@ -5,6 +5,7 @@ module.exports = {
   coveragePathIgnorePatterns: [
     'src/app.ts',
     'src/https.ts',
+    'src/paths.ts',
     'src/services/ethereum-base.ts',
     'src/services/telemetry-transport.ts',
     'src/chains/ethereum/ethereum.ts',
@@ -14,7 +15,11 @@ module.exports = {
     'conf/migration/migrations.js',
     'src/chains/solana/solana.ts',
     'src/connectors/uniswap/uniswap.config.ts',
+    'src/connectors/uniswap/uniswap.lp.helper.ts',
+    'src/network/network.controllers.ts',
   ],
   modulePathIgnorePatterns: ['<rootDir>/dist/'],
   setupFilesAfterEnv: ['<rootDir>/test/setupTests.js'],
+  globalSetup: '<rootDir>/test/setup.ts',
+  globalTeardown: '<rootDir>/test/teardown.ts',
 };

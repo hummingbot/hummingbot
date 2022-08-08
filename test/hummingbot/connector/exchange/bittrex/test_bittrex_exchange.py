@@ -3,22 +3,19 @@ import functools
 import json
 import re
 import unittest
-
 from decimal import Decimal
 from typing import Awaitable, Callable, Dict, Optional
 from unittest.mock import AsyncMock
 
 from aioresponses import aioresponses
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bittrex.bittrex_exchange import BittrexExchange
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    MarketEvent,
-    OrderFilledEvent,
-)
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 
 
 class BittrexExchangeTest(unittest.TestCase):
@@ -41,8 +38,13 @@ class BittrexExchangeTest(unittest.TestCase):
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
         self.resume_test_event = asyncio.Event()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.exchange = BittrexExchange(self.api_key, self.secret_key, trading_pairs=[self.trading_pair])
+        self.exchange = BittrexExchange(
+            client_config_map=self.client_config_map,
+            bittrex_api_key=self.api_key,
+            bittrex_secret_key=self.secret_key,
+            trading_pairs=[self.trading_pair])
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
@@ -354,6 +356,3 @@ class BittrexExchangeTest(unittest.TestCase):
         ))
 
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
-        buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
-        self.assertEqual(order.quote_asset, buy_event.fee_asset)
-        self.assertEqual(Decimal(complete_fill["commission"]), buy_event.fee_amount)

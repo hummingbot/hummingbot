@@ -287,10 +287,10 @@ class CoinbaseProExchangeUnitTest(unittest.TestCase):
             self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exch_order_id_2}", exch_order_id_2)
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         if API_MOCK_ENABLED:
-            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
+            resp = FixtureCoinbasePro.WS_ORDER_CANCELED.copy()
             resp["order_id"] = exch_order_id
             MockWebSocketServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
-            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
+            resp = FixtureCoinbasePro.WS_ORDER_CANCELED.copy()
             resp["order_id"] = exch_order_id_2
             MockWebSocketServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.11)
         for cr in cancellation_results:
@@ -367,7 +367,7 @@ class CoinbaseProExchangeUnitTest(unittest.TestCase):
                                                    quantize_bid_price, 10001, FixtureCoinbasePro.OPEN_BUY_LIMIT_ORDER,
                                                    FixtureCoinbasePro.WS_ORDER_OPEN)
 
-        self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
+        self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELED)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
         self.assertEqual(order_cancelled_event.order_id, order_id)
@@ -395,10 +395,10 @@ class CoinbaseProExchangeUnitTest(unittest.TestCase):
             self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exch_order_id_2}", exch_order_id_2)
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         if API_MOCK_ENABLED:
-            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
+            resp = FixtureCoinbasePro.WS_ORDER_CANCELED.copy()
             resp["order_id"] = exch_order_id
             MockWebSocketServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
-            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
+            resp = FixtureCoinbasePro.WS_ORDER_CANCELED.copy()
             resp["order_id"] = exch_order_id_2
             MockWebSocketServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.11)
         for cr in cancellation_results:
@@ -488,7 +488,7 @@ class CoinbaseProExchangeUnitTest(unittest.TestCase):
             self.assertEqual(1, len(self.market.tracking_states))
 
             # Cancel the order and verify that the change is saved.
-            self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
+            self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELED)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
@@ -497,7 +497,7 @@ class CoinbaseProExchangeUnitTest(unittest.TestCase):
             self.assertEqual(0, len(saved_market_states.saved_state))
         finally:
             if order_id is not None:
-                self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
+                self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELED)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
@@ -552,7 +552,7 @@ class CoinbaseProExchangeUnitTest(unittest.TestCase):
 
         finally:
             if order_id is not None:
-                self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
+                self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELED)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()

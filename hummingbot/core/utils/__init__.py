@@ -1,9 +1,9 @@
 import cachetools
 import errno
 import functools
-import pandas as pd
 import numpy as np
 import socket
+import pandas as pd
 
 
 def async_ttl_cache(ttl: int = 3600, maxsize: int = 1):
@@ -18,6 +18,8 @@ def async_ttl_cache(ttl: int = 3600, maxsize: int = 1):
             except KeyError:
                 cache[key] = await fn(*args, **kwargs)
                 return cache[key]
+
+        memoize.cache_clear = lambda: cache.clear()
         return memoize
 
     return decorator

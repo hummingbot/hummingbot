@@ -1,22 +1,22 @@
-#!/usr/bin/env python
-from decimal import Decimal
 import logging
-import pandas as pd
 import unittest
+from decimal import Decimal
+from test.connector.fixture_celo import TEST_ADDRESS, TEST_PASSWORD, outputs as celo_outputs
+
 import mock
+import pandas as pd
 from nose.plugins.attrib import attr
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
+
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.other.celo.celo_cli import CeloCLI
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.strategy.celo_arb.celo_arb import CeloArbStrategy, get_trade_profits
-from test.connector.fixture_celo import outputs as celo_outputs, TEST_ADDRESS, TEST_PASSWORD
-from hummingbot.connector.other.celo.celo_cli import CeloCLI
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -55,7 +55,7 @@ class CeloArbUnitTest(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange()
+        self.market: MockPaperExchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
 
         self.market.set_balanced_order_book(self.trading_pair, 10, 5, 15, 0.1, 1)
 

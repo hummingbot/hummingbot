@@ -4,7 +4,7 @@ import {
   NetworkSelectionRequest,
 } from '../services/common-interfaces';
 
-import { Token } from '../services/ethereum-base';
+import { TokenInfo } from '../services/ethereum-base';
 
 export interface BalanceRequest extends NetworkSelectionRequest {
   address: string; // the users public Ethereum key
@@ -42,7 +42,8 @@ export interface StatusResponse {
   chain: string;
   chainId: number;
   rpcUrl: string;
-  currentBlockNumber: number;
+  nativeCurrency: string;
+  currentBlockNumber?: number; // only reachable if connected
 }
 
 export interface TokensRequest {
@@ -52,5 +53,5 @@ export interface TokensRequest {
 }
 
 export interface TokensResponse {
-  tokens: Token[];
+  tokens: TokenInfo[];
 }

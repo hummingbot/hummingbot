@@ -20,7 +20,13 @@ export const invalidSpenderError: string =
 export const validateSpender: Validator = mkValidator(
   'spender',
   invalidSpenderError,
-  (val) => typeof val === 'string' && (val === 'pangolin' || isAddress(val))
+
+  (val) =>
+    typeof val === 'string' &&
+    (val === 'pangolin' ||
+      val === 'traderjoe' ||
+      val === 'openocean' ||
+      isAddress(val))
 );
 
 export const validateAvalancheApproveRequest: RequestValidator =

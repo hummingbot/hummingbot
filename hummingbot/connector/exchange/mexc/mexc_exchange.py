@@ -1,13 +1,14 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 from urllib.parse import quote, urljoin
 
 import aiohttp
 import ujson
 
 from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS
+from hummingbot.connector.exchange.mexc.mexc_api_order_book_data_source import MexcAPIOrderBookDataSource
 from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
 from hummingbot.connector.exchange.mexc.mexc_in_flight_order import MexcInFlightOrder
 from hummingbot.connector.exchange.mexc.mexc_order_book_tracker import MexcOrderBookTracker
@@ -16,7 +17,7 @@ from hummingbot.connector.exchange.mexc.mexc_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     num_to_increment,
-    ws_order_status_convert_to_str
+    ws_order_status_convert_to_str,
 )
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.trading_rule import TradingRule
@@ -44,6 +45,9 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 hm_logger = None
 s_decimal_0 = Decimal(0)
 
@@ -59,7 +63,7 @@ class MexcExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled
@@ -81,6 +85,7 @@ class MexcExchange(ExchangeBase):
         return cls._logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  mexc_api_key: str,
                  mexc_secret_key: str,
                  poll_interval: float = 5.0,
@@ -88,7 +93,7 @@ class MexcExchange(ExchangeBase):
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
-        super().__init__()
+        super().__init__(client_config_map=client_config_map)
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._shared_client = aiohttp.ClientSession()
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
@@ -98,8 +103,8 @@ class MexcExchange(ExchangeBase):
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
-        self._order_book_tracker = MexcOrderBookTracker(
-            throttler=self._throttler, trading_pairs=trading_pairs, shared_client=self._shared_client)
+        self._set_order_book_tracker(MexcOrderBookTracker(
+            throttler=self._throttler, trading_pairs=trading_pairs, shared_client=self._shared_client))
         self._poll_notifier = asyncio.Event()
         self._poll_interval = poll_interval
         self._status_polling_task = None
@@ -118,12 +123,8 @@ class MexcExchange(ExchangeBase):
         return "mexc"
 
     @property
-    def order_book_tracker(self) -> MexcOrderBookTracker:
-        return self._order_book_tracker
-
-    @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -185,7 +186,7 @@ class MexcExchange(ExchangeBase):
         updating statuses and tracking user data.
         """
         await self.stop_network()
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
 
         if self._trading_required:
@@ -195,7 +196,7 @@ class MexcExchange(ExchangeBase):
             await self._update_balances()
 
     async def stop_network(self):
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -414,10 +415,8 @@ class MexcExchange(ExchangeBase):
                                                                       tracked_order.client_order_id,
                                                                       tracked_order.base_asset,
                                                                       tracked_order.quote_asset,
-                                                                      tracked_order.fee_asset or tracked_order.quote_asset,
                                                                       tracked_order.executed_amount_base,
                                                                       tracked_order.executed_amount_quote,
-                                                                      tracked_order.fee_paid,
                                                                       tracked_order.order_type))
                         elif tracked_order.trade_type is TradeType.SELL:
                             self.logger().info(
@@ -428,18 +427,16 @@ class MexcExchange(ExchangeBase):
                                                                        tracked_order.client_order_id,
                                                                        tracked_order.base_asset,
                                                                        tracked_order.quote_asset,
-                                                                       tracked_order.fee_asset or tracked_order.quote_asset,
                                                                        tracked_order.executed_amount_base,
                                                                        tracked_order.executed_amount_quote,
-                                                                       tracked_order.fee_paid,
                                                                        tracked_order.order_type))
                         continue
                     if order_status == "CANCELED" or order_status == "PARTIALLY_CANCELED":
                         tracked_order.last_state = order_status
                         self.stop_tracking_order(tracked_order.client_order_id)
-                        self.logger().info(f"Order {tracked_order.client_order_id} has been cancelled "
+                        self.logger().info(f"Order {tracked_order.client_order_id} has been canceled "
                                            f"according to order delta restful API.")
-                        self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                        self.trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                            OrderCancelledEvent(self.current_timestamp,
                                                                tracked_order.client_order_id))
                 except Exception as ex:
@@ -560,10 +557,8 @@ class MexcExchange(ExchangeBase):
                                                           tracked_order.client_order_id,
                                                           tracked_order.base_asset,
                                                           tracked_order.quote_asset,
-                                                          tracked_order.fee_asset or tracked_order.quote_asset,
                                                           tracked_order.executed_amount_base,
                                                           tracked_order.executed_amount_quote,
-                                                          tracked_order.fee_paid,
                                                           tracked_order.order_type))
             elif tracked_order.trade_type is TradeType.SELL:
                 self.logger().info(
@@ -574,19 +569,17 @@ class MexcExchange(ExchangeBase):
                                                            tracked_order.client_order_id,
                                                            tracked_order.base_asset,
                                                            tracked_order.quote_asset,
-                                                           tracked_order.fee_asset or tracked_order.quote_asset,
                                                            tracked_order.executed_amount_base,
                                                            tracked_order.executed_amount_quote,
-                                                           tracked_order.fee_paid,
                                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
             return
 
         if order_status == "CANCELED" or order_status == "PARTIALLY_CANCELED":
             tracked_order.last_state = order_status
-            self.logger().info(f"Order {tracked_order.client_order_id} has been cancelled "
+            self.logger().info(f"Order {tracked_order.client_order_id} has been canceled "
                                f"according to order delta websocket API.")
-            self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+            self.trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                OrderCancelledEvent(self.current_timestamp,
                                                    tracked_order.client_order_id))
             self.stop_tracking_order(tracked_order.client_order_id)
@@ -594,7 +587,7 @@ class MexcExchange(ExchangeBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "acount_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0
         }
@@ -851,7 +844,7 @@ class MexcExchange(ExchangeBase):
                                 result_bool = True if order_result_value == "invalid order state" or order_result_value == "success" else False
                                 cancellation_results.append(CancellationResult(o.client_order_id, result_bool))
                                 if result_bool:
-                                    self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                    self.trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                                        OrderCancelledEvent(self.current_timestamp,
                                                                            order_id=o.client_order_id,
                                                                            exchange_order_id=o.exchange_order_id))
@@ -867,9 +860,9 @@ class MexcExchange(ExchangeBase):
         return cancellation_results
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def start_tracking_order(self,
                              order_id: str,
@@ -952,3 +945,14 @@ class MexcExchange(ExchangeBase):
             fee += Decimal(order['fee'])
             fee_currency = order['fee_currency']
         return fee, fee_currency
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await MexcAPIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await MexcAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            throttler=self._throttler,
+            shared_client=self._shared_client)

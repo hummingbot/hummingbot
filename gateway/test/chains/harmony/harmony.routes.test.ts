@@ -14,9 +14,26 @@ import * as transactionSuccesfulReceipt from '../ethereum/fixtures/transaction-s
 import * as transactionOutOfGas from '../ethereum/fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from '../ethereum/fixtures/transaction-out-of-gas-receipt.json';
 import { Harmony } from '../../../src/chains/harmony/harmony';
+import { patchEVMNonceManager } from '../../evm.nonce.mock';
+let harmony: Harmony;
 
-const harmony = Harmony.getInstance('testnet');
-afterEach(unpatch);
+beforeAll(async () => {
+  harmony = Harmony.getInstance('testnet');
+  patchEVMNonceManager(harmony.nonceManager);
+  await harmony.init();
+});
+
+beforeEach(() => {
+  patchEVMNonceManager(harmony.nonceManager);
+});
+
+afterEach(() => {
+  unpatch();
+});
+
+afterAll(async () => {
+  await harmony.close();
+});
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 

@@ -1,43 +1,36 @@
 #!/usr/bin/env python
 
-import path_util        # noqa: F401
 import asyncio
-from typing import (
-    List,
-    Coroutine,
-)
-from weakref import (
-    ref,
-    ReferenceType,
-)
+from typing import Coroutine, List, Optional
+from weakref import ReferenceType, ref
 
-from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_helpers import (
-    create_yml_files,
-    read_system_configs_from_yml,
-    write_config_to_yml,
-)
-from hummingbot import (
-    init_logging,
-    check_dev_mode,
-    chdir_to_data_directory
-)
-from hummingbot.client.ui import login_prompt
-from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.core.gateway import start_existing_gateway_container
-from hummingbot.core.event.events import HummingbotUIEvent
-from hummingbot.core.event.event_listener import EventListener
-from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.utils import detect_available_port
+import path_util  # noqa: F401
 
 from bin.docker_connection import fork_and_start
+from hummingbot import chdir_to_data_directory, init_logging
+from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
+from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    create_yml_files_legacy,
+    load_client_config_map_from_file,
+    write_config_to_yml,
+)
+from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.client.ui import login_prompt
+from hummingbot.client.ui.style import load_style
+from hummingbot.core.event.event_listener import EventListener
+from hummingbot.core.event.events import HummingbotUIEvent
+from hummingbot.core.gateway import start_existing_gateway_container
+from hummingbot.core.utils import detect_available_port
+from hummingbot.core.utils.async_utils import safe_gather
 
 
 class UIStartListener(EventListener):
-    def __init__(self, hummingbot_app: HummingbotApplication):
+    def __init__(self, hummingbot_app: HummingbotApplication, is_quickstart: Optional[bool] = False):
         super().__init__()
         self._hb_ref: ReferenceType = ref(hummingbot_app)
+        self._is_quickstart = is_quickstart
 
     def __call__(self, _):
         asyncio.create_task(self.ui_start_handler())
@@ -47,36 +40,30 @@ class UIStartListener(EventListener):
         return self._hb_ref()
 
     async def ui_start_handler(self):
-        dev_mode: bool = check_dev_mode()
         hb: HummingbotApplication = self.hummingbot_app
-
-        if dev_mode:
-            hb.app.log("Running from dev branches. Full remote logging will be enabled.")
-
-        if hb.strategy_file_name is not None and hb.strategy_name is not None:
-            await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
-            hb.start(global_config_map.get("log_level").value)
+        if hb.strategy_config_map is not None:
+            write_config_to_yml(hb.strategy_config_map, hb.strategy_file_name, hb.client_config_map)
+            hb.start(log_level=hb.client_config_map.log_level,
+                     is_quickstart=self._is_quickstart)
 
 
-async def main_async():
-    await create_yml_files()
+async def main_async(client_config_map: ClientConfigAdapter):
+    await create_yml_files_legacy()
 
     # This init_logging() call is important, to skip over the missing config warnings.
-    init_logging("hummingbot_logs.yml")
+    init_logging("hummingbot_logs.yml", client_config_map)
 
-    await read_system_configs_from_yml()
+    AllConnectorSettings.initialize_paper_trade_settings(client_config_map.paper_trade.paper_trade_exchanges)
 
-    AllConnectorSettings.initialize_paper_trade_settings(global_config_map.get("paper_trade_exchanges").value)
-
-    hb = HummingbotApplication.main_application()
+    hb = HummingbotApplication.main_application(client_config_map)
 
     # The listener needs to have a named variable for keeping reference, since the event listener system
     # uses weak references to remove unneeded listeners.
     start_listener: UIStartListener = UIStartListener(hb)
     hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
-    tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container()]
-    if global_config_map.get("debug_console").value:
+    tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container(client_config_map)]
+    if client_config_map.debug_console:
         if not hasattr(__builtins__, "help"):
             import _sitebuiltins
             __builtins__.help = _sitebuiltins._Helper()
@@ -89,9 +76,11 @@ async def main_async():
 
 def main():
     chdir_to_data_directory()
-    if login_prompt():
-        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        ev_loop.run_until_complete(main_async())
+    secrets_manager_cls = ETHKeyFileSecretManger
+    ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+    client_config_map = load_client_config_map_from_file()
+    if login_prompt(secrets_manager_cls, style=load_style(client_config_map)):
+        ev_loop.run_until_complete(main_async(client_config_map))
 
 
 if __name__ == "__main__":

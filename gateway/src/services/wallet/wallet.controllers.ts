@@ -1,6 +1,7 @@
 import fse from 'fs-extra';
 import { Avalanche } from '../../chains/avalanche/avalanche';
 import { Ethereum } from '../../chains/ethereum/ethereum';
+import { Polygon } from '../../chains/polygon/polygon';
 import { Solana } from '../../chains/solana/solana';
 import { Cosmos } from '../../chains/cosmos/cosmos';
 import { Sifchain } from '../../chains/sifchain/sifchain';
@@ -52,6 +53,10 @@ export async function addWallet(
     const avalanche = Avalanche.getInstance(req.network);
     address = avalanche.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await avalanche.encrypt(req.privateKey, passphrase);
+  } else if (req.chain === 'polygon') {
+    const polygon = Polygon.getInstance(req.network);
+    address = polygon.getWalletFromPrivateKey(req.privateKey).address;
+    encryptedPrivateKey = await polygon.encrypt(req.privateKey, passphrase);
   } else if (req.chain === 'solana') {
     address = solana
       .getKeypairFromPrivateKey(req.privateKey)
@@ -97,6 +102,7 @@ export async function removeWallet(req: RemoveWalletRequest): Promise<void> {
 }
 
 export async function getDirectories(source: string): Promise<string[]> {
+  await mkdirIfDoesNotExist(walletPath);
   const files = await fse.readdir(source, { withFileTypes: true });
   return files
     .filter((dirent) => dirent.isDirectory())

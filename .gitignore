@@ -90,6 +90,7 @@ coverage.xml
 !/gateway/conf/*-example.yml
 # these are database files create by the level library
 /**/*.level
+/gateway/db/*
 
 # node installs
 /gateway/node_modules/
@@ -111,3 +112,5 @@ node_modules
 
 # Debug console
 .debug_console_ssh_host_key
+
+/conf_backup

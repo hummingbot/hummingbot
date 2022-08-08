@@ -103,13 +103,14 @@ cdef class HedgeStrategy(StrategyBase):
             object order_size_quantum = market.c_get_order_size_quantum(market_pair.trading_pair, quantized_order_amount)
 
         for o in active_orders:
-            if isnan(order_age(o)):
+            order_age = order_age(o, self._current_timestamp)
+            if isnan(order_age):
                 continue
-            if self._max_order_age>0 and order_age(o) > self._max_order_age:
+            if self._max_order_age > 0 and order_age > self._max_order_age:
                 self.log_with_clock(logging.INFO,
                                     f"{market_pair.trading_pair}: "
-                                    f"order age of limit order ({order_age(o)}) is more than {self._max_order_age}. "
-                                    f"Cancelling Order")
+                                    f"order age of limit order ({order_age}) is more than {self._max_order_age}. "
+                                    f"Canceling Order")
                 self.c_cancel_order(market_pair, o.client_order_id)
 
             if isnan(o.quantity) or isnan(o.filled_quantity):
@@ -120,7 +121,7 @@ cdef class HedgeStrategy(StrategyBase):
                                     f"quantity: {o.quantity} filled_quantity: {o.filled_quantity}"
                                     f"{o.quantity - o.filled_quantity} is different than quantity required {quantized_order_amount}. "
                                     f"order quantum: {order_size_quantum} "
-                                    f"Cancelling Order")
+                                    f"Canceling Order")
                 self.c_cancel_order(market_pair, o.client_order_id)
 
     cdef object check_and_hedge_asset(self,
@@ -240,7 +241,7 @@ cdef class HedgeStrategy(StrategyBase):
             orders = active_orders[market_info]
             for order in orders:
                 market = order.trading_pair
-                age = order_age(order)
+                age = order_age(order, self._current_timestamp)
                 data.append([
                     market,
                     "buy" if order.is_buy else "sell",

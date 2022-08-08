@@ -20,13 +20,6 @@ class AscendExAuthTests(TestCase):
     def _get_ms_timestamp(self):
         return str(1633084102569)
 
-    def test_no_authentication_headers(self):
-        auth = AscendExAuth(api_key=self.api_key, secret_key=self.secret_key)
-        headers = auth.get_headers()
-
-        self.assertEqual(2, len(headers))
-        self.assertEqual('application/json', headers.get('Content-Type'))
-
     def test_authentication_headers(self):
 
         with mock.patch('hummingbot.connector.exchange.ascend_ex.ascend_ex_auth.get_ms_timestamp') as get_ms_timestamp_mock:

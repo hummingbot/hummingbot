@@ -1,16 +1,14 @@
+import logging
+from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-)
+from typing import Any, Dict, List, Optional, Tuple
 
-from hummingbot.connector.utils import split_hb_trading_pair
-from hummingbot.core.data_type.common import TradeType, PositionAction
-from hummingbot.core.utils.market_price import get_last_price
+from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
+from hummingbot.core.data_type.common import PositionAction, TradeType
+from hummingbot.core.data_type.trade_fee import TokenAmount
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.logger import HummingbotLogger
 from hummingbot.model.trade_fill import TradeFill
 
 s_decimal_0 = Decimal("0")
@@ -19,6 +17,8 @@ s_decimal_nan = Decimal("NaN")
 
 @dataclass
 class PerformanceMetrics:
+    _logger = None
+
     num_buys: int = 0
     num_sells: int = 0
     num_trades: int = 0
@@ -54,15 +54,21 @@ class PerformanceMetrics:
 
     def __init__(self):
         # fees is a dictionary of token and total fee amount paid in that token.
-        self.fees: Dict[str, Decimal] = {}
+        self.fees: Dict[str, Decimal] = defaultdict(lambda: s_decimal_0)
 
     @classmethod
-    async def create(cls, exchange: str,
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
+
+    @classmethod
+    async def create(cls,
                      trading_pair: str,
                      trades: List[Any],
                      current_balances: Dict[str, Decimal]) -> 'PerformanceMetrics':
         performance = PerformanceMetrics()
-        await performance._initialize_metrics(exchange, trading_pair, trades, current_balances)
+        await performance._initialize_metrics(trading_pair, trades, current_balances)
         return performance
 
     @staticmethod
@@ -200,36 +206,43 @@ class PerformanceMetrics:
 
         return buys, sells
 
-    async def _calculate_fees(self, exchange: str, quote: str, trades: List[Any]):
+    async def _calculate_fees(self, quote: str, trades: List[Any]):
         for trade in trades:
+            fee_percent = None
+            trade_price = None
+            trade_amount = None
             if self._is_trade_fill(trade):
                 if trade.trade_fee.get("percent") is not None and Decimal(trade.trade_fee["percent"]) > 0:
-                    if quote not in self.fees:
-                        self.fees[quote] = s_decimal_0
-                    self.fees[quote] += (Decimal(str(trade.price))
-                                         * Decimal(str(trade.amount))
-                                         * Decimal(str(trade.trade_fee["percent"])))
-                for flat_fee in trade.trade_fee.get("flat_fees", []):
-                    if flat_fee["token"] not in self.fees:
-                        self.fees[flat_fee["token"]] = s_decimal_0
-                    self.fees[flat_fee["token"]] += Decimal(flat_fee["amount"])
+                    trade_price = Decimal(str(trade.price))
+                    trade_amount = Decimal(str(trade.amount))
+                    fee_percent = Decimal(str(trade.trade_fee["percent"]))
+                flat_fees = [TokenAmount(token=flat_fee["token"], amount=Decimal(flat_fee["amount"]))
+                             for flat_fee in trade.trade_fee.get("flat_fees", [])]
             else:  # assume this is Trade object
                 if trade.trade_fee.percent is not None and trade.trade_fee.percent > 0:
-                    if quote not in self.fees:
-                        self.fees[quote] = s_decimal_0
-                    self.fees[quote] += (trade.price * trade.order_amount) * trade.trade_fee.percent
-                for flat_fee in trade.trade_fee.flat_fees:
-                    if flat_fee.token not in self.fees:
-                        self.fees[flat_fee.token] = s_decimal_0
-                    self.fees[flat_fee.token] += flat_fee.amount
+                    trade_price = Decimal(trade.price)
+                    trade_amount = Decimal(trade.amount)
+                    fee_percent = Decimal(trade.trade_fee.percent)
+                flat_fees = trade.trade_fee.flat_fees
+
+            if fee_percent is not None and fee_percent > 0:
+                self.fees[quote] += trade_price * trade_amount * fee_percent
+            for flat_fee in flat_fees:
+                self.fees[flat_fee.token] += flat_fee.amount
 
         for fee_token, fee_amount in self.fees.items():
             if fee_token == quote:
                 self.fee_in_quote += fee_amount
             else:
-                last_price = await get_last_price(exchange, f"{fee_token}-{quote}")
+                rate_pair: str = combine_to_hb_trading_pair(fee_token, quote)
+                last_price = await RateOracle.get_instance().stored_or_live_rate(rate_pair)
                 if last_price is not None:
                     self.fee_in_quote += fee_amount * last_price
+                else:
+                    self.logger().warning(
+                        f"Could not find exchange rate for {rate_pair} "
+                        f"using {RateOracle.get_instance()}. PNL value will be inconsistent."
+                    )
 
     def _calculate_trade_pnl(self, buys: list, sells: list):
         self.trade_pnl = self.cur_value - self.hold_value
@@ -254,13 +267,11 @@ class PerformanceMetrics:
             self.trade_pnl = Decimal(str(sum(self.derivative_pnl(long, short))))
 
     async def _initialize_metrics(self,
-                                  exchange: str,
                                   trading_pair: str,
                                   trades: List[Any],
                                   current_balances: Dict[str, Decimal]):
         """
         Calculates PnL, fees, Return % and etc...
-        :param exchange: the exchange or connector name
         :param trading_pair: the trading market to get performance metrics
         :param trades: the list of TradeFill or Trade object
         :param current_balances: current user account balance
@@ -279,7 +290,7 @@ class PerformanceMetrics:
         self.start_quote_bal = self.cur_quote_bal - self.tot_vol_quote
 
         self.start_price = Decimal(str(trades[0].price))
-        self.cur_price = await get_last_price(exchange.replace("_paper_trade", ""), trading_pair)
+        self.cur_price = await RateOracle.get_instance().stored_or_live_rate(trading_pair)
         if self.cur_price is None:
             self.cur_price = Decimal(str(trades[-1].price))
         self.start_base_ratio_pct = self.divide(self.start_base_bal * self.start_price,
@@ -291,7 +302,7 @@ class PerformanceMetrics:
         self.cur_value = (self.cur_base_bal * self.cur_price) + self.cur_quote_bal
         self._calculate_trade_pnl(buys, sells)
 
-        await self._calculate_fees(exchange, quote, trades)
+        await self._calculate_fees(quote, trades)
 
         self.total_pnl = self.trade_pnl - self.fee_in_quote
         self.return_pct = self.divide(self.total_pnl, self.hold_value)

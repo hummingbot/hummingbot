@@ -2,7 +2,7 @@
 
 showHelp() {
 cat << EOF  
-Usage: ./update_ssl_conf.sh [-h] [-f ...] [-c ...] [-e ...] [-k ...]
+Usage: ./generate_ssl_conf.sh [-h] [-f ...] [-c ...] [-e ...] [-k ...]
 Update the specified configuration in the specified ssl.yml file
 
 -h      Display help.
@@ -18,7 +18,7 @@ Update the specified configuration in the specified ssl.yml file
 EOF
 }
 
-CERT_FOLDER="$(pwd -P)/../certs"
+CONF_FOLDER="$(pwd -P)/../conf"
 CA_CERT_PATH="/usr/src/app/certs/ca_cert.pem"
 CERT_PATH="/usr/src/app/certs/server_cert.pem"
 KEY_PATH="/usr/src/app/certs/server_key.pem"
@@ -27,7 +27,7 @@ KEY_PATH="/usr/src/app/certs/server_key.pem"
 while getopts ":f:c:e:k:h" options; do
     case "${options}" in
         f) 
-            CERT_FOLDER="${OPTARG}"
+            CONF_FOLDER="${OPTARG}"
             ;;
         c)
             CA_CERT_PATH="${OPTARG}"
@@ -53,13 +53,13 @@ while getopts ":f:c:e:k:h" options; do
     esac
 done
 
-echo CERT_FOLDER="$CERT_FOLDER"
+echo CONF_FOLDER="$CONF_FOLDER"
 echo CA_CERT_PATH="$CA_CERT_PATH"
 echo CERT_PATH="$CERT_PATH"
 echo KEY_PATH="$KEY_PATH"
 
-if [[ ! -d "$CERT_FOLDER" ]]; then
-    echo "CERT_FOLDER: $CERT_FOLDER folder does not exist"
+if [[ ! -d "$CONF_FOLDER" ]]; then
+    echo "CONF_FOLDER: $CONF_FOLDER folder does not exist"
     exit 1
 fi
 
@@ -78,9 +78,9 @@ if [[ ! -f "$KEY_PATH" ]]; then
     exit 1
 fi
 
-cp "$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../src/templates/ssl.yml" "$CERT_FOLDER/ssl.yml"
-sed -i'.bak' -e "/caCertificatePath:/ s#[^ ][^ ]*\$#$CA_CERT_PATH#" "$CERT_FOLDER/ssl.yml"
-sed -i'.bak' -e "/certificatePath:/ s#[^ ][^ ]*\$#$CERT_PATH#" "$CERT_FOLDER/ssl.yml"
-sed -i'.bak' -e "/keyPath:/ s#[^ ][^ ]*\$#$KEY_PATH#" "$CERT_FOLDER/ssl.yml"
+cp "$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../src/templates/ssl.yml" "$CONF_FOLDER/ssl.yml"
+sed -i'.bak' -e "/caCertificatePath:/ s#[^ ][^ ]*\$#$CA_CERT_PATH#" "$CONF_FOLDER/ssl.yml"
+sed -i'.bak' -e "/certificatePath:/ s#[^ ][^ ]*\$#$CERT_PATH#" "$CONF_FOLDER/ssl.yml"
+sed -i'.bak' -e "/keyPath:/ s#[^ ][^ ]*\$#$KEY_PATH#" "$CONF_FOLDER/ssl.yml"
 
-echo "updated $CERT_FOLDER/ssl.yml"
+echo "updated $CONF_FOLDER/ssl.yml"
