@@ -22,7 +22,7 @@ import {
   CurrencyAmount as CurrencyAmountPangolin,
   Trade as TradePangolin,
 } from '@pangolindex/sdk';
-
+import { Token as TokenCosmos } from '../chains/cosmos/cosmos';
 export interface ExpectedTrade {
   trade:
     | Trade
@@ -102,15 +102,17 @@ export interface Sifchainish extends CosmosBase {
 }
 
 export interface SifchainishConnector {
-  priceSwapIn(
-    baseToken: any,
-    quoteToken: any,
-    amount: any
+  estimateSellTrade(
+    baseToken: TokenCosmos,
+    quoteToken: TokenCosmos,
+    amount: BigNumber,
+    allowedSlippage?: string
   ): Promise<ExpectedTrade | string>;
-  priceSwapOut(
-    quoteToken: any,
-    baseToken: any,
-    amount: any
+  estimateBuyTrade(
+    quoteToken: TokenCosmos,
+    baseToken: TokenCosmos,
+    amount: BigNumber,
+    allowedSlippage?: string
   ): Promise<ExpectedTrade | string>;
   chain: string;
 }

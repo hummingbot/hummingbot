@@ -6,6 +6,8 @@ import { percentRegexp } from '../../services/config-manager-v2';
 //   Transaction,
 //   Wallet,
 // } from 'ethers';
+
+import { isFractionString } from '../../services/validators';
 import { SifchainConnectorConfig } from './sifchain.config';
 // import routerAbi from './IPangolinRouter.json';
 import {
@@ -61,6 +63,12 @@ export class SifchainConnector implements SifchainishConnector {
     return SifchainConnector._instances[chain + network];
   }
 
+  /**
+   * Given a token's address, return the connector's native representation of
+   * the token.
+   *
+   * @param address CosmosToken address
+   */
   public getTokenByAddress(address: string): CosmosToken {
     return this.tokenList[address];
   }
@@ -100,42 +108,60 @@ export class SifchainConnector implements SifchainishConnector {
     return this._gasLimit;
   }
 
-  getSlippagePercentage(): Percent {
+  /**
+   * Gets the allowed slippage percent from the optional parameter or the value
+   * in the configuration.
+   *
+   * @param allowedSlippageStr (Optional) should be of the form '1/10'.
+   */
+  public getAllowedSlippage(allowedSlippageStr?: string): Percent {
+    if (allowedSlippageStr != null && isFractionString(allowedSlippageStr)) {
+      const fractionSplit = allowedSlippageStr.split('/');
+      return new Percent(fractionSplit[0], fractionSplit[1]);
+    }
+
     const allowedSlippage = SifchainConnectorConfig.config.allowedSlippage;
     const nd = allowedSlippage.match(percentRegexp);
-
-    if (nd) return eval(nd[0]);
+    if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(
       'Encountered a malformed percent string in the config for ALLOWED_SLIPPAGE.'
     );
   }
 
-  // get the expected amount of token out, for a given pair and a token amount in.
-  // this only considers direct routes.
-  async priceSwapIn(
-    // SELL - 100 USDT
-    tokenIn: Token, // ATOM
-    tokenOut: Token, // ROWAN
-    tokenInAmount: BigNumber
+  /**
+   * Given the amount of `baseToken` to put into a transaction, calculate the
+   * amount of `quoteToken` that can be expected from the transaction.
+   *
+   * This is typically used for calculating token sell prices.
+   *
+   * @param baseToken Token input for the transaction
+   * @param quoteToken Output from the transaction
+   * @param amount Amount of `baseToken` to put into the transaction
+   */
+  async estimateSellTrade(
+    // SELL - 100 ATOM
+    baseToken: Token, // ATOM
+    quoteToken: Token, // ROWAN
+    amount: BigNumber
   ): Promise<ExpectedTrade | string> {
+    // I WANT TO SELL 100 ATOM FOR ROWAN
     logger.info(
-      `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
+      `Fetching pair data for ${baseToken.address}-${quoteToken.address}.`
     );
 
     const signingClient = await this.sifchain._signingClient;
 
     const swap = await signingClient.simulateSwap(
       {
-        denom: tokenIn.denom,
-        amount: Decimal.fromUserInput(tokenInAmount, tokenIn.decimals.low)
-          .atomics,
+        denom: baseToken.denom,
+        amount: Decimal.fromUserInput(amount, baseToken.decimals.low).atomics,
       },
-      { denom: tokenOut.denom },
-      this.getSlippagePercentage() // Slippage
+      { denom: quoteToken.denom },
+      this.getAllowedSlippage() // Slippage
     );
 
-    console.log(tokenIn);
-    console.log(tokenOut);
+    console.log(baseToken);
+    console.log(quoteToken);
     // console.log(swap);
 
     const rawReceiving = swap.rawReceiving.toFloatApproximation();
@@ -152,14 +178,24 @@ export class SifchainConnector implements SifchainishConnector {
     };
   }
 
-  async priceSwapOut(
+  /**
+   * Given the amount of `baseToken` desired to acquire from a transaction,
+   * calculate the amount of `quoteToken` needed for the transaction.
+   *
+   * This is typically used for calculating token buy prices.
+   *
+   * @param quoteToken Token input for the transaction
+   * @param baseToken Token output from the transaction
+   * @param amount Amount of `baseToken` desired from the transaction
+   */
+  async estimateBuyTrade(
     // BUY
-    tokenIn: Token, // ROWAN
-    tokenOut: Token, // ATOM
-    tokenOutAmount: string // I want to buy 100 ATOM, how much ROWAN do I need?
+    quoteToken: Token, // ROWAN
+    baseToken: Token, // ATOM
+    amount: string // I want to buy 100 ATOM, how much ROWAN do I need?
   ): Promise<ExpectedTrade | string> {
     logger.info(
-      `Fetching pair data for ${tokenIn.baseDenom}-${tokenOut.baseDenom}.`
+      `Fetching pair data for ${quoteToken.baseDenom}-${baseToken.baseDenom}.`
     );
 
     const signingClient = await this.sifchain._signingClient;
@@ -168,48 +204,47 @@ export class SifchainConnector implements SifchainishConnector {
     // USDT per ATOM price
     const usdtPerAtom = await signingClient.simulateSwap(
       {
-        denom: tokenOut.denom,
-        amount: Decimal.fromUserInput('1', tokenOut.decimals.low).atomics,
+        denom: baseToken.denom,
+        amount: Decimal.fromUserInput('1', baseToken.decimals.low).atomics,
       },
-      { denom: tokenIn.denom },
-      this.getSlippagePercentage() // Slippage
+      { denom: quoteToken.denom },
+      this.getAllowedSlippage() // Slippage
     );
 
     console.log(usdtPerAtom);
 
     const atomPerRowan = await signingClient.simulateSwap(
       {
-        denom: tokenIn.denom,
-        amount: Decimal.fromUserInput('1', tokenIn.decimals.low).atomics,
+        denom: quoteToken.denom,
+        amount: Decimal.fromUserInput('1', quoteToken.decimals.low).atomics,
       },
-      { denom: tokenOut.denom },
-      this.getSlippagePercentage() // Slippage
+      { denom: baseToken.denom },
+      this.getAllowedSlippage() // Slippage
     );
 
     console.log(atomPerRowan.rawReceiving.toFloatApproximation());
 
-    // const pricePerTokenIn = inchPrice.rawReceiving.toFloatApproximation();
+    // const pricePerquoteToken = inchPrice.rawReceiving.toFloatApproximation();
     // const usdtPerAtomPrice = usdtPerAtom.rawReceiving.toFloatApproximation();
 
     // console.log(usdtPerAtomPrice);
     // console.log(
-    //   (usdtPerAtomPrice / tokenOutAmount).toFixed(tokenOut.decimals.low) +
+    //   (usdtPerAtomPrice / amount).toFixed(baseToken.decimals.low) +
     //     ' ATOM for 10000 ROWAN'
     // );
 
     // 100/0.000626
-    // amount that i need to buy (tokenOutAmount)/atomPerRowan
+    // amount that i need to buy (amount)/atomPerRowan
     // 159662,1021606584
     // BUY 100 atom, how much rowan do I need to buy 100 atoms?
     // SELL 100 atom, how much rowan do I get? +
     const swap = await signingClient.simulateSwap(
       {
-        denom: tokenOut.denom,
-        amount: Decimal.fromUserInput(tokenOutAmount, tokenOut.decimals.low)
-          .atomics,
+        denom: baseToken.denom,
+        amount: Decimal.fromUserInput(amount, baseToken.decimals.low).atomics,
       },
-      { denom: tokenIn.denom },
-      this.getSlippagePercentage() // Slippage
+      { denom: quoteToken.denom },
+      this.getAllowedSlippage() // Slippage
     );
 
     console.log(swap);
@@ -219,50 +254,4 @@ export class SifchainConnector implements SifchainishConnector {
 
     return;
   }
-
-  // // given a wallet and a Uniswap trade, try to execute it on the Avalanche block chain.
-  // async executeTrade(
-  //   wallet: Wallet,
-  //   trade: Trade,
-  //   gasPrice: number,
-  //   pangolinRouter: string,
-  //   ttl: number,
-  //   abi: ContractInterface,
-  //   gasLimit: number,
-  //   nonce?: number,
-  //   maxFeePerGas?: BigNumber,
-  //   maxPriorityFeePerGas?: BigNumber
-  // ): Promise<Transaction> {
-  //   const result = Router.swapCallParameters(trade, {
-  //     ttl,
-  //     recipient: wallet.address,
-  //     allowedSlippage: this.getSlippagePercentage(),
-  //   });
-
-  //   const contract = new Contract(pangolinRouter, abi, wallet);
-  //   if (!nonce) {
-  //     nonce = await this.avalanche.nonceManager.getNonce(wallet.address);
-  //   }
-  //   let tx;
-  //   if (maxFeePerGas || maxPriorityFeePerGas) {
-  //     tx = await contract[result.methodName](...result.args, {
-  //       gasLimit: gasLimit,
-  //       value: result.value,
-  //       nonce: nonce,
-  //       maxFeePerGas,
-  //       maxPriorityFeePerGas,
-  //     });
-  //   } else {
-  //     tx = await contract[result.methodName](...result.args, {
-  //       gasPrice: gasPrice * 1e9,
-  //       gasLimit: gasLimit,
-  //       value: result.value,
-  //       nonce: nonce,
-  //     });
-  //   }
-
-  //   logger.info(tx);
-  //   await this.avalanche.nonceManager.commitNonce(wallet.address, nonce);
-  //   return tx;
-  // }
 }
