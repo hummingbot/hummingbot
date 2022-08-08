@@ -4,7 +4,7 @@ port: 5230
 # The IPs allowed to access gateway. localhost is allowed by default.
 ipWhitelist: []
 
-unsafeDevModeWithHTTP: 1
+unsafeDevModeWithHTTP: true
 
 
 GMTOffset: +0800
