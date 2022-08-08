@@ -85,6 +85,10 @@ class HangingOrdersTrackerTest(unittest.TestCase):
         self.assertEqual(self.tracker._completed_hanging_orders, {OrdS.BUY: set(), OrdS.SELL: set()})
         self.assertEqual(self.tracker.current_created_pairs_of_orders, list())
 
+        # Default values for BUY/SELL enabled
+        self.assertEqual(self.tracker.hanging_buy_orders_enabled, True)
+        self.assertEqual(self.tracker.hanging_sell_orders_enabled, True)
+
         # Value from initialization
         self.assertEqual(self.tracker.hanging_buy_orders_cancel_pct, Decimal("0.2"))
         self.assertEqual(self.tracker.hanging_sell_orders_cancel_pct, Decimal("0.3"))
@@ -110,6 +114,55 @@ class HangingOrdersTrackerTest(unittest.TestCase):
         self.tracker._completed_hanging_orders = {OrdS.BUY: {'BUY_order'}, OrdS.SELL: {'SELL_order'}}
         self.assertEqual(self.tracker._completed_ho, {'BUY_order', 'SELL_order'})
         self.assertEqual(self.tracker.completed_hanging_orders, {'BUY_order', 'SELL_order'})
+
+    def test_hanging_orders_cancel_pct(self):
+        # Getter
+        expected = (self.tracker._hanging_buy_orders_cancel_pct + self.tracker._hanging_sell_orders_cancel_pct) * Decimal("0.5")
+        self.assertEqual(expected, self.tracker.hanging_orders_cancel_pct)
+
+        # Setter
+        self.tracker.hanging_orders_cancel_pct = Decimal("10")
+        self.assertEqual(Decimal("10"), self.tracker.hanging_orders_cancel_pct)
+        self.assertEqual(Decimal("10"), self.tracker._hanging_buy_orders_cancel_pct)
+        self.assertEqual(Decimal("10"), self.tracker._hanging_sell_orders_cancel_pct)
+
+    def test_hanging_buy_orders_cancel_pct(self):
+        # Getter
+        self.assertEqual(self.tracker._hanging_buy_orders_cancel_pct, self.tracker.hanging_buy_orders_cancel_pct)
+
+        # Setter
+        self.tracker.hanging_buy_orders_cancel_pct = Decimal("10")
+        self.assertEqual(Decimal("10"), self.tracker._hanging_buy_orders_cancel_pct)
+        self.assertEqual(Decimal("10"), self.tracker.hanging_buy_orders_cancel_pct)
+
+    def test_hanging_sell_orders_cancel_pct(self):
+        # Getter
+        self.assertEqual(self.tracker._hanging_sell_orders_cancel_pct, self.tracker.hanging_sell_orders_cancel_pct)
+
+        # Setter
+        self.tracker.hanging_sell_orders_cancel_pct = Decimal("10")
+        self.assertEqual(Decimal("10"), self.tracker._hanging_sell_orders_cancel_pct)
+        self.assertEqual(Decimal("10"), self.tracker.hanging_sell_orders_cancel_pct)
+
+    def test_hanging_buy_orders_enabled(self):
+        # Getter
+        self.assertEqual(True, self.tracker._hanging_buy_orders_enabled)
+        self.assertEqual(self.tracker._hanging_buy_orders_enabled, self.tracker.hanging_buy_orders_enabled)
+
+        # Setter
+        self.tracker.hanging_buy_orders_enabled = False
+        self.assertEqual(False, self.tracker._hanging_buy_orders_enabled)
+        self.assertEqual(False, self.tracker.hanging_buy_orders_enabled)
+
+    def test_hanging_sell_orders_enabled(self):
+        # Getter
+        self.assertEqual(True, self.tracker._hanging_sell_orders_enabled)
+        self.assertEqual(self.tracker._hanging_sell_orders_enabled, self.tracker.hanging_sell_orders_enabled)
+
+        # Setter
+        self.tracker.hanging_sell_orders_enabled = False
+        self.assertEqual(False, self.tracker._hanging_sell_orders_enabled)
+        self.assertEqual(False, self.tracker.hanging_sell_orders_enabled)
 
     def test_add_remove_buy_limit_order(self):
         order_to_add = LimitOrder("Order-number-1", "BTC-USDT", True, "BTC", "USDT", Decimal(100), Decimal(1))

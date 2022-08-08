@@ -60,8 +60,12 @@ class CreatedPairOfOrders:
 
 
 class OrdS(Enum):
-    BUY = 1
-    SELL = 2
+    BUY = True
+    SELL = False
+
+
+def b_to_o(b: bool) -> OrdS:
+    return OrdS.BUY if b else OrdS.SELL
 
 
 class HangingOrdersTracker:
@@ -80,12 +84,16 @@ class HangingOrdersTracker:
                  trading_pair: str = None,
                  hanging_buy_orders_cancel_pct=None,
                  hanging_sell_orders_cancel_pct=None,
+                 hanging_buy_orders_enabled=True,
+                 hanging_sell_orders_enabled=True,
                  ):
         self.strategy: StrategyBase = strategy
         self._hanging_buy_orders_cancel_pct: Decimal = hanging_buy_orders_cancel_pct or hanging_orders_cancel_pct or Decimal(
             "0.1")
         self._hanging_sell_orders_cancel_pct: Decimal = hanging_sell_orders_cancel_pct or hanging_orders_cancel_pct or Decimal(
             "0.1")
+        self._hanging_buy_orders_enabled = hanging_buy_orders_enabled
+        self._hanging_sell_orders_enabled = hanging_sell_orders_enabled
         self.trading_pair: str = trading_pair or self.strategy.trading_pair
         self.orders_being_renewed: Set[HangingOrder] = set()
         self.orders_being_cancelled: Set[str] = set()
@@ -131,6 +139,14 @@ class HangingOrdersTracker:
             self._hanging_buy_orders_cancel_pct = value
 
     @property
+    def hanging_buy_orders_enabled(self):
+        return self._hanging_buy_orders_enabled
+
+    @hanging_buy_orders_enabled.setter
+    def hanging_buy_orders_enabled(self, value: bool):
+        self._hanging_buy_orders_enabled = value
+
+    @property
     def hanging_sell_orders_cancel_pct(self):
         return self._hanging_sell_orders_cancel_pct
 
@@ -140,6 +156,14 @@ class HangingOrdersTracker:
             self._hanging_sell_orders_cancel_pct = max(s_decimal_zero, value)
         else:
             self._hanging_sell_orders_cancel_pct = value
+
+    @property
+    def hanging_sell_orders_enabled(self):
+        return self._hanging_sell_orders_enabled
+
+    @hanging_sell_orders_enabled.setter
+    def hanging_sell_orders_enabled(self, value: bool):
+        self._hanging_sell_orders_enabled = value
 
     @property
     def strategy_current_hanging_orders(self):
@@ -152,11 +176,11 @@ class HangingOrdersTracker:
     # Shortcuts
     @property
     def _current_ho(self):
-        return self._strategy_current_hanging_orders[OrdS.BUY].union(self._strategy_current_hanging_orders[OrdS.SELL])
+        return self._strategy_current_hanging_orders[OrdS.BUY] | self._strategy_current_hanging_orders[OrdS.SELL]
 
     @property
     def _completed_ho(self):
-        return self._completed_hanging_orders[OrdS.BUY].union(self._completed_hanging_orders[OrdS.SELL])
+        return self._completed_hanging_orders[OrdS.BUY] | self._completed_hanging_orders[OrdS.SELL]
 
     def register_events(self, markets: List[ConnectorBase]):
         """Start listening to events from the given markets."""
@@ -278,12 +302,9 @@ class HangingOrdersTracker:
 
             executed_orders = self._execute_orders_in_strategy({order_to_be_created})
             if renewing_order.is_buy:
-                self._strategy_current_hanging_orders[OrdS.BUY] = self._strategy_current_hanging_orders[OrdS.BUY].union(
-                    {o for o in executed_orders if o.is_buy})
+                self._strategy_current_hanging_orders[OrdS.BUY].update({o for o in executed_orders if o.is_buy})
             else:
-                self._strategy_current_hanging_orders[OrdS.SELL] = self._strategy_current_hanging_orders[
-                    OrdS.SELL].union(
-                    {o for o in executed_orders if not o.is_buy})
+                self._strategy_current_hanging_orders[OrdS.SELL].update({o for o in executed_orders if not o.is_buy})
 
             for new_hanging_order in executed_orders:
                 limit_order_from_hanging_order = next((o for o in self.strategy.active_orders
@@ -291,15 +312,23 @@ class HangingOrdersTracker:
                 if limit_order_from_hanging_order:
                     self.add_order(limit_order_from_hanging_order)
 
+    def _can_add(self, o: LimitOrder) -> bool:
+        return (o.is_buy and self.hanging_buy_orders_enabled) or (not o.is_buy and self.hanging_sell_orders_enabled)
+
     def add_order(self, order: LimitOrder):
-        self.original_orders.add(order)
+        if self._can_add(order):
+            self.original_orders.add(order)
 
     def add_as_hanging_order(self, order: LimitOrder):
-        if order.is_buy:
-            self._strategy_current_hanging_orders[OrdS.BUY].add(self._get_hanging_order_from_limit_order(order))
-        else:
-            self._strategy_current_hanging_orders[OrdS.SELL].add(self._get_hanging_order_from_limit_order(order))
-        self.add_order(order)
+        if self._can_add(order):
+            self._strategy_current_hanging_orders[b_to_o(order.is_buy)].add(self._get_hanging_order_from_limit_order(order))
+            self.add_order(order)
+
+    def _refresh_current_hanging_orders(self, hanging_orders: Set[HangingOrder]):
+        if self.hanging_buy_orders_enabled:
+            self._strategy_current_hanging_orders[OrdS.BUY].update({o for o in hanging_orders if o.is_buy})
+        if self.hanging_sell_orders_enabled:
+            self._strategy_current_hanging_orders[OrdS.SELL].update({o for o in hanging_orders if not o.is_buy})
 
     def remove_order(self, order: LimitOrder):
         if order in self.original_orders:
@@ -404,10 +433,12 @@ class HangingOrdersTracker:
             self.logger().info(f"Need to cancel: {orders_to_cancel}")
 
         executed_orders = self._execute_orders_in_strategy(orders_to_create)
-        self._strategy_current_hanging_orders[OrdS.BUY] = self._strategy_current_hanging_orders[OrdS.BUY].union(
-            {e for e in executed_orders if e.is_buy})
-        self._strategy_current_hanging_orders[OrdS.SELL] = self._strategy_current_hanging_orders[OrdS.SELL].union(
-            {e for e in executed_orders if not e.is_buy})
+        self._refresh_current_hanging_orders(executed_orders)
+
+    # self._strategy_current_hanging_orders[OrdS.BUY] = self._strategy_current_hanging_orders[OrdS.BUY].union(
+    #    {e for e in executed_orders if e.is_buy})
+    # self._strategy_current_hanging_orders[OrdS.SELL] = self._strategy_current_hanging_orders[OrdS.SELL].union(
+    #    {e for e in executed_orders if not e.is_buy})
 
     def _execute_orders_in_strategy(self, candidate_orders: Set[HangingOrder]):
         new_hanging_orders = set()
