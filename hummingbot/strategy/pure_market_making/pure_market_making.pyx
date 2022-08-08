@@ -283,10 +283,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         # For backward compatibility (old .yml not having buy/sell) enable/disable buy/sell
         self._hanging_buy_orders_enabled = value
         self._hanging_sell_orders_enabled = value
+        # Update the tracker
+        self._hanging_orders_tracker.hanging_buy_orders_enabled = value
+        self._hanging_orders_tracker.hanging_sell_orders_enabled = value
 
     @hanging_buy_orders_enabled.setter
     def hanging_buy_orders_enabled(self, value: bool):
         self._hanging_buy_orders_enabled = value
+        self._hanging_orders_tracker.hanging_buy_orders_enabled = value
         # If BUY is set, force the default flag set
         if value is True and self.hanging_orders_enabled is False:
             self._hanging_orders_enabled = value
@@ -294,9 +298,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if value is False and self.hanging_sell_orders_enabled is False:
             self._hanging_orders_enabled = False
 
+
     @hanging_sell_orders_enabled.setter
     def hanging_sell_orders_enabled(self, value: bool):
         self._hanging_sell_orders_enabled = value
+        self._hanging_orders_tracker.hanging_sell_orders_enabled = value
         # If SELL is set, force the default flag set
         if value is True and self.hanging_orders_enabled is False:
             self._hanging_orders_enabled = value
@@ -487,14 +493,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return [o.order_id for o in self._hanging_orders_tracker.strategy_current_hanging_orders]
 
     @property
-    def hanging_buy_order_ids(self) -> List[str]:
-        return [o.order_id for o in self._hanging_orders_tracker.strategy_current_hanging_orders if o.is_buy]
-
-    @property
-    def hanging_sell_order_ids(self) -> List[str]:
-        return [o.order_id for o in self._hanging_orders_tracker.strategy_current_hanging_orders if not o.is_buy]
-
-    @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
 
@@ -516,16 +514,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     def active_non_hanging_orders(self) -> List[LimitOrder]:
         orders = [o for o in self.active_orders if
                   not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id)]
-        return orders
-
-    def active_non_hanging_buy_orders(self) -> List[LimitOrder]:
-        orders = [o for o in self.active_orders if
-                  not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id) if o.is_buy]
-        return orders
-
-    def active_non_hanging_sell_orders(self) -> List[LimitOrder]:
-        orders = [o for o in self.active_orders if
-                  not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id) if not o.is_buy]
         return orders
 
     @property
@@ -1319,6 +1307,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         # Number of pairs of orders to track for hanging orders
         # this is independent of whether it is symmetric or not
         number_of_pairs = 0
+        list_pair_of_orders: List[CreatedPairOfOrders] = []
 
         if self.hanging_orders_enabled:
             number_of_pairs = min((len(proposal.buys), len(proposal.sells)))
@@ -1375,7 +1364,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                         list_pair_of_orders[idx].hanging_sell_enabled = self.hanging_sell_orders_enabled
 
         # Registering the hanging orders
-        [self._hanging_orders_tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(o) for o in list_pair_of_orders]
+        [self._hanging_orders_tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(o) for o in
+         list_pair_of_orders]
 
         if orders_created:
             self.set_timers()
