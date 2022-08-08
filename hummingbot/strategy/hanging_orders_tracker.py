@@ -21,12 +21,20 @@ sb_logger = None
 
 
 class CreatedPairOfOrders:
-    def __init__(self, buy_order: Optional[LimitOrder], sell_order: Optional[LimitOrder], buy_fill: bool = False,
-                 sell_fill: bool = False):
-        self.buy_order = buy_order
-        self.sell_order = sell_order
-        self.filled_buy = buy_fill
-        self.filled_sell = sell_fill
+    def __init__(self,
+                 buy_order: Optional[LimitOrder],
+                 sell_order: Optional[LimitOrder],
+                 buy_fill: bool = False,
+                 sell_fill: bool = False,
+                 hanging_buy_enabled: bool = True,
+                 hanging_sell_enabled: bool = True,
+                 ):
+        self.buy_order: LimitOrder = buy_order
+        self.sell_order: LimitOrder = sell_order
+        self.filled_buy: bool = buy_fill
+        self.filled_sell: bool = sell_fill
+        self.hanging_buy_enabled: bool = hanging_buy_enabled
+        self.hanging_sell_enabled: bool = hanging_sell_enabled
 
     def contains_order(self, order_id: str):
         return ((self.buy_order is not None) and (self.buy_order.client_order_id == order_id)) or \
@@ -41,6 +49,14 @@ class CreatedPairOfOrders:
                 return self.buy_order
             else:
                 return self.sell_order
+
+    def is_unfilled_order_enabled(self) -> bool:
+        if self.partially_filled():
+            if not self.filled_buy:
+                return self.hanging_buy_enabled
+            else:
+                return self.hanging_sell_enabled
+        return False
 
 
 class OrdS(Enum):
@@ -456,9 +472,13 @@ class HangingOrdersTracker:
             order.creation_timestamp * 1e-6)
 
     def candidate_hanging_orders_from_pairs(self):
+        """
+        Convert potential pairs of orders into valid hanging orders upon the opposite side
+        of the pair being filled and the unfilled side being enabled for hanging order
+        """
         candidate_orders = []
         for pair in self.current_created_pairs_of_orders:
-            if pair.partially_filled():
+            if pair.partially_filled() and pair.is_unfilled_order_enabled():
                 unfilled_order = pair.get_unfilled_order()
                 # Check if the unfilled order is in active_orders because it might have failed before being created
                 if unfilled_order in self.strategy.active_orders:
