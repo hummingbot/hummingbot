@@ -1,17 +1,15 @@
-
 import asyncio
 import unittest
-import pandas as pd
-
 from decimal import Decimal
 
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
-from hummingbot.strategy.dev_1_get_order_book import GetOrderBookStrategy
+import pandas as pd
+
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.strategy.dev_1_get_order_book import GetOrderBookStrategy
 
 
 class Dev1GetOrderBookUnitTest(unittest.TestCase):
@@ -27,7 +25,9 @@ class Dev1GetOrderBookUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop = asyncio.get_event_loop()
         cls.clock: Clock = Clock(ClockMode.BACKTEST, cls.tick_size, cls.start_timestamp, cls.end_timestamp)
-        cls.market: MockPaperExchange = MockPaperExchange()
+        cls.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         cls.strategy: GetOrderBookStrategy = GetOrderBookStrategy(
             exchange=cls.market,
             trading_pair=cls.trading_pair,

@@ -1,19 +1,17 @@
+import decimal
 from decimal import Decimal
-
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_validators import (
-    validate_exchange,
-    validate_connector,
-    validate_market_trading_pair,
-    validate_bool,
-    validate_decimal,
-    validate_int
-)
-from hummingbot.client.settings import (
-    required_exchanges,
-    AllConnectorSettings,
-)
 from typing import Optional
+
+from hummingbot.client.config.config_validators import (
+    validate_bool,
+    validate_connector,
+    validate_decimal,
+    validate_exchange,
+    validate_int,
+    validate_market_trading_pair,
+)
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.settings import AllConnectorSettings, required_exchanges
 
 
 def maker_trading_pair_prompt():
@@ -105,7 +103,18 @@ def on_validated_price_type(value: str):
 
 
 def exchange_on_validated(value: str):
-    required_exchanges.append(value)
+    required_exchanges.add(value)
+
+
+def validate_decimal_list(value: str) -> Optional[str]:
+    decimal_list = list(value.split(","))
+    for number in decimal_list:
+        try:
+            validate_result = validate_decimal(Decimal(number), 0, 100, inclusive=False)
+        except decimal.InvalidOperation:
+            return "Please enter valid decimal numbers"
+        if validate_result is not None:
+            return validate_result
 
 
 pure_market_making_config_map = {
@@ -186,6 +195,33 @@ pure_market_making_config_map = {
                   type_str="decimal",
                   default=Decimal("-1"),
                   validator=validate_price_floor_ceiling),
+    "moving_price_band_enabled":
+        ConfigVar(key="moving_price_band_enabled",
+                  prompt="Would you like to enable moving price floor and ceiling? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "price_ceiling_pct":
+        ConfigVar(key="price_ceiling_pct",
+                  prompt="Enter a percentage to the current price that sets the price ceiling. Above this price, only sell orders will be placed >>> ",
+                  type_str="decimal",
+                  default=Decimal("1"),
+                  required_if=lambda: pure_market_making_config_map.get("moving_price_band_enabled").value,
+                  validator=validate_decimal),
+    "price_floor_pct":
+        ConfigVar(key="price_floor_pct",
+                  prompt="Enter a percentage to the current price that sets the price floor. Below this price, only buy orders will be placed >>> ",
+                  type_str="decimal",
+                  default=Decimal("-1"),
+                  required_if=lambda: pure_market_making_config_map.get("moving_price_band_enabled").value,
+                  validator=validate_decimal),
+    "price_band_refresh_time":
+        ConfigVar(key="price_band_refresh_time",
+                  prompt="After this amount of time (in seconds), the price bands are reset based on the current price >>> ",
+                  type_str="float",
+                  default=86400,
+                  required_if=lambda: pure_market_making_config_map.get("moving_price_band_enabled").value,
+                  validator=validate_decimal),
     "ping_pong_enabled":
         ConfigVar(key="ping_pong_enabled",
                   prompt="Would you like to use the ping pong feature and alternate between buy and sell orders after fills? (Yes/No) >>> ",
@@ -351,10 +387,62 @@ pure_market_making_config_map = {
                   type_str="json"),
     "should_wait_order_cancel_confirmation":
         ConfigVar(key="should_wait_order_cancel_confirmation",
-                  prompt="Should the strategy wait to receive a confirmation for orders cancellation "
+                  prompt="Should the strategy wait to receive a confirmation for orders cancelation "
                          "before creating a new set of orders? "
                          "(Not waiting requires enough available balance) (Yes/No) >>> ",
                   type_str="bool",
                   default=True,
                   validator=validate_bool),
+    "split_order_levels_enabled":
+        ConfigVar(key="split_order_levels_enabled",
+                  prompt="Do you want bid and ask orders to be placed at multiple defined spread and amount? "
+                         "This acts as an overrides which replaces order_amount, order_spreads, "
+                         "order_level_amount, order_level_spreads (Yes/No) >>> ",
+                  default=False,
+                  type_str="bool",
+                  validator=validate_bool),
+    "bid_order_level_spreads":
+        ConfigVar(key="bid_order_level_spreads",
+                  prompt="Enter the spreads (as percentage) for all bid spreads "
+                         "e.g 1,2,3,4 to represent 1%,2%,3%,4%. "
+                         "The number of levels set will be equal to the "
+                         "minimum length of bid_order_level_spreads and bid_order_level_amounts >>> ",
+                  default=None,
+                  type_str="str",
+                  required_if=lambda: pure_market_making_config_map.get(
+                      "split_order_levels_enabled").value,
+                  validator=validate_decimal_list),
+    "ask_order_level_spreads":
+        ConfigVar(key="ask_order_level_spreads",
+                  prompt="Enter the spreads (as percentage) for all ask spreads "
+                         "e.g 1,2,3,4 to represent 1%,2%,3%,4%. "
+                         "The number of levels set will be equal to the "
+                         "minimum length of bid_order_level_spreads and bid_order_level_amounts >>> ",
+                  default=None,
+                  type_str="str",
+                  required_if=lambda: pure_market_making_config_map.get(
+                      "split_order_levels_enabled").value,
+                  validator=validate_decimal_list),
+    "bid_order_level_amounts":
+        ConfigVar(key="bid_order_level_amounts",
+                  prompt="Enter the amount for all bid amounts. "
+                         "e.g 1,2,3,4. "
+                         "The number of levels set will be equal to the "
+                         "minimum length of bid_order_level_spreads and bid_order_level_amounts >>> ",
+                  default=None,
+                  type_str="str",
+                  required_if=lambda: pure_market_making_config_map.get(
+                      "split_order_levels_enabled").value,
+                  validator=validate_decimal_list),
+    "ask_order_level_amounts":
+        ConfigVar(key="ask_order_level_amounts",
+                  prompt="Enter the amount for all ask amounts. "
+                         "e.g 1,2,3,4. "
+                         "The number of levels set will be equal to the "
+                         "minimum length of bid_order_level_spreads and bid_order_level_amounts >>> ",
+                  default=None,
+                  required_if=lambda: pure_market_making_config_map.get(
+                      "split_order_levels_enabled").value,
+                  type_str="str",
+                  validator=validate_decimal_list),
 }

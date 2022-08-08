@@ -24,10 +24,14 @@ class OrderState(Enum):
     PENDING_CREATE = 0
     OPEN = 1
     PENDING_CANCEL = 2
-    CANCELLED = 3
+    CANCELED = 3
     PARTIALLY_FILLED = 4
     FILLED = 5
     FAILED = 6
+    PENDING_APPROVAL = 7
+    APPROVED = 8
+    CREATED = 9
+    COMPLETED = 10
 
 
 class OrderUpdate(NamedTuple):
@@ -36,6 +40,7 @@ class OrderUpdate(NamedTuple):
     new_state: OrderState
     client_order_id: Optional[str] = None
     exchange_order_id: Optional[str] = None
+    misc_updates: Optional[Dict[str, Any]] = None
 
 
 class TradeUpdate(NamedTuple):
@@ -170,7 +175,7 @@ class InFlightOrder:
     @property
     def is_done(self) -> bool:
         return (
-            self.current_state in {OrderState.CANCELLED, OrderState.FILLED, OrderState.FAILED}
+            self.current_state in {OrderState.CANCELED, OrderState.FILLED, OrderState.FAILED}
             or math.isclose(self.executed_amount_base, self.amount)
             or self.executed_amount_base >= self.amount
         )
@@ -191,7 +196,7 @@ class InFlightOrder:
 
     @property
     def is_cancelled(self) -> bool:
-        return self.current_state == OrderState.CANCELLED
+        return self.current_state == OrderState.CANCELED
 
     @property
     def average_executed_price(self) -> Optional[Decimal]:
@@ -297,7 +302,8 @@ class InFlightOrder:
                 price=trade_update.fill_price,
                 order_amount=trade_update.fill_base_amount,
                 token=token,
-                exchange=exchange)
+                exchange=exchange
+            )
 
         return total_fee_in_token
 
@@ -352,3 +358,17 @@ class InFlightOrder:
 
     async def wait_until_completely_filled(self):
         await self.completely_filled_event.wait()
+
+    def build_order_created_message(self) -> str:
+        return (
+            f"Created {self.order_type.name.upper()} {self.trade_type.name.upper()} order "
+            f"{self.client_order_id} for {self.amount} {self.trading_pair}."
+        )
+
+
+class PerpetualDerivativeInFlightOrder(InFlightOrder):
+    def build_order_created_message(self) -> str:
+        return (
+            f"Created {self.order_type.name.upper()} {self.trade_type.name.upper()} order "
+            f"{self.client_order_id} for {self.amount} to {self.position.name.upper()} a {self.trading_pair} position."
+        )

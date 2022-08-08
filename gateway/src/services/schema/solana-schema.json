@@ -8,15 +8,15 @@
         "^..+$": {
           "type": "object",
           "properties": {
-            "rpcURL": { "type": "string" }
+            "rpcURL": { "type": "string" },
+            "nativeCurrencySymbol": { "type": "string" }
           },
-          "required": ["rpcURL"],
+          "required": ["rpcURL", "nativeCurrencySymbol"],
           "additionalProperties": false
         }
       },
       "additionalProperties": false
     },
-    "nativeCurrencySymbol": { "type": "string" },
     "network": { "type": "string" },
     "tokenProgram": { "type": "string" },
     "transactionLamports": { "type": "integer" },
@@ -28,7 +28,6 @@
   "required": [
     "networks",
     "network",
-    "nativeCurrencySymbol",
     "tokenProgram",
     "transactionLamports",
     "lamportsToSol",

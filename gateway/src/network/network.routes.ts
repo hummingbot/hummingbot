@@ -13,14 +13,27 @@ import {
   TokensRequest,
   TokensResponse,
 } from './network.requests';
-
 import {
+  validateNetwork,
+  validateChain,
   validateBalanceRequest,
-  validatePollRequest,
-  validateTokensRequest,
 } from '../chains/ethereum/ethereum.validators';
 import { getStatus, getTokens } from './network.controllers';
 import { ConfigManagerV2 } from '../services/config-manager-v2';
+import {
+  mkRequestValidator,
+  RequestValidator,
+  validateTxHash,
+} from '../services/validators';
+
+export const validatePollRequest: RequestValidator = mkRequestValidator([
+  validateTxHash,
+]);
+
+export const validateTokensRequest: RequestValidator = mkRequestValidator([
+  validateChain,
+  validateNetwork,
+]);
 
 export namespace NetworkRoutes {
   export const router = Router();

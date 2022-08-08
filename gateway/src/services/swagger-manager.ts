@@ -27,7 +27,7 @@ export namespace SwaggerManager {
   ): Record<any, any> {
     const o = yaml.load(fs.readFileSync(fp, 'utf8'));
     if (o != null && typeof o === 'object' && f(o)) {
-      return o;
+      return <Record<any, any>>o;
     } else {
       throw new Error(fp + ' does not conform to the expected structure.');
     }

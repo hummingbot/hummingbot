@@ -5,8 +5,8 @@ import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
 import { getHarmonyConfig } from './harmony.config';
 import { Provider } from '@ethersproject/abstract-provider';
-// import { SushiSwapConfig } from './sushiswap/sushiswap.config';
 import { Ethereumish } from '../../services/common-interfaces';
+import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
 export class Harmony extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: Harmony };
@@ -25,7 +25,10 @@ export class Harmony extends EthereumBase implements Ethereumish {
       config.network.nodeURL,
       config.network.tokenListSource,
       config.network.tokenListType,
-      config.manualGasPrice
+      config.manualGasPrice,
+      config.gasLimitTransaction,
+      ConfigManagerV2.getInstance().get('database.nonceDbPath'),
+      ConfigManagerV2.getInstance().get('database.transactionDbPath')
     );
     this._chain = network;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
@@ -55,11 +58,6 @@ export class Harmony extends EthereumBase implements Ethereumish {
   public static getConnectedInstances(): { [name: string]: Harmony } {
     return Harmony._instances;
   }
-
-  // public static reload(): Harmony {
-  //   Harmony._instance = new Harmony();
-  //   return Harmony._instance;
-  // }
 
   public requestCounter(msg: any): void {
     if (msg.action === 'request') this._requestCount += 1;
@@ -122,8 +120,8 @@ export class Harmony extends EthereumBase implements Ethereumish {
 
       const { data } = await axios(config);
 
-      // divide by 10 to convert it to Gwei
-      this._gasPrice = data['result'] / 10;
+      // divide by 1e9 to convert it to Gwei
+      this._gasPrice = data['result'] / 1e9;
       this._gasPriceLastUpdated = new Date();
 
       setTimeout(
@@ -142,9 +140,10 @@ export class Harmony extends EthereumBase implements Ethereumish {
     let spender: string;
     if (reqSpender === 'sushiswap') {
       spender = '0x1b02da8cb0d097eb8d57a175b88c7d8b47997506';
-    }
-    if (reqSpender === 'viperswap') {
+    } else if (reqSpender === 'viperswap') {
       spender = '0xf012702a5f0e54015362cbca26a26fc90aa832a3';
+    } else if (reqSpender === 'defikingdoms') {
+      spender = '0x24ad62502d1C652Cc7684081169D04896aC20f30';
     } else {
       spender = reqSpender;
     }
@@ -156,6 +155,13 @@ export class Harmony extends EthereumBase implements Ethereumish {
     logger.info(
       'Canceling any existing transaction(s) with nonce number ' + nonce + '.'
     );
-    return super.cancelTx(wallet, nonce, this._gasPrice);
+    return this.cancelTxWithGasPrice(wallet, nonce, this._gasPrice * 2);
+  }
+
+  async close() {
+    await super.close();
+    if (this._chain in Harmony._instances) {
+      delete Harmony._instances[this._chain];
+    }
   }
 }

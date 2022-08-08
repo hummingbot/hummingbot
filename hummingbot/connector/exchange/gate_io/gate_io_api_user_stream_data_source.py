@@ -1,105 +1,99 @@
-#!/usr/bin/env python
 import asyncio
-import logging
-from typing import Any, AsyncIterable, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
-from .gate_io_auth import GateIoAuth
-from .gate_io_utils import GateIoAPIError, convert_to_exchange_trading_pair
-from .gate_io_websocket import GateIoWebsocket
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
 
 
 class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(__name__)
-        return cls._logger
-
-    def __init__(
-        self,
-        gate_io_auth: GateIoAuth,
-        trading_pairs: Optional[List[str]] = None,
-        api_factory: Optional[WebAssistantsFactory] = None,
-    ):
-        self._api_factory = api_factory
-        self._gate_io_auth: GateIoAuth = gate_io_auth
-        self._ws: Optional[GateIoWebsocket] = None
-        self._trading_pairs = trading_pairs or []
-        self._current_listen_key = None
-        self._listen_for_user_stream_task = None
+    def __init__(self,
+                 auth: GateIoAuth,
+                 trading_pairs: List[str],
+                 connector: 'GateIoExchange',
+                 api_factory: WebAssistantsFactory,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__()
+        self._api_factory = api_factory
+        self._auth: GateIoAuth = auth
+        self._trading_pairs: List[str] = trading_pairs
+        self._connector = connector
 
-    @property
-    def last_recv_time(self) -> float:
-        recv_time = 0
-        if self._ws is not None:
-            recv_time = self._ws.last_recv_time
-        return recv_time
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        ws: WSAssistant = await self._api_factory.get_ws_assistant()
+        await ws.connect(ws_url=CONSTANTS.WS_URL, ping_timeout=CONSTANTS.PING_TIMEOUT)
+        return ws
 
-    async def _listen_to_orders_trades_balances(self) -> AsyncIterable[Any]:
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
-        Subscribe to active orders via web socket
-        """
+        Subscribes to order events and balance events.
 
+        :param websocket_assistant: the websocket assistant used to connect to the exchange
+        """
         try:
-            self._ws = GateIoWebsocket(self._gate_io_auth, self._api_factory)
+            symbols = [await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                       for trading_pair in self._trading_pairs]
 
-            await self._ws.connect()
+            orders_change_payload = {
+                "time": int(self._time()),
+                "channel": CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
+                "event": "subscribe",
+                "payload": symbols
+            }
+            subscribe_order_change_request: WSJSONRequest = WSJSONRequest(
+                payload=orders_change_payload,
+                is_auth_required=True)
 
-            user_channels = [
-                CONSTANTS.USER_TRADES_ENDPOINT_NAME,
-                CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
-                CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
-            ]
+            trades_payload = {
+                "time": int(self._time()),
+                "channel": CONSTANTS.USER_TRADES_ENDPOINT_NAME,
+                "event": "subscribe",
+                "payload": symbols
+            }
+            subscribe_trades_request: WSJSONRequest = WSJSONRequest(
+                payload=trades_payload,
+                is_auth_required=True)
 
-            await self._ws.subscribe(CONSTANTS.USER_TRADES_ENDPOINT_NAME,
-                                     [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
-            await self._ws.subscribe(CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
-                                     [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
-            await self._ws.subscribe(CONSTANTS.USER_BALANCE_ENDPOINT_NAME)
+            balance_payload = {
+                "time": int(self._time()),
+                "channel": CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
+                "event": "subscribe",  # "unsubscribe" for unsubscription
+            }
+            subscribe_balance_request: WSJSONRequest = WSJSONRequest(
+                payload=balance_payload,
+                is_auth_required=True)
 
-            async for msg in self._ws.on_message():
+            await websocket_assistant.send(subscribe_order_change_request)
+            await websocket_assistant.send(subscribe_trades_request)
+            await websocket_assistant.send(subscribe_balance_request)
 
-                if msg.get("event") in ["subscribe", "unsubscribe"]:
-                    continue
-                if msg.get("result", None) is None:
-                    continue
-                elif msg.get("channel", None) in user_channels:
-                    yield msg
-        except Exception as e:
-            raise e
-        finally:
-            if self._ws is not None:
-                await self._ws.disconnect()
-            await asyncio.sleep(5)
+            self.logger().info("Subscribed to private order changes and balance updates channels...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception("Unexpected error occurred subscribing to user streams...")
+            raise
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
-        """
-        *required
-        Subscribe to user stream via web socket, and keep the connection open for incoming messages
-        :param ev_loop: ev_loop to execute this function in
-        :param output: an async queue where the incoming messages are stored
-        """
-
-        while True:
-            try:
-                async for msg in self._listen_to_orders_trades_balances():
-                    output.put_nowait(msg)
-            except asyncio.CancelledError:
-                raise
-            except GateIoAPIError as e:
-                self.logger().error(e.error_message, exc_info=True)
-                raise
-            except Exception:
-                self.logger().error(
-                    f"Unexpected error with {CONSTANTS.EXCHANGE_NAME} WebSocket connection. "
-                    "Retrying after 30 seconds...", exc_info=True)
-                await asyncio.sleep(30.0)
+    async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
+        if event_message.get("error") is not None:
+            err_msg = event_message.get("error", {}).get("message", event_message.get("error"))
+            raise IOError({
+                "label": "WSS_ERROR",
+                "message": f"Error received via websocket - {err_msg}."
+            })
+        elif event_message.get("event") == "update" and event_message.get("channel") in [
+            CONSTANTS.USER_TRADES_ENDPOINT_NAME,
+            CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
+            CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
+        ]:
+            queue.put_nowait(event_message)

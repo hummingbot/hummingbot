@@ -4,18 +4,20 @@ import re
 from collections import deque
 from decimal import Decimal
 from typing import Awaitable
-from unittest.mock import patch, AsyncMock
+from unittest import TestCase
+from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
-from unittest import TestCase
 
-from hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source import AltmarketsAPIOrderBookDataSource
+from hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source import (
+    AltmarketsAPIOrderBookDataSource,
+)
 from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
 from hummingbot.connector.exchange.altmarkets.altmarkets_order_book import AltmarketsOrderBook
 from hummingbot.connector.exchange.altmarkets.altmarkets_utils import convert_to_exchange_trading_pair
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class AltmarketsAPIOrderBookDataSourceTests(TestCase):
@@ -34,6 +36,13 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
         cls.api_secret_key = "testSecretKey"
         cls.username = "testUsername"
         cls.throttler = AsyncThrottler(Constants.RATE_LIMITS)
+        for task in asyncio.all_tasks(loop=cls.ev_loop):
+            task.cancel()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        for task in asyncio.all_tasks(loop=cls.ev_loop):
+            task.cancel()
 
     def setUp(self) -> None:
         super().setUp()

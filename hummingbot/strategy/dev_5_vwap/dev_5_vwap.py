@@ -47,7 +47,7 @@ class Dev5TwapTradeStrategy(StrategyPyBase):
         :param market_infos: list of market trading pairs
         :param order_type: type of order to place
         :param order_price: price to place the order at
-        :param cancel_order_wait_time: how long to wait before cancelling an order
+        :param cancel_order_wait_time: how long to wait before canceling an order
         :param is_buy: if the order is to buy
         :param time_delay: how long to wait between placing trades
         :param num_individual_orders: how many individual orders to split the order into

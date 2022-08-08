@@ -183,8 +183,8 @@ By storing them in files, they are easier to edit.
 Currently the following env varables are expected, depending on the route:
 
 ```bash
-AVALANCHE_PRIVATE_KEY='0000...'
-ETH_PRIVATE_KEY='000...'
+AVALANCHE_ADDRESSS='0000...'
+ETH_ADDRESS='000...'
 GATEWAY_CERT='/absolute/path/to/certs/client_cert.pem'
 GATEWAY_KEY='/absolut/path/to/certs/client_key.pem'
 ```

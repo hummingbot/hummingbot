@@ -5,15 +5,13 @@ from typing import Awaitable, Callable, Optional
 from unittest import TestCase
 from unittest.mock import AsyncMock
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.ftx.ftx_exchange import FtxExchange
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    MarketEvent,
-    OrderFilledEvent,
-)
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 
 
 class FtxExchangeTests(TestCase):
@@ -35,8 +33,10 @@ class FtxExchangeTests(TestCase):
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
         self.resume_test_event = asyncio.Event()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = FtxExchange(
+            client_config_map=self.client_config_map,
             ftx_api_key="testAPIKey",
             ftx_secret_key="testSecret",
             trading_pairs=[self.trading_pair],
@@ -277,6 +277,3 @@ class FtxExchangeTests(TestCase):
         ))
 
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
-        buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
-        self.assertEqual(complete_fill["feeCurrency"], buy_event.fee_asset)
-        self.assertEqual(Decimal(complete_fill["fee"]), buy_event.fee_amount)

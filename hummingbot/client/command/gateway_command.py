@@ -1,195 +1,152 @@
 #!/usr/bin/env python
 import asyncio
-import docker
 import itertools
-import json
+import time
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
 import pandas as pd
 
-
-from os import path
-from typing import (
-    Dict,
-    Any,
-    TYPE_CHECKING,
-    List,
-)
-
-from hummingbot.client.settings import GLOBAL_CONFIG_PATH
+from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager, begin_placeholder_mode
+from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml
+from hummingbot.client.config.security import Security
+from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, GatewayConnectionSetting
+from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.gateway import (
-    docker_ipc,
-    docker_ipc_with_generator,
-    get_gateway_container_name,
-    get_gateway_paths,
     GATEWAY_DOCKER_REPO,
     GATEWAY_DOCKER_TAG,
     GatewayPaths,
+    docker_ipc,
+    docker_ipc_with_generator,
     get_default_gateway_port,
+    get_gateway_container_name,
+    get_gateway_paths,
+    start_gateway,
+    stop_gateway,
 )
-from hummingbot.core.gateway.status_monitor import Status
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
-    build_config_namespace_keys,
-    search_configs,
     build_config_dict_display,
     build_connector_display,
+    build_connector_tokens_display,
     build_wallet_display,
     native_tokens,
-    upsert_connection
+    search_configs,
 )
-from hummingbot.core.gateway import gateway_http_client
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
-from hummingbot.client.config.config_helpers import save_to_yml
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.security import Security
-from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
-from hummingbot.client.ui.completer import load_completer
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-class GatewayCommand:
-    def gateway(self,
-                option: str = None,
-                key: str = None,
-                value: str = None):
-        if option == "create":
-            safe_ensure_future(self.create_gateway())
-        elif option == "status":
-            safe_ensure_future(self.gateway_status())
-        elif option == "config":
-            if value:
-                safe_ensure_future(self._update_gateway_configuration(key, value), loop=self.ev_loop)
-            else:
-                safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
-        elif option == "connect":
-            safe_ensure_future(self.connect(key))
-        elif option == "test-connection":
-            safe_ensure_future(self.test_connection())
-        elif option == "start":
-            safe_ensure_future(self._start_gateway())
-        elif option == "stop":
-            safe_ensure_future(self._stop_gateway())
-        elif option == "generate-certs":
-            safe_ensure_future(self.generate_certs())
+class GatewayCommand(GatewayChainApiManager):
+    def create_gateway(self):
+        safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
+
+    def gateway_connect(self, connector: str = None):
+        safe_ensure_future(self._gateway_connect(connector), loop=self.ev_loop)
+
+    def gateway_start(
+        self  # type: HummingbotApplication
+    ):
+        safe_ensure_future(start_gateway(self.client_config_map), loop=self.ev_loop)
+
+    def gateway_status(self):
+        safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
+
+    def gateway_stop(
+        self  # type: HummingbotApplication
+    ):
+        safe_ensure_future(stop_gateway(self.client_config_map), loop=self.ev_loop)
+
+    def gateway_connector_tokens(self, connector_chain_network: Optional[str], new_tokens: Optional[str]):
+        if connector_chain_network is not None and new_tokens is not None:
+            safe_ensure_future(self._update_gateway_connector_tokens(connector_chain_network, new_tokens), loop=self.ev_loop)
+        else:
+            safe_ensure_future(self._show_gateway_connector_tokens(connector_chain_network), loop=self.ev_loop)
+
+    def generate_certs(self):
+        safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
+
+    def test_connection(self):
+        safe_ensure_future(self._test_connection(), loop=self.ev_loop)
+
+    def gateway_config(self,
+                       key: Optional[str] = None,
+                       value: str = None):
+        if value:
+            safe_ensure_future(self._update_gateway_configuration(key, value), loop=self.ev_loop)
+        else:
+            safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
 
     @staticmethod
     async def check_gateway_image(docker_repo: str, docker_tag: str) -> bool:
         image_list: List = await docker_ipc("images", name=f"{docker_repo}:{docker_tag}", quiet=True)
         return len(image_list) > 0
 
-    async def _start_gateway(self):
-        try:
-            response = await docker_ipc(
-                "containers",
-                all=True,
-                filters={"name": get_gateway_container_name()}
-            )
-            if len(response) == 0:
-                raise ValueError(f"Gateway container {get_gateway_container_name()} not found. ")
-
-            container_info = response[0]
-            if container_info["State"] == "running":
-                self.notify(f"Gateway container {container_info['Id']} already running.")
-                return
-
-            await docker_ipc(
-                "start",
-                container=container_info["Id"]
-            )
-            self.notify(f"Gateway container {container_info['Id']} has started.")
-        except Exception as e:
-            self.notify(f"Error occurred starting Gateway container. {e}")
-
-    async def _stop_gateway(self):
-        try:
-            response = await docker_ipc(
-                "containers",
-                all=True,
-                filters={"name": get_gateway_container_name()}
-            )
-            if len(response) == 0:
-                raise ValueError(f"Gateway container {get_gateway_container_name()} not found.")
-
-            container_info = response[0]
-            if container_info["State"] != "running":
-                self.notify(f"Gateway container {container_info['Id']} not running.")
-                return
-
-            await docker_ipc(
-                "stop",
-                container=container_info["Id"],
-            )
-            self.notify(f"Gateway container {container_info['Id']} successfully stopped.")
-        except Exception as e:
-            self.notify(f"Error occurred stopping Gateway container. {e}")
-
     async def _test_connection(self):
         # test that the gateway is running
-        if await gateway_http_client.ping_gateway():
-            self.notify("\nSuccesfully pinged gateway.")
+        if await self._get_gateway_instance().ping_gateway():
+            self.notify("\nSuccessfully pinged gateway.")
         else:
             self.notify("\nUnable to ping gateway.")
 
-    async def _generate_certs(self,  # type: HummingbotApplication
-                              from_client_password: bool = False
-                              ):
-        cert_path: str = get_gateway_paths().local_certs_path.as_posix()
+    async def _generate_certs(
+            self,       # type: HummingbotApplication
+            from_client_password: bool = False
+    ):
+        cert_path: str = get_gateway_paths(self.client_config_map).local_certs_path.as_posix()
         if not from_client_password:
-            if certs_files_exist():
+            if certs_files_exist(self.client_config_map):
                 self.notify(f"Gateway SSL certification files exist in {cert_path}.")
                 self.notify("To create new certification files, please first manually delete those files.")
                 return
-            self.app.clear_input()
-            self.placeholder_mode = True
-            self.app.hide_input = True
-            while True:
-                pass_phase = await self.app.prompt(prompt='Enter pass phase to generate Gateway SSL certifications  >>> ',
-                                                   is_password=True)
-                if pass_phase is not None and len(pass_phase) > 0:
-                    break
-                self.notify("Error: Invalid pass phase")
+
+            with begin_placeholder_mode(self):
+                while True:
+                    pass_phase = await self.app.prompt(
+                        prompt='Enter pass phase to generate Gateway SSL certifications  >>> ',
+                        is_password=True
+                    )
+                    if pass_phase is not None and len(pass_phase) > 0:
+                        break
+                    self.notify("Error: Invalid pass phase")
         else:
-            pass_phase = Security.password
-        create_self_sign_certs(pass_phase)
+            pass_phase = Security.secrets_manager.password.get_secret_value()
+        create_self_sign_certs(pass_phase, self.client_config_map)
         self.notify(f"Gateway SSL certification files are created in {cert_path}.")
-        self.placeholder_mode = False
-        self.app.hide_input = False
-        self.app.change_prompt(prompt=">>> ")
+        self._get_gateway_instance().reload_certs(self.client_config_map)
 
-        gateway_http_client.reload_certs()
-
-    async def _generate_gateway_confs(self, container_id: str, conf_path: str = "/usr/src/app/conf"):
-        self.app.clear_input()
-        self.placeholder_mode = True
-        self.app.hide_input = True
-
-        node_api_key: str = await self.app.prompt(prompt="Enter Infura API Key (required for Ethereum node, "
-                                                         "if you do not have one, make an account at infura.io):  >>> ")
-
-        self.placeholder_mode = False
-        self.app.hide_input = False
-        self.app.change_prompt(prompt=">>> ")
-
+    async def _generate_gateway_confs(
+            self,       # type: HummingbotApplication
+            container_id: str, conf_path: str = "/usr/src/app/conf"
+    ):
         try:
+            cmd: str = f"./setup/generate_conf.sh {conf_path}"
             exec_info = await docker_ipc(method_name="exec_create",
                                          container=container_id,
-                                         cmd=f"./setup/generate_conf.sh {conf_path} {node_api_key}",
+                                         cmd=cmd,
                                          user="hummingbot")
 
             await docker_ipc(method_name="exec_start",
                              exec_id=exec_info["Id"],
                              detach=True)
+            return
+        except asyncio.CancelledError:
+            raise
         except Exception:
             raise
 
-    async def _create_gateway(self):
-        gateway_paths: GatewayPaths = get_gateway_paths()
-        gateway_container_name: str = get_gateway_container_name()
+    async def _create_gateway(
+        self  # type: HummingbotApplication
+    ):
+        gateway_paths: GatewayPaths = get_gateway_paths(self.client_config_map)
+        gateway_container_name: str = get_gateway_container_name(self.client_config_map)
         gateway_conf_mount_path: str = gateway_paths.mount_conf_path.as_posix()
         certificate_mount_path: str = gateway_paths.mount_certs_path.as_posix()
         logs_mount_path: str = gateway_paths.mount_logs_path.as_posix()
-        gateway_port: int = get_default_gateway_port()
+        gateway_port: int = get_default_gateway_port(self.client_config_map)
 
         # remove existing container(s)
         try:
@@ -253,30 +210,64 @@ class GatewayCommand:
                 logs_mount_path
             ],
             host_config=host_config,
-            environment=[f"GATEWAY_PASSPHRASE={Security.password}"]
+            environment=[f"GATEWAY_PASSPHRASE={Security.secrets_manager.password.get_secret_value()}"]
         )
 
         self.notify(f"New Gateway docker container id is {container_info['Id']}.")
 
         # Save the gateway port number, if it's not already there.
-        if global_config_map.get("gateway_api_port").value != gateway_port:
-            global_config_map["gateway_api_port"].value = gateway_port
-            global_config_map["gateway_api_host"].value = "localhost"
-            save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+        gateway_config_map = self.client_config_map.gateway
+        if gateway_config_map.gateway_api_port != gateway_port:
+            gateway_config_map.gateway_api_port = gateway_port
+            gateway_config_map.gateway_api_host = "localhost"
+            save_to_yml(CLIENT_CONFIG_PATH, self.client_config_map)
 
-        await self._start_gateway()
+        self._get_gateway_instance().base_url = (
+            f"https://{gateway_config_map.gateway_api_host}:{gateway_config_map.gateway_api_port}"
+        )
+        await start_gateway(self.client_config_map)
 
         # create Gateway configs
         await self._generate_gateway_confs(container_id=container_info["Id"])
 
-        # Restarts the Gateway container to ensure that Gateway server reloads new configs
-        try:
-            await docker_ipc(method_name="restart",
-                             container=container_info["Id"])
-        except docker.errors.APIError as e:
-            self.notify(f"Error restarting Gateway container. Error: {e}")
+        self.notify("Gateway is starting, please wait a moment.")
+        # wait about 30 seconds for the gateway to start
+        docker_and_gateway_live = await self.ping_gateway_docker_and_api(30)
+        if docker_and_gateway_live:
+            self.notify("Gateway has started succesfully.")
+        else:
+            self.notify("Error starting Gateway container.")
 
-        self.notify(f"Loaded new configs into Gateway container {container_info['Id']}")
+    async def ping_gateway_api(self, max_wait: int) -> bool:
+        """
+        Try to reach the gateway API for up to max_wait seconds
+        """
+        now = int(time.time())
+        gateway_live = await self._get_gateway_instance().ping_gateway()
+        while not gateway_live:
+            later = int(time.time())
+            if later - now > max_wait:
+                return False
+            await asyncio.sleep(0.5)
+            gateway_live = await self._get_gateway_instance().ping_gateway()
+            later = int(time.time())
+
+        return True
+
+    async def ping_gateway_docker_and_api(self, max_wait: int) -> bool:
+        """
+        Try to reach the docker and then the gateway API for up to max_wait seconds
+        """
+        now = int(time.time())
+        docker_live = await self.ping_gateway_docker()
+        while not docker_live:
+            later = int(time.time())
+            if later - now > max_wait:
+                return False
+            await asyncio.sleep(0.5)
+            docker_live = await self.ping_gateway_docker()
+
+        return await self.ping_gateway_api(max_wait)
 
     async def ping_gateway_docker(self) -> bool:
         try:
@@ -300,42 +291,34 @@ class GatewayCommand:
                         "work without it. Please install or start Docker and restart Hummingbot.")
             return
 
-        if self._gateway_monitor.current_status == Status.ONLINE:
+        if self._gateway_monitor.gateway_status is GatewayStatus.ONLINE:
             try:
-                status = await gateway_http_client.get_gateway_status()
-                self.notify(pd.DataFrame(status))
+                status = await self._get_gateway_instance().get_gateway_status()
+                if status is None or status == []:
+                    self.notify("There are currently no connectors online.")
+                else:
+                    self.notify(pd.DataFrame(status))
             except Exception:
                 self.notify("\nError: Unable to fetch status of connected Gateway server.")
         else:
             self.notify("\nNo connection to Gateway server exists. Ensure Gateway server is running.")
 
-    async def create_gateway(self):
-        safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
-
-    async def connect(self, connector: str = None):
-        safe_ensure_future(self._connect(connector), loop=self.ev_loop)
-
-    async def gateway_status(self):
-        safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
-
-    async def generate_certs(self):
-        safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
-
-    async def test_connection(self):
-        safe_ensure_future(self._test_connection(), loop=self.ev_loop)
-
     async def _update_gateway_configuration(self, key: str, value: Any):
         try:
-            response = await gateway_http_client.update_config(key, value)
+            response = await self._get_gateway_instance().update_config(key, value)
             self.notify(response["message"])
+            await self._gateway_monitor.update_gateway_config_key_list()
         except Exception:
             self.notify("\nError: Gateway configuration update failed. See log file for more details.")
 
-    async def _show_gateway_configuration(self, key: str):
-        host = global_config_map['gateway_api_host'].value
-        port = global_config_map['gateway_api_port'].value
+    async def _show_gateway_configuration(
+        self,  # type: HummingbotApplication
+        key: Optional[str] = None,
+    ):
+        host = self.client_config_map.gateway.gateway_api_host
+        port = self.client_config_map.gateway.gateway_api_port
         try:
-            config_dict = await self._fetch_gateway_configs()
+            config_dict: Dict[str, Any] = await self._gateway_monitor._fetch_gateway_configs()
             if key is not None:
                 config_dict = search_configs(config_dict, key)
             self.notify(f"\nGateway Configurations ({host}:{port}):")
@@ -349,128 +332,237 @@ class GatewayCommand:
             remote_host = ':'.join([host, port])
             self.notify(f"\nError: Connection to Gateway {remote_host} failed")
 
-    async def _connect(self, connector: str = None):
-        # it is possible that gateway_connections.json does not exist
-        connections_fp = path.realpath(path.join(CONF_FILE_PATH, "gateway_connections.json"))
-        if path.exists(connections_fp):
-            with open(connections_fp) as f:
-                connections = json.loads(f.read())
-        else:
-            connections = []
-
-        if connector is None:
-            if connections == []:
-                self.notify("No existing connection.\n")
+    async def _gateway_connect(
+            self,           # type: HummingbotApplication
+            connector: str = None
+    ):
+        with begin_placeholder_mode(self):
+            gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
+            if connector is None:
+                if len(gateway_connections_conf) < 1:
+                    self.notify("No existing connection.\n")
+                else:
+                    connector_df: pd.DataFrame = build_connector_display(gateway_connections_conf)
+                    self.notify(connector_df.to_string(index=False))
             else:
-                connector_df = build_connector_display(connections)
-                self.notify(connector_df.to_string(index=False))
+                # get available networks
+                connector_configs: Dict[str, Any] = await self._get_gateway_instance().get_connectors()
+                connector_config: List[Dict[str, Any]] = [
+                    d for d in connector_configs["connectors"] if d["name"] == connector
+                ]
+                if len(connector_config) < 1:
+                    self.notify(f"No available blockchain networks available for the connector '{connector}'.")
+                    return
+                available_networks: List[Dict[str, Any]] = connector_config[0]["available_networks"]
+                trading_type: str = connector_config[0]["trading_type"][0]
+                additional_spenders: List[str] = connector_config[0].get("additional_spenders", [])
 
-        else:
-            # get available networks
-            connector_configs = await gateway_http_client.get_connectors()
-            connector_config = [d for d in connector_configs["connectors"] if d["name"] == connector]
-            available_networks = connector_config[0]["available_networks"]
-            trading_type = connector_config[0]["trading_type"][0]
+                # ask user to select a chain. Automatically select if there is only one.
+                chains: List[str] = [d['chain'] for d in available_networks]
+                chain: str
+                if len(chains) == 1:
+                    chain = chains[0]
+                else:
+                    # chains as options
+                    while True:
+                        self.app.input_field.completer.set_gateway_chains(chains)
+                        chain = await self.app.prompt(
+                            prompt=f"Which chain do you want {connector} to connect to? ({', '.join(chains)}) >>> "
+                        )
+                        if self.app.to_stop_config:
+                            self.app.to_stop_config = False
+                            return
 
-            # ask user to select a chain. Automatically select if there is only one.
-            chains = [d['chain'] for d in available_networks]
-            if len(chains) == 1:
-                chain = chains[0]
-            else:
-                # chains as options
-                self.app.clear_input()
-                self.placeholder_mode = True
-                chain = await self.app.prompt(prompt=f"Which chain do you want {connector} to connect to?({', '.join(chains)}) >>> ")
+                        if chain in chains:
+                            break
+                        self.notify(f"{chain} chain not supported.\n")
 
-            # ask user to select a network. Automatically select if there is only one.
-            networks = list(itertools.chain.from_iterable([d['networks'] for d in available_networks if d['chain'] == chain]))
+                # ask user to select a network. Automatically select if there is only one.
+                networks: List[str] = list(
+                    itertools.chain.from_iterable([d['networks'] for d in available_networks if d['chain'] == chain])
+                )
+                network: str
 
-            if len(networks) == 1:
-                network = networks[0]
-            else:
-                while True:
+                if len(networks) == 1:
+                    network = networks[0]
+                else:
+                    while True:
+                        self.app.input_field.completer.set_gateway_networks(networks)
+                        network = await self.app.prompt(
+                            prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> "
+                        )
+                        if self.app.to_stop_config:
+                            return
+                        if network in networks:
+                            break
+                        self.notify("Error: Invalid network")
+
+                # test you can connect to the uri, otherwise request the url
+                can_connect_to_node_url: bool = await self._test_node_url_from_gateway_config(chain, network)
+                if not can_connect_to_node_url:
+                    node_url: str = await self._get_node_url(chain, network)
+                    await self._update_gateway_chain_network_node_url(chain, network, node_url)
+
+                    self.notify("Restarting gateway.")
+                    # wait about 30 seconds for the gateway to restart
+                    gateway_live = await self.ping_gateway_api(30)
+                    if not gateway_live:
+                        self.notify("Error: unable to restart gateway. Try 'gateway connect' again after gateway is running.")
+                        return
+
+                # get wallets for the selected chain
+                wallets_response: List[Dict[str, Any]] = await self._get_gateway_instance().get_wallets()
+                matching_wallets: List[Dict[str, Any]] = [w for w in wallets_response if w["chain"] == chain]
+                wallets: List[str]
+                if len(matching_wallets) < 1:
+                    wallets = []
+                else:
+                    wallets = matching_wallets[0]['walletAddresses']
+
+                # if the user has no wallet, ask them to select one
+                if len(wallets) < 1:
                     self.app.clear_input()
                     self.placeholder_mode = True
-                    self.app.input_field.completer.set_gateway_networks(networks)
-                    network = await self.app.prompt(prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> ")
-                    if network in networks:
-                        break
-                    self.notify("Error: Invalid network")
+                    wallet_private_key = await self.app.prompt(
+                        prompt=f"Enter your {chain}-{network} wallet private key >>> ",
+                        is_password=True
+                    )
+                    self.app.clear_input()
+                    if self.app.to_stop_config:
+                        return
+                    response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
+                        chain, network, wallet_private_key
+                    )
+                    wallet_address: str = response["address"]
 
-            # get wallets for the selected chain
-            wallets_response = await gateway_http_client.get_wallets()
-            wallets = [w for w in wallets_response if w["chain"] == chain]
-            if len(wallets) < 1:
-                wallets = []
-            else:
-                wallets = wallets[0]['walletAddresses']
-
-            # if the user has no wallet, ask them to select one
-            if len(wallets) < 1:
-                self.app.clear_input()
-                self.placeholder_mode = True
-                wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
-                response: Dict[str, Any] = await gateway_http_client.add_wallet(chain, network, wallet_private_key)
-                wallet_address: str = response["address"]
-
-            # the user has a wallet. Ask if they want to use it or create a new one.
-            else:
-                # print table
-                self.app.clear_input()
-                self.placeholder_mode = True
-                use_existing_wallet = await self.app.prompt(prompt=f"Do you want to connect to {chain}-{network} with one of your existing wallets on Gateway? (Yes/No) >>> ")
-
-                self.app.clear_input()
-                # they use an existing wallet
-                if use_existing_wallet is not None and use_existing_wallet in ["Y", "y", "Yes", "yes"]:
-                    native_token = native_tokens[chain]
-                    wallet_table = []
-                    for w in wallets:
-                        balances: Dict[str, Any] = await gateway_http_client.get_balances(
-                            chain, network, w, [native_token]
-                        )
-                        wallet_table.append({"balance": balances['balances'][native_token], "address": w})
-
-                    wallet_df = build_wallet_display(native_token, wallet_table)
-                    self.notify(wallet_df.to_string(index=False))
-                    self.app.input_field.completer.set_list_gateway_wallets_parameters(wallets_response, chain)
-
-                    while True:
-                        self.placeholder_mode = True
-
-                        wallet_address = await self.app.prompt(prompt="Select a gateway wallet >>> ")
-                        if wallet_address in wallets:
-                            self.notify(f"You have selected {wallet_address}")
-                            break
-                        self.notify("Error: Invalid wallet address")
-
-                # they want to create a new wallet even though they have other ones
+                # the user has a wallet. Ask if they want to use it or create a new one.
                 else:
-                    self.placeholder_mode = True
-                    wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
-                    response = await gateway_http_client.add_wallet(chain, network, wallet_private_key)
-                    wallet_address = response["address"]
+                    # print table
+                    while True:
+                        use_existing_wallet: str = await self.app.prompt(
+                            prompt=f"Do you want to connect to {chain}-{network} with one of your existing wallets on "
+                                   f"Gateway? (Yes/No) >>> "
+                        )
+                        if self.app.to_stop_config:
+                            return
+                        if use_existing_wallet in ["Y", "y", "Yes", "yes", "N", "n", "No", "no"]:
+                            break
+                        self.notify("Invalid input. Please try again or exit config [CTRL + x].\n")
 
-            # write wallets to json
-            with open(connections_fp, "w+") as outfile:
-                upsert_connection(connections, connector, chain, network, trading_type, wallet_address)
-                json.dump(connections, outfile)
+                    self.app.clear_input()
+                    # they use an existing wallet
+                    if use_existing_wallet is not None and use_existing_wallet in ["Y", "y", "Yes", "yes"]:
+                        native_token: str = native_tokens[chain]
+                        wallet_table: List[Dict[str, Any]] = []
+                        for w in wallets:
+                            balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
+                                chain, network, w, [native_token]
+                            )
+                            wallet_table.append({"balance": balances['balances'][native_token], "address": w})
+
+                        wallet_df: pd.DataFrame = build_wallet_display(native_token, wallet_table)
+                        self.notify(wallet_df.to_string(index=False))
+                        self.app.input_field.completer.set_list_gateway_wallets_parameters(wallets_response, chain)
+
+                        while True:
+                            wallet_address: str = await self.app.prompt(prompt="Select a gateway wallet >>> ")
+                            if self.app.to_stop_config:
+                                return
+                            if wallet_address in wallets:
+                                self.notify(f"You have selected {wallet_address}.")
+                                break
+                            self.notify("Error: Invalid wallet address")
+
+                    # they want to create a new wallet even though they have other ones
+                    else:
+                        while True:
+                            try:
+                                wallet_private_key: str = await self.app.prompt(
+                                    prompt=f"Enter your {chain}-{network} wallet private key >>> ",
+                                    is_password=True
+                                )
+                                self.app.clear_input()
+                                if self.app.to_stop_config:
+                                    return
+
+                                response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
+                                    chain, network, wallet_private_key
+                                )
+                                wallet_address = response["address"]
+
+                                break
+                            except Exception:
+                                self.notify("Error adding wallet. Check private key.\n")
+
+                        # display wallet balance
+                        native_token: str = native_tokens[chain]
+                        balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
+                            chain, network, wallet_address, [native_token]
+                        )
+                        wallet_table: List[Dict[str, Any]] = [{"balance": balances['balances'][native_token], "address": wallet_address}]
+                        wallet_df: pd.DataFrame = build_wallet_display(native_token, wallet_table)
+                        self.notify(wallet_df.to_string(index=False))
+
+                self.app.clear_input()
+
+                # write wallets to Gateway connectors settings.
+                GatewayConnectionSetting.upsert_connector_spec(connector, chain, network, trading_type, wallet_address, additional_spenders)
                 self.notify(f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
 
-            self.placeholder_mode = False
-            self.app.change_prompt(prompt=">>> ")
+                # update AllConnectorSettings and fee overrides.
+                AllConnectorSettings.create_connector_settings()
+                AllConnectorSettings.initialize_paper_trade_settings(
+                    self.client_config_map.paper_trade.paper_trade_exchanges
+                )
+                await refresh_trade_fees_config(self.client_config_map)
 
-            # update AllConnectorSettings
-            AllConnectorSettings.create_connector_settings()
+                # Reload completer here to include newly added gateway connectors
+                self.app.input_field.completer = load_completer(self)
 
-            # Reload completer here to include newly added gateway connectors
-            self.app.input_field.completer = load_completer(self)
+    async def _show_gateway_connector_tokens(
+            self,           # type: HummingbotApplication
+            connector_chain_network: str = None
+    ):
+        """
+        Display connector tokens that hummingbot will report balances for
+        """
+        if connector_chain_network is None:
+            gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
+            if len(gateway_connections_conf) < 1:
+                self.notify("No existing connection.\n")
+            else:
+                connector_df: pd.DataFrame = build_connector_tokens_display(gateway_connections_conf)
+                self.notify(connector_df.to_string(index=False))
+        else:
+            conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+            if conf is not None:
+                connector_df: pd.DataFrame = build_connector_tokens_display([conf])
+                self.notify(connector_df.to_string(index=False))
+            else:
+                self.notify(f"There is no gateway connection for {connector_chain_network}.\n")
 
-    @staticmethod
-    async def _fetch_gateway_configs() -> Dict[str, Any]:
-        return await gateway_http_client.get_configuration(fail_silently=True)
+    async def _update_gateway_connector_tokens(
+            self,           # type: HummingbotApplication
+            connector_chain_network: str,
+            new_tokens: str,
+    ):
+        """
+        Allow the user to input tokens whose balances they want to monitor are.
+        These are not tied to a strategy, rather to the connector-chain-network
+        tuple. This has no influence on what tokens the user can use with a
+        connector-chain-network and a particular strategy. This is only for
+        report balances.
+        """
+        conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
 
-    async def fetch_gateway_config_key_list(self):
-        config = await self._fetch_gateway_configs()
-        build_config_namespace_keys(self.gateway_config_keys, config)
-        self.app.input_field.completer = load_completer(self)
+        if conf is None:
+            self.notify(f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
+        else:
+            GatewayConnectionSetting.upsert_connector_spec_tokens(connector_chain_network, new_tokens)
+            self.notify(f"The 'balance' command will now report token balances {new_tokens} for '{connector_chain_network}'.")
+
+    def _get_gateway_instance(
+        self  # type: HummingbotApplication
+    ) -> GatewayHttpClient:
+        gateway_instance = GatewayHttpClient.get_instance(self.client_config_map)
+        return gateway_instance

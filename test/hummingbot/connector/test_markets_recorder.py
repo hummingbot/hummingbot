@@ -5,6 +5,8 @@ from unittest.mock import patch
 
 from sqlalchemy import create_engine
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
@@ -22,7 +24,7 @@ from hummingbot.model.trade_fill import TradeFill
 
 class MarketsRecorderTests(TestCase):
 
-    @patch("hummingbot.model.sql_connection_manager.SQLConnectionManager.get_db_engine")
+    @patch("hummingbot.model.sql_connection_manager.create_engine")
     def setUp(self, engine_mock) -> None:
         super().setUp()
         self.display_name = "test_market"
@@ -35,7 +37,9 @@ class MarketsRecorderTests(TestCase):
         self.trading_pair = f"{self.base}-{self.quote}"
 
         engine_mock.return_value = create_engine("sqlite:///:memory:")
-        self.manager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_name="test_DB")
+        self.manager = SQLConnectionManager(
+            ClientConfigAdapter(ClientConfigMap()), SQLConnectionType.TRADE_FILLS, db_name="test_DB"
+        )
 
         self.tracking_states = dict()
 
@@ -242,10 +246,8 @@ class MarketsRecorderTests(TestCase):
             order_id=create_event.order_id,
             base_asset=self.base,
             quote_asset=self.quote,
-            fee_asset=self.base,
             base_asset_amount=create_event.amount,
             quote_asset_amount=create_event.amount * create_event.price,
-            fee_amount=Decimal(0),
             order_type=create_event.type)
 
         recorder._did_complete_order(MarketEvent.BuyOrderCompleted.value, self, complete_event)

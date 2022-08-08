@@ -338,6 +338,7 @@ definitions:
       - 'expectedAmount'
       - 'price'
       - 'gasPrice'
+      - 'gasPriceToken'
       - 'gasLimit'
       - 'gasCost'
     properties:
@@ -367,6 +368,9 @@ definitions:
       gasPrice:
         type: 'number'
         example: 96
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
       gasLimit:
         type: 'number'
         example: 150688
@@ -426,6 +430,7 @@ definitions:
       - 'amount'
       - 'price'
       - 'gasPrice'
+      - 'gasPriceToken'
       - 'gasLimit'
       - 'gasCost'
       - 'nonce'
@@ -456,6 +461,9 @@ definitions:
         type: 'string'
       gasPrice:
         type: 'string'
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
       gasLimit:
         type: 'string'
       gasCost:
@@ -782,22 +790,788 @@ definitions:
       tokens:
         type: 'object'
         example: '
-        { tokens: [
-          {
-            "address": "0x006BeA43Baa3f7A6f765F14f10A1a1b08334EF45",
-            "chainId": "1",
-            "name": "Stox",
-            "symbol": "STX",
-            "decimals": "18",
-            "logoURI": "https://tokens.1inch.io/0x006bea43baa3f7a6f765f14f10a1a1b08334ef45.png"
-          },
-          {
-            "address": "0x0327112423F3A68efdF1fcF402F6c5CB9f7C33fd",
-            "chainId": "1",
-            "name": "PieDAOBTC",
-            "symbol": "BTC",
-            "decimals": "18",
-            "logoURI": "https://tokens.1inch.io/0x0327112423f3a68efdf1fcf402f6c5cb9f7c33fd.png"
-          }
-        ]
-          }'
+        {
+          tokens: [
+            {
+              "address": "0x006BeA43Baa3f7A6f765F14f10A1a1b08334EF45",
+              "chainId": "1",
+              "name": "Stox",
+              "symbol": "STX",
+              "decimals": "18",
+              "logoURI": "https://tokens.1inch.io/0x006bea43baa3f7a6f765f14f10a1a1b08334ef45.png"
+            },
+            {
+              "address": "0x0327112423F3A68efdF1fcF402F6c5CB9f7C33fd",
+              "chainId": "1",
+              "name": "PieDAOBTC",
+              "symbol": "BTC",
+              "decimals": "18",
+              "logoURI": "https://tokens.1inch.io/0x0327112423f3a68efdf1fcf402f6c5cb9f7c33fd.png"
+            }
+          ]
+        }'
+
+  NetworkSelectionRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+      connector:
+        type: 'string'
+        example: 'uniswap'
+
+  EstimateGasResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'gasPrice'
+      - 'gasPriceToken'
+      - 'gasLimit'
+      - 'gasCost'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      gasPrice:
+        type: 'number'
+        example: 96
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
+      gasLimit:
+        type: 'number'
+        example: 150688
+      gasCost:
+        type: 'string'
+        example: '0.014466048000000000'
+
+
+  LiquidityAddRequest:
+    type: 'object'
+    required:
+      - 'address'
+      - 'token0'
+      - 'token1'
+      - 'amount0'
+      - 'amount1'
+      - 'fee'
+      - 'lowerPrice'
+      - 'upperPrice'
+    properties:
+      address:
+        type: 'string'
+        example: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+      token0:
+        type: 'string'
+        example: 'DAI'
+      token1:
+        type: 'string'
+        example: 'WETH'
+      amount0:
+        type: 'string'
+        example: '10'
+      amount1:
+        type: 'string'
+        example: '10'
+      lowerPrice:
+        type: 'number'
+        example: 1
+      upperPrice:
+        type: number
+        example: 5
+      maxFeePerGas:
+        type: number
+      maxPriorityFeePerGas:
+        type: number
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+      connector:
+        type: 'string'
+        example: 'uniswapLP'
+
+  LiquidityAddResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'token0'
+      - 'token1'
+      - 'gasPrice'
+      - 'gasPriceToken'
+      - 'gasLimit'
+      - 'gasCost'
+      - 'nonce'
+    properties:
+      network:
+        type: 'string'
+        example: 'kovan'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      token0:
+        type: 'string'
+        example: 'DAI'
+      token1:
+        type: 'string'
+        example: 'WETH'
+      gasPrice:
+        type: 'string'
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
+      gasLimit:
+        type: 'string'
+      gasCost:
+        type: 'string'
+      nonce:
+        type: 'string'
+      txHash:
+        type: 'string'
+        example: '0x0000000000000000000000000000000000000000'
+
+  LiquidityRemoveRequest:
+    type: 'object'
+    required:
+      - 'address'
+      - 'tokenId'
+    properties:
+      address:
+        type: 'string'
+        example: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+      tokenId:
+        type: 'number'
+        example: 12
+      maxFeePerGas:
+        type: number
+      maxPriorityFeePerGas:
+        type: number
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+      connector:
+        type: 'string'
+        example: 'uniswapLP'
+
+  LiquidityRemoveResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'tokenId'
+      - 'gasPrice'
+      - 'gasPriceToken'
+      - 'gasLimit'
+      - 'gasCost'
+      - 'nonce'
+    properties:
+      network:
+        type: 'string'
+        example: 'kovan'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      tokenId:
+        type: 'number'
+        example: 12
+      gasPrice:
+        type: 'string'
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
+      gasLimit:
+        type: 'string'
+      gasCost:
+        type: 'string'
+      nonce:
+        type: 'string'
+      txHash:
+        type: 'string'
+        example: '0x0000000000000000000000000000000000000000'
+
+  LiquidityCollectRequest:
+    type: 'object'
+    required:
+      - 'address'
+      - 'tokenId'
+    properties:
+      address:
+        type: 'string'
+        example: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+      tokenId:
+        type: 'number'
+        example: 12
+      maxFeePerGas:
+        type: number
+      maxPriorityFeePerGas:
+        type: number
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+      connector:
+        type: 'string'
+        example: 'uniswapLP'
+
+  LiquidityCollectResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'tokenId'
+      - 'gasPrice'
+      - 'gasPriceToken'
+      - 'gasLimit'
+      - 'gasCost'
+      - 'nonce'
+    properties:
+      network:
+        type: 'string'
+        example: 'kovan'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      tokenId:
+        type: 'number'
+        example: 12
+      gasPrice:
+        type: 'string'
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
+      gasLimit:
+        type: 'string'
+      gasCost:
+        type: 'string'
+      nonce:
+        type: 'string'
+      txHash:
+        type: 'string'
+        example: '0x0000000000000000000000000000000000000000'
+
+  LiquidityPositionRequest:
+    type: 'object'
+    required:
+      - 'tokenId'
+    properties:
+      tokenId:
+        type: 'number'
+        example: 12
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+      connector:
+        type: 'string'
+        example: 'uniswapLP'
+
+  LiquidityPositionResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'tokenId'
+      - 'token0'
+      - 'token1'
+      - 'fee'
+      - 'lowerPrice'
+      - 'upperPrice'
+      - 'amount0'
+      - 'amount1'
+      - 'unclaimedToken0'
+      - 'unclaimedToken1'
+    properties:
+      network:
+        type: 'string'
+        example: 'kovan'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      tokenId:
+        type: 'number'
+        example: 12
+      token0:
+        type: 'string'
+        example: 'DAI'
+      token1:
+        type: 'string'
+        example: 'WETH'
+      fee:
+        type: 'string'
+        example: 'LOW'
+      lowerPrice:
+        type: 'string'
+        example: '1'
+      upperPrice:
+        type: 'string'
+        example: '5'
+      amount0:
+        type: 'string'
+        example: '1'
+      amount1:
+        type: 'string'
+        example: '1'
+      unclaimedToken0:
+        type: 'string'
+        example: '2'
+      unclaimedToken1:
+        type: 'string'
+        example: '2'
+
+  LiquidityPriceRequest:
+    type: 'object'
+    required:
+      - 'token0'
+      - 'token1'
+      - 'fee'
+      - 'period'
+      - 'interval'
+    properties:
+      token0:
+        type: 'string'
+        example: 'DAI'
+      token1:
+        type: 'string'
+        example: 'WETH'
+      fee:
+        type: 'string'
+        example: 'LOW'
+      period:
+        type: 'number'
+        example: 60
+      interval:
+        type: 'number'
+        example: 5
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+      connector:
+        type: 'string'
+        example: 'uniswapLP'
+
+  LiquidityPriceResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'token0'
+      - 'token1'
+      - 'fee'
+      - 'period'
+      - 'interval'
+    properties:
+      network:
+        type: 'string'
+        example: 'kovan'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      token0:
+        type: 'string'
+        example: 'DAI'
+      token1:
+        type: 'string'
+        example: 'WETH'
+      fee:
+        type: 'string'
+        example: 'LOW'
+      period:
+        type: 'number'
+        example: 60
+      interval:
+        type: 'number'
+        example: 5
+      prices:
+        type: 'object'
+        example: ['1', '2', '3']
+
+
+  PerpPairsRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'optimism'
+      connector:
+        type: 'string'
+        example: 'perp'
+
+  PerpPairsResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'pairs'
+    properties:
+      network:
+        type: 'string'
+        example: 'optimism'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 1
+      pairs:
+        type: 'array'
+        items: 'string'
+        example: ['AAVEUSD', 'PERPUSD', 'BTCUSD']
+
+  PerpPriceRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'base'
+      - 'quote'
+    properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'optimism'
+      connector:
+        type: 'string'
+        example: 'perp'
+      base:
+        type: 'string'
+        example: 'AAVE'
+      quote:
+        type: 'string'
+        example: 'USD'
+
+  PerpPriceResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'base'
+      - 'quote'
+      - 'markPrice'
+      - 'indexPrice'
+      - 'indexTwapPrice'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 1
+      base:
+        type: 'string'
+        example: 'AAVE'
+      quote:
+        type: 'string'
+        example: 'USD'
+      markPrice:
+        type: 'string'
+        example: '0.1'
+      indexPrice:
+        type: 'string'
+        example: '0.2'
+      indexTwapPrice:
+        type: 'string'
+        example: '0.3'
+
+  PerpStatusResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'base'
+      - 'quote'
+      - 'isActive'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 1
+      base:
+        type: 'string'
+        example: 'AAVE'
+      quote:
+        type: 'string'
+        example: 'USD'
+      isActive:
+        type: 'boolean'
+        example: 'true'
+
+  PerpPositionRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'base'
+      - 'quote'
+      - 'address'
+    properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'optimism'
+      connector:
+        type: 'string'
+        example: 'perp'
+      base:
+        type: 'string'
+        example: 'AAVE'
+      quote:
+        type: 'string'
+        example: 'USD'
+      address:
+        type: 'string'
+        example: '0x...'
+
+  PerpPositionResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'base'
+      - 'quote'
+      - 'positionAmt'
+      - 'positionSide'
+      - 'unRealizedProfit'
+      - 'leverage'
+      - 'entryPrice'
+      - 'tickerSymbol'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 1
+      base:
+        type: 'string'
+        example: 'AAVE'
+      quote:
+        type: 'string'
+        example: 'USD'
+      positionAmt:
+        type: 'string'
+        example: '0.1'
+      positionSide:
+        type: 'string'
+        example: 'LONG'
+      unRealizedProfit:
+        type: 'string'
+        example: '0.3'
+      leverage:
+        type: 'string'
+        example: '1'
+      entryPrice:
+        type: 'string'
+        example: '100.3'
+      tickerSymbol:
+        type: 'string'
+        example: 'AAVEUSD'
+
+  PerpOpenRequest:
+    type: 'object'
+    required:
+      - 'quote'
+      - 'base'
+      - 'amount'
+      - 'side'
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'address'
+    properties:
+      quote:
+        type: 'string'
+        example: 'AAVE'
+      base:
+        type: 'string'
+        example: 'USD'
+      amount:
+        type: 'string'
+        example: '10'
+      side:
+        type: 'string'
+        example: 'LONG'
+      nonce:
+        type: number
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'optimism'
+      connector:
+        type: 'string'
+        example: 'perp'
+      address:
+        type: 'string'
+        example: '0x...'
+
+  PerpOpenResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'base'
+      - 'quote'
+      - 'amount'
+      - 'gasPrice'
+      - 'gasPriceToken'
+      - 'gasLimit'
+      - 'gasCost'
+      - 'nonce'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      base:
+        type: 'string'
+        example: 'AAVE'
+      quote:
+        type: 'string'
+        example: 'USD'
+      amount:
+        type: 'string'
+        example: '10'
+      gasPrice:
+        type: 'string'
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
+      gasLimit:
+        type: 'string'
+      gasCost:
+        type: 'string'
+      nonce:
+        type: 'string'
+      txHash:
+        type: 'string'
+  
+  PerpCloseRequest:
+    type: 'object'
+    required:
+      - 'quote'
+      - 'base'
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'address'
+    properties:
+      quote:
+        type: 'string'
+        example: 'AAVE'
+      base:
+        type: 'string'
+        example: 'USD'
+      nonce:
+        type: number
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'optimism'
+      connector:
+        type: 'string'
+        example: 'perp'
+      address:
+        type: 'string'
+        example: '0x...'
+
+  PerpCloseResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'base'
+      - 'gasPrice'
+      - 'gasPriceToken'
+      - 'gasLimit'
+      - 'gasCost'
+      - 'nonce'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      base:
+        type: 'string'
+        example: 'AAVE'
+      gasPrice:
+        type: 'string'
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
+      gasLimit:
+        type: 'string'
+      gasCost:
+        type: 'string'
+      nonce:
+        type: 'string'
+      txHash:
+        type: 'string'
+

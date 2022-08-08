@@ -1,16 +1,19 @@
 import os
 import socket
-from typing import Any, Dict, Optional
+from decimal import Decimal
+from typing import Any, Dict
 
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+from pydantic import Field, SecretStr
 
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
-from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.0002"),
+    taker_percent_fee_decimal=Decimal("0.0004"),
+    buy_percent_fee_deducted_from_returns=True
+)
 
 
 CENTRALIZED = True
@@ -19,21 +22,7 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "BTC-USDT"
 
 
-DEFAULT_FEES = [0.02, 0.04]
-
-
 BROKER_ID = "x-3QreWesy"
-
-
-class BinancePerpetualRESTPreProcessor(RESTPreProcessorBase):
-
-    async def pre_process(self, request: RESTRequest) -> RESTRequest:
-        if request.headers is None:
-            request.headers = {}
-        request.headers["Content-Type"] = (
-            "application/json" if request.method == RESTMethod.POST else "application/x-www-form-urlencoded"
-        )
-        return request
 
 
 def get_client_order_id(order_side: str, trading_pair: object):
@@ -47,21 +36,6 @@ def get_client_order_id(order_side: str, trading_pair: object):
     return f"{BROKER_ID}-{order_side.upper()[0]}{base_str}{quote_str}{client_instance_id}{nonce}"
 
 
-def rest_url(path_url: str, domain: str = "binance_perpetual", api_version: str = CONSTANTS.API_VERSION):
-    base_url = CONSTANTS.PERPETUAL_BASE_URL if domain == "binance_perpetual" else CONSTANTS.TESTNET_BASE_URL
-    return base_url + api_version + path_url
-
-
-def wss_url(endpoint: str, domain: str = "binance_perpetual"):
-    base_ws_url = CONSTANTS.PERPETUAL_WS_URL if domain == "binance_perpetual" else CONSTANTS.TESTNET_WS_URL
-    return base_ws_url + endpoint
-
-
-def build_api_factory(auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory(auth=auth, rest_pre_processors=[BinancePerpetualRESTPreProcessor()])
-    return api_factory
-
-
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     """
     Verifies if a trading pair is enabled to operate with based on its exchange information
@@ -71,43 +45,59 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     return exchange_info.get("status", None) == "TRADING"
 
 
-KEYS = {
-    "binance_perpetual_api_key": ConfigVar(
-        key="binance_perpetual_api_key",
-        prompt="Enter your Binance Perpetual API key >>> ",
-        required_if=using_exchange("binance_perpetual"),
-        is_secure=True,
-        is_connect_key=True,
-    ),
-    "binance_perpetual_api_secret": ConfigVar(
-        key="binance_perpetual_api_secret",
-        prompt="Enter your Binance Perpetual API secret >>> ",
-        required_if=using_exchange("binance_perpetual"),
-        is_secure=True,
-        is_connect_key=True,
-    ),
-}
+class BinancePerpetualConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="binance_perpetual", client_data=None)
+    binance_perpetual_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance Perpetual API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    binance_perpetual_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance Perpetual API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+
+KEYS = BinancePerpetualConfigMap.construct()
 
 OTHER_DOMAINS = ["binance_perpetual_testnet"]
 OTHER_DOMAINS_PARAMETER = {"binance_perpetual_testnet": "binance_perpetual_testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"binance_perpetual_testnet": "BTC-USDT"}
 OTHER_DOMAINS_DEFAULT_FEES = {"binance_perpetual_testnet": [0.02, 0.04]}
-OTHER_DOMAINS_KEYS = {
-    "binance_perpetual_testnet": {
-        # add keys for testnet
-        "binance_perpetual_testnet_api_key": ConfigVar(
-            key="binance_perpetual_testnet_api_key",
-            prompt="Enter your Binance Perpetual testnet API key >>> ",
-            required_if=using_exchange("binance_perpetual_testnet"),
+
+
+class BinancePerpetualTestnetConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="binance_perpetual_testnet", client_data=None)
+    binance_perpetual_testnet_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance Perpetual testnet API key",
             is_secure=True,
             is_connect_key=True,
-        ),
-        "binance_perpetual_testnet_api_secret": ConfigVar(
-            key="binance_perpetual_testnet_api_secret",
-            prompt="Enter your Binance Perpetual testnet API secret >>> ",
-            required_if=using_exchange("binance_perpetual_testnet"),
+            prompt_on_new=True,
+        )
+    )
+    binance_perpetual_testnet_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance Perpetual testnet API secret",
             is_secure=True,
             is_connect_key=True,
-        ),
-    }
-}
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "binance_perpetual"
+
+
+OTHER_DOMAINS_KEYS = {"binance_perpetual_testnet": BinancePerpetualTestnetConfigMap.construct()}

@@ -1,13 +1,12 @@
 import asyncio
 import unittest
 from collections import Awaitable
-from copy import deepcopy
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.client_config_map import ClientConfigMap, DBSqliteMode
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 
 
 class TickerCommandTest(unittest.TestCase):
@@ -17,31 +16,23 @@ class TickerCommandTest(unittest.TestCase):
         self.ev_loop = asyncio.get_event_loop()
 
         self.async_run_with_timeout(read_system_configs_from_yml())
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.app = HummingbotApplication()
-        self.global_config_backup = deepcopy(global_config_map)
-
-    def tearDown(self) -> None:
-        self.reset_global_config()
-        super().tearDown()
+        self.app = HummingbotApplication(client_config_map=self.client_config_map)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    def reset_global_config(self):
-        for key, value in self.global_config_backup.items():
-            global_config_map[key] = value
-
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_show_ticker(self, notify_mock):
-        global_config_map["tables_format"].value = "psql"
+        self.client_config_map.db_mode = DBSqliteMode()
 
         captures = []
         notify_mock.side_effect = lambda s: captures.append(s)
 
         exchange_name = "paper"
-        exchange = MockPaperExchange()
+        exchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
         self.app.markets[exchange_name] = exchange
         trading_pair = "BTC-USDT"
         exchange.set_balanced_order_book(
@@ -58,7 +49,7 @@ class TickerCommandTest(unittest.TestCase):
         self.assertEqual(1, len(captures))
 
         df_str_expected = (
-            "   Market: MockPaperExchange"
+            "   Market: mock_paper_exchange"
             "\n+------------+------------+-------------+--------------+"
             "\n|   Best Bid |   Best Ask |   Mid Price |   Last Trade |"
             "\n|------------+------------+-------------+--------------|"

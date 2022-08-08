@@ -1,6 +1,7 @@
 import fs from 'fs';
 import fsp from 'fs/promises';
 import fse from 'fs-extra';
+import os from 'os';
 import path from 'path';
 import {
   deepCopy,
@@ -19,7 +20,7 @@ describe('Configuration manager v2 tests', () => {
   beforeEach(async () => {
     // Create a temp dir in project
     tempDirPath = await fsp.mkdtemp(
-      path.join(__dirname, '../../config-manager-v2-unit-test')
+      path.join(os.tmpdir(), 'config-manager-v2-unit-test')
     );
     tempDirPath = fse.realpathSync(tempDirPath);
 
@@ -70,7 +71,9 @@ describe('Configuration manager v2 tests', () => {
   it('reading from config file', (done) => {
     expect(configManager.get('ssl.keyPath')).toEqual('gateway.key');
     expect(configManager.get('ethereum.networks.kovan.chainID')).toEqual(42);
-    expect(configManager.get('ethereum.nativeCurrencySymbol')).toEqual('ETH');
+    expect(
+      configManager.get('ethereum.networks.kovan.nativeCurrencySymbol')
+    ).toEqual('ETH');
     done();
   });
 
@@ -100,6 +103,7 @@ describe('Configuration manager v2 tests', () => {
       tokenListType: 'URL',
       tokenListSource:
         'https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link',
+      nativeCurrencySymbol: 'ETH',
     });
     expect(configManager.get('ssl.keyPath')).toEqual(newKeyPath);
 

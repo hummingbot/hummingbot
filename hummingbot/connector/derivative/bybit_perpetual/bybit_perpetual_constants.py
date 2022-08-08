@@ -1,6 +1,11 @@
-# A single source of truth for constant variables related to the exchange
+from hummingbot.core.data_type.common import OrderType, PositionMode
+from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "bybit_perpetual"
+
+DEFAULT_DOMAIN = "bybit_perpetual_main"
+
+DEFAULT_TIME_IN_FORCE = "GoodTillCancel"
 
 REST_URLS = {"bybit_perpetual_main": "https://api.bybit.com/",
              "bybit_perpetual_testnet": "https://api-testnet.bybit.com/"}
@@ -14,7 +19,25 @@ WSS_LINEAR_PRIVATE_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realt
 
 REST_API_VERSION = "v2"
 
-HBOT_BROKER_ID = "HBOT"
+HBOT_BROKER_ID = "Hummingbot"
+
+MAX_ID_LEN = 36
+SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 30
+POSITION_IDX_ONEWAY = 0
+POSITION_IDX_HEDGE_BUY = 1
+POSITION_IDX_HEDGE_SELL = 2
+
+ORDER_TYPE_MAP = {
+    OrderType.LIMIT: "Limit",
+    OrderType.MARKET: "Market",
+}
+
+POSITION_MODE_API_ONEWAY = "MergedSingle"
+POSITION_MODE_API_HEDGE = "BothSide"
+POSITION_MODE_MAP = {
+    PositionMode.ONEWAY: POSITION_MODE_API_ONEWAY,
+    PositionMode.HEDGE: POSITION_MODE_API_HEDGE,
+}
 
 # REST API Public Endpoints
 LINEAR_MARKET = "linear"
@@ -50,6 +73,9 @@ PLACE_ACTIVE_ORDER_PATH_URL = {
 CANCEL_ACTIVE_ORDER_PATH_URL = {
     LINEAR_MARKET: "private/linear/order/cancel",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/cancel"}
+CANCEL_ALL_ACTIVE_ORDERS_PATH_URL = {
+    LINEAR_MARKET: "private/linear/order/cancelAll",
+    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/cancelAll"}
 QUERY_ACTIVE_ORDER_PATH_URL = {
     LINEAR_MARKET: "private/linear/order/search",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order"}
@@ -59,6 +85,8 @@ USER_TRADE_RECORDS_PATH_URL = {
 GET_WALLET_BALANCE_PATH_URL = {
     LINEAR_MARKET: f"{REST_API_VERSION}/private/wallet/balance",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/wallet/balance"}
+SET_POSITION_MODE_URL = {
+    LINEAR_MARKET: "private/linear/position/switch-mode"}
 
 # Funding Settlement Time Span
 FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after snapshot
@@ -72,6 +100,18 @@ WS_AUTHENTICATE_USER_ENDPOINT_NAME = "auth"
 WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME = "position"
 WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME = "order"
 WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME = "execution"
+WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME = "wallet"
+
+# Order Statuses
+ORDER_STATE = {
+    "Created": OrderState.OPEN,
+    "New": OrderState.OPEN,
+    "Filled": OrderState.FILLED,
+    "PartiallyFilled": OrderState.PARTIALLY_FILLED,
+    "Cancelled": OrderState.CANCELED,
+    "PendingCancel": OrderState.PENDING_CANCEL,
+    "Rejected": OrderState.FAILED,
+}
 
 GET_LIMIT_ID = "GETLimit"
 POST_LIMIT_ID = "POSTLimit"
@@ -90,4 +130,14 @@ LINEAR_PRIVATE_BUCKET_75_LIMIT_ID = "LinearPrivateBucket75"
 LINEAR_PRIVATE_BUCKET_120_A_LIMIT_ID = "LinearPrivateBucket120A"
 
 # Request error codes
-ORDER_NOT_EXISTS_ERROR_CODE = 130010
+RET_CODE_OK = 0
+RET_CODE_PARAMS_ERROR = 10001
+RET_CODE_API_KEY_INVALID = 10003
+RET_CODE_AUTH_TIMESTAMP_ERROR = 10021
+RET_CODE_ORDER_NOT_EXISTS = 20001
+RET_CODE_MODE_POSITION_NOT_EMPTY = 30082
+RET_CODE_MODE_NOT_MODIFIED = 30083
+RET_CODE_MODE_ORDER_NOT_EMPTY = 30086
+RET_CODE_API_KEY_EXPIRED = 33004
+RET_CODE_LEVERAGE_NOT_MODIFIED = 34036
+RET_CODE_POSITION_ZERO = 130125

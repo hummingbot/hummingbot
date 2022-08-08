@@ -1,34 +1,27 @@
-from typing import List, Optional
+import unittest
 from decimal import Decimal
-import logging
+from test.mock.mock_asset_price_delegate import MockAssetPriceDelegate
+from typing import List, Optional
 
 import pandas as pd
-import unittest
 
 from hummingbot.client.command.config_command import ConfigCommand
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.common import PriceType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderBookTradeEvent,
-    OrderCancelledEvent)
-from hummingbot.core.data_type.common import PriceType, TradeType
-from hummingbot.model.sql_connection_manager import (
-    SQLConnectionManager,
-    SQLConnectionType,
-)
+from hummingbot.core.event.events import MarketEvent, OrderBookTradeEvent, OrderCancelledEvent
+from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.strategy.pure_market_making.inventory_cost_price_delegate import InventoryCostPriceDelegate
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
-from test.mock.mock_paper_exchange import MockPaperExchange
-from test.mock.mock_asset_price_delegate import MockAssetPriceDelegate
-
-logging.basicConfig(level=logging.ERROR)
 
 
 # Update the orderbook so that the top bids and asks are lower than actual for a wider bid ask spread
@@ -62,7 +55,9 @@ class PMMUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange()
+        self.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.mid_price = 100
         self.bid_spread = 0.01
         self.ask_spread = 0.01
@@ -147,7 +142,9 @@ class PMMUnitTest(unittest.TestCase):
             price_type="custom",
         )
 
-        self.ext_market: MockPaperExchange = MockPaperExchange()
+        self.ext_market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.ext_market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.ext_market, self.trading_pair, self.base_asset, self.quote_asset
         )
@@ -156,9 +153,29 @@ class PMMUnitTest(unittest.TestCase):
                                                 volume_step_size=10)
         self.order_book_asset_del = OrderBookAssetPriceDelegate(self.ext_market, self.trading_pair)
         trade_fill_sql = SQLConnectionManager(
-            SQLConnectionType.TRADE_FILLS, db_path=""
+            ClientConfigAdapter(ClientConfigMap()), SQLConnectionType.TRADE_FILLS, db_path=""
         )
         self.inventory_cost_price_del = InventoryCostPriceDelegate(trade_fill_sql, self.trading_pair)
+
+        self.split_order_level_strategy = PureMarketMakingStrategy()
+        self.split_order_level_strategy.init_params(
+            self.market_info,
+            bid_spread=Decimal("0.01"),
+            ask_spread=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            order_refresh_time=5.0,
+            filled_order_delay=5.0,
+            order_refresh_tolerance_pct=-1,
+            minimum_spread=-1,
+            split_order_levels_enabled=True,
+            bid_order_level_spreads= [Decimal("1"), Decimal("2")],
+            ask_order_level_spreads= [Decimal("1"), Decimal("2")],
+            order_override={"split_level_0": ['buy', Decimal("1"), Decimal("1")],
+                            "split_level_1": ['buy', Decimal("2"), Decimal("2")],
+                            "split_level_2": ['sell', Decimal("1"), Decimal("1")]
+                            }
+        )
+        self.split_order_level_strategy.order_tracker._set_current_timestamp(1640001112.223)
 
     def simulate_maker_market_trade(
             self, is_buy: bool, quantity: Decimal, price: Decimal, market: Optional[MockPaperExchange] = None,
@@ -473,6 +490,42 @@ class PMMUnitTest(unittest.TestCase):
     def test_price_band_price_floor_breach(self):
         strategy = self.multi_levels_strategy
         strategy.price_floor = Decimal("95")
+
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], 85, self.mid_price)
+
+        self.clock.backtest_til(self.start_timestamp + 7)
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
+
+    def test_moving_price_band_price_ceiling_breach(self):
+        strategy = self.multi_levels_strategy
+        strategy.moving_price_band_enabled = True
+        strategy.price_floor_pct = Decimal("-1")
+        strategy.price_ceiling_pct = Decimal("1")
+
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], self.mid_price, 115, )
+
+        self.clock.backtest_til(self.start_timestamp + 7)
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+
+    def test_moving_price_band_price_floor_breach(self):
+        strategy = self.multi_levels_strategy
+        strategy.moving_price_band_enabled = True
+        strategy.price_floor_pct = Decimal("-1")
+        strategy.price_ceiling_pct = Decimal("1")
 
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
@@ -1122,6 +1175,32 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(available_base_balance, base_balance + Decimal(2))
         self.assertEqual(available_quote_balance, quote_balance + (Decimal(1) * Decimal(1000)))
 
+    def test_split_order_levels(self):
+        # Widening the order book, top bid is now 97.5 and top ask 102.5
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], 98, 102)
+        strategy = self.split_order_level_strategy
+        strategy.order_optimization_enabled = False
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(2, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        self.assertEqual(Decimal("99.000"), strategy.active_buys[0].price)
+        self.assertEqual(Decimal("101.000"), strategy.active_sells[0].price)
+        self.assertEqual(Decimal("98.000"), strategy.active_buys[1].price)
+
+    def test_order_optimization_with_split_order_levels(self):
+        # Widening the order book, top bid is now 97.5 and top ask 102.5
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], 98, 102)
+        strategy = self.split_order_level_strategy
+        strategy.order_optimization_enabled = True
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(2, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        self.assertEqual(Decimal("97.5001"), strategy.active_buys[0].price)
+        self.assertEqual(Decimal("102.499"), strategy.active_sells[0].price)
+        self.assertEqual(strategy.active_buys[1].price / strategy.active_buys[0].price, Decimal("0.98") / Decimal("0.99"))
+
 
 class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
@@ -1134,7 +1213,9 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange()
+        self.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.mid_price = 100
         self.market.set_balanced_order_book(trading_pair=self.trading_pair,
                                             mid_price=self.mid_price, min_price=1,

@@ -1,13 +1,15 @@
 import unittest
 from decimal import Decimal
-from test.mock.mock_paper_exchange import MockPaperExchange
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.budget_checker import BudgetChecker
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeSchema
-from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class BudgetCheckerTest(unittest.TestCase):
@@ -20,7 +22,9 @@ class BudgetCheckerTest(unittest.TestCase):
         trade_fee_schema = TradeFeeSchema(
             maker_percent_fee_decimal=Decimal("0.01"), taker_percent_fee_decimal=Decimal("0.02")
         )
-        self.exchange = MockPaperExchange(trade_fee_schema)
+        self.exchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=trade_fee_schema)
         self.budget_checker: BudgetChecker = self.exchange.budget_checker
 
     def test_populate_collateral_fields_buy_order(self):
@@ -71,7 +75,9 @@ class BudgetCheckerTest(unittest.TestCase):
             taker_percent_fee_decimal=Decimal("0.01"),
             buy_percent_fee_deducted_from_returns=True,
         )
-        exchange = MockPaperExchange(trade_fee_schema)
+        exchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=trade_fee_schema)
         budget_checker: BudgetChecker = exchange.budget_checker
         order_candidate = OrderCandidate(
             trading_pair=self.trading_pair,
@@ -119,7 +125,9 @@ class BudgetCheckerTest(unittest.TestCase):
             maker_percent_fee_decimal=Decimal("0.01"),
             taker_percent_fee_decimal=Decimal("0.01"),
         )
-        exchange = MockPaperExchange(trade_fee_schema)
+        exchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=trade_fee_schema)
         pfc_quote_pair = combine_to_hb_trading_pair(self.quote_asset, pfc_token)
         exchange.set_balanced_order_book(  # the quote to pfc price will be 1:2
             trading_pair=pfc_quote_pair,
@@ -156,7 +164,9 @@ class BudgetCheckerTest(unittest.TestCase):
             maker_fixed_fees=[TokenAmount(self.quote_asset, Decimal("1"))],
             taker_fixed_fees=[TokenAmount(self.base_asset, Decimal("2"))],
         )
-        exchange = MockPaperExchange(trade_fee_schema)
+        exchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=trade_fee_schema)
         budget_checker: BudgetChecker = exchange.budget_checker
 
         order_candidate = OrderCandidate(
@@ -285,7 +295,9 @@ class BudgetCheckerTest(unittest.TestCase):
         trade_fee_schema = TradeFeeSchema(
             maker_fixed_fees=[TokenAmount(self.quote_asset, Decimal("1"))],
         )
-        exchange = MockPaperExchange(trade_fee_schema)
+        exchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=trade_fee_schema)
         budget_checker: BudgetChecker = exchange.budget_checker
         exchange.set_balance(self.quote_asset, Decimal("11"))
 
@@ -318,7 +330,9 @@ class BudgetCheckerTest(unittest.TestCase):
         trade_fee_schema = TradeFeeSchema(
             maker_fixed_fees=[TokenAmount(fee_asset, Decimal("11"))],
         )
-        exchange = MockPaperExchange(trade_fee_schema)
+        exchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=trade_fee_schema)
         budget_checker: BudgetChecker = exchange.budget_checker
         exchange.set_balance(self.quote_asset, Decimal("100"))
         exchange.set_balance(fee_asset, Decimal("10"))
@@ -340,7 +354,9 @@ class BudgetCheckerTest(unittest.TestCase):
             maker_percent_fee_decimal=Decimal("0.1"),
             maker_fixed_fees=[TokenAmount(self.quote_asset, Decimal("1"))],
         )
-        exchange = MockPaperExchange(trade_fee_schema)
+        exchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=trade_fee_schema)
         budget_checker: BudgetChecker = exchange.budget_checker
         exchange.set_balance(self.quote_asset, Decimal("12"))
 
@@ -378,7 +394,9 @@ class BudgetCheckerTest(unittest.TestCase):
             taker_percent_fee_decimal=Decimal("0.01"),
             maker_fixed_fees=[TokenAmount(fc_token, Decimal("1"))]
         )
-        exchange = MockPaperExchange(trade_fee_schema)
+        exchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=trade_fee_schema)
         pfc_quote_pair = combine_to_hb_trading_pair(self.quote_asset, fc_token)
         exchange.set_balanced_order_book(  # the quote to pfc price will be 1:2
             trading_pair=pfc_quote_pair,

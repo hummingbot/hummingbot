@@ -16,16 +16,19 @@ import {
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
 } from '../../services/error-handler';
 import { tokenValueToString } from '../../services/base';
-import { Token } from '../../services/ethereum-base';
+import { TokenInfo } from '../../services/ethereum-base';
+import { getConnector } from '../../services/connection-manager';
 
 import {
-  PollRequest,
-  PollResponse,
   CustomTransactionReceipt,
   CustomTransaction,
   CustomTransactionResponse,
 } from './ethereum.requests';
-import { Ethereumish } from '../../services/common-interfaces';
+import {
+  Ethereumish,
+  UniswapLPish,
+  Uniswapish,
+} from '../../services/common-interfaces';
 import {
   NonceRequest,
   NonceResponse,
@@ -37,9 +40,12 @@ import {
   CancelResponse,
 } from '../../evm/evm.requests';
 import {
+  PollRequest,
+  PollResponse,
   BalanceRequest,
   BalanceResponse,
 } from '../../network/network.requests';
+import { logger } from '../../services/logger';
 
 export async function nonce(
   ethereum: Ethereumish,
@@ -52,11 +58,22 @@ export async function nonce(
   return { nonce };
 }
 
+export async function nextNonce(
+  ethereum: Ethereumish,
+  req: NonceRequest
+): Promise<NonceResponse> {
+  // get the address via the public key since we generally use the public
+  // key to interact with gateway and the address is not part of the user config
+  const wallet = await ethereum.getWallet(req.address);
+  const nonce = await ethereum.nonceManager.getNextNonce(wallet.address);
+  return { nonce };
+}
+
 export const getTokenSymbolsToTokens = (
   ethereum: Ethereumish,
   tokenSymbols: Array<string>
-): Record<string, Token> => {
-  const tokens: Record<string, Token> = {};
+): Record<string, TokenInfo> => {
+  const tokens: Record<string, TokenInfo> = {};
 
   for (let i = 0; i < tokenSymbols.length; i++) {
     const symbol = tokenSymbols[i];
@@ -371,8 +388,25 @@ export async function poll(
           );
         }
       }
+      // decode logs
+      if (req.connector) {
+        try {
+          const connector: Uniswapish | UniswapLPish = await getConnector(
+            req.chain,
+            req.network,
+            req.connector
+          );
+          txReceipt.logs = connector.abiDecoder?.decodeLogs(txReceipt.logs);
+        } catch (e) {
+          logger.error(e);
+        }
+      }
     }
   }
+
+  logger.info(
+    `Poll ${ethereumish.chain}, txHash ${req.txHash}, status ${txStatus}.`
+  );
   return {
     network: ethereumish.chain,
     currentBlock,
@@ -403,6 +437,10 @@ export async function cancel(
 
   // call cancelTx function
   const cancelTx = await ethereumish.cancelTx(wallet, req.nonce);
+
+  logger.info(
+    `Cancelled transaction at nonce ${req.nonce}, cancel txHash ${cancelTx.hash}.`
+  );
 
   return {
     network: ethereumish.chain,

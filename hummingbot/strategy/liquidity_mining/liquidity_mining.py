@@ -1,25 +1,27 @@
-from decimal import Decimal
-import logging
 import asyncio
-from typing import Dict, List, Set
-import pandas as pd
-import numpy as np
+import logging
+from decimal import Decimal
 from statistics import mean
-from hummingbot.core.clock import Clock
-from hummingbot.logger import HummingbotLogger
-from hummingbot.strategy.strategy_py_base import StrategyPyBase
+from typing import Dict, List, Set
+
+import numpy as np
+import pandas as pd
+
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from .data_types import Proposal, PriceSize
+from hummingbot.connector.parrot import get_campaign_summary
+from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.logger import HummingbotLogger
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator import (
     calculate_bid_ask_ratios_from_base_asset_ratio
 )
-from hummingbot.connector.parrot import get_campaign_summary
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.strategy.utils import order_age
+from .data_types import PriceSize, Proposal
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -87,7 +89,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
     @property
     def active_orders(self):
         """
-        List active orders (they have been sent to the market and have not been cancelled yet)
+        List active orders (they have been sent to the market and have not been canceled yet)
         """
         limit_orders = self.order_tracker.active_limit_orders
         return [o[1] for o in limit_orders]
@@ -138,7 +140,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
             mid_price = self._market_infos[order.trading_pair].get_mid_price()
             spread = 0 if mid_price == 0 else abs(order.price - mid_price) / mid_price
             size_q = order.quantity * mid_price
-            age = order_age(order)
+            age = order_age(order, self.current_timestamp)
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
             age_txt = "n/a" if age <= 0. else pd.Timestamp(age, unit='s').strftime('%H:%M:%S')
             data.append([
@@ -372,7 +374,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
         for proposal in proposals:
             to_cancel = False
             cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
-            if cur_orders and any(order_age(o) > self._max_order_age for o in cur_orders):
+            if cur_orders and any(order_age(o, self.current_timestamp) > self._max_order_age for o in cur_orders):
                 to_cancel = True
             elif self._refresh_times[proposal.market] <= self.current_timestamp and \
                     cur_orders and not self.is_within_tolerance(cur_orders, proposal):

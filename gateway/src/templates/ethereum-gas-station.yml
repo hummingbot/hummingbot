@@ -8,6 +8,3 @@ APIKey: null
 # Use one of the following values: safeLow, average, fast, fastest. The higher
 # the level, the more likely an operation will be included in the block chain.
 gasLevel: fast
-
-# How often to update the gas price in seconds.
-refreshTime: 60

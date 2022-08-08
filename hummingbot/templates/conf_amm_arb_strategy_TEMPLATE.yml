@@ -2,7 +2,7 @@
 ###   AMM Arbitrage strategy config   ###
 ##########################################
 
-template_version: 3
+template_version: 5
 strategy: null
 
 # The following configuations are only required for the AMM arbitrage trading strategy
@@ -32,3 +32,10 @@ market_2_slippage_buffer: null
 # A flag (true/false), if true the bot submits both arbitrage taker orders (buy and sell) simultaneously
 # If false, the bot will wait for first exchange order filled before submitting the other order
 concurrent_orders_submission: null
+
+# A flag (true/false), if true would enable a price shim feature on the AMM connector to allow developer to simulate
+# different prices on the AMM market. This is used for development and testing purpose only.
+debug_price_shim: false
+
+# After how many seconds should blockchain transactions be cancelled if they are not included in a block?
+gateway_transaction_cancel_interval: 600

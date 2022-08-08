@@ -1,13 +1,13 @@
 import unittest.mock
 from decimal import Decimal
+from test.hummingbot.strategy import assign_config_default
 
 import hummingbot.strategy.pure_market_making.start as strategy_start
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.data_type.common import PriceType
-from hummingbot.strategy.pure_market_making.pure_market_making_config_map import (
-    pure_market_making_config_map as c_map
-)
-from test.hummingbot.strategy import assign_config_default
+from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map as c_map
 
 
 class PureMarketMakingStartTest(unittest.TestCase):
@@ -15,7 +15,8 @@ class PureMarketMakingStartTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.strategy = None
-        self.markets = {"binance": ExchangeBase()}
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.markets = {"binance": ExchangeBase(client_config_map=self.client_config_map)}
         self.notifications = []
         self.log_errors = []
         assign_config_default(c_map)
@@ -51,6 +52,11 @@ class PureMarketMakingStartTest(unittest.TestCase):
         c_map.get("price_source_custom_api").value = "localhost.test"
         c_map.get("order_refresh_tolerance_pct").value = Decimal("2")
         c_map.get("order_override").value = None
+        c_map.get("split_order_levels_enabled").value = True
+        c_map.get("bid_order_level_spreads").value = "1,2"
+        c_map.get("ask_order_level_spreads").value = "1,2"
+        c_map.get("bid_order_level_amounts").value = "1,2"
+        c_map.get("ask_order_level_amounts").value = None
 
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
@@ -58,7 +64,7 @@ class PureMarketMakingStartTest(unittest.TestCase):
     def _initialize_markets(self, market_names):
         pass
 
-    def _notify(self, message):
+    def notify(self, message):
         self.notifications.append(message)
 
     def logger(self):
@@ -93,3 +99,9 @@ class PureMarketMakingStartTest(unittest.TestCase):
         self.assertEqual(self.strategy.add_transaction_costs_to_orders, False)
         self.assertEqual(self.strategy.price_type, PriceType.BestBid)
         self.assertEqual(self.strategy.order_refresh_tolerance_pct, Decimal("0.02"))
+        self.assertEqual(self.strategy.split_order_levels_enabled, True)
+        self.assertEqual(self.strategy.bid_order_level_spreads, [Decimal("1"), Decimal("2")])
+        self.assertEqual(self.strategy.ask_order_level_spreads, [Decimal("1"), Decimal("2")])
+        self.assertEqual(self.strategy.order_override, {"split_level_0": ['buy', Decimal("1"), Decimal("1")],
+                                                        "split_level_1": ['buy', Decimal("2"), Decimal("2")],
+                                                        })

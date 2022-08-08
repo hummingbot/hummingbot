@@ -90,7 +90,7 @@ class WazirxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         finally:
             await ws.close()
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         Subscribe to active orders via web socket
         """

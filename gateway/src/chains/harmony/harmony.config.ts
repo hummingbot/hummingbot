@@ -14,11 +14,8 @@ interface Config {
   autoGasPrice: boolean;
   manualGasPrice: number;
   gasPricerefreshTime: number;
+  gasLimitTransaction: number;
 }
-
-// export namespace HarmonyConfig {
-//   export const config: Config = getHarmonyConfig('harmony');
-// }
 
 export function getHarmonyConfig(
   chainName: string,
@@ -42,7 +39,7 @@ export function getHarmonyConfig(
       ),
     },
     nativeCurrencySymbol: ConfigManagerV2.getInstance().get(
-      chainName + '.nativeCurrencySymbol'
+      chainName + '.networks.' + network + '.nativeCurrencySymbol'
     ),
     autoGasPrice: ConfigManagerV2.getInstance().get(
       chainName + '.autoGasPrice'
@@ -52,6 +49,9 @@ export function getHarmonyConfig(
     ),
     gasPricerefreshTime: ConfigManagerV2.getInstance().get(
       chainName + '.gasPricerefreshTime'
+    ),
+    gasLimitTransaction: ConfigManagerV2.getInstance().get(
+      chainName + '.gasLimitTransaction'
     ),
   };
 }
