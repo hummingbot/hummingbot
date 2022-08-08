@@ -86,6 +86,7 @@ create_instance () {
  mkdir $SCRIPTS_FOLDER
  mkdir $GATEWAY_CONF_FOLDER
  mkdir $GATEWAY_LOGS_FOLDER
+ echo "$INSTANCE_NAME" > .last_instance
  # 3) Set required permissions to save hummingbot password the first time
  sudo chmod a+rw $CONF_FOLDER
  # 4) Launch a new instance of hummingbot
