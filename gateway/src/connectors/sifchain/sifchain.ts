@@ -25,7 +25,6 @@ import {
 } from '../../services/common-interfaces';
 import { Sifchain } from '../../chains/sifchain/sifchain';
 import { Token as CosmosToken } from '../../services/cosmos-base';
-import { BigNumber } from 'ethers/lib/ethers';
 import { logger } from '../../services/logger';
 
 export class SifchainConnector implements SifchainishConnector {
@@ -116,13 +115,12 @@ export class SifchainConnector implements SifchainishConnector {
    */
   public getAllowedSlippage(allowedSlippageStr?: string): Percent {
     if (allowedSlippageStr != null && isFractionString(allowedSlippageStr)) {
-      const fractionSplit = allowedSlippageStr.split('/');
-      return new Percent(fractionSplit[0], fractionSplit[1]);
+      return eval(allowedSlippageStr);
     }
 
     const allowedSlippage = SifchainConnectorConfig.config.allowedSlippage;
     const nd = allowedSlippage.match(percentRegexp);
-    if (nd) return new Percent(nd[1], nd[2]);
+    if (nd) return eval(nd[0]);
     throw new Error(
       'Encountered a malformed percent string in the config for ALLOWED_SLIPPAGE.'
     );
@@ -139,12 +137,14 @@ export class SifchainConnector implements SifchainishConnector {
    * @param amount Amount of `baseToken` to put into the transaction
    */
   async estimateSellTrade(
-    // SELL - 100 ATOM
-    baseToken: Token, // ATOM
-    quoteToken: Token, // ROWAN
-    amount: BigNumber
+    baseToken: Token,
+    quoteToken: Token,
+    amount: string
   ): Promise<ExpectedTrade | string> {
-    // I WANT TO SELL 100 ATOM FOR ROWAN
+    /*
+      There are huge differences between the returned value of this function and the one returned from https://sifchain.akash.pro/#/swap?from=uatom&to=rowan&slippage=1.0
+      price impact and liquidity provider fees are almost the same
+    */
     logger.info(
       `Fetching pair data for ${baseToken.address}-${quoteToken.address}.`
     );
@@ -157,12 +157,8 @@ export class SifchainConnector implements SifchainishConnector {
         amount: Decimal.fromUserInput(amount, baseToken.decimals.low).atomics,
       },
       { denom: quoteToken.denom },
-      this.getAllowedSlippage() // Slippage
+      this.getAllowedSlippage()
     );
-
-    console.log(baseToken);
-    console.log(quoteToken);
-    // console.log(swap);
 
     const rawReceiving = swap.rawReceiving.toFloatApproximation();
     const minimumReceiving = swap.minimumReceiving.toFloatApproximation();
@@ -189,69 +185,58 @@ export class SifchainConnector implements SifchainishConnector {
    * @param amount Amount of `baseToken` desired from the transaction
    */
   async estimateBuyTrade(
-    // BUY
-    quoteToken: Token, // ROWAN
-    baseToken: Token, // ATOM
-    amount: string // I want to buy 100 ATOM, how much ROWAN do I need?
+    quoteToken: Token,
+    baseToken: Token,
+    amount: string
   ): Promise<ExpectedTrade | string> {
+    /* We want to buy 100 atom, how many rowans do we need and what are the fees? */
+    /*
+      This currently takes the rowan per atom price and multiplies it by the amount of atoms we want to buy. 
+      Then runs a simulation to get the fees, the problem is that the received amount is always less than the amount we want to buy.
+
+      What sdk does https://sifchain.akash.pro/#/swap?from=uatom&to=c1inch&slippage=1.0? We are able to write how much we want to buy there and it calculates the fees.
+    */
     logger.info(
       `Fetching pair data for ${quoteToken.baseDenom}-${baseToken.baseDenom}.`
     );
 
     const signingClient = await this.sifchain._signingClient;
 
-    // TODO: response has wrong values - https://sifchain-dex.redstarling.com/#/swap?from=c1inch&to=cuma&slippage=1.0
-    // USDT per ATOM price
-    const usdtPerAtom = await signingClient.simulateSwap(
+    const quoteTokenPerBaseToken = await signingClient.simulateSwap(
       {
         denom: baseToken.denom,
         amount: Decimal.fromUserInput('1', baseToken.decimals.low).atomics,
       },
       { denom: quoteToken.denom },
-      this.getAllowedSlippage() // Slippage
+      this.getAllowedSlippage()
     );
 
-    console.log(usdtPerAtom);
+    const TotalQuoteTokenNeeded =
+      quoteTokenPerBaseToken.rawReceiving.toFloatApproximation() * amount;
 
-    const atomPerRowan = await signingClient.simulateSwap(
-      {
-        denom: quoteToken.denom,
-        amount: Decimal.fromUserInput('1', quoteToken.decimals.low).atomics,
-      },
-      { denom: baseToken.denom },
-      this.getAllowedSlippage() // Slippage
-    );
-
-    console.log(atomPerRowan.rawReceiving.toFloatApproximation());
-
-    // const pricePerquoteToken = inchPrice.rawReceiving.toFloatApproximation();
-    // const usdtPerAtomPrice = usdtPerAtom.rawReceiving.toFloatApproximation();
-
-    // console.log(usdtPerAtomPrice);
-    // console.log(
-    //   (usdtPerAtomPrice / amount).toFixed(baseToken.decimals.low) +
-    //     ' ATOM for 10000 ROWAN'
-    // );
-
-    // 100/0.000626
-    // amount that i need to buy (amount)/atomPerRowan
-    // 159662,1021606584
-    // BUY 100 atom, how much rowan do I need to buy 100 atoms?
-    // SELL 100 atom, how much rowan do I get? +
     const swap = await signingClient.simulateSwap(
       {
-        denom: baseToken.denom,
-        amount: Decimal.fromUserInput(amount, baseToken.decimals.low).atomics,
+        denom: quoteToken.denom,
+        amount: Decimal.fromUserInput(
+          TotalQuoteTokenNeeded.toFixed(quoteToken.decimals.low),
+          quoteToken.decimals.low
+        ).atomics,
       },
-      { denom: quoteToken.denom },
-      this.getAllowedSlippage() // Slippage
+      { denom: baseToken.denom },
+      this.getAllowedSlippage()
     );
 
-    console.log(swap);
-    console.log(swap.rawReceiving.toFloatApproximation());
-    console.log(swap.minimumReceiving.toFloatApproximation());
-    console.log(swap.liquidityProviderFee.toFloatApproximation());
+    const rawReceiving = swap.rawReceiving.toFloatApproximation();
+    const minimumReceiving = swap.minimumReceiving.toFloatApproximation();
+    const liquidityProviderFee =
+      swap.liquidityProviderFee.toFloatApproximation();
+    const priceImpact = swap.priceImpact;
 
-    return;
+    return {
+      rawReceiving,
+      minimumReceiving,
+      liquidityProviderFee,
+      priceImpact,
+    };
   }
 }

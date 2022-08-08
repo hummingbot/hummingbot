@@ -256,8 +256,6 @@ function getFullTokenFromSymbol(
   sifchainishConnector: SifchainishConnector,
   tokenSymbol: string
 ) {
-  console.log(sifchainishConnector);
-
   const token = sifchainish.getTokenBySymbol(tokenSymbol);
 
   if (!token)
