@@ -131,7 +131,8 @@ class LatokenExchange(ExchangePyBase):
                            amount: Decimal,
                            trade_type: TradeType,
                            order_type: OrderType,
-                           price: Decimal) -> Tuple[str, float]:
+                           price: Decimal,
+                           **kwargs) -> Tuple[str, float]:
         """
         Creates a an order in the exchange using the parameters to configure it
         :param trade_type: the side of the order (BUY of SELL)
