@@ -20,6 +20,13 @@ import {
   Fraction as UniswapFraction,
 } from '@uniswap/sdk-core';
 import {
+  Token as TokenDefikingdoms,
+  CurrencyAmount as CurrencyAmountDefikingdoms,
+  Trade as TradeDefikingdoms,
+  Fraction as DefikingdomsFraction,
+  // } from '@defikingdoms/sdk';
+} from '@switchboard-xyz/defikingdoms-sdk';
+import {
   Token as TokenPangolin,
   CurrencyAmount as CurrencyAmountPangolin,
   Trade as TradePangolin,
@@ -52,35 +59,40 @@ import { PerpPosition } from '../connectors/perp/perp';
 export type Tokenish =
   | Token
   | TokenPangolin
+  | UniswapCoreToken
   | TokenQuickswap
   | TokenTraderjoe
   | UniswapCoreToken
-  | SushiToken;
+  | SushiToken
+  | TokenDefikingdoms;
+
 export type UniswapishTrade =
   | Trade<Currency, Currency, TradeType>
   | TradePangolin
+  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
   | TradeQuickswap
   | TradeTraderjoe
-  | SushiswapTrade<
-      SushiToken,
-      SushiToken,
-      SushiTradeType.EXACT_INPUT | SushiTradeType.EXACT_OUTPUT
-    >
+  | SushiswapTrade<SushiToken, SushiToken, SushiTradeType>
   | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
-  | TradeUniswap;
+  | TradeUniswap
+  | TradeDefikingdoms;
+
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
   | CurrencyAmountQuickswap
   | UniswapCoreCurrencyAmount<Currency>
   | CurrencyAmountTraderjoe
-  | SushiCurrencyAmount<SushiCurrency | SushiToken>;
+  | SushiCurrencyAmount<SushiCurrency | SushiToken>
+  | CurrencyAmountDefikingdoms;
+
 export type Fractionish =
   | UniswapFraction
   | PangolinFraction
   | QuickswapFraction
   | TraderjoeFraction
-  | SushiFraction;
+  | SushiFraction
+  | DefikingdomsFraction;
 
 export interface ExpectedTrade {
   trade: UniswapishTrade;

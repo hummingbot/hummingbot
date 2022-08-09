@@ -18,6 +18,7 @@ import {
 } from './common-interfaces';
 import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Sushiswap } from '../connectors/sushiswap/sushiswap';
+import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
 import { Serumish } from '../connectors/serum/serum';
 
 export type ChainUnion = Ethereumish | Solanaish;
@@ -92,6 +93,8 @@ export async function getConnector<T>(
     connectorInstance = Openocean.getInstance(chain, network);
   } else if (chain === 'avalanche' && connector === 'traderjoe') {
     connectorInstance = Traderjoe.getInstance(chain, network);
+  } else if (chain === 'harmony' && connector === 'defikingdoms') {
+    connectorInstance = Defikingdoms.getInstance(chain, network);
   } else if (chain === 'solana' && connector === 'serum') {
     connectorInstance = await Serum.getInstance(chain, network);
   } else {
