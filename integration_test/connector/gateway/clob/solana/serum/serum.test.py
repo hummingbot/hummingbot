@@ -18,9 +18,14 @@ from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 class Helper:
 
     def __init__(self):
+        self.configuration_folder = None
+        self.configuration_path = None
+        self.configuration = None
+
+    def load_or_create_configuration(self):
         self.configuration_folder = os.path.realpath(os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
-            '../../../../conf/scripts'
+            '../../../../../../conf/scripts'
         ))
         self.configuration_path = os.path.realpath(os.path.join(
             self.configuration_folder,
@@ -40,7 +45,8 @@ class Helper:
             ],
             'wallets': {
                 'owner': {
-                    'public_key': ''
+                    'public_key': '',
+                    'private_key': ''
                 },
                 'payer': {
                     'SOL/USDC': {
@@ -57,11 +63,14 @@ class Helper:
         }
 
         if not os.path.exists(self.configuration_path):
-            with open(self.configuration_path, 'w') as file:
-                file.write(yaml.dump(template))
+            self.save_configuration(template)
 
         with open(self.configuration_path, encoding='utf-8') as stream:
             self.configuration = yaml.load(stream, Loader=Loader)
+
+    def save_configuration(self, configuration):
+        with open(self.configuration_path, 'w') as file:
+            file.write(yaml.dump(configuration))
 
     def create_new_candidate_order(
         self,
@@ -117,61 +126,90 @@ class Helper:
 class Serum:
 
     def __init__(self):
-        self.helper = Helper()
+        self.__helper = Helper()
         self.__gateway_http_client: GatewayHttpClient = GatewayHttpClient.get_instance()
 
     async def main(self):
         try:
-            pass
-            # self.helper.dump(await self.auto_create_token_accounts(self.helper.configuration['markets']))
-            # self.helper.dump(await self.get_markets())
-            # self.helper.dump(await self.get_order_books())
-            # self.helper.dump(await self.get_tickers())
-            # self.helper.dump(await self.get_open_orders(self.helper.configuration['wallets']['owner']['public_key']))
-            # self.helper.dump(await self.get_filled_orders(self.helper.configuration['wallets']['owner']['public_key']))
-            # self.helper.dump(await self.get_orders(self.helper.configuration['wallets']['owner']['public_key']))
-            # self.helper.dump(await self.place_orders(order=self.helper.create_new_candidate_order(side=OrderSide.SELL, type=OrderType.IOC)))
-            # self.helper.dump(await self.place_orders(orders=[{}]))
-            # self.helper.dump(await self.cancel_orders(self.helper.configuration['wallets']['owner']['public_key']))
+            self.__helper.dump(self.__helper.load_or_create_configuration())
+
+            # The next line can be disabled if the wallet has already been added.
+            self.__helper.dump(await self.add_wallet(self.__helper.configuration['wallets']['owner']['private_key']))
+            self.__helper.dump(await self.auto_create_token_accounts(self.__helper.configuration['markets']))
+
+            self.__helper.dump(await self.get_markets())
+            self.__helper.dump(await self.get_order_books())
+            self.__helper.dump(await self.get_tickers())
+            self.__helper.dump(await self.get_open_orders(self.__helper.configuration['wallets']['owner']['public_key']))
+            self.__helper.dump(await self.get_filled_orders(self.__helper.configuration['wallets']['owner']['public_key']))
+            self.__helper.dump(await self.get_orders(self.__helper.configuration['wallets']['owner']['public_key']))
+            self.__helper.dump(await self.place_orders(
+                order=self.__helper.create_new_candidate_order(side=OrderSide.SELL, type=OrderType.IOC)
+            ))
+            self.__helper.dump(await self.place_orders(
+                orders=[
+                    self.__helper.create_new_candidate_order(),
+                    self.__helper.create_new_candidate_order(),
+                    self.__helper.create_new_candidate_order()
+                ]
+            ))
+            self.__helper.dump(
+                await self.get_open_orders(self.__helper.configuration['wallets']['owner']['public_key']))
+            self.__helper.dump(
+                await self.get_filled_orders(self.__helper.configuration['wallets']['owner']['public_key']))
+            self.__helper.dump(await self.get_orders(self.__helper.configuration['wallets']['owner']['public_key']))
+            self.__helper.dump(await self.cancel_orders(self.__helper.configuration['wallets']['owner']['public_key']))
+            self.__helper.dump(
+                await self.get_open_orders(self.__helper.configuration['wallets']['owner']['public_key']))
+            self.__helper.dump(
+                await self.get_filled_orders(self.__helper.configuration['wallets']['owner']['public_key']))
+            self.__helper.dump(await self.get_orders(self.__helper.configuration['wallets']['owner']['public_key']))
         except Exception as exception:
             print(exception)
 
-    async def auto_create_token_accounts(self, market_names: List[str] = None):
-        output = {}
+    async def add_wallet(self, private_key: str):
+        return await self.__gateway_http_client.add_wallet(
+            self.__helper.configuration['chain'],
+            self.__helper.configuration['network'],
+            private_key
+        )
 
+    async def auto_create_token_accounts(self, market_names: List[str] = None):
         if market_names:
             for market_name in market_names:
-                output[market_name] = (await GatewayHttpClient.get_instance().solana_post_token(
-                    self.helper.configuration['network'],
-                    self.helper.configuration['wallets']['owner']['public_key'],
+                self.__helper.configuration['wallets']['payer'][market_name]['public_key'] = (await self.__gateway_http_client.solana_post_token(
+                    self.__helper.configuration['network'],
+                    self.__helper.configuration['wallets']['owner']['public_key'],
                     market_name
                 ))['accountAddress']
 
-        return output
+        self.__helper.save_configuration(self.__helper.configuration)
+
+        return self.__helper.configuration['wallets']['payer']
 
     async def get_markets(self, name: str = None, names: List[str] = None):
         return await self.__gateway_http_client.clob_get_markets(
-            self.helper.configuration['chain'],
-            self.helper.configuration['network'],
-            self.helper.configuration['connector'],
+            self.__helper.configuration['chain'],
+            self.__helper.configuration['network'],
+            self.__helper.configuration['connector'],
             name,
             names
         )
 
     async def get_order_books(self, market_name: str = None, market_names: List[str] = None):
         return await self.__gateway_http_client.clob_get_order_books(
-            self.helper.configuration['chain'],
-            self.helper.configuration['network'],
-            self.helper.configuration['connector'],
+            self.__helper.configuration['chain'],
+            self.__helper.configuration['network'],
+            self.__helper.configuration['connector'],
             market_name,
             market_names
         )
 
     async def get_tickers(self, market_name: str = None, market_names: List[str] = None):
         return await self.__gateway_http_client.clob_get_tickers(
-            self.helper.configuration['chain'],
-            self.helper.configuration['network'],
-            self.helper.configuration['connector'],
+            self.__helper.configuration['chain'],
+            self.__helper.configuration['network'],
+            self.__helper.configuration['connector'],
             market_name,
             market_names
         )
@@ -179,9 +217,9 @@ class Serum:
     async def get_orders(self, owner_address: str = None, order: Dict[str, Any] = None,
                          orders: List[Dict[str, Any]] = None):
         return await self.__gateway_http_client.clob_get_orders(
-            self.helper.configuration['chain'],
-            self.helper.configuration['network'],
-            self.helper.configuration['connector'],
+            self.__helper.configuration['chain'],
+            self.__helper.configuration['network'],
+            self.__helper.configuration['connector'],
             owner_address,
             order,
             orders
@@ -190,9 +228,9 @@ class Serum:
     async def get_open_orders(self, owner_address: str = None, order: Dict[str, Any] = None,
                               orders: List[Dict[str, Any]] = None):
         return await self.__gateway_http_client.clob_get_open_orders(
-            self.helper.configuration['chain'],
-            self.helper.configuration['network'],
-            self.helper.configuration['connector'],
+            self.__helper.configuration['chain'],
+            self.__helper.configuration['network'],
+            self.__helper.configuration['connector'],
             owner_address,
             order,
             orders
@@ -201,9 +239,9 @@ class Serum:
     async def get_filled_orders(self, owner_address: str = None, order: Dict[str, Any] = None,
                                 orders: List[Dict[str, Any]] = None):
         return await self.__gateway_http_client.clob_get_filled_orders(
-            self.helper.configuration['chain'],
-            self.helper.configuration['network'],
-            self.helper.configuration['connector'],
+            self.__helper.configuration['chain'],
+            self.__helper.configuration['network'],
+            self.__helper.configuration['connector'],
             owner_address,
             order,
             orders
@@ -211,9 +249,9 @@ class Serum:
 
     async def place_orders(self, order: Dict[str, Any] = None, orders: List[Dict[str, Any]] = None):
         return await self.__gateway_http_client.clob_post_orders(
-            self.helper.configuration['chain'],
-            self.helper.configuration['network'],
-            self.helper.configuration['connector'],
+            self.__helper.configuration['chain'],
+            self.__helper.configuration['network'],
+            self.__helper.configuration['connector'],
             order,
             orders
         )
@@ -221,9 +259,9 @@ class Serum:
     async def cancel_orders(self, owner_address: str = None, order: Dict[str, Any] = None,
                             orders: List[Dict[str, Any]] = None):
         return await self.__gateway_http_client.clob_delete_orders(
-            self.helper.configuration['chain'],
-            self.helper.configuration['network'],
-            self.helper.configuration['connector'],
+            self.__helper.configuration['chain'],
+            self.__helper.configuration['network'],
+            self.__helper.configuration['connector'],
             owner_address,
             order,
             orders
@@ -231,9 +269,9 @@ class Serum:
 
     async def settle_funds(self, owner_address: str = None, market_name: str = None, market_names: List[str] = None):
         return await self.__gateway_http_client.clob_post_settle_funds(
-            self.helper.configuration['chain'],
-            self.helper.configuration['network'],
-            self.helper.configuration['connector'],
+            self.__helper.configuration['chain'],
+            self.__helper.configuration['network'],
+            self.__helper.configuration['connector'],
             owner_address,
             market_name,
             market_names
