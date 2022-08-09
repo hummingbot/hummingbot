@@ -6,9 +6,9 @@ import { PerpConfig } from './perp/perp.config';
 import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
-import { SifchainConnectorConfig } from './sifchain/sifchain.config';
 import { OpenoceanConfig } from './openocean/openocean.config';
 import { DefikingdomsConfig } from './defikingdoms/defikingdoms.config';
+import { SifchainConnectorConfig } from './sifchain/sifchain.config';
 
 export namespace ConnectorsRoutes {
   export const router = Router();
@@ -33,12 +33,6 @@ export namespace ConnectorsRoutes {
             name: 'pangolin',
             trading_type: PangolinConfig.config.tradingTypes,
             available_networks: PangolinConfig.config.availableNetworks,
-          },
-          {
-            name: 'sifchain',
-            trading_type: SifchainConnectorConfig.config.tradingTypes,
-            available_networks:
-              SifchainConnectorConfig.config.availableNetworks,
           },
           {
             name: 'openocean',
@@ -69,6 +63,12 @@ export namespace ConnectorsRoutes {
             name: 'defikingdoms',
             trading_type: DefikingdomsConfig.config.tradingTypes,
             available_networks: DefikingdomsConfig.config.availableNetworks,
+          },
+          {
+            name: 'sifchain',
+            trading_type: SifchainConnectorConfig.config.tradingTypes,
+            available_networks:
+              SifchainConnectorConfig.config.availableNetworks,
           },
         ],
       });

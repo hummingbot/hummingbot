@@ -1,3 +1,4 @@
+/* WIP */
 import { Cosmosish } from '../../services/common-interfaces';
 import { CosmosBase } from '../../services/cosmos-base';
 import { getSifchainConfig } from './sifchain.config';
