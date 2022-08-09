@@ -12,6 +12,10 @@ import BN from 'bn.js';
 import { Cache, CacheContainer } from 'node-ts-cache';
 import { MemoryStorage } from 'node-ts-cache-storage-memory';
 import { Solana } from '../../chains/solana/solana';
+import {
+  getSolanaConfig,
+  Config as SolanaConfig,
+} from '../../chains/solana/solana.config';
 import { SerumConfig } from './serum.config';
 import { default as constants } from './serum.constants';
 import {
@@ -77,6 +81,7 @@ export class Serum {
   private initializing: boolean = false;
 
   private readonly config: SerumConfig.Config;
+  private readonly solanaConfig: SolanaConfig;
   private readonly connection: Connection;
   private solana!: Solana;
   private _ready: boolean = false;
@@ -97,8 +102,9 @@ export class Serum {
     this.network = network;
 
     this.config = SerumConfig.config;
+    this.solanaConfig = getSolanaConfig(chain, network);
 
-    this.connection = new Connection(this.config.networkConfig(network).rpcURL);
+    this.connection = new Connection(this.solanaConfig.network.nodeUrl);
   }
 
   private async serumGetMarketsInformation(): Promise<BasicSerumMarket[]> {
