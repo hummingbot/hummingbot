@@ -5,10 +5,15 @@ import os
 import sys
 import time
 import traceback
+from logging import Handler
 from logging import Logger as PythonLogger
-from typing import Optional, Type
+from logging import LogRecord
+from typing import Optional
 
 import pandas as pd
+from commlib.msg import DataClass, DataField, PubSubMessage
+from commlib.transports.mqtt import ConnectionParameters as MQTTConnectionParameters
+from commlib.transports.mqtt import Publisher as MQTTPublisher
 
 from .application_warning import ApplicationWarning
 
@@ -28,9 +33,53 @@ else:   # pragma: no cover
 #  --- Copied from logging module ---
 
 
+@DataClass
+class LogMessage(PubSubMessage):
+    timestamp: float = DataField(default=0.0)
+    msg: str = DataField(default='')
+    level_no: int = DataField(default=0)
+    level_name: str = DataField(default='')
+    logger_name: str = DataField(default='')
+
+
+class MQTTHandler(Handler):
+    MQTT_URI = 'hbot/$UID/log'
+
+    def __init__(self,
+                 mqtt_params: MQTTConnectionParameters = None,
+                 mqtt_topic: str = ''):
+        super().__init__()
+        if mqtt_params is None:
+            mqtt_params = MQTTConnectionParameters()
+        if mqtt_topic in ('', None):
+            mqtt_topic = self.MQTT_URI.replace('$UID', str(os.getenv('HBOT_UID')))
+        self.mqtt_pub = MQTTPublisher(
+            conn_params=mqtt_params,
+            topic=mqtt_topic,
+            msg_type=LogMessage,
+            logger=PythonLogger('mqtt'),
+            debug=True
+        )
+
+    def emit(self, record: LogRecord):
+        msg_str = self.format(record)
+        msg = LogMessage(
+            timestamp=time.time(),
+            msg=msg_str,
+            level_no=record.levelno,
+            level_name=record.levelname,
+            logger_name=record.name
+
+        )
+        self.mqtt_pub.publish(msg)
+
+
 class HummingbotLogger(PythonLogger):
     def __init__(self, name: str):
         super().__init__(name)
+        if os.getenv('HBOT_MQTT_LOGGING') in ('1', 'True', 'true', 'Yes',
+                                              'Nai', 'Si', 'Da', 'sudo'):
+            self.addHandler(MQTTHandler())
 
     @staticmethod
     def logger_name_for_class(model_class: Type):
