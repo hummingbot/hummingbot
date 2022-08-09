@@ -1,3 +1,4 @@
+/* WIP */
 import { Cosmos } from './cosmos';
 import {
   CosmosBalanceRequest,
