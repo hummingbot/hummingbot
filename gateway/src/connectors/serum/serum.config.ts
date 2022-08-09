@@ -3,15 +3,10 @@ import { AvailableNetworks } from '../../services/config-manager-types';
 
 export namespace SerumConfig {
   export interface Config {
-    networkConfig: (network: string) => NetworkConfig;
     availableNetworks: Array<AvailableNetworks>;
     tradingTypes: Array<string>;
     markets: MarketsConfig;
     tickers: TickersConfig;
-  }
-
-  export interface NetworkConfig {
-    rpcURL: string;
   }
 
   export interface MarketsConfig {
@@ -26,13 +21,6 @@ export namespace SerumConfig {
   }
 
   export const config: Config = {
-    networkConfig: (network: string) => {
-      return {
-        rpcURL: ConfigManagerV2.getInstance().get(
-          `serum.networks.${network}.rpcURL`
-        ),
-      };
-    },
     tradingTypes: ['SOL_CLOB'],
     markets: {
       url: ConfigManagerV2.getInstance().get(`serum.markets.url`),
@@ -47,7 +35,7 @@ export namespace SerumConfig {
       {
         chain: 'solana',
         networks: Object.keys(
-          ConfigManagerV2.getInstance().get(`serum.networks`)
+          ConfigManagerV2.getInstance().get(`solana.networks`)
         ),
       },
     ],

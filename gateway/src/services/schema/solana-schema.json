@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "network": { "type": "string" },
     "networks": {
       "type": "object",
       "patternProperties": {
@@ -17,7 +18,6 @@
       },
       "additionalProperties": false
     },
-    "network": { "type": "string" },
     "tokenProgram": { "type": "string" },
     "transactionLamports": { "type": "integer" },
     "lamportsToSol": { "type": "number" },

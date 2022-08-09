@@ -2,21 +2,6 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
-    "network": { "type": "string" },
-    "networks": {
-      "type": "object",
-      "patternProperties": {
-        "^..+$": {
-          "type": "object",
-          "properties": {
-            "rpcURL": { "type": "string" }
-          },
-          "required": ["rpcURL"],
-          "additionalProperties": false
-        }
-      },
-      "additionalProperties": false
-    },
     "parallel": {
       "type": "object",
       "required": ["all"],
@@ -65,8 +50,6 @@
     }
   },
   "required": [
-    "network",
-    "networks",
     "markets",
     "tickers",
     "parallel",

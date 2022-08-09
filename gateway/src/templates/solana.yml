@@ -2,6 +2,9 @@ networks:
   mainnet-beta:
     nodeURL: https://api.mainnet-beta.solana.com
     nativeCurrencySymbol: SOL
+  serum-mainnet:
+    nodeURL: https://solana-api.projectserum.com
+    nativeCurrencySymbol: SOL
   testnet:
     nodeURL: https://api.testnet.solana.com
     nativeCurrencySymbol: SOL
