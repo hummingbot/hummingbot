@@ -70,6 +70,7 @@ export async function getConnector<T>(
   address?: string
 ): Promise<Connector<T>> {
   let connectorInstance: ConnectorUnion;
+
   if (
     (chain === 'ethereum' || chain === 'polygon') &&
     connector === 'uniswap'

@@ -32,8 +32,8 @@ class OrderStatus(Enum):
 
 class OrderType(Enum):
     LIMIT = 'LIMIT',
-    IOC = 'IOC',
-    POST_ONLY = 'POST_ONLY'
+    IOC = 'IOC',  # Immediate or Cancel
+    POST_ONLY = 'POST_ONLY',
 
     @staticmethod
     def from_hummingbot(target: HummingBotOrderType):
@@ -52,7 +52,7 @@ class OrderType(Enum):
 
 class OrderSide(Enum):
     BUY = 'BUY',
-    SELL = 'SELL'
+    SELL = 'SELL',
 
     @staticmethod
     def from_hummingbot(target: HummingBotOrderSide):
