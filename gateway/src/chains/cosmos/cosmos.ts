@@ -5,7 +5,6 @@ import { logger } from '../../services/logger';
 
 export class Cosmos extends CosmosBase implements Cosmosish {
   private static _instances: { [name: string]: Cosmos };
-  // private _ethGasStationUrl: string;
   private _gasPrice: number;
   private _gasPriceLastUpdated: Date | null;
   private _nativeTokenSymbol: string;
@@ -24,9 +23,6 @@ export class Cosmos extends CosmosBase implements Cosmosish {
     );
     this._chain = network;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
-    // this._ethGasStationUrl =
-    //   CosmosConfig.ethGasStationConfig.gasStationURL +
-    //   CosmosConfig.ethGasStationConfig.APIKey;
 
     this._gasPrice = config.manualGasPrice;
     this._gasPriceLastUpdated = null;
@@ -68,7 +64,6 @@ export class Cosmos extends CosmosBase implements Cosmosish {
     this._requestCount = 0; // reset
   }
 
-  // getters
   public get gasPrice(): number {
     return this._gasPrice;
   }

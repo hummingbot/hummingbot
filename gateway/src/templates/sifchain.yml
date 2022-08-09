@@ -9,5 +9,4 @@ networks:
     tokenListType: URL
     tokenListSource: https://sifchain-token-registry-list.vercel.app/list.json
 nativeCurrencySymbol: ROWAN
-nodeAPIKey: 3712b320394b413fb4c42fdadcebdf54
 manualGasPrice: 110

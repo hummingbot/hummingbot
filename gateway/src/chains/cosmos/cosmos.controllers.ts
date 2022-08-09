@@ -24,7 +24,6 @@ export async function balances(
   const filteredBalances = toCosmosBalances(balances, req.tokenSymbols);
 
   // TODO: Add an error message for when there are no balances for those symbols
-
   if (Object.keys(filteredBalances).length === 0) {
     throw new HttpException(
       500,
@@ -49,6 +48,7 @@ export const toCosmosBalances = (
     tokenSymbols.includes(symbol)
   );
 
+  // TODO: Add error messages
   const walletBalances: Record<string, string> = {};
 
   filteredBalancesKeys.forEach(
@@ -64,6 +64,8 @@ export async function poll(
 ): Promise<CosmosPollResponse> {
   const initTime = Date.now();
   const txData = await cosmos.getTransaction(req.txHash);
+
+  // TODO: Add error messages
 
   return {
     network: cosmos.rpcUrl,

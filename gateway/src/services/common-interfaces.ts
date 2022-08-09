@@ -33,7 +33,7 @@ import {
   Trade as TradePangolin,
   Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
-import { Token as TokenCosmos } from './cosmos-base';
+import { Token as CosmosToken } from './cosmos-base';
 import {
   Token as TokenQuickswap,
   CurrencyAmount as CurrencyAmountQuickswap,
@@ -451,8 +451,8 @@ export interface Cosmosish extends CosmosBase {
   //   tokenAddress: string,
   //   signerOrProvider?: Wallet | Provider
   // ): Contract;
-  // gasPrice: number;
-  // nativeTokenSymbol: string;
+  gasPrice: number;
+  nativeTokenSymbol: string;
   chain: string;
 }
 export interface Sifchainish extends CosmosBase {
@@ -462,24 +462,24 @@ export interface Sifchainish extends CosmosBase {
   //   tokenAddress: string,
   //   signerOrProvider?: Wallet | Provider
   // ): Contract;
-  // gasPrice: number;
-  // nativeTokenSymbol: string;
+  gasPrice: number;
+  nativeTokenSymbol: string;
   chain: string;
 }
 
 export interface SifchainishConnector {
   estimateSellTrade(
-    baseToken: TokenCosmos,
-    quoteToken: TokenCosmos,
+    baseToken: CosmosToken,
+    quoteToken: CosmosToken,
     amount: string,
     allowedSlippage?: string
-  ): Promise<ExpectedTrade | string>;
+  ): Promise<any>;
   estimateBuyTrade(
-    quoteToken: TokenCosmos,
-    baseToken: TokenCosmos,
+    quoteToken: CosmosToken,
+    baseToken: CosmosToken,
     amount: string,
     allowedSlippage?: string
-  ): Promise<ExpectedTrade | string>;
+  ): Promise<any>;
   chain: string;
 }
 

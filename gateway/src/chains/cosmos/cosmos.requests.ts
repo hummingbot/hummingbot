@@ -1,3 +1,4 @@
+import { DecodedTxRaw } from '@cosmjs/proto-signing';
 import { TransactionResponse } from '@solana/web3.js';
 
 export type SolanaTransactionResponse = TransactionResponse;
@@ -15,8 +16,8 @@ export interface CosmosBalanceResponse {
 }
 
 export interface CosmosTokenRequest {
-  address: string; // the user's Cosmos address as Base58
-  token: string; // the token symbol the spender will be approved for
+  address: string;
+  token: string;
 }
 
 export interface SolanaTokenResponse {
@@ -40,8 +41,6 @@ export enum TransactionResponseStatusCode {
 export interface CosmosPollResponse {
   network: string;
   timestamp: number;
-  // currentBlock: number;
   txHash: string;
-  // txStatus: TransactionResponseStatusCode;
-  txData: SolanaTransactionResponse | null;
+  txData: DecodedTxRaw | null;
 }

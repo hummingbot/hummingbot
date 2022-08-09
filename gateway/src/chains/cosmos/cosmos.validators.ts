@@ -6,12 +6,10 @@ import {
   Validator,
   // isBase58,
   validateTxHash,
-  validateToken,
 } from '../../services/validators';
 // import bs58 from 'bs58';
 
 // invalid parameter errors
-
 export const invalidPrivateKeyError: string =
   'The privateKey param is not a valid Cosmos private key (base58 string worth 64 bytes).';
 
@@ -40,9 +38,3 @@ export const validateCosmosBalanceRequest: RequestValidator =
 export const validateCosmosPollRequest: RequestValidator = mkRequestValidator([
   validateTxHash,
 ]);
-
-export const validateSolanaGetTokenRequest: RequestValidator =
-  mkRequestValidator([validateToken, validatePublicKey]);
-
-export const validateSolanaPostTokenRequest: RequestValidator =
-  mkRequestValidator([validateToken, validatePublicKey]);
