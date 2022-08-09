@@ -1,28 +1,9 @@
 import { percentRegexp } from '../../services/config-manager-v2';
-// import {
-//   BigNumber,
-//   Contract,
-//   ContractInterface,
-//   Transaction,
-//   Wallet,
-// } from 'ethers';
-
 import { isFractionString } from '../../services/validators';
 import { SifchainConnectorConfig } from './sifchain.config';
-// import routerAbi from './IPangolinRouter.json';
-import {
-  Percent,
-  // Router,
-  Token,
-  // TokenAmount,
-  // Trade,
-} from '@pangolindex/sdk';
 const { Decimal } = require('@cosmjs/math');
 // import { logger } from '../../services/logger';
-import {
-  ExpectedTrade,
-  SifchainishConnector,
-} from '../../services/common-interfaces';
+import { SifchainishConnector } from '../../services/common-interfaces';
 import { Sifchain } from '../../chains/sifchain/sifchain';
 import { Token as CosmosToken } from '../../services/cosmos-base';
 import { logger } from '../../services/logger';
@@ -31,7 +12,6 @@ export class SifchainConnector implements SifchainishConnector {
   private static _instances: { [name: string]: SifchainConnector };
   private sifchain: Sifchain;
   public chain: string;
-  private _router: string;
   // private _routerAbi: ContractInterface;
   private _gasLimit: number;
   private _ttl: number;
@@ -42,9 +22,7 @@ export class SifchainConnector implements SifchainishConnector {
     this.chain = chain;
     const config = SifchainConnectorConfig.config;
     this.sifchain = Sifchain.getInstance(network);
-    this._router = config.routerAddress(network);
     this._ttl = config.ttl;
-    // this._routerAbi = routerAbi.abi;
     this._gasLimit = config.gasLimit;
   }
 
@@ -91,10 +69,6 @@ export class SifchainConnector implements SifchainishConnector {
     return this._ready;
   }
 
-  public get router(): string {
-    return this._router;
-  }
-
   public get ttl(): number {
     return this._ttl;
   }
@@ -113,7 +87,7 @@ export class SifchainConnector implements SifchainishConnector {
    *
    * @param allowedSlippageStr (Optional) should be of the form '1/10'.
    */
-  public getAllowedSlippage(allowedSlippageStr?: string): Percent {
+  public getAllowedSlippage(allowedSlippageStr?: string): any {
     if (allowedSlippageStr != null && isFractionString(allowedSlippageStr)) {
       return eval(allowedSlippageStr);
     }
@@ -137,10 +111,10 @@ export class SifchainConnector implements SifchainishConnector {
    * @param amount Amount of `baseToken` to put into the transaction
    */
   async estimateSellTrade(
-    baseToken: Token,
-    quoteToken: Token,
+    baseToken: any,
+    quoteToken: any,
     amount: string
-  ): Promise<ExpectedTrade | string> {
+  ): Promise<any> {
     /*
       There are huge differences between the returned value of this function and the one returned from https://sifchain.akash.pro/#/swap?from=uatom&to=rowan&slippage=1.0
       price impact and liquidity provider fees are almost the same
@@ -149,7 +123,7 @@ export class SifchainConnector implements SifchainishConnector {
       `Fetching pair data for ${baseToken.address}-${quoteToken.address}.`
     );
 
-    const signingClient = await this.sifchain._signingClient;
+    const signingClient = await this.sifchain.signingClient;
 
     const swap = await signingClient.simulateSwap(
       {
@@ -185,22 +159,22 @@ export class SifchainConnector implements SifchainishConnector {
    * @param amount Amount of `baseToken` desired from the transaction
    */
   async estimateBuyTrade(
-    quoteToken: Token,
-    baseToken: Token,
+    quoteToken: any,
+    baseToken: any,
     amount: string
-  ): Promise<ExpectedTrade | string> {
+  ): Promise<any> {
     /* We want to buy 100 atom, how many rowans do we need and what are the fees? */
     /*
       This currently takes the rowan per atom price and multiplies it by the amount of atoms we want to buy. 
       Then runs a simulation to get the fees, the problem is that the received amount is always less than the amount we want to buy.
 
-      What sdk does https://sifchain.akash.pro/#/swap?from=uatom&to=c1inch&slippage=1.0? We are able to write how much we want to buy there and it calculates the fees.
+      https://sifchain.akash.pro/#/swap?from=uatom&to=c1inch&slippage=1.0? We are able to write how much we want to buy there and it calculates the fees.
     */
     logger.info(
       `Fetching pair data for ${quoteToken.baseDenom}-${baseToken.baseDenom}.`
     );
 
-    const signingClient = await this.sifchain._signingClient;
+    const signingClient = await this.sifchain.signingClient;
 
     const quoteTokenPerBaseToken = await signingClient.simulateSwap(
       {
@@ -212,7 +186,8 @@ export class SifchainConnector implements SifchainishConnector {
     );
 
     const TotalQuoteTokenNeeded =
-      quoteTokenPerBaseToken.rawReceiving.toFloatApproximation() * amount;
+      quoteTokenPerBaseToken.rawReceiving.toFloatApproximation() *
+      parseInt(amount, 10);
 
     const swap = await signingClient.simulateSwap(
       {

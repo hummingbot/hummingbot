@@ -6,7 +6,6 @@ const { SifSigningStargateClient } = require('@sifchain/stargate');
 
 export class Sifchain extends CosmosBase implements Cosmosish {
   private static _instances: { [name: string]: Sifchain };
-  // private _ethGasStationUrl: string;
   private _gasPrice: number;
   private _gasPriceLastUpdated: Date | null;
   private _nativeTokenSymbol: string;
@@ -29,10 +28,6 @@ export class Sifchain extends CosmosBase implements Cosmosish {
       config.network.rpcURL
     );
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
-    // this._ethGasStationUrl =
-    //   CosmosConfig.ethGasStationConfig.gasStationURL +
-    //   CosmosConfig.ethGasStationConfig.APIKey;
-
     this._gasPrice = config.manualGasPrice;
     this._gasPriceLastUpdated = null;
 

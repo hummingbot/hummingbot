@@ -12,8 +12,10 @@ import { Openocean } from '../connectors/openocean/openocean';
 import { Quickswap } from '../connectors/quickswap/quickswap';
 import { Perp } from '../connectors/perp/perp';
 import {
+  // Cosmosish,
   // Ethereumish,
   Perpish,
+  // Sifchainish,
   Uniswapish,
   UniswapLPish,
 } from './common-interfaces';
@@ -22,7 +24,6 @@ import { Sushiswap } from '../connectors/sushiswap/sushiswap';
 import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
 
 export async function getChain(chain: string, network: string) {
-  // let chainInstance: Ethereumish;
   let chainInstance: any;
 
   if (chain === 'ethereum') chainInstance = Ethereum.getInstance(network);
@@ -47,7 +48,11 @@ export async function getConnector<T>(
   connector: string | undefined,
   address?: string
 ): Promise<ConnectorType<T>> {
-  let connectorInstance: Uniswapish | UniswapLPish | Perpish;
+  let connectorInstance:
+    | Uniswapish
+    | UniswapLPish
+    | Perpish
+    | SifchainConnector;
   if (
     (chain === 'ethereum' || chain === 'polygon') &&
     connector === 'uniswap'

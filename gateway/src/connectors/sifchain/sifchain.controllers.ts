@@ -41,16 +41,8 @@ export async function price(
 
   const { amount } = req;
 
-  const baseToken = getFullTokenFromSymbol(
-    sifchainish,
-    sifchainishConnector,
-    req.base
-  );
-  const quoteToken = getFullTokenFromSymbol(
-    sifchainish,
-    sifchainishConnector,
-    req.quote
-  );
+  const baseToken = getFullTokenFromSymbol(sifchainish, req.base);
+  const quoteToken = getFullTokenFromSymbol(sifchainish, req.quote);
 
   const result: ExpectedTrade | string =
     req.side === 'BUY'
@@ -251,11 +243,7 @@ export async function price(
 //   }
 // }
 
-function getFullTokenFromSymbol(
-  sifchainish: Sifchainish,
-  sifchainishConnector: SifchainishConnector,
-  tokenSymbol: string
-) {
+function getFullTokenFromSymbol(sifchainish: Sifchainish, tokenSymbol: string) {
   const token = sifchainish.getTokenBySymbol(tokenSymbol);
 
   if (!token)

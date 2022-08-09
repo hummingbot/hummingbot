@@ -118,7 +118,7 @@ export class Perp implements Perpish {
         );
       }
 
-      await this._perp.connect({ signer: this._wallet });
+      // await this._perp.connect({ signer: this._wallet });
       logger.info(
         `${this._wallet.address} wallet connected on perp ${this._chain}.`
       );
