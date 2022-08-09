@@ -18,10 +18,10 @@ from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position impo
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import PositionSide, TradeType
+from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
-    FundingInfo,
     MarketEvent,
     OrderType,
     PositionAction,
