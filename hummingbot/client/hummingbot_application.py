@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import time
 from collections import deque
 from typing import Deque, Dict, List, Optional, Tuple, Union
@@ -21,6 +22,7 @@ from hummingbot.client.config.gateway_ssl_config_map import SSLConfigMap
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
 from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, ConnectorType
+from hummingbot.client.executor import HeadlessExecutor
 from hummingbot.client.tab import __all__ as tab_classes
 from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.ui.completer import load_completer
@@ -40,7 +42,9 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.notifier.notifier_base import NotifierBase
-from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
+from hummingbot.notifier.telegram_notifier import TelegramNotifier
+from hummingbot.remote_iface.mqtt import MQTTEventForwarder, MQTTGateway
+from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 
@@ -110,15 +114,33 @@ class HummingbotApplication(*commands):
         # gateway variables and monitor
         self._gateway_monitor = GatewayStatusMonitor(self)
 
-        command_tabs = self.init_command_tabs()
-        self.parser: ThrowingArgumentParser = load_parser(self, command_tabs)
-        self.app = HummingbotCLI(
-            self.client_config_map,
-            input_handler=self._handle_command,
-            bindings=load_key_bindings(self),
-            completer=load_completer(self),
-            command_tabs=command_tabs
-        )
+        if os.getenv('HBOT_MQTT_GATEWAY') in (
+            '1', 'True', 'true', 'Yes',
+            'Nai', 'Si', 'Da', 'sudo'
+        ):
+            self.logger().info('Starting MQTT Gateway...')
+            self._mqtt = MQTTGateway(self)
+            self._mqtt.run()
+            self.notifiers.append(self._mqtt._notifier)
+
+        if os.getenv('HBOT_HAS_TUI') in ('1', 'Yes', 'yes', 'Nai', 'nai'):
+            command_tabs = self.init_command_tabs()
+            self.parser: ThrowingArgumentParser = load_parser(self, command_tabs)
+            self.app = HummingbotCLI(
+                input_handler=self._handle_command,
+                bindings=load_key_bindings(self),
+                completer=load_completer(self),
+                command_tabs=command_tabs
+            )
+        else:
+            self.app = HeadlessExecutor(self)
+
+        if os.getenv('HBOT_MQTT_GATEWAY') in (
+            '1', 'True', 'true', 'Yes',
+            'Nai', 'Si', 'Da', 'sudo'
+        ):
+            self.mqtt_event_forwarder = MQTTEventForwarder(self)
+            self.mqtt_event_forwarder.start()
 
         self._init_gateway_monitor()
 
