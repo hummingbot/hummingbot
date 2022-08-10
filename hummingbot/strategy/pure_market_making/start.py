@@ -40,7 +40,8 @@ def start(self):
             c_map.get("inventory_target_base_pct").value / Decimal('100')
         inventory_range_multiplier = c_map.get("inventory_range_multiplier").value
         filled_order_delay = c_map.get("filled_order_delay").value
-        hanging_orders_enabled = c_map.get("hanging_orders_enabled").value
+        hanging_buy_orders_enabled = c_map.get("hanging_buy_orders_enabled").value
+        hanging_sell_orders_enabled = c_map.get("hanging_sell_orders_enabled").value
         hanging_orders_cancel_pct = c_map.get("hanging_orders_cancel_pct").value / Decimal('100')
         order_optimization_enabled = c_map.get("order_optimization_enabled").value
         ask_order_optimization_depth = c_map.get("ask_order_optimization_depth").value
@@ -115,7 +116,8 @@ def start(self):
             inventory_target_base_pct=inventory_target_base_pct,
             inventory_range_multiplier=inventory_range_multiplier,
             filled_order_delay=filled_order_delay,
-            hanging_orders_enabled=hanging_orders_enabled,
+            hanging_buy_orders_enabled=hanging_buy_orders_enabled,
+            hanging_sell_orders_enabled=hanging_sell_orders_enabled,
             order_refresh_time=order_refresh_time,
             max_order_age=max_order_age,
             order_optimization_enabled=order_optimization_enabled,

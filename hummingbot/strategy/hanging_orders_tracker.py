@@ -246,14 +246,10 @@ class HangingOrdersTracker:
     def _did_complete_hanging_order(self, order: HangingOrder):
 
         if order:
-            if order.is_buy:
-                order_side = "BUY"
-                self._completed_hanging_orders[OrdS.BUY].add(order)
-                self._strategy_current_hanging_orders[OrdS.BUY].remove(order)
-            else:
-                order_side = "SELL"
-                self._completed_hanging_orders[OrdS.SELL].add(order)
-                self._strategy_current_hanging_orders[OrdS.SELL].remove(order)
+            order_side = "BUY" if order.is_buy else "SELL"
+
+            self._completed_hanging_orders[b_to_o(order.is_buy)].add(order)
+            self._strategy_current_hanging_orders[b_to_o(order.is_buy)].remove(order)
 
             self.logger().notify(
                 f"({self.trading_pair}) Hanging maker {order_side} order {order.order_id} "
@@ -285,12 +281,12 @@ class HangingOrdersTracker:
                 self.logger().info(f"({self.trading_pair}) Hanging BUY order {event.order_id} "
                                    f"has been canceled as part of the renew process. "
                                    f"Now the replacing order will be created.")
-                self._strategy_current_hanging_orders[OrdS.BUY].remove(renewing_order)
             else:
                 self.logger().info(f"({self.trading_pair}) Hanging SELL order {event.order_id} "
                                    f"has been canceled as part of the renew process. "
                                    f"Now the replacing order will be created.")
-                self._strategy_current_hanging_orders[OrdS.SELL].remove(renewing_order)
+
+            self._strategy_current_hanging_orders[b_to_o(renewing_order.is_buy)].remove(renewing_order)
 
             self.orders_being_renewed.remove(renewing_order)
             order_to_be_created = HangingOrder(None,
@@ -301,10 +297,7 @@ class HangingOrdersTracker:
                                                self.strategy.current_timestamp)
 
             executed_orders = self._execute_orders_in_strategy({order_to_be_created})
-            if renewing_order.is_buy:
-                self._strategy_current_hanging_orders[OrdS.BUY].update({o for o in executed_orders if o.is_buy})
-            else:
-                self._strategy_current_hanging_orders[OrdS.SELL].update({o for o in executed_orders if not o.is_buy})
+            self._strategy_current_hanging_orders[b_to_o(renewing_order.is_buy)].update({o for o in executed_orders if self._can_add(o)})
 
             for new_hanging_order in executed_orders:
                 limit_order_from_hanging_order = next((o for o in self.strategy.active_orders
@@ -444,6 +437,8 @@ class HangingOrdersTracker:
         new_hanging_orders = set()
         order_type = self.strategy.market_info.market.get_maker_order_type()
         for order in candidate_orders:
+            if not self._can_add(order):
+                continue
             # Only execute if order is new
             if order.order_id is None:
                 if order.amount > 0:
@@ -483,7 +478,7 @@ class HangingOrdersTracker:
                 self.orders_being_cancelled.add(order_id)
 
     def _get_equivalent_orders_no_aggregation(self, orders):
-        return frozenset(self._get_hanging_order_from_limit_order(o) for o in orders)
+        return frozenset(self._get_hanging_order_from_limit_order(o) for o in orders if self._can_add(o))
 
     def add_current_pairs_of_proposal_orders_executed_by_strategy(self, pair: CreatedPairOfOrders):
         self.current_created_pairs_of_orders.append(pair)

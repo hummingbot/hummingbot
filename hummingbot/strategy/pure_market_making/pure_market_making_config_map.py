@@ -60,6 +60,20 @@ def validate_price_source_exchange(value: str) -> Optional[str]:
     return validate_connector(value)
 
 
+def validate_hanging_orders(value: str) -> Optional[str]:
+    if 'hanging_orders_enabled' in pure_market_making_config_map:
+        return "The option 'hanging_orders_enabled' is invalid, use only BUY/SELL flags - Ignored"
+    return validate_bool(value)
+
+
+def validate_hanging_sell_orders(value: bool) -> Optional[str]:
+    error = None
+    if 'hanging_orders_enabled' in pure_market_making_config_map:
+        error = "The option 'hanging_orders_enabled' is invalid, use only BUY/SELL flags - Ignored"
+    pure_market_making_config_map['hanging_sell_orders_enabled'] = value
+    return error
+
+
 def on_validated_price_source_exchange(value: str):
     if value is None:
         pure_market_making_config_map["price_source_market"].value = None
@@ -287,29 +301,25 @@ pure_market_making_config_map = {
                   type_str="float",
                   validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
                   default=60),
-    "hanging_orders_enabled":
-        ConfigVar(key="hanging_orders_enabled",
-                  prompt="Do you want to enable hanging BUY&SELL orders? (Yes/No) >>> ",
-                  type_str="bool",
-                  default=False,
-                  validator=validate_bool),
     "hanging_buy_orders_enabled":
         ConfigVar(key="hanging_buy_orders_enabled",
                   prompt="Do you want to enable hanging BUY orders? (Yes/No) >>> ",
                   type_str="bool",
                   default=False,
-                  validator=validate_bool),
+                  validator=lambda v: validate_hanging_orders(v)),
     "hanging_sell_orders_enabled":
         ConfigVar(key="hanging_sell_orders_enabled",
                   prompt="Do you want to enable hanging SELL orders? (Yes/No) >>> ",
                   type_str="bool",
                   default=False,
-                  validator=validate_bool),
+                  validator=lambda v: validate_hanging_orders(v)),
     "hanging_orders_cancel_pct":
         ConfigVar(key="hanging_orders_cancel_pct",
                   prompt="At what spread percentage (from mid price) will hanging orders be canceled? "
                          "(Enter 1 to indicate 1%) >>> ",
-                  required_if=lambda: pure_market_making_config_map.get("hanging_orders_enabled").value or pure_market_making_config_map.get("hanging_buy_orders_enabled").value or pure_market_making_config_map.get("hanging_sell_orders_enabled").value,
+                  required_if=lambda: pure_market_making_config_map.get(
+                      "hanging_buy_orders_enabled").value or pure_market_making_config_map.get(
+                      "hanging_sell_orders_enabled").value,
                   type_str="decimal",
                   default=Decimal("10"),
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False)),
