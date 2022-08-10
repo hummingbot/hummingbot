@@ -219,6 +219,9 @@ cdef class ConnectorBase(NetworkIterator):
         self._trade_volume_metric_collector.process_tick(timestamp)
 
     cdef c_start(self, Clock clock, double timestamp):
+        self.start(clock=clock, timestamp=timestamp)
+
+    def start(self, Clock clock, double timestamp):
         NetworkIterator.c_start(self, clock, timestamp)
         self._trade_volume_metric_collector.start()
 
