@@ -168,7 +168,8 @@ class OkxExchange(ExchangePyBase):
                            amount: Decimal,
                            trade_type: TradeType,
                            order_type: OrderType,
-                           price: Decimal) -> Tuple[str, float]:
+                           price: Decimal,
+                           **kwargs) -> Tuple[str, float]:
         data = {
             "clOrdId": order_id,
             "tdMode": "cash",
