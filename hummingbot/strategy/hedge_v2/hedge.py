@@ -282,6 +282,8 @@ class HedgeStrategy(StrategyPyBase):
     def get_order_candidate(self, is_buy: bool, amount: Decimal, price: Decimal) -> Optional[OrderCandidate]:
         """
         Check if the balance is sufficient to place an order.
+        if not, adjust the amount to the balance available.
+        returns None if the order is not valid.
         """
         market_info = self._hedge_market_pair
         budget_checker = market_info.market.budget_checker
