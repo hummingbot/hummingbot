@@ -39,7 +39,8 @@ class PureMarketMakingStartTest(unittest.TestCase):
         c_map.get("inventory_target_base_pct").value = Decimal("50")
         c_map.get("inventory_range_multiplier").value = Decimal("2")
         c_map.get("filled_order_delay").value = 45.
-        c_map.get("hanging_orders_enabled").value = True
+        c_map.get("hanging_buy_orders_enabled").value = True
+        c_map.get("hanging_sell_orders_enabled").value = True
         c_map.get("hanging_orders_cancel_pct").value = Decimal("6")
         c_map.get("order_optimization_enabled").value = False
         c_map.get("ask_order_optimization_depth").value = Decimal("0.01")

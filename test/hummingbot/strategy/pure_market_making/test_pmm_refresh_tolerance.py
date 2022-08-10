@@ -79,7 +79,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
             order_amount=Decimal("1"),
             order_refresh_time=4,
             filled_order_delay=8,
-            hanging_orders_enabled=True,
+            hanging_buy_orders_enabled=True,
+            hanging_sell_orders_enabled=True,
             hanging_orders_cancel_pct=0.05,
             order_refresh_tolerance_pct=0
         )
@@ -106,7 +107,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
             order_refresh_time=4,
             filled_order_delay=8,
             order_refresh_tolerance_pct=0,
-            hanging_orders_enabled=True
+            hanging_buy_orders_enabled=True,
+            hanging_sell_orders_enabled=True,
         )
 
     def test_active_orders_are_cancelled_when_mid_price_moves(self):
