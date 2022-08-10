@@ -650,10 +650,10 @@ class PMMUnitTest(unittest.TestCase):
 
     def test_hanging_flag_mechanic(self):
         strategy = self.one_level_strategy
-        strategy.hanging_orders_enabled = True
 
         # Disabling
-        strategy.hanging_orders_enabled = False
+        strategy.hanging_buy_orders_enabled = False
+        strategy.hanging_sell_orders_enabled = False
 
         self.assertFalse(strategy.hanging_orders_enabled)
         # buy/sell are set to False when disabling hanging orders
@@ -664,20 +664,14 @@ class PMMUnitTest(unittest.TestCase):
         strategy.hanging_buy_orders_enabled = True
         self.assertTrue(strategy.hanging_buy_orders_enabled)
         self.assertTrue(strategy.hanging_orders_enabled)
-        # Resetting 'master' to False sets BUY/SELL to False
-        strategy.hanging_orders_enabled = False
-        self.assertFalse(strategy.hanging_buy_orders_enabled)
-        self.assertFalse(strategy.hanging_sell_orders_enabled)
         # Setting SELL True triggers the 'master switch'
         strategy.hanging_sell_orders_enabled = True
         self.assertTrue(strategy.hanging_sell_orders_enabled)
         self.assertTrue(strategy.hanging_orders_enabled)
-        strategy.hanging_orders_enabled = False
-        self.assertFalse(strategy.hanging_buy_orders_enabled)
-        self.assertFalse(strategy.hanging_sell_orders_enabled)
 
         # Enabling
-        strategy.hanging_orders_enabled = True
+        strategy.hanging_buy_orders_enabled = True
+        strategy.hanging_sell_orders_enabled = True
 
         self.assertTrue(strategy.hanging_orders_enabled)
         # buy/sell follows the master switch
@@ -689,7 +683,7 @@ class PMMUnitTest(unittest.TestCase):
         self.assertTrue(Decimal("0.1"), strategy.hanging_orders_cancel_pct)
 
         # Disabling Sell
-        strategy.hanging_orders_enabled = True
+        strategy.hanging_buy_orders_enabled = True
         strategy.hanging_sell_orders_enabled = False
 
         self.assertTrue(strategy.hanging_orders_enabled)
@@ -699,7 +693,7 @@ class PMMUnitTest(unittest.TestCase):
         self.assertTrue(Decimal("0.1"), strategy.hanging_orders_cancel_pct)
 
         # Disabling Buy
-        strategy.hanging_orders_enabled = True
+        strategy.hanging_sell_orders_enabled = True
         strategy.hanging_buy_orders_enabled = False
 
         self.assertTrue(strategy.hanging_orders_enabled)
@@ -722,7 +716,8 @@ class PMMUnitTest(unittest.TestCase):
         strategy = self.one_level_strategy
         strategy.order_refresh_time = 4.0
         strategy.filled_order_delay = 8.0
-        strategy.hanging_orders_enabled = True
+        strategy.hanging_buy_orders_enabled = True
+        strategy.hanging_sell_orders_enabled = True
         strategy.hanging_orders_cancel_pct = Decimal("0.05")
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
@@ -767,7 +762,7 @@ class PMMUnitTest(unittest.TestCase):
         strategy = self.one_level_strategy
         strategy.order_refresh_time = 4.0
         strategy.filled_order_delay = 8.0
-        strategy.hanging_orders_enabled = True
+        strategy.hanging_buy_orders_enabled = True
         strategy.hanging_sell_orders_enabled = True
         strategy.hanging_orders_cancel_pct = Decimal("0.05")
         self.clock.add_iterator(strategy)
@@ -813,7 +808,7 @@ class PMMUnitTest(unittest.TestCase):
         strategy = self.one_level_strategy
         strategy.order_refresh_time = 4.0
         strategy.filled_order_delay = 8.0
-        strategy.hanging_orders_enabled = True
+        strategy.hanging_buy_orders_enabled = True
         strategy.hanging_orders_cancel_pct = Decimal("0.05")
         strategy.hanging_sell_orders_enabled = False
         self.clock.add_iterator(strategy)
@@ -842,7 +837,7 @@ class PMMUnitTest(unittest.TestCase):
         strategy = self.one_level_strategy
         strategy.order_refresh_time = 4.0
         strategy.filled_order_delay = 8.0
-        strategy.hanging_orders_enabled = True
+        strategy.hanging_buy_orders_enabled = True
         strategy.hanging_sell_orders_enabled = False
         strategy.hanging_orders_cancel_pct = Decimal("0.05")
         self.clock.add_iterator(strategy)
@@ -888,7 +883,7 @@ class PMMUnitTest(unittest.TestCase):
         strategy = self.one_level_strategy
         strategy.order_refresh_time = 4.0
         strategy.filled_order_delay = 8.0
-        strategy.hanging_orders_enabled = True
+        strategy.hanging_sell_orders_enabled = True
         strategy.hanging_buy_orders_enabled = False
         strategy.hanging_orders_cancel_pct = Decimal("0.05")
         self.clock.add_iterator(strategy)
@@ -919,7 +914,6 @@ class PMMUnitTest(unittest.TestCase):
         # be calculated. We manually add the order to to_recreate_hanging_orders and trigger order cancel event here to
         # simulate the recreate.
         strategy = self.one_level_strategy
-        strategy.hanging_orders_enabled = True
         strategy.hanging_sell_orders_enabled = True
 
         self.clock.add_iterator(strategy)
@@ -952,7 +946,6 @@ class PMMUnitTest(unittest.TestCase):
         # be calculated. We manually add the order to to_recreate_hanging_orders and trigger order cancel event here to
         # simulate the recreate.
         strategy = self.one_level_strategy
-        strategy.hanging_orders_enabled = True
         strategy.hanging_buy_orders_enabled = True
 
         self.clock.add_iterator(strategy)
@@ -982,10 +975,9 @@ class PMMUnitTest(unittest.TestCase):
         strategy = self.multi_levels_strategy
         strategy.order_refresh_time = 4.0
         strategy.filled_order_delay = 8.0
-        strategy.hanging_orders_enabled = True
-        strategy.hanging_orders_cancel_pct = Decimal("0.05")
         strategy.hanging_buy_orders_enabled = True
         strategy.hanging_sell_orders_enabled = True
+        strategy.hanging_orders_cancel_pct = Decimal("0.05")
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
         self.assertEqual(3, len(strategy.active_buys))
@@ -1024,7 +1016,6 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(3, len(strategy.active_buys))
         self.assertEqual(3, len(strategy.active_sells))
         self.assertFalse(any(o.client_order_id in strategy.hanging_order_ids for o in strategy.active_sells))
-        self.assertFalse(any(o.client_order_id in strategy.hanging_sell_order_ids for o in strategy.active_sells))
 
         self.order_fill_logger.clear()
 
@@ -1032,10 +1023,9 @@ class PMMUnitTest(unittest.TestCase):
         strategy = self.multi_levels_strategy
         strategy.order_refresh_time = 4.0
         strategy.filled_order_delay = 8.0
-        strategy.hanging_orders_enabled = True
-        strategy.hanging_orders_cancel_pct = Decimal("0.05")
         strategy.hanging_buy_orders_enabled = True
         strategy.hanging_sell_orders_enabled = False
+        strategy.hanging_orders_cancel_pct = Decimal("0.05")
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
         self.assertEqual(3, len(strategy.active_buys))
@@ -1071,10 +1061,9 @@ class PMMUnitTest(unittest.TestCase):
         strategy = self.multi_levels_strategy
         strategy.order_refresh_time = 4.0
         strategy.filled_order_delay = 8.0
-        strategy.hanging_orders_enabled = True
-        strategy.hanging_orders_cancel_pct = Decimal("0.05")
         strategy.hanging_buy_orders_enabled = True
         strategy.hanging_sell_orders_enabled = True
+        strategy.hanging_orders_cancel_pct = Decimal("0.05")
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
         self.assertEqual(3, len(strategy.active_buys))
@@ -1120,10 +1109,9 @@ class PMMUnitTest(unittest.TestCase):
         strategy = self.multi_levels_strategy
         strategy.order_refresh_time = 4.0
         strategy.filled_order_delay = 8.0
-        strategy.hanging_orders_enabled = True
-        strategy.hanging_orders_cancel_pct = Decimal("0.05")
         strategy.hanging_buy_orders_enabled = False
         strategy.hanging_sell_orders_enabled = True
+        strategy.hanging_orders_cancel_pct = Decimal("0.05")
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
         self.assertEqual(3, len(strategy.active_buys))

@@ -64,7 +64,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     inventory_skew_enabled: bool = False,
                     inventory_target_base_pct: Decimal = s_decimal_zero,
                     inventory_range_multiplier: Decimal = s_decimal_zero,
-                    hanging_orders_enabled: bool = False,
                     hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
                     hanging_buy_orders_enabled: bool = False,
                     hanging_sell_orders_enabled: bool = False,
@@ -114,10 +113,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._inventory_skew_enabled = inventory_skew_enabled
         self._inventory_target_base_pct = inventory_target_base_pct
         self._inventory_range_multiplier = inventory_range_multiplier
-        self._hanging_orders_enabled = hanging_orders_enabled
-        self._hanging_orders_tracker = HangingOrdersTracker(self, hanging_orders_cancel_pct)
-        self._hanging_buy_orders_enabled = hanging_orders_enabled or hanging_buy_orders_enabled
-        self._hanging_sell_orders_enabled = hanging_orders_enabled or hanging_sell_orders_enabled
+        self._hanging_orders_tracker = HangingOrdersTracker(self,
+                                                            hanging_orders_cancel_pct,
+                                                            hanging_buy_orders_enabled=hanging_buy_orders_enabled,
+                                                            hanging_sell_orders_enabled=hanging_sell_orders_enabled,
+                                                            )
+        self._hanging_buy_orders_enabled = hanging_buy_orders_enabled
+        self._hanging_sell_orders_enabled = hanging_sell_orders_enabled
         self._order_optimization_enabled = order_optimization_enabled
         self._ask_order_optimization_depth = ask_order_optimization_depth
         self._bid_order_optimization_depth = bid_order_optimization_depth
@@ -267,7 +269,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     # Nested hanging order enabled  getter properties
     @property
     def hanging_orders_enabled(self) -> bool:
-        return self._hanging_orders_enabled
+        return self._hanging_buy_orders_enabled or self._hanging_sell_orders_enabled
 
     @property
     def hanging_buy_orders_enabled(self) -> bool:
@@ -277,38 +279,16 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     def hanging_sell_orders_enabled(self) -> bool:
         return self._hanging_sell_orders_enabled
 
-    @hanging_orders_enabled.setter
-    def hanging_orders_enabled(self, value: bool):
-        self._hanging_orders_enabled = value
-        # For backward compatibility (old .yml not having buy/sell) enable/disable buy/sell
-        self._hanging_buy_orders_enabled = value
-        self._hanging_sell_orders_enabled = value
-        # Update the tracker
-        self._hanging_orders_tracker.hanging_buy_orders_enabled = value
-        self._hanging_orders_tracker.hanging_sell_orders_enabled = value
-
     @hanging_buy_orders_enabled.setter
     def hanging_buy_orders_enabled(self, value: bool):
         self._hanging_buy_orders_enabled = value
         self._hanging_orders_tracker.hanging_buy_orders_enabled = value
-        # If BUY is set, force the default flag set
-        if value is True and self.hanging_orders_enabled is False:
-            self._hanging_orders_enabled = value
-        # If SELL is unset and BUY is unset, unset the default flag
-        if value is False and self.hanging_sell_orders_enabled is False:
-            self._hanging_orders_enabled = False
 
 
     @hanging_sell_orders_enabled.setter
     def hanging_sell_orders_enabled(self, value: bool):
         self._hanging_sell_orders_enabled = value
         self._hanging_orders_tracker.hanging_sell_orders_enabled = value
-        # If SELL is set, force the default flag set
-        if value is True and self.hanging_orders_enabled is False:
-            self._hanging_orders_enabled = value
-        # If SELL is unset and BUY is unset, unset the default flag
-        if value is False and self.hanging_buy_orders_enabled is False:
-            self._hanging_orders_enabled = False
 
     @property
     def hanging_orders_cancel_pct(self) -> Decimal:
@@ -752,7 +732,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         self._hanging_orders_tracker.register_events(self.active_markets)
 
-        if self._hanging_orders_enabled:
+        if self.hanging_orders_enabled:
             # start tracking any restored limit order
             restored_order_ids = self.c_track_restored_orders(self.market_info)
             # make restored order hanging orders
