@@ -28,7 +28,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         bint _inventory_skew_enabled
         object _inventory_target_base_pct
         object _inventory_range_multiplier
-        bint _hanging_orders_enabled
         bint _hanging_orders_asymmetry_enabled
         bint _hanging_buy_orders_enabled
         bint _hanging_sell_orders_enabled
