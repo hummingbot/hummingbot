@@ -24,7 +24,7 @@ class MockPerpConnector(MockPaperExchange, PerpetualTrading):
             self,
             client_config_map=client_config_map,
             trade_fee_schema=trade_fee_schema)
-        PerpetualTrading.__init__(self)
+        PerpetualTrading.__init__(self, [self.trading_pair])
         self._budget_checker = PerpetualBudgetChecker(exchange=self)
         self._funding_payment_span = [0, 10]
         self._buy_collateral_token = buy_collateral_token

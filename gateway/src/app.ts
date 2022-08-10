@@ -22,13 +22,14 @@ import { PangolinConfig } from './connectors/pangolin/pangolin.config';
 import { QuickswapConfig } from './connectors/quickswap/quickswap.config';
 import { TraderjoeConfig } from './connectors/traderjoe/traderjoe.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
+import { OpenoceanConfig } from './connectors/openocean/openocean.config';
 import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
+import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.config';
 
-const swaggerUi = require('swagger-ui-express');
-
-const childProcess = require('child_process');
+import swaggerUi from 'swagger-ui-express';
+import childProcess from 'child_process';
 
 export const gatewayApp = express();
 
@@ -72,7 +73,9 @@ interface ConnectorsResponse {
   pangolin: Array<AvailableNetworks>;
   quickswap: Array<AvailableNetworks>;
   sushiswap: Array<AvailableNetworks>;
+  openocean: Array<AvailableNetworks>;
   traderjoe: Array<AvailableNetworks>;
+  defikingdoms: Array<AvailableNetworks>;
 }
 
 gatewayApp.get(
@@ -83,7 +86,9 @@ gatewayApp.get(
       pangolin: PangolinConfig.config.availableNetworks,
       quickswap: QuickswapConfig.config.availableNetworks,
       sushiswap: SushiswapConfig.config.availableNetworks,
+      openocean: OpenoceanConfig.config.availableNetworks,
       traderjoe: TraderjoeConfig.config.availableNetworks,
+      defikingdoms: DefikingdomsConfig.config.availableNetworks,
     });
   })
 );
@@ -93,7 +98,7 @@ gatewayApp.get(
 process.on('exit', function (code) {
   // don't restart when signal is 2.
   if (code !== 2)
-    childProcess.spawn(process.argv.shift(), process.argv, {
+    childProcess.spawn(process.argv.shift() as string, process.argv, {
       cwd: process.cwd(),
       detached: true,
       stdio: 'inherit',
