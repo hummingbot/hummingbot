@@ -11,8 +11,6 @@ echo
 HOST_CONF_PATH="${1:=(pwd -P)/conf}"
 
 echo "HOST_CONF_PATH=$HOST_CONF_PATH"
-echo "INFURA_API_KEY=$INFURA_API_KEY"
-echo "BSC_NODE_URL"=$BSC_NODE_URL
 
 mkdir -p $HOST_CONF_PATH
 
