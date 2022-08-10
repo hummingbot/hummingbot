@@ -30,6 +30,8 @@ class OrderState(Enum):
     FAILED = 6
     PENDING_APPROVAL = 7
     APPROVED = 8
+    CREATED = 9
+    COMPLETED = 10
 
 
 class OrderUpdate(NamedTuple):
@@ -356,3 +358,17 @@ class InFlightOrder:
 
     async def wait_until_completely_filled(self):
         await self.completely_filled_event.wait()
+
+    def build_order_created_message(self) -> str:
+        return (
+            f"Created {self.order_type.name.upper()} {self.trade_type.name.upper()} order "
+            f"{self.client_order_id} for {self.amount} {self.trading_pair}."
+        )
+
+
+class PerpetualDerivativeInFlightOrder(InFlightOrder):
+    def build_order_created_message(self) -> str:
+        return (
+            f"Created {self.order_type.name.upper()} {self.trade_type.name.upper()} order "
+            f"{self.client_order_id} for {self.amount} to {self.position.name.upper()} a {self.trading_pair} position."
+        )

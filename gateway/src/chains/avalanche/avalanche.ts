@@ -6,6 +6,7 @@ import { getEthereumConfig as getAvalancheConfig } from '../ethereum/ethereum.co
 import { Provider } from '@ethersproject/abstract-provider';
 import { TraderjoeConfig } from '../../connectors/traderjoe/traderjoe.config';
 import { PangolinConfig } from '../../connectors/pangolin/pangolin.config';
+import { OpenoceanConfig } from '../../connectors/openocean/openocean.config';
 import { Ethereumish } from '../../services/common-interfaces';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
@@ -79,6 +80,8 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     let spender: string;
     if (reqSpender === 'pangolin') {
       spender = PangolinConfig.config.routerAddress(this._chain);
+    } else if (reqSpender === 'openocean') {
+      spender = OpenoceanConfig.config.routerAddress(this._chain);
     } else if (reqSpender === 'traderjoe') {
       spender = TraderjoeConfig.config.routerAddress(this._chain);
     } else {

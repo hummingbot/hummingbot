@@ -9,7 +9,7 @@ import {
 } from 'ethers';
 import { EthereumBase } from './ethereum-base';
 import { Provider } from '@ethersproject/abstract-provider';
-import { CurrencyAmount, Token } from '@uniswap/sdk';
+import { CurrencyAmount, Token, Trade as TradeUniswap } from '@uniswap/sdk';
 import { Trade } from '@uniswap/router-sdk';
 import { Trade as UniswapV3Trade } from '@uniswap/v3-sdk';
 import {
@@ -19,6 +19,13 @@ import {
   Token as UniswapCoreToken,
   Fraction as UniswapFraction,
 } from '@uniswap/sdk-core';
+import {
+  Token as TokenDefikingdoms,
+  CurrencyAmount as CurrencyAmountDefikingdoms,
+  Trade as TradeDefikingdoms,
+  Fraction as DefikingdomsFraction,
+  // } from '@defikingdoms/sdk';
+} from '@switchboard-xyz/defikingdoms-sdk';
 import {
   Token as TokenPangolin,
   CurrencyAmount as CurrencyAmountPangolin,
@@ -50,34 +57,40 @@ import { PerpPosition } from '../connectors/perp/perp';
 export type Tokenish =
   | Token
   | TokenPangolin
+  | UniswapCoreToken
   | TokenQuickswap
   | TokenTraderjoe
   | UniswapCoreToken
-  | SushiToken;
+  | SushiToken
+  | TokenDefikingdoms;
+
 export type UniswapishTrade =
   | Trade<Currency, Currency, TradeType>
   | TradePangolin
+  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
   | TradeQuickswap
   | TradeTraderjoe
-  | SushiswapTrade<
-      SushiToken,
-      SushiToken,
-      SushiTradeType.EXACT_INPUT | SushiTradeType.EXACT_OUTPUT
-    >
-  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
+  | SushiswapTrade<SushiToken, SushiToken, SushiTradeType>
+  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
+  | TradeUniswap
+  | TradeDefikingdoms;
+
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
   | CurrencyAmountQuickswap
   | UniswapCoreCurrencyAmount<Currency>
   | CurrencyAmountTraderjoe
-  | SushiCurrencyAmount<SushiCurrency | SushiToken>;
+  | SushiCurrencyAmount<SushiCurrency | SushiToken>
+  | CurrencyAmountDefikingdoms;
+
 export type Fractionish =
   | UniswapFraction
   | PangolinFraction
   | QuickswapFraction
   | TraderjoeFraction
-  | SushiFraction;
+  | SushiFraction
+  | DefikingdomsFraction;
 
 export interface ExpectedTrade {
   trade: UniswapishTrade;

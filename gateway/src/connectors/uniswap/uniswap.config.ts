@@ -30,11 +30,17 @@ export namespace UniswapConfig {
         `uniswap.contractAddresses.${network}.uniswapV3NftManagerAddress`
       ),
     tradingTypes: (type: string) => {
-      return type === 'swap' ? ['EVM_AMM'] : ['EVM_Range_AMM'];
+      return type === 'swap' ? ['EVM_AMM'] : ['EVM_AMM_LP'];
     },
     availableNetworks: [
       {
         chain: 'ethereum',
+        networks: Object.keys(
+          ConfigManagerV2.getInstance().get('uniswap.contractAddresses')
+        ),
+      },
+      {
+        chain: 'polygon',
         networks: Object.keys(
           ConfigManagerV2.getInstance().get('uniswap.contractAddresses')
         ),

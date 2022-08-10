@@ -79,6 +79,7 @@ class GatewayEVMAMM(ConnectorBase):
                  network: str,
                  wallet_address: str,
                  trading_pairs: List[str] = [],
+                 additional_spenders: List[str] = [],  # not implemented
                  trading_required: bool = True
                  ):
         """
@@ -112,7 +113,7 @@ class GatewayEVMAMM(ConnectorBase):
         self._poll_notifier = None
         self._native_currency = None
         self._network_transaction_fee: Optional[TokenAmount] = None
-        self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
+        self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self, lost_order_count_limit=10)
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
