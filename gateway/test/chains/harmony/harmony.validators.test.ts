@@ -66,6 +66,22 @@ describe('validateSpender', () => {
     ).toEqual([]);
   });
 
+  it("valid when req.spender is 'viperswap'", () => {
+    expect(
+      validateSpender({
+        spender: 'viperswap',
+      })
+    ).toEqual([]);
+  });
+
+  it("valid when req.spender is 'defikingdoms'", () => {
+    expect(
+      validateSpender({
+        spender: 'defikingdoms',
+      })
+    ).toEqual([]);
+  });
+
   it('return error when req.spender does not exist', () => {
     expect(
       validateSpender({

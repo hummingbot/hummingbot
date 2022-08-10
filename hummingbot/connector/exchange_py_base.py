@@ -53,12 +53,12 @@ class ExchangePyBase(ExchangeBase, ABC):
         self._trading_rules = {}
         self._trading_fees = {}
 
-        self._status_polling_task = None
-        self._user_stream_tracker_task = None
-        self._user_stream_event_listener_task = None
-        self._trading_rules_polling_task = None
-        self._trading_fees_polling_task = None
-        self._lost_orders_update_task = None
+        self._status_polling_task: Optional[asyncio.Task] = None
+        self._user_stream_tracker_task: Optional[asyncio.Task] = None
+        self._user_stream_event_listener_task: Optional[asyncio.Task] = None
+        self._trading_rules_polling_task: Optional[asyncio.Task] = None
+        self._trading_fees_polling_task: Optional[asyncio.Task] = None
+        self._lost_orders_update_task: Optional[asyncio.Task] = None
 
         self._time_synchronizer = TimeSynchronizer()
         self._throttler = AsyncThrottler(
@@ -318,7 +318,8 @@ class ExchangePyBase(ExchangeBase, ABC):
             trading_pair=trading_pair,
             amount=amount,
             order_type=order_type,
-            price=price))
+            price=price,
+            **kwargs))
         return order_id
 
     def sell(self,
@@ -347,7 +348,8 @@ class ExchangePyBase(ExchangeBase, ABC):
             trading_pair=trading_pair,
             amount=amount,
             order_type=order_type,
-            price=price))
+            price=price,
+            **kwargs))
         return order_id
 
     def get_fee(self,
@@ -359,9 +361,9 @@ class ExchangePyBase(ExchangeBase, ABC):
                 price: Decimal = s_decimal_NaN,
                 is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
-        Calculates the fee to pay based on the fee information provided by the exchange for the account and the token pair.
-        If exchange info is not available it calculates the estimated fee an order would pay based on the connector
-            configuration
+        Calculates the fee to pay based on the fee information provided by the exchange for
+        the account and the token pair. If exchange info is not available it calculates the estimated
+        fee an order would pay based on the connector configuration.
 
         :param base_currency: the order base currency
         :param quote_currency: the order quote currency
@@ -425,7 +427,8 @@ class ExchangePyBase(ExchangeBase, ABC):
                             trading_pair: str,
                             amount: Decimal,
                             order_type: OrderType,
-                            price: Optional[Decimal] = None):
+                            price: Optional[Decimal] = None,
+                            **kwargs):
         """
         Creates an order in the exchange using the parameters to configure it
 
@@ -453,7 +456,8 @@ class ExchangePyBase(ExchangeBase, ABC):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            **kwargs,
         )
 
         if order_type not in self.supported_order_types():
@@ -479,7 +483,9 @@ class ExchangePyBase(ExchangeBase, ABC):
                 amount=amount,
                 trade_type=trade_type,
                 order_type=order_type,
-                price=price)
+                price=price,
+                **kwargs,
+            )
 
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
@@ -569,7 +575,8 @@ class ExchangePyBase(ExchangeBase, ABC):
                              trade_type: TradeType,
                              price: Decimal,
                              amount: Decimal,
-                             order_type: OrderType):
+                             order_type: OrderType,
+                             **kwargs):
         """
         Starts tracking an order by adding it to the order tracker.
 
@@ -618,7 +625,8 @@ class ExchangePyBase(ExchangeBase, ABC):
                            amount: Decimal,
                            trade_type: TradeType,
                            order_type: OrderType,
-                           price: Decimal
+                           price: Decimal,
+                           **kwargs,
                            ) -> Tuple[str, float]:
         raise NotImplementedError
 
@@ -824,12 +832,11 @@ class ExchangePyBase(ExchangeBase, ABC):
     # === Exchange / Trading logic methods that call the API ===
 
     async def _update_trading_rules(self):
-        exchange_info = await self._api_get(path_url=self.trading_rules_request_path)
+        exchange_info = await self._initialize_trading_pair_symbol_map()
         trading_rules_list = await self._format_trading_rules(exchange_info)
         self._trading_rules.clear()
         for trading_rule in trading_rules_list:
             self._trading_rules[trading_rule.trading_pair] = trading_rule
-        self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
 
     async def _api_get(self, *args, **kwargs):
         kwargs["method"] = RESTMethod.GET
@@ -854,7 +861,8 @@ class ExchangePyBase(ExchangeBase, ABC):
                            data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
                            return_err: bool = False,
-                           limit_id: Optional[str] = None) -> Dict[str, Any]:
+                           limit_id: Optional[str] = None,
+                           **kwargs) -> Dict[str, Any]:
 
         last_exception = None
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
@@ -1004,8 +1012,10 @@ class ExchangePyBase(ExchangeBase, ABC):
         raise NotImplementedError
 
     async def _initialize_trading_pair_symbol_map(self):
+        exchange_info = None
         try:
             exchange_info = await self._api_get(path_url=self.trading_pairs_request_path)
             self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
         except Exception:
             self.logger().exception("There was an error requesting exchange info.")
+        return exchange_info
