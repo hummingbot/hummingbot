@@ -25,7 +25,7 @@ development-diff-cover:
 	diff-cover --compare-branch=origin/development coverage.xml
 
 docker:
-	make clean && docker build -t bayokotavuk/hbot -f Dockerfile .
+	make clean && docker build -t hummingbot/hbot -f Dockerfile .
 
 clean:
 	./clean

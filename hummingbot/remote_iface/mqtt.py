@@ -173,10 +173,11 @@ class MQTTEventForwarder:
             (events.MarketEvent.OrderCancelled, self._mqtt_fowarder),
             (events.MarketEvent.OrderExpired, self._mqtt_fowarder),
         ]
-        self._app_event_pairs: List[Tuple[int, EventListener]] = [
-            (events.CustomEvent.KillSwitchTriggered, self._mqtt_fowarder),
-            (events.CustomEvent.MarketInitialized, self._mqtt_fowarder),
-        ]
+        self._app_event_pairs: List[Tuple[int, EventListener]] = []
+        # self._app_event_pairs: List[Tuple[int, EventListener]] = [
+        #     (events.CustomEvent.KillSwitchTriggered, self._mqtt_fowarder),
+        #     (events.CustomEvent.MarketInitialized, self._mqtt_fowarder),
+        # ]
 
         self.event_fw_pub = hb_app._mqtt.create_publisher(topic=self._topic, msg_type=EventMessage)
 
@@ -195,8 +196,8 @@ class MQTTEventForwarder:
                 events.MarketEvent.OrderCancelled.value: "OrderCancelled",
                 events.MarketEvent.OrderExpired.value: "OrderExpired",
                 events.MarketEvent.OrderFailure.value: "OrderFailure",
-                events.CustomEvent.KillSwitchTriggered.value: "KillSwitchTriggered",
-                events.CustomEvent.MarketInitialized.value: "MarketInitialized",
+                # events.CustomEvent.KillSwitchTriggered.value: "KillSwitchTriggered",
+                # events.CustomEvent.MarketInitialized.value: "MarketInitialized",
             }
             event_type = event_types[event_tag]
         except KeyError:
