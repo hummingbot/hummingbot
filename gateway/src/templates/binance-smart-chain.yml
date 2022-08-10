@@ -4,8 +4,7 @@ networks:
     chainID: 56
     nodeURL: 'https://bsc-dataseed1.binance.org/'
     tokenListType: URL
-    tokenListSource: >-
-      https://gateway.pinata.cloud/ipfs/QmdKy1K5TMzSHncLzUXUJdvKi1tHRmJocDRfmCXxW5mshS  # Pancakeswap Token List
+    tokenListSource: https://gateway.pinata.cloud/ipfs/QmdKy1K5TMzSHncLzUXUJdvKi1tHRmJocDRfmCXxW5mshS
     nativeCurrencySymbol: 'BNB'    
   testnet: 
     chainID: 97
