@@ -12,6 +12,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         object _price_delegate
         object _minimum_spread
         bint _hanging_orders_enabled
+        bint _hanging_buy_orders_enabled
+        bint _hanging_sell_orders_enabled
         object _hanging_orders_cancel_pct
         object _hanging_orders_tracker
         bint _add_transaction_costs_to_orders

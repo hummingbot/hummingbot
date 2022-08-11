@@ -135,7 +135,7 @@ ORDER_LEVEL_MODELS = {
 }
 
 
-class TrackHangingOrdersModel(BaseClientModel):
+class TrackHangingBuyAndSellOrdersModel(BaseClientModel):
     hanging_orders_cancel_pct: Decimal = Field(
         default=Decimal("10"),
         description="The spread percentage at which hanging orders will be cancelled.",
@@ -160,13 +160,65 @@ class TrackHangingOrdersModel(BaseClientModel):
         return v
 
 
+class TrackHangingBuyOrdersOnlyModel(BaseClientModel):
+    hanging_buy_orders_cancel_pct: Decimal = Field(
+        default=Decimal("10"),
+        description="The spread percentage at which hanging BUY orders will be cancelled.",
+        gt=0,
+        lt=100,
+        client_data=ClientFieldData(
+            prompt=lambda mi: (
+                "At what spread percentage (from mid price) will hanging BUY orders be canceled?"
+                " (Enter 1 to indicate 1%)"
+            ),
+        )
+    )
+
+    class Config:
+        title = "track_hanging_buy_orders"
+
+    @validator("hanging_buy_orders_cancel_pct", pre=True)
+    def validate_pct_exclusive(cls, v: str):
+        ret = validate_decimal(v, min_value=Decimal("0"), max_value=Decimal("100"), inclusive=False)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+
+class TrackHangingSellOrdersOnlyModel(BaseClientModel):
+    hanging_sell_orders_cancel_pct: Decimal = Field(
+        default=Decimal("10"),
+        description="The spread percentage at which hanging orders will be cancelled.",
+        gt=0,
+        lt=100,
+        client_data=ClientFieldData(
+            prompt=lambda mi: (
+                "At what spread percentage (from mid price) will hanging orders be canceled?"
+                " (Enter 1 to indicate 1%)"
+            ),
+        )
+    )
+
+    class Config:
+        title = "track_hanging_sell_orders"
+
+    @validator("hanging_sell_orders_cancel_pct", pre=True)
+    def validate_pct_exclusive(cls, v: str):
+        ret = validate_decimal(v, min_value=Decimal("0"), max_value=Decimal("100"), inclusive=False)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+
 class IgnoreHangingOrdersModel(BaseClientModel):
     class Config:
         title = "ignore_hanging_orders"
 
 
 HANGING_ORDER_MODELS = {
-    TrackHangingOrdersModel.Config.title: TrackHangingOrdersModel,
+    TrackHangingBuyAndSellOrdersModel.Config.title: TrackHangingBuyAndSellOrdersModel,
+    TrackHangingBuyOrdersOnlyModel.Config.title: TrackHangingBuyOrdersOnlyModel,
+    TrackHangingSellOrdersOnlyModel.Config.title: TrackHangingSellOrdersOnlyModel,
     IgnoreHangingOrdersModel.Config.title: IgnoreHangingOrdersModel,
 }
 
@@ -318,7 +370,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
         description="Allows custom specification of the order levels and their spreads and amounts.",
         client_data=None,
     )
-    hanging_orders_mode: Union[IgnoreHangingOrdersModel, TrackHangingOrdersModel] = Field(
+    hanging_orders_mode: Union[IgnoreHangingOrdersModel, TrackHangingBuyAndSellOrdersModel, TrackHangingBuyOrdersOnlyModel, TrackHangingSellOrdersOnlyModel] = Field(
         default=IgnoreHangingOrdersModel(),
         description="When tracking hanging orders, the orders on the side opposite to the filled orders remain active.",
         client_data=ClientFieldData(
@@ -398,8 +450,8 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
         return sub_model
 
     @validator("hanging_orders_mode", pre=True)
-    def validate_hanging_orders_mode(cls, v: Union[str, IgnoreHangingOrdersModel, TrackHangingOrdersModel]):
-        if isinstance(v, (TrackHangingOrdersModel, IgnoreHangingOrdersModel, Dict)):
+    def validate_hanging_orders_mode(cls, v: Union[str, IgnoreHangingOrdersModel, TrackHangingBuyAndSellOrdersModel, TrackHangingBuyOrdersOnlyModel, TrackHangingSellOrdersOnlyModel]):
+        if isinstance(v, (IgnoreHangingOrdersModel, TrackHangingBuyAndSellOrdersModel, TrackHangingBuyOrdersOnlyModel, TrackHangingSellOrdersOnlyModel, Dict)):
             sub_model = v
         elif v not in HANGING_ORDER_MODELS:
             raise ValueError(

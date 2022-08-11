@@ -19,7 +19,9 @@ from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_confi
     InfiniteModel,
     MultiOrderLevelModel,
     SingleOrderLevelModel,
-    TrackHangingOrdersModel,
+    TrackHangingBuyAndSellOrdersModel,
+    TrackHangingBuyOrdersOnlyModel,
+    TrackHangingSellOrdersOnlyModel,
 )
 
 
@@ -198,6 +200,30 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         model.hanging_orders_cancel_pct = "3"
         self.assertEqual(3, model.hanging_orders_cancel_pct)
 
+        self.config_map.hanging_orders_mode = "track_hanging_buy_orders"
+        model = self.config_map.hanging_orders_mode
+
+        with self.assertRaises(ConfigValidationError) as e:
+            model.hanging_buy_orders_cancel_pct = "-1"
+
+        error_msg = "Value must be between 0 and 100 (exclusive)."
+        self.assertEqual(error_msg, str(e.exception))
+
+        model.hanging_buy_orders_cancel_pct = "3"
+        self.assertEqual(3, model.hanging_buy_orders_cancel_pct)
+
+        self.config_map.hanging_orders_mode = "track_hanging_sell_orders"
+        model = self.config_map.hanging_orders_mode
+
+        with self.assertRaises(ConfigValidationError) as e:
+            model.hanging_sell_orders_cancel_pct = "-1"
+
+        error_msg = "Value must be between 0 and 100 (exclusive)."
+        self.assertEqual(error_msg, str(e.exception))
+
+        model.hanging_sell_orders_cancel_pct = "3"
+        self.assertEqual(3, model.hanging_sell_orders_cancel_pct)
+
     def test_load_configs_from_yaml(self):
         cur_dir = Path(__file__).parent
         f_path = cur_dir / "test_config.yml"
@@ -261,8 +287,20 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         self.config_map.hanging_orders_mode = {"hanging_orders_cancel_pct": 1}
         self.config_map.validate_model()
 
-        self.assertIsInstance(self.config_map.hanging_orders_mode.hb_config, TrackHangingOrdersModel)
+        self.assertIsInstance(self.config_map.hanging_orders_mode.hb_config, TrackHangingBuyAndSellOrdersModel)
         self.assertEqual(self.config_map.hanging_orders_mode.hanging_orders_cancel_pct, Decimal("1"))
+
+        self.config_map.hanging_orders_mode = {"hanging_buy_orders_cancel_pct": 1}
+        self.config_map.validate_model()
+
+        self.assertIsInstance(self.config_map.hanging_orders_mode.hb_config, TrackHangingBuyOrdersOnlyModel)
+        self.assertEqual(self.config_map.hanging_orders_mode.hanging_buy_orders_cancel_pct, Decimal("1"))
+
+        self.config_map.hanging_orders_mode = {"hanging_sell_orders_cancel_pct": 1}
+        self.config_map.validate_model()
+
+        self.assertIsInstance(self.config_map.hanging_orders_mode.hb_config, TrackHangingSellOrdersOnlyModel)
+        self.assertEqual(self.config_map.hanging_orders_mode.hanging_sell_orders_cancel_pct, Decimal("1"))
 
         self.config_map.hanging_orders_mode = {}
         self.config_map.validate_model()

@@ -30,7 +30,9 @@ from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_confi
     DailyBetweenTimesModel,
     FromDateToDateModel,
     MultiOrderLevelModel,
-    TrackHangingOrdersModel,
+    TrackHangingBuyAndSellOrdersModel,
+    TrackHangingBuyOrdersOnlyModel,
+    TrackHangingSellOrdersOnlyModel,
 )
 from hummingbot.strategy.conditional_execution_state import (
     RunAlwaysExecutionState,
@@ -85,6 +87,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._price_delegate = OrderBookAssetPriceDelegate(market_info.market, market_info.trading_pair)
         self._hb_app_notification = hb_app_notification
         self._hanging_orders_enabled = False
+        self._hanging_buy_orders_enabled = False
+        self._hanging_sell_orders_enabled = False
         self._hanging_orders_cancel_pct = Decimal("10")
         self._hanging_orders_tracker = HangingOrdersTracker(self,
                                                             self._hanging_orders_cancel_pct / Decimal('100'))
@@ -383,22 +387,39 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             pass
 
     def get_config_map_hanging_orders(self):
-        if self._config_map.hanging_orders_mode.title == TrackHangingOrdersModel.Config.title:
+        if self._config_map.hanging_orders_mode.title == TrackHangingBuyAndSellOrdersModel.Config.title:
             hanging_orders_enabled = True
+            hanging_buy_orders_enabled = True
+            hanging_sell_orders_enabled = True
             hanging_orders_cancel_pct = self._config_map.hanging_orders_mode.hanging_orders_cancel_pct
+        elif self._config_map.hanging_orders_mode.title == TrackHangingBuyOrdersOnlyModel.Config.title:
+            hanging_orders_enabled = True
+            hanging_buy_orders_enabled = True
+            hanging_sell_orders_enabled = False
+            hanging_orders_cancel_pct = self._config_map.hanging_orders_mode.hanging_buy_orders_cancel_pct
+        elif self._config_map.hanging_orders_mode.title == TrackHangingSellOrdersOnlyModel.Config.title:
+            hanging_orders_enabled = True
+            hanging_buy_orders_enabled = False
+            hanging_sell_orders_enabled = True
+            hanging_orders_cancel_pct = self._config_map.hanging_orders_mode.hanging_sell_orders_cancel_pct
         else:
             hanging_orders_enabled = False
+            hanging_buy_orders_enabled = False
+            hanging_sell_orders_enabled = False
             hanging_orders_cancel_pct = Decimal("0")
+
 
         if self._hanging_orders_enabled != hanging_orders_enabled:
             # Hanging order tracker instance doesn't exist - create from scratch
             self._hanging_orders_enabled = hanging_orders_enabled
+            self._hanging_buy_orders_enabled = hanging_buy_orders_enabled
+            self._hanging_sell_orders_enabled = hanging_sell_orders_enabled
             self._hanging_orders_cancel_pct = hanging_orders_cancel_pct
             self._hanging_orders_tracker = HangingOrdersTracker(self,
                                                                 hanging_orders_cancel_pct / Decimal('100'))
             self._hanging_orders_tracker.register_events(self.active_markets)
         elif self._hanging_orders_cancel_pct != hanging_orders_cancel_pct:
-            # Hanging order tracker instance existst - only update variable
+            # Hanging order tracker instance exist - only update variable
             self._hanging_orders_cancel_pct = hanging_orders_cancel_pct
             self._hanging_orders_tracker.hanging_orders_cancel_pct = hanging_orders_cancel_pct / Decimal('100')
 
@@ -1273,8 +1294,13 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             double expiration_seconds = NaN
             str bid_order_id, ask_order_id
             bint orders_created = False
+            list list_pair_of_orders = []
         # Number of pair of orders to track for hanging orders
         number_of_pairs = min((len(proposal.buys), len(proposal.sells))) if self._hanging_orders_enabled else 0
+
+        if self._hanging_orders_enabled:
+            # Need to initialized as partially filled. They must be marked unfilled if initialized
+            [list_pair_of_orders.append(CreatedPairOfOrders(None, None, True, True)) for i in range(number_of_pairs)]
 
         if len(proposal.buys) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
@@ -1294,11 +1320,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     expiration_seconds=expiration_seconds
                 )
                 orders_created = True
-                if idx < number_of_pairs:
+                if idx < number_of_pairs and self._hanging_buy_orders_enabled:
                     order = next((o for o in self.active_orders if o.client_order_id == bid_order_id))
                     if order:
-                        self._hanging_orders_tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(
-                            CreatedPairOfOrders(order, None))
+                        list_pair_of_orders[idx].buy_order = order
+                        list_pair_of_orders[idx].filled_buy = False
         if len(proposal.sells) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                 price_quote_str = [f"{sell.size.normalize()} {self.base_asset}, "
@@ -1319,8 +1345,12 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 orders_created = True
                 if idx < number_of_pairs:
                     order = next((o for o in self.active_orders if o.client_order_id == ask_order_id))
-                    if order:
-                        self._hanging_orders_tracker.current_created_pairs_of_orders[idx].sell_order = order
+                    if order and self._hanging_sell_orders_enabled:
+                        list_pair_of_orders[idx].sell_order = order
+                        list_pair_of_orders[idx].filled_sell = False
+        # Registering the hanging orders
+        [self._hanging_orders_tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(o) for o in list_pair_of_orders]
+
         if orders_created:
             self.c_set_timers()
 
