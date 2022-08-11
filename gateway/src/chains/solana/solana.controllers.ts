@@ -49,9 +49,13 @@ const toSolanaBalances = (
   balances: Record<string, TokenValue>,
   tokenSymbols: string[]
 ): Record<string, string> => {
-  const filteredBalancesKeys = Object.keys(balances).filter((symbol) =>
-    tokenSymbols.includes(symbol)
-  );
+  let filteredBalancesKeys = Object.keys(balances);
+  if (tokenSymbols.length) {
+    filteredBalancesKeys = filteredBalancesKeys.filter((symbol) =>
+      tokenSymbols.includes(symbol)
+    );
+  }
+
   const solanaBalances: Record<string, string> = {};
 
   filteredBalancesKeys.forEach((symbol) => {

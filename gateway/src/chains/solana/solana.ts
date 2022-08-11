@@ -64,26 +64,7 @@ export class Solana implements Solanaish {
 
     const config = getSolanaConfig('solana', network);
 
-    if (config.customNodeUrl == undefined) {
-      switch (this._network) {
-        case 'mainnet-beta':
-          this.rpcUrl = 'https://api.mainnet-beta.solana.com';
-          break;
-        case 'serum-mainnet':
-          this.rpcUrl = 'https://solana-api.projectserum.com';
-          break;
-        case 'devnet':
-          this.rpcUrl = 'https://api.devnet.solana.com';
-          break;
-        case 'testnet':
-          this.rpcUrl = 'https://api.testnet.solana.com';
-          break;
-        default:
-          throw new Error(`Solana network "${this._network}" not valid`);
-      }
-    } else {
-      this.rpcUrl = config.customNodeUrl;
-    }
+    this.rpcUrl = config.network.nodeUrl;
 
     this._connection = new Connection(this.rpcUrl, 'processed' as Commitment);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
