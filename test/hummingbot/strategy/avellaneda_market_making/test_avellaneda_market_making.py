@@ -32,11 +32,17 @@ from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingS
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
     AvellanedaMarketMakingConfigMap,
     DailyBetweenTimesModel,
+    FromDateToDateModel,
+    IgnoreHangingOrdersModel,
     InfiniteModel,
     MultiOrderLevelModel,
-    TrackHangingOrdersModel,
+    TrackHangingBuyAndSellOrdersModel,
+    TrackHangingBuyOrdersOnlyModel,
+    TrackHangingSellOrdersOnlyModel,
 )
+from hummingbot.strategy.conditional_execution_state import RunInTimeConditionalExecutionState
 from hummingbot.strategy.data_types import PriceSize, Proposal
+from hummingbot.strategy.hanging_orders_tracker import HangingOrdersTracker
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 
@@ -76,8 +82,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Strategy Initial Configuration Parameters
         cls.order_amount: Decimal = Decimal("10")
-        cls.inventory_target_base_pct: Decimal = Decimal("50")     # 50%
-        cls.min_spread: Decimal = Decimal("0.0")                   # Default strategy value
+        cls.inventory_target_base_pct: Decimal = Decimal("50")  # 50%
+        cls.min_spread: Decimal = Decimal("0.0")  # Default strategy value
         cls.risk_factor_finite: Decimal = Decimal("0.8")
         cls.risk_factor_infinite: Decimal = Decimal("1")
 
@@ -561,6 +567,26 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(limit_order.price, self.strategy.active_orders[0].price)
         self.assertEqual(limit_order.quantity, self.strategy.active_orders[0].quantity)
 
+    def test_active_non_hanging_orders(self):
+        self.assertEqual(0, len(self.strategy.active_orders))
+
+        # Simulate order being placed
+        limit_order: LimitOrder = LimitOrder(client_order_id="test",
+                                             trading_pair=self.trading_pair,
+                                             is_buy=True,
+                                             base_currency=self.trading_pair.split("-")[0],
+                                             quote_currency=self.trading_pair.split("-")[1],
+                                             price=Decimal("101.0"),
+                                             quantity=Decimal("10"))
+
+        self.simulate_place_limit_order(self.strategy, self.market_info, limit_order)
+
+        self.assertEqual(1, len(self.strategy.active_non_hanging_orders))
+        # Note: The order_id created by the BacktestMarket class is as follows [buy/sell]://{trading_pair}/{random_uuid}
+        self.assertTrue(f"buy://{self.trading_pair}" in self.strategy.active_orders[0].client_order_id)
+        self.assertEqual(limit_order.price, self.strategy.active_orders[0].price)
+        self.assertEqual(limit_order.quantity, self.strategy.active_orders[0].quantity)
+
     def test_active_buys(self):
         self.assertEqual(0, len(self.strategy.active_buys))
 
@@ -607,6 +633,188 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         self.assertEqual(AvellanedaMarketMakingStrategy.OPTION_LOG_CREATE_ORDER, self.strategy.logging_options)
 
+    def test_config_map_execution_mode(self):
+        config_settings = self.get_default_map()
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
+        strategy = AvellanedaMarketMakingStrategy()
+        strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        # Initialized in InfiniteModel()
+        self.assertFalse(hasattr(strategy, "_execution_state"))
+        self.assertFalse(hasattr(strategy, "_execution_mode"))
+        self.assertEqual(None, strategy.start_time)
+        self.assertEqual(None, strategy.end_time)
+
+        config_map.execution_timeframe_mode = FromDateToDateModel(start_datetime="2022-01-01 00:00:00", end_datetime="2022-01-01 01:00:00")
+        strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        strategy.get_config_map_execution_mode()
+
+        self.assertEqual(True, isinstance(strategy.execution_state, RunInTimeConditionalExecutionState))
+        self.assertEqual(config_map.execution_timeframe_mode.start_datetime, strategy.execution_state._start_timestamp)
+        self.assertEqual(config_map.execution_timeframe_mode.end_datetime, strategy.execution_state._end_timestamp)
+        self.assertEqual(config_map.execution_timeframe_mode.title, strategy.execution_mode)
+        self.assertEqual(config_map.execution_timeframe_mode.Config.title, strategy.execution_timeframe)
+        self.assertEqual(config_map.execution_timeframe_mode.start_datetime, strategy.start_time)
+        self.assertEqual(config_map.execution_timeframe_mode.end_datetime, strategy.end_time)
+
+        config_map.execution_timeframe_mode = DailyBetweenTimesModel(start_time="00:00:00", end_time="01:00:00")
+        strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        strategy.get_config_map_execution_mode()
+
+        self.assertEqual(True, isinstance(strategy.execution_state, RunInTimeConditionalExecutionState))
+        self.assertEqual(config_map.execution_timeframe_mode.start_time, strategy.execution_state._start_timestamp)
+        self.assertEqual(config_map.execution_timeframe_mode.end_time, strategy.execution_state._end_timestamp)
+        self.assertEqual(config_map.execution_timeframe_mode.title, strategy.execution_mode)
+        self.assertEqual(config_map.execution_timeframe_mode.Config.title, strategy.execution_timeframe)
+        self.assertEqual(config_map.execution_timeframe_mode.start_time, strategy.start_time)
+        self.assertEqual(config_map.execution_timeframe_mode.end_time, strategy.end_time)
+
+    def test_get_config_map_hanging_orders(self):
+        config_settings = self.get_default_map()
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
+        strategy = AvellanedaMarketMakingStrategy()
+        strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        # Initial state
+        self.assertFalse(strategy.hanging_orders_enabled)
+        self.assertFalse(strategy.hanging_buy_orders_enabled)
+        self.assertFalse(strategy.hanging_sell_orders_enabled)
+        self.assertEqual(Decimal("0"), strategy.hanging_orders_cancel_pct)
+
+        # Buy/Sell Only config
+        config_map.hanging_orders_mode = TrackHangingBuyAndSellOrdersModel()
+        strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        # Also exercises the creation of HangingOrdersTracker
+        strategy.get_config_map_hanging_orders()
+
+        self.assertTrue(strategy.hanging_orders_enabled)
+        self.assertTrue(strategy.hanging_buy_orders_enabled)
+        self.assertTrue(strategy.hanging_sell_orders_enabled)
+        self.assertEqual(TrackHangingBuyAndSellOrdersModel().hanging_orders_cancel_pct, strategy.hanging_orders_cancel_pct)
+
+        # Buy Only config
+        config_map.hanging_orders_mode = TrackHangingBuyOrdersOnlyModel()
+        strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        # Also exercises the update of an existing HangingOrdersTracker
+        strategy.get_config_map_hanging_orders()
+
+        self.assertTrue(strategy.hanging_orders_enabled)
+        self.assertTrue(strategy.hanging_buy_orders_enabled)
+        self.assertFalse(strategy.hanging_sell_orders_enabled)
+        self.assertEqual(TrackHangingBuyOrdersOnlyModel().hanging_buy_orders_cancel_pct, strategy.hanging_orders_cancel_pct)
+        self.assertTrue(isinstance(strategy.hanging_orders_tracker, HangingOrdersTracker))
+        self.assertEqual(strategy.hanging_orders_cancel_pct / Decimal('100'), strategy.hanging_orders_tracker.hanging_orders_cancel_pct)
+
+        # Sell Only config
+        config_map.hanging_orders_mode = TrackHangingSellOrdersOnlyModel()
+        strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        strategy.get_config_map_hanging_orders()
+
+        self.assertTrue(strategy.hanging_orders_enabled)
+        self.assertFalse(strategy.hanging_buy_orders_enabled)
+        self.assertTrue(strategy.hanging_sell_orders_enabled)
+        self.assertEqual(TrackHangingSellOrdersOnlyModel().hanging_sell_orders_cancel_pct, strategy.hanging_orders_cancel_pct)
+
+        # Ignore config
+        config_map.hanging_orders_mode = IgnoreHangingOrdersModel()
+        strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        strategy.get_config_map_hanging_orders()
+
+        self.assertFalse(strategy.hanging_orders_enabled)
+        self.assertFalse(strategy.hanging_buy_orders_enabled)
+        self.assertFalse(strategy.hanging_sell_orders_enabled)
+        self.assertEqual(Decimal("0"), strategy.hanging_orders_cancel_pct)
+        self.assertEqual(None, strategy.hanging_orders_tracker)
+        self.assertFalse(isinstance(strategy.hanging_orders_tracker, HangingOrdersTracker))
+
+    def test_get_config_map_indicators(self):
+        config_settings = self.get_default_map()
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
+        strategy = AvellanedaMarketMakingStrategy()
+        strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        # Initial values updated
+        self.assertEqual(None, strategy.avg_vol)
+        self.assertEqual(None, strategy.trading_intensity)
+        self.assertEqual(-1, strategy.ticks_to_be_ready)
+        ticks_to_be_ready_before = max(strategy.volatility_buffer_size, strategy.trading_intensity_buffer_size)
+        ticks_to_be_ready_after = max(config_map.volatility_buffer_size, config_map.trading_intensity_buffer_size)
+        ticks_to_be_ready = strategy.ticks_to_be_ready + ticks_to_be_ready_after - ticks_to_be_ready_before
+
+        strategy.get_config_map_indicators()
+
+        self.assertEqual(config_map.volatility_buffer_size, strategy.volatility_buffer_size)
+        self.assertEqual(config_map.trading_intensity_buffer_size, strategy.trading_intensity_buffer_size)
+        self.assertTrue(isinstance(strategy.avg_vol, InstantVolatilityIndicator))
+        self.assertEqual(strategy.volatility_buffer_size, strategy.avg_vol.sampling_length)
+        self.assertTrue(isinstance(strategy.trading_intensity, TradingIntensityIndicator))
+        self.assertEqual(ticks_to_be_ready, strategy.ticks_to_be_ready)
+
+        # Updating the volatility
+        config_map.volatility_buffer_size = 5
+        ticks_to_be_ready_after = max(config_map.volatility_buffer_size, config_map.trading_intensity_buffer_size)
+        ticks_to_be_ready_before = max(strategy.volatility_buffer_size, strategy.trading_intensity_buffer_size)
+        ticks_to_be_ready = strategy.ticks_to_be_ready
+        ticks_to_be_ready += (ticks_to_be_ready_after - ticks_to_be_ready_before)
+
+        strategy.get_config_map_indicators()
+
+        self.assertEqual(config_map.volatility_buffer_size, strategy.volatility_buffer_size)
+        self.assertEqual(config_map.trading_intensity_buffer_size, strategy.trading_intensity_buffer_size)
+        self.assertTrue(isinstance(strategy.avg_vol, InstantVolatilityIndicator))
+        self.assertEqual(strategy.volatility_buffer_size, strategy.avg_vol.sampling_length)
+        self.assertTrue(isinstance(strategy.trading_intensity, TradingIntensityIndicator))
+        self.assertEqual(ticks_to_be_ready, strategy.ticks_to_be_ready)
+
+        # Updating the trading intensity buffer size
+        config_map.trading_intensity_buffer_size = 50
+        ticks_to_be_ready_after = max(config_map.volatility_buffer_size, config_map.trading_intensity_buffer_size)
+        ticks_to_be_ready_before = max(strategy.volatility_buffer_size, strategy.trading_intensity_buffer_size)
+        ticks_to_be_ready = strategy.ticks_to_be_ready
+        ticks_to_be_ready += (ticks_to_be_ready_after - ticks_to_be_ready_before)
+
+        strategy.get_config_map_indicators()
+
+        self.assertEqual(config_map.volatility_buffer_size, strategy.volatility_buffer_size)
+        self.assertEqual(config_map.trading_intensity_buffer_size, strategy.trading_intensity_buffer_size)
+        self.assertTrue(isinstance(strategy.avg_vol, InstantVolatilityIndicator))
+        self.assertEqual(strategy.volatility_buffer_size, strategy.avg_vol.sampling_length)
+        self.assertTrue(isinstance(strategy.trading_intensity, TradingIntensityIndicator))
+        self.assertEqual(ticks_to_be_ready, strategy.ticks_to_be_ready)
+
     def test_execute_orders_proposal(self):
         self.assertEqual(0, len(self.strategy.active_orders))
 
@@ -639,7 +847,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(2, len(self.strategy.active_orders))
 
         for order in self.strategy.active_orders:
-            self.strategy.cancel_order(order.client_order_id)
+            self.strategy.cancel_order(self.strategy.market_info, order.client_order_id)
 
         self.assertEqual(0, len(self.strategy.active_orders))
 
@@ -1457,7 +1665,153 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(buy_order.client_order_id,
                          list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
 
-        current_base_balance, current_quote_balance = self.strategy.adjusted_available_balance_for_orders_budget_constrain()
+        current_base_balance, current_quote_balance = self.strategy.adjusted_available_balance_for_orders_budget_constraint()
+
+        expected_base_balance = (sum([order.quantity
+                                      for order in self.strategy.active_non_hanging_orders
+                                      if not order.is_buy])
+                                 + self.market.get_available_balance(self.market_info.base_asset))
+        expected_quote_balance = (sum([order.quantity * order.price
+                                       for order in self.strategy.active_non_hanging_orders
+                                       if order.is_buy])
+                                  + self.market.get_available_balance(self.market_info.quote_asset))
+
+        self.assertEqual(expected_base_balance, current_base_balance)
+        self.assertEqual(expected_quote_balance, current_quote_balance)
+
+    def test_existing_hanging_buy_orders_are_included_in_budget_constraint(self):
+        config_settings = {
+            "exchange": self.market.name,
+            "market": self.trading_pair,
+            "execution_timeframe_mode": "infinite",
+            "order_amount": self.order_amount,
+            "min_spread": self.min_spread,
+            "risk_factor": self.risk_factor_finite,
+            "hanging_orders_mode": {"hanging_buy_orders_cancel_pct": 99},
+            "order_refresh_time": "60",
+            "inventory_target_base_pct": self.inventory_target_base_pct,
+            "filled_order_delay": 30,
+        }
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
+
+        self.market.set_balance("COINALPHA", 100)
+        self.market.set_balance("HBOT", 50000)
+
+        # Create a new strategy, with hanging orders enabled
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        # Create a new clock to start the strategy from scratch
+        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
+        self.clock.add_iterator(self.market)
+        self.clock.add_iterator(self.strategy)
+
+        self.strategy.avg_vol = self.avg_vol_indicator
+        self.clock.add_iterator(self.strategy)
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Simulate high liquidity
+        self.simulate_high_liquidity(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.measure_order_book_liquidity()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
+
+        buy_order = self.strategy.active_buys[0]
+        sell_order = self.strategy.active_sells[0]
+
+        # Simulate market fill for limit sell.
+        self.simulate_limit_order_fill(self.market, sell_order)
+
+        # The buy order should turn into a hanging when it reaches its refresh time
+        self.clock.backtest_til(self.start_timestamp + self.strategy.order_refresh_time + 2)
+        self.assertEqual(1, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
+        self.assertEqual(buy_order.client_order_id,
+                         list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
+
+        current_base_balance, current_quote_balance = self.strategy.adjusted_available_balance_for_orders_budget_constraint()
+        expected_base_balance = (sum([order.quantity
+                                      for order in self.strategy.active_non_hanging_orders
+                                      if not order.is_buy])
+                                 + self.market.get_available_balance(self.market_info.base_asset))
+        expected_quote_balance = (sum([order.quantity * order.price
+                                       for order in self.strategy.active_non_hanging_orders
+                                       if order.is_buy])
+                                  + self.market.get_available_balance(self.market_info.quote_asset))
+
+        self.assertEqual(expected_base_balance, current_base_balance)
+        self.assertEqual(expected_quote_balance, current_quote_balance)
+
+    def test_existing_hanging_sell_orders_are_included_in_budget_constraint(self):
+        config_settings = {
+            "exchange": self.market.name,
+            "market": self.trading_pair,
+            "execution_timeframe_mode": "infinite",
+            "order_amount": self.order_amount,
+            "min_spread": self.min_spread,
+            "risk_factor": self.risk_factor_finite,
+            "hanging_orders_mode": {"hanging_sell_orders_cancel_pct": 99},
+            "order_refresh_time": "60",
+            "inventory_target_base_pct": self.inventory_target_base_pct,
+            "filled_order_delay": 30,
+        }
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
+
+        self.market.set_balance("COINALPHA", 100)
+        self.market.set_balance("HBOT", 50000)
+
+        # Create a new strategy, with hanging orders enabled
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        # Create a new clock to start the strategy from scratch
+        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
+        self.clock.add_iterator(self.market)
+        self.clock.add_iterator(self.strategy)
+
+        self.strategy.avg_vol = self.avg_vol_indicator
+        self.clock.add_iterator(self.strategy)
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Simulate high liquidity
+        self.simulate_high_liquidity(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.measure_order_book_liquidity()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
+
+        buy_order = self.strategy.active_buys[0]
+        sell_order = self.strategy.active_sells[0]
+
+        # Simulate market fill for limit sell.
+        self.simulate_limit_order_fill(self.market, buy_order)
+
+        # The buy order should turn into a hanging when it reaches its refresh time
+        self.clock.backtest_til(self.start_timestamp + self.strategy.order_refresh_time + 2)
+        self.assertEqual(1, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
+        self.assertEqual(sell_order.client_order_id,
+                         list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
+
+        current_base_balance, current_quote_balance = self.strategy.adjusted_available_balance_for_orders_budget_constraint()
+
         expected_base_balance = (sum([order.quantity
                                       for order in self.strategy.active_non_hanging_orders
                                       if not order.is_buy])
@@ -1471,7 +1825,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(expected_quote_balance, current_quote_balance)
 
     def test_not_filled_order_changed_to_hanging_order_after_refresh_time(self):
-        hanging_orders_model = TrackHangingOrdersModel()
+        hanging_orders_model = TrackHangingBuyAndSellOrdersModel()
         hanging_orders_model.hanging_orders_cancel_pct = "99"
 
         # Refresh has to happend after filled_order_delay
@@ -1558,6 +1912,350 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(buy_order.client_order_id,
                          list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
 
+    def test_not_filled_order_changed_to_hanging_buy_order_after_refresh_time(self):
+        hanging_orders_model = TrackHangingBuyOrdersOnlyModel()
+        hanging_orders_model.hanging_buy_orders_cancel_pct = "99"
+
+        # Refresh has to happend after filled_order_delay
+        refresh_time = 80
+        filled_extension_time = 60
+
+        config_settings = {
+            "exchange": self.market.name,
+            "market": self.trading_pair,
+            "execution_timeframe_mode": "infinite",
+            "order_amount": self.order_amount,
+            "order_optimization_enabled": "yes",
+            "min_spread": self.min_spread,
+            "risk_factor": self.risk_factor_finite,
+            "order_refresh_time": refresh_time,
+            "inventory_target_base_pct": self.inventory_target_base_pct,
+            "hanging_orders_mode": hanging_orders_model,
+            "filled_order_delay": filled_extension_time
+        }
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
+
+        self.market.set_balance("COINALPHA", 100)
+        self.market.set_balance("HBOT", 50000)
+
+        # Create a new strategy, with hanging orders enabled
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        # Create a new clock to start the strategy from scratch
+        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
+        self.clock.add_iterator(self.market)
+        self.clock.add_iterator(self.strategy)
+
+        self.strategy.avg_vol = self.avg_vol_indicator
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Simulate high liquidity
+        self.simulate_high_liquidity(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.measure_order_book_liquidity()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
+
+        buy_order = self.strategy.active_buys[0]
+        sell_order = self.strategy.active_sells[0]
+
+        orders_creation_timestamp = self.strategy.current_timestamp
+
+        # Advance the clock some ticks and simulate market fill for limit sell
+        self.clock.backtest_til(orders_creation_timestamp + 10)
+        self.simulate_limit_order_fill(self.market, sell_order)
+        self.assertEqual(buy_order.client_order_id,
+                         self.strategy.active_non_hanging_orders[0].client_order_id)
+
+        # The buy order should turn into a hanging when it reaches its refresh time
+        self.clock.backtest_til(orders_creation_timestamp + refresh_time - 1)
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+
+        # After refresh time the buy order that was candidate to hanging order should be turned into a hanging order
+        self.clock.backtest_til(orders_creation_timestamp + refresh_time)
+        # New orders get created
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+        self.assertEqual(1, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
+        self.assertEqual(buy_order.client_order_id,
+                         list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
+
+        # The new pair of orders should be created only after the fill delay time
+        self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time - 1)
+        # New orders get created
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+        self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time + 1)
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+        # The hanging order should still be present
+        self.assertEqual(1, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
+        self.assertEqual(buy_order.client_order_id,
+                         list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
+
+    def test_not_filled_order_not_changed_to_hanging_buy_order_after_refresh_time(self):
+        hanging_orders_model = TrackHangingSellOrdersOnlyModel()
+        hanging_orders_model.hanging_sell_orders_cancel_pct = "99"
+
+        # Refresh has to happend after filled_order_delay
+        refresh_time = 80
+        filled_extension_time = 60
+
+        config_settings = {
+            "exchange": self.market.name,
+            "market": self.trading_pair,
+            "execution_timeframe_mode": "infinite",
+            "order_amount": self.order_amount,
+            "order_optimization_enabled": "yes",
+            "min_spread": self.min_spread,
+            "risk_factor": self.risk_factor_finite,
+            "order_refresh_time": refresh_time,
+            "inventory_target_base_pct": self.inventory_target_base_pct,
+            "hanging_orders_mode": hanging_orders_model,
+            "filled_order_delay": filled_extension_time
+        }
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
+
+        self.market.set_balance("COINALPHA", 100)
+        self.market.set_balance("HBOT", 50000)
+
+        # Create a new strategy, with hanging orders enabled
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        # Create a new clock to start the strategy from scratch
+        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
+        self.clock.add_iterator(self.market)
+        self.clock.add_iterator(self.strategy)
+
+        self.strategy.avg_vol = self.avg_vol_indicator
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Simulate high liquidity
+        self.simulate_high_liquidity(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.measure_order_book_liquidity()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
+
+        buy_order = self.strategy.active_buys[0]
+        sell_order = self.strategy.active_sells[0]
+
+        orders_creation_timestamp = self.strategy.current_timestamp
+
+        # Advance the clock some ticks and simulate market fill for limit sell
+        self.clock.backtest_til(orders_creation_timestamp + 10)
+        self.simulate_limit_order_fill(self.market, sell_order)
+        self.assertEqual(buy_order.client_order_id,
+                         self.strategy.active_non_hanging_orders[0].client_order_id)
+
+        # The buy order should turn into a hanging when it reaches its refresh time
+        self.clock.backtest_til(orders_creation_timestamp + refresh_time - 1)
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+
+        # After refresh time the buy order that was candidate to hanging order should be turned into a hanging order
+        self.clock.backtest_til(orders_creation_timestamp + refresh_time)
+        # New orders get created
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+        self.assertEqual(0, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
+
+        # The new pair of orders should be created only after the fill delay time
+        self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time - 1)
+        # New orders get created
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+        self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time + 1)
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+        # The hanging order should still be present
+        self.assertEqual(0, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
+
+    def test_not_filled_order_changed_to_hanging_sell_order_after_refresh_time(self):
+        hanging_orders_model = TrackHangingSellOrdersOnlyModel()
+        hanging_orders_model.hanging_sell_orders_cancel_pct = "99"
+
+        # Refresh has to happend after filled_order_delay
+        refresh_time = 80
+        filled_extension_time = 60
+
+        config_settings = {
+            "exchange": self.market.name,
+            "market": self.trading_pair,
+            "execution_timeframe_mode": "infinite",
+            "order_amount": self.order_amount,
+            "order_optimization_enabled": "yes",
+            "min_spread": self.min_spread,
+            "risk_factor": self.risk_factor_finite,
+            "order_refresh_time": refresh_time,
+            "inventory_target_base_pct": self.inventory_target_base_pct,
+            "hanging_orders_mode": hanging_orders_model,
+            "filled_order_delay": filled_extension_time
+        }
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
+
+        self.market.set_balance("COINALPHA", 100)
+        self.market.set_balance("HBOT", 50000)
+
+        # Create a new strategy, with hanging orders enabled
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        # Create a new clock to start the strategy from scratch
+        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
+        self.clock.add_iterator(self.market)
+        self.clock.add_iterator(self.strategy)
+
+        self.strategy.avg_vol = self.avg_vol_indicator
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Simulate high liquidity
+        self.simulate_high_liquidity(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.measure_order_book_liquidity()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
+
+        buy_order = self.strategy.active_buys[0]
+        sell_order = self.strategy.active_sells[0]
+
+        orders_creation_timestamp = self.strategy.current_timestamp
+
+        # Advance the clock some ticks and simulate market fill for limit sell
+        self.clock.backtest_til(orders_creation_timestamp + 10)
+        self.simulate_limit_order_fill(self.market, buy_order)
+        self.assertEqual(sell_order.client_order_id,
+                         self.strategy.active_non_hanging_orders[0].client_order_id)
+
+        # The buy order should turn into a hanging when it reaches its refresh time
+        self.clock.backtest_til(orders_creation_timestamp + refresh_time - 1)
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+
+        # After refresh time the buy order that was candidate to hanging order should be turned into a hanging order
+        self.clock.backtest_til(orders_creation_timestamp + refresh_time)
+        # New orders get created
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+        self.assertEqual(1, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
+        self.assertEqual(sell_order.client_order_id,
+                         list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
+
+        # The new pair of orders should be created only after the fill delay time
+        self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time - 1)
+        # New orders get created
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+        self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time + 1)
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+        # The hanging order should still be present
+        self.assertEqual(1, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
+        self.assertEqual(sell_order.client_order_id,
+                         list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
+
+    def test_not_filled_order_not_changed_to_hanging_sell_order_after_refresh_time(self):
+        hanging_orders_model = TrackHangingBuyOrdersOnlyModel()
+        hanging_orders_model.hanging_buy_orders_cancel_pct = "99"
+
+        # Refresh has to happend after filled_order_delay
+        refresh_time = 80
+        filled_extension_time = 60
+
+        config_settings = {
+            "exchange": self.market.name,
+            "market": self.trading_pair,
+            "execution_timeframe_mode": "infinite",
+            "order_amount": self.order_amount,
+            "order_optimization_enabled": "yes",
+            "min_spread": self.min_spread,
+            "risk_factor": self.risk_factor_finite,
+            "order_refresh_time": refresh_time,
+            "inventory_target_base_pct": self.inventory_target_base_pct,
+            "hanging_orders_mode": hanging_orders_model,
+            "filled_order_delay": filled_extension_time
+        }
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
+
+        self.market.set_balance("COINALPHA", 100)
+        self.market.set_balance("HBOT", 50000)
+
+        # Create a new strategy, with hanging orders enabled
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
+            config_map=config_map,
+            market_info=self.market_info,
+        )
+
+        # Create a new clock to start the strategy from scratch
+        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
+        self.clock.add_iterator(self.market)
+        self.clock.add_iterator(self.strategy)
+
+        self.strategy.avg_vol = self.avg_vol_indicator
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Simulate high liquidity
+        self.simulate_high_liquidity(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.measure_order_book_liquidity()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
+
+        buy_order = self.strategy.active_buys[0]
+        sell_order = self.strategy.active_sells[0]
+
+        orders_creation_timestamp = self.strategy.current_timestamp
+
+        # Advance the clock some ticks and simulate market fill for limit sell
+        self.clock.backtest_til(orders_creation_timestamp + 10)
+        self.simulate_limit_order_fill(self.market, buy_order)
+        self.assertEqual(sell_order.client_order_id,
+                         self.strategy.active_non_hanging_orders[0].client_order_id)
+
+        # The buy order should turn into a hanging when it reaches its refresh time
+        self.clock.backtest_til(orders_creation_timestamp + refresh_time - 1)
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+
+        # After refresh time the buy order that was candidate to hanging order should be turned into a hanging order
+        self.clock.backtest_til(orders_creation_timestamp + refresh_time)
+        # New orders get created
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+        self.assertEqual(0, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
+
+        # The new pair of orders should be created only after the fill delay time
+        self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time - 1)
+        # New orders get created
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+        self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time + 1)
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+        # The hanging order should still be present
+        self.assertEqual(0, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
+
     def test_no_new_orders_created_until_previous_orders_cancellation_confirmed(self):
 
         refresh_time = self.strategy.order_refresh_time
@@ -1621,7 +2319,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         self.strategy._sb_order_tracker.in_flight_cancels["OID-1"] = self.strategy.current_timestamp
 
-        available_base_balance, available_quote_balance = self.strategy.adjusted_available_balance_for_orders_budget_constrain()
+        available_base_balance, available_quote_balance = self.strategy.adjusted_available_balance_for_orders_budget_constraint()
 
         self.assertEqual(available_base_balance, base_balance + Decimal(2))
         self.assertEqual(available_quote_balance, quote_balance + (Decimal(1) * Decimal(1000)))
