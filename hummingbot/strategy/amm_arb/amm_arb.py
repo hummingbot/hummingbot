@@ -225,7 +225,7 @@ class AmmArbStrategy(StrategyPyBase):
                                    "\n".join(self.short_proposal_msg(self._all_arb_proposals, False)))
                 self._last_no_arb_reported = self.current_timestamp
             return
-        self.apply_slippage_buffers(profitable_arb_proposals)
+        await self.apply_slippage_buffers(profitable_arb_proposals)
         self.apply_budget_constraint(profitable_arb_proposals)
         await self.execute_arb_proposals(profitable_arb_proposals)
 
@@ -241,7 +241,7 @@ class AmmArbStrategy(StrategyPyBase):
         for gateway in gateway_connectors:
             await gateway.cancel_outdated_orders(self._gateway_transaction_cancel_interval)
 
-    def apply_slippage_buffers(self, arb_proposals: List[ArbProposal]):
+    async def apply_slippage_buffers(self, arb_proposals: List[ArbProposal]):
         """
         Updates arb_proposals by adjusting order price for slipper buffer percentage.
         E.g. if it is a buy order, for an order price of 100 and 1% slipper buffer, the new order price is 101,

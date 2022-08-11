@@ -116,6 +116,9 @@ class GatewaySOLCLOB(ConnectorBase):
         self._markets = None
         self._auto_create_token_accounts_task = None
         self._tokens_accounts_created: bool = False
+        self._order_quantum = {}
+        self._set_order_price_and_order_size_quantum = False
+        self._set_order_price_and_order_size_quantum_task = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -308,6 +311,19 @@ class GatewaySOLCLOB(ConnectorBase):
                 exc_info=True,
                 app_warning_msg=str(e)
             )
+
+    async def set_order_price_and_order_size_quantum(self):
+        for trading_pair in self._trading_pairs:
+            market = await self._get_gateway_instance().clob_get_markets(
+                self.chain, self.network, self.connector, name=convert_trading_pair(trading_pair)
+            )
+
+            self._order_quantum[trading_pair] = {
+                'order_price': Decimal(market['tickSize']),
+                'order_size': Decimal(market['minimumOrderSize'])
+            }
+
+        self._set_order_price_and_order_size_quantum = True
 
     async def auto_create_token_accounts(self):
         """Automatically creates all token accounts required for trading."""
@@ -864,22 +880,10 @@ class GatewaySOLCLOB(ConnectorBase):
         return OrderType.LIMIT
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
-        return Decimal(
-            self._ev_loop.run_until_complete(
-                self._get_gateway_instance().clob_get_markets(
-                    self.chain, self.network, self.connector, name=convert_trading_pair(trading_pair)
-                )
-            )['tickSize']
-        )
+        return self._order_quantum[trading_pair]['order_price']
 
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
-        return Decimal(
-            self._ev_loop.run_until_complete(
-                self._get_gateway_instance().clob_get_markets(
-                    self.chain, self.network, self.connector, name=convert_trading_pair(trading_pair)
-                )
-            )['minimumOrderSize']
-        )
+        return self._order_quantum[trading_pair]['order_price']
 
     @property
     def ready(self):
@@ -900,6 +904,7 @@ class GatewaySOLCLOB(ConnectorBase):
             "native_currency": self._native_currency is not None,
             "network_transaction_fee": self.network_transaction_fee is not None if self._trading_required else True,
             "markets": self._markets is not None,
+            "set_order_price_and_order_size_quantum": self._set_order_price_and_order_size_quantum,
             "tokens_accounts_created": self._tokens_accounts_created
         }
 
@@ -909,6 +914,7 @@ class GatewaySOLCLOB(ConnectorBase):
             self._auto_approve_task = safe_ensure_future(self.auto_approve())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
         self._get_markets_task = safe_ensure_future(self.get_markets())
+        self._set_order_price_and_order_size_quantum_task = safe_ensure_future(self.set_order_price_and_order_size_quantum())
         self._auto_create_token_accounts_task = safe_ensure_future(self.auto_create_token_accounts())
 
     async def stop_network(self):
@@ -924,6 +930,9 @@ class GatewaySOLCLOB(ConnectorBase):
         if self._get_markets_task is not None:
             self._get_markets_task.cancel()
             self._get_markets_task = None
+        if self._set_order_price_and_order_size_quantum_task is not None:
+            self._set_order_price_and_order_size_quantum_task.cancel()
+            self._set_order_price_and_order_size_quantum_task = None
         if self._auto_create_token_accounts_task is not None:
             self._auto_create_token_accounts_task.cancel()
             self._auto_create_token_accounts_task = None
@@ -1014,6 +1023,11 @@ class GatewaySOLCLOB(ConnectorBase):
                     "ownerAddress": self.address,
                 } for trading_pair in self._trading_pairs]
             )
+        )
+
+        self.logger().warning(
+            """Although a process to cancel all orders was dispatched, it is not guaranteed that it will work due """
+            """to the nature of the blockchains. Those orders need to be checked manually."""
         )
 
         return []
