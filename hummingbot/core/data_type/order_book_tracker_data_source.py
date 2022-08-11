@@ -24,10 +24,6 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         self._trading_pairs: List[str] = trading_pairs
         self._order_book_create_function = lambda: OrderBook()
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
-        self._message_channels = [
-            self._snapshot_messages_queue_key,
-            self._diff_messages_queue_key,
-            self._trade_messages_queue_key]
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -225,7 +221,12 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
             channel: str = self._channel_originating_message(event_message=data)
-            if channel in self._message_channels:
+            possible_channels = [
+                self._snapshot_messages_queue_key,
+                self._diff_messages_queue_key,
+                self._trade_messages_queue_key
+            ]
+            if channel in possible_channels:
                 self._message_queue[channel].put_nowait(data)
 
     async def _sleep(self, delay):
