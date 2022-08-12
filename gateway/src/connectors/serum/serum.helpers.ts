@@ -72,24 +72,24 @@ export const getRandonBN = () => {
  * @param maxNumberOfRetries
  * @param delayBetweenRetriesInMilliseconds
  * @param timeoutInMilliseconds
+ * @param timeoutMessage
  */
-export const runWithRetryAndTimeout = async (
+export const runWithRetryAndTimeout = async <R>(
   targetObject: any,
   targetFunction: any,
   targetParameters: any,
-  maxNumberOfRetries: number = 3,
+  maxNumberOfRetries: number = 0, // 0 means no retries
   delayBetweenRetriesInMilliseconds: number = 0, // 0 means no delay
-  timeoutInMilliseconds: number = 0 // 0 means no timeout
-) => {
+  timeoutInMilliseconds: number = 0, // 0 means no timeout,
+  timeoutMessage: string = 'Timeout exceeded.'
+): Promise<R> => {
   let retryCount = 0;
   let timer: any;
 
   if (timeoutInMilliseconds > 0) {
-    timer = setTimeout(
-      () => new Error('Timeout exceeded.'),
-      timeoutInMilliseconds
-    );
+    timer = setTimeout(() => new Error(timeoutMessage), timeoutInMilliseconds);
   }
+
   do {
     try {
       const result = await targetFunction.apply(targetObject, targetParameters);
@@ -98,7 +98,7 @@ export const runWithRetryAndTimeout = async (
         clearTimeout(timer);
       }
 
-      return result;
+      return result as R;
     } catch (error) {
       retryCount++;
       if (retryCount < maxNumberOfRetries) {
@@ -110,4 +110,6 @@ export const runWithRetryAndTimeout = async (
       }
     }
   } while (retryCount < maxNumberOfRetries);
+
+  throw Error('Unknown error.');
 };
