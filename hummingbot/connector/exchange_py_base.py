@@ -829,11 +829,12 @@ class ExchangePyBase(ExchangeBase, ABC):
     # === Exchange / Trading logic methods that call the API ===
 
     async def _update_trading_rules(self):
-        exchange_info = await self._initialize_trading_pair_symbol_map()
+        exchange_info = await self._api_get(path_url=self.trading_rules_request_path)
         trading_rules_list = await self._format_trading_rules(exchange_info)
         self._trading_rules.clear()
         for trading_rule in trading_rules_list:
             self._trading_rules[trading_rule.trading_pair] = trading_rule
+        self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
 
     async def _api_get(self, *args, **kwargs):
         kwargs["method"] = RESTMethod.GET
