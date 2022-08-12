@@ -123,7 +123,8 @@ class FtxExchange(ExchangePyBase):
                            amount: Decimal,
                            trade_type: TradeType,
                            order_type: OrderType,
-                           price: Decimal) -> Tuple[str, float]:
+                           price: Decimal,
+                           **kwargs) -> Tuple[str, float]:
 
         api_params = {
             "market": await self.exchange_symbol_associated_to_pair(trading_pair),
