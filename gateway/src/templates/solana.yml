@@ -1,19 +1,17 @@
 networks:
   mainnet-beta:
     nodeURL: https://api.mainnet-beta.solana.com
+#    nodeURL: https://solana-api.projectserum.com
+#    nodeURL: https://solana-api.syndica.io/access-token/<access token>/rpc
     nativeCurrencySymbol: SOL
-  serum-mainnet:
-    nodeURL: https://solana-api.projectserum.com
-    nativeCurrencySymbol: SOL
-  testnet:
-    nodeURL: https://api.testnet.solana.com
-    nativeCurrencySymbol: SOL
-  devnet:
-    nodeURL: https://api.devnet.solana.com
-    nativeCurrencySymbol: SOL
+#  testnet:
+#    nodeURL: https://api.testnet.solana.com
+#    nativeCurrencySymbol: SOL
+#  devnet:
+#    nodeURL: https://api.devnet.solana.com
+#    nativeCurrencySymbol: SOL
 network: mainnet-beta
 tokenProgram: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
 transactionLamports: 5000
 lamportsToSol: 0.000000001
 timeToLive: 75
-customNodeUrl: ~
