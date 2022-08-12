@@ -1,0 +1,93 @@
+{
+  "name": "Defira Token List",
+  "logoURI": "https://sushi.com/static/media/logo.dec926df.png",
+  "version": {
+    "major": 0,
+    "minor": 1,
+    "patch": 1
+  },
+  "keywords": [],
+  "timestamp": "2022-01-30T00:00:00+00:00",
+  "tokens": [
+    {
+      "chainId": 1666600000,
+      "name": "Staked One",
+      "address": "0x22D62b19b7039333ad773b7185BB61294F3AdC19",
+      "symbol": "stONE",
+      "decimals": 18,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/assets/master/blockchains/harmony/assets/0x22D62b19b7039333ad773b7185BB61294F3AdC19/logo.png"
+    },
+    {
+      "chainId": 1666600000,
+      "name": "Wrapped ONE",
+      "address": "0xcF664087a5bB0237a0BAd6742852ec6c8d69A27a",
+      "symbol": "WONE",
+      "decimals": 18,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/icons/master/token/one.jpg"
+    },
+    {
+      "chainId": 1666600000,
+      "name": "Dai Stablecoin",
+      "address": "0xEf977d2f931C1978Db5F6747666fa1eACB0d0339",
+      "symbol": "1DAI",
+      "decimals": 18,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/icons/master/token/dai.jpg"
+    },
+    {
+      "chainId": 1666600000,
+      "name": "Tether USDT",
+      "address": "0x3C2B8Be99c50593081EAA2A724F0B8285F5aba8f",
+      "symbol": "1USDT",
+      "decimals": 6,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/icons/master/token/usdt.jpg"
+    },
+    {
+      "chainId": 1666600000,
+      "name": "1ETH",
+      "address": "0x6983D1E6DEf3690C4d616b13597A09e6193EA013",
+      "symbol": "1ETH",
+      "decimals": 18,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/icons/master/token/eth.jpg"
+    },
+    {
+      "chainId": 1666600000,
+      "name": "Wrapped BTC",
+      "address": "0x3095c7557bCb296ccc6e363DE01b760bA031F2d9",
+      "symbol": "1WBTC",
+      "decimals": 18,
+      "logoURI": ""
+    },
+    {
+      "chainId": 1666600000,
+      "address": "0xdc54046c0451f9269FEe1840aeC808D36015697d",
+      "symbol": "1BTC",
+      "name": "1BTC",
+      "decimals": 8,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/assets/master/blockchains/harmony/assets/0xdc54046c0451f9269FEe1840aeC808D36015697d/logo.png"
+    },
+    {
+      "chainId": 1666600000,
+      "address": "0xE176EBE47d621b984a73036B9DA5d834411ef734",
+      "symbol": "BUSD",
+      "name": "Binance USD",
+      "decimals": 18,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/icons/master/token/busd.jpg"
+    },
+    {
+      "chainId": 1666600000,
+      "address": "0x2A719aF848bf365489E548BE5edbEC1D65858e59",
+      "symbol": "FIRA",
+      "name": "Fira",
+      "decimals": 18,
+      "logoURI": "https://d2w69usg89gc0q.cloudfront.net/tokens/FIRA.png"
+    },
+    {
+      "chainId": 1666600000,
+      "address": "0xCf1709Ad76A79d5a60210F23e81cE2460542A836",
+      "symbol": "TRANQ",
+      "name": "Tranquil",
+      "decimals": 18,
+      "logoURI": "https://d2w69usg89gc0q.cloudfront.net/tokens/TRANQ.png"
+    }
+  ]
+}
