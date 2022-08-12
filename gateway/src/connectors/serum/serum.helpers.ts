@@ -64,3 +64,50 @@ export const promiseAllInBatches = async <I, O>(
 export const getRandonBN = () => {
   return web3.utils.toBN(web3.utils.randomHex(32));
 };
+
+/**
+ * @param targetObject
+ * @param targetFunction
+ * @param targetParameters
+ * @param maxNumberOfRetries
+ * @param delayBetweenRetriesInMilliseconds
+ * @param timeoutInMilliseconds
+ */
+export const runWithRetryAndTimeout = async (
+  targetObject: any,
+  targetFunction: any,
+  targetParameters: any,
+  maxNumberOfRetries: number = 3,
+  delayBetweenRetriesInMilliseconds: number = 0, // 0 means no delay
+  timeoutInMilliseconds: number = 0 // 0 means no timeout
+) => {
+  let retryCount = 0;
+  let timer: any;
+
+  if (timeoutInMilliseconds > 0) {
+    timer = setTimeout(
+      () => new Error('Timeout exceeded.'),
+      timeoutInMilliseconds
+    );
+  }
+  do {
+    try {
+      const result = await targetFunction.apply(targetObject, targetParameters);
+
+      if (timeoutInMilliseconds > 0) {
+        clearTimeout(timer);
+      }
+
+      return result;
+    } catch (error) {
+      retryCount++;
+      if (retryCount < maxNumberOfRetries) {
+        if (delayBetweenRetriesInMilliseconds > 0) {
+          await sleep(delayBetweenRetriesInMilliseconds);
+        }
+      } else {
+        throw error;
+      }
+    }
+  } while (retryCount < maxNumberOfRetries);
+};
