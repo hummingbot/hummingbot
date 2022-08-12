@@ -21,12 +21,11 @@
     "tokenProgram": { "type": "string" },
     "transactionLamports": { "type": "integer" },
     "lamportsToSol": { "type": "number" },
-    "timeToLive": { "type": "number" },
-    "customNodeUrl": { "type": ["string", "null"] }
+    "timeToLive": { "type": "number" }
   },
   "required": [
-    "networks",
     "network",
+    "networks",
     "tokenProgram",
     "transactionLamports",
     "lamportsToSol",

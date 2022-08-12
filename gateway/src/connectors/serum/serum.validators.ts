@@ -228,6 +228,7 @@ export const validateOrderOwnerAddress: Validator = createValidator(
 export const validateOrderSide: Validator = createValidator(
   'side',
   (_, value) =>
+    value &&
     Object.values(OrderSide)
       .map((i) => i.toLowerCase())
       .includes(value.toLowerCase()),
