@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, List, Optional, Tuple
 
 import pandas as pd
 
@@ -95,35 +95,29 @@ class HedgeStrategy(StrategyPyBase):
     def wallet_df(self) -> pd.DataFrame:
         data = []
         columns = ["Connector", "Asset", "Price", "Amount", "Value"]
+
+        def get_data(market_pair: MarketTradingPairTuple) -> List[Any]:
+            market, trading_pair = market_pair.market, market_pair.trading_pair
+            return [
+                market.name,
+                trading_pair,
+                market_pair.get_mid_price(),
+                self.get_base_amount(market_pair),
+                self.get_base_amount(market_pair) * market.get_mid_price(),
+            ]
         for market_pair in self._market_pairs:
-            base_amount = self.get_base_amount(market_pair)
-            value = base_amount * market_pair.get_mid_price()
-            data.append(
-                [
-                    market_pair.market.name,
-                    market_pair.base_asset,
-                    market_pair.get_mid_price(),
-                    base_amount,
-                    f"{value:.4g}",
-                ]
-            )
+            data.append(get_data(market_pair))
+
         total_value = self.get_total_asset_value()
-        required_hedge_value = self.get_total_asset_value() * self._hedge_ratio
+        required_hedge_value = total_value * self._hedge_ratio
         data.append(["Markets", "Total", "", "", f"{total_value:.4g}"])
         data.append(["Required Hedge", "Total", "", "", f"{required_hedge_value:.4g}"])
+
         market_pair = self._hedge_market_pair
-        hedge_amount = self.get_base_amount(market_pair)
-        hedge_value = hedge_amount * market_pair.get_mid_price()
+        hedge_value = self.get_base_amount(market_pair) * market_pair.get_mid_price()
         net_hedge = required_hedge_value + hedge_value
-        data.append(
-            [
-                market_pair.market.name,
-                market_pair.base_asset,
-                market_pair.get_mid_price(),
-                hedge_amount,
-                f"{hedge_value:.4g}",
-            ]
-        )
+
+        data.append(get_data(market_pair))
         data.append(["Net Hedge", "Total", "", "", f"{net_hedge:.4g}"])
         return pd.DataFrame(data=data, columns=columns)
 
@@ -164,6 +158,8 @@ class HedgeStrategy(StrategyPyBase):
         """
         Check if the market is derivative, and if so, set the initial setting.
         """
+        if not self.is_derivative(self._hedge_market_pair):
+            return
         market = self._hedge_market_pair.market
         trading_pair = self._hedge_market_pair.trading_pair
         market.set_leverage(trading_pair, self._leverage)
@@ -198,14 +194,6 @@ class HedgeStrategy(StrategyPyBase):
         finally:
             self._last_timestamp = timestamp
 
-    def get_value_to_hedge(self) -> Decimal:
-        """
-        Calculate the value that is required to be hedged
-        """
-        total_value = self.get_total_asset_value()
-        hedge_value = self.get_hedge_asset_value()
-        return total_value * self._hedge_ratio + hedge_value
-
     def get_positions(self, market_pair: MarketTradingPairTuple) -> List[Position]:
         return [
             position
@@ -216,6 +204,7 @@ class HedgeStrategy(StrategyPyBase):
     def get_derivative_base_amount(self, market_pair: MarketTradingPairTuple) -> Decimal:
         """
         Get the value of the derivative base asset.
+        Returns the amount of the base asset of the derivative market pair.
         """
         positions = self.get_positions(market_pair)
         amount = 0
@@ -228,7 +217,10 @@ class HedgeStrategy(StrategyPyBase):
 
     def get_base_amount(self, market_pair: MarketTradingPairTuple) -> Decimal:
         """
-        Get the value of the base asset.
+        Get the amount of the base asset of the market pair.
+
+        :params market_pair: The market pair to get the amount of the base asset of.
+        :returns: The amount of the base asset of the market pair.
         """
         if self.is_derivative(market_pair):
             return self.get_derivative_base_amount(market_pair)
@@ -236,7 +228,10 @@ class HedgeStrategy(StrategyPyBase):
 
     def get_base_value(self, market_pair: MarketTradingPairTuple) -> Decimal:
         """
-        Get the base asset value of a market.
+        Get the base asset value of a market. e.g BTC/USDT = BTC amount * BTC/USDT price.
+
+        :params market_pair: The market pair to get the base asset value of.
+        :returns: The base asset value of the market pair.
         """
         base_amount = self.get_base_amount(market_pair)
         base_price = market_pair.get_mid_price()
@@ -244,12 +239,11 @@ class HedgeStrategy(StrategyPyBase):
 
     def get_total_asset_value(self) -> Decimal:
         """
-        Get the total asset value of all markets.
+        Get the total base asset value of all markets.
+
+        :returns: The total base asset value of all market_pairs.
         """
-        total_value = 0
-        for market_pair in self._market_pairs:
-            total_value += self.get_base_value(market_pair)
-        return total_value
+        return sum([self.get_base_value(market_pair) for market_pair in self._market_pairs])
 
     def get_hedge_asset_value(self) -> Decimal:
         """
@@ -257,17 +251,22 @@ class HedgeStrategy(StrategyPyBase):
         """
         return self.get_base_value(self._hedge_market_pair)
 
-    def hedge(self) -> None:
+    def get_hedge_direction_and_value(self) -> Tuple[bool, Decimal]:
         """
-        The main process of the strategy.
-        1. Get the value to hedge.
-        2. Calculates the price and amount to hedge.
-        3. Checks if there is sufficient balance or trade size to execute the hedge.
-        4. Executes the hedge.
+        Calculate the value that is required to be hedged.
+        Returns the direction to hedge (buy/sell) and the value of hedge
         """
-        value_to_hedge = self.get_value_to_hedge()
-        is_buy = value_to_hedge < 0
-        value_to_hedge = abs(value_to_hedge)
+        total_value = self.get_total_asset_value()
+        hedge_value = self.get_hedge_asset_value()
+        net_value = total_value * self._hedge_ratio + hedge_value
+        is_buy = net_value < 0
+        value_to_hedge = abs(net_value)
+        return is_buy, value_to_hedge
+
+    def calculate_hedge_price_and_amount(self, is_buy: bool, value_to_hedge: Decimal) -> Tuple[Decimal, Decimal]:
+        """
+        Calculate the price and amount to hedge.
+        """
         price = self._hedge_market_pair.get_mid_price()
         amount = value_to_hedge / price
         slippage_ratio = 1 + self._slippage if is_buy else 1 - self._slippage
@@ -275,7 +274,17 @@ class HedgeStrategy(StrategyPyBase):
         trading_pair = self._hedge_market_pair.trading_pair
         quantized_price = self._hedge_market_pair.market.quantize_order_price(trading_pair, price)
         quantized_amount = self._hedge_market_pair.market.quantize_order_amount(trading_pair, amount)
-        if not self.get_order_candidate(is_buy, quantized_amount, quantized_price):
+        return quantized_price, quantized_amount
+
+    def hedge(self) -> None:
+        """
+        The main process of the strategy.
+        """
+        if self.check_and_cancel_active_orders():
+            return
+        is_buy, value_to_hedge = self.get_hedge_direction_and_value()
+        price, amount = self.calculate_hedge_price_and_amount(is_buy, value_to_hedge)
+        if not self.get_order_candidate(is_buy, amount, price):
             return
         self.place_order(is_buy, amount, price)
 
@@ -283,7 +292,8 @@ class HedgeStrategy(StrategyPyBase):
         """
         Check if the balance is sufficient to place an order.
         if not, adjust the amount to the balance available.
-        returns None if the order is not valid.
+        returns the order candidate if the order meets the accepted criteria
+        else, return None
         """
         market_info = self._hedge_market_pair
         budget_checker = market_info.market.budget_checker
@@ -311,29 +321,30 @@ class HedgeStrategy(StrategyPyBase):
             return None
         return adjusted_candidate_order
 
-    def place_order(self, is_buy: bool, amount: float, price: float):
+    def place_order(self, is_buy: bool, amount: float, price: float) -> None:
         """
         Place an order.
         """
 
-        if amount * price < self._min_trade_size:
-            self.logger().info("Not placing order. Amount * price is less than minimum trade.")
-            return
         self.logger().info(
-            f"Hedging {'buy' if is_buy else 'sell'} {amount} {self._hedge_market_pair.base_asset} "
+            f"Create {'buy' if is_buy else 'sell'} {amount} {self._hedge_market_pair.base_asset} "
             f"at {price} {self._hedge_market_pair.quote_asset}"
         )
         trade = self.buy_with_specific_market if is_buy else self.sell_with_specific_market
         trade(self._hedge_market_pair, amount, order_type=OrderType.LIMIT, price=price)
 
-    def check_and_cancel_active_orders(self):
+    def check_and_cancel_active_orders(self) -> bool:
         """
         Check if there are any active orders and,
         cancel them if the order age has exceeded the expected time.
+        returns True if there are active orders.
         """
         active_orders = self.order_tracker.market_pair_to_active_orders.get(self._hedge_market_pair, [])
+        if not active_orders:
+            return False
         for order in active_orders:
             order_time = order_age(order, self._current_timestamp)
             if order_time > self._max_order_age:
                 self.logger().debug(f"Cancelling order {order.client_order_id} because it is {order_time} seconds old.")
                 self.cancel_order(self._hedge_market_pair, order.client_order_id)
+        return True
