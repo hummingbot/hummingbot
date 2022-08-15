@@ -1,5 +1,6 @@
 import { Cache, CacheContainer } from 'node-ts-cache';
 import { MemoryStorage } from 'node-ts-cache-storage-memory';
+import { runWithRetryAndTimeout } from '../../connectors/serum/serum.helpers';
 import { logger } from '../../services/logger';
 import { getSolanaConfig } from './solana.config';
 import { countDecimals, TokenValue, walletPath } from '../../services/base';
@@ -138,7 +139,13 @@ export class Solana implements Solanaish {
 
   // returns a Tokens for a given list source and list type
   async getTokenList(): Promise<TokenInfo[]> {
-    const tokens = await new TokenListProvider().resolve();
+    const tokenListProvider = new TokenListProvider();
+    const tokens = await runWithRetryAndTimeout(
+      tokenListProvider,
+      tokenListProvider.resolve,
+      []
+    );
+
     return tokens.filterByClusterSlug(this._network).getList();
   }
 
@@ -190,20 +197,27 @@ export class Solana implements Solanaish {
   ): Promise<PublicKey> {
     const tokenProgramId = this._tokenProgramAddress;
     const splAssociatedTokenAccountProgramId = (
-      await this.connection.getParsedTokenAccountsByOwner(walletAddress, {
-        programId: this._tokenProgramAddress,
-      })
+      await runWithRetryAndTimeout(
+        this.connection,
+        this.connection.getParsedTokenAccountsByOwner,
+        [
+          walletAddress,
+          {
+            programId: this._tokenProgramAddress,
+          },
+        ]
+      )
     ).value.map((item) => item.pubkey)[0];
 
     const programAddress = (
-      await PublicKey.findProgramAddress(
+      await runWithRetryAndTimeout(PublicKey, PublicKey.findProgramAddress, [
         [
           walletAddress.toBuffer(),
           tokenProgramId.toBuffer(),
           tokenMintAddress.toBuffer(),
         ],
-        splAssociatedTokenAccountProgramId
-      )
+        splAssociatedTokenAccountProgramId,
+      ])
     )[0];
 
     return programAddress;
@@ -330,11 +344,14 @@ export class Solana implements Solanaish {
   async getBalances(wallet: Keypair): Promise<Record<string, TokenValue>> {
     const balances: Record<string, TokenValue> = {};
 
-    balances['SOL'] = await this.getSolBalance(wallet);
+    balances['SOL'] = await runWithRetryAndTimeout(this, this.getSolBalance, [
+      wallet,
+    ]);
 
-    const allSplTokens = await this.connection.getParsedTokenAccountsByOwner(
-      wallet.publicKey,
-      { programId: this._tokenProgramAddress }
+    const allSplTokens = await runWithRetryAndTimeout(
+      this.connection,
+      this.connection.getParsedTokenAccountsByOwner,
+      [wallet.publicKey, { programId: this._tokenProgramAddress }]
     );
 
     allSplTokens.value.forEach(
@@ -356,7 +373,11 @@ export class Solana implements Solanaish {
 
   // returns the SOL balance, convert BigNumber to string
   async getSolBalance(wallet: Keypair): Promise<TokenValue> {
-    const lamports = await this.connection.getBalance(wallet.publicKey);
+    const lamports = await runWithRetryAndTimeout(
+      this.connection,
+      this.connection.getBalance,
+      [wallet.publicKey]
+    );
     return { value: BigNumber.from(lamports), decimals: this._lamportDecimals };
   }
 
@@ -372,9 +393,10 @@ export class Solana implements Solanaish {
     walletAddress: PublicKey,
     mintAddress: PublicKey
   ): Promise<TokenValue> {
-    const response = await this.connection.getParsedTokenAccountsByOwner(
-      walletAddress,
-      { mint: mintAddress }
+    const response = await runWithRetryAndTimeout(
+      this.connection,
+      this.connection.getParsedTokenAccountsByOwner,
+      [walletAddress, { mint: mintAddress }]
     );
     if (response['value'].length == 0) {
       throw new Error(`Token account not initialized`);
@@ -389,9 +411,10 @@ export class Solana implements Solanaish {
     walletAddress: PublicKey,
     mintAddress: PublicKey
   ): Promise<boolean> {
-    const response = await this.connection.getParsedTokenAccountsByOwner(
-      walletAddress,
-      { programId: this._tokenProgramAddress }
+    const response = await runWithRetryAndTimeout(
+      this.connection,
+      this.connection.getParsedTokenAccountsByOwner,
+      [walletAddress, { programId: this._tokenProgramAddress }]
     );
     for (const accountInfo of response.value) {
       if (
@@ -411,9 +434,10 @@ export class Solana implements Solanaish {
     pubkey: PublicKey;
     account: AccountInfo<ParsedAccountData>;
   } | null> {
-    const response = await this.connection.getParsedTokenAccountsByOwner(
-      walletAddress,
-      { programId: this._tokenProgramAddress }
+    const response = await runWithRetryAndTimeout(
+      this.connection,
+      this.connection.getParsedTokenAccountsByOwner,
+      [walletAddress, { programId: this._tokenProgramAddress }]
     );
     for (const accountInfo of response.value) {
       if (
@@ -493,7 +517,11 @@ export class Solana implements Solanaish {
 
   // returns the current slot number
   async getCurrentSlotNumber(): Promise<number> {
-    return await this._connection.getSlot();
+    return await runWithRetryAndTimeout(
+      this._connection,
+      this._connection.getSlot,
+      []
+    );
   }
 
   public requestCounter(msg: any): void {
@@ -528,7 +556,11 @@ export class Solana implements Solanaish {
 
   // returns the current block number
   async getCurrentBlockNumber(): Promise<number> {
-    return await this.connection.getSlot('processed');
+    return await runWithRetryAndTimeout(
+      this.connection,
+      this.connection.getSlot,
+      ['processed']
+    );
   }
 
   async close() {
