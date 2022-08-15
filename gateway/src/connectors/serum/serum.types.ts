@@ -13,6 +13,12 @@ import BN from 'bn.js';
 import { Map as ImmutableMap, Set as ImmutableSet } from 'immutable';
 import { Market as ExtendedMarket } from './extensions/market';
 
+// export type FunctionType<Arguments, Return> = (...args: Arguments[]) => Return;
+
+// export type AsyncFunctionType<Arguments, Return> = (
+//   ...args: Arguments[]
+// ) => Promise<Return>;
+
 export type IMap<K, V> = ImmutableMap<K, V>;
 export const IMap = ImmutableMap;
 export type ISet<V> = ImmutableSet<V>;

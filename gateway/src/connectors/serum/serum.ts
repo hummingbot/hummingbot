@@ -13,8 +13,8 @@ import { Cache, CacheContainer } from 'node-ts-cache';
 import { MemoryStorage } from 'node-ts-cache-storage-memory';
 import { Solana } from '../../chains/solana/solana';
 import {
-  getSolanaConfig,
   Config as SolanaConfig,
+  getSolanaConfig,
 } from '../../chains/solana/solana.config';
 import { SerumConfig } from './serum.config';
 import { default as constants } from './serum.constants';
@@ -31,6 +31,7 @@ import {
   getNotNullOrThrowError,
   getRandonBN,
   promiseAllInBatches,
+  runWithRetryAndTimeout,
 } from './serum.helpers';
 import {
   BasicSerumMarket,
@@ -115,7 +116,9 @@ export class Serum {
     let marketsInformation: BasicSerumMarket[];
 
     try {
-      marketsInformation = (await axios.get(marketsURL)).data;
+      marketsInformation = (
+        await runWithRetryAndTimeout<any>(axios, axios.get, [marketsURL])
+      ).data;
     } catch (e) {
       marketsInformation = MARKETS;
     }
@@ -140,12 +143,16 @@ export class Serum {
     programId: PublicKey,
     layoutOverride?: any
   ): Promise<SerumMarket> {
-    return await SerumMarket.load(
-      connection,
-      address,
-      <SerumMarketOptions>options,
-      programId,
-      layoutOverride
+    return await runWithRetryAndTimeout<Promise<SerumMarket>>(
+      SerumMarket,
+      SerumMarket.load,
+      [
+        connection,
+        address,
+        <SerumMarketOptions>options,
+        programId,
+        layoutOverride,
+      ]
     );
   }
 
@@ -160,7 +167,11 @@ export class Serum {
     market: SerumMarket,
     connection: Connection
   ): Promise<SerumOrderBook> {
-    return await market.loadBids(connection);
+    return await runWithRetryAndTimeout<Promise<SerumOrderBook>>(
+      market,
+      market.loadBids,
+      [connection]
+    );
   }
 
   /**
@@ -174,7 +185,11 @@ export class Serum {
     market: SerumMarket,
     connection: Connection
   ): Promise<SerumOrderBook> {
-    return await market.loadAsks(connection);
+    return await runWithRetryAndTimeout<Promise<SerumOrderBook>>(
+      market,
+      market.loadAsks,
+      [connection]
+    );
   }
 
   /**
@@ -190,7 +205,11 @@ export class Serum {
     connection: Connection,
     limit?: number
   ): Promise<any[]> {
-    return await market.loadFills(connection, limit);
+    return await runWithRetryAndTimeout<Promise<any[]>>(
+      market,
+      market.loadFills,
+      [connection, limit]
+    );
   }
 
   /**
@@ -208,10 +227,10 @@ export class Serum {
     ownerAddress: PublicKey,
     cacheDurationMs?: number
   ): Promise<SerumOrder[]> {
-    return await market.loadOrdersForOwner(
-      connection,
-      ownerAddress,
-      cacheDurationMs
+    return await runWithRetryAndTimeout<Promise<SerumOrder[]>>(
+      market,
+      market.loadOrdersForOwner,
+      [connection, ownerAddress, cacheDurationMs]
     );
   }
 
@@ -252,20 +271,27 @@ export class Serum {
   //     replaceIfExists,
   //   }: SerumOrderParams<Account>
   // ): Promise<TransactionSignature> {
-  //   return await market.placeOrder(connection, {
-  //     owner,
-  //     payer,
-  //     side,
-  //     price,
-  //     size,
-  //     orderType,
-  //     clientId,
-  //     openOrdersAddressKey,
-  //     openOrdersAccount,
-  //     feeDiscountPubkey,
-  //     maxTs,
-  //     replaceIfExists,
-  //   });
+  //   return await runWithRetryAndTimeout<Promise<TransactionSignature>>(
+  //     market,
+  //     market.placeOrder,
+  //     [
+  //       connection,
+  //       {
+  //         owner,
+  //         payer,
+  //         side,
+  //         price,
+  //         size,
+  //         orderType,
+  //         clientId,
+  //         openOrdersAddressKey,
+  //         openOrdersAccount,
+  //         feeDiscountPubkey,
+  //         maxTs,
+  //         replaceIfExists,
+  //       },
+  //     ]
+  //   );
   // }
 
   /**
@@ -282,7 +308,11 @@ export class Serum {
     connection: Connection,
     orders: SerumOrderParams<Account>[]
   ): Promise<TransactionSignature[]> {
-    return await market.placeOrders(connection, orders);
+    return await runWithRetryAndTimeout<Promise<TransactionSignature[]>>(
+      market,
+      market.placeOrders,
+      [connection, orders]
+    );
   }
 
   // /**
@@ -295,7 +325,11 @@ export class Serum {
   //  * @private
   //  */
   // private async serumMarketCancelOrder(market: SerumMarket, connection: Connection, owner: Account, order: SerumOrder): Promise<TransactionSignature> {
-  //   return await market.cancelOrder(connection, owner, order);
+  //   return await runWithRetryAndTimeout<Promise<TransactionSignature>>(
+  //     market,
+  //     market.cancelOrder,
+  //     [connection, owner, order]
+  //   );
   // }
 
   /**
@@ -314,11 +348,9 @@ export class Serum {
     owner: Account,
     orders: SerumOrder[]
   ): Promise<{ cancellation: string; fundsSettlement: string }> {
-    const cancellationSignature = await market.cancelOrders(
-      connection,
-      owner,
-      orders
-    );
+    const cancellationSignature = await runWithRetryAndTimeout<
+      Promise<TransactionSignature>
+    >(market, market.cancelOrders, [connection, owner, orders]);
 
     const fundsSettlements: {
       owner: Account;
@@ -405,10 +437,10 @@ export class Serum {
     ownerAddress: PublicKey,
     cacheDurationMs?: number
   ): Promise<SerumOpenOrders[]> {
-    return await market.findOpenOrdersAccountsForOwner(
-      connection,
-      ownerAddress,
-      cacheDurationMs
+    return await runWithRetryAndTimeout<Promise<SerumOpenOrders[]>>(
+      market,
+      market.findOpenOrdersAccountsForOwner,
+      [connection, ownerAddress, cacheDurationMs]
     );
   }
 
@@ -428,11 +460,13 @@ export class Serum {
     ownerAddress: PublicKey,
     includeUnwrappedSol?: boolean
   ): Promise<Array<{ pubkey: PublicKey; account: AccountInfo<Buffer> }>> {
-    return await market.findBaseTokenAccountsForOwner(
+    return await runWithRetryAndTimeout<
+      Promise<Array<{ pubkey: PublicKey; account: AccountInfo<Buffer> }>>
+    >(market, market.findBaseTokenAccountsForOwner, [
       connection,
       ownerAddress,
-      includeUnwrappedSol
-    );
+      includeUnwrappedSol,
+    ]);
   }
 
   /**
@@ -451,11 +485,13 @@ export class Serum {
     ownerAddress: PublicKey,
     includeUnwrappedSol?: boolean
   ): Promise<Array<{ pubkey: PublicKey; account: AccountInfo<Buffer> }>> {
-    return await market.findQuoteTokenAccountsForOwner(
+    return await runWithRetryAndTimeout<
+      Promise<Array<{ pubkey: PublicKey; account: AccountInfo<Buffer> }>>
+    >(market, market.findQuoteTokenAccountsForOwner, [
       connection,
       ownerAddress,
-      includeUnwrappedSol
-    );
+      includeUnwrappedSol,
+    ]);
   }
 
   /**
@@ -479,13 +515,17 @@ export class Serum {
     quoteWallet: PublicKey,
     referrerQuoteWallet?: PublicKey | null
   ): Promise<TransactionSignature> {
-    return await market.settleFunds(
-      connection,
-      owner,
-      openOrders,
-      baseWallet,
-      quoteWallet,
-      referrerQuoteWallet
+    return await runWithRetryAndTimeout<Promise<TransactionSignature>>(
+      market,
+      market.settleFunds,
+      [
+        connection,
+        owner,
+        openOrders,
+        baseWallet,
+        quoteWallet,
+        referrerQuoteWallet,
+      ]
     );
   }
 
@@ -511,15 +551,19 @@ export class Serum {
     }[],
     transaction: Transaction = new Transaction()
   ): Promise<TransactionSignature[]> {
-    return await market.settleSeveralFunds(
-      connection,
-      settlements,
-      transaction
+    return await runWithRetryAndTimeout<Promise<TransactionSignature[]>>(
+      market,
+      market.settleSeveralFunds,
+      [connection, settlements, transaction]
     );
   }
 
   private async getSolanaAccount(address: string): Promise<Account> {
-    return await this.solana.getAccount(address);
+    return await runWithRetryAndTimeout<Promise<Account>>(
+      this.solana,
+      this.solana.getAccount,
+      [address]
+    );
   }
 
   /**
@@ -601,12 +645,7 @@ export class Serum {
     };
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
-    await promiseAllInBatches(
-      getMarket,
-      names,
-      constants.parallel.all.batchSize,
-      constants.parallel.all.delayBetweenBatches
-    );
+    await promiseAllInBatches(getMarket, names);
 
     return markets;
   }
@@ -648,12 +687,7 @@ export class Serum {
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
     // It takes on average about 44s to load all the markets
-    await promiseAllInBatches(
-      loadMarket,
-      marketsInformation,
-      constants.parallel.all.batchSize,
-      constants.parallel.all.delayBetweenBatches
-    );
+    await promiseAllInBatches(loadMarket, marketsInformation);
 
     return allMarkets;
   }
@@ -687,12 +721,7 @@ export class Serum {
     };
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
-    await promiseAllInBatches(
-      getOrderBook,
-      marketNames,
-      constants.parallel.all.batchSize,
-      constants.parallel.all.delayBetweenBatches
-    );
+    await promiseAllInBatches(getOrderBook, marketNames);
 
     return orderBooks;
   }
@@ -764,12 +793,7 @@ export class Serum {
     };
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
-    await promiseAllInBatches(
-      getTicker,
-      marketNames,
-      constants.parallel.all.batchSize,
-      constants.parallel.all.delayBetweenBatches
-    );
+    await promiseAllInBatches(getTicker, marketNames);
 
     return tickers;
   }
@@ -869,12 +893,7 @@ export class Serum {
       }
     };
 
-    await promiseAllInBatches(
-      getOrders,
-      targets,
-      constants.parallel.all.batchSize,
-      constants.parallel.all.delayBetweenBatches
-    );
+    await promiseAllInBatches(getOrders, targets);
 
     for (const target of targets) {
       orders.concat(
@@ -947,9 +966,7 @@ export class Serum {
 
     await promiseAllInBatches<Market, Promise<void>>(
       getOpenOrders,
-      Array.from(markets.values()),
-      constants.parallel.all.batchSize,
-      constants.parallel.all.delayBetweenBatches
+      Array.from(markets.values())
     );
 
     return result;
@@ -1046,12 +1063,7 @@ export class Serum {
       }
     };
 
-    await promiseAllInBatches(
-      getOrders,
-      targets,
-      constants.parallel.all.batchSize,
-      constants.parallel.all.delayBetweenBatches
-    );
+    await promiseAllInBatches(getOrders, targets);
 
     for (const target of targets) {
       orders.concat(
@@ -1118,9 +1130,7 @@ export class Serum {
 
     await promiseAllInBatches<Market, Promise<void>>(
       getFilledOrders,
-      Array.from(markets.values()),
-      constants.parallel.all.batchSize,
-      constants.parallel.all.delayBetweenBatches
+      Array.from(markets.values())
     );
 
     return result;
@@ -1199,12 +1209,7 @@ export class Serum {
       }
     };
 
-    await promiseAllInBatches(
-      getOrders,
-      targets,
-      constants.parallel.all.batchSize,
-      constants.parallel.all.delayBetweenBatches
-    );
+    await promiseAllInBatches(getOrders, targets);
 
     for (const target of targets) {
       orders.concat(
@@ -1265,9 +1270,7 @@ export class Serum {
 
     await promiseAllInBatches<Market, Promise<void>>(
       getOrders,
-      Array.from(markets.values()),
-      constants.parallel.all.batchSize,
-      constants.parallel.all.delayBetweenBatches
+      Array.from(markets.values())
     );
 
     return result;
@@ -1660,12 +1663,7 @@ export class Serum {
     };
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
-    await promiseAllInBatches(
-      settleFunds,
-      marketNames,
-      constants.parallel.all.batchSize,
-      constants.parallel.all.delayBetweenBatches
-    );
+    await promiseAllInBatches(settleFunds, marketNames);
 
     return funds;
   }

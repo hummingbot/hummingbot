@@ -18,6 +18,45 @@
       },
       "additionalProperties": false
     },
+    "retry": {
+      "type": "object",
+      "required": ["all"],
+      "properties": {
+        "all": {
+          "type": "object",
+          "required": ["maxNumberOfRetries", "delayBetweenRetries"],
+          "properties": {
+            "maxNumberOfRetries": { "type": "integer" },
+            "delayBetweenRetries": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "timeout": {
+      "type": "object",
+      "required": ["all"],
+      "properties": {
+        "all": { "type": "integer" }
+      }
+    },
+    "parallel": {
+      "type": "object",
+      "required": ["all"],
+      "properties": {
+        "all": {
+          "type": "object",
+          "required": ["batchSize", "delayBetweenBatches"],
+          "properties": {
+            "batchSize": { "type": "integer" },
+            "delayBetweenBatches": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
     "tokenProgram": { "type": "string" },
     "transactionLamports": { "type": "integer" },
     "lamportsToSol": { "type": "number" },
@@ -26,6 +65,9 @@
   "required": [
     "network",
     "networks",
+    "retry",
+    "timeout",
+    "parallel",
     "tokenProgram",
     "transactionLamports",
     "lamportsToSol",
