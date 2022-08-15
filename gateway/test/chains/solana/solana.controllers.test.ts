@@ -1,4 +1,5 @@
 import { Keypair } from '@solana/web3.js';
+import BN from 'bn.js';
 import bs58 from 'bs58';
 import { Solana } from '../../../src/chains/solana/solana';
 import { balances, poll } from '../../../src/chains/solana/solana.controllers';
@@ -7,17 +8,16 @@ import {
   SolanaPollResponse,
   TransactionResponseStatusCode,
 } from '../../../src/chains/solana/solana.requests';
-import { patch, unpatch } from '../../services/patch';
-import { txHash } from '../../services/validators.test';
-import * as getTokenListData from './fixtures/getTokenList.json';
-import * as getTransactionData from './fixtures/getTransaction.json';
-import { privateKey, publicKey } from './solana.validators.test';
 import {
   HttpException,
   LOAD_WALLET_ERROR_CODE,
   LOAD_WALLET_ERROR_MESSAGE,
 } from '../../../src/services/error-handler';
-import BN from 'bn.js';
+import { patch, unpatch } from '../../services/patch';
+import { txHash } from '../../services/validators.test';
+import * as getTokenListData from './fixtures/getTokenList.json';
+import * as getTransactionData from './fixtures/getTransaction.json';
+import { privateKey, publicKey } from './solana.validators.test';
 
 let solana: Solana;
 beforeAll(async () => {
