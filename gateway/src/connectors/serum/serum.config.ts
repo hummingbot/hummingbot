@@ -34,9 +34,11 @@ export namespace SerumConfig {
     availableNetworks: [
       {
         chain: 'solana',
-        networks: Object.keys(
-          ConfigManagerV2.getInstance().get(`solana.networks`)
-        ),
+        networks: ['mainnet-beta'],
+        // // testnet and devnet where disabled because they weren't working properly.
+        // networks: Object.keys(
+        //   ConfigManagerV2.getInstance().get(`solana.networks`)
+        // ),
       },
     ],
   };
