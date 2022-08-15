@@ -1,4 +1,5 @@
 import web3 from 'web3';
+import { default as constants } from './../../chains/solana/solana.constants';
 
 /**
  *
@@ -30,17 +31,21 @@ export const sleep = (milliseconds: number) =>
  * @param {function(A): B} task The task to run for each item.
  * @param {A[]} items Arguments to pass to the task for each call.
  * @param {int} batchSize The number of items to process at a time.
- * @param {int} delayInMilliseconds Delay between each batch.
+ * @param {int} delayBetweenBatches Delay between each batch (milliseconds).
  * @returns {B[]}
  */
 export const promiseAllInBatches = async <I, O>(
   task: (item: I) => O,
   items: any[],
-  batchSize: number,
-  delayInMilliseconds: number = 0
+  batchSize: number = constants.parallel.all.batchSize,
+  delayBetweenBatches: number = constants.parallel.all.delayBetweenBatches
 ): Promise<O[]> => {
   let position = 0;
   let results: any[] = [];
+
+  if (!batchSize) {
+    batchSize = items.length;
+  }
 
   while (position < items.length) {
     const itemsForBatch = items.slice(position, position + batchSize);
@@ -51,7 +56,9 @@ export const promiseAllInBatches = async <I, O>(
     position += batchSize;
 
     if (position < items.length) {
-      await sleep(delayInMilliseconds);
+      if (delayBetweenBatches > 0) {
+        await sleep(delayBetweenBatches);
+      }
     }
   }
 
@@ -69,32 +76,32 @@ export const getRandonBN = () => {
  * @param targetObject
  * @param targetFunction
  * @param targetParameters
- * @param maxNumberOfRetries
- * @param delayBetweenRetriesInMilliseconds
- * @param timeoutInMilliseconds
+ * @param maxNumberOfRetries 0 means no retries
+ * @param delayBetweenRetries 0 means no delay (milliseconds)
+ * @param timeout 0 means no timeout (milliseconds)
  * @param timeoutMessage
  */
 export const runWithRetryAndTimeout = async <R>(
   targetObject: any,
-  targetFunction: any,
+  targetFunction: (...args: any[]) => R,
   targetParameters: any,
-  maxNumberOfRetries: number = 0, // 0 means no retries
-  delayBetweenRetriesInMilliseconds: number = 0, // 0 means no delay
-  timeoutInMilliseconds: number = 0, // 0 means no timeout,
+  maxNumberOfRetries: number = constants.retry.all.maxNumberOfRetries,
+  delayBetweenRetries: number = constants.retry.all.delayBetweenRetries,
+  timeout: number = constants.timeout.all,
   timeoutMessage: string = 'Timeout exceeded.'
 ): Promise<R> => {
   let retryCount = 0;
   let timer: any;
 
-  if (timeoutInMilliseconds > 0) {
-    timer = setTimeout(() => new Error(timeoutMessage), timeoutInMilliseconds);
+  if (timeout > 0) {
+    timer = setTimeout(() => new Error(timeoutMessage), timeout);
   }
 
   do {
     try {
       const result = await targetFunction.apply(targetObject, targetParameters);
 
-      if (timeoutInMilliseconds > 0) {
+      if (timeout > 0) {
         clearTimeout(timer);
       }
 
@@ -102,8 +109,8 @@ export const runWithRetryAndTimeout = async <R>(
     } catch (error) {
       retryCount++;
       if (retryCount < maxNumberOfRetries) {
-        if (delayBetweenRetriesInMilliseconds > 0) {
-          await sleep(delayBetweenRetriesInMilliseconds);
+        if (delayBetweenRetries > 0) {
+          await sleep(delayBetweenRetries);
         }
       } else {
         throw error;

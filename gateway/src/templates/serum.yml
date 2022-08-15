@@ -1,7 +1,3 @@
-parallel:
-  all:
-    batchSize: 10
-    delayBetweenBatches: 1000 # in milliseconds
 cache:
   markets: 3600 # in seconds
 markets:

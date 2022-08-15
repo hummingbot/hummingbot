@@ -1,3 +1,4 @@
+network: mainnet-beta
 networks:
   mainnet-beta:
     nodeURL: https://api.mainnet-beta.solana.com
@@ -10,7 +11,16 @@ networks:
 #  devnet:
 #    nodeURL: https://api.devnet.solana.com
 #    nativeCurrencySymbol: SOL
-network: mainnet-beta
+retry:
+  all:
+    maxNumberOfRetries: 3 # 0 means no retries
+    delayBetweenRetries: 200 # in milliseconds, 0 means no delay
+timeout:
+  all: 0 # in milliseconds, 0 means no timeout.
+parallel:
+  all:
+    batchSize: 100 # 0 means no batching, group all
+    delayBetweenBatches: 200 # in milliseconds, 0 means no delay
 tokenProgram: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
 transactionLamports: 5000
 lamportsToSol: 0.000000001
