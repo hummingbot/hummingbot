@@ -41,8 +41,11 @@ let patches: Map<string, any>;
 
 beforeAll(async () => {
   const configManager = ConfigManagerV2.getInstance();
-  configManager.set('serum.parallel.all.batchSize', 100);
-  configManager.set('serum.parallel.all.delayBetweenBatches', 1);
+  configManager.set('solana.timeout.all', 100000);
+  configManager.set('solana.retry.all.maxNumberOfRetries', 5);
+  configManager.set('solana.retry.all.delayBetweenRetries', 500);
+  configManager.set('solana.parallel.all.batchSize', 100);
+  configManager.set('solana.parallel.all.delayBetweenBatches', 500);
 
   app = express();
   app.use(express.json());
