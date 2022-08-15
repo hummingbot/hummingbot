@@ -101,6 +101,8 @@ class LatokenExchangeTests(TestCase):
         LatokenAPIOrderBookDataSource._trading_pair_symbol_map = {
             self.domain: bidict({f"{self.base_asset}/{self.quote_asset}": self.trading_pair})
         }
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({f"{self.base_asset}/{self.quote_asset}": self.trading_pair}))
 
     def tearDown(self) -> None:
         self.test_task and self.test_task.cancel()

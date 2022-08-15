@@ -8,12 +8,10 @@ from aiohttp import WSMessage, WSMsgType
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.exchange.okx import okx_constants as CONSTANTS
 from hummingbot.connector.exchange.okx.okx_api_user_stream_data_source import OkxAPIUserStreamDataSource
 from hummingbot.connector.exchange.okx.okx_auth import OkxAuth
 from hummingbot.connector.exchange.okx.okx_exchange import OkxExchange
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class OkxUserStreamDataSourceUnitTests(unittest.TestCase):
@@ -28,9 +26,6 @@ class OkxUserStreamDataSourceUnitTests(unittest.TestCase):
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
-        cls.domain = "com"
-
-        cls.listen_key = "TEST_LISTEN_KEY"
 
     def setUp(self) -> None:
         super().setUp()
@@ -38,7 +33,6 @@ class OkxUserStreamDataSourceUnitTests(unittest.TestCase):
         self.listening_task: Optional[asyncio.Task] = None
         self.mocking_assistant = NetworkMockingAssistant()
 
-        self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self.mock_time_provider = MagicMock()
         self.mock_time_provider.time.return_value = 1000
 
@@ -254,7 +248,7 @@ class OkxUserStreamDataSourceUnitTests(unittest.TestCase):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.receive.side_effect = [
             WSMessage(type=WSMsgType.TEXT, data=json.dumps(successful_login_response), extra=None),
-            asyncio.TimeoutError("Test timeiout"),
+            asyncio.TimeoutError("Test timeout"),
             asyncio.CancelledError]
 
         msg_queue = asyncio.Queue()
