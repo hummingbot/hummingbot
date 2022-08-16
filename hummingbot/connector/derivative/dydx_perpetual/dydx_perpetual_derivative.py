@@ -32,6 +32,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
+from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -41,7 +42,6 @@ from hummingbot.core.event.events import (
     AccountEvent,
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
-    FundingInfo,
     FundingPaymentCompletedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
@@ -146,7 +146,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
     ):
 
         ExchangeBase.__init__(self, client_config_map=client_config_map)
-        PerpetualTrading.__init__(self)
+        PerpetualTrading.__init__(self, trading_pairs)
         self._real_time_balance_update = True
         self._api_factory = build_api_factory()
         self._set_order_book_tracker(DydxPerpetualOrderBookTracker(

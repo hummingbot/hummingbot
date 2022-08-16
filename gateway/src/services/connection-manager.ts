@@ -16,6 +16,8 @@ import {
 } from './common-interfaces';
 import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Sushiswap } from '../connectors/sushiswap/sushiswap';
+import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
+import { Defira } from '../connectors/defira/defira';
 
 export async function getChain(chain: string, network: string) {
   let chainInstance: Ethereumish;
@@ -62,6 +64,10 @@ export async function getConnector<T>(
     connectorInstance = Openocean.getInstance(chain, network);
   } else if (chain === 'avalanche' && connector === 'traderjoe') {
     connectorInstance = Traderjoe.getInstance(chain, network);
+  } else if (chain === 'harmony' && connector === 'defikingdoms') {
+    connectorInstance = Defikingdoms.getInstance(chain, network);
+  } else if (chain === 'harmony' && connector === 'defira') {
+    connectorInstance = Defira.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
   }
