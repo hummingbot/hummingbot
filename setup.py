@@ -1,11 +1,14 @@
 import os
+import pathlib
 import subprocess
 import sys
+from typing import List
 
 import numpy as np
+from Cython.Build import cythonize
 from setuptools import find_packages, setup
 from setuptools.command.build_ext import build_ext
-from Cython.Build import cythonize
+from setuptools.extension import Extension
 
 is_posix = (os.name == "posix")
 
@@ -28,6 +31,25 @@ class BuildExt(build_ext):
         if os.name != "nt" and '-Wstrict-prototypes' in self.compiler.compiler_so:
             self.compiler.compiler_so.remove('-Wstrict-prototypes')
         super().build_extensions()
+
+
+def find_py_with_pxd() -> List[Extension]:
+    extensions: List[Extension] = []
+    pxd_files = pathlib.Path().glob(pattern="hummingbot/**/*.pxd")
+    for pxd_file in pxd_files:
+        parent = str(pxd_file.parent).replace("/", ".")
+        object = pxd_file.stem
+        py_file = os.path.splitext(pxd_file)[0] + ".py"
+        if os.path.isfile(py_file):
+            extensions.append(Extension(parent + "." + object,
+                                        sources=[py_file],
+                                        include_dirs=["hummingbot/core",
+                                                      "hummingbot/core/data_type",
+                                                      "hummingbot/core/cpp"],
+                                        define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION"),
+                                                       ("CYTHON_TRACE_NOGIL", "1")],
+                                        language="c++"))
+    return extensions
 
 
 def main():
@@ -103,15 +125,19 @@ def main():
 
     cython_kwargs = {
         "language": "c++",
-        "language_level": 3,
+        "language_level": "3str",
     }
 
-    cython_sources = ["hummingbot/**/*.pyx"]
+    python_sources = find_py_with_pxd()
+    cython_sources = [*python_sources,
+                      Extension("*", sources=["hummingbot/**/*.pyx"], define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")])
+                      ]
 
     if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
         compiler_directives = {
             "optimize.use_switch": False,
             "optimize.unpack_method_calls": False,
+            "profile": True,
         }
     else:
         compiler_directives = {}
@@ -129,6 +155,7 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "build_ext" and is_posix:
         sys.argv.append(f"--parallel={cpu_count}")
 
+    cython_kwargs["annotate"] = True
     setup(name="hummingbot",
           version=version,
           description="Hummingbot",
@@ -139,6 +166,7 @@ def main():
           packages=packages,
           package_data=package_data,
           install_requires=install_requires,
+          zip_safe=False,
           ext_modules=cythonize(cython_sources, compiler_directives=compiler_directives, **cython_kwargs),
           include_dirs=[
               np.get_include()

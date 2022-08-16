@@ -4,7 +4,7 @@ import logging
 import datetime
 from typing import (
     Dict,
-    Optional,
+    Optional, Any,
 )
 from datetime import datetime
 
@@ -29,9 +29,9 @@ cdef class FtxOrderBook(OrderBook):
 
     @classmethod
     def restful_snapshot_message_from_exchange(cls,
-                                               msg: Dict[str, any],
+                                               msg: Dict[str, Any],
                                                timestamp: float,
-                                               metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                               metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
@@ -43,9 +43,9 @@ cdef class FtxOrderBook(OrderBook):
 
     @classmethod
     def snapshot_message_from_exchange(cls,
-                                       msg: Dict[str, any],
+                                       msg: Dict[str, Any],
                                        timestamp: float,
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                       metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
@@ -57,9 +57,9 @@ cdef class FtxOrderBook(OrderBook):
 
     @classmethod
     def diff_message_from_exchange(cls,
-                                   msg: Dict[str, any],
+                                   msg: Dict[str, Any],
                                    timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                   metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
@@ -70,7 +70,7 @@ cdef class FtxOrderBook(OrderBook):
         }, timestamp=timestamp)
 
     @classmethod
-    def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
+    def trade_message_from_exchange(cls, msg: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None):
         if metadata:
             msg.update(metadata)
         ts = datetime.timestamp(datetime.strptime(msg["time"], "%Y-%m-%dT%H:%M:%S.%f+00:00"))

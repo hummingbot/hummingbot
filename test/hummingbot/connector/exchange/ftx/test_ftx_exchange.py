@@ -271,6 +271,7 @@ class FtxExchangeTests(TestCase):
             f"{order.order_type_description} order {order.client_order_id}"
         ))
 
+        print(self.log_records)
         self.assertTrue(self._is_logged(
             "INFO",
             f"The market buy order {order.client_order_id} has completed according to user stream."

@@ -1,7 +1,7 @@
 import logging
 from typing import (
     Dict,
-    Optional
+    Optional, Any
 )
 
 from hummingbot.core.data_type.common import TradeType
@@ -25,9 +25,9 @@ cdef class KrakenOrderBook(OrderBook):
 
     @classmethod
     def snapshot_message_from_exchange(cls,
-                                       msg: Dict[str, any],
+                                       msg: Dict[str, Any],
                                        timestamp: float,
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                       metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
@@ -39,9 +39,9 @@ cdef class KrakenOrderBook(OrderBook):
 
     @classmethod
     def diff_message_from_exchange(cls,
-                                   msg: Dict[str, any],
+                                   msg: Dict[str, Any],
                                    timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                   metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
@@ -53,9 +53,9 @@ cdef class KrakenOrderBook(OrderBook):
 
     @classmethod
     def snapshot_ws_message_from_exchange(cls,
-                                          msg: Dict[str, any],
+                                          msg: Dict[str, Any],
                                           timestamp: Optional[float] = None,
-                                          metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                          metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
@@ -66,7 +66,7 @@ cdef class KrakenOrderBook(OrderBook):
         }, timestamp=timestamp * 1e-3)
 
     @classmethod
-    def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
+    def trade_message_from_exchange(cls, msg: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None):
         if metadata:
             msg.update(metadata)
         ts = float(msg["trade"][2])

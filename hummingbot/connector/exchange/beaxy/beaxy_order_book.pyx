@@ -26,7 +26,7 @@ cdef class BeaxyOrderBook(OrderBook):
         cls,
         msg: Dict[str, any],
         timestamp: float,
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict[str, any]] = None
     ) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
@@ -41,7 +41,7 @@ cdef class BeaxyOrderBook(OrderBook):
         cls,
         msg: Dict[str, any],
         timestamp: Optional[float] = None,
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict[str, any]] = None
     ) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
@@ -56,7 +56,7 @@ cdef class BeaxyOrderBook(OrderBook):
         cls,
         msg: Dict[str, Any],
         timestamp: Optional[float] = None,
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict[str, any]] = None
     ) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)

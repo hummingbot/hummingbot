@@ -2,7 +2,7 @@
 import logging
 from typing import (
     Dict,
-    Optional,
+    Optional, Any,
 )
 
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -22,9 +22,9 @@ cdef class LiquidOrderBook(OrderBook):
 
     @classmethod
     def snapshot_message_from_exchange(cls,
-                                       msg: Dict[str, any],
+                                       msg: Dict[str, Any],
                                        timestamp: float,
-                                       metadata: Optional[Dict] = None) -> (OrderBookMessage):
+                                       metadata: Optional[Dict[str, Any]] = None) -> (OrderBookMessage):
         """
         *required
         Convert json snapshot data into standard OrderBookMessage format
@@ -43,9 +43,9 @@ cdef class LiquidOrderBook(OrderBook):
 
     @classmethod
     def diff_message_from_exchange(cls,
-                                   msg: Dict[str, any],
+                                   msg: Dict[str, Any],
                                    timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                   metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         """
         *required
         Convert json diff data into standard OrderBookMessage format

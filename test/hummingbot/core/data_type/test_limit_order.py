@@ -1,6 +1,7 @@
+import time
 import unittest
 from decimal import Decimal
-import time
+
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import LimitOrderStatus
 
@@ -45,14 +46,14 @@ class LimitOrderUnitTest(unittest.TestCase):
         self.assertEqual(LimitOrderStatus.OPEN, order.status)
         self.assertEqual(100, order.age())
         end_time = created + (50 * 1e6)
-        self.assertEqual(50, order.age_til(end_time))
+        self.assertEqual(50, order.age_til(int(end_time)))
         end_time = created - (50 * 1e6)
-        self.assertEqual(-1, order.age_til(end_time))
+        self.assertEqual(-1, order.age_til(int(end_time)))
 
     def test_to_pandas(self):
         # Fix the timestamp here so that we can test order age accurately
-        created = 1625835199511442
-        now_ts = created + 100 * 1e6
+        created: int = 1625835199511442
+        now_ts: int = int(created + 100 * 1e6)
         self.maxDiff = None
         orders = [
             LimitOrder("HBOT_1", "A-B", True, "A", "B", Decimal("1"), Decimal("1.5")),

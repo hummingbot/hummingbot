@@ -184,7 +184,7 @@ cdef class PaperTradeExchange(ExchangeBase):
     @classmethod
     def random_order_id(cls, order_side: str, trading_pair: str) -> str:
         vals = [random.choice(range(0, 256)) for i in range(0, 13)]
-        return f"{order_side}://" + trading_pair + "/" + "".join([f"{val:02x}" for val in vals])
+        return f"{order_side}://" + trading_pair + "/" + str("".join([f"{val:02x}" for val in vals]))
 
     def init_paper_trade_market(self):
         for trading_pair_str, order_book in self.order_book_tracker.order_books.items():

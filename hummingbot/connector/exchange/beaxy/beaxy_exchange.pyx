@@ -1012,7 +1012,7 @@ cdef class BeaxyExchange(ExchangeBase):
         try:
             assert path_url is not None or url is not None
 
-            url = f'{BeaxyConstants.TradingApi.BASE_URL}{path_url}' if url is None else url
+            url = str(f'{BeaxyConstants.TradingApi.BASE_URL}{path_url}') if url is None else url
 
             data_str = '' if data is None else json.dumps(data, separators=(',', ':'))
 

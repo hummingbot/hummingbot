@@ -1,7 +1,7 @@
 import logging
 from typing import (
     Dict,
-    Optional
+    Optional, Any
 )
 
 import ujson
@@ -27,9 +27,9 @@ cdef class BlocktaneOrderBook(OrderBook):
 
     @classmethod
     def snapshot_message_from_exchange(cls,
-                                       msg: Dict[str, any],
+                                       msg: Dict[str, Any],
                                        timestamp: float,
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                       metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
@@ -41,9 +41,9 @@ cdef class BlocktaneOrderBook(OrderBook):
 
     @classmethod
     def diff_message_from_exchange(cls,
-                                   msg: Dict[str, any],
+                                   msg: Dict[str, Any],
                                    timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                   metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         def adjust_empty_amounts(levels):
             result = []
             for level in levels:
@@ -65,7 +65,7 @@ cdef class BlocktaneOrderBook(OrderBook):
         }, timestamp=timestamp)
 
     @classmethod
-    def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         msg = ujson.loads(record.value.decode("utf-8"))
         if metadata:
             msg.update(metadata)
@@ -77,7 +77,7 @@ cdef class BlocktaneOrderBook(OrderBook):
         }, timestamp=record.timestamp * 1e-3)
 
     @classmethod
-    def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         msg = ujson.loads(record.value.decode("utf-8"))
         if metadata:
             msg.update(metadata)
@@ -90,7 +90,7 @@ cdef class BlocktaneOrderBook(OrderBook):
         }, timestamp=record.timestamp * 1e-3)
 
     @classmethod
-    def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
+    def trade_message_from_exchange(cls, msg: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None):
         # {'fthusd.trades': {'trades': [{'tid': 9, 'taker_type': 'sell', 'date': 1586958619, 'price': '51.0', 'amount': '0.02'}]}}
         if metadata:
             msg.update(metadata)

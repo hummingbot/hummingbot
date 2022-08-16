@@ -64,8 +64,8 @@ cdef class MockPaperExchange(PaperTradeExchange):
     def ready(self):
         return True
 
-    def split_trading_pair(self, trading_pair: str) -> Tuple[str, str]:
-        return trading_pair.split("-")
+    def split_trading_pair(self, trading_pair: str) -> Tuple[str, ...]:
+        return tuple(trading_pair.split("-"))
 
     def new_empty_order_book(self, trading_pair: str):
         order_book = CompositeOrderBook()

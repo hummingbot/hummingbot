@@ -29,7 +29,7 @@ cdef class BittrexOrderBook(OrderBook):
     def snapshot_message_from_exchange(cls,
                                        msg: Dict[str, any],
                                        timestamp: float,
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                       metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         return BittrexOrderBookMessage(
@@ -44,7 +44,7 @@ cdef class BittrexOrderBook(OrderBook):
     def diff_message_from_exchange(cls,
                                    msg: Dict[str, any],
                                    timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None):
+                                   metadata: Optional[Dict[str, Any]] = None):
         if metadata:
             msg.update(metadata)
         return BittrexOrderBookMessage(
@@ -59,7 +59,7 @@ cdef class BittrexOrderBook(OrderBook):
     def trade_message_from_exchange(cls,
                                     msg: Dict[str, Any],
                                     timestamp: Optional[float] = None,
-                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                    metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         return BittrexOrderBookMessage(

@@ -199,7 +199,7 @@ cdef class FtxExchange(ExchangeBase):
     async def _update_inflight_order(self, tracked_order: FtxInFlightOrder, event: Dict[str, Any]):
         issuable_events: List[MarketEvent] = tracked_order.update(event)
 
-        # Issue relevent events
+        # Issue relevant events
         for (market_event, new_amount, new_price, new_fee) in issuable_events:
             base, quote = self.split_trading_pair(tracked_order.trading_pair)
             if market_event == MarketEvent.OrderCancelled:
@@ -216,7 +216,7 @@ cdef class FtxExchange(ExchangeBase):
                                                              tracked_order.order_type))
 
             elif market_event in [MarketEvent.BuyOrderCompleted, MarketEvent.SellOrderCompleted]:
-                event = (self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG
+                event_tag = (self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG
                          if market_event == MarketEvent.BuyOrderCompleted
                          else self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG)
                 event_class = (BuyOrderCompletedEvent
@@ -233,7 +233,7 @@ cdef class FtxExchange(ExchangeBase):
                 self.logger().info(f"The market {tracked_order.trade_type.name.lower()} order "
                                    f"{tracked_order.client_order_id} has completed according to user stream.")
                 self.c_trigger_event(
-                    event,
+                    event_tag,
                     event_class(self._current_timestamp,
                                 tracked_order.client_order_id,
                                 base,
@@ -399,7 +399,7 @@ cdef class FtxExchange(ExchangeBase):
 
     async def _process_order_update_event(self, event_message: Dict[str, Any]):
         try:
-            tracked_order = self._in_flight_orders[event_message['clientId']]
+            tracked_order: FtxInFlightOrder = self._in_flight_orders[event_message['clientId']]
             await self._update_inflight_order(tracked_order, event_message)
         except KeyError as e:
             self.logger().debug(f"Unknown order id from user stream order status updates: {event_message['clientId']}")

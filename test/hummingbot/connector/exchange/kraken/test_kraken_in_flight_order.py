@@ -9,7 +9,7 @@ class KrakenInFlightOrderTests(TestCase):
     def test_order_is_local_after_creation(self):
         order = KrakenInFlightOrder(
             client_order_id="someId",
-            exchange_order_id=None,
+            exchange_order_id='',
             trading_pair="BTC-USDT",
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,

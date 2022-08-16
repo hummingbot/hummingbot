@@ -1,4 +1,5 @@
 [run]
+plugins = Cython.Coverage
 source_pkgs = hummingbot
 omit =
         hummingbot/core/gateway/*

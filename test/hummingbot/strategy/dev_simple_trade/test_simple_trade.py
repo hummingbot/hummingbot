@@ -40,7 +40,7 @@ class SimpleTradeUnitTest(unittest.TestCase):
         )
         self.mid_price = 100
         self.time_delay = 15
-        self.cancel_order_wait_time = 45
+        self.cancel_order_wait_time = 45.0
         self.market.set_balanced_order_book(self.maker_trading_pairs[0],
                                             mid_price=self.mid_price, min_price=1,
                                             max_price=200, price_step_size=1, volume_step_size=10)

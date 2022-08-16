@@ -30,7 +30,7 @@ cdef class HuobiOrderBook(OrderBook):
     def snapshot_message_from_exchange(cls,
                                        msg: Dict[str, Any],
                                        timestamp: Optional[float] = None,
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                       metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         msg_ts = timestamp or int(msg["tick"]["ts"])
@@ -46,7 +46,7 @@ cdef class HuobiOrderBook(OrderBook):
     def trade_message_from_exchange(cls,
                                     msg: Dict[str, Any],
                                     timestamp: Optional[float] = None,
-                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                    metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         msg_ts = timestamp or int(msg["ts"])
@@ -64,7 +64,7 @@ cdef class HuobiOrderBook(OrderBook):
     def diff_message_from_exchange(cls,
                                    msg: Dict[str, Any],
                                    timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                   metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         msg_ts = timestamp or int(msg["tick"]["ts"])
@@ -77,7 +77,7 @@ cdef class HuobiOrderBook(OrderBook):
         return OrderBookMessage(OrderBookMessageType.DIFF, content, timestamp or msg_ts)
 
     @classmethod
-    def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         ts = record.timestamp
         msg = ujson.loads(record.value.decode())
         if metadata:
@@ -90,7 +90,7 @@ cdef class HuobiOrderBook(OrderBook):
         }, timestamp=ts)
 
     @classmethod
-    def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         decompressed = bz2.decompress(record.value)
         msg = ujson.loads(decompressed)
         ts = record.timestamp

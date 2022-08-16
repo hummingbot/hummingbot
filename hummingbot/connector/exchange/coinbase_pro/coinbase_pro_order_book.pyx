@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, List, Optional
 
+import cython
 import pandas as pd
 
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
@@ -23,7 +24,7 @@ cdef class CoinbaseProOrderBook(OrderBook):
     def snapshot_message_from_exchange(cls,
                                        msg: Dict[str, any],
                                        timestamp: float,
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                       metadata: Optional[Dict[str, any]] = None) -> OrderBookMessage:
         """
         *required
         Convert json snapshot data into standard OrderBookMessage format
@@ -43,7 +44,7 @@ cdef class CoinbaseProOrderBook(OrderBook):
     def diff_message_from_exchange(cls,
                                    msg: Dict[str, any],
                                    timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                   metadata: Optional[Dict[str, any]] = None) -> OrderBookMessage:
         """
         *required
         Convert json diff data into standard OrderBookMessage format
