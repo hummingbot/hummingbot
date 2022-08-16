@@ -217,7 +217,7 @@ export interface CreateOrdersRequest {
   id?: string;
   marketName: string;
   ownerAddress: string;
-  payerAddress: string;
+  payerAddress?: string;
   side: OrderSide;
   price: number;
   amount: number;

@@ -1,4 +1,6 @@
 import { MARKETS } from '@project-serum/serum';
+import { TokenInfo } from '@solana/spl-token-registry';
+import { Account as TokenAccount } from '@solana/spl-token/lib/types/state/account';
 import {
   Account,
   AccountInfo,
@@ -52,6 +54,7 @@ import {
   Order,
   OrderBook,
   OrderNotFoundError,
+  OrderSide,
   OrderStatus,
   SerumMarket,
   SerumMarketOptions,
@@ -1336,7 +1339,34 @@ export class Serum {
         marketMap?.set(owner, ownerOrders);
       }
 
-      const payer = new PublicKey(candidate.payerAddress);
+      let payer: PublicKey;
+      if (candidate.payerAddress) {
+        payer = new PublicKey(candidate.payerAddress);
+      } else {
+        if (candidate.side == OrderSide.SELL) {
+          // It's the same as the owner wallet address.
+
+          payer = new PublicKey(getNotNullOrThrowError(candidate.payerAddress));
+        } else if (candidate.side == OrderSide.BUY) {
+          // It's the token account address for the quote asset.
+
+          const quoteToken = candidate.marketName.split('/')[1];
+          const keypair = await this.solana.getKeypair(candidate.ownerAddress);
+          const tokenInfo: TokenInfo = getNotNullOrThrowError(
+            this.solana.getTokenForSymbol(quoteToken)
+          );
+          const mintAddress = new PublicKey(tokenInfo.address);
+          const account = await runWithRetryAndTimeout(
+            this.solana,
+            this.solana.getOrCreateAssociatedTokenAccount,
+            [keypair, mintAddress]
+          );
+
+          payer = getNotNullOrThrowError<TokenAccount>(account).address;
+        } else {
+          throw new Error(`Invalid order side: ${candidate.side}`);
+        }
+      }
 
       const candidateSerumOrder: SerumOrderParams<Account> = {
         side: convertOrderSideToSerumSide(candidate.side),
