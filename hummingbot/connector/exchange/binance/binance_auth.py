@@ -48,6 +48,7 @@ class BinanceAuth(AuthBase):
 
         request_params = OrderedDict(params or {})
         request_params["timestamp"] = timestamp
+        request_params['recvWindow'] = 5000
 
         signature = self._generate_signature(params=request_params)
         request_params["signature"] = signature
