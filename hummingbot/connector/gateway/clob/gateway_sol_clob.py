@@ -114,6 +114,7 @@ class GatewaySOLCLOB(ConnectorBase):
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
         self._get_markets_task = None
         self._markets = None
+        self._token_accounts = {}
         self._auto_create_token_accounts_task = None
         self._tokens_accounts_created: bool = False
         self._order_quantum = {}
@@ -268,7 +269,8 @@ class GatewaySOLCLOB(ConnectorBase):
 
     @staticmethod
     def create_market_order_id(side: TradeType, trading_pair: str) -> str:
-        return f"{side.name.lower()}-{trading_pair}-{get_tracking_nonce()}"
+        # return f"{side.name.lower()}-{trading_pair}-{get_tracking_nonce()}"
+        return f"{get_tracking_nonce()}"
 
     def is_pending_approval(self, token: str) -> bool:
         for order in self.approval_orders:
@@ -329,7 +331,7 @@ class GatewaySOLCLOB(ConnectorBase):
         """Automatically creates all token accounts required for trading."""
         if self._trading_required is True:
             for token in self._tokens:
-                await self.get_or_create_token_account(token)
+                self._token_accounts[token] = await self.get_or_create_token_account(token)
 
         self._tokens_accounts_created = True
 
@@ -590,6 +592,13 @@ class GatewaySOLCLOB(ConnectorBase):
             amount=amount
         )
         try:
+            if trade_type == TradeType.SELL:
+                payer_address = self.address
+            elif trade_type == TradeType.BUY:
+                payer_address = self._token_accounts[quote]['mintAddress']
+            else:
+                raise ValueError(f"Unknown trade type: {trade_type}")
+
             order_result: Dict[str, Any] = await self._get_gateway_instance().clob_post_orders(
                 self.chain,
                 self.network,
@@ -598,11 +607,11 @@ class GatewaySOLCLOB(ConnectorBase):
                     "id": order_id,
                     "marketName": f"{base}/{quote}",
                     "ownerAddress": self.address,
-                    "payerAddress": self.address,
-                    "side": convert_order_side(trade_type).value,
+                    "payerAddress": payer_address,
+                    "side": convert_order_side(trade_type).value[0],
                     "price": str(amount),
                     "amount": str(amount),
-                    "type": convert_order_type(OrderType.LIMIT).value
+                    "type": convert_order_type(OrderType.LIMIT).value[0]
                 }
             )
             signature: str = order_result.get("signature")
