@@ -87,7 +87,9 @@ class RateOracle(NetworkBase):
 
     @quote_token.setter
     def quote_token(self, new_token: str):
-        self._quote_token = new_token
+        if new_token != self._quote_token:
+            self._quote_token = new_token
+            self._prices = {}
 
     @property
     def prices(self) -> Dict[str, Decimal]:
