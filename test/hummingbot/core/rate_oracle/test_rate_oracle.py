@@ -4,8 +4,11 @@ from copy import deepcopy
 from decimal import Decimal
 from typing import Awaitable, Dict, Optional
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.rate_oracle.utils import find_rate
 
@@ -30,6 +33,14 @@ class RateOracleTest(unittest.TestCase):
         cls.target_token = "COINALPHA"
         cls.global_token = "HBOT"
         cls.trading_pair = combine_to_hb_trading_pair(base=cls.target_token, quote=cls.global_token)
+
+    def setUp(self) -> None:
+        if RateOracle._shared_instance is not None:
+            RateOracle._shared_instance.stop()
+        RateOracle._shared_instance = None
+
+    def tearDown(self) -> None:
+        RateOracle._shared_instance = None
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -70,3 +81,24 @@ class RateOracleTest(unittest.TestCase):
         self.assertEqual(rate, Decimal("0.5"))
         rate = find_rate(prices, "HBOT-GBP")
         self.assertEqual(rate, Decimal("75"))
+
+    def test_rate_oracle_single_instance_rate_source_reset_after_configuration_change(self):
+        config_map = ClientConfigAdapter(ClientConfigMap())
+        config_map.rate_oracle_source = "binance"
+        rate_oracle = RateOracle.get_instance()
+        config_map.rate_oracle_source = "coin_gecko"
+        self.assertEqual(type(rate_oracle.source), CoinGeckoRateSource)
+
+    def test_rate_oracle_single_instance_prices_reset_after_global_token_change(self):
+        config_map = ClientConfigAdapter(ClientConfigMap())
+
+        rate_oracle = RateOracle.get_instance()
+
+        self.assertEqual(0, len(rate_oracle.prices))
+
+        rate_oracle._prices = {"BTC-USD": Decimal("20000")}
+
+        config_map.global_token.global_token_name = "EUR"
+        config_map.validate_model()
+
+        self.assertEqual(0, len(rate_oracle.prices))
