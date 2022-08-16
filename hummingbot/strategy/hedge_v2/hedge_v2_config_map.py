@@ -64,7 +64,7 @@ hedge_v2_config_map = {
                   prompt="Enter ratio of asset to hedge, e.g 0.5 means 50 percent of the total asset value will be hedged. >>> ",
                   default=Decimal("1"),
                   type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, inclusive=True),
+                  validator=lambda v: validate_decimal(v),
                   prompt_on_new=False),
     "min_trade_size":
         ConfigVar(key="min_trade_size",
