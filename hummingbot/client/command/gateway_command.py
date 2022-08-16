@@ -397,7 +397,7 @@ class GatewayCommand(GatewayChainApiManager):
                     self.notify("Error: Invalid network")
 
             # test you can connect to the uri, otherwise request the url
-            await self._test_node_url_from_gateway_config(chain, network)
+            await self._test_node_url(chain, network)
 
             with begin_placeholder_mode(self):
 
