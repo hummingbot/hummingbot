@@ -12,9 +12,10 @@ from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide
+from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.data_type.trade_fee import TokenAmount
-from hummingbot.core.event.events import AccountEvent, FundingInfo, PositionModeChangeEvent, TradeType
+from hummingbot.core.event.events import AccountEvent, PositionModeChangeEvent, TradeType
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import async_ttl_cache
@@ -68,7 +69,7 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
             trading_pairs = trading_pairs,
             trading_required = trading_required
         )
-        PerpetualTrading.__init__(self)
+        PerpetualTrading.__init__(self, trading_pairs=trading_pairs)
         self._budget_checker = PerpetualBudgetChecker(self)
 
         # This values may not be applicable to all gateway perps, but applies to perp curie
@@ -299,6 +300,8 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
             trading_type=trade_type,
             price=price,
             amount=amount,
+            leverage=self._leverage[trading_pair],
+            position=position_action,
         )
         try:
             if position_action == PositionAction.OPEN:
@@ -378,6 +381,8 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
         order_type: OrderType = OrderType.LIMIT,
         gas_price: Decimal = s_decimal_0,
         exchange_order_id: Optional[str] = None,
+        leverage: int = 1,
+        position: PositionAction = PositionAction.NIL,
     ):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary in ClientOrderTracker.
@@ -393,7 +398,9 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
                 amount=amount,
                 gas_price=gas_price,
                 creation_timestamp=self.current_timestamp,
-                initial_state=OrderState.PENDING_CREATE
+                initial_state=OrderState.PENDING_CREATE,
+                leverage=leverage,
+                position=position
             )
         )
 
