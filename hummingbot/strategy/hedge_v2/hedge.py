@@ -343,7 +343,7 @@ class HedgeStrategy(StrategyPyBase):
         if not active_orders:
             return False
         for order in active_orders:
-            order_time = order_age(order, self._current_timestamp)
+            order_time = order_age(order, self.current_timestamp)
             if order_time > self._max_order_age:
                 self.logger().debug(f"Cancelling order {order.client_order_id} because it is {order_time} seconds old.")
                 self.cancel_order(self._hedge_market_pair, order.client_order_id)
