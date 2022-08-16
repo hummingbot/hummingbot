@@ -19,6 +19,7 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
     def __init__(self, trading_pairs: List[str]):
         self._trade_messages_queue_key = "trade"
         self._diff_messages_queue_key = "order_book_diff"
+        self._snapshot_messages_queue_key = "order_book_snapshot"
 
         self._trading_pairs: List[str] = trading_pairs
         self._order_book_create_function = lambda: OrderBook()
@@ -203,7 +204,12 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
             channel: str = self._channel_originating_message(event_message=data)
-            if channel in [self._diff_messages_queue_key, self._trade_messages_queue_key]:
+            possible_channels = [
+                self._snapshot_messages_queue_key,
+                self._diff_messages_queue_key,
+                self._trade_messages_queue_key
+            ]
+            if channel in possible_channels:
                 self._message_queue[channel].put_nowait(data)
 
     async def _sleep(self, delay):
