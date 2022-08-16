@@ -16,7 +16,6 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.connector_status import get_connector_status, warning_messages
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import OracleRateUnavailable
@@ -146,17 +145,7 @@ class StartCommand(GatewayChainApiManager):
                     ]
 
                     # check for node URL
-                    node_url_works: bool = await self._test_node_url_from_gateway_config(connector_details['chain'], connector_details['network'])
-                    if not node_url_works:
-                        node_url: str = await self._get_node_url(connector_details['chain'], connector_details['network'])
-                        await self._update_gateway_chain_network_node_url(connector_details['chain'], connector_details['network'], node_url)
-                        self.notify("Please wait for gateway to restart.")
-                        # wait for gateway to restart, config update causes gateway to restart
-
-                        # TODO: Review the necessity of the code snippet below
-                        await self._gateway_monitor.wait_for_online_status()
-                        if self._gateway_monitor.gateway_status == GatewayStatus.OFFLINE:
-                            raise Exception("Lost contact with gateway after updating the config.")
+                    await self._test_node_url_from_gateway_config(connector_details['chain'], connector_details['network'])
 
                     await UserBalances.instance().update_exchange_balance(connector, self.client_config_map)
                     balances: List[str] = [

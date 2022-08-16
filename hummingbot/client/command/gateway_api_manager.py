@@ -1,8 +1,5 @@
-import json
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
-
-import aiohttp
 
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 
@@ -34,27 +31,15 @@ class GatewayChainApiManager:
         Verify that the node url is valid. If it is an empty string,
         ignore it, but let the user know they cannot connect to the node.
         """
-        async with aiohttp.ClientSession() as tmp_client:
-            headers = {"Content-Type": "application/json"}
-            data = {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "eth_blockNumber",
-                "params": []
-            }
 
-            resp = await tmp_client.post(url=node_url,
-                                         data=json.dumps(data),
-                                         headers=headers)
+        resp = await GatewayHttpClient.get_instance().get_network_status(chain, network)
 
-            success = resp.status == 200
-            if success:
-                self.notify(f"Successfully pinged the node url for {chain}-{network}: {node_url}.")
-            else:
-                self.notify(f"Unable to successfully ping the node url for {chain}-{network}: {node_url}. Please try again (it may require an API key).")
-            return success
+        if resp.get("currentBlockNumber", -1) > 0:
+            self.notify(f"Successfully pinged the node url for {chain}-{network}: {node_url}.")
+            return True
+        return False
 
-    async def _get_node_url(self, chain: str, network: str) -> Optional[str]:
+    async def _test_node_url(self, chain: str, network: str) -> Optional[str]:
         """
         Get the node url from user input, then check that it is valid.
         """
@@ -63,13 +48,26 @@ class GatewayChainApiManager:
                 node_url: str = await self.app.prompt(prompt=f"Enter a node url (with API key if necessary) for {chain}-{network}: >>> ")
 
                 self.app.clear_input()
+                self.app.change_prompt(prompt="")
 
                 if self.app.to_stop_config:
                     self.app.to_stop_config = False
+                    self.stop()
                     return None
                 try:
                     node_url = node_url.strip()  # help check for an empty string which is valid input
                     # TODO: different behavior will be necessary for non-EVM nodes
+
+                    await self._update_gateway_chain_network_node_url(chain, network, node_url)
+
+                    self.notify("Restarting gateway to update with new node url...")
+                    # wait about 30 seconds for the gateway to restart
+                    gateway_live = await self.ping_gateway_api(30)
+                    if not gateway_live:
+                        self.notify("Error: unable to restart gateway. Try 'start' again after gateway is running.")
+                        self.notify("Stopping strategy...")
+                        self.stop()
+
                     success: bool = await self._test_evm_node(chain, network, node_url)
                     if not success:
                         # the node URL test was unsuccessful, try again
@@ -77,7 +75,6 @@ class GatewayChainApiManager:
                     return node_url
                 except Exception:
                     self.notify(f"Error occured when trying to ping the node URL: {node_url}.")
-                    raise
 
     async def _test_node_url_from_gateway_config(self, chain: str, network: str) -> bool:
         """
@@ -92,7 +89,11 @@ class GatewayChainApiManager:
                 if network_config is not None:
                     node_url: Optional[str] = network_config.get("nodeURL")
                     if node_url is not None:
-                        return await self._test_evm_node(chain, network, node_url)
+                        try:
+                            return await self._test_node_url(chain, network)
+                        except Exception:
+                            self.notify(f"Unable to successfully ping the node url for {chain}-{network}: {node_url}. Please try again (it may require an API key).")
+                            return False
                     else:
                         self.notify(f"{chain}.networks.{network}.nodeURL was not found in the gateway config.")
                         return False
