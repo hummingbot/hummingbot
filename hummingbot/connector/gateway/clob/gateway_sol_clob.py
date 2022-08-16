@@ -595,7 +595,7 @@ class GatewaySOLCLOB(ConnectorBase):
             if trade_type == TradeType.SELL:
                 payer_address = self.address
             elif trade_type == TradeType.BUY:
-                payer_address = self._token_accounts[quote]['mintAddress']
+                payer_address = self._token_accounts[quote]['accountAddress']
             else:
                 raise ValueError(f"Unknown trade type: {trade_type}")
 
