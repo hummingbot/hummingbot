@@ -457,21 +457,20 @@ class GlobalTokenConfigMap(BaseClientModel):
     class Config:
         title = "global_token"
 
+    @validator("global_token_name")
+    def validate_global_token_name(cls, v: str) -> str:
+        return v.upper()
+
     # === post-validations ===
 
     @root_validator()
     def post_validations(cls, values: Dict):
         cls.global_token_on_validated(values)
-        cls.global_token_symbol_on_validated(values)
         return values
 
     @classmethod
     def global_token_on_validated(cls, values: Dict):
-        RateOracle.global_token = values["global_token_name"].upper()
-
-    @classmethod
-    def global_token_symbol_on_validated(cls, values: Dict):
-        RateOracle.global_token_symbol = values["global_token_symbol"]
+        RateOracle.get_instance().quote_token = values["global_token_name"]
 
 
 class CommandsTimeoutConfigMap(BaseClientModel):
@@ -611,9 +610,11 @@ class CoinGeckoRateSourceMode(RateSourceModeBase):
         title = "coin_gecko"
 
     def build_rate_source(self) -> RateSourceBase:
-        return RATE_ORACLE_SOURCES[self.Config.title](
+        rate_source = RATE_ORACLE_SOURCES[self.Config.title](
             extra_token_ids=self.extra_tokens
         )
+        rate_source.extra_token_ids = self.extra_tokens
+        return rate_source
 
     @validator("extra_tokens", pre=True)
     def validate_extra_tokens(cls, value: Union[str, List[str]]):

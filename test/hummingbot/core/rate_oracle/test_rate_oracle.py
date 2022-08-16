@@ -99,6 +99,5 @@ class RateOracleTest(unittest.TestCase):
         rate_oracle._prices = {"BTC-USD": Decimal("20000")}
 
         config_map.global_token.global_token_name = "EUR"
-        config_map.validate_model()
 
         self.assertEqual(0, len(rate_oracle.prices))
