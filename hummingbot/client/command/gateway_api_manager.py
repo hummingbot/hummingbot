@@ -26,7 +26,7 @@ class GatewayChainApiManager:
     Manage and test connections from gateway to chain urls.
     """
 
-    async def _test_evm_node(self, chain: str, network: str, node_url: str) -> bool:
+    async def _check_node_status(self, chain: str, network: str, node_url: str) -> bool:
         """
         Verify that the node url is valid. If it is an empty string,
         ignore it, but let the user know they cannot connect to the node.
@@ -68,7 +68,7 @@ class GatewayChainApiManager:
                         self.notify("Stopping strategy...")
                         self.stop()
 
-                    success: bool = await self._test_evm_node(chain, network, node_url)
+                    success: bool = await self._check_node_status(chain, network, node_url)
                     if not success:
                         # the node URL test was unsuccessful, try again
                         continue
@@ -88,15 +88,13 @@ class GatewayChainApiManager:
                 network_config: Optional[Dict[str, Any]] = networks.get(network)
                 if network_config is not None:
                     node_url: Optional[str] = network_config.get("nodeURL")
-                    if node_url is not None:
+                    success: bool = await self._check_node_status(chain, network, node_url)
+                    if not success:
                         try:
                             return await self._test_node_url(chain, network)
                         except Exception:
                             self.notify(f"Unable to successfully ping the node url for {chain}-{network}: {node_url}. Please try again (it may require an API key).")
                             return False
-                    else:
-                        self.notify(f"{chain}.networks.{network}.nodeURL was not found in the gateway config.")
-                        return False
                 else:
                     self.notify(f"{chain}.networks.{network} was not found in the gateway config.")
                     return False
