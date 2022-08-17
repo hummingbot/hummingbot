@@ -1,29 +1,29 @@
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
-HBOT_ORDER_ID_PREFIX = "x-XEKWYICX"
 MAX_ORDER_ID_LEN = 36
 
-DEFAULT_DOMAIN = "zigzag-exchange.herokuapp.com"
+DEFAULT_DOMAIN = "secret-thicket-93345.herokuapp.com"
 
 # Base URL
 REST_URL = "https://{}/api/"
 WSS_URL = "ws://{}/"
+WS_PING_TIMEOUT = 20 * 0.8
 
 PUBLIC_API_VERSION = "v1"
 PRIVATE_API_VERSION = "v1"
 
 # Public API endpoints or ZigzagClient function
-TICKER_PRICE_CHANGE_PATH_URL = "/ticker/24hr"
-EXCHANGE_INFO_PATH_URL = "/exchangeInfo"
-PING_PATH_URL = "/ping"
-SNAPSHOT_PATH_URL = "/depth"
-SERVER_TIME_PATH_URL = "/time"
+TICKER_PRICE_CHANGE_PATH_URL = "/ticker"
+# EXCHANGE_INFO_PATH_URL = "/exchangeInfo"
+# PING_PATH_URL = "/ping"
+# SNAPSHOT_PATH_URL = "/depth"
+# SERVER_TIME_PATH_URL = "/time"
 
 # Private API endpoints or ZigzagClient function
-ACCOUNTS_PATH_URL = "/account"
-MY_TRADES_PATH_URL = "/myTrades"
-ORDER_PATH_URL = "/s"
+# ACCOUNTS_PATH_URL = "/account"
+# MY_TRADES_PATH_URL = "/myTrades"
+# ORDER_PATH_URL = "/s"
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
@@ -47,6 +47,8 @@ ONE_SECOND = 1
 ONE_DAY = 86400
 
 MAX_REQUEST = 5000
+
+DEFAULT_CHAIN_ID = 42161
 
 # Order States
 ORDER_STATE = {

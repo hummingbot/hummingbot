@@ -25,16 +25,10 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 KEYS = {
-    # "zigzag_api_key":
-    #     ConfigVar(key="zigzag_api_key",
-    #               prompt="Enter your Zigzag API key >>> ",
-    #               required_if=using_exchange("zigzag"),
-    #               is_secure=True,
-    #               is_connect_key=True),
-    # "zigzag_api_secret":
-    #     ConfigVar(key="zigzag_api_secret",
-    #               prompt="Enter your Zigzag API secret >>> ",
-    #               required_if=using_exchange("zigzag"),
-    #               is_secure=True,
-    #               is_connect_key=True),
+    "zksync_address":
+        ConfigVar(key="zksync_address",
+                  prompt="Enter your public key >>> ",
+                  required_if=using_exchange("zigzag"),
+                  is_secure=True,
+                  is_connect_key=True),
 }

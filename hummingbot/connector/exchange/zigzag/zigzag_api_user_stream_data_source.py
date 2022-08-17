@@ -1,12 +1,11 @@
 import asyncio
-import time
-from typing import TYPE_CHECKING, List, Optional
+import json
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.zigzag import zigzag_constants as CONSTANTS, zigzag_web_utils as web_utils
+from hummingbot.connector.exchange.zigzag import zigzag_constants as CONSTANTS, zigzag_utils as utils
 from hummingbot.connector.exchange.zigzag.zigzag_auth import ZigzagAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -16,121 +15,95 @@ if TYPE_CHECKING:
 
 
 class ZigzagAPIUserStreamDataSource(UserStreamTrackerDataSource):
-
-    LISTEN_KEY_KEEP_ALIVE_INTERVAL = 1800  # Recommended to Ping/Update listen key to keep connection alive
-    HEARTBEAT_TIME_INTERVAL = 30.0
-
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 auth: ZigzagAuth,
-                 trading_pairs: List[str],
-                 connector: 'ZigzagExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    def __init__(
+        self,
+        auth: ZigzagAuth,
+        trading_pairs: List[str],
+        connector: 'ZigzagExchange',
+        api_factory: WebAssistantsFactory
+    ):
         super().__init__()
         self._auth: ZigzagAuth = auth
-        self._current_listen_key = None
-        self._domain = domain
+        self._trading_pairs = trading_pairs
+        self._connector = connector
         self._api_factory = api_factory
-
-        self._listen_key_initialized_event: asyncio.Event = asyncio.Event()
-        self._last_listen_key_ping_ts = 0
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
         Creates an instance of WSAssistant connected to the exchange
         """
-        self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
-        await self._listen_key_initialized_event.wait()
 
         ws: WSAssistant = await self._get_ws_assistant()
-        url = f"{CONSTANTS.WSS_URL.format(self._domain)}/{self._current_listen_key}"
-        await ws.connect(ws_url=url, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        await ws.connect(
+            ws_url=CONSTANTS.WSS_URL,
+            ping_timeout=CONSTANTS.WS_PING_TIMEOUT)
+
+        payload = {
+            "op": "login",
+            "args": self._auth.websocket_login_parameters()
+        }
+
+        login_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+        async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIBE):
+            await ws.send(login_request)
+
+        response: WSResponse = await ws.receive()
+        message = response.data
+        if "errorCode" in message or "error_code" in message or message.get("event") != "login":
+            self.logger().error("Error authenticating the private websocket connection")
+            raise IOError(f"Private websocket connection authentication failed ({message})")
+
         return ws
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
-        """
-        Subscribes to the trade events and diff orders events through the provided websocket connection.
-
-        Zigzag does not require any channel subscription.
-
-        :param websocket_assistant: the websocket assistant used to connect to the exchange
-        """
-        pass
-
-    async def _get_listen_key(self):
-        rest_assistant = await self._api_factory.get_rest_assistant()
         try:
-            data = await rest_assistant.execute_request(
-                url=web_utils.public_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain),
-                method=RESTMethod.POST,
-                throttler_limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
-                headers=self._auth.header_for_authentication()
-            )
+            symbols = [await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                       for trading_pair in self._trading_pairs]
+
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.PRIVATE_ORDER_PROGRESS_CHANNEL_NAME}:{symbol}" for symbol in symbols]
+            }
+            subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIBE):
+                await websocket_assistant.send(subscribe_request)
+            self.logger().info("Subscribed to private account and orders channels...")
         except asyncio.CancelledError:
             raise
-        except Exception as exception:
-            raise IOError(f"Error fetching user stream listen key. Error: {exception}")
-
-        return data["listenKey"]
-
-    async def _ping_listen_key(self) -> bool:
-        rest_assistant = await self._api_factory.get_rest_assistant()
-        try:
-            data = await rest_assistant.execute_request(
-                url=web_utils.public_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain),
-                params={"listenKey": self._current_listen_key},
-                method=RESTMethod.PUT,
-                return_err=True,
-                throttler_limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
-                headers=self._auth.header_for_authentication()
-            )
-
-            if "code" in data:
-                self.logger().warning(f"Failed to refresh the listen key {self._current_listen_key}: {data}")
-                return False
-
-        except asyncio.CancelledError:
+        except Exception:
+            self.logger().exception("Unexpected error occurred subscribing to order book trading and delta streams...")
             raise
-        except Exception as exception:
-            self.logger().warning(f"Failed to refresh the listen key {self._current_listen_key}: {exception}")
-            return False
 
-        return True
-
-    async def _manage_listen_key_task_loop(self):
-        try:
-            while True:
-                now = int(time.time())
-                if self._current_listen_key is None:
-                    self._current_listen_key = await self._get_listen_key()
-                    self.logger().info(f"Successfully obtained listen key {self._current_listen_key}")
-                    self._listen_key_initialized_event.set()
-                    self._last_listen_key_ping_ts = int(time.time())
-
-                if now - self._last_listen_key_ping_ts >= self.LISTEN_KEY_KEEP_ALIVE_INTERVAL:
-                    success: bool = await self._ping_listen_key()
-                    if not success:
-                        self.logger().error("Error occurred renewing listen key ...")
-                        break
-                    else:
-                        self.logger().info(f"Refreshed listen key {self._current_listen_key}.")
-                        self._last_listen_key_ping_ts = int(time.time())
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
+        async for ws_response in websocket_assistant.iter_messages():
+            data: Dict[str, Any] = ws_response.data
+            decompressed_data = utils.decompress_ws_message(data)
+            try:
+                if type(decompressed_data) == str:
+                    json_data = json.loads(decompressed_data)
                 else:
-                    await self._sleep(self.LISTEN_KEY_KEEP_ALIVE_INTERVAL)
-        finally:
-            self._current_listen_key = None
-            self._listen_key_initialized_event.clear()
+                    json_data = decompressed_data
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().warning(f"Invalid event message received through the order book data source "
+                                      f"connection ({decompressed_data})")
+                continue
+
+            if "errorCode" in json_data or "errorMessage" in json_data:
+                raise ValueError(f"Error message received in the order book data source: {json_data}")
+
+            await self._process_event_message(event_message=json_data, queue=queue)
+
+    async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
+        if len(event_message) > 0 and "table" in event_message and "data" in event_message:
+            queue.put_nowait(event_message)
 
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:
             self._ws_assistant = await self._api_factory.get_ws_assistant()
         return self._ws_assistant
-
-    async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
-        await super()._on_user_stream_interruption(websocket_assistant=websocket_assistant)
-        self._manage_listen_key_task and self._manage_listen_key_task.cancel()
-        self._current_listen_key = None
-        self._listen_key_initialized_event.clear()
-        await self._sleep(5)

@@ -275,7 +275,6 @@ class BinanceExchange(ExchangePyBase):
                         client_order_id = event_message.get("c")
                     else:
                         client_order_id = event_message.get("C")
-
                     if execution_type == "TRADE":
                         tracked_order = self._order_tracker.fetch_order(client_order_id=client_order_id)
                         if tracked_order is not None:

@@ -34,14 +34,12 @@ class ZigzagExchange(ExchangePyBase):
     web_utils = web_utils
 
     def __init__(self,
-                 zigzag_api_key: str,
-                 zigzag_api_secret: str,
+                 chain_id: str = CONSTANTS.DEFAULT_CHAIN_ID,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  ):
-        self.api_key = zigzag_api_key
-        self.secret_key = zigzag_api_secret
+        self._chain_id = chain_id
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
@@ -59,8 +57,7 @@ class ZigzagExchange(ExchangePyBase):
     @property
     def authenticator(self):
         return ZigzagAuth(
-            api_key=self.api_key,
-            secret_key=self.secret_key,
+            chain_id=self._chain_id,
             time_provider=self._time_synchronizer)
 
     @property
@@ -76,12 +73,12 @@ class ZigzagExchange(ExchangePyBase):
         return self._domain
 
     @property
-    def client_order_id_max_length(self):
-        return CONSTANTS.MAX_ORDER_ID_LEN
+    def chain_id(self):
+        return self._chain_id
 
     @property
-    def client_order_id_prefix(self):
-        return CONSTANTS.HBOT_ORDER_ID_PREFIX
+    def client_order_id_max_length(self):
+        return CONSTANTS.MAX_ORDER_ID_LEN
 
     @property
     def trading_rules_request_path(self):
