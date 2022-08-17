@@ -13,7 +13,7 @@ strategy: null
 hedge_connector: null
 
 # The market to hedge trades on.
-hedge_market: null
+hedge_markets: null
 
 # leverage to use on the hedge market
 hedge_leverage: null
@@ -56,3 +56,5 @@ enable_connector_2: null
 enable_connector_3: null
 enable_connector_4: null
 
+value_mode: null
+hedge_position_mode: null
