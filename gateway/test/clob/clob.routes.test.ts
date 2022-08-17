@@ -21,13 +21,18 @@ import {
 } from '../../src/connectors/serum/serum.types';
 import { ConfigManagerV2 } from '../../src/services/config-manager-v2';
 import { default as config } from '../../test/chains/solana/serum/fixtures/config';
-import { default as patchesCreator } from '../../test/chains/solana/serum/fixtures/patches/patches';
 import {
   CreateOrderData,
   getNewCandidateOrdersTemplates,
   getOrderPairsFromCandidateOrders,
 } from '../chains/solana/serum/fixtures/helpers';
 import { unpatch } from '../services/patch';
+import {
+  default as patchesCreator,
+  enablePatches,
+} from '../../test/chains/solana/serum/fixtures/patches/patches';
+
+enablePatches();
 
 jest.setTimeout(5 * 60 * 1000);
 

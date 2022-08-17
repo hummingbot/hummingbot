@@ -33,7 +33,12 @@ import { HttpException } from '../../../../src/services/error-handler';
 import { unpatch } from '../../../services/patch';
 import { default as config } from './fixtures/config';
 import { getNewCandidateOrdersTemplates } from './fixtures/helpers';
-import { default as patchesCreator } from './fixtures/patches/patches';
+import {
+  default as patchesCreator,
+  enablePatches,
+} from './fixtures/patches/patches';
+
+enablePatches();
 
 jest.setTimeout(5 * 60 * 1000);
 
@@ -832,9 +837,9 @@ it('cancelOrders [0]', async () => {
 
   const canceledOrder: CancelOrderResponse =
     response.body as CancelOrderResponse;
-  const candidateOrder: CreateOrdersRequest = candidateOrders.find(
-    (item) => item.id === request.order.id
-  )!;
+  const candidateOrder: CreateOrdersRequest = getNotNullOrThrowError(
+    candidateOrders.find((item) => item.id === request.order.id)
+  );
 
   expect(canceledOrder).toBeDefined();
   expect(canceledOrder.id).toBe(candidateOrder.id);

@@ -24,7 +24,7 @@ import config from '../config';
 import { convertToSerumOpenOrders, getNewSerumOrders } from '../helpers';
 import data from './data';
 
-let usePatches = false;
+let usePatches = true;
 
 const allowedMarkets = Object.values(config.solana.markets).map(
   (market) => market.name
