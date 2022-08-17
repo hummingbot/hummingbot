@@ -336,32 +336,31 @@ class GatewayCommand(GatewayChainApiManager):
             self,           # type: HummingbotApplication
             connector: str = None
     ):
-        gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
-        if connector is None:
-            if len(gateway_connections_conf) < 1:
-                self.notify("No existing connection.\n")
+        with begin_placeholder_mode(self):
+            gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
+            if connector is None:
+                if len(gateway_connections_conf) < 1:
+                    self.notify("No existing connection.\n")
+                else:
+                    connector_df: pd.DataFrame = build_connector_display(gateway_connections_conf)
+                    self.notify(connector_df.to_string(index=False))
             else:
-                connector_df: pd.DataFrame = build_connector_display(gateway_connections_conf)
-                self.notify(connector_df.to_string(index=False))
-        else:
-            # get available networks
-            connector_configs: Dict[str, Any] = await self._get_gateway_instance().get_connectors()
-            connector_config: List[Dict[str, Any]] = [
-                d for d in connector_configs["connectors"] if d["name"] == connector
-            ]
-            if len(connector_config) < 1:
-                self.notify(f"No available blockchain networks available for the connector '{connector}'.")
-                return
-            available_networks: List[Dict[str, Any]] = connector_config[0]["available_networks"]
-            trading_type: str = connector_config[0]["trading_type"][0]
-            additional_spenders: List[str] = connector_config[0].get("additional_spenders", [])
+                # get available networks
+                connector_configs: Dict[str, Any] = await self._get_gateway_instance().get_connectors()
+                connector_config: List[Dict[str, Any]] = [
+                    d for d in connector_configs["connectors"] if d["name"] == connector
+                ]
+                if len(connector_config) < 1:
+                    self.notify(f"No available blockchain networks available for the connector '{connector}'.")
+                    return
+                available_networks: List[Dict[str, Any]] = connector_config[0]["available_networks"]
+                trading_type: str = connector_config[0]["trading_type"][0]
+                additional_spenders: List[str] = connector_config[0].get("additional_spenders", [])
 
-            # ask user to select a chain. Automatically select if there is only one.
-            chains: List[str] = [d['chain'] for d in available_networks]
-            chain: str
-            if len(chains) == 1:
-                chain = chains[0]
-            else:
+                # ask user to select a chain. Automatically select if there is only one.
+                chains: List[str] = [d['chain'] for d in available_networks]
+                chain: str
+
                 # chains as options
                 while True:
                     self.app.input_field.completer.set_gateway_chains(chains)
@@ -376,15 +375,12 @@ class GatewayCommand(GatewayChainApiManager):
                         break
                     self.notify(f"{chain} chain not supported.\n")
 
-            # ask user to select a network. Automatically select if there is only one.
-            networks: List[str] = list(
-                itertools.chain.from_iterable([d['networks'] for d in available_networks if d['chain'] == chain])
-            )
-            network: str
+                # ask user to select a network. Automatically select if there is only one.
+                networks: List[str] = list(
+                    itertools.chain.from_iterable([d['networks'] for d in available_networks if d['chain'] == chain])
+                )
 
-            if len(networks) == 1:
-                network = networks[0]
-            else:
+                network: str
                 while True:
                     self.app.input_field.completer.set_gateway_networks(networks)
                     network = await self.app.prompt(
@@ -396,10 +392,8 @@ class GatewayCommand(GatewayChainApiManager):
                         break
                     self.notify("Error: Invalid network")
 
-            # test you can connect to the uri, otherwise request the url
-            await self._test_node_url(chain, network)
-
-            with begin_placeholder_mode(self):
+                # test you can connect to the uri, otherwise request the url
+                await self._test_node_url_from_gateway_config(chain, network)
 
                 # get wallets for the selected chain
                 wallets_response: List[Dict[str, Any]] = await self._get_gateway_instance().get_wallets()
