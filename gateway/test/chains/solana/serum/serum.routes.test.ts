@@ -26,7 +26,12 @@ import {
   getNewCandidateOrdersTemplates,
   getOrderPairsFromCandidateOrders,
 } from './fixtures/helpers';
-import { default as patchesCreator } from './fixtures/patches/patches';
+import {
+  default as patchesCreator,
+  enablePatches,
+} from './fixtures/patches/patches';
+
+enablePatches();
 
 jest.setTimeout(5 * 60 * 1000);
 
