@@ -5,7 +5,10 @@ import BN from 'bn.js';
 import 'jest-extended';
 import { Solana } from '../../../src/chains/solana/solana';
 import { Serum } from '../../../src/connectors/serum/serum';
-import { sleep } from '../../../src/connectors/serum/serum.helpers';
+import {
+  getNotNullOrThrowError,
+  sleep,
+} from '../../../src/connectors/serum/serum.helpers';
 import { IMap, Market } from '../../../src/connectors/serum/serum.types';
 import { default as config } from '../../../test/chains/solana/serum/fixtures/config';
 import { getNewCandidateOrdersTemplates } from '../../../test/chains/solana/serum/fixtures/helpers';
@@ -176,7 +179,9 @@ describe('Reset and Recreate Dummy Orders', () => {
     for (const candidateOrder of candidateOrders) {
       const market = (await serum.getMarket(candidateOrder.marketName)).market;
 
-      const payer = new PublicKey(candidateOrder.payerAddress);
+      const payer = new PublicKey(
+        getNotNullOrThrowError(candidateOrder.payerAddress)
+      );
 
       let attempts = 1;
       let error = false;
