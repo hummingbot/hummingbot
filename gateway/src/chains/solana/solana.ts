@@ -1,12 +1,8 @@
-import { Cache, CacheContainer } from 'node-ts-cache';
-import { MemoryStorage } from 'node-ts-cache-storage-memory';
-import { runWithRetryAndTimeout } from '../../connectors/serum/serum.helpers';
-import { logger } from '../../services/logger';
-import { getSolanaConfig } from './solana.config';
-import { countDecimals, TokenValue, walletPath } from '../../services/base';
-import NodeCache from 'node-cache';
-import bs58 from 'bs58';
-import { BigNumber } from 'ethers';
+import {
+  Account as TokenAccount,
+  getOrCreateAssociatedTokenAccount,
+} from '@solana/spl-token';
+import { TokenInfo, TokenListProvider } from '@solana/spl-token-registry';
 import {
   Account,
   AccountInfo,
@@ -21,14 +17,18 @@ import {
   TokenAmount,
   TransactionResponse,
 } from '@solana/web3.js';
-import {
-  getOrCreateAssociatedTokenAccount,
-  Account as TokenAccount,
-} from '@solana/spl-token';
-import { TokenInfo, TokenListProvider } from '@solana/spl-token-registry';
-import { TransactionResponseStatusCode } from './solana.requests';
+import bs58 from 'bs58';
+import { BigNumber } from 'ethers';
 import fse from 'fs-extra';
+import NodeCache from 'node-cache';
+import { Cache, CacheContainer } from 'node-ts-cache';
+import { MemoryStorage } from 'node-ts-cache-storage-memory';
+import { runWithRetryAndTimeout } from '../../connectors/serum/serum.helpers';
+import { countDecimals, TokenValue, walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
+import { logger } from '../../services/logger';
+import { getSolanaConfig } from './solana.config';
+import { TransactionResponseStatusCode } from './solana.requests';
 
 const crypto = require('crypto').webcrypto;
 
@@ -472,9 +472,16 @@ export class Solana implements Solanaish {
       return this.cache.get(payerSignature) as TransactionResponse;
     } else {
       // If it's not in the cache,
-      const fetchedTx = this._connection.getTransaction(payerSignature, {
-        commitment: 'confirmed',
-      });
+      const fetchedTx = runWithRetryAndTimeout(
+        this._connection,
+        this._connection.getTransaction,
+        [
+          payerSignature,
+          {
+            commitment: 'confirmed',
+          },
+        ]
+      );
 
       this.cache.set(payerSignature, fetchedTx); // Cache the fetched receipt, whether it's null or not
 
