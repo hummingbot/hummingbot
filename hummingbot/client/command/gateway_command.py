@@ -393,7 +393,7 @@ class GatewayCommand(GatewayChainApiManager):
                     self.notify("Error: Invalid network")
 
                 # test you can connect to the uri, otherwise request the url
-                await self._test_node_url_from_gateway_config(chain, network)
+                await self._test_node_url_from_gateway_config(chain, network, attempt_connection=False)
 
                 # get wallets for the selected chain
                 wallets_response: List[Dict[str, Any]] = await self._get_gateway_instance().get_wallets()
