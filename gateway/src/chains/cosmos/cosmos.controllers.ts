@@ -24,7 +24,6 @@ export async function balances(
   const balances = await cosmosish.getBalances(wallet);
   const filteredBalances = toCosmosBalances(balances, req.tokenSymbols);
 
-  // TODO: Add an error message for when there are no balances for those symbols
   if (Object.keys(filteredBalances).length === 0) {
     throw new HttpException(
       500,
@@ -49,7 +48,6 @@ export const toCosmosBalances = (
     tokenSymbols.includes(symbol)
   );
 
-  // TODO: Add error messages
   const walletBalances: Record<string, string> = {};
 
   filteredBalancesKeys.forEach(
