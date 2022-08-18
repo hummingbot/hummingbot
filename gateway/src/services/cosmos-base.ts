@@ -335,8 +335,7 @@ export class CosmosBase {
     return balances;
   }
 
-  // returns a cosmos tx for a txHash.
-  // TODO: update response type
+  // returns a cosmos tx for a txHash
   async getTransaction(id: string): Promise<DecodedTxRaw> {
     const provider = await this._provider;
     const transaction = await provider.getTx(id);

@@ -1,11 +1,8 @@
 /* WIP */
 import { DecodedTxRaw } from '@cosmjs/proto-signing';
-import { TransactionResponse } from '@solana/web3.js';
-
-export type SolanaTransactionResponse = TransactionResponse;
 
 export interface CosmosBalanceRequest {
-  address: string; // the user's Cosmos address as Base58
+  address: string; // the user's Cosmos address as Bech32
   tokenSymbols: string[]; // a list of token symbol
 }
 
