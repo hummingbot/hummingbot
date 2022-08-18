@@ -255,6 +255,9 @@ cdef class ExchangeBase(ConnectorBase):
     def get_vwap_for_volume(self, trading_pair: str, is_buy: bool, volume: Decimal):
         return self.c_get_vwap_for_volume(trading_pair, is_buy, volume)
 
+    def get_price_for_quote_volume(self, trading_pair: str, is_buy: bool, volume: Decimal):
+        return self.c_get_price_for_quote_volume(trading_pair, is_buy, volume)
+
     def get_price_for_volume(self, trading_pair: str, is_buy: bool, volume: Decimal):
         return self.c_get_price_for_volume(trading_pair, is_buy, volume)
 
