@@ -31,4 +31,4 @@ class BuyOnlyThreeTimes(ScriptStrategyBase):
         self.orders_created += 1
         if self.orders_created == self.orders_to_place:
             self.logger().info("All orders created")
-            HummingbotApplication().main_application().stop()
+            HummingbotApplication.main_application().stop()
