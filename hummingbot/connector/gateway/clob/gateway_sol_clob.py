@@ -189,17 +189,23 @@ class GatewaySOLCLOB(ConnectorBase):
 
     @property
     def approval_orders(self) -> List[CLOBInFlightOrder]:
+        target_orders = [CLOBInFlightOrder.from_json(order.to_json()) for order in
+                         self._order_tracker.active_orders.values()]
+
         return [
             approval_order
-            for approval_order in self._order_tracker.active_orders.values()
+            for approval_order in target_orders
             if approval_order.is_approval_request
         ]
 
     @property
     def orders(self) -> List[CLOBInFlightOrder]:
+        target_orders = [CLOBInFlightOrder.from_json(order.to_json()) for order in
+                         self._order_tracker.active_orders.values()]
+
         return [
             in_flight_order
-            for in_flight_order in self._order_tracker.active_orders.values()
+            for in_flight_order in target_orders
             if in_flight_order.is_open
         ]
 
@@ -269,8 +275,7 @@ class GatewaySOLCLOB(ConnectorBase):
 
     @staticmethod
     def create_market_order_id(side: TradeType, trading_pair: str) -> str:
-        # return f"{side.name.lower()}-{trading_pair}-{get_tracking_nonce()}"
-        return f"{get_tracking_nonce()}"
+        return f"{side.name.lower()}-{trading_pair}-{get_tracking_nonce()}"
 
     def is_pending_approval(self, token: str) -> bool:
         for order in self.approval_orders:
@@ -599,12 +604,14 @@ class GatewaySOLCLOB(ConnectorBase):
             else:
                 raise ValueError(f"Unknown trade type: {trade_type}")
 
+            numeric_order_id = order_id.split('-')[3]
+
             order_result: Dict[str, Any] = await self._get_gateway_instance().clob_post_orders(
                 self.chain,
                 self.network,
                 self.connector,
                 order={
-                    "id": order_id,
+                    "id": numeric_order_id,
                     "marketName": f"{base}/{quote}",
                     "ownerAddress": self.address,
                     "payerAddress": payer_address,
@@ -1064,13 +1071,15 @@ class GatewaySOLCLOB(ConnectorBase):
             self.logger().info(f"The blockchain transaction for {order_id} has "
                                f"expired. Canceling the order...")
 
+            numeric_order_id = order_id.split('-')[3]
+
             resp = await self._get_gateway_instance().clob_delete_orders(
                 self.chain,
                 self.network,
                 self.connector,
                 self.address,
                 order={
-                    "id": order_id,
+                    "id": numeric_order_id,
                     "marketName": convert_trading_pair(tracked_order.trading_pair),
                     "ownerAddress": self.address,
                 }

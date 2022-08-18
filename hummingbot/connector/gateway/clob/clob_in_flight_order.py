@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from async_timeout import timeout
 
+from hummingbot.connector.gateway.clob import clob_constants as constant
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 
@@ -163,8 +164,8 @@ class CLOBInFlightOrder(InFlightOrder):
         order.order_fills.update(
             {key: TradeUpdate.from_json(value) for key, value in data.get("order_fills", {}).items()}
         )
-        order._cancel_tx_hash = data["cancel_tx_hash"]
-        order._gas_price = Decimal(data["gas_price"])
+        order._cancel_tx_hash = data.get("cancel_tx_hash")
+        order._gas_price = constant.DECIMAL_ONE
 
         order.check_filled_condition()
 

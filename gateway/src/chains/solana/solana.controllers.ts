@@ -1,6 +1,7 @@
-import { Keypair, PublicKey } from '@solana/web3.js';
+import { Keypair, PublicKey, TransactionResponse } from '@solana/web3.js';
 import { getNotNullOrThrowError } from '../../connectors/serum/serum.helpers';
 import { latency, TokenValue, tokenValueToString } from '../../services/base';
+import { CustomTransactionResponse } from '../../services/common-interfaces';
 import {
   HttpException,
   LOAD_WALLET_ERROR_CODE,
@@ -73,7 +74,9 @@ export async function poll(
 ): Promise<SolanaPollResponse> {
   const initTime = Date.now();
   const currentBlock = await solanaish.getCurrentBlockNumber();
-  const txData = await solanaish.getTransaction(req.txHash);
+  const txData = getNotNullOrThrowError<TransactionResponse>(
+    await solanaish.getTransaction(req.txHash)
+  );
   const txStatus = await solanaish.getTransactionStatusCode(txData);
 
   return {
@@ -82,8 +85,8 @@ export async function poll(
     currentBlock: currentBlock,
     txHash: req.txHash,
     txStatus: txStatus,
-    txBlock: getNotNullOrThrowError(txData?.slot),
-    txData: getNotNullOrThrowError(txData),
+    txBlock: txData.slot,
+    txData: getNotNullOrThrowError<CustomTransactionResponse>(txData),
     txReceipt: null, // TODO check if we get a receipt here
   };
 }

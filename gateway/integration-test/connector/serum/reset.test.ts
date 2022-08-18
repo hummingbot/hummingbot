@@ -41,7 +41,7 @@ const allMarketNames = ['SOL/USDT', 'SOL/USDC', 'SRM/SOL'];
 const marketNames = allMarketNames.slice(0, 2);
 
 describe('Reset and Recreate Dummy Orders', () => {
-  const delayInMilliseconds = 60 * 1000;
+  const delayInMilliseconds = 1000;
 
   it('Cancel all orders and settle all funds', async () => {
     let attempts = 1;
