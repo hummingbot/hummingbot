@@ -4,7 +4,7 @@ networks:
     nodeURL: https://arbitrum-mainnet.infura.io/v3/
     tokenListType: URL
     tokenListSource: >-
-      https://bridge.arbitrum.io/token-list-42161.json  
+      https://bridge.arbitrum.io/token-list-42161.json
     nativeCurrencySymbol: ETH
     gasPriceRefreshInterval: 60
   arbitrum_rinkeby:
