@@ -42,6 +42,10 @@ afterEach(() => {
   unpatch();
 });
 
+afterAll(async () => {
+  await bsc.close();
+});
+
 const patchFetchPairData = () => {
   patch(Fetcher, 'fetchPairData', () => {
     return new Pair(
