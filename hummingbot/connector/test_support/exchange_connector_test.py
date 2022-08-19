@@ -259,7 +259,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured
             """
@@ -270,7 +270,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured
             """
@@ -281,7 +281,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured
             """
@@ -292,7 +292,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured
             """
@@ -303,7 +303,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured
             """
@@ -314,7 +314,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured
             """
@@ -438,7 +438,7 @@ class AbstractExchangeConnectorTests:
             orders = []
             orders.append(InFlightOrder(
                 client_order_id="11",
-                exchange_order_id="21",
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -594,7 +594,18 @@ class AbstractExchangeConnectorTests:
             self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
 
             self.assertTrue(self.trading_pair in self.exchange.trading_rules)
-            self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
+            trading_rule: TradingRule = self.exchange.trading_rules[self.trading_pair]
+
+            self.assertTrue(self.trading_pair in self.exchange.trading_rules)
+            self.assertEqual(repr(self.expected_trading_rule), repr(trading_rule))
+
+            trading_rule_with_default_values = TradingRule(trading_pair=self.trading_pair)
+
+            # The following element can't be left with the default value because that breaks quantization in Cython
+            self.assertNotEqual(trading_rule_with_default_values.min_base_amount_increment,
+                                trading_rule.min_base_amount_increment)
+            self.assertNotEqual(trading_rule_with_default_values.min_price_increment,
+                                trading_rule.min_price_increment)
 
         @aioresponses()
         def test_update_trading_rules_ignores_rule_with_error(self, mock_api):
@@ -923,10 +934,9 @@ class AbstractExchangeConnectorTests:
 
         @aioresponses()
         def test_update_balances(self, mock_api):
-            url = self.balance_url
             response = self.balance_request_mock_response_for_base_and_quote
+            self._configure_balance_response(response=response, mock_api=mock_api)
 
-            mock_api.get(re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")), body=json.dumps(response))
             self.async_run_with_timeout(self.exchange._update_balances())
 
             available_balances = self.exchange.available_balances
@@ -939,7 +949,7 @@ class AbstractExchangeConnectorTests:
 
             response = self.balance_request_mock_response_only_base
 
-            mock_api.get(re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")), body=json.dumps(response))
+            self._configure_balance_response(response=response, mock_api=mock_api)
             self.async_run_with_timeout(self.exchange._update_balances())
 
             available_balances = self.exchange.available_balances
@@ -957,7 +967,7 @@ class AbstractExchangeConnectorTests:
 
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id=self.expected_exchange_order_id,
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1075,7 +1085,7 @@ class AbstractExchangeConnectorTests:
 
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id="21",
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1108,7 +1118,7 @@ class AbstractExchangeConnectorTests:
 
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id="21",
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1141,7 +1151,7 @@ class AbstractExchangeConnectorTests:
 
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id=self.expected_exchange_order_id,
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1195,7 +1205,7 @@ class AbstractExchangeConnectorTests:
 
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id=self.expected_exchange_order_id,
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1259,7 +1269,7 @@ class AbstractExchangeConnectorTests:
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id="21",
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1298,7 +1308,7 @@ class AbstractExchangeConnectorTests:
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id="21",
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1336,7 +1346,7 @@ class AbstractExchangeConnectorTests:
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id="21",
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1460,7 +1470,7 @@ class AbstractExchangeConnectorTests:
 
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id=self.expected_exchange_order_id,
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1644,7 +1654,7 @@ class AbstractExchangeConnectorTests:
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id=self.expected_exchange_order_id,
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1682,7 +1692,7 @@ class AbstractExchangeConnectorTests:
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id=self.expected_exchange_order_id,
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1761,3 +1771,16 @@ class AbstractExchangeConnectorTests:
                 if its_a_match:
                     request_calls.extend(value)
             return request_calls
+
+        def _configure_balance_response(
+                self,
+                response: Dict[str, Any],
+                mock_api: aioresponses,
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+
+            url = self.balance_url
+            mock_api.get(
+                re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")),
+                body=json.dumps(response),
+                callback=callback)
+            return url
