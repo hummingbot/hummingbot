@@ -1,8 +1,12 @@
 import importlib
+import os
+import platform
 import unittest
+from hashlib import md5
 from os import DirEntry, scandir
 from os.path import exists, join
 from typing import cast
+from unittest.mock import patch
 
 from pydantic import SecretStr
 
@@ -32,6 +36,40 @@ class UtilsTest(unittest.TestCase):
         id2 = get_new_client_order_id(is_buy=True, trading_pair=self.trading_pair, max_id_len=len(id0) - 2)
 
         self.assertEqual(len(id0) - 2, len(id2))
+
+    @patch("hummingbot.connector.utils.get_tracking_nonce")
+    def test_get_new_client_order_id_with_max_len_less_than_required_to_include_time_hashes_it(self, nonce_mock):
+        nonce_mock.return_value = 1640001112223334
+        host_prefix = "long-hbot-prefix"
+
+        full_length_id = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=self.trading_pair,
+            hbot_order_id_prefix=host_prefix)
+        shortened_id = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=self.trading_pair,
+            hbot_order_id_prefix=host_prefix,
+            max_id_len=len(host_prefix) + 5 + 13 + 5)
+        extra_reduced_id = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=self.trading_pair,
+            hbot_order_id_prefix=host_prefix,
+            max_id_len=len(host_prefix) + 5 + 12)
+
+        expected_id_prefix = f"{host_prefix}B{self.base[0]}{self.base[-1]}{self.quote[0]}{self.quote[-1]}"
+        expected_time_text = hex(nonce_mock.return_value)[2:]
+        expected_client_instance_id = md5(f"{platform.uname()}_pid:{os.getpid()}_ppid:{os.getppid()}".encode("utf-8")).hexdigest()
+
+        expected_full_length_id = f"{expected_id_prefix}{expected_time_text}{expected_client_instance_id}"
+        expected_shortened_id = f"{expected_id_prefix}{expected_time_text}{expected_client_instance_id[:5]}"
+
+        extra_reduced_id_suffix = md5(f"{expected_time_text}{expected_client_instance_id}".encode()).hexdigest()
+        expected_extra_reduced_id = f"{expected_id_prefix}{extra_reduced_id_suffix[:12]}"
+
+        self.assertEqual(expected_full_length_id, full_length_id)
+        self.assertEqual(expected_shortened_id, shortened_id)
+        self.assertEqual(expected_extra_reduced_id, extra_reduced_id)
 
     def test_connector_config_maps(self):
         connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade", "celo", "amm", "clob"]

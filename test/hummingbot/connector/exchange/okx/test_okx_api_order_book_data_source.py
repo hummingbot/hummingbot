@@ -51,6 +51,10 @@ class OkxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory)
+
+        self._original_full_order_book_reset_time = self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
+        self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
+
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
@@ -61,7 +65,7 @@ class OkxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
-        OkxAPIOrderBookDataSource._trading_pair_symbol_map = {}
+        self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = self._original_full_order_book_reset_time
         super().tearDown()
 
     def handle(self, record):
