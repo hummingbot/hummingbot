@@ -35,11 +35,11 @@ cdef class ConnectorBase(NetworkIterator):
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
         MarketEvent.FundingPaymentCompleted,
-        MarketEvent.RangePositionCreated,
-        MarketEvent.RangePositionRemoved,
-        MarketEvent.RangePositionUpdated,
-        MarketEvent.RangePositionFailure,
-        MarketEvent.RangePositionInitiated,
+        MarketEvent.RangePositionLiquidityAdded,
+        MarketEvent.RangePositionLiquidityRemoved,
+        MarketEvent.RangePositionUpdate,
+        MarketEvent.RangePositionUpdateFailure,
+        MarketEvent.RangePositionFeeCollected,
     ]
 
     def __init__(self, client_config_map: "ClientConfigAdapter"):
@@ -117,20 +117,19 @@ cdef class ConnectorBase(NetworkIterator):
         asset_balances = {}
         if in_flight_orders is None:
             return asset_balances
-        for order in [o for o in in_flight_orders.values() if not (o.is_done or o.is_failure or o.is_cancelled)]:
+        for order in (o for o in in_flight_orders.values() if not (o.is_done or o.is_failure or o.is_cancelled)):
+            outstanding_amount = order.amount - order.executed_amount_base
             if order.trade_type is TradeType.BUY:
-                order_value = Decimal(order.amount * order.price)
-                outstanding_value = order_value - order.executed_amount_quote
+                outstanding_value = outstanding_amount * order.price
                 if order.quote_asset not in asset_balances:
                     asset_balances[order.quote_asset] = s_decimal_0
                 fee = self.estimate_fee_pct(True)
-                outstanding_value *= (Decimal(1) + fee)
+                outstanding_value *= Decimal(1) + fee
                 asset_balances[order.quote_asset] += outstanding_value
             else:
-                outstanding_value = order.amount - order.executed_amount_base
                 if order.base_asset not in asset_balances:
                     asset_balances[order.base_asset] = s_decimal_0
-                asset_balances[order.base_asset] += outstanding_value
+                asset_balances[order.base_asset] += outstanding_amount
         return asset_balances
 
     def order_filled_balances(self, starting_timestamp = 0) -> Dict[str, Decimal]:
@@ -220,6 +219,9 @@ cdef class ConnectorBase(NetworkIterator):
         self._trade_volume_metric_collector.process_tick(timestamp)
 
     cdef c_start(self, Clock clock, double timestamp):
+        self.start(clock=clock, timestamp=timestamp)
+
+    def start(self, Clock clock, double timestamp):
         NetworkIterator.c_start(self, clock, timestamp)
         self._trade_volume_metric_collector.start()
 
@@ -328,7 +330,7 @@ cdef class ConnectorBase(NetworkIterator):
         :param currency: the token symbol
         :param available_balance: the current available_balance, this is also the snap balance taken since last
         _update_balances()
-        :returns the real available that accounts for changes in in flight orders and filled orders
+        :returns the real available that accounts for changes in flight orders and filled orders
         """
         snapshot_bal = self.in_flight_asset_balances(self._in_flight_orders_snapshot).get(currency, s_decimal_0)
         in_flight_bal = self.in_flight_asset_balances(self.in_flight_orders).get(currency, s_decimal_0)
