@@ -89,17 +89,22 @@ class GatewayChainApiManager:
                 if network_config is not None:
                     node_url: Optional[str] = network_config.get("nodeURL")
                     if not attempt_connection:
-                        change_node: str = await self.app.prompt(prompt=f"Do you want to continue to use node url '{node_url}' for {chain}-{network}? (Yes/No) ")
-                        if change_node not in ['Yes', 'yes', 'Y', 'y']:
+                        while True:
+                            change_node: str = await self.app.prompt(prompt=f"Do you want to continue to use node url '{node_url}' for {chain}-{network}? (Yes/No) ")
+                            if self.app.to_stop_config:
+                                return
+                            if change_node in ["Y", "y", "Yes", "yes", "N", "n", "No", "no"]:
+                                break
+                            self.notify("Invalid input. Please try again or exit config [CTRL + x].\n")
+
+                        self.app.clear_input()
+                        # they use an existing wallet
+                        if change_node is not None and change_node in ["N", "n", "No", "no"]:
                             node_url: str = await self.app.prompt(prompt=f"Enter a new node url (with API key if necessary) for {chain}-{network}: >>> ")
                             await self._update_gateway_chain_network_node_url(chain, network, node_url)
                             self.notify("Restarting gateway to update with new node url...")
                             # wait about 30 seconds for the gateway to restart
-                            gateway_live = await self.ping_gateway_api(30)
-                            if not gateway_live:
-                                self.notify("Error: unable to restart gateway. Try 'start' again after gateway is running.")
-                                self.notify("Stopping strategy...")
-                                self.stop()
+                            await self.ping_gateway_api(30)
                         return True
                     success: bool = await self._check_node_status(chain, network, node_url)
                     if not success:
