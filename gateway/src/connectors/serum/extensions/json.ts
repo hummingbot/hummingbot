@@ -1,7 +1,7 @@
 // eslint-disable-next-line
 // @ts-ignore
 import { HttpException } from '../../../services/error-handler';
-import 'cycle/cycle';
+import { cycle } from 'cycle/cycle';
 
 // eslint-disable-next-line
 // @ts-ignore
@@ -16,7 +16,7 @@ JSON.stringify = (
 ): string => {
   // eslint-disable-next-line
   // @ts-ignore
-  return JSON.originalStringify(JSON.decycle(value), replacer, space);
+  return JSON.originalStringify(cycle.decycle(value), replacer, space);
 };
 
 // eslint-disable-next-line
@@ -30,7 +30,7 @@ JSON.parse = (
   try {
     // eslint-disable-next-line
     // @ts-ignore
-    return JSON.originalParse(JSON.retrocycle(text), reviver);
+    return JSON.originalParse(cycle.retrocycle(text), reviver);
   } catch (exception) {
     // Used to handle internal solana library unhandled exception.
     if (
