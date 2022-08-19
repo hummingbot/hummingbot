@@ -2,7 +2,6 @@ import { StatusCodes } from 'http-status-codes';
 import { Solanaish } from '../../chains/solana/solana';
 import { ResponseWrapper } from '../../services/common-interfaces';
 import { HttpException } from '../../services/error-handler';
-import './extensions/cycle';
 import './extensions/json';
 import { Serumish } from './serum';
 import { convert, convertToJsonIfNeeded, Types } from './serum.convertors';
