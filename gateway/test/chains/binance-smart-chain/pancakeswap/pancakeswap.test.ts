@@ -69,7 +69,7 @@ const patchTrade = (key: string, error?: Error) => {
   });
 };
 
-describe('verify Pangolin estimateSellTrade', () => {
+describe('verify PancakeSwap estimateSellTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
     patchTrade('bestTradeExactIn');
@@ -93,7 +93,7 @@ describe('verify Pangolin estimateSellTrade', () => {
   });
 });
 
-describe('verify Pangolin estimateBuyTrade', () => {
+describe('verify PancakeSwap estimateBuyTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
     patchTrade('bestTradeExactOut');

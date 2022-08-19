@@ -2,6 +2,9 @@
 # execution price. It uses a rational number for precision.
 allowedSlippage: '1/100'
 
+# the maximum gas used to estimate gasCost for a uniswap trade.
+gasLimitEstimate: 150688
+
 # how long a trade is valid in seconds. After time passes pancakeswap will not
 # perform the trade, but the gas will still be spent.
 ttl: 300
