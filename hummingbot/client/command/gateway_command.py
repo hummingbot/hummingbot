@@ -395,6 +395,9 @@ class GatewayCommand(GatewayChainApiManager):
                 # test you can connect to the uri, otherwise request the url
                 await self._test_node_url_from_gateway_config(chain, network, attempt_connection=False)
 
+                if self.app.to_stop_config:
+                    return
+
                 # get wallets for the selected chain
                 wallets_response: List[Dict[str, Any]] = await self._get_gateway_instance().get_wallets()
                 matching_wallets: List[Dict[str, Any]] = [w for w in wallets_response if w["chain"] == chain]
