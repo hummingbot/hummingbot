@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import List, NamedTuple
 
+import cython
+
 from hummingbot.core.data_type.common import OrderType
 
 ORDER_PROPOSAL_ACTION_CREATE_ORDERS = 1
@@ -29,6 +31,11 @@ class PricingProposal(NamedTuple):
 class SizingProposal(NamedTuple):
     buy_order_sizes: List[Decimal]
     sell_order_sizes: List[Decimal]
+
+
+class InventorySkewBidAskRatios(NamedTuple):
+    bid_ratio: cython.double
+    ask_ratio: cython.double
 
 
 class PriceSize:
