@@ -141,7 +141,7 @@ curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: app
 # Solana
 
 ## get config
-curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT https://localhost:5000/solana | jq
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/solana_get_root.json)" https://localhost:5000/solana | jq
 
 ## get balances
 curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/solana_get_balances.json)" https://localhost:5000/solana/balances | jq
@@ -158,7 +158,7 @@ curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: app
 # CLOB
 
 ## get config
-curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT https://localhost:5000/clob | jq
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/clob_get_root.json)" https://localhost:5000/clob | jq
 
 ## get markets
 curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/clob_get_markets.json)" https://localhost:5000/clob/markets | jq
@@ -190,7 +190,7 @@ curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: app
 # Serum
 
 ## get config
-curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT https://localhost:5000/serum | jq
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/serum_get_root.json)" https://localhost:5000/serum | jq
 
 ## get markets
 curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/serum_get_markets.json)" https://localhost:5000/serum/markets | jq
