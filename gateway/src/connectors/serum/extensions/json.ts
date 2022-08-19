@@ -1,7 +1,7 @@
 // eslint-disable-next-line
 // @ts-ignore
 import { HttpException } from '../../../services/error-handler';
-import { cycle } from 'cycle/cycle';
+import * as cycle from 'cycle';
 
 // eslint-disable-next-line
 // @ts-ignore

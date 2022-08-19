@@ -1,3 +1,3 @@
-declare module 'cycle/cycle' {
+declare module 'cycle' {
   export const cycle: any;
 }
