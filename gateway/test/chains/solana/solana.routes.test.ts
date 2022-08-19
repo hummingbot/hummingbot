@@ -90,7 +90,7 @@ describe('GET /solana/balances', () => {
 
   it('should return 404 when parameters are invalid', async () => {
     await request(gatewayApp)
-      .post(`/solana/balances`)
+      .get(`/solana/balances`)
       .send({ network: solana.network })
       .expect(404);
   });
