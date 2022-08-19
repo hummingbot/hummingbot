@@ -1,7 +1,9 @@
+from dataclasses import asdict, dataclass
 from decimal import Decimal
+from typing import Optional
 
 
-class FundingInfo():
+class FundingInfo:
     """
     Data object that details the funding information of a perpetual market.
     """
@@ -54,3 +56,19 @@ class FundingInfo():
     @rate.setter
     def rate(self, rate):
         self._rate = rate
+
+    def update(self, info_update: "FundingInfoUpdate"):
+        update_dict = asdict(info_update)
+        update_dict.pop("trading_pair")
+        for key, value in update_dict.items():
+            if value is not None:
+                setattr(self, key, value)
+
+
+@dataclass
+class FundingInfoUpdate:
+    trading_pair: str
+    index_price: Optional[Decimal] = None
+    mark_price: Optional[Decimal] = None
+    next_funding_utc_timestamp: Optional[int] = None
+    rate: Optional[Decimal] = None

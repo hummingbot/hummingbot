@@ -4,7 +4,7 @@ import { AvailableNetworks } from '../../services/config-manager-types';
 export namespace SushiswapConfig {
   export interface NetworkConfig {
     allowedSlippage: string;
-    gasLimit: number;
+    gasLimitEstimate: number;
     ttl: number;
     sushiswapRouterAddress: (network: string) => string;
     tradingTypes: Array<string>;
@@ -15,7 +15,9 @@ export namespace SushiswapConfig {
     allowedSlippage: ConfigManagerV2.getInstance().get(
       'sushiswap.allowedSlippage'
     ),
-    gasLimit: ConfigManagerV2.getInstance().get('sushiswap.gasLimit'),
+    gasLimitEstimate: ConfigManagerV2.getInstance().get(
+      'sushiswap.gasLimitEstimate'
+    ),
     ttl: ConfigManagerV2.getInstance().get('sushiswap.ttl'),
     sushiswapRouterAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(
