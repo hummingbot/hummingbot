@@ -33,15 +33,16 @@ dependencies:
     - 0x-contract-wrappers==2.0.0
     - 0x-order-utils==4.0.0
     - aiohttp==3.7.4.post0
-    - aiokafka==0.7.
+    - aiokafka==0.7.1
     - aioprocessing==2.0.0
     - aioresponses==0.7.2
     - appdirs==1.4.3
     - async-timeout==3.0.1
     - asyncssh==2.7.2
     - cachetools==4.0.0
+    - coincurve==13.0.0
     - cryptography==2.8
-    - cython==3.0a7
+    - cython==3.0.0a10
     - cytoolz==0.11.0
     - diff-cover==5.1.2
     - docker==5.0.3
@@ -57,6 +58,7 @@ dependencies:
     - flake8==3.7.9
     - hexbytes==0.2.0
     - importlib-metadata==0.23
+    - line_profiler>=3.5.1
     - mypy-extensions==0.4.3
     - pre-commit==2.18.1
     - psutil==5.7.2
