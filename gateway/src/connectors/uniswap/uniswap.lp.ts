@@ -17,10 +17,10 @@ import { AddPosReturn } from './uniswap.lp.interfaces';
 const MaxUint128 = BigNumber.from(2).pow(128).sub(1);
 
 export type Overrides = {
-  gasLimit: string;
-  gasPrice?: string;
-  value?: string;
-  nonce?: number;
+  gasLimit: BigNumber;
+  gasPrice?: BigNumber;
+  value?: BigNumber;
+  nonce?: BigNumber;
   maxFeePerGas?: BigNumber;
   maxPriorityFeePerGas?: BigNumber;
 };
@@ -241,15 +241,17 @@ export class UniswapLP extends UniswapLPHelper implements UniswapLPish {
     maxPriorityFeePerGas?: BigNumber,
     value?: string
   ): Overrides {
-    const overrides: Overrides = { gasLimit: gasLimit.toFixed(0) };
+    const overrides: Overrides = {
+      gasLimit: BigNumber.from(String(gasLimit.toFixed(0))),
+    };
     if (maxFeePerGas && maxPriorityFeePerGas) {
       overrides.maxFeePerGas = maxFeePerGas;
       overrides.maxPriorityFeePerGas = maxPriorityFeePerGas;
     } else {
-      overrides.gasPrice = (gasPrice * 1e9).toFixed(0);
+      overrides.gasPrice = BigNumber.from(String((gasPrice * 1e9).toFixed(0)));
     }
-    if (nonce) overrides.nonce = nonce;
-    if (value) overrides.value = value;
+    if (nonce) overrides.nonce = BigNumber.from(String(nonce));
+    if (value) overrides.value = BigNumber.from(value);
     return overrides;
   }
 }
