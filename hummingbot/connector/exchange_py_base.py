@@ -14,6 +14,7 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
@@ -91,47 +92,52 @@ class ExchangePyBase(ExchangeBase, ABC):
 
     @property
     @abstractmethod
-    def authenticator(self):
+    def name(self) -> str:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def rate_limits_rules(self):
+    def authenticator(self) -> AuthBase:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def domain(self):
+    def rate_limits_rules(self) -> List[RateLimit]:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def client_order_id_max_length(self):
+    def domain(self) -> str:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def client_order_id_prefix(self):
+    def client_order_id_max_length(self) -> int:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def trading_rules_request_path(self):
+    def client_order_id_prefix(self) -> str:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def trading_pairs_request_path(self):
+    def trading_rules_request_path(self) -> str:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def check_network_request_path(self):
+    def trading_pairs_request_path(self) -> str:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def trading_pairs(self):
+    def check_network_request_path(self) -> str:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def trading_pairs(self) -> List[str]:
         raise NotImplementedError
 
     @property
@@ -202,7 +208,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
         raise NotImplementedError
 
     # === Price logic ===
@@ -609,10 +615,6 @@ class ExchangePyBase(ExchangeBase, ABC):
     # === Implementation-specific methods ===
 
     @abstractmethod
-    def name(self):
-        raise NotImplementedError
-
-    @abstractmethod
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         raise NotImplementedError
 
@@ -628,6 +630,7 @@ class ExchangePyBase(ExchangeBase, ABC):
                            ) -> Tuple[str, float]:
         raise NotImplementedError
 
+    @abstractmethod
     def _get_fee(self,
                  base_currency: str,
                  quote_currency: str,
@@ -897,7 +900,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         Called by _status_polling_loop, which executes after each tick() is executed
         """
         await safe_gather(
-            self._update_balances(),
+            self._update_all_balances(),
             self._update_order_status(),
         )
 
@@ -939,7 +942,6 @@ class ExchangePyBase(ExchangeBase, ABC):
                 self.logger().network(
                     f"Error fetching status update for the order {order.client_order_id}: {request_error}.",
                     app_warning_msg=f"Failed to fetch status update for the order {order.client_order_id}.",
-                    exc_info=True
                 )
                 await self._order_tracker.process_order_not_found(order.client_order_id)
 
