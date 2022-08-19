@@ -3,19 +3,29 @@ import { gatewayApp } from '../../../../src/app';
 import { BinanceSmartChain } from '../../../../src/chains/binance-smart-chain/binance-smart-chain';
 import { PancakeSwap } from '../../../../src/connectors/pancakeswap/pancakeswap';
 import { patch, unpatch } from '../../../services/patch';
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 
 let bsc: BinanceSmartChain;
 let pancakeswap: PancakeSwap;
 
 beforeAll(async () => {
   bsc = BinanceSmartChain.getInstance('testnet');
+  patchEVMNonceManager(bsc.nonceManager);
   await bsc.init();
   pancakeswap = PancakeSwap.getInstance('binance-smart-chain', 'testnet');
   await pancakeswap.init();
 });
 
+beforeEach(() => {
+  patchEVMNonceManager(bsc.nonceManager);
+});
+
 afterEach(() => {
   unpatch();
+});
+
+afterAll(async () => {
+  await bsc.close();
 });
 
 const address: string = '0x242532ebDfcc760f2Ddfe8378eB51f5F847CE5bD';
