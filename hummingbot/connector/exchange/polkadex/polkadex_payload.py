@@ -19,15 +19,17 @@ def create_cancel_order_req(runtime_config, order_id):
 def create_order(runtime_config, price: Decimal, qty: Decimal, order_type, order_id: str, side, proxy, base, quote, ts):
     cid = bytearray()
     cid.extend(order_id.encode())
-    cid = "0x" + bytes(cid).hex()
+    cid = "0x" + bytes(cid).hex()   
+    price = round(price,4)
+    qty = round(qty,4)
     order = {
         "user": proxy,
         "pair": {
             "base_asset": create_asset(base),
             "quote_asset": create_asset(quote)
         },
-        "qty": int(qty * UNIT_BALANCE),
-        "price": int(price * UNIT_BALANCE),
+        "qty": str(qty * UNIT_BALANCE)[0:13],
+        "price": str(price * UNIT_BALANCE)[0:13], 
         "timestamp": ts,
         "client_order_id": cid
     }

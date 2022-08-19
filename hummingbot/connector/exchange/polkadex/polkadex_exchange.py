@@ -1,4 +1,5 @@
 import asyncio
+import re
 import time
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
@@ -93,8 +94,8 @@ class PolkadexExchange(ExchangePyBase):
                         ["pair", "TradingPair"],
                         ["side", "OrderSide"],
                         ["order_type", "OrderType"],
-                        ["qty", "u128"],
-                        ["price", "u128"],
+                        ["qty", "String"],
+                        ["price", "String"],
                         ["timestamp", "i64"],
                     ]
                 },
@@ -233,48 +234,73 @@ class PolkadexExchange(ExchangePyBase):
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         # TODO; Convert client_order_id to enclave_order_id
-        print("Cancelling orders...")
         if tracked_order.exchange_order_id is not None:
-            encoded_cancel_req = create_cancel_order_req(self.blockchain, tracked_order.exchange_order_id)
-            signature = self.proxy_pair.sign(encoded_cancel_req)
-            market = convert_ticker_to_enclave_trading_pair(tracked_order.trading_pair)
-            params = [tracked_order.exchange_order_id, self.user_proxy_address, market, {"Sr25519": signature.hex()}]
-            await cancel_order(params, self.endpoint, self.api_key)
+            try:
+                encoded_cancel_req = create_cancel_order_req(self.blockchain, tracked_order.exchange_order_id)
+            except:
+                return False
+            try:
+                signature = self.proxy_pair.sign(encoded_cancel_req)
+                market = convert_ticker_to_enclave_trading_pair(tracked_order.trading_pair)
+                params = [tracked_order.exchange_order_id, self.user_proxy_address, market, {"Sr25519": signature.hex()}]
+            except:
+                return False
+            try:
+                result = await cancel_order(params, self.endpoint, self.api_key)
+            except:
+                return False
+            return True
+        else:
+            return False
 
     async def _place_order(self, order_id: str, trading_pair: str, amount: Decimal, trade_type: TradeType,
                            order_type: OrderType, price: Decimal) -> Tuple[str, float]:
-
-        if self.user_main_address is None:
-            self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address,
-                                                                       self.endpoint, self.api_key)
-            print("Main account: ", self.user_main_address)
-        pk = ss58_decode(self.user_proxy_address, valid_ss58_format=42)
-        user_proxy = ss58_encode(pk, ss58_format=88)
-        ts = int(time.time())
-
-        encoded_order, order = create_order(self.blockchain, price, amount, order_type, order_id,
-                                            trade_type, user_proxy,
-                                            trading_pair.split("-")[0],
-                                            trading_pair.split("-")[1],
-                                            ts)
-        signature = self.proxy_pair.sign(encoded_order)
-        params = [order, {"Sr25519": signature.hex()}]
         try:
-            result = await place_order(params, self.endpoint, self.api_key)
-            print("Exchange order id: ", result)
-            if result is not None:
-                return result, ts
-            else:
-                return "", ts
-        except TransportQueryError:
-            order_update = OrderUpdate(
-                trading_pair=trading_pair,
-                update_timestamp=ts,
-                new_state=CONSTANTS.ORDER_STATE["REJECTED"],
-                client_order_id=order_id,
-                exchange_order_id=None,
-            )
-            self._order_tracker.process_order_update(order_update)
+            try:
+                if self.user_main_address is None:
+                    self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address,
+                                                                            self.endpoint, self.api_key)
+            except:
+                raise Exception("Main account not found")
+
+            try:
+                pk = ss58_decode(self.user_proxy_address, valid_ss58_format=42)
+                user_proxy = ss58_encode(pk, ss58_format=88)
+                ts = int(time.time())
+            except:
+                raise Exception("Couldn't Format it in SS58")
+
+            try:
+                encoded_order, order = create_order(self.blockchain, price, amount, order_type, order_id,
+                                                    trade_type, user_proxy,
+                                                    trading_pair.split("-")[0],
+                                                    trading_pair.split("-")[1],
+                                                    ts)
+            except:
+                self.logger().error("Unable to create encoded order: ", order_id);
+                raise Exception("Unable to create encoded order")
+
+            try:
+                signature = self.proxy_pair.sign(encoded_order)
+                params = [order, {"Sr25519": signature.hex()}]
+            except:
+                self.logger().error("Signature error for id: ",order_id)
+                raise Exception("Unable to create signature")
+
+            try:
+                result = await place_order(params, self.endpoint, self.api_key)
+                self.logger().info("Exchange order id: ", result)
+                
+                if result is not None:
+                    return result, ts
+                else:
+                    raise Exception("Exchange result none")
+            except TransportQueryError:
+                self.logger().error("TransportQuery Error for id: ",order_id);
+                raise Exception("Transport Query Error")
+
+        except Exception as e:
+            raise Exception("Place Order Failed")
 
     def _get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
                  amount: Decimal, price: Decimal = s_decimal_NaN,
@@ -294,14 +320,13 @@ class PolkadexExchange(ExchangePyBase):
             }
         }
         """
-
         message = message["data"]["websocket_streams"]["data"]["SetBalance"]
         asset_name = convert_asset_to_ticker(message["asset"])
         free_balance = Decimal(message["free"]) / UNIT_BALANCE
         total_balance = (Decimal(message["free"]) / UNIT_BALANCE) + (Decimal(message["reserved"]) / UNIT_BALANCE)
         self._account_available_balances[asset_name] = free_balance
         self._account_balances[asset_name] = total_balance
-
+        
     def order_update_callback(self, message):
         """ Expected message structure
         {
@@ -454,9 +479,8 @@ class PolkadexExchange(ExchangePyBase):
         if self.user_main_address is None:
             self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.endpoint,
                                                                        self.api_key)
-        print("Checking balances for: ", self.user_main_address)
         balances = await get_all_balances_by_main_account(self.user_main_address, self.endpoint, self.api_key)
-        print("Updating balances: {:?}", balances)
+
         """
       [
         {
@@ -474,6 +498,7 @@ class PolkadexExchange(ExchangePyBase):
             self._account_available_balances[asset_name] = free_balance
             self._account_balances[asset_name] = total_balance / UNIT_BALANCE
             remote_asset_names.add(asset_name)
+            
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:

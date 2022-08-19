@@ -15,13 +15,13 @@ ORDER_STATE = {
 
 UNIT_BALANCE = Decimal(1000000000000)
 MIN_ORDER_SIZE = Decimal(10.0)
-MIN_PRICE = Decimal(0.0001)
-MIN_QTY = Decimal(0.0001)
+MIN_PRICE = Decimal(0.1)
+MIN_QTY = Decimal(0.1)
 TRADE_EVENT_TYPE = "trade"
 DIFF_EVENT_TYPE = "diff"
-GRAPHQL_ENDPOINT = "https://zzvrbxjadfdljgidnpquh6tafm.appsync-api.ap-south-1.amazonaws.com/graphql"
-GRAPHQL_WSS_ENDPOINT = "wss://zzvrbxjadfdljgidnpquh6tafm.appsync-realtime-api.ap-south-1.amazonaws.com/graphql"
-GRAPHQL_API_KEY = "da2-4hnejjcgfncdhmh7rqcpf44hj4"
+GRAPHQL_ENDPOINT = "https://cvuvkqmaunanvigq6fxrppqd6m.appsync-api.ap-south-1.amazonaws.com/graphql"
+GRAPHQL_WSS_ENDPOINT = "wss://cvuvkqmaunanvigq6fxrppqd6m.appsync-realtime-api.ap-south-1.amazonaws.com/graphql"
+GRAPHQL_API_KEY = "da2-ytwm3nh22zgjhaqkitjhxh2vlu"
 
 POLKADEX_SS58_PREFIX = 42
 
