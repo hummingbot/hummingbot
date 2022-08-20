@@ -57,6 +57,9 @@ cdef class Clock:
     def current_timestamp(self) -> float:
         return self._current_tick
 
+    def update_tick_size(self, tick_size: float) -> None:
+        self._tick_size = tick_size
+
     def __enter__(self) -> Clock:
         if self._current_context is not None:
             raise EnvironmentError("Clock context is not re-entrant.")
