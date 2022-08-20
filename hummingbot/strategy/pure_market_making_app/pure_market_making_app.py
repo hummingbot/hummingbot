@@ -747,8 +747,7 @@ class PureMarketMakingStrategyAugmentedPurePython(StrategyPyBase):
         finally:
             self._last_timestamp = timestamp
 
-    @cython.locals(inventory_cost_price=cython.double,
-                   base_balance=cython.double)
+    @cython.locals(base_balance=cython.double)
     def create_base_proposal(self) -> Proposal:
         market = self._market_info.market
         buys: Decimal[:] = []
