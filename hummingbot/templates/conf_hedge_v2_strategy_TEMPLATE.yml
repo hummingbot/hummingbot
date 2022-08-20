@@ -14,7 +14,7 @@ hedge_connector: null
 
 # The market to hedge trades on.
 hedge_markets: null
-
+hedge_offsets: null
 # leverage to use on the hedge market
 hedge_leverage: null
 
@@ -39,17 +39,20 @@ connector_0: null
 
 # The list of markets to hedge the assets, comma seperated, e.g BTC-USDT,LTC-USDT
 markets_0: null
-
+offsets_0: null
 # additional list of exchange
 connector_1: null
 markets_1: null
+offsets_1: null
 connector_2: null
 markets_2: null
+offsets_2: null
 connector_3: null
 markets_3: null
+offsets_3: null
 connector_4: null
 markets_4: null
-
+offsets_4: null
 enable_connector_0: null
 enable_connector_1: null
 enable_connector_2: null

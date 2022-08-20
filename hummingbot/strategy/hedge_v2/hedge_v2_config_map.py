@@ -34,6 +34,16 @@ def market_validate(exchange: str, value: str) -> Optional[str]:
     return None
 
 
+def validate_offsets(markets: str, value: str) -> Optional[str]:
+    """checks and ensure offsets are of decimal type"""
+    offsets = value.split(",")
+    markets = markets.split(",")
+    for offset in offsets:
+        if validate_decimal(offset):
+            return validate_decimal(offset)
+    return None
+
+
 hedge_v2_config_map = {
     "strategy": ConfigVar(key="strategy", prompt="", default="hedge_v2"),
     "hedge_connector": ConfigVar(
@@ -52,6 +62,18 @@ hedge_v2_config_map = {
         type_str="str",
         validator=lambda x: market_validate(hedge_v2_config_map["hedge_connector"], x),
         prompt_on_new=True,
+    ),
+    "hedge_offsets": ConfigVar(
+        key="hedge_offsets",
+        prompt="Enter the offsets to use to hedge the markets comma seperated. "
+        "the remainder will be assumed as 0 if no inputs. "
+        "e.g if markets is BTC-USDT,ETH-USDT,LTC-USDT. "
+        "and offsets is 0.1, -0.2. "
+        "then the offset amount that will be added is 0.1 BTC, -0.2 ETH and 0 LTC. ",
+        type_str="str",
+        validator=lambda x: validate_offsets(hedge_v2_config_map["hedge_markets"].value, x),
+        prompt_on_new=True,
+        default="0",
     ),
     "hedge_leverage": ConfigVar(
         key="hedge_leverage",
@@ -143,7 +165,19 @@ for i in range(MAX_CONNECTOR):
         "e.g if hedge_market is BTC-USDT, the taker market can only be BTC-USDT. "
         "if the market does not exist in hedge_markets, it will not be hedged >>> ",
         type_str="str",
-        validator=lambda x: market_validate(hedge_v2_config_map[f"connector_{i}"], x),
+        validator=lambda x, i=i: market_validate(hedge_v2_config_map[f"connector_{i}"], x),
+        required_if=lambda i=i: hedge_v2_config_map.get(f"enable_connector_{i}").value is True,
+        prompt_on_new=True,
+    )
+    hedge_v2_config_map[f"offsets_{i}"] = ConfigVar(
+        key=f"offsets_{i}",
+        prompt="Enter the offsets to add to each asset current amount before calculation, comma seperated. "
+        "the length of the list should be the same as the length of the markets list. "
+        "e.g if markets is BTC-USDT,ETH-USDT,LTC-USDT. "
+        "and offsets is 0.1, -0.2. "
+        "then the offset amount that will be added is 0.1 BTC, -0.2 ETH and -0.2 LTC. >>> ",
+        type_str="str",
+        validator=lambda x, i=i: validate_offsets(hedge_v2_config_map[f"markets_{i}"].value, x),
         required_if=lambda i=i: hedge_v2_config_map.get(f"enable_connector_{i}").value is True,
         prompt_on_new=True,
     )
