@@ -30,7 +30,7 @@ def calculate_bid_ask_ratios_from_base_asset_ratio(
                                                              base_asset_range)
 
 
-@cython.cfunc
+@cython.ccall
 @cython.inline
 def _c_calculate_bid_ask_ratios_from_base_asset_ratio(
         base_asset_amount: cython.double,

@@ -62,7 +62,6 @@ cdef class PureMarketMakingStrategyAugmentedPurePython(StrategyPyBase):
     cpdef start(self, object clock, double timestamp)
     cpdef stop(self, object clock)
     cpdef all_markets_ready(self)
-    cpdef double max_order_age(self)
     cdef apply_inventory_skew(self, object proposal)
     cdef apply_order_optimization(self, object proposal)
     cdef apply_add_transaction_costs(self, object proposal)
