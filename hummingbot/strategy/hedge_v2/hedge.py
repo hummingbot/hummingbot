@@ -57,6 +57,7 @@ class HedgeStrategy(StrategyPyBase):
         min_trade_size: float,
         hedge_interval: float,
         value_mode: bool,
+        offsets: Dict[MarketTradingPairTuple, Decimal],
         hedge_position_mode: PositionMode = PositionMode.ONEWAY,
         status_report_interval: float = 900,
     ):
@@ -84,6 +85,7 @@ class HedgeStrategy(StrategyPyBase):
         self._max_order_age = max_order_age
         self._min_trade_size = min_trade_size
         self._hedge_interval = hedge_interval
+        self._offsets = offsets
         self._status_report_interval = status_report_interval
         self._all_markets = self._hedge_market_pairs + self._market_pairs
         self._last_timestamp = 0
@@ -305,7 +307,7 @@ class HedgeStrategy(StrategyPyBase):
                 amount += position.amount
             if position.position_side == PositionSide.SHORT:
                 amount -= abs(position.amount)
-        return amount
+        return amount + self._offsets[market_pair]
 
     def get_base_amount(self, market_pair: MarketTradingPairTuple) -> Decimal:
         """
@@ -316,7 +318,7 @@ class HedgeStrategy(StrategyPyBase):
         """
         if self.is_derivative(market_pair):
             return self.get_derivative_base_amount(market_pair)
-        return market_pair.base_balance
+        return market_pair.base_balance + self._offsets[market_pair]
 
     def get_base_value(self, market_pair: MarketTradingPairTuple) -> Decimal:
         """
@@ -329,19 +331,12 @@ class HedgeStrategy(StrategyPyBase):
         base_price = market_pair.get_mid_price()
         return base_amount * base_price
 
-    def get_total_asset_value(self) -> Decimal:
-        """
-        Get the total base asset value of all markets.
-        :returns: The total base asset value of all market_pairs.
-        """
-        return sum(self.get_base_value(market_pair) for market_pair in self._market_pairs)
-
     def get_hedge_direction_and_value(self) -> Tuple[bool, Decimal]:
         """
         Calculate the value that is required to be hedged.
         :returns: A tuple of the hedge direction (buy/sell) and the value to be hedged.
         """
-        total_value = self.get_total_asset_value()
+        total_value = sum(self.get_base_value(market_pair) for market_pair in self._market_pairs)
         hedge_value = self.get_base_value(self._hedge_market_pair)
         net_value = total_value * self._hedge_ratio + hedge_value
         is_buy = net_value < 0
@@ -424,16 +419,12 @@ class HedgeStrategy(StrategyPyBase):
         returns the order candidate if the order meets the accepted criteria
         else, return None
         """
-        budget_checker = market_pair.market.budget_checker
-        if amount * price < self._min_trade_size:
-            return []
-        order_candidates = []
-        if self._position_mode == PositionMode.HEDGE:
+        def get_closing_order_candidate(is_buy: bool, amount: Decimal, price: Decimal) -> PerpetualOrderCandidate:
             opp_position_side = PositionSide.SHORT if is_buy else PositionSide.LONG
             opp_position_list = self.get_positions(market_pair, opp_position_side)
+            # opp_position_list should only have 1 position
             for opp_position in opp_position_list:
                 close_amount = min(amount, abs(opp_position.amount))
-                amount -= close_amount
                 order_candidate = PerpetualOrderCandidate(
                     trading_pair=market_pair.trading_pair,
                     is_maker=False,
@@ -445,8 +436,17 @@ class HedgeStrategy(StrategyPyBase):
                     position_close=True,
                 )
                 adjusted_candidate_order = budget_checker.adjust_candidate(order_candidate)
-                if adjusted_candidate_order.amount > 0:
-                    order_candidates.append(adjusted_candidate_order)
+                return adjusted_candidate_order
+            return None
+        budget_checker = market_pair.market.budget_checker
+        if amount * price < self._min_trade_size:
+            return []
+        order_candidates = []
+        if self._position_mode == PositionMode.HEDGE:
+            order_candidate = get_closing_order_candidate(is_buy, amount, price)
+            if order_candidate:
+                order_candidates.append(order_candidate)
+                amount -= order_candidate.amount
         order_candidate = PerpetualOrderCandidate(
             trading_pair=market_pair.trading_pair,
             is_maker=False,
