@@ -318,7 +318,7 @@ class InFlightOrder:
 
         prev_data = (self.exchange_order_id, self.current_state)
 
-        if self.exchange_order_id is None:
+        if self.exchange_order_id is None and order_update.exchange_order_id is not None:
             self.update_exchange_order_id(order_update.exchange_order_id)
 
         self.current_state = order_update.new_state
