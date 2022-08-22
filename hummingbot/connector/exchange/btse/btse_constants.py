@@ -21,7 +21,7 @@ SNAPSHOT_PATH_URL = "/orderbook"
 EXCHANGE_INFO_PATH_URL = "/market_summary"
 
 # Private API endpoints or Btse Client function
-ACCOUNTS_PATH_URL = "/account"
+ACCOUNTS_PATH_URL = "/user/wallet"
 MY_TRADES_PATH_URL = "/myTrades"
 ORDER_PATH_URL = "/order"
 BTSE_USER_STREAM_PATH_URL = "/userDataStream"

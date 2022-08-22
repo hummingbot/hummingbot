@@ -235,7 +235,7 @@ class BtseExchange(ExchangePyBase):
             return True
         return False
 
-    async def _format_trading_rules(self, exchange_info_list: List[Dict[str, Any]]) -> List[TradingRule]:
+    async def _format_trading_rules(self, exchange_info: List[Dict[str, Any]]) -> List[TradingRule]:
         """
         [
             {
@@ -275,7 +275,7 @@ class BtseExchange(ExchangePyBase):
             }
         ]
         """
-        trading_pair_rules = exchange_info_list
+        trading_pair_rules = exchange_info
         retval = []
         for rule in filter(btse_utils.is_exchange_information_valid, trading_pair_rules):
             try:
@@ -538,9 +538,9 @@ class BtseExchange(ExchangePyBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info_list: List[Dict[str, Any]]):
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: List[Dict[str, Any]]):
         mapping = bidict()
-        for symbol_data in filter(btse_utils.is_exchange_information_valid, exchange_info_list):
+        for symbol_data in filter(btse_utils.is_exchange_information_valid, exchange_info):
             mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["base"],
                                                                         quote=symbol_data["quote"])
         self._set_trading_pair_symbol_map(mapping)

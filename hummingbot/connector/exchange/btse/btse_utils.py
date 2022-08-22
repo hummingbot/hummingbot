@@ -52,35 +52,35 @@ class BtseConfigMap(BaseConnectorConfigMap):
 
 KEYS = BtseConfigMap.construct()
 
-OTHER_DOMAINS = ["btse_us"]
-OTHER_DOMAINS_PARAMETER = {"btse_us": "us"}
-OTHER_DOMAINS_EXAMPLE_PAIR = {"btse_us": "BTC-USDT"}
-OTHER_DOMAINS_DEFAULT_FEES = {"btse_us": DEFAULT_FEES}
+# OTHER_DOMAINS = ["btse_us"]
+# OTHER_DOMAINS_PARAMETER = {"btse_us": "us"}
+# OTHER_DOMAINS_EXAMPLE_PAIR = {"btse_us": "BTC-USDT"}
+# OTHER_DOMAINS_DEFAULT_FEES = {"btse_us": DEFAULT_FEES}
 
 
-class BtseUSConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="btse_us", const=True, client_data=None)
-    btse_api_key: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Btse US API key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
-    )
-    btse_api_secret: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Btse US API secret",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
-    )
+# class BtseUSConfigMap(BaseConnectorConfigMap):
+#     connector: str = Field(default="btse_us", const=True, client_data=None)
+#     btse_api_key: SecretStr = Field(
+#         default=...,
+#         client_data=ClientFieldData(
+#             prompt=lambda cm: "Enter your Btse US API key",
+#             is_secure=True,
+#             is_connect_key=True,
+#             prompt_on_new=True,
+#         )
+#     )
+#     btse_api_secret: SecretStr = Field(
+#         default=...,
+#         client_data=ClientFieldData(
+#             prompt=lambda cm: "Enter your Btse US API secret",
+#             is_secure=True,
+#             is_connect_key=True,
+#             prompt_on_new=True,
+#         )
+#     )
 
-    class Config:
-        title = "btse_us"
+#     class Config:
+#         title = "btse_us"
 
 
-OTHER_DOMAINS_KEYS = {"btse_us": BtseUSConfigMap.construct()}
+# OTHER_DOMAINS_KEYS = {"btse_us": BtseUSConfigMap.construct()}
