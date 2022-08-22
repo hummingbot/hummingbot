@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler } from '../services/error-handler';
+import { DefiraConfig } from './defira/defira.config';
 import { PangolinConfig } from './pangolin/pangolin.config';
 import { QuickswapConfig } from './quickswap/quickswap.config';
 import { PerpConfig } from './perp/perp.config';
@@ -62,6 +63,11 @@ export namespace ConnectorsRoutes {
             name: 'defikingdoms',
             trading_type: DefikingdomsConfig.config.tradingTypes,
             available_networks: DefikingdomsConfig.config.availableNetworks,
+          },
+          {
+            name: 'defira',
+            trading_type: DefiraConfig.config.tradingTypes,
+            available_networks: DefiraConfig.config.availableNetworks,
           },
         ],
       });
