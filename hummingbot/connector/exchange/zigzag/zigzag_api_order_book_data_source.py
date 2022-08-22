@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 
 class ZigzagAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    HEARTBEAT_TIME_INTERVAL = 30.0
     TRADE_STREAM_ID = 1
     DIFF_STREAM_ID = 2
     ONE_HOUR = 60 * 60
@@ -102,11 +101,31 @@ class ZigzagAPIOrderBookDataSource(OrderBookTrackerDataSource):
             )
             raise
 
-    async def _connected_websocket_assistant(self) -> WSAssistant:
-        ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=CONSTANTS.WSS_URL.format(self._domain),
-                         ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
-        return ws
+        """
+        Creates an instance of WSAssistant connected to the exchange
+        """
+
+        ws: WSAssistant = await self._get_ws_assistant()
+
+        await ws.connect(
+            ws_url=CONSTANTS.WSS_URL,
+            ping_timeout=CONSTANTS.WS_PING_TIMEOUT)
+
+        payload = {
+            "op": "login",
+            "args": self._auth.websocket_login_parameters()
+        }
+
+        login_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+        async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIBE):
+            await ws.send(login_request)
+
+        response: WSResponse = await ws.receive()
+        message = response.data
+        if "errorCode" in message or "error_code" in message or message.get("event") != "login":
+            self.logger().error("Error authenticating the private websocket connection")
+            raise IOError(f"Private websocket connection authentication failed ({message})")
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)

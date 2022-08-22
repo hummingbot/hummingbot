@@ -59,6 +59,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | logo | id | name | ver | doc| maintainer | status |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | <img src="assets/loopring-logo.jpg" alt="Loopring" width="90" /> | loopring | [Loopring](https://loopring.io/) | 3 | [API](https://docs3.loopring.io/en/) | | :warning: |
+| <img src="assets/zigzag-logo.jpg" alt="ZigZag" width="90" /> | zigzag | [ZigZag](https://info.zigzag.exchange/) | 1 | [API](https://docs.zigzag.exchange/) | :warning: |
 
 
 ## Supported protocol exchanges

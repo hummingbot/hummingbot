@@ -2,8 +2,6 @@ import asyncio
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
-from bidict import bidict
-
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.zigzag import (
     zigzag_constants as CONSTANTS,
@@ -13,6 +11,7 @@ from hummingbot.connector.exchange.zigzag import (
 from hummingbot.connector.exchange.zigzag.zigzag_api_order_book_data_source import ZigzagAPIOrderBookDataSource
 from hummingbot.connector.exchange.zigzag.zigzag_api_user_stream_data_source import ZigzagAPIUserStreamDataSource
 from hummingbot.connector.exchange.zigzag.zigzag_auth import ZigzagAuth
+from hummingbot.connector.exchange.zigzag.zigzag_utils import KEYS as ZZ_KEYS
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair
@@ -43,12 +42,13 @@ class ZigzagExchange(ExchangePyBase):
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._last_trades_poll_zigzag_timestamp = 1.0
+        self._last_trades_poll = 1.0
+
         super().__init__()
 
     @staticmethod
     def zigzag_order_type(order_type: OrderType) -> str:
-        return order_type.name.upper()
+        return order_type.name
 
     @staticmethod
     def to_hb_order_type(zigzag_type: str) -> OrderType:
@@ -58,6 +58,8 @@ class ZigzagExchange(ExchangePyBase):
     def authenticator(self):
         return ZigzagAuth(
             chain_id=self._chain_id,
+            wallet=ZZ_KEYS.wallet,
+            passphrase=ZZ_KEYS.passphrase,
             time_provider=self._time_synchronizer)
 
     @property
@@ -327,8 +329,8 @@ class ZigzagExchange(ExchangePyBase):
 
         if (long_interval_current_tick > long_interval_last_tick
                 or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
-            query_time = int(self._last_trades_poll_zigzag_timestamp * 1e3)
-            self._last_trades_poll_zigzag_timestamp = self._time_synchronizer.time()
+            query_time = int(self._last_trades_poll * 1e3)
+            self._last_trades_poll = self._time_synchronizer.time()
             order_by_exchange_id_map = {}
             for order in self._order_tracker.all_orders.values():
                 order_by_exchange_id_map[order.exchange_order_id] = order

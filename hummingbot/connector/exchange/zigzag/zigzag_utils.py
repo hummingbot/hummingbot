@@ -1,12 +1,11 @@
 from decimal import Decimal
 from typing import Any, Dict
-
-from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.config_var import ConfigVar
+from pydantic import Field, SecretStr
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
-CENTRALIZED = True
-EXAMPLE_PAIR = "ZRX-ETH"
+CENTRALIZED = False
+EXAMPLE_PAIR = "ZZ-USDC"
 
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.001"),
@@ -24,11 +23,28 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     return exchange_info.get("status", None) == "TRADING" and "SPOT" in exchange_info.get("permissions", list())
 
 
-KEYS = {
-    "zksync_address":
-        ConfigVar(key="zksync_address",
-                  prompt="Enter your public key >>> ",
-                  required_if=using_exchange("zigzag"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class ZigZagConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="", client_data=None)
+    wallet: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your ZigZag wallet address",
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    passphrase: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your wallet passphrase",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "zigzag"
+
+
+KEYS = ZigZagConfigMap.construct()

@@ -36,6 +36,7 @@ class ZigzagAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         ws: WSAssistant = await self._get_ws_assistant()
+
         await ws.connect(
             ws_url=CONSTANTS.WSS_URL,
             ping_timeout=CONSTANTS.WS_PING_TIMEOUT)
@@ -58,32 +59,35 @@ class ZigzagAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         return ws
 
-    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
-        try:
-            symbols = [await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                       for trading_pair in self._trading_pairs]
+    # async def _subscribe_channels(self, websocket_assistant: WSAssistant):
+    #     try:
+    #         symbols = [await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+    #                    for trading_pair in self._trading_pairs]
 
-            payload = {
-                "op": "subscribe",
-                "args": [f"{CONSTANTS.PRIVATE_ORDER_PROGRESS_CHANNEL_NAME}:{symbol}" for symbol in symbols]
-            }
-            subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
+    #         payload = {
+    #             "op": "subscribe",
+    #             "args": [f"{CONSTANTS.PRIVATE_ORDER_PROGRESS_CHANNEL_NAME}:{symbol}" for symbol in symbols]
+    #         }
+    #         subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIBE):
-                await websocket_assistant.send(subscribe_request)
-            self.logger().info("Subscribed to private account and orders channels...")
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().exception("Unexpected error occurred subscribing to order book trading and delta streams...")
-            raise
+    #         async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIBE):
+    #             await websocket_assistant.send(subscribe_request)
+    #         self.logger().info("Subscribed to private account and orders channels...")
+    #     except asyncio.CancelledError:
+    #         raise
+    #     except Exception:
+    #         self.logger().exception("Unexpected error occurred subscribing to order book trading and delta streams...")
+    #         raise
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
+
             decompressed_data = utils.decompress_ws_message(data)
+
             try:
                 if type(decompressed_data) == str:
+                    self.logger().debug(decompressed_data)
                     json_data = json.loads(decompressed_data)
                 else:
                     json_data = decompressed_data
