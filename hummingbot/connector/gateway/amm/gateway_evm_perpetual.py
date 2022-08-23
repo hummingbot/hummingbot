@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
-from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
-from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.amm.gateway_in_flight_lp_order import EVMInFlightOrder
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide
 from hummingbot.core.data_type.funding_info import FundingInfo
@@ -22,7 +22,7 @@ from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
-from .gateway_price_shim import GatewayPriceShim
+from ..gateway_price_shim import GatewayPriceShim
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -388,7 +388,7 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
         Starts tracking an order by simply adding it into _in_flight_orders dictionary in ClientOrderTracker.
         """
         self._order_tracker.start_tracking_order(
-            GatewayInFlightOrder(
+            EVMInFlightOrder(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
                 trading_pair=trading_pair,
