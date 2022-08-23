@@ -54,6 +54,8 @@ PAPER_TRADE_EXCHANGES = [  # todo: fix after global config map refactor
     "mock_paper_exchange",
 ]
 
+CONNECTOR_SUBMODULES_THAT_ARE_NOT_TYPES = ["test_support", "utilities"]
+
 
 class ConnectorType(Enum):
     """
@@ -61,6 +63,7 @@ class ConnectorType(Enum):
     """
 
     EVM_AMM = "EVM_AMM"
+    EVM_Perpetual = "EVM_Perpetual"
     EVM_AMM_LP = "EVM_AMM_LP"
     Connector = "connector"
     Exchange = "exchange"
@@ -267,7 +270,7 @@ class AllConnectorSettings:
 
         type_dirs: List[DirEntry] = [
             cast(DirEntry, f) for f in scandir(f"{root_path() / 'hummingbot' / 'connector'}")
-            if f.is_dir()
+            if f.is_dir() and f.name not in CONNECTOR_SUBMODULES_THAT_ARE_NOT_TYPES
         ]
         for type_dir in type_dirs:
             connector_dirs: List[DirEntry] = [
@@ -418,11 +421,11 @@ class AllConnectorSettings:
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative}
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative or cs.type is ConnectorType.EVM_Perpetual}
 
     @classmethod
     def get_derivative_dex_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative and not cs.centralised}
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.EVM_Perpetual}
 
     @classmethod
     def get_other_connector_names(cls) -> Set[str]:
