@@ -298,9 +298,9 @@ export class Uniswap implements Uniswapish {
       tx = await wallet.sendTransaction({
         data: methodParameters.calldata,
         to: uniswapRouter,
-        gasLimit: gasLimit.toFixed(0),
-        value: methodParameters.value,
-        nonce: nonce,
+        gasLimit: BigNumber.from(String(gasLimit)),
+        value: BigNumber.from(methodParameters.value),
+        nonce: BigNumber.from(String(nonce)),
         maxFeePerGas,
         maxPriorityFeePerGas,
       });
@@ -308,10 +308,10 @@ export class Uniswap implements Uniswapish {
       tx = await wallet.sendTransaction({
         data: methodParameters.calldata,
         to: this.router,
-        gasPrice: (gasPrice * 1e9).toFixed(0),
-        gasLimit: gasLimit.toFixed(0),
-        value: methodParameters.value,
-        nonce: nonce,
+        gasPrice: BigNumber.from(String((gasPrice * 1e9).toFixed(0))),
+        gasLimit: BigNumber.from(String(gasLimit)),
+        value: BigNumber.from(methodParameters.value),
+        nonce: BigNumber.from(String(nonce)),
       });
     }
 
