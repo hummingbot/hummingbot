@@ -1,4 +1,5 @@
 # The port to expose the gateway server on.
+# TODO
 port: 5230
 
 # The IPs allowed to access gateway. localhost is allowed by default.

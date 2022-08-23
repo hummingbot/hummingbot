@@ -27,6 +27,8 @@ tags:
     description: 'Interact with EVM based blockchains'
   - name: 'solana'
     description: 'Interact with the Solana blockchain'
+  - name: 'cosmos'
+    description: 'Interact with the Cosmos blockchain'
 
 schemes:
   - 'http'

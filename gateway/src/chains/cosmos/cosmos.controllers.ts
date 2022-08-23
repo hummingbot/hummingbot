@@ -20,7 +20,6 @@ export async function balances(
   const initTime = Date.now();
 
   const wallet = await cosmosish.getWallet(req.address);
-  // tokenSymbols can both be a symbol and a base
   const balances = await cosmosish.getBalances(wallet);
   const filteredBalances = toCosmosBalances(balances, req.tokenSymbols);
 
@@ -63,8 +62,6 @@ export async function poll(
 ): Promise<CosmosPollResponse> {
   const initTime = Date.now();
   const txData = await cosmos.getTransaction(req.txHash);
-
-  // TODO: Add error messages
 
   return {
     network: cosmos.rpcUrl,
