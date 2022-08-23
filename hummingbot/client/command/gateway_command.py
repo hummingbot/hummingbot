@@ -360,55 +360,43 @@ class GatewayCommand(GatewayChainApiManager):
                 # ask user to select a chain. Automatically select if there is only one.
                 chains: List[str] = [d['chain'] for d in available_networks]
                 chain: str
-                if len(chains) == 1:
-                    chain = chains[0]
-                else:
-                    # chains as options
-                    while True:
-                        self.app.input_field.completer.set_gateway_chains(chains)
-                        chain = await self.app.prompt(
-                            prompt=f"Which chain do you want {connector} to connect to? ({', '.join(chains)}) >>> "
-                        )
-                        if self.app.to_stop_config:
-                            self.app.to_stop_config = False
-                            return
 
-                        if chain in chains:
-                            break
-                        self.notify(f"{chain} chain not supported.\n")
+                # chains as options
+                while True:
+                    self.app.input_field.completer.set_gateway_chains(chains)
+                    chain = await self.app.prompt(
+                        prompt=f"Which chain do you want {connector} to connect to? ({', '.join(chains)}) >>> "
+                    )
+                    if self.app.to_stop_config:
+                        self.app.to_stop_config = False
+                        return
+
+                    if chain in chains:
+                        break
+                    self.notify(f"{chain} chain not supported.\n")
 
                 # ask user to select a network. Automatically select if there is only one.
                 networks: List[str] = list(
                     itertools.chain.from_iterable([d['networks'] for d in available_networks if d['chain'] == chain])
                 )
-                network: str
 
-                if len(networks) == 1:
-                    network = networks[0]
-                else:
-                    while True:
-                        self.app.input_field.completer.set_gateway_networks(networks)
-                        network = await self.app.prompt(
-                            prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> "
-                        )
-                        if self.app.to_stop_config:
-                            return
-                        if network in networks:
-                            break
-                        self.notify("Error: Invalid network")
+                network: str
+                while True:
+                    self.app.input_field.completer.set_gateway_networks(networks)
+                    network = await self.app.prompt(
+                        prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> "
+                    )
+                    if self.app.to_stop_config:
+                        return
+                    if network in networks:
+                        break
+                    self.notify("Error: Invalid network")
 
                 # test you can connect to the uri, otherwise request the url
-                can_connect_to_node_url: bool = await self._test_node_url_from_gateway_config(chain, network)
-                if not can_connect_to_node_url:
-                    node_url: str = await self._get_node_url(chain, network)
-                    await self._update_gateway_chain_network_node_url(chain, network, node_url)
+                await self._test_node_url_from_gateway_config(chain, network, attempt_connection=False)
 
-                    self.notify("Restarting gateway.")
-                    # wait about 30 seconds for the gateway to restart
-                    gateway_live = await self.ping_gateway_api(30)
-                    if not gateway_live:
-                        self.notify("Error: unable to restart gateway. Try 'gateway connect' again after gateway is running.")
-                        return
+                if self.app.to_stop_config:
+                    return
 
                 # get wallets for the selected chain
                 wallets_response: List[Dict[str, Any]] = await self._get_gateway_instance().get_wallets()

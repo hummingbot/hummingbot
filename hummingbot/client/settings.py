@@ -63,8 +63,9 @@ class ConnectorType(Enum):
     """
 
     EVM_AMM = "EVM_AMM"
-    SOL_CLOB = "SOL_CLOB"
+    EVM_Perpetual = "EVM_Perpetual"
     EVM_AMM_LP = "EVM_AMM_LP"
+    SOL_CLOB = "SOL_CLOB"
     Connector = "connector"
     Exchange = "exchange"
     Derivative = "derivative"
@@ -192,13 +193,9 @@ class ConnectorSetting(NamedTuple):
     def class_name(self) -> str:
         # return connector class name, e.g. BinanceExchange
         if self.uses_gateway_generic_connector():
-            # TODO change to support more evm and clob connectors and create a enum to avoid strings.
-            if ConnectorType.EVM_AMM == self.type:
-                return "GatewayEVMAMM"
-            elif ConnectorType.SOL_CLOB == self.type:
-                return "GatewaySOLCLOB"
-            else:
-                raise ValueError(f"Unsupported connector type: {self.type}")
+            splited_name = self.module_name().split('_')
+            splited_name[0] = splited_name[0].capitalize()
+            return "".join(splited_name)
         return "".join([o.capitalize() for o in self.module_name().split("_")])
 
     def conn_init_parameters(self, api_keys: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -432,11 +429,11 @@ class AllConnectorSettings:
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative}
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative or cs.type is ConnectorType.EVM_Perpetual}
 
     @classmethod
     def get_derivative_dex_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative and not cs.centralised}
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.EVM_Perpetual}
 
     @classmethod
     def get_other_connector_names(cls) -> Set[str]:
