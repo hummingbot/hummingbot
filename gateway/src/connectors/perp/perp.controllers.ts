@@ -27,6 +27,7 @@ import {
   PerpPositionResponse,
   PerpMarketRequest,
   PerpMarketResponse,
+  PerpBalanceResponse,
 } from '../../amm/amm.requests';
 import { PerpPosition } from './perp';
 
@@ -129,10 +130,14 @@ export async function createTakerOrder(
     tx = await perpish.openPosition(
       req.side === 'LONG' ? true : false,
       `${req.base}${req.quote}`,
-      req.amount as string
+      req.amount as string,
+      req.allowedSlippage
     );
   } else {
-    tx = await perpish.closePosition(`${req.base}${req.quote}`);
+    tx = await perpish.closePosition(
+      `${req.base}${req.quote}`,
+      req.allowedSlippage
+    );
   }
 
   await ethereumish.txStorage.saveTx(
@@ -196,5 +201,29 @@ export async function estimateGas(
     gasPriceToken: ethereumish.nativeTokenSymbol,
     gasLimit,
     gasCost: gasCostInEthString(gasPrice, gasLimit),
+  };
+}
+
+export async function getAccountValue(
+  ethereumish: Ethereumish,
+  perpish: Perpish
+): Promise<PerpBalanceResponse> {
+  const startTimestamp: number = Date.now();
+  let value;
+  try {
+    value = await perpish.getAccountValue();
+  } catch (e) {
+    throw new HttpException(
+      500,
+      UNKNOWN_ERROR_MESSAGE,
+      UNKNOWN_ERROR_ERROR_CODE
+    );
+  }
+
+  return {
+    network: ethereumish.chain,
+    timestamp: startTimestamp,
+    latency: latency(startTimestamp, Date.now()),
+    balance: value.toString(),
   };
 }
