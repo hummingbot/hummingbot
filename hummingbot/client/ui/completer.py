@@ -279,9 +279,6 @@ class HummingbotCompleter(Completer):
             if self._complete_spot_exchanges(document):
                 for c in self._spot_exchange_completer.get_completions(document, complete_event):
                     yield c
-            elif self._complete_derivatives(document):
-                for c in self._derivative_exchange_completer.get_completions(document, complete_event):
-                    yield c
             else:
                 for c in self._exchange_amm_completer.get_completions(document, complete_event):
                     yield c
@@ -299,10 +296,6 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_spot_exchanges(document):
             for c in self._spot_exchange_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_derivatives(document):
-            for c in self._derivative_exchange_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_trading_timeframe(document):
@@ -346,14 +339,14 @@ class HummingbotCompleter(Completer):
                 yield c
 
         elif self._complete_derivatives(document):
-            if "(Exchange/AMM)" in self.prompt_text:
-                for c in self._derivative_completer.get_completions(document, complete_event):
+            if self._complete_exchanges(document):
+                for c in self._derivative_exchange_completer.get_completions(document, complete_event):
                     yield c
             elif "(Exchange/CLOB)" in self.prompt_text:
                 for c in self._derivative_completer.get_completions(document, complete_event):
                     yield c
             else:
-                for c in self._derivative_exchange_completer.get_completions(document, complete_event):
+                for c in self._derivative_completer.get_completions(document, complete_event):
                     yield c
 
         elif self._complete_exchanges(document):

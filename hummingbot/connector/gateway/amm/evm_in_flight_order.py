@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from async_timeout import timeout
 
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 
 GET_GATEWAY_EX_ORDER_ID_TIMEOUT = 30  # seconds
@@ -25,6 +25,8 @@ class EVMInFlightOrder(InFlightOrder):
         exchange_order_id: Optional[str] = None,
         gas_price: Optional[Decimal] = s_decimal_0,
         initial_state: OrderState = OrderState.PENDING_CREATE,
+        leverage: int = 1,
+        position: PositionAction = PositionAction.NIL,
     ):
         super().__init__(
             client_order_id=client_order_id,
@@ -36,6 +38,8 @@ class EVMInFlightOrder(InFlightOrder):
             amount=amount,
             creation_timestamp=creation_timestamp,
             initial_state=initial_state,
+            leverage=leverage,
+            position=position,
         )
         self._gas_price = gas_price
         self._nonce: int = -1
@@ -166,6 +170,8 @@ class EVMInFlightOrder(InFlightOrder):
             price=Decimal(data["price"]),
             exchange_order_id=data["exchange_order_id"],
             initial_state=OrderState(int(data["last_state"])),
+            leverage=int(data["leverage"]),
+            position=PositionAction(data["position"]),
             creation_timestamp=data.get("creation_timestamp", -1),
         )
         order.executed_amount_base = Decimal(data["executed_amount_base"])
