@@ -176,7 +176,7 @@ class ConnectorSetting(NamedTuple):
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
         if self.uses_gateway_generic_connector():
-            if ConnectorType.EVM_AMM == self.type:
+            if ConnectorType.EVM_AMM == self.type or ConnectorType.EVM_Perpetual == self.type:
                 return f"gateway.amm.gateway_{self.type.name.lower()}"
             elif ConnectorType.SOL_CLOB == self.type:
                 return f"gateway.clob.gateway_{self.type.name.lower()}"
