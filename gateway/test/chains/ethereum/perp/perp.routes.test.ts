@@ -87,6 +87,9 @@ const patchPosition = () => {
       getTakerPositionByTickerSymbol() {
         return;
       },
+      getTotalPendingFundingPayments() {
+        return {};
+      },
     };
   });
 };
@@ -119,6 +122,9 @@ const patchCH = () => {
             confirmations: 0,
           },
         };
+      },
+      async getAccountValue() {
+        return new Big('10');
       },
     };
   });
@@ -238,10 +244,31 @@ describe('POST /amm/perp/position', () => {
       .then((res: any) => {
         expect(res.body).toHaveProperty('positionAmt');
         expect(res.body).toHaveProperty('positionSide');
-        expect(res.body).toHaveProperty('unRealizedProfit');
+        expect(res.body).toHaveProperty('unrealizedProfit');
         expect(res.body).toHaveProperty('leverage');
         expect(res.body).toHaveProperty('entryPrice');
         expect(res.body).toHaveProperty('tickerSymbol');
+        expect(res.body).toHaveProperty('pendingFundingPayment');
+      });
+  });
+});
+
+describe('POST /amm/perp/balance', () => {
+  it('should return a account value', async () => {
+    patchCH();
+
+    await request(app)
+      .post(`/amm/perp/balance`)
+      .send({
+        chain: 'ethereum',
+        network: 'optimism',
+        connector: 'perp',
+        address: address,
+      })
+      .set('Accept', 'application/json')
+      .expect(200)
+      .then((res: any) => {
+        expect(res.body).toHaveProperty('balance');
       });
   });
 });
