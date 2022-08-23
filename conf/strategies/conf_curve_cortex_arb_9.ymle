@@ -1,0 +1,6 @@
+template_version: 1
+strategy: curve_cortex_arb
+curve_connector:
+cortex_connector:
+connector: exit
+market: exit

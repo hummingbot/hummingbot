@@ -228,7 +228,9 @@ class StartCommand(GatewayChainApiManager):
         if self.is_current_strategy_script_strategy():
             self.start_script_strategy()
         else:
+            self.logger().info(f"strategy name check: {strategy_name}")
             start_strategy: Callable = get_strategy_starter_file(strategy_name)
+
             if strategy_name in settings.STRATEGIES:
                 start_strategy(self)
             else:
