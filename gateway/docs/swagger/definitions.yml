@@ -782,6 +782,45 @@ definitions:
       txData:
         $ref: '#/definitions/SolanaTransaction'
 
+  CosmosConfigResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'rpcUrl'
+      - 'connection'
+      - 'timestamp'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      rpcUrl:
+        type: 'string'
+        example: 'https://rpc.cosmos.network/'
+      connection:
+        type: 'boolean'
+        example: true
+      timestamp:
+        type: 'integer'
+        example: 1641889489132
+# TODO
+  CosmosBalancesRequest: 
+    type: 'object'
+    required:
+      - 'txHash'
+    properties:
+      txHash:
+        type: 'string'
+        example: 'E0E02A6C27A75F4442B0746676BDAF5F66AFF1E71928C54624A35B48D5A4B3AF'
+
+  CosmosPollRequest:
+    type: 'object'
+    required:
+      - 'txHash'
+    properties:
+      txHash:
+        type: 'string'
+        example: 'E0E02A6C27A75F4442B0746676BDAF5F66AFF1E71928C54624A35B48D5A4B3AF'
+
   TokensResponse:
     type: 'object'
     required:

@@ -340,6 +340,10 @@ export class CosmosBase {
     const provider = await this._provider;
     const transaction = await provider.getTx(id);
 
+    if (!transaction) {
+      throw new Error('Transaction not found');
+    }
+
     const { tx } = transaction;
 
     return decodeTxRaw(tx);

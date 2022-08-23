@@ -146,6 +146,7 @@ export const swaggerDocument = SwaggerManager.generateSwaggerJson(
     './docs/swagger/evm-routes.yml',
     './docs/swagger/network-routes.yml',
     './docs/swagger/solana-routes.yml',
+    './docs/swagger/cosmos-routes.yml',
   ]
 );
 
