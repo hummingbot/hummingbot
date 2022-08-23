@@ -193,8 +193,13 @@ class ConnectorSetting(NamedTuple):
     def class_name(self) -> str:
         # return connector class name, e.g. BinanceExchange
         if self.uses_gateway_generic_connector():
-            splited_name = self.module_name().split('_')
-            splited_name[0] = splited_name[0].capitalize()
+            file_name = self.module_name().split('.')[-1]
+            splited_name = file_name.split('_')
+            for i in range(len(splited_name)):
+                if splited_name[i] in ['evm', 'amm', 'clob', 'lp', 'sol']:
+                    splited_name[i] = splited_name[i].upper()
+                else:
+                    splited_name[i] = splited_name[i].capitalize()
             return "".join(splited_name)
         return "".join([o.capitalize() for o in self.module_name().split("_")])
 
