@@ -176,7 +176,7 @@ export class Curve implements Uniswapish {
     quoteToken: Token,
     amount: BigNumber
   ): Promise<ExpectedTrade> {
-    logger.info(`Fetching pair data for ${'cxd'}-${'USDC'}.`);
+    logger.info(`Fetching pair data for ${'USDC'}-${'USDC'}.`);
 
     const CURVE_CXD_ADDRESSES = {
       1: '0x4535913573D299A6372ca43b90aA6Be1CF68f779',
@@ -230,7 +230,7 @@ export class Curve implements Uniswapish {
     baseToken: Token,
     amount: BigNumber
   ): Promise<ExpectedTrade> {
-    logger.info(`Fetching pair data for ${'cxd'}-${'USDC'}.`);
+    logger.info(`Fetching pair data for ${'idxCVX'}-${'USDC'}.`);
 
     const CURVE_CXD_ADDRESSES = {
       1: '0x4535913573D299A6372ca43b90aA6Be1CF68f779',
