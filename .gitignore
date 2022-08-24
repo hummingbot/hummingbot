@@ -112,5 +112,4 @@ coverage.xml
 # Debug console
 .debug_console_ssh_host_key
 
-# backup conf
 /conf_backup

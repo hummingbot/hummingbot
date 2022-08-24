@@ -21,7 +21,7 @@ class OrderBookTrackerDataSourceType(Enum):
     EXCHANGE_API = 3
 
 
-class OrderBookTracker():
+class OrderBookTracker:
     PAST_DIFF_WINDOW_SIZE: int = 32
     _obt_logger: Optional[HummingbotLogger] = None
 

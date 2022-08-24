@@ -110,7 +110,7 @@ perpetual_market_making_config_map = {
                   default="perpetual_market_making"),
     "derivative":
         ConfigVar(key="derivative",
-                  prompt="Enter your maker derivative connector >>> ",
+                  prompt="Enter your maker derivative connector exchange name >>> ",
                   validator=validate_derivative,
                   on_validated=derivative_on_validated,
                   prompt_on_new=True),

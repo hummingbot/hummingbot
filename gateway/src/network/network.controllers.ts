@@ -75,7 +75,7 @@ export async function getStatus(
     try {
       currentBlockNumber = await connection.getCurrentBlockNumber();
     } catch (_e) {
-      // do nothing, this means we are not able to connect to the network
+      if (await connection.provider.getNetwork()) currentBlockNumber = 1; // necessary for connectors like hedera that do not have concept of blocknumber
     }
     statuses.push({
       chain,
