@@ -33,7 +33,7 @@ COPY . .
 # install dependencies
 RUN yarn
 
-EXPOSE 5000
+EXPOSE 15888
 
 RUN yarn build
 
