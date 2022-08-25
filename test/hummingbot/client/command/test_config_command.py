@@ -69,7 +69,7 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | pmm_script_mode          | pmm_script_disabled  |\n"
                            "    | gateway                  |                      |\n"
                            "    | ∟ gateway_api_host       | localhost            |\n"
-                           "    | ∟ gateway_api_port       | 5000                 |\n"
+                           "    | ∟ gateway_api_port       | 15888                |\n"
                            "    | rate_oracle_source       | binance              |\n"
                            "    | global_token             |                      |\n"
                            "    | ∟ global_token_symbol    | $                    |\n"
