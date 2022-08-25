@@ -5,10 +5,11 @@ from contextlib import ExitStack
 from decimal import Decimal
 from os.path import join, realpath
 from test.mock.http_recorder import HttpPlayer
-from typing import Dict, List
+from typing import Awaitable, Dict, List
 from unittest.mock import patch
 
 from aiohttp import ClientSession
+from aioresponses import aioresponses
 from async_timeout import timeout
 
 from bin import path_util  # noqa: F401
@@ -43,6 +44,7 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
+        cls.ev_loop = asyncio.get_event_loop()
         GatewayHttpClient.__instance = None
         cls._db_path = realpath(join(__file__, "../fixtures/gateway_sol_clob_fixture.db"))
         cls._http_player = HttpPlayer(cls._db_path)
@@ -77,6 +79,7 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
+        self.async_run_with_timeout(self.wait_til_ready(), 3)
         self._http_player.replay_timestamp_ms = None
 
     @classmethod
@@ -95,27 +98,34 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
             next_iteration = now // 1.0 + 1
             await self._clock.run_til(next_iteration + 0.1)
 
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        return self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+
+    @aioresponses()
     async def test_update_balances(self):
         self._connector._account_balances.clear()
         self.assertEqual(0, len(self._connector.get_all_balances()))
-        await self._connector.update_balances(on_interval=False)
+        self.async_run_with_timeout(self._connector.update_balances(on_interval=False))
         self.assertEqual(3, len(self._connector.get_all_balances()))
         self.assertAlmostEqual(Decimal("38.230251744322271175"), self._connector.get_balance("SOL"))
         self.assertAlmostEqual(Decimal("1015.242427495432379422"), self._connector.get_balance("USDC"))
 
+    @aioresponses()
     async def test_get_allowances(self):
         big_num: Decimal = Decimal("1000000000000000000000000000")
-        allowances: Dict[str, Decimal] = await self._connector.get_allowances()
+        allowances: Dict[str, Decimal] = self.async_run_with_timeout(self._connector.get_allowances())
         self.assertEqual(2, len(allowances))
         self.assertGreater(allowances.get("SOL"), big_num)
         self.assertGreater(allowances.get("USDC"), big_num)
 
+    @aioresponses()
     async def test_get_chain_info(self):
         self._connector._chain_info.clear()
-        await self._connector.get_chain_info()
+        self.async_run_with_timeout(self._connector.get_chain_info())
         self.assertGreater(len(self._connector._chain_info), 2)
         self.assertEqual("SOL", self._connector._chain_info.get("nativeCurrency"))
 
+    @aioresponses()
     async def test_update_approval_status(self):
         def create_approval_record(token_symbol: str, tx_hash: str) -> CLOBInFlightOrder:
             return CLOBInFlightOrder(
@@ -155,7 +165,7 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
         self._connector.add_listener(TokenApprovalEvent.ApprovalFailed, event_logger)
 
         try:
-            await self._connector.update_token_approval_status(successful_records + fake_records)
+            self.async_run_with_timeout(self._connector.update_token_approval_status(successful_records + fake_records))
             self.assertEqual(2, len(event_logger.event_log))
             self.assertEqual(
                 {"SOL", "USDC"},
@@ -165,6 +175,7 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
             self._connector.remove_listener(TokenApprovalEvent.ApprovalSuccessful, event_logger)
             self._connector.remove_listener(TokenApprovalEvent.ApprovalFailed, event_logger)
 
+    @aioresponses()
     async def test_update_order_status(self):
         def create_order_record(
                 trading_pair: str,
@@ -212,10 +223,10 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
         self._connector.add_listener(MarketEvent.OrderFilled, event_logger)
 
         try:
-            await self._connector.update_order_status(successful_records + fake_records)
+            self.async_run_with_timeout(self._connector.update_order_status(successful_records + fake_records))
             async with timeout(10):
                 while len(event_logger.event_log) < 1:
-                    await event_logger.wait_for(OrderFilledEvent)
+                    self.async_run_with_timeout(event_logger.wait_for(OrderFilledEvent))
             filled_event: OrderFilledEvent = event_logger.event_log[0]
             self.assertEqual(
                 "0xc7287236f64484b476cfbec0fd21bc49d85f8850c8885665003928a122041e18",       # noqa: mock
@@ -223,17 +234,19 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
         finally:
             self._connector.remove_listener(MarketEvent.OrderFilled, event_logger)
 
+    @aioresponses()
     async def test_get_quote_price(self):
-        buy_price: Decimal = await self._connector.get_quote_price("SOL-USDC", True, Decimal(1000))
-        sell_price: Decimal = await self._connector.get_quote_price("SOL-USDC", False, Decimal(1000))
+        buy_price: Decimal = self.async_run_with_timeout(self._connector.get_quote_price("SOL-USDC", True, Decimal(1000)))
+        sell_price: Decimal = self.async_run_with_timeout(self._connector.get_quote_price("SOL-USDC", False, Decimal(1000)))
         self.assertEqual(Decimal("43.3752383799999989832940627820789813995361328125"), buy_price)
         self.assertEqual(Decimal("43.3752383799999989832940627820789813995361328125"), sell_price)
 
+    @aioresponses()
     async def test_approve_token(self):
         self._http_player.replay_timestamp_ms = 1648499867736
-        sol_in_flight_order: CLOBInFlightOrder = await self._connector.approve_token("SOL")
+        sol_in_flight_order: CLOBInFlightOrder = self.async_run_with_timeout(self._connector.approve_token("SOL"))
         self._http_player.replay_timestamp_ms = 1648499871595
-        usdc_in_flight_order: CLOBInFlightOrder = await self._connector.approve_token("USDC")
+        usdc_in_flight_order: CLOBInFlightOrder = self.async_run_with_timeout(self._connector.approve_token("USDC"))
 
         self.assertEqual(
             "8PZnzjEUJ1B1sMAU3xhzpfK8T4QzydDrnTZrWdzzcno",       # noqa: mock
@@ -252,7 +265,7 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
         try:
             async with timeout(10):
                 while len(event_logger.event_log) < 2:
-                    await event_logger.wait_for(TokenApprovalSuccessEvent)
+                    self.async_run_with_timeout(event_logger.wait_for(TokenApprovalSuccessEvent))
             self.assertEqual(2, len(event_logger.event_log))
             self.assertEqual(
                 {"SOL", "USDC"},
@@ -261,10 +274,11 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
         finally:
             clock_task.cancel()
             try:
-                await clock_task
+                self.async_run_with_timeout(clock_task)
             except asyncio.CancelledError:
                 pass
 
+    @aioresponses()
     async def test_buy_order(self):
         self._http_player.replay_timestamp_ms = 1648500060561
         clock_task: asyncio.Task = safe_ensure_future(self.run_clock())
@@ -274,16 +288,16 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
 
         try:
             self._connector.buy("SOL-USDC", Decimal(100), OrderType.LIMIT, Decimal("0.002861464039500"))
-            order_created_event: BuyOrderCreatedEvent = await event_logger.wait_for(
+            order_created_event: BuyOrderCreatedEvent = self.async_run_with_timeout(event_logger.wait_for(
                 BuyOrderCreatedEvent,
                 timeout_seconds=5
-            )
+            ))
             self.assertEqual(
                 "1HEGEidnzzGvdKAB6dui5dZBB4qcBbqEMPgjbch8b9qdzf72Wworr11FqxdHDCjJVoG4Q3P9Fw4ergmwW3u47rC7",       # noqa: mock
                 order_created_event.exchange_order_id
             )
             self._http_player.replay_timestamp_ms = 1648500097569
-            order_filled_event: OrderFilledEvent = await event_logger.wait_for(OrderFilledEvent, timeout_seconds=5)
+            order_filled_event: OrderFilledEvent = self.async_run_with_timeout(event_logger.wait_for(OrderFilledEvent, timeout_seconds=5))
             self.assertEqual(
                 "1HEGEidnzzGvdKAB6dui5dZBB4qcBbqEMPgjbch8b9qdzf72Wworr11FqxdHDCjJVoG4Q3P9Fw4ergmwW3u47rC7",       # noqa: mock
                 order_filled_event.exchange_trade_id
@@ -291,10 +305,11 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
         finally:
             clock_task.cancel()
             try:
-                await clock_task
+                self.async_run_with_timeout(clock_task)
             except asyncio.CancelledError:
                 pass
 
+    @aioresponses()
     async def test_sell_order(self):
         self._http_player.replay_timestamp_ms = 1648500097825
         clock_task: asyncio.Task = safe_ensure_future(self.run_clock())
@@ -304,16 +319,16 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
 
         try:
             self._connector.sell("SOL-USDC", Decimal(100), OrderType.LIMIT, Decimal("0.002816023229500"))
-            order_created_event: SellOrderCreatedEvent = await event_logger.wait_for(
+            order_created_event: SellOrderCreatedEvent = self.async_run_with_timeout(event_logger.wait_for(
                 SellOrderCreatedEvent,
                 timeout_seconds=5
-            )
+            ))
             self.assertEqual(
                 "1HEGEidnzzGvdKAB6dui5dZBB4qcBbqEMPgjbch8b9qdzf72Wworr11FqxdHDCjJVoG4Q3P9Fw4ergmwW3u47rC7",       # noqa: mock
                 order_created_event.exchange_order_id
             )
             self._http_player.replay_timestamp_ms = 1648500133889
-            order_filled_event: OrderFilledEvent = await event_logger.wait_for(OrderFilledEvent, timeout_seconds=5)
+            order_filled_event: OrderFilledEvent = self.async_run_with_timeout(event_logger.wait_for(OrderFilledEvent, timeout_seconds=5))
             self.assertEqual(
                 "1HEGEidnzzGvdKAB6dui5dZBB4qcBbqEMPgjbch8b9qdzf72Wworr11FqxdHDCjJVoG4Q3P9Fw4ergmwW3u47rC7",       # noqa: mock
                 order_filled_event.exchange_trade_id
@@ -321,6 +336,6 @@ class GatewaySOLCLOBConnectorUnitTest(unittest.TestCase):
         finally:
             clock_task.cancel()
             try:
-                await clock_task
+                self.async_run_with_timeout(clock_task)
             except asyncio.CancelledError:
                 pass
