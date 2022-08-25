@@ -1,17 +1,11 @@
 import asyncio
 import logging
 import time
-
 from abc import ABC, abstractmethod
-from typing import (
-    List,
-    Tuple,
-)
+from decimal import Decimal
+from typing import List, Tuple
 
-from hummingbot.core.api_throttler.data_types import (
-    RateLimit,
-    TaskLog,
-)
+from hummingbot.core.api_throttler.data_types import RateLimit, TaskLog
 from hummingbot.logger.logger import HummingbotLogger
 
 arc_logger = None
@@ -61,11 +55,11 @@ class AsyncRequestContextBase(ABC):
         Remove task logs that have passed rate limit periods
         :return:
         """
-        now: float = time.time()
+        now: Decimal = Decimal(str(time.time()))
         for task in self._task_logs:
             task_limit: RateLimit = task.rate_limit
-            elapsed: float = now - task.timestamp
-            if elapsed > task_limit.time_interval + (task_limit.time_interval * self._safety_margin_pct):
+            elapsed: Decimal = now - Decimal(str(task.timestamp))
+            if elapsed > Decimal(str(task_limit.time_interval * (1 + self._safety_margin_pct))):
                 self._task_logs.remove(task)
 
     @abstractmethod
