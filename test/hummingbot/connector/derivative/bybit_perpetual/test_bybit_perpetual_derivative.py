@@ -248,8 +248,25 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
 
     @property
     def trading_rules_request_erroneous_mock_response(self):
-        mock_response = self.all_symbols_request_mock_response
-        del mock_response["result"][0]["base_currency"]
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": [
+                {
+                    "name": self.exchange_trading_pair,
+                    "alias": self.exchange_trading_pair,
+                    "status": "Trading",
+                    "base_currency": self.base_asset,
+                    "quote_currency": self.quote_asset,
+                    "price_scale": 2,
+                    "taker_fee": "0.00075",
+                    "maker_fee": "-0.00025",
+                },
+            ],
+            "time_now": "1615801223.589808",
+        }
         return mock_response
 
     @property
