@@ -48,7 +48,6 @@ class RateCommand:
     async def show_token_value(self,  # type: HummingbotApplication
                                token: str
                                ):
-        token = token.upper()
         self.notify(f"Source: {RateOracle.source.name}")
         rate = await RateOracle.global_rate(token)
         if rate is None:
