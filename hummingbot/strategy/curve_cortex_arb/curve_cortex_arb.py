@@ -71,12 +71,12 @@ class CurveCortexArb(ConnectorBase):
     #     self.logger().info(order_completed_event)
 
     async def main(self):
-        self.curve_buy_price = await self.get_curve_price(side="BUY")
-        # self.notify(f"curve buy price: {self.curve_buy_price}")
-        self.logger().info(f"curve buy price: {self.curve_buy_price}")
-        self.curve_sell_price = await self.get_curve_price(side="SELL")
-        self.logger().info(f"curve sell price: {self.curve_sell_price}")
-        self._curve_price_retrieved = True
+        # self.curve_buy_price = await self.get_curve_price(side="BUY")
+        # # self.notify(f"curve buy price: {self.curve_buy_price}")
+        # self.logger().info(f"curve buy price: {self.curve_buy_price}")
+        # self.curve_sell_price = await self.get_curve_price(side="SELL")
+        # self.logger().info(f"curve sell price: {self.curve_sell_price}")
+        # self._curve_price_retrieved = True
 
         self.vault_mint_price = await self.get_vault_price(tradeType="mint")
         self.logger().info(f"vault mint price: {self.vault_mint_price}")
