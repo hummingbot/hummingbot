@@ -64,8 +64,8 @@ class OracleConversionRateMode(ConversionRateModel):
                     gas_pair = f"{transaction_fee.token}-{market_pair.maker.quote_asset}"
 
         if gas_pair is not None and transaction_fee.token != market_pair.maker.quote_asset:
-            gas_rate_source = RateOracle.source.name
-            gas_rate = RateOracle.get_instance().rate(gas_pair)
+            gas_rate_source = RateOracle.get_instance().source.name
+            gas_rate = RateOracle.get_instance().get_pair_rate(gas_pair)
         else:
             gas_rate_source = "fixed"
             gas_rate = Decimal("1")
