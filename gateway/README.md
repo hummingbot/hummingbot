@@ -42,8 +42,6 @@ Before running gateway, you need to setup some configs. You can start by copying
 
 ### Useful configuration options
 
-- If you want to use Ethereum, add your Infura API key to [conf/ethereum.yml](./conf/ethereum.yml). 
-
 - If you want to turn off `https`, set `unsafeDevModeWithHTTP` to `true` in [conf/server.yml](./conf/server.yml). 
 
 - If you gateway to log to standard out, set `logToStdOut` to `true` in [conf/logging.yml](./conf/logging.yml).
