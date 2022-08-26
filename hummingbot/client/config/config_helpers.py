@@ -10,7 +10,7 @@ from decimal import Decimal
 from os import listdir, scandir, unlink
 from os.path import isfile, join
 from pathlib import Path, PosixPath
-from typing import Any, Callable, Dict, Generator, List, Optional, Type, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Type, Union
 
 import ruamel.yaml
 import yaml
@@ -176,7 +176,14 @@ class ClientConfigAdapter:
                 printable_value = "&cMISSING_AND_REQUIRED"
                 client_field_data = self.get_client_data(attr)
             yield ConfigTraversalItem(
-                depth, attr, attr, value, printable_value, client_field_data, field_info, type_
+                depth=depth,
+                config_path=attr,
+                attr=attr,
+                value=value,
+                printable_value=printable_value,
+                client_field_data=client_field_data,
+                field_info=field_info,
+                type_=type_,
             )
             if isinstance(value, ClientConfigAdapter):
                 for traversal_item in value.traverse():
@@ -212,6 +219,17 @@ class ClientConfigAdapter:
         if isinstance(default, type(Ellipsis)):
             default = None
         return default
+
+    def get_default_str_repr(self, attr_name: str) -> str:
+        """Used to generate default strings for config prompts."""
+        default = self.get_default(attr_name=attr_name)
+        if default is None:
+            default_str = ""
+        elif isinstance(default, (List, Tuple)):
+            default_str = ",".join(default)
+        else:
+            default_str = str(default)
+        return default_str
 
     def get_type(self, attr_name: str) -> Type:
         return self._hb_config.__fields__[attr_name].type_

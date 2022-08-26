@@ -77,7 +77,8 @@ class BalanceCommand:
     async def show_balances(
         self  # type: HummingbotApplication
     ):
-        total_col_name = f'Total ({RateOracle.global_token_symbol})'
+        global_token_symbol = self.client_config_map.global_token.global_token_symbol
+        total_col_name = f"Total ({global_token_symbol})"
         sum_not_for_show_name = "sum_not_for_show"
         self.notify("Updating balances, please wait...")
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
@@ -98,9 +99,11 @@ class BalanceCommand:
             if df.empty:
                 self.notify("You have no balance on this exchange.")
             else:
-                lines = ["    " + line for line in df.drop(sum_not_for_show_name, axis=1).to_string(index=False).split("\n")]
+                lines = [
+                    "    " + line for line in df.drop(sum_not_for_show_name, axis=1).to_string(index=False).split("\n")
+                ]
                 self.notify("\n".join(lines))
-                self.notify(f"\n  Total: {RateOracle.global_token_symbol} "
+                self.notify(f"\n  Total: {global_token_symbol} "
                             f"{PerformanceMetrics.smart_round(df[total_col_name].sum())}")
                 allocated_percentage = 0
                 if df[sum_not_for_show_name].sum() != Decimal("0"):
@@ -108,7 +111,7 @@ class BalanceCommand:
                 self.notify(f"Allocated: {allocated_percentage:.2%}")
                 exchanges_total += df[total_col_name].sum()
 
-        self.notify(f"\n\nExchanges Total: {RateOracle.global_token_symbol} {exchanges_total:.0f}    ")
+        self.notify(f"\n\nExchanges Total: {global_token_symbol} {exchanges_total:.0f}    ")
 
         celo_address = CELO_KEYS.celo_address if hasattr(CELO_KEYS, "celo_address") else None
         if celo_address is not None:
@@ -127,7 +130,8 @@ class BalanceCommand:
                                          ex_balances: Dict[str, Decimal],
                                          ex_avai_balances: Dict[str, Decimal]):
         conn_setting = AllConnectorSettings.get_connector_settings()[exchange]
-        total_col_name = f"Total ({RateOracle.global_token_symbol})"
+        global_token_symbol = self.client_config_map.global_token.global_token_symbol
+        total_col_name = f"Total ({global_token_symbol})"
         allocated_total = Decimal("0")
         rows = []
         for token, bal in ex_balances.items():
@@ -145,7 +149,7 @@ class BalanceCommand:
                     continue
                 allocated = f"{(bal - avai) / bal:.0%}"
 
-            rate = await RateOracle.global_rate(token)
+            rate = await RateOracle.get_instance().get_rate(base_token=token)
             rate = Decimal("0") if rate is None else rate
             global_value = rate * bal
             allocated_total += rate * (bal - avai)
