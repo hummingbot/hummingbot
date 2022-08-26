@@ -1,4 +1,3 @@
-/* WIP */
 import { Cosmos } from './cosmos';
 import {
   CosmosBalanceRequest,
@@ -13,6 +12,8 @@ import {
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
 } from '../../services/error-handler';
 
+const { decodeTxRaw } = require('@cosmjs/proto-signing');
+
 export async function balances(
   cosmosish: Cosmos,
   req: CosmosBalanceRequest
@@ -20,16 +21,23 @@ export async function balances(
   const initTime = Date.now();
 
   const wallet = await cosmosish.getWallet(req.address);
-  const balances = await cosmosish.getBalances(wallet);
-  const filteredBalances = toCosmosBalances(balances, req.tokenSymbols);
 
-  if (Object.keys(filteredBalances).length === 0) {
-    throw new HttpException(
-      500,
-      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.tokenSymbols,
-      TOKEN_NOT_SUPPORTED_ERROR_CODE
-    );
-  }
+  const { tokenSymbols } = req;
+
+  tokenSymbols.forEach((symbol: string) => {
+    const token = cosmosish.getTokenForSymbol(symbol);
+
+    if (!token) {
+      throw new HttpException(
+        500,
+        TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + symbol,
+        TOKEN_NOT_SUPPORTED_ERROR_CODE
+      );
+    }
+  });
+
+  const balances = await cosmosish.getBalances(wallet);
+  const filteredBalances = toCosmosBalances(balances, tokenSymbols);
 
   return {
     network: cosmosish.chain,
@@ -61,12 +69,17 @@ export async function poll(
   req: CosmosPollRequest
 ): Promise<CosmosPollResponse> {
   const initTime = Date.now();
-  const txData = await cosmos.getTransaction(req.txHash);
+  const transaction = await cosmos.getTransaction(req.txHash);
+  const currentBlock = await cosmos.getCurrentBlockNumber();
 
   return {
     network: cosmos.rpcUrl,
     timestamp: initTime,
     txHash: req.txHash,
-    txData,
+    currentBlock,
+    txBlock: transaction.height,
+    gasUsed: transaction.gasUsed,
+    gasWanted: transaction.gasWanted,
+    txData: decodeTxRaw(transaction.tx),
   };
 }

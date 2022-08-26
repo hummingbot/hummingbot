@@ -19,7 +19,7 @@ import {
 
 export namespace CosmosRoutes {
   export const router = Router();
-  export const cosmos = Cosmos.getInstance('mainnet');
+  export const cosmos = Cosmos.getInstance('mainnet'); // TODO: make it dynamic
 
   router.use(asyncHandler(verifyCosmosIsAvailable));
 

@@ -1,26 +1,26 @@
 import {
-  isPublicKey,
+  invalidCosmosAddressError,
+  isValidCosmosAddress,
   validatePublicKey,
-  invalidPublicKeyError,
-} from '../../../src/chains/solana/solana.validators';
+} from '../../../src/chains/cosmos/cosmos.validators';
 import { missingParameter } from '../../../src/services/validators';
 import 'jest-extended';
 
-export const publicKey = '3xgEFpNpz1hPU7iHN9P3WPgLTWfZXu6wSUuGw8kigNQr';
+export const publicKey = 'cosmos1pc8m5m7n0z8xe7sx2tawkvc0v6qkjql83js0dr';
 export const privateKey =
-  '5K23ZvkHuNoakyMKGNoaCvky6a2Yu5yfeoRz2wQLKYAczMKzACN5ZZb9ixu6QcsQvrvh91CNfqu8U1LqC1nvnyfp';
+  'b6dd181dfa0023013b2479c109e483cb8dc3c20d6fdae6b2443be147c11e5220'; // noqa: mock
 
-describe('isPublicKey', () => {
+describe('isValidCosmosAddress', () => {
   it('pass against a well formed public key', () => {
-    expect(isPublicKey(publicKey)).toEqual(true);
+    expect(isValidCosmosAddress(publicKey)).toEqual(true);
   });
 
   it('fail against a string that is too short', () => {
-    expect(isPublicKey(publicKey.substring(2))).toEqual(false);
+    expect(isValidCosmosAddress(publicKey.substring(2))).toEqual(false);
   });
 
   it('fail against a string that is too long', () => {
-    expect(isPublicKey(publicKey + 1)).toEqual(false);
+    expect(isValidCosmosAddress(publicKey + 1)).toEqual(false);
   });
 });
 
@@ -46,6 +46,6 @@ describe('validatePublicKey', () => {
       validatePublicKey({
         address: 'world',
       })
-    ).toEqual([invalidPublicKeyError]);
+    ).toEqual([invalidCosmosAddressError]);
   });
 });

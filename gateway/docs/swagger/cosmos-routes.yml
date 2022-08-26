@@ -33,47 +33,7 @@ paths:
       responses:
         '200':
           schema:
-            $ref: '#/definitions/SolanaBalancesResponse'
-
-  /cosmos/token:
-    get:
-      tags:
-        - 'cosmos'
-      summary: 'Request token information and balance of requested token symbol'
-      operationId: 'token'
-      consumes:
-        - 'application/json'
-      produces:
-        - 'application/json'
-      parameters:
-        - in: 'body'
-          name: 'body'
-          required: true
-          schema:
-            $ref: '#/definitions/SolanaTokenRequest'
-      responses:
-        '200':
-          schema:
-            $ref: '#/definitions/SolanaTokenResponse'
-    post:
-      tags:
-        - 'cosmos'
-      summary: 'Get or create an associated token account for given token symbol. NOTE: This request costs 0.035 SOL, if no associated token account for given wallet address existed so far'
-      operationId: 'token'
-      consumes:
-        - 'application/json'
-      produces:
-        - 'application/json'
-      parameters:
-        - in: 'body'
-          name: 'body'
-          required: true
-          schema:
-            $ref: '#/definitions/SolanaTokenRequest'
-      responses:
-        '200':
-          schema:
-            $ref: '#/definitions/SolanaTokenResponse'
+            $ref: '#/definitions/BalancesResponse'
 
   /cosmos/poll:
     post:
@@ -90,8 +50,8 @@ paths:
           name: 'body'
           required: true
           schema:
-            $ref: '#/definitions/SolanaPollRequest'
+            $ref: '#/definitions/CosmosPollRequest'
       responses:
         '200':
           schema:
-            $ref: '#/definitions/SolanaPollResponse'
+            $ref: '#/definitions/CosmosPollResponse'
