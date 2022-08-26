@@ -63,6 +63,7 @@ class ConnectorType(Enum):
     """
 
     EVM_AMM = "EVM_AMM"
+    EVM_Perpetual = "EVM_Perpetual"
     EVM_AMM_LP = "EVM_AMM_LP"
     Connector = "connector"
     Exchange = "exchange"
@@ -107,8 +108,8 @@ class GatewayConnectionSetting:
     @staticmethod
     def get_connector_spec_from_market_name(market_name: str) -> Optional[Dict[str, str]]:
         vals = market_name.split("_")
-        if len(vals) == 3:
-            return GatewayConnectionSetting.get_connector_spec(vals[0], vals[1], vals[2])
+        if len(vals) >= 3:
+            return GatewayConnectionSetting.get_connector_spec(vals[0], vals[1], "_".join(vals[2:]))
         else:
             return None
 
@@ -420,11 +421,11 @@ class AllConnectorSettings:
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative}
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative or cs.type is ConnectorType.EVM_Perpetual}
 
     @classmethod
     def get_derivative_dex_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative and not cs.centralised}
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.EVM_Perpetual}
 
     @classmethod
     def get_other_connector_names(cls) -> Set[str]:
