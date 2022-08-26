@@ -1,12 +1,12 @@
 networks:
   mainnet-beta:
-    rpcURL: https://api.mainnet-beta.solana.com
+    rpcURL: https://rpc.ankr.com/solana
     nativeCurrencySymbol: SOL
   testnet:
     rpcURL: https://api.testnet.solana.com
     nativeCurrencySymbol: SOL
   devnet:
-    rpcURL: https://api.devnet.solana.com
+    rpcURL: https://rpc.ankr.com/solana_devnet
     nativeCurrencySymbol: SOL
 network: testnet
 tokenProgram: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
