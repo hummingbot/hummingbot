@@ -585,16 +585,34 @@ class ExchangeRateSourceModeBase(RateSourceModeBase):
 
 
 class AscendExRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="ascend_ex",
+        const=True,
+        client_data=None,
+    )
+
     class Config:
         title = "ascend_ex"
 
 
 class BinanceRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="binance",
+        const=True,
+        client_data=None,
+    )
+
     class Config:
         title = "binance"
 
 
 class CoinGeckoRateSourceMode(RateSourceModeBase):
+    name: str = Field(
+        default="coin_gecko",
+        const=True,
+        client_data=None,
+    )
+
     extra_tokens: List[str] = Field(
         default=[],
         client_data=ClientFieldData(
@@ -628,6 +646,12 @@ class CoinGeckoRateSourceMode(RateSourceModeBase):
 
 
 class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="kucoin",
+        const=True,
+        client_data=None,
+    )
+
     class Config:
         title = "kucoin"
 
