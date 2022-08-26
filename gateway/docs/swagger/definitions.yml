@@ -1380,7 +1380,7 @@ definitions:
       - 'quote'
       - 'positionAmt'
       - 'positionSide'
-      - 'unRealizedProfit'
+      - 'unrealizedProfit'
       - 'leverage'
       - 'entryPrice'
       - 'tickerSymbol'
@@ -1406,7 +1406,7 @@ definitions:
       positionSide:
         type: 'string'
         example: 'LONG'
-      unRealizedProfit:
+      unrealizedProfit:
         type: 'string'
         example: '0.3'
       leverage:
@@ -1418,6 +1418,49 @@ definitions:
       tickerSymbol:
         type: 'string'
         example: 'AAVEUSD'
+
+  PerpBalanceRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'address'
+    properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'optimism'
+      connector:
+        type: 'string'
+        example: 'perp'
+      address:
+        type: 'string'
+        example: '0x...'
+
+  PerpBalanceResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'balance'
+
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 1
+      balance:
+        type: 'string'
+        example: '100'
 
   PerpOpenRequest:
     type: 'object'
