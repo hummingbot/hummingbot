@@ -17,7 +17,8 @@
     "copy-files": "copyfiles -a 'src/**/schema/*.json' 'src/templates/*.yml' 'test/services/data/**/*.*' dist",
     "test:unit": "NODE_OPTIONS=--max_old_space_size=4096 jest -w 1 --verbose --forceExit ./test/",
     "test:cov": "NODE_OPTIONS=--max_old_space_size=4096 jest -w 1 --coverage --forceExit ./test/",
-    "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts"
+    "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts",
+    "test:cosmos": "jest -i --verbose ./test-scripts/cosmos.test.ts"
   },
   "dependencies": {
     "@blockworks-foundation/mango-client": "^3.2.14",

@@ -782,6 +782,162 @@ definitions:
       txData:
         $ref: '#/definitions/SolanaTransaction'
 
+  CosmosConfigResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'rpcUrl'
+      - 'connection'
+      - 'timestamp'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      rpcUrl:
+        type: 'string'
+        example: 'https://rpc.cosmos.network/'
+      connection:
+        type: 'boolean'
+        example: true
+      timestamp:
+        type: 'integer'
+        example: 1641889489132
+
+  CosmosBalanceRequest:
+    type: 'object'
+    required:
+      - 'address'
+      - 'tokenSymbols'
+    properties:
+      address:
+        type: 'string'
+        example: 'cosmos1pc8m5m7n0z8xe7sx2tawkvc0v6qkjql83js0dr'
+      tokenSymbols:
+        type: 'array'
+        items: 'string'
+        example: ['ATOM', 'NETA']
+
+  CosmosPollRequest:
+    type: 'object'
+    required:
+      - 'txHash'
+    properties:
+      txHash:
+        type: 'string'
+        example: 'E0E02A6C27A75F4442B0746676BDAF5F66AFF1E71928C54624A35B48D5A4B3AF'
+
+  # CosmosTransaction:
+  #   type: 'object'
+  #   required:
+  #     - 'slot'
+  #     - 'transaction'
+  #     - 'meta'
+  #   properties:
+  #     slot:
+  #       type: 'integer'
+  #       example: 112646487
+  #     transaction:
+  #       type: 'object'
+  #       example: '
+  #       {
+  #         "message": {
+  #           "accountKeys": [
+  #             "3UVYmECPPMZSCqWKfENfuoTv51fTDTWicX9xmBD2euKe",
+  #             "AjozzgE83A3x1sHNUR64hfH7zaEBWeMaFuAN9kQgujrc",
+  #             "SysvarS1otHashes111111111111111111111111111",
+  #             "SysvarC1ock11111111111111111111111111111111",
+  #             "Vote111111111111111111111111111111111111111"
+  #           ],
+  #           "header": {
+  #             "numReadonlySignedAccounts": 0,
+  #             "numReadonlyUnsignedAccounts": 3,
+  #             "numRequiredSignatures": 1
+  #           },
+  #           "instructions": [
+  #             {
+  #               "accounts": [
+  #                 1,
+  #                 2,
+  #                 3,
+  #                 0
+  #               ],
+  #               "data": "37u9WtQpcm6ULa3WRQHmj49EPs4if7o9f1jSRVZpm2dvihR9C8jY4NqEwXUbLwx15HBSNcP1",
+  #               "programIdIndex": 4
+  #             }
+  #           ],
+  #           "recentBlockhash": "mfcyqEXB3DnHXki6KjjmZck6YjmZLvpAByy2fj4nh6B"
+  #         },
+  #         "signatures": [
+  #           "2nBhEBYYvfaAe16UMNqRHre4YNSskvuYgx3M6E4JP1oDYvZEJHvoPzyUidNgNX5r9sTyN1J9UxtbCXy2rqYcuyuv"
+  #         ]
+  #       }'
+  #     meta:
+  #       type: 'object'
+  #       example: '
+  #       {
+  #         "err": null,
+  #         "fee": 5000,
+  #         "innerInstructions": [],
+  #         "postBalances": [
+  #           499998932500,
+  #           26858640,
+  #           1,
+  #           1,
+  #           1
+  #         ],
+  #         "postTokenBalances": [],
+  #         "preBalances": [
+  #           499998937500,
+  #           26858640,
+  #           1,
+  #           1,
+  #           1
+  #         ],
+  #         "preTokenBalances": [],
+  #         "status": {
+  #           "Ok": null
+  #         }
+  #       }'
+  #     blockTime:
+  #       type: 'integer'
+  #       example: 1641891662
+
+  CosmosPollResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'txHash'
+      - 'currentBlock'
+      - 'txBlock'
+      - 'gasUsed'
+      - 'gasWanted'
+      - 'txData'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      currentBlock:
+        type: 'integer'
+        example: 112646487
+      txHash:
+        type: 'string'
+        example: 'oaMWkrYr1g9JBcDUPRqz21cJBxowM4CEbDy2FsCgNK569CjZSr4wa51d4k9DpTRJU8GUHfp3e9YX2pGXaBS5Tta'
+      txBlock:
+        type: 'number'
+        example: 11581899
+      gasUsed:
+        type: 'number'
+        example: 89054
+      gasWanted:
+        type: 'number'
+        example: 130000
+      txData:
+        $ref: '#/definitions/CosmosTransaction'
+
   TokensResponse:
     type: 'object'
     required:
