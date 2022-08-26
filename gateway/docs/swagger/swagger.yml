@@ -10,7 +10,7 @@ info:
     name: 'Apache 2.0'
     url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
 
-host: 'localhost:5230'
+host: 'localhost:5000'
 
 tags:
   - name: 'system'
@@ -27,6 +27,8 @@ tags:
     description: 'Interact with EVM based blockchains'
   - name: 'solana'
     description: 'Interact with the Solana blockchain'
+  - name: 'cosmos'
+    description: 'Interact with the Cosmos blockchain'
 
 schemes:
   - 'http'
