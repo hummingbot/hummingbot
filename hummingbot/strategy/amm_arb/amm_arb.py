@@ -398,7 +398,7 @@ class AmmArbStrategy(StrategyPyBase):
     def quotes_rate_df(self):
         columns = ["Quotes pair", "Rate"]
         quotes_pair: str = f"{self._market_info_2.quote_asset}-{self._market_info_1.quote_asset}"
-        data = [[quotes_pair, PerformanceMetrics.smart_round(self._rate_source.rate(quotes_pair))]]
+        data = [[quotes_pair, PerformanceMetrics.smart_round(self._rate_source.get_pair_rate(quotes_pair))]]
 
         return pd.DataFrame(data=data, columns=columns)
 
