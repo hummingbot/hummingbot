@@ -7,12 +7,14 @@ import { ConfigManagerCertPassphrase } from './config-manager-cert-passphrase';
 import { BigNumber } from 'ethers';
 import {
   AccountData,
-  DecodedTxRaw,
+  // DecodedTxRaw,
   DirectSignResponse,
 } from '@cosmjs/proto-signing';
 
+import { IndexedTx } from '@cosmjs/stargate';
+
 //Cosmos
-const { DirectSecp256k1Wallet, decodeTxRaw } = require('@cosmjs/proto-signing');
+const { DirectSecp256k1Wallet } = require('@cosmjs/proto-signing');
 const { StargateClient } = require('@cosmjs/stargate');
 const { toBase64, fromBase64, fromHex } = require('@cosmjs/encoding');
 const crypto = require('crypto').webcrypto;
@@ -336,7 +338,7 @@ export class CosmosBase {
   }
 
   // returns a cosmos tx for a txHash
-  async getTransaction(id: string): Promise<DecodedTxRaw> {
+  async getTransaction(id: string): Promise<IndexedTx> {
     const provider = await this._provider;
     const transaction = await provider.getTx(id);
 
@@ -344,9 +346,7 @@ export class CosmosBase {
       throw new Error('Transaction not found');
     }
 
-    const { tx } = transaction;
-
-    return decodeTxRaw(tx);
+    return transaction;
   }
 
   public getTokenBySymbol(tokenSymbol: string): Token | undefined {

@@ -17,7 +17,8 @@
     "copy-files": "copyfiles -a 'src/**/schema/*.json' 'src/templates/*.yml' 'test/services/data/**/*.*' dist",
     "test:unit": "NODE_OPTIONS=--max_old_space_size=4096 jest -w 1 --verbose --forceExit ./test/",
     "test:cov": "NODE_OPTIONS=--max_old_space_size=4096 jest -w 1 --coverage --forceExit ./test/",
-    "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts"
+    "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts",
+    "test:cosmos": "jest -i --verbose ./test-scripts/cosmos.test.ts"
   },
   "dependencies": {
     "@blockworks-foundation/mango-client": "^3.2.14",
@@ -28,7 +29,7 @@
     "@pangolindex/sdk": "^1.1.0",
     "@perp/sdk-curie": "^1.6.1",
     "@project-serum/serum": "^0.13.61",
-    "@sifchain/stargate": "^0.0.0-snapshot.1f7ca68",
+    "@sifchain/stargate": "0.0.0-snapshot.0833b21",
     "@solana/spl-token-registry": "^0.2.700",
     "@solana/web3.js": "^1.31.0",
     "@sushiswap/sdk": "^5.0.0-canary.116",
