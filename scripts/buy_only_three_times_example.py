@@ -23,7 +23,7 @@ class BuyOnlyThreeTimesExample(ScriptStrategyBase):
 
     def on_tick(self):
         if self.orders_created < self.orders_to_create:
-            conversion_rate = RateOracle.get_instance().rate(f"{self.base}-USD")
+            conversion_rate = RateOracle.get_instance().get_pair_rate(f"{self.base}-USD")
             amount = self.order_amount_usd / conversion_rate
             price = self.connectors["kucoin_paper_trade"].get_mid_price(f"{self.base}-{self.quote}") * Decimal(0.99)
             self.buy(
