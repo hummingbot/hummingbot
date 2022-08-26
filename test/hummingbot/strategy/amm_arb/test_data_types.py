@@ -4,11 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.utils.fixed_rate_source import FixedRateSource
-from hummingbot.strategy.amm_arb.data_types import (
-    ArbProposalSide,
-    ArbProposal,
-    TokenAmount,
-)
+from hummingbot.strategy.amm_arb.data_types import ArbProposal, ArbProposalSide, TokenAmount
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
@@ -114,7 +110,7 @@ class ArbProposalTests(TestCase):
         rate_source.add_rate("ETH-USDT", Decimal(3000))
 
         expected_sell_result = sell_side.amount * sell_side.quote_price
-        sell_quote_to_buy_quote_rate = rate_source.rate("ETH-USDT")
+        sell_quote_to_buy_quote_rate = rate_source.get_pair_rate("ETH-USDT")
         adjusted_sell_result = expected_sell_result * sell_quote_to_buy_quote_rate
 
         expected_buy_result = buy_side.amount * buy_side.quote_price

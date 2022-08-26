@@ -26,7 +26,8 @@ from hummingbot.connector.exchange.binance.binance_utils import BinanceConfigMap
 from hummingbot.connector.exchange.gate_io.gate_io_utils import GateIOConfigMap
 from hummingbot.connector.exchange.kucoin.kucoin_utils import KuCoinConfigMap
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
+from hummingbot.core.rate_oracle.rate_oracle import RATE_ORACLE_SOURCES, RateOracle
+from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.utils.kill_switch import ActiveKillSwitch, KillSwitch, PassThroughKillSwitch
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.pmm_script.pmm_script_iterator import PMMScriptIterator
@@ -456,21 +457,20 @@ class GlobalTokenConfigMap(BaseClientModel):
     class Config:
         title = "global_token"
 
+    @validator("global_token_name")
+    def validate_global_token_name(cls, v: str) -> str:
+        return v.upper()
+
     # === post-validations ===
 
     @root_validator()
     def post_validations(cls, values: Dict):
         cls.global_token_on_validated(values)
-        cls.global_token_symbol_on_validated(values)
         return values
 
     @classmethod
     def global_token_on_validated(cls, values: Dict):
-        RateOracle.global_token = values["global_token_name"].upper()
-
-    @classmethod
-    def global_token_symbol_on_validated(cls, values: Dict):
-        RateOracle.global_token_symbol = values["global_token_symbol"]
+        RateOracle.get_instance().quote_token = values["global_token_name"]
 
 
 class CommandsTimeoutConfigMap(BaseClientModel):
@@ -570,6 +570,73 @@ class AnonymizedMetricsEnabledMode(AnonymizedMetricsMode):
 METRICS_MODES = {
     AnonymizedMetricsDisabledMode.Config.title: AnonymizedMetricsDisabledMode,
     AnonymizedMetricsEnabledMode.Config.title: AnonymizedMetricsEnabledMode,
+}
+
+
+class RateSourceModeBase(BaseClientModel, ABC):
+    @abstractmethod
+    def build_rate_source(self) -> RateSourceBase:
+        ...
+
+
+class ExchangeRateSourceModeBase(RateSourceModeBase):
+    def build_rate_source(self) -> RateSourceBase:
+        return RATE_ORACLE_SOURCES[self.Config.title]()
+
+
+class AscendExRateSourceMode(ExchangeRateSourceModeBase):
+    class Config:
+        title = "ascend_ex"
+
+
+class BinanceRateSourceMode(ExchangeRateSourceModeBase):
+    class Config:
+        title = "binance"
+
+
+class CoinGeckoRateSourceMode(RateSourceModeBase):
+    extra_tokens: List[str] = Field(
+        default=[],
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "List of comma-delimited CoinGecko token ids to always include"
+                " in CoinGecko rates query (e.g. frontier-token,pax-gold,rbtc — empty to skip)"
+            ),
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "coin_gecko"
+
+    def build_rate_source(self) -> RateSourceBase:
+        rate_source = RATE_ORACLE_SOURCES[self.Config.title](
+            extra_token_ids=self.extra_tokens
+        )
+        rate_source.extra_token_ids = self.extra_tokens
+        return rate_source
+
+    @validator("extra_tokens", pre=True)
+    def validate_extra_tokens(cls, value: Union[str, List[str]]):
+        extra_tokens = value.split(",") if isinstance(value, str) else value
+        return extra_tokens
+
+    @root_validator()
+    def post_validations(cls, values: Dict):
+        RateOracle.get_instance().source.extra_token_ids = values["extra_tokens"]
+        return values
+
+
+class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
+    class Config:
+        title = "kucoin"
+
+
+RATE_SOURCE_MODES = {
+    AscendExRateSourceMode.Config.title: AscendExRateSourceMode,
+    BinanceRateSourceMode.Config.title: BinanceRateSourceMode,
+    CoinGeckoRateSourceMode.Config.title: CoinGeckoRateSourceMode,
+    KuCoinRateSourceMode.Config.title: KuCoinRateSourceMode,
 }
 
 
@@ -692,12 +759,12 @@ class ClientConfigMap(BaseClientModel):
                      "\nDefine abbreviations for often used commands"
                      "\nor batch grouped commands together"),
     )
-    rate_oracle_source: str = Field(
-        default=RateOracleSource.binance.name,
-        description="A source for rate oracle, currently binance, ascendex, kucoin or coingecko",
+    rate_oracle_source: Union[tuple(RATE_SOURCE_MODES.values())] = Field(
+        default=BinanceRateSourceMode(),
+        description=f"A source for rate oracle, currently {', '.join(RATE_SOURCE_MODES.keys())}",
         client_data=ClientFieldData(
             prompt=lambda cm: (
-                f"What source do you want rate oracle to pull data from? ({','.join(r.name for r in RateOracleSource)})"
+                f"What source do you want rate oracle to pull data from? ({'/'.join(RATE_SOURCE_MODES.keys())})"
             ),
         ),
     )
@@ -816,12 +883,16 @@ class ClientConfigMap(BaseClientModel):
         return sub_model
 
     @validator("rate_oracle_source", pre=True)
-    def validate_rate_oracle_source(cls, v: str):
-        if v not in (r.name for r in RateOracleSource):
+    def validate_rate_oracle_source(cls, v: Union[(str, Dict) + tuple(RATE_SOURCE_MODES.values())]):
+        if isinstance(v, tuple(RATE_SOURCE_MODES.values()) + (Dict,)):
+            sub_model = v
+        elif v not in RATE_SOURCE_MODES:
             raise ValueError(
-                f"Invalid source, please choose value from {','.join(r.name for r in RateOracleSource)}"
+                f"Invalid rate source, please choose a value from {list(RATE_SOURCE_MODES.keys())}."
             )
-        return v
+        else:
+            sub_model = RATE_SOURCE_MODES[v].construct()
+        return sub_model
 
     @validator("tables_format", pre=True)
     def validate_tables_format(cls, v: str):
@@ -848,4 +919,8 @@ class ClientConfigMap(BaseClientModel):
 
     @classmethod
     def rate_oracle_source_on_validated(cls, values: Dict):
-        RateOracle.source = RateOracleSource[values["rate_oracle_source"]]
+        rate_source_mode: RateSourceModeBase = values["rate_oracle_source"]
+        rate_source_name = rate_source_mode.Config.title
+        if rate_source_name != RateOracle.get_instance().source.name:
+            RateOracle.get_instance().source = rate_source_mode.build_rate_source()
+        RateOracle.get_instance().quote_token = values["global_token"].global_token_name
