@@ -117,20 +117,19 @@ cdef class ConnectorBase(NetworkIterator):
         asset_balances = {}
         if in_flight_orders is None:
             return asset_balances
-        for order in [o for o in in_flight_orders.values() if not (o.is_done or o.is_failure or o.is_cancelled)]:
+        for order in (o for o in in_flight_orders.values() if not (o.is_done or o.is_failure or o.is_cancelled)):
+            outstanding_amount = order.amount - order.executed_amount_base
             if order.trade_type is TradeType.BUY:
-                order_value = Decimal(order.amount * order.price)
-                outstanding_value = order_value - order.executed_amount_quote
+                outstanding_value = outstanding_amount * order.price
                 if order.quote_asset not in asset_balances:
                     asset_balances[order.quote_asset] = s_decimal_0
                 fee = self.estimate_fee_pct(True)
-                outstanding_value *= (Decimal(1) + fee)
+                outstanding_value *= Decimal(1) + fee
                 asset_balances[order.quote_asset] += outstanding_value
             else:
-                outstanding_value = order.amount - order.executed_amount_base
                 if order.base_asset not in asset_balances:
                     asset_balances[order.base_asset] = s_decimal_0
-                asset_balances[order.base_asset] += outstanding_value
+                asset_balances[order.base_asset] += outstanding_amount
         return asset_balances
 
     def order_filled_balances(self, starting_timestamp = 0) -> Dict[str, Decimal]:
@@ -239,7 +238,7 @@ cdef class ConnectorBase(NetworkIterator):
         """
         raise NotImplementedError
 
-    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
+    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, **kwargs) -> str:
         """
         Buys an amount of base asset (of the given trading pair).
         :param trading_pair: The market (e.g. BTC-USDT) to buy from
@@ -252,9 +251,9 @@ cdef class ConnectorBase(NetworkIterator):
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
                    object price=s_decimal_NaN, dict kwargs={}):
-        return self.buy(trading_pair, amount, order_type, price)
+        return self.buy(trading_pair, amount, order_type, price, **kwargs)
 
-    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
+    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, **kwargs) -> str:
         """
         Sells an amount of base asset (of the given trading pair).
         :param trading_pair: The market (e.g. BTC-USDT) to sell from
@@ -267,7 +266,7 @@ cdef class ConnectorBase(NetworkIterator):
 
     cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
                     object price=s_decimal_NaN, dict kwargs={}):
-        return self.sell(trading_pair, amount, order_type, price)
+        return self.sell(trading_pair, amount, order_type, price, **kwargs)
 
     cdef c_cancel(self, str trading_pair, str client_order_id):
         self.cancel(trading_pair, client_order_id)
@@ -331,7 +330,7 @@ cdef class ConnectorBase(NetworkIterator):
         :param currency: the token symbol
         :param available_balance: the current available_balance, this is also the snap balance taken since last
         _update_balances()
-        :returns the real available that accounts for changes in in flight orders and filled orders
+        :returns the real available that accounts for changes in flight orders and filled orders
         """
         snapshot_bal = self.in_flight_asset_balances(self._in_flight_orders_snapshot).get(currency, s_decimal_0)
         in_flight_bal = self.in_flight_asset_balances(self.in_flight_orders).get(currency, s_decimal_0)

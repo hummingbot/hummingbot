@@ -1,84 +1,114 @@
 import asyncio
-from decimal import Decimal
-import logging
-import time
-from typing import (
-    AsyncIterable,
-    Dict,
-    Optional
-)
-import json
-import simplejson
-import websockets
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.ftx.ftx_auth import FtxAuth
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
-FTX_API_ENDPOINT = "wss://ftx.com/ws/"
-FTX_USER_STREAM_ENDPOINT = "userDataStream"
+from hummingbot.connector.exchange.ftx import ftx_constants as CONSTANTS
+from hummingbot.connector.exchange.ftx.ftx_auth import FtxAuth
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.ftx.ftx_exchange import FtxExchange
 
 
 class FtxAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
-    MESSAGE_TIMEOUT = 30.0
-    PING_TIMEOUT = 10.0
+    _logger: Optional[HummingbotLogger] = None
 
-    _bausds_logger: Optional[HummingbotLogger] = None
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._bausds_logger is None:
-            cls._bausds_logger = logging.getLogger(__name__)
-        return cls._bausds_logger
-
-    def __init__(self, ftx_auth: FtxAuth):
+    def __init__(
+            self,
+            auth: FtxAuth,
+            connector: 'FtxExchange',
+            api_factory: WebAssistantsFactory):
         super().__init__()
-        self._listen_for_user_stream_task = None
-        self._ftx_auth: FtxAuth = ftx_auth
-        self._last_recv_time: float = 0
+        self._auth: FtxAuth = auth
+        self._connector = connector
+        self._api_factory = api_factory
+        self._last_ws_message_sent_timestamp = 0
 
-    @property
-    def last_recv_time(self) -> float:
-        return self._last_recv_time
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        """
+        Creates an instance of WSAssistant connected to the exchange
+        """
 
-    async def set_subscriptions(self, ws: websockets.WebSocketClientProtocol):
-        await ws.send(json.dumps(self._ftx_auth.generate_websocket_subscription()))
-        await ws.send(json.dumps({"op": "subscribe", "channel": "orders"}))
-        await ws.send(json.dumps({"op": "subscribe", "channel": "fills"}))
+        ws: WSAssistant = await self._get_ws_assistant()
+        async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
+            await ws.connect(ws_url=CONSTANTS.FTX_WS_URL)
 
-    async def listen_for_user_stream(self, output: asyncio.Queue):
+        payload = {
+            "op": "login",
+            "args": self._auth.websocket_login_parameters()
+        }
+
+        login_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+        async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_REQUEST_LIMIT_ID):
+            await ws.send(login_request)
+
+        return ws
+
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
+        try:
+            payload = {
+                "op": "subscribe",
+                "channel": CONSTANTS.WS_PRIVATE_FILLS_CHANNEL,
+            }
+            subscribe_fills_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+            payload = {
+                "op": "subscribe",
+                "channel": CONSTANTS.WS_PRIVATE_ORDERS_CHANNEL,
+            }
+            subscribe_orders_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_REQUEST_LIMIT_ID):
+                await websocket_assistant.send(subscribe_fills_request)
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_REQUEST_LIMIT_ID):
+                await websocket_assistant.send(subscribe_orders_request)
+
+            self._last_ws_message_sent_timestamp = self._time()
+            self.logger().info("Subscribed to private fills and orders channels...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception("Unexpected error occurred subscribing to order book trading and delta streams...")
+            raise
+
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         while True:
             try:
-                ws = await self.get_ws_connection()
-                await self.set_subscriptions(ws)
-                async for message in self._inner_messages(ws):
-                    decoded: Dict[str, any] = simplejson.loads(message, parse_float=Decimal)
-                    if decoded['type'] == 'error':
-                        self.logger().warning(f"Error returned from ftx user stream: {decoded['code']}:{decoded['msg']}")
-                    output.put_nowait(decoded)
-            except asyncio.CancelledError:
-                raise
+                seconds_until_next_ping = (CONSTANTS.WS_PING_INTERVAL
+                                           - (self._time() - self._last_ws_message_sent_timestamp))
+                await asyncio.wait_for(super()._process_websocket_messages(
+                    websocket_assistant=websocket_assistant,
+                    queue=queue),
+                    timeout=seconds_until_next_ping)
             except asyncio.TimeoutError:
-                self.logger().warning("WebSocket ping timed out. Reconnecting after 5 seconds...")
-            except Exception:
-                self.logger().error("Unexpected error while maintaining the user event listen key. Retrying after "
-                                    "5 seconds...", exc_info=True)
-            finally:
-                await ws.close()
-                await asyncio.sleep(5)
+                payload = {"op": "ping"}
+                ping_request = WSJSONRequest(payload=payload)
+                self._last_ws_message_sent_timestamp = self._time()
+                await websocket_assistant.send(request=ping_request)
 
-    async def _inner_messages(self, ws) -> AsyncIterable[str]:
-        # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
-        while True:
-            try:
-                msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
-                self._last_recv_time = time.time()
-                yield msg
-            except asyncio.TimeoutError:
-                pong_waiter = await ws.ping()
-                await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-                self._last_recv_time = time.time()
+    async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
+        event_type = event_message.get("type")
+        error_code = event_message.get("code")
+        error_message = event_message.get("msg")
+        if (event_type == CONSTANTS.WS_EVENT_ERROR_TYPE
+                and error_code == CONSTANTS.WS_EVENT_ERROR_CODE
+                and error_message in [
+                    CONSTANTS.WS_EVENT_INVALID_LOGIN_MESSAGE,
+                    CONSTANTS.WS_EVENT_NOT_LOGGED_IN_MESSAGE]):
+            raise IOError(f"Error authenticating the user stream websocket connection "
+                          f"(code: {error_code}, message: {error_message})")
+        elif (event_type == CONSTANTS.WS_EVENT_UPDATE_TYPE
+              and event_message.get("channel") in [
+                  CONSTANTS.WS_PRIVATE_ORDERS_CHANNEL,
+                  CONSTANTS.WS_PRIVATE_FILLS_CHANNEL]):
+            queue.put_nowait(event_message)
 
-    def get_ws_connection(self):
-        stream_url: str = f"{FTX_API_ENDPOINT}"
-        return websockets.connect(stream_url)
+    async def _get_ws_assistant(self) -> WSAssistant:
+        if self._ws_assistant is None:
+            self._ws_assistant = await self._api_factory.get_ws_assistant()
+        return self._ws_assistant
