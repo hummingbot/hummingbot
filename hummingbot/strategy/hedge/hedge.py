@@ -14,7 +14,6 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
-from hummingbot.strategy.utils import order_age
 
 hedge_logger = None
 
@@ -53,7 +52,6 @@ class HedgeStrategy(StrategyPyBase):
         hedge_ratio: float,
         hedge_leverage: float,
         slippage: float,
-        max_order_age: float,
         min_trade_size: float,
         hedge_interval: float,
         value_mode: bool,
@@ -82,7 +80,6 @@ class HedgeStrategy(StrategyPyBase):
         self._leverage = hedge_leverage
         self._position_mode = hedge_position_mode
         self._slippage = slippage
-        self._max_order_age = max_order_age
         self._min_trade_size = min_trade_size
         self._hedge_interval = hedge_interval
         self._offsets = offsets
@@ -267,8 +264,7 @@ class HedgeStrategy(StrategyPyBase):
                     "WARNING: Some markets are not connected or are down at the moment. "
                     "Hedging may be dangerous when markets or networks are unstable."
                 )
-            if self.check_and_cancel_active_orders():
-                return
+            self.check_and_cancel_active_orders()
             self.hedge()
         finally:
             self._last_timestamp = timestamp
@@ -514,15 +510,11 @@ class HedgeStrategy(StrategyPyBase):
 
     def check_and_cancel_active_orders(self) -> bool:
         """
-        Check if there are any active orders and,
-        cancel them if the order age has exceeded the expected time.
+        Check if there are any active orders and cancel them
         :return: True if there are active orders, False otherwise.
         """
         if not self.active_orders:
             return False
         for order in self.active_orders:
-            order_time = order_age(order, self.current_timestamp)
-            if order_time > self._max_order_age:
-                self.logger().debug(f"Cancelling order {order.client_order_id} because it is {order_time} seconds old.")
-                self.cancel_order(self._hedge_market_pairs[0], order.client_order_id)
+            self.cancel_order(self._hedge_market_pairs[0], order.client_order_id)
         return True

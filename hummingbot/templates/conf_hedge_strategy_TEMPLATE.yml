@@ -30,9 +30,6 @@ min_trade_size: null
 # max slippage for hedge
 slippage: null
 
-# amount of time pass to retry submitting limit order again
-max_order_age: null
-
 # list of taker exchange
 # The exchange to hedge the asset.
 connector_0: null
