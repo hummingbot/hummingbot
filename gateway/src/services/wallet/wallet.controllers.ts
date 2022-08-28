@@ -4,7 +4,6 @@ import { Ethereum } from '../../chains/ethereum/ethereum';
 import { Polygon } from '../../chains/polygon/polygon';
 import { Solana } from '../../chains/solana/solana';
 import { Cosmos } from '../../chains/cosmos/cosmos';
-import { Sifchain } from '../../chains/sifchain/sifchain';
 import { Harmony } from '../../chains/harmony/harmony';
 
 import {
@@ -72,14 +71,6 @@ export async function addWallet(
     );
     address = wallet.address;
     encryptedPrivateKey = await cosmos.encrypt(req.privateKey, passphrase);
-  } else if (req.chain === 'sifchain') {
-    const sifchain = Sifchain.getInstance(req.network);
-    const wallet = await sifchain.getAccountsfromPrivateKey(
-      req.privateKey,
-      'sif'
-    );
-    address = wallet.address;
-    encryptedPrivateKey = await sifchain.encrypt(req.privateKey, passphrase);
   } else {
     throw new HttpException(
       500,

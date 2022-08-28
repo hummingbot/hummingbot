@@ -41,7 +41,7 @@ export const validatePrivateKey: Validator = mkBranchingValidator(
 );
 
 export const invalidChainError: string =
-  'chain must be "ethereum", "solana", "avalanche", "cosmos", "sifchain" or "harmony"';
+  'chain must be "ethereum", "solana", "avalanche", "cosmos" or "harmony"';
 
 export const invalidNetworkError: string =
   'expected a string for the network key';
@@ -58,8 +58,7 @@ export const validateChain: Validator = mkValidator(
       val === 'polygon' ||
       val === 'solana' ||
       val === 'harmony' ||
-      val === 'cosmos' ||
-      val === 'sifchain')
+      val === 'cosmos')
 );
 
 export const validateNetwork: Validator = mkValidator(

@@ -25,7 +25,6 @@ import { TraderjoeConfig } from './connectors/traderjoe/traderjoe.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
 import { OpenoceanConfig } from './connectors/openocean/openocean.config';
 import { AvailableNetworks } from './services/config-manager-types';
-import { SifchainConnectorConfig } from './connectors/sifchain/sifchain.config';
 import morgan from 'morgan';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
 import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.config';
@@ -74,7 +73,6 @@ gatewayApp.get('/', (_req: Request, res: Response) => {
 interface ConnectorsResponse {
   uniswap: Array<AvailableNetworks>;
   pangolin: Array<AvailableNetworks>;
-  sifchain: Array<AvailableNetworks>;
   quickswap: Array<AvailableNetworks>;
   sushiswap: Array<AvailableNetworks>;
   openocean: Array<AvailableNetworks>;
@@ -88,7 +86,6 @@ gatewayApp.get(
     res.status(200).json({
       uniswap: UniswapConfig.config.availableNetworks,
       pangolin: PangolinConfig.config.availableNetworks,
-      sifchain: SifchainConnectorConfig.config.availableNetworks,
       quickswap: QuickswapConfig.config.availableNetworks,
       sushiswap: SushiswapConfig.config.availableNetworks,
       openocean: OpenoceanConfig.config.availableNetworks,

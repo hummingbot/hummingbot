@@ -72,13 +72,6 @@ configurations:
     configurationPath: uniswap.yml
     schemaPath: uniswap-schema.json
 
-  $namespace sifchain:
-    configurationPath: sifchain.yml
-    schemaPath: sifchain-schema.json
-
-  $namespace sifchainConnector:
-    configurationPath: sifchain-connector.yml
-    schemaPath: sifchain-connector-schema.json
   $namespace openocean:
     configurationPath: openocean.yml
     schemaPath: openocean-schema.json
