@@ -5,20 +5,11 @@ import { Polygon } from '../chains/polygon/polygon';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { Pangolin } from '../connectors/pangolin/pangolin';
-import { SifchainConnector } from '../connectors/sifchain/sifchain';
 import { Cosmos } from '../chains/cosmos/cosmos';
-import { Sifchain } from '../chains/sifchain/sifchain';
 import { Openocean } from '../connectors/openocean/openocean';
 import { Quickswap } from '../connectors/quickswap/quickswap';
 import { Perp } from '../connectors/perp/perp';
-import {
-  // Cosmosish,
-  // Ethereumish,
-  Perpish,
-  // Sifchainish,
-  Uniswapish,
-  UniswapLPish,
-} from './common-interfaces';
+import { Perpish, Uniswapish, UniswapLPish } from './common-interfaces';
 import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Sushiswap } from '../connectors/sushiswap/sushiswap';
 import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
@@ -32,7 +23,6 @@ export async function getChain(chain: string, network: string) {
   else if (chain === 'polygon') chainInstance = Polygon.getInstance(network);
   else if (chain === 'harmony') chainInstance = Harmony.getInstance(network);
   else if (chain === 'cosmos') chainInstance = Cosmos.getInstance(network);
-  else if (chain === 'sifchain') chainInstance = Sifchain.getInstance(network);
   else throw new Error('unsupported chain');
   if (!chainInstance.ready()) {
     await chainInstance.init();
@@ -48,11 +38,7 @@ export async function getConnector<T>(
   connector: string | undefined,
   address?: string
 ): Promise<ConnectorType<T>> {
-  let connectorInstance:
-    | Uniswapish
-    | UniswapLPish
-    | Perpish
-    | SifchainConnector;
+  let connectorInstance: Uniswapish | UniswapLPish | Perpish;
   if (
     (chain === 'ethereum' || chain === 'polygon') &&
     connector === 'uniswap'
@@ -77,8 +63,6 @@ export async function getConnector<T>(
     connectorInstance = Traderjoe.getInstance(chain, network);
   } else if (chain === 'harmony' && connector === 'defikingdoms') {
     connectorInstance = Defikingdoms.getInstance(chain, network);
-  } else if (chain === 'sifchain' && connector === 'sifchain') {
-    connectorInstance = SifchainConnector.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
   }

@@ -32,7 +32,6 @@ import {
   poolPrice as uniswapV3PoolPrice,
   estimateGas as uniswapEstimateGas,
 } from '../connectors/uniswap/uniswap.controllers';
-import { price as sifchainPrice } from '../connectors/sifchain/sifchain.controllers';
 import {
   getPriceData as perpPriceData,
   createTakerOrder,
@@ -51,14 +50,6 @@ import {
 
 export async function price(req: PriceRequest): Promise<PriceResponse> {
   const chain = await getChain(req.chain, req.network);
-  if (chain.chainName === 'sifchain' && req.connector === 'sifchain') {
-    const connector = await getConnector<any>(
-      req.chain,
-      req.network,
-      req.connector
-    );
-    return sifchainPrice(chain, connector, req);
-  }
 
   const connector: Uniswapish = await getConnector<Uniswapish>(
     req.chain,
