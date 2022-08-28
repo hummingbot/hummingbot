@@ -163,7 +163,6 @@ export class CosmosBase {
       prefix
     );
 
-    // Private key can be exported by using - gaiad keys export [key name] --unsafe --unarmored-hex
     return wallet;
   }
 
@@ -322,6 +321,7 @@ export class CosmosBase {
     const { address } = accounts[0];
 
     const allTokens = await provider.getAllBalances(address);
+
     await Promise.all(
       allTokens.map(async (t: { denom: string; amount: string }) => {
         const token = this.getTokenByBase(t.denom);

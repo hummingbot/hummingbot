@@ -15,32 +15,26 @@ export interface Config {
 }
 
 export namespace CosmosConfig {
-  export const config: Config = getCosmosConfig('cosmos', 'mainnet');
+  export const config: Config = getCosmosConfig('cosmos');
 }
 
-export function getCosmosConfig(
-  chainName: string,
-  networkName: string
-): Config {
-  const network = networkName;
+export function getCosmosConfig(chainName: string): Config {
+  const configManager = ConfigManagerV2.getInstance();
+  const network = configManager.get(chainName + '.network');
   return {
     network: {
       name: network,
-      rpcURL: ConfigManagerV2.getInstance().get(
-        chainName + '.networks.' + network + '.rpcURL'
-      ),
-      tokenListType: ConfigManagerV2.getInstance().get(
+      rpcURL: configManager.get(chainName + '.networks.' + network + '.rpcURL'),
+      tokenListType: configManager.get(
         chainName + '.networks.' + network + '.tokenListType'
       ),
-      tokenListSource: ConfigManagerV2.getInstance().get(
+      tokenListSource: configManager.get(
         chainName + '.networks.' + network + '.tokenListSource'
       ),
     },
-    nativeCurrencySymbol: ConfigManagerV2.getInstance().get(
+    nativeCurrencySymbol: configManager.get(
       chainName + '.nativeCurrencySymbol'
     ),
-    manualGasPrice: ConfigManagerV2.getInstance().get(
-      chainName + '.manualGasPrice'
-    ),
+    manualGasPrice: configManager.get(chainName + '.manualGasPrice'),
   };
 }

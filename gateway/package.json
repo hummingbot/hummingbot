@@ -11,14 +11,15 @@
     "config": "./setup/config.sh",
     "format": "prettier . --write",
     "lint": "eslint src test test-scripts --format table --fix",
-    "dev": "GATEWAY_PASSPHRASE=9312164646 nodemon src/index.ts",
+    "dev": "nodemon src/index.ts",
     "dev:debug": "nodemon --inspect src/index.ts",
     "start": "node dist/src/index.js",
     "copy-files": "copyfiles -a 'src/**/schema/*.json' 'src/templates/*.yml' 'test/services/data/**/*.*' dist",
     "test:unit": "NODE_OPTIONS=--max_old_space_size=4096 jest -w 1 --verbose --forceExit ./test/",
     "test:cov": "NODE_OPTIONS=--max_old_space_size=4096 jest -w 1 --coverage --forceExit ./test/",
     "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts",
-    "test:cosmos": "jest -i --verbose ./test-scripts/cosmos.test.ts"
+    "test:cosmos": "jest -i --verbose ./test-scripts/cosmos.test.ts",
+    "test:cosmosRoutes": "jest -i --verbose ./test/chains/cosmos/cosmos.routes.test.ts"
   },
   "dependencies": {
     "@blockworks-foundation/mango-client": "^3.2.14",

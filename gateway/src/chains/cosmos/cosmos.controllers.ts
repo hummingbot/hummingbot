@@ -11,6 +11,7 @@ import {
   TOKEN_NOT_SUPPORTED_ERROR_CODE,
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
 } from '../../services/error-handler';
+import { CosmosConfig } from './cosmos.config';
 
 const { decodeTxRaw } = require('@cosmjs/proto-signing');
 
@@ -73,7 +74,7 @@ export async function poll(
   const currentBlock = await cosmos.getCurrentBlockNumber();
 
   return {
-    network: cosmos.rpcUrl,
+    network: CosmosConfig.config.network.name,
     timestamp: initTime,
     txHash: req.txHash,
     currentBlock,
