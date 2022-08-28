@@ -90,6 +90,7 @@ class HedgeStrategy(StrategyPyBase):
         self._all_markets = self._hedge_market_pairs + self._market_pairs
         self._last_timestamp = 0
         self._all_markets_ready = False
+        self._value_mode = value_mode
         if value_mode:
             if len(self._hedge_market_pairs) != 1:
                 raise ValueError("Value mode is only supported for one hedge market pair.")
@@ -210,6 +211,13 @@ class HedgeStrategy(StrategyPyBase):
             lines.extend(["", "  Active orders:"] + ["    " + line for line in df_lines])
         else:
             lines.extend(["", "  No active maker orders."])
+        if self._value_mode:
+            total_value = sum(self.get_base_value(market_pair) for market_pair in self._market_pairs)
+            hedge_value = self.get_base_value(self._hedge_market_pair)
+            is_buy, value_to_hedge = self.get_hedge_direction_and_value()
+            price, amount = self.calculate_hedge_price_and_amount(is_buy, value_to_hedge)
+            lines.extend(["", f"   Total value: {total_value:.6g}, Hedge value: {hedge_value:.6g}"])
+            lines.extend(["", f"   Next Hedge direction: {'buy' if is_buy else 'sell'}, Hedge price: {price:.6g}, Hedge amount: {amount:.6g}"])
         return "\n".join(lines) + "\n" + "\n".join(warning_lines)
 
     def start(self, clock: Clock, timestamp: float) -> None:
