@@ -29,7 +29,7 @@ paths:
           name: 'body'
           required: true
           schema:
-            $ref: '#/definitions/CosmosBalancesRequest'
+            $ref: '#/definitions/CosmosBalanceRequest'
       responses:
         '200':
           schema:

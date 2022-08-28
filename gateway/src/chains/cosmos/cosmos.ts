@@ -14,7 +14,7 @@ export class Cosmos extends CosmosBase implements Cosmosish {
   private _metricsLogInterval: number;
 
   private constructor(network: string) {
-    const config = getCosmosConfig('cosmos', network);
+    const config = getCosmosConfig('cosmos');
     super(
       'cosmos',
       config.network.rpcURL,

@@ -25,8 +25,6 @@ import {
 const walletPath = './conf/wallets';
 
 const solana = Solana.getInstance();
-const cosmos = Cosmos.getInstance('mainnet');
-const sifchain = Sifchain.getInstance('mainnet');
 
 export async function mkdirIfDoesNotExist(path: string): Promise<void> {
   const exists = await fse.pathExists(path);
@@ -67,6 +65,7 @@ export async function addWallet(
     address = harmony.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await harmony.encrypt(req.privateKey, passphrase);
   } else if (req.chain === 'cosmos') {
+    const cosmos = Cosmos.getInstance(req.network);
     const wallet = await cosmos.getAccountsfromPrivateKey(
       req.privateKey,
       'cosmos'
@@ -74,6 +73,7 @@ export async function addWallet(
     address = wallet.address;
     encryptedPrivateKey = await cosmos.encrypt(req.privateKey, passphrase);
   } else if (req.chain === 'sifchain') {
+    const sifchain = Sifchain.getInstance(req.network);
     const wallet = await sifchain.getAccountsfromPrivateKey(
       req.privateKey,
       'sif'

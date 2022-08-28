@@ -22,6 +22,7 @@
       },
       "additionalProperties": false
     },
+    "network": { "type": "string" },
     "nativeCurrencySymbol": { "type": "string" },
     "manualGasPrice": { "type": "integer" }
   },
