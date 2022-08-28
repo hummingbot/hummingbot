@@ -181,10 +181,11 @@ class HedgeStrategy(StrategyPyBase):
         Get the active orders of all markets.
         :return: The active orders of all hedge markets.
         """
-        orders = []
-        for market_pair in self._hedge_market_pairs:
-            orders.extend(self.order_tracker.market_pair_to_active_orders.get(market_pair, []))
-        return orders
+        orders = self.order_tracker.active_limit_orders
+        return [
+            order[1] for order in orders
+            if order[0] in self._hedge_market_pairs
+        ]
 
     def format_status(self) -> str:
         """
