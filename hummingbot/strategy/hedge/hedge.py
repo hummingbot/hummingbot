@@ -515,5 +515,5 @@ class HedgeStrategy(StrategyPyBase):
         if not self.active_orders:
             return False
         for market_pair, order in self.active_orders:
-            self.cancel_order(market_pair, order.client_order_id)
+            market_pair.cancel(order.trading_pair, order.client_order_id)
         return True
