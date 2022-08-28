@@ -188,8 +188,6 @@ class HedgeStrategy(StrategyPyBase):
         lines = []
         warning_lines = []
         warning_lines.extend(self.network_warning(self._all_markets))
-        markets_df = self.market_status_data_frame(self._all_markets)
-        lines.extend(["", "  Markets:"] + ["    " + line for line in str(markets_df).split("\n")])
         assets_df = self.wallet_df()
         lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
         positions_df = self.active_positions_df()
@@ -210,7 +208,8 @@ class HedgeStrategy(StrategyPyBase):
             is_buy, value_to_hedge = self.get_hedge_direction_and_value()
             price, amount = self.calculate_hedge_price_and_amount(is_buy, value_to_hedge)
             lines.extend(["", f"   Total value: {total_value:.6g}, Hedge value: {hedge_value:.6g}"])
-            lines.extend(["", f"   Next Hedge direction: {'buy' if is_buy else 'sell'}, Hedge price: {price:.6g}, Hedge amount: {amount:.6g}"])
+            if amount > 0:
+                lines.extend(["", f"   Next Hedge direction: {'buy' if is_buy else 'sell'}, Hedge price: {price:.6g}, Hedge amount: {amount:.6g}"])
         return "\n".join(lines) + "\n" + "\n".join(warning_lines)
 
     def start(self, clock: Clock, timestamp: float) -> None:
