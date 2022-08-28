@@ -69,7 +69,7 @@ class BuyDipExample(ScriptStrategyBase):
         # If the current price (the last close) is below the dip, add a new order candidate to the proposal
         if daily_closes[-1] < avg_close * (Decimal("1") - self.dip_percentage):
             order_price = self.connector.get_price(self.trading_pair, False) * Decimal("0.9")
-            usd_conversion_rate = RateOracle.get_instance().rate(self.conversion_pair)
+            usd_conversion_rate = RateOracle.get_instance().get_pair_rate(self.conversion_pair)
             amount = (self.buy_usd_amount / usd_conversion_rate) / order_price
             proposal.append(OrderCandidate(self.trading_pair, False, OrderType.LIMIT, TradeType.BUY, amount,
                                            order_price))
