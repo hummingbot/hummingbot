@@ -25,7 +25,6 @@ def start(self):
     hedge_ratio = c_map["hedge_ratio"].value
     hedge_position_mode = PositionMode.HEDGE if c_map["hedge_position_mode"].value.lower() == "hedge" else PositionMode.ONEWAY
     min_trade_size = c_map["min_trade_size"].value
-    max_order_age = c_map["max_order_age"].value
     slippage = c_map["slippage"].value
     value_mode = c_map["value_mode"].value
 
@@ -60,7 +59,6 @@ def start(self):
         hedge_interval = hedge_interval,
         hedge_ratio = hedge_ratio,
         min_trade_size = min_trade_size,
-        max_order_age = max_order_age,
         slippage = slippage,
         value_mode = value_mode,
         hedge_position_mode=hedge_position_mode,

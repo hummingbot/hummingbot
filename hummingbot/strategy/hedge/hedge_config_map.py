@@ -114,14 +114,6 @@ hedge_config_map = {
         validator=lambda v: validate_decimal(v, 0, inclusive=True),
         prompt_on_new=True,
     ),
-    "max_order_age": ConfigVar(
-        key="max_order_age",
-        prompt="Max Order Age in seconds? >>> ",
-        type_str="float",
-        default=float(100),
-        validator=lambda v: validate_decimal(v, 0, inclusive=True),
-        prompt_on_new=False,
-    ),
     "slippage": ConfigVar(
         key="slippage",
         prompt="Enter max slippage in decimal, e.g 0.1 -> 10% >>> ",
