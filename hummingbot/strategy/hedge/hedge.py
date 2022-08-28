@@ -249,21 +249,24 @@ class HedgeStrategy(StrategyPyBase):
         last_tick = self._last_timestamp // self._status_report_interval
         should_report_warnings = current_tick > last_tick
         try:
+            self._all_markets_ready = all([market.ready for market in self.active_markets])
             if not self._all_markets_ready:
-                self._all_markets_ready = all([market.ready for market in self.active_markets])
-                if not self._all_markets_ready:
-                    # Markets not ready yet. Don't do anything.
-                    if should_report_warnings:
-                        self.logger().warning("Markets are not ready. No hedge trades are permitted.")
-                    return
+                # Markets not ready yet. Don't do anything.
+                if should_report_warnings:
+                    self.logger().warning("Markets are not ready. No hedge trades are permitted.")
+                return
 
-            if should_report_warnings and not all(
+            if not all(
                 [market.network_status is NetworkStatus.CONNECTED for market in self.active_markets]
             ):
-                self.logger().warning(
-                    "WARNING: Some markets are not connected or are down at the moment. "
-                    "Hedging may be dangerous when markets or networks are unstable."
-                )
+                if should_report_warnings:
+                    self.logger().warning(
+                        "WARNING: Some markets are not connected or are down at the moment. "
+                        "Hedging may be dangerous when markets or networks are unstable. "
+                        "Retrying after %ss.",
+                        self._hedge_interval,
+                    )
+                return
             self.check_and_cancel_active_orders()
             self.hedge()
         finally:
