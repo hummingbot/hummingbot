@@ -179,11 +179,7 @@ class HedgeStrategy(StrategyPyBase):
         Get the active orders of all markets.
         :return: The active orders of all hedge markets.
         """
-        orders = self.order_tracker.active_limit_orders
-        return [
-            order[1] for order in orders
-            if order[0] in self._hedge_market_pairs
-        ]
+        return self.order_tracker.active_limit_orders
 
     def format_status(self) -> str:
         """
@@ -518,6 +514,6 @@ class HedgeStrategy(StrategyPyBase):
         """
         if not self.active_orders:
             return False
-        for order in self.active_orders:
-            self.cancel_order(self._hedge_market_pairs[0], order.client_order_id)
+        for market_pair, order in self.active_orders:
+            self.cancel_order(market_pair, order.client_order_id)
         return True
