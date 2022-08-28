@@ -167,8 +167,8 @@ class HedgeStrategy(StrategyPyBase):
                 market.name,
                 trading_pair,
                 market_pair.get_mid_price(),
-                self.get_base_amount(market_pair),
-                self.get_base_amount(market_pair) * market_pair.get_mid_price(),
+                f"{self.get_base_amount(market_pair):.6g}",
+                f"{self.get_base_amount(market_pair) * market_pair.get_mid_price():.6g}",
             ]
 
         for market_pair in self._all_markets:
