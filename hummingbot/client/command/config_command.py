@@ -1,5 +1,6 @@
 import asyncio
 from decimal import Decimal
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
@@ -231,7 +232,7 @@ class ConfigCommand:
                     return
                 else:
                     config_map = self.strategy_config_map
-                    file_path = STRATEGIES_CONF_DIR_PATH / self.strategy_file_name
+                    file_path = STRATEGIES_CONF_DIR_PATH / Path(self.strategy_file_name)
                 if input_value is None:
                     self.notify("Please follow the prompt to complete configurations: ")
                 if key == "inventory_target_base_pct":
@@ -249,7 +250,7 @@ class ConfigCommand:
                     self.list_client_configs()
                 else:
                     self.list_strategy_configs()
-                self.app.app.style = load_style(self.client_config_map)
+                self.app.style = load_style(self.client_config_map)
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
