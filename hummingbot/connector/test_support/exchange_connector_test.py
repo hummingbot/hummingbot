@@ -3,7 +3,7 @@ import json
 import re
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
@@ -38,6 +38,10 @@ class AbstractExchangeConnectorTests:
     class ExchangeConnectorTests(ABC, TestCase):
         # the level is required to receive logs from the data source logger
         level = 0
+
+        @property
+        def exchange_trading_pair(self) -> str:
+            return self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
 
         @property
         @abstractmethod
@@ -212,7 +216,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured for the cancelation
             """
@@ -223,7 +227,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured for the cancelation
             """
@@ -255,7 +259,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured
             """
@@ -266,7 +270,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured
             """
@@ -277,7 +281,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured
             """
@@ -288,7 +292,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured
             """
@@ -299,7 +303,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured
             """
@@ -310,7 +314,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured
             """
@@ -408,6 +412,24 @@ class AbstractExchangeConnectorTests:
             for event, logger in events_and_loggers:
                 self.exchange.add_listener(event, logger)
 
+        def place_buy_order(self, amount: Decimal = Decimal("100"), price: Decimal = Decimal("10_000")):
+            order_id = self.exchange.buy(
+                trading_pair=self.trading_pair,
+                amount=amount,
+                order_type=OrderType.LIMIT,
+                price=price,
+            )
+            return order_id
+
+        def place_sell_order(self):
+            order_id = self.exchange.sell(
+                trading_pair=self.trading_pair,
+                amount=Decimal("100"),
+                order_type=OrderType.LIMIT,
+                price=Decimal("10000"),
+            )
+            return order_id
+
         def test_supported_order_types(self):
             supported_types = self.exchange.supported_order_types()
             self.assertEqual(self.expected_supported_order_types, supported_types)
@@ -416,7 +438,7 @@ class AbstractExchangeConnectorTests:
             orders = []
             orders.append(InFlightOrder(
                 client_order_id="11",
-                exchange_order_id="21",
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -572,7 +594,18 @@ class AbstractExchangeConnectorTests:
             self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
 
             self.assertTrue(self.trading_pair in self.exchange.trading_rules)
-            self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
+            trading_rule: TradingRule = self.exchange.trading_rules[self.trading_pair]
+
+            self.assertTrue(self.trading_pair in self.exchange.trading_rules)
+            self.assertEqual(repr(self.expected_trading_rule), repr(trading_rule))
+
+            trading_rule_with_default_values = TradingRule(trading_pair=self.trading_pair)
+
+            # The following element can't be left with the default value because that breaks quantization in Cython
+            self.assertNotEqual(trading_rule_with_default_values.min_base_amount_increment,
+                                trading_rule.min_base_amount_increment)
+            self.assertNotEqual(trading_rule_with_default_values.min_price_increment,
+                                trading_rule.min_price_increment)
 
         @aioresponses()
         def test_update_trading_rules_ignores_rule_with_error(self, mock_api):
@@ -603,10 +636,7 @@ class AbstractExchangeConnectorTests:
                           body=json.dumps(creation_response),
                           callback=lambda *args, **kwargs: request_sent_event.set())
 
-            order_id = self.exchange.buy(trading_pair=self.trading_pair,
-                                         amount=Decimal("100"),
-                                         order_type=OrderType.LIMIT,
-                                         price=Decimal("10000"))
+            order_id = self.place_buy_order()
             self.async_run_with_timeout(request_sent_event.wait())
 
             order_request = self._all_executed_requests(mock_api, url)[0]
@@ -646,10 +676,7 @@ class AbstractExchangeConnectorTests:
                           body=json.dumps(creation_response),
                           callback=lambda *args, **kwargs: request_sent_event.set())
 
-            order_id = self.exchange.sell(trading_pair=self.trading_pair,
-                                          amount=Decimal("100"),
-                                          order_type=OrderType.LIMIT,
-                                          price=Decimal("10000"))
+            order_id = self.place_sell_order()
             self.async_run_with_timeout(request_sent_event.wait())
 
             order_request = self._all_executed_requests(mock_api, url)[0]
@@ -686,11 +713,7 @@ class AbstractExchangeConnectorTests:
                           status=400,
                           callback=lambda *args, **kwargs: request_sent_event.set())
 
-            order_id = self.exchange.buy(
-                trading_pair=self.trading_pair,
-                amount=Decimal("100"),
-                order_type=OrderType.LIMIT,
-                price=Decimal("10000"))
+            order_id = self.place_buy_order()
             self.async_run_with_timeout(request_sent_event.wait())
 
             order_request = self._all_executed_requests(mock_api, url)[0]
@@ -735,17 +758,11 @@ class AbstractExchangeConnectorTests:
                           status=400,
                           callback=lambda *args, **kwargs: request_sent_event.set())
 
-            order_id_for_invalid_order = self.exchange.buy(
-                trading_pair=self.trading_pair,
-                amount=Decimal("0.0001"),
-                order_type=OrderType.LIMIT,
-                price=Decimal("0.0000001"))
+            order_id_for_invalid_order = self.place_buy_order(
+                amount=Decimal("0.0001"), price=Decimal("0.0000001")
+            )
             # The second order is used only to have the event triggered and avoid using timeouts for tests
-            order_id = self.exchange.buy(
-                trading_pair=self.trading_pair,
-                amount=Decimal("100"),
-                order_type=OrderType.LIMIT,
-                price=Decimal("10000"))
+            order_id = self.place_buy_order()
             self.async_run_with_timeout(request_sent_event.wait())
 
             self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
@@ -917,10 +934,9 @@ class AbstractExchangeConnectorTests:
 
         @aioresponses()
         def test_update_balances(self, mock_api):
-            url = self.balance_url
             response = self.balance_request_mock_response_for_base_and_quote
+            self._configure_balance_response(response=response, mock_api=mock_api)
 
-            mock_api.get(re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")), body=json.dumps(response))
             self.async_run_with_timeout(self.exchange._update_balances())
 
             available_balances = self.exchange.available_balances
@@ -933,7 +949,7 @@ class AbstractExchangeConnectorTests:
 
             response = self.balance_request_mock_response_only_base
 
-            mock_api.get(re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")), body=json.dumps(response))
+            self._configure_balance_response(response=response, mock_api=mock_api)
             self.async_run_with_timeout(self.exchange._update_balances())
 
             available_balances = self.exchange.available_balances
@@ -951,7 +967,7 @@ class AbstractExchangeConnectorTests:
 
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id=self.expected_exchange_order_id,
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1069,7 +1085,7 @@ class AbstractExchangeConnectorTests:
 
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id="21",
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1102,7 +1118,7 @@ class AbstractExchangeConnectorTests:
 
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id="21",
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1135,7 +1151,7 @@ class AbstractExchangeConnectorTests:
 
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id=self.expected_exchange_order_id,
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1189,7 +1205,7 @@ class AbstractExchangeConnectorTests:
 
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id=self.expected_exchange_order_id,
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1253,7 +1269,7 @@ class AbstractExchangeConnectorTests:
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id="21",
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1284,19 +1300,15 @@ class AbstractExchangeConnectorTests:
             self.assertEqual(order.exchange_order_id, event.exchange_order_id)
             self.assertTrue(order.is_open)
 
-            self.assertTrue(
-                self.is_logged(
-                    "INFO",
-                    f"Created {order.order_type.name.upper()} {order.trade_type.name.upper()} order "
-                    f"{order.client_order_id} for {order.amount} {order.trading_pair}."
-                )
-            )
+            tracked_order: InFlightOrder = list(self.exchange.in_flight_orders.values())[0]
+
+            self.assertTrue(self.is_logged("INFO", tracked_order.build_order_created_message()))
 
         def test_user_stream_update_for_canceled_order(self):
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id="21",
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1334,7 +1346,7 @@ class AbstractExchangeConnectorTests:
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id="21",
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1458,7 +1470,7 @@ class AbstractExchangeConnectorTests:
 
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id=self.expected_exchange_order_id,
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1526,11 +1538,10 @@ class AbstractExchangeConnectorTests:
             request_sent_event.clear()
 
             # Configure again the response to the order fills request since it is required by lost orders update logic
-            if self.is_order_fill_http_update_included_in_status_update:
-                trade_url = self.configure_full_fill_trade_response(
-                    order=order,
-                    mock_api=mock_api,
-                    callback=lambda *args, **kwargs: request_sent_event.set())
+            self.configure_full_fill_trade_response(
+                order=order,
+                mock_api=mock_api,
+                callback=lambda *args, **kwargs: request_sent_event.set())
 
             self.async_run_with_timeout(self.exchange._update_lost_orders_status())
             # Execute one more synchronization to ensure the async task that processes the update is finished
@@ -1643,7 +1654,7 @@ class AbstractExchangeConnectorTests:
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id=self.expected_exchange_order_id,
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1681,7 +1692,7 @@ class AbstractExchangeConnectorTests:
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
                 order_id="11",
-                exchange_order_id=self.expected_exchange_order_id,
+                exchange_order_id=str(self.expected_exchange_order_id),
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -1748,9 +1759,28 @@ class AbstractExchangeConnectorTests:
                 )
             }
 
-        def _all_executed_requests(self, api_mock: aioresponses, url: str) -> List[RequestCall]:
+        def _all_executed_requests(self, api_mock: aioresponses, url: Union[str, re.Pattern]) -> List[RequestCall]:
             request_calls = []
             for key, value in api_mock.requests.items():
-                if key[1].human_repr().startswith(url):
+                req_url = key[1].human_repr()
+                its_a_match = (
+                    url.search(req_url)
+                    if isinstance(url, re.Pattern)
+                    else req_url.startswith(url)
+                )
+                if its_a_match:
                     request_calls.extend(value)
             return request_calls
+
+        def _configure_balance_response(
+                self,
+                response: Dict[str, Any],
+                mock_api: aioresponses,
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+
+            url = self.balance_url
+            mock_api.get(
+                re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")),
+                body=json.dumps(response),
+                callback=callback)
+            return url
