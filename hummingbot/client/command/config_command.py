@@ -1,6 +1,5 @@
 import asyncio
 from decimal import Decimal
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
@@ -232,7 +231,12 @@ class ConfigCommand:
                     return
                 else:
                     config_map = self.strategy_config_map
-                    file_path = STRATEGIES_CONF_DIR_PATH / Path(self.strategy_file_name)
+                    if self.strategy_file_name is not None:
+                        file_path = STRATEGIES_CONF_DIR_PATH / self.strategy_file_name
+                    else:
+                        self.notify("Strategy file name is not configured.")
+                        return
+
                 if input_value is None:
                     self.notify("Please follow the prompt to complete configurations: ")
                 if key == "inventory_target_base_pct":
