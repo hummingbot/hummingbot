@@ -2,6 +2,7 @@ import ast
 import json
 from decimal import Decimal
 from typing import Dict, List, Optional
+import time
 
 from hummingbot.core.data_type.order_book import OrderBook
 
@@ -91,18 +92,44 @@ class PolkadexOrderbook(OrderBook):
         for change in msg:
             print("Change: ", change)
             if change["side"] == "Ask":
-                asks.append((float(change["price"]), float(change["qty"]), float(change["seq"])))
+                asks.append((float(change["price"])/float(UNIT_BALANCE), float(change["qty"])/float(UNIT_BALANCE), float(change["seq"])))
                 seq = float(change["seq"])
             else:
-                bids.append((float(change["price"]), float(change["qty"]), float(change["seq"])))
+                bids.append((float(change["price"])/float(UNIT_BALANCE), float(change["qty"])/float(UNIT_BALANCE), float(change["seq"])))
                 seq = float(change["seq"])
-
-        return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": market,
-            "update_id": int(seq),
-            "bids": bids,
-            "asks": asks
-        }, timestamp=timestamp)
+        print("bids: ",bids,"   asks: ",asks)
+        # timestamp = time.time()
+        # convert ask and bid payload
+        if bids and asks:
+            print("in bids and asks")
+            var = OrderBookMessage(OrderBookMessageType.DIFF, {
+                "trading_pair": market,
+                "update_id": int(seq),
+                "bids": bids,
+                "asks": asks
+            }, timestamp=time.time())
+        elif asks:
+            print("in asks")
+            var = OrderBookMessage(OrderBookMessageType.DIFF, {
+                "trading_pair": market,
+                "update_id": int(seq),
+                "asks": asks
+            }, timestamp=time.time())
+        elif bids:
+            print("in bids")
+            var = OrderBookMessage(OrderBookMessageType.DIFF, {
+                "trading_pair": market,
+                "update_id": int(seq),
+                "bids": bids,
+            }, timestamp=time.time())
+        else:
+            print("not in both")
+            var = OrderBookMessage(OrderBookMessageType.DIFF, {
+                "trading_pair": market,
+                "update_id": int(seq),
+            }, timestamp=time.time())
+        print("Checking Parsing: ",var)
+        return var
 
     @classmethod
     def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
@@ -122,6 +149,7 @@ class PolkadexOrderbook(OrderBook):
         msg = msg["websocket_streams"]["data"]
         if metadata:
             msg.update(metadata)
+        print("Public trade message: ", msg)
 
         ts = msg["t"]
 

@@ -309,15 +309,25 @@ class InFlightOrder:
         """
         Updates the in flight order with an order update (from REST API or WS API)
         return: True if the order gets updated otherwise False
+           trading_pair: str
+    update_timestamp: float  # seconds
+    new_state: OrderState
+    client_order_id: Optional[str] = None
+    exchange_order_id: Optional[str] = None
+    misc_updates: Optional[Dict[str, Any]] = None
         """
+        print("Calls Our API to get order update(are we fucking up here)")
+        print("--- Order Update State---\nexchange_order_id: ",order_update.exchange_order_id,"  update_timestamp: ",order_update.update_timestamp,"   new_state: ",order_update.new_state)
+        print("--- Current order state: ",self.current_state," ---")
         if (order_update.client_order_id != self.client_order_id
                 and order_update.exchange_order_id != self.exchange_order_id):
             return False
 
         prev_data = (self.exchange_order_id, self.current_state)
-
+        print("Exhange id: ",self.exchange_order_id)
         if self.exchange_order_id is None:
             self.update_exchange_order_id(order_update.exchange_order_id)
+        print("Exhange id: ",self.exchange_order_id)
 
         self.current_state = order_update.new_state
 

@@ -4,9 +4,7 @@ from decimal import Decimal
 from typing import Dict, List, Set, Tuple
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.clock cimport
-
-Clock
+from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.network_iterator import NetworkIterator
 

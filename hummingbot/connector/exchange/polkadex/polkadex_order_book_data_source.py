@@ -53,10 +53,12 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
                }
         """
         diff_message = PolkadexOrderbook.diff_message_from_exchange(raw_message)
+        print("receive diff message putting it in queue: ",diff_message)
         message_queue.put_nowait(diff_message)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         print("Getting orderbook snapshot for: ", trading_pair)
+        #result = dynamoDB
         result: List[Dict[str, Any]] = await get_orderbook(trading_pair, None, None, self._connector.endpoint,
                                                            self._api_key)
         snapshot_timestamp: float = time.time()

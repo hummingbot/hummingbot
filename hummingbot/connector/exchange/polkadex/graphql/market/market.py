@@ -30,6 +30,7 @@ query getRecentTrades($market: String!, $limit: Int, $nextToken: String) {
 
 
 async def get_orderbook(market, limit, next_token, endpoint, api_key):
+    print("inside get_orderbook")
     query = gql(
         """
         query getOrderbook($market: String!, $limit: Int, $nextToken: String) {
@@ -56,6 +57,7 @@ async def get_orderbook(market, limit, next_token, endpoint, api_key):
 
 
 async def get_all_markets(endpoint, api_key):
+    print("inside get_all_markets")
     query = gql(
         """
 query getAllMarketTickers {
@@ -78,6 +80,7 @@ query getAllMarketTickers {
 
 
 async def get_all_market_tickers():
+    print("inside get_all_market_tickers")
     query = gql(
         """
 query getAllMarketTickers {
@@ -105,6 +108,7 @@ query getAllMarketTickers {
 
 
 async def get_all_assets(limit, next_token):
+    print("inside get_all_assets")
     query = gql(
         """
 query getAllAssets($nextToken: String, $limit: Int) {

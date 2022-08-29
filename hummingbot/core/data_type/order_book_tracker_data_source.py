@@ -101,11 +101,14 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         while True:
             try:
                 diff_event = await message_queue.get()
+                print("Calling _parse_order_book_diff_message")
                 await self._parse_order_book_diff_message(raw_message=diff_event, message_queue=output)
 
             except asyncio.CancelledError:
+                print("raised CancelledError")
                 raise
             except Exception:
+                print("Raise Exception")
                 self.logger().exception("Unexpected error when processing public order book updates from exchange")
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):

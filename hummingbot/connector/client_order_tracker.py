@@ -205,7 +205,9 @@ class ClientOrderTracker:
         )
 
     def _trigger_order_creation(self, tracked_order: InFlightOrder, previous_state: OrderState, new_state: OrderState):
+        print("In trigger order creation exchange_order_id: ",tracked_order.exchange_order_id,"   creation_timestamp: ",tracked_order.creation_timestamp,"    order_type: ",tracked_order.order_type,"    trade_type: ",tracked_order.trade_type)
         if previous_state == OrderState.PENDING_CREATE and new_state == OrderState.OPEN:
+            print("Inside If Statement")
             self.logger().info(
                 f"Created {tracked_order.order_type.name.upper()} {tracked_order.trade_type.name.upper()} order "
                 f"{tracked_order.client_order_id} for {tracked_order.amount} {tracked_order.trading_pair}."
@@ -233,26 +235,35 @@ class ClientOrderTracker:
                 trade_id=trade_id)
 
     def _trigger_order_completion(self, tracked_order: InFlightOrder, order_update: Optional[OrderUpdate] = None):
+        print("--- In Order Completion ---")
+        print("order_type: ",tracked_order.order_type,"    trade_type: ",tracked_order.trade_type,"    exchange_order_id: ",tracked_order.exchange_order_id)
+
+
         if tracked_order.is_open:
+            print("Tracked Order Open")
             return
 
         if tracked_order.is_cancelled:
+            print("Tracked Order Cancelled")
             self._trigger_cancelled_event(tracked_order)
             self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
 
         elif tracked_order.is_filled:
+            print("Tracked Order Filled")
             self._trigger_completed_event(tracked_order)
             self.logger().info(
                 f"{tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} completely filled."
             )
 
         elif tracked_order.is_failure:
+            print("Tracked Order Failure")
             self._trigger_failure_event(tracked_order)
             self.logger().info(f"Order {tracked_order.client_order_id} has failed. Order Update: {order_update}")
 
         self.stop_tracking_order(tracked_order.client_order_id)
 
     async def _process_order_update(self, order_update: OrderUpdate):
+        print("(Main Code) _process_order_update exchange_order_id: ", order_update.exchange_order_id,"   order_id: ",order_update.client_order_id)
         if not order_update.client_order_id and not order_update.exchange_order_id:
             self.logger().error("OrderUpdate does not contain any client_order_id or exchange_order_id", exc_info=True)
             return
@@ -260,7 +271,7 @@ class ClientOrderTracker:
         tracked_order: Optional[InFlightOrder] = self.fetch_order(
             order_update.client_order_id, order_update.exchange_order_id
         )
-
+        print("(Main Code) Tracked Order: ",tracked_order)
         if tracked_order:
             if order_update.new_state == OrderState.FILLED and not tracked_order.is_done:
                 try:
@@ -271,10 +282,11 @@ class ClientOrderTracker:
                     self.logger().warning(
                         f"The order fill updates did not arrive on time for {tracked_order.client_order_id}. "
                         f"The complete update will be processed with incomplete information.")
-
+            print("Tracked order state: ", tracked_order.current_state)
             previous_state: OrderState = tracked_order.current_state
 
             updated: bool = tracked_order.update_with_order_update(order_update)
+            print("updated bool : ",updated,"   id: ",order_update.exchange_order_id)
             if updated:
                 self._trigger_order_creation(tracked_order, previous_state, order_update.new_state)
                 self._trigger_order_completion(tracked_order, order_update)
