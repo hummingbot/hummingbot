@@ -52,4 +52,4 @@ def create_order(runtime_config, price: Decimal, qty: Decimal, order_type, order
         raise Exception
 
     print(order)
-    return runtime_config.create_scale_object("OrderPayloadCalledInRPC").encode(order), order
+    return runtime_config.create_scale_object("OrderPayload").encode(order), order

@@ -70,7 +70,6 @@ class PolkadexExchange(ExchangePyBase):
         host = str(urlparse(self.endpoint).netloc)
         self.auth = AppSyncApiKeyAuthentication(host=host, api_key=self.api_key)
         self._trading_pairs = trading_pairs
-
         self.is_trading_required_flag = trading_required
         if self.is_trading_required_flag:
             self.proxy_pair = Keypair.create_from_mnemonic(polkadex_seed_phrase,
@@ -91,19 +90,7 @@ class PolkadexExchange(ExchangePyBase):
                     "type_mapping": [
                         ["client_order_id", "H256"],
                         ["user", "AccountId"],
-                        ["pair", "TradingPair"],
-                        ["side", "OrderSide"],
-                        ["order_type", "OrderType"],
-                        ["qty", "u128"],
-                        ["price", "u128"],
-                        ["timestamp", "i64"],
-                    ]
-                },
-                "OrderPayloadCalledInRPC": {
-                    "type": "struct",
-                    "type_mapping": [
-                        ["client_order_id", "H256"],
-                        ["user", "AccountId"],
+                        ["main_account","AccountId"]
                         ["pair", "TradingPair"],
                         ["side", "OrderSide"],
                         ["order_type", "OrderType"],
@@ -170,12 +157,13 @@ class PolkadexExchange(ExchangePyBase):
         }
         print("Connecting to blockchain")
         self.blockchain = SubstrateInterface(
-            url="ws://127.0.0.1:9944",
+            url="wss://blockchain.polkadex.trade",
             ss58_format=POLKADEX_SS58_PREFIX,
             type_registry=custom_types
         )
         print("Blockchain connected: ", self.blockchain.get_chain_head())
         super().__init__()
+        print("Super init executed")
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         raise NotImplementedError
@@ -459,6 +447,31 @@ class PolkadexExchange(ExchangePyBase):
             await asyncio.wait(tasks)
 
     def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+        """
+        Example:
+        {
+            "symbol": "ETHBTC",
+            "baseAssetPrecision": 8,
+            "quotePrecision": 8,
+            "orderTypes": ["LIMIT", "MARKET"],
+            "filters": [
+                {
+                    "filterType": "PRICE_FILTER",
+                    "minPrice": "0.00000100",
+                    "maxPrice": "100000.00000000",
+                    "tickSize": "0.00000100"
+                }, {
+                    "filterType": "LOT_SIZE",
+                    "minQty": "0.00100000",
+                    "maxQty": "100000.00000000",
+                    "stepSize": "0.00100000"
+                }, {
+                    "filterType": "MIN_NOTIONAL",
+                    "minNotional": "0.00100000"
+                }
+            ]
+        }
+        """
         rules = []
         print("In format trading pair rules")
         for market in self.trading_pairs:
@@ -535,6 +548,7 @@ class PolkadexExchange(ExchangePyBase):
                     # self._order_tracker.process_order_update(update)
 
     async def _update_balances(self):
+        print("Inside update balanance")
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
         if self.user_main_address is None:
