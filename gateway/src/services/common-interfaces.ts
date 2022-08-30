@@ -52,6 +52,7 @@ import {
   Trade as TradeTraderjoe,
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
+import { Trade as DefiraTrade } from '@zuzu-cat/defira-sdk';
 import { PerpPosition } from '../connectors/perp/perp';
 
 export type Tokenish =
@@ -73,7 +74,8 @@ export type UniswapishTrade =
   | SushiswapTrade<SushiToken, SushiToken, SushiTradeType>
   | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
   | TradeUniswap
-  | TradeDefikingdoms;
+  | TradeDefikingdoms
+  | DefiraTrade<UniswapCoreToken, UniswapCoreToken, TradeType>;
 
 export type UniswapishAmount =
   | CurrencyAmount
@@ -411,6 +413,11 @@ export interface Perpish {
   getPositions(tickerSymbol: string): Promise<PerpPosition | undefined>;
 
   /**
+   * Attempts to return balance of a connected acct
+   */
+  getAccountValue(): Promise<Big>;
+
+  /**
    * Given the necessary parameters, open a position.
    * @param isLong Will create a long position if true, else a short pos will be created.
    * @param tickerSymbol the market to create position on.
@@ -420,7 +427,8 @@ export interface Perpish {
   openPosition(
     isLong: boolean,
     tickerSymbol: string,
-    minBaseAmount: string
+    minBaseAmount: string,
+    allowedSlippage?: string
   ): Promise<Transaction>;
 
   /**
@@ -428,7 +436,10 @@ export interface Perpish {
    * @param tickerSymbol The market on which we want to close position.
    * @returns An ethers transaction object.
    */
-  closePosition(tickerSymbol: string): Promise<Transaction>;
+  closePosition(
+    tickerSymbol: string,
+    allowedSlippage?: string
+  ): Promise<Transaction>;
 }
 
 export interface Ethereumish extends EthereumBase {

@@ -8,18 +8,20 @@ import hummingbot.client.settings as settings
 from hummingbot.client.config.config_data_types import (
     BaseClientModel,
     BaseTradingStrategyMakerTakerConfigMap,
+    ClientConfigEnum,
     ClientFieldData,
 )
-from hummingbot.client.config.config_validators import validate_bool
+from hummingbot.client.config.config_validators import validate_bool, validate_connector, validate_exchange
+from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-
-from .cross_exchange_market_pair import CrossExchangeMarketPair
+from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
 
 
 class ConversionRateModel(BaseClientModel, ABC):
     @abstractmethod
-    def get_taker_to_maker_conversion_rate(
-        self, market_pair: CrossExchangeMarketPair
+    def get_conversion_rates(
+        self, market_pair: MakerTakerMarketPair
     ) -> Tuple[str, str, Decimal, str, str, Decimal]:
         pass
 
@@ -28,8 +30,8 @@ class OracleConversionRateMode(ConversionRateModel):
     class Config:
         title = "rate_oracle_conversion_rate"
 
-    def get_taker_to_maker_conversion_rate(
-        self, market_pair: CrossExchangeMarketPair
+    def get_conversion_rates(
+        self, market_pair: MakerTakerMarketPair
     ) -> Tuple[str, str, Decimal, str, str, Decimal]:
         """
         Find conversion rates from taker market to maker market
@@ -37,29 +39,44 @@ class OracleConversionRateMode(ConversionRateModel):
         :return: A tuple of quote pair symbol, quote conversion rate source, quote conversion rate,
         base pair symbol, base conversion rate source, base conversion rate
         """
+        from .cross_exchange_market_making import CrossExchangeMarketMakingStrategy
         quote_pair = f"{market_pair.taker.quote_asset}-{market_pair.maker.quote_asset}"
         if market_pair.taker.quote_asset != market_pair.maker.quote_asset:
-            quote_rate_source = RateOracle.source.name
-            quote_rate = RateOracle.get_instance().rate(quote_pair)
+            quote_rate_source = RateOracle.get_instance().source.name
+            quote_rate = RateOracle.get_instance().get_pair_rate(quote_pair)
         else:
             quote_rate_source = "fixed"
             quote_rate = Decimal("1")
 
         base_pair = f"{market_pair.taker.base_asset}-{market_pair.maker.base_asset}"
         if market_pair.taker.base_asset != market_pair.maker.base_asset:
-            base_rate_source = RateOracle.source.name
-            base_rate = RateOracle.get_instance().rate(base_pair)
+            base_rate_source = RateOracle.get_instance().source.name
+            base_rate = RateOracle.get_instance().get_pair_rate(base_pair)
         else:
             base_rate_source = "fixed"
             base_rate = Decimal("1")
 
-        return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate
+        gas_pair = None
+        if CrossExchangeMarketMakingStrategy.is_gateway_market(market_pair.taker):
+            if hasattr(market_pair.taker.market, "network_transaction_fee"):
+                transaction_fee: TokenAmount = market_pair.taker.market.network_transaction_fee
+                if transaction_fee is not None:
+                    gas_pair = f"{transaction_fee.token}-{market_pair.maker.quote_asset}"
+
+        if gas_pair is not None and transaction_fee.token != market_pair.maker.quote_asset:
+            gas_rate_source = RateOracle.get_instance().source.name
+            gas_rate = RateOracle.get_instance().get_pair_rate(gas_pair)
+        else:
+            gas_rate_source = "fixed"
+            gas_rate = Decimal("1")
+
+        return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, gas_rate
 
 
 class TakerToMakerConversionRateMode(ConversionRateModel):
     taker_to_maker_base_conversion_rate: Decimal = Field(
         default=Decimal("1.0"),
-        description="A fixed conversion rate between the maker and taker tradin pairs based on the maker base asset.",
+        description="A fixed conversion rate between the maker and taker trading pairs based on the maker base asset.",
         gt=0.0,
         client_data=ClientFieldData(
             prompt=lambda mi: (
@@ -72,7 +89,7 @@ class TakerToMakerConversionRateMode(ConversionRateModel):
     )
     taker_to_maker_quote_conversion_rate: Decimal = Field(
         default=Decimal("1.0"),
-        description="A fixed conversion rate between the maker and taker tradin pairs based on the maker quote asset.",
+        description="A fixed conversion rate between the maker and taker trading pairs based on the maker quote asset.",
         gt=0.0,
         client_data=ClientFieldData(
             prompt=lambda mi: (
@@ -83,12 +100,25 @@ class TakerToMakerConversionRateMode(ConversionRateModel):
             prompt_on_new=True,
         ),
     )
+    gas_to_maker_base_conversion_rate: Decimal = Field(
+        default=Decimal("1.0"),
+        description="A fixed conversion rate between the maker quote asset and taker gas asset.",
+        gt=0.0,
+        client_data=ClientFieldData(
+            prompt=lambda mi: (
+                "Enter conversion rate for gas token value of taker gateway exchange to maker base asset value, e.g. "
+                "if maker base asset is USD and the gas token is DAI, 1 DAI is valued at 1.25 USD, "
+                "the conversion rate is 1.25"
+            ),
+            prompt_on_new=True,
+        ),
+    )
 
     class Config:
         title = "fixed_conversion_rate"
 
-    def get_taker_to_maker_conversion_rate(
-        self, market_pair: CrossExchangeMarketPair
+    def get_conversion_rates(
+        self, market_pair: MakerTakerMarketPair
     ) -> Tuple[str, str, Decimal, str, str, Decimal]:
         """
         Find conversion rates from taker market to maker market
@@ -96,6 +126,7 @@ class TakerToMakerConversionRateMode(ConversionRateModel):
         :return: A tuple of quote pair symbol, quote conversion rate source, quote conversion rate,
         base pair symbol, base conversion rate source, base conversion rate
         """
+        from .cross_exchange_market_making import CrossExchangeMarketMakingStrategy
         quote_pair = f"{market_pair.taker.quote_asset}-{market_pair.maker.quote_asset}"
         quote_rate_source = "fixed"
         quote_rate = self.taker_to_maker_quote_conversion_rate
@@ -104,11 +135,22 @@ class TakerToMakerConversionRateMode(ConversionRateModel):
         base_rate_source = "fixed"
         base_rate = self.taker_to_maker_base_conversion_rate
 
-        return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate
+        gas_pair = None
+        if CrossExchangeMarketMakingStrategy.is_gateway_market(market_pair.taker):
+            if hasattr(market_pair.taker.market, "network_transaction_fee"):
+                transaction_fee: TokenAmount = market_pair.taker.market.network_transaction_fee
+                if transaction_fee is not None:
+                    gas_pair = f"{transaction_fee.token}-{market_pair.maker.quote_asset}"
+
+        gas_rate_source = "fixed"
+        gas_rate = self.taker_to_maker_base_conversion_rate
+
+        return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, gas_rate
 
     @validator(
         "taker_to_maker_base_conversion_rate",
         "taker_to_maker_quote_conversion_rate",
+        "gas_to_maker_base_conversion_rate",
         pre=True,
     )
     def validate_decimal(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
@@ -299,6 +341,45 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         ),
     )
 
+    debug_price_shim: bool = Field(
+        default=False,
+        description="Usd the debug price shim to mock gateway price.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: (
+                "Do you want to enable the debug price shim for integration tests? If you don't know what this does "
+                "you should keep it disabled."
+            ),
+        ),
+    )
+    gateway_transaction_cancel_interval: int = Field(
+        default= 600,
+        description="Gateway transaction cancellation timeout.",
+        ge=1,
+        client_data=ClientFieldData(
+            prompt=lambda mi: (
+                "After what time should blockchain transactions be cancelled if they are not included in a block? "
+                "(this only affects decentralized exchanges) (Enter time in seconds)"
+            ),
+            prompt_on_new=True,
+        ),
+    )
+    maker_market: str = Field(
+        default=...,
+        description="The name of the maker exchange connector.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter your maker spot connector (Exchange)",
+            prompt_on_new=True,
+        ),
+    )
+    taker_market: str = Field(
+        default=...,
+        description="The name of the taker exchange connector.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter your taker connector (Exchange/AMM)",
+            prompt_on_new=True,
+        ),
+    )
+
     # === prompts ===
 
     @classmethod
@@ -401,3 +482,30 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         else:
             settings.required_rate_oracle = False
             settings.rate_oracle_pairs = []
+
+    @validator(
+        "maker_market",
+        "taker_market",
+        pre=True
+    )
+    def validate_exchange(cls, v: str, field: Field):
+        """Used for client-friendly error output."""
+        if field.name == "maker_market":
+            ret = validate_exchange(v)
+            if ret is not None:
+                raise ValueError(ret)
+            cls.__fields__["maker_market"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
+                value="Exchanges",  # noqa: F821
+                names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
+                type=str,
+            )
+        if field.name == "taker_market":
+            ret = validate_connector(v)
+            if ret is not None:
+                raise ValueError(ret)
+            cls.__fields__["taker_market"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
+                value="Exchanges",  # noqa: F821
+                names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
+                type=str,
+            )
+        return v

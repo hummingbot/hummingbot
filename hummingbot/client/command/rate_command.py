@@ -2,6 +2,7 @@ import threading
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from hummingbot.connector.utils import split_hb_trading_pair, validate_trading_pair
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import OracleRateUnavailable
@@ -29,29 +30,38 @@ class RateCommand:
     async def show_rate(self,  # type: HummingbotApplication
                         pair: str,
                         ):
-        try:
-            msg = await RateCommand.oracle_rate_msg(pair)
-        except OracleRateUnavailable:
-            msg = "Rate is not available."
-        self.notify(msg)
+        if not validate_trading_pair(pair):
+            self.notify(f"Invalid trading pair {pair}")
+        else:
+            try:
+                msg = await self.oracle_rate_msg(pair)
+            except OracleRateUnavailable:
+                msg = "Rate is not available."
+            self.notify(msg)
 
-    @staticmethod
-    async def oracle_rate_msg(pair: str,
-                              ):
-        pair = pair.upper().strip('\"').strip("'")
-        rate = await RateOracle.rate_async(pair)
-        if rate is None:
-            raise OracleRateUnavailable
-        base, quote = pair.split("-")
-        return f"Source: {RateOracle.source.name}\n1 {base} = {rate} {quote}"
+    async def oracle_rate_msg(self,  # type: HummingbotApplication
+                              pair: str):
+        if not validate_trading_pair(pair):
+            self.notify(f"Invalid trading pair {pair}")
+        else:
+            pair = pair.upper().strip('\"').strip("'")
+            rate = await RateOracle.get_instance().rate_async(pair)
+            if rate is None:
+                raise OracleRateUnavailable
+            base, quote = split_hb_trading_pair(pair)
+            return f"Source: {RateOracle.get_instance().source.name}\n1 {base} = {rate} {quote}"
 
     async def show_token_value(self,  # type: HummingbotApplication
                                token: str
                                ):
-        token = token.upper()
-        self.notify(f"Source: {RateOracle.source.name}")
-        rate = await RateOracle.global_rate(token)
-        if rate is None:
-            self.notify("Rate is not available.")
-            return
-        self.notify(f"1 {token} = {RateOracle.global_token_symbol} {rate} {RateOracle.global_token}")
+        if "-" in token:
+            self.notify(f"Expected a single token but got a pair {token}")
+        else:
+            self.notify(f"Source: {RateOracle.get_instance().source.name}")
+            rate = await RateOracle.get_instance().get_rate(base_token=token)
+            if rate is None:
+                self.notify("Rate is not available.")
+                return
+            global_token = self.client_config_map.global_token.global_token_name
+            token_symbol = self.client_config_map.global_token.global_token_symbol
+            self.notify(f"1 {token} = {token_symbol} {rate} {global_token}")

@@ -156,6 +156,19 @@ class LatokenExchangeTests(TestCase):
         ticker_url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PATH_URL, domain=self.domain)
         currency_url = web_utils.public_rest_url(path_url=CONSTANTS.CURRENCY_PATH_URL, domain=self.domain)
         pair_url = web_utils.public_rest_url(path_url=CONSTANTS.PAIR_PATH_URL, domain=self.domain)
+        ticker_list: List[Dict] = [
+            {"symbol": f"{base}/{quote}", "baseCurrency": self.base_asset,
+             "quoteCurrency": self.quote_asset, "volume24h": "0", "volume7d": "0",
+             "change24h": "0", "change7d": "0", "amount24h": "0", "amount7d": "0", "lastPrice": "0",
+             "lastQuantity": "0", "bestBid": "0", "bestBidQuantity": "0", "bestAsk": "0", "bestAskQuantity": "0",
+             "updateTimestamp": 0},
+            {"symbol": "NECC/USDT", "baseCurrency": "ad48cd21-4834-4b7d-ad32-10d8371bbf3c",
+             "quoteCurrency": "0c3a106d-bde3-4c13-a26e-3fd2394529e5", "volume24h": "0", "volume7d": "0",
+             "change24h": "0", "change7d": "0", "amount24h": "0", "amount7d": "0", "lastPrice": "0",
+             "lastQuantity": "0", "bestBid": "0", "bestBidQuantity": "0", "bestAsk": "0", "bestAskQuantity": "0",
+             "updateTimestamp": 0}
+        ]
+        mock_api.get(ticker_url, body=json.dumps(ticker_list))
         currency_list: List[Dict] = [
             {"id": self.base_asset, "status": "CURRENCY_STATUS_ACTIVE",
              "type": "CURRENCY_TYPE_CRYPTO", "name": base, "tag": base, "description": "", "logo": "", "decimals": 18,
@@ -195,7 +208,6 @@ class LatokenExchangeTests(TestCase):
         ]
 
         mock_api.get(pair_url, body=json.dumps(pair_list))
-        mock_api.get(ticker_url, body=json.dumps(pair_list))
 
         self.async_run_with_timeout(self.exchange._update_trading_rules())
 
@@ -897,7 +909,7 @@ class LatokenExchangeTests(TestCase):
 
     @aioresponses()
     def test_update_trading_rules_ignores_rule_with_error(self, mock_api):
-        pair_url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PATH_URL, domain=self.domain)
+        pair_url = web_utils.public_rest_url(path_url=CONSTANTS.PAIR_PATH_URL, domain=self.domain)
 
         pair_list: List[Dict] = [
             {"id": "30a1032d-1e3e-4c28-8ca7-b60f3406fc3e", "status": "PAIR_STATUS_ACTIVE",
@@ -1015,7 +1027,7 @@ class LatokenExchangeTests(TestCase):
         self.assertNotIn("OID3", self.exchange.in_flight_orders)
         self.assertNotIn("OID4", self.exchange.in_flight_orders)
 
-    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
+    @patch("hummingbot.connector.utils.get_tracking_nonce")
     def test_client_order_id_on_order(self, mocked_nonce):
         mocked_nonce.return_value = 7
 
