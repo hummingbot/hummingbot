@@ -5,11 +5,11 @@ from contextlib import ExitStack
 from decimal import Decimal
 from os.path import join, realpath
 from test.mock.http_recorder import HttpPlayer
-from typing import Awaitable, Dict, List
+from typing import Dict, List
 from unittest.mock import patch
 
 from aiohttp import ClientSession
-from aioresponses import aioresponses
+from aiounittest import async_test
 from async_timeout import timeout
 
 from bin import path_util  # noqa: F401
@@ -32,6 +32,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
+ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 s_decimal_0: Decimal = Decimal(0)
 
 
@@ -45,7 +46,6 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         GatewayHttpClient.__instance = None
         cls._db_path = realpath(join(__file__, "../fixtures/gateway_evm_amm_fixture.db"))
         cls._http_player = HttpPlayer(cls._db_path)
@@ -71,6 +71,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         )
         cls._patch_stack.enter_context(cls._clock)
         GatewayHttpClient.get_instance(client_config_map=cls._client_config_map).base_url = "https://localhost:5000"
+        ev_loop.run_until_complete(cls.wait_til_ready())
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -80,7 +81,6 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.async_run_with_timeout(self.wait_til_ready(), 3)
         self._http_player.replay_timestamp_ms = None
 
     @classmethod
@@ -99,34 +99,31 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
             next_iteration = now // 1.0 + 1
             await self._clock.run_til(next_iteration + 0.1)
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        return self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-
-    @aioresponses()
+    @async_test(loop=ev_loop)
     async def test_update_balances(self):
         self._connector._account_balances.clear()
         self.assertEqual(0, len(self._connector.get_all_balances()))
-        self.async_run_with_timeout(self._connector.update_balances(on_interval=False))
+        await self._connector.update_balances(on_interval=False)
         self.assertEqual(3, len(self._connector.get_all_balances()))
         self.assertAlmostEqual(Decimal("58.903990239981237338"), self._connector.get_balance("ETH"))
         self.assertAlmostEqual(Decimal("1015.242427495432379422"), self._connector.get_balance("DAI"))
 
-    @aioresponses()
+    @async_test(loop=ev_loop)
     async def test_get_allowances(self):
         big_num: Decimal = Decimal("1000000000000000000000000000")
-        allowances: Dict[str, Decimal] = self.async_run_with_timeout(self._connector.get_allowances())
+        allowances: Dict[str, Decimal] = await self._connector.get_allowances()
         self.assertEqual(2, len(allowances))
         self.assertGreater(allowances.get("WETH"), big_num)
         self.assertGreater(allowances.get("DAI"), big_num)
 
-    @aioresponses()
+    @async_test(loop=ev_loop)
     async def test_get_chain_info(self):
         self._connector._chain_info.clear()
-        self.async_run_with_timeout(self._connector.get_chain_info())
+        await self._connector.get_chain_info()
         self.assertGreater(len(self._connector._chain_info), 2)
         self.assertEqual("ETH", self._connector._chain_info.get("nativeCurrency"))
 
-    @aioresponses()
+    @async_test(loop=ev_loop)
     async def test_update_approval_status(self):
         def create_approval_record(token_symbol: str, tx_hash: str) -> EVMInFlightOrder:
             return EVMInFlightOrder(
@@ -166,7 +163,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         self._connector.add_listener(TokenApprovalEvent.ApprovalFailed, event_logger)
 
         try:
-            self.async_run_with_timeout(self._connector.update_token_approval_status(successful_records + fake_records))
+            await self._connector.update_token_approval_status(successful_records + fake_records)
             self.assertEqual(2, len(event_logger.event_log))
             self.assertEqual(
                 {"WETH", "DAI"},
@@ -176,7 +173,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
             self._connector.remove_listener(TokenApprovalEvent.ApprovalSuccessful, event_logger)
             self._connector.remove_listener(TokenApprovalEvent.ApprovalFailed, event_logger)
 
-    @aioresponses()
+    @async_test(loop=ev_loop)
     async def test_update_order_status(self):
         def create_order_record(
                 trading_pair: str,
@@ -224,10 +221,10 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         self._connector.add_listener(MarketEvent.OrderFilled, event_logger)
 
         try:
-            self.async_run_with_timeout(self._connector.update_order_status(successful_records + fake_records))
+            await self._connector.update_order_status(successful_records + fake_records)
             async with timeout(10):
                 while len(event_logger.event_log) < 1:
-                    self.async_run_with_timeout(event_logger.wait_for(OrderFilledEvent))
+                    await event_logger.wait_for(OrderFilledEvent)
             filled_event: OrderFilledEvent = event_logger.event_log[0]
             self.assertEqual(
                 "0xc7287236f64484b476cfbec0fd21bc49d85f8850c8885665003928a122041e18",       # noqa: mock
@@ -235,19 +232,19 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         finally:
             self._connector.remove_listener(MarketEvent.OrderFilled, event_logger)
 
-    @aioresponses()
+    @async_test(loop=ev_loop)
     async def test_get_quote_price(self):
-        buy_price: Decimal = self.async_run_with_timeout(self._connector.get_quote_price("DAI-WETH", True, Decimal(1000)))
-        sell_price: Decimal = self.async_run_with_timeout(self._connector.get_quote_price("DAI-WETH", False, Decimal(1000)))
+        buy_price: Decimal = await self._connector.get_quote_price("DAI-WETH", True, Decimal(1000))
+        sell_price: Decimal = await self._connector.get_quote_price("DAI-WETH", False, Decimal(1000))
         self.assertEqual(Decimal("0.002684496"), buy_price)
         self.assertEqual(Decimal("0.002684496"), sell_price)
 
-    @aioresponses()
+    @async_test(loop=ev_loop)
     async def test_approve_token(self):
         self._http_player.replay_timestamp_ms = 1648499867736
-        weth_in_flight_order: EVMInFlightOrder = self.async_run_with_timeout(self._connector.approve_token("WETH"))
+        weth_in_flight_order: EVMInFlightOrder = await self._connector.approve_token("WETH")
         self._http_player.replay_timestamp_ms = 1648499871595
-        dai_in_flight_order: EVMInFlightOrder = self.async_run_with_timeout(self._connector.approve_token("DAI"))
+        dai_in_flight_order: EVMInFlightOrder = await self._connector.approve_token("DAI")
 
         self.assertEqual(
             "0x6c975ba8c1d35e8542ffd05956d9ec227c1ac234ae4d5f69819aa24bae784321",       # noqa: mock
@@ -266,7 +263,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         try:
             async with timeout(10):
                 while len(event_logger.event_log) < 2:
-                    self.async_run_with_timeout(event_logger.wait_for(TokenApprovalSuccessEvent))
+                    await event_logger.wait_for(TokenApprovalSuccessEvent)
             self.assertEqual(2, len(event_logger.event_log))
             self.assertEqual(
                 {"WETH", "DAI"},
@@ -275,11 +272,11 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         finally:
             clock_task.cancel()
             try:
-                self.async_run_with_timeout(clock_task)
+                await clock_task
             except asyncio.CancelledError:
                 pass
 
-    @aioresponses()
+    @async_test(loop=ev_loop)
     async def test_buy_order(self):
         self._http_player.replay_timestamp_ms = 1648500060561
         clock_task: asyncio.Task = safe_ensure_future(self.run_clock())
@@ -289,16 +286,16 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
 
         try:
             self._connector.buy("DAI-WETH", Decimal(100), OrderType.LIMIT, Decimal("0.002861464039500"))
-            order_created_event: BuyOrderCreatedEvent = self.async_run_with_timeout(event_logger.wait_for(
+            order_created_event: BuyOrderCreatedEvent = await event_logger.wait_for(
                 BuyOrderCreatedEvent,
                 timeout_seconds=5
-            ))
+            )
             self.assertEqual(
                 "0xc3d3166e6142c479b26c21e007b68e2b7fb1d28c1954ab344b45d7390139654f",       # noqa: mock
                 order_created_event.exchange_order_id
             )
             self._http_player.replay_timestamp_ms = 1648500097569
-            order_filled_event: OrderFilledEvent = self.async_run_with_timeout(event_logger.wait_for(OrderFilledEvent, timeout_seconds=5))
+            order_filled_event: OrderFilledEvent = await event_logger.wait_for(OrderFilledEvent, timeout_seconds=5)
             self.assertEqual(
                 "0xc3d3166e6142c479b26c21e007b68e2b7fb1d28c1954ab344b45d7390139654f",       # noqa: mock
                 order_filled_event.exchange_trade_id
@@ -306,11 +303,11 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         finally:
             clock_task.cancel()
             try:
-                self.async_run_with_timeout(clock_task)
+                await clock_task
             except asyncio.CancelledError:
                 pass
 
-    @aioresponses()
+    @async_test(loop=ev_loop)
     async def test_sell_order(self):
         self._http_player.replay_timestamp_ms = 1648500097825
         clock_task: asyncio.Task = safe_ensure_future(self.run_clock())
@@ -320,16 +317,16 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
 
         try:
             self._connector.sell("DAI-WETH", Decimal(100), OrderType.LIMIT, Decimal("0.002816023229500"))
-            order_created_event: SellOrderCreatedEvent = self.async_run_with_timeout(event_logger.wait_for(
+            order_created_event: SellOrderCreatedEvent = await event_logger.wait_for(
                 SellOrderCreatedEvent,
                 timeout_seconds=5
-            ))
+            )
             self.assertEqual(
                 "0x63c7ffaf8dcede44c51cc2ea7ab3a5c0ea4915c9dab57dfcb432ea92ad174391",       # noqa: mock
                 order_created_event.exchange_order_id
             )
             self._http_player.replay_timestamp_ms = 1648500133889
-            order_filled_event: OrderFilledEvent = self.async_run_with_timeout(event_logger.wait_for(OrderFilledEvent, timeout_seconds=5))
+            order_filled_event: OrderFilledEvent = await event_logger.wait_for(OrderFilledEvent, timeout_seconds=5)
             self.assertEqual(
                 "0x63c7ffaf8dcede44c51cc2ea7ab3a5c0ea4915c9dab57dfcb432ea92ad174391",       # noqa: mock
                 order_filled_event.exchange_trade_id
@@ -337,6 +334,6 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         finally:
             clock_task.cancel()
             try:
-                self.async_run_with_timeout(clock_task)
+                await clock_task
             except asyncio.CancelledError:
                 pass
