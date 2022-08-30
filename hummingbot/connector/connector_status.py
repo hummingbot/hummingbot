@@ -17,7 +17,7 @@ connector_status = {
     'bitmex_testnet': 'yellow',
     'bitmex_perpetual_testnet': 'yellow',
     'blocktane': 'yellow',
-    'bybit_perpetual': 'yellow',
+    'bybit_perpetual': 'green',
     'bybit_perpetual_testnet': 'yellow',
     'bybit_testnet': 'yellow',
     'bybit': 'green',
