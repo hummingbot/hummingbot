@@ -21,6 +21,8 @@ import {
   PositionResponse,
   PoolPriceRequest,
   PoolPriceResponse,
+  PerpBalanceRequest,
+  PerpBalanceResponse,
 } from './amm.requests';
 import {
   price as uniswapPrice,
@@ -39,6 +41,7 @@ import {
   getPosition,
   getAvailablePairs,
   checkMarketStatus,
+  getAccountValue,
 } from '../connectors/perp/perp.controllers';
 import { getChain, getConnector } from '../services/connection-manager';
 import {
@@ -160,6 +163,16 @@ export async function perpPosition(
     await getConnector(req.chain, req.network, req.connector, req.address)
   );
   return getPosition(chain, connector, req);
+}
+
+export async function perpBalance(
+  req: PerpBalanceRequest
+): Promise<PerpBalanceResponse> {
+  const chain = await getChain(req.chain, req.network);
+  const connector: Perpish = <Perpish>(
+    await getConnector(req.chain, req.network, req.connector, req.address)
+  );
+  return getAccountValue(chain, connector);
 }
 
 export async function perpPairs(
