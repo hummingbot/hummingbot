@@ -45,7 +45,6 @@ export async function addWallet(
     const ethereum = Ethereum.getInstance(req.network);
     address = ethereum.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await ethereum.encrypt(req.privateKey, passphrase);
-    console.log(encryptedPrivateKey);
   } else if (req.chain === 'avalanche') {
     const avalanche = Avalanche.getInstance(req.network);
     address = avalanche.getWalletFromPrivateKey(req.privateKey).address;

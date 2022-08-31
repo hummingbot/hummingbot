@@ -1,11 +1,10 @@
 # The port to expose the gateway server on.
-# TODO
-port: 5230
+port: 5000
 
 # The IPs allowed to access gateway. localhost is allowed by default.
 ipWhitelist: []
 
-unsafeDevModeWithHTTP: true
+unsafeDevModeWithHTTP: false
 
 
 GMTOffset: +0800
