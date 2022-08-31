@@ -13,6 +13,7 @@ import { BigNumber } from 'ethers';
 import { BinanceSmartChain } from '../../../../src/chains/binance-smart-chain/binance-smart-chain';
 import { PancakeSwap } from '../../../../src/connectors/pancakeswap/pancakeswap';
 import { UniswapishPriceError } from '../../../../src/services/error-handler';
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 import { patch, unpatch } from '../../../services/patch';
 
 let bsc: BinanceSmartChain;
@@ -33,6 +34,7 @@ const DAI = new Token(
 
 beforeAll(async () => {
   bsc = BinanceSmartChain.getInstance('testnet');
+  patchEVMNonceManager(bsc.nonceManager);
   await bsc.init();
   pancakeswap = PancakeSwap.getInstance('binance-smart-chain', 'testnet');
   await pancakeswap.init();
