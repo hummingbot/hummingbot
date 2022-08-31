@@ -90,7 +90,7 @@ class PolkadexExchange(ExchangePyBase):
                     "type_mapping": [
                         ["client_order_id", "H256"],
                         ["user", "AccountId"],
-                        ["main_account","AccountId"]
+                        ["main_account","AccountId"],
                         ["pair", "TradingPair"],
                         ["side", "OrderSide"],
                         ["order_type", "OrderType"],
@@ -121,8 +121,8 @@ class PolkadexExchange(ExchangePyBase):
                 "AssetId": {
                     "type": "enum",
                     "type_mapping": [
-                        ["polkadex", "Null"],
                         ["asset", "u128"],
+                        ["polkadex", "Null"],
                     ],
                 },
                 "OrderType": {
@@ -157,7 +157,7 @@ class PolkadexExchange(ExchangePyBase):
         }
         print("Connecting to blockchain")
         self.blockchain = SubstrateInterface(
-            url="wss://blockchain.polkadex.trade",
+            url="ws://127.0.0.1:9944",
             ss58_format=POLKADEX_SS58_PREFIX,
             type_registry=custom_types
         )
@@ -279,21 +279,22 @@ class PolkadexExchange(ExchangePyBase):
             print("Main account: ", self.user_main_address)
 
             try:
-                pk = ss58_decode(self.user_proxy_address, valid_ss58_format=42)
-                user_proxy = ss58_encode(pk, ss58_format=88)
+                # print("user proxy address: ",self.user_proxy_address)
+                # pk = ss58_decode(self.user_proxy_address, valid_ss58_format=42)
+                # user_proxy = ss58_encode(pk, ss58_format=88)
                 ts = int(time.time())
-                print("Could Format it id: ",order_id)
+            #     print("Could Format it id: ",order_id)
             except:
-                print("Couldn't Format it in SS58: ", order_id)
-                raise Exception("Couldn't Format it in SS58")
+                print("ts : ", ts)
+                raise Exception("ts failed")
 
             try:
                 #converting to type GQL can understand 
                 encoded_order, order = create_order(self.blockchain, price, amount, order_type, order_id,
-                                                    trade_type, user_proxy,
+                                                    trade_type, self.user_proxy_address, self.user_main_address,
                                                     trading_pair.split("-")[0],
                                                     trading_pair.split("-")[1],
-                                                    ts)
+                                                    int(time.time()))
                 print("Coud GQL id: ",order_id)
             except:
                 print("Couldn't GQL")

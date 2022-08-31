@@ -20,9 +20,9 @@ MIN_PRICE = Decimal(0.1)
 MIN_QTY = Decimal(0.1)
 TRADE_EVENT_TYPE = "trade"
 DIFF_EVENT_TYPE = "diff"
-GRAPHQL_ENDPOINT = "https://aawo7xyumzg4jmghi35dltncee.appsync-api.ap-south-1.amazonaws.com/graphql"
-GRAPHQL_WSS_ENDPOINT = "wss://aawo7xyumzg4jmghi35dltncee.appsync-realtime-api.ap-south-1.amazonaws.com/graphql"
-GRAPHQL_API_KEY = "da2-dt657rxwbnhnxd26euufiwwxya"
+GRAPHQL_ENDPOINT = "https://tvgzxcclnnbgthbor5xdfodqoa.appsync-api.ap-south-1.amazonaws.com/graphql"
+GRAPHQL_WSS_ENDPOINT = "wss://tvgzxcclnnbgthbor5xdfodqoa.appsync-realtime-api.ap-south-1.amazonaws.com/graphql"
+GRAPHQL_API_KEY = "da2-ysvnzdywhjahnhzqkibdm6e67i"
 
 POLKADEX_SS58_PREFIX = 88
 

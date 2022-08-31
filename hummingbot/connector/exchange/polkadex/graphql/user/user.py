@@ -43,8 +43,8 @@ async def place_order(params, url, api_key):
         result = await execute_query_command(mutation, variables, url, api_key)
         print("Place order result: ", result)
         return result["place_order"]
-    except:
-        print("---place_order in user folder passing an exception---")
+    except Exception as err:
+        print("---place_order in user folder passing an exception--- : ",err)
 
 
 
