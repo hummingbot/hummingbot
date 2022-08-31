@@ -122,6 +122,32 @@ def validate_int(value: str, min_value: int = None, max_value: int = None, inclu
             return f"Value must be less than {max_value}."
 
 
+def validate_float(value: str, min_value: float = None, max_value: float = None, inclusive=True) -> Optional[str]:
+    """
+    Parse an float value from a string. This value can also be clamped.
+    """
+    try:
+        float_value = float(value)
+    except Exception:
+        return f"{value} is not in integer format."
+    if inclusive:
+        if min_value is not None and max_value is not None:
+            if not (min_value <= float_value <= max_value):
+                return f"Value must be between {min_value} and {max_value}."
+        elif min_value is not None and not float_value >= min_value:
+            return f"Value cannot be less than {min_value}."
+        elif max_value is not None and not float_value <= max_value:
+            return f"Value cannot be more than {max_value}."
+    else:
+        if min_value is not None and max_value is not None:
+            if not (min_value < float_value < max_value):
+                return f"Value must be between {min_value} and {max_value} (exclusive)."
+        elif min_value is not None and not float_value > min_value:
+            return f"Value must be more than {min_value}."
+        elif max_value is not None and not float_value < max_value:
+            return f"Value must be less than {max_value}."
+
+
 def validate_datetime_iso_string(value: str) -> Optional[str]:
     try:
         datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
