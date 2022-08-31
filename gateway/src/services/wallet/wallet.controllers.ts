@@ -68,26 +68,39 @@ export async function addWallet(
     await connection.init();
   }
 
-  if (connection instanceof Solana) {
-    address = connection
-      .getKeypairFromPrivateKey(req.privateKey)
-      .publicKey.toBase58();
-    encryptedPrivateKey = await connection.encrypt(req.privateKey, passphrase);
-  } else if (connection instanceof EthereumBase) {
-    address = connection.getWalletFromPrivateKey(req.privateKey).address;
-    encryptedPrivateKey = await connection.encrypt(req.privateKey, passphrase);
-  } else {
+  try {
+    if (connection instanceof Solana) {
+      address = connection
+        .getKeypairFromPrivateKey(req.privateKey)
+        .publicKey.toBase58();
+      encryptedPrivateKey = await connection.encrypt(
+        req.privateKey,
+        passphrase
+      );
+    } else if (connection instanceof EthereumBase) {
+      address = connection.getWalletFromPrivateKey(req.privateKey).address;
+      encryptedPrivateKey = await connection.encrypt(
+        req.privateKey,
+        passphrase
+      );
+    } else {
+      throw new HttpException(
+        500,
+        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE(req.privateKey),
+        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE
+      );
+    }
+    const path = `${walletPath}/${req.chain}`;
+    await mkdirIfDoesNotExist(path);
+    await fse.writeFile(`${path}/${address}.json`, encryptedPrivateKey);
+    return { address };
+  } catch (e: unknown) {
     throw new HttpException(
       500,
       ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE(req.privateKey),
       ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE
     );
   }
-
-  const path = `${walletPath}/${req.chain}`;
-  await mkdirIfDoesNotExist(path);
-  await fse.writeFile(`${path}/${address}.json`, encryptedPrivateKey);
-  return { address };
 }
 
 // if the file does not exist, this should not fail

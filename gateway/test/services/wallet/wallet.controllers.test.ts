@@ -10,14 +10,22 @@ import {
 } from '../../../src/services/wallet/wallet.controllers';
 import {
   HttpException,
+  ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE,
+  ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE,
   UNKNOWN_CHAIN_ERROR_CODE,
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../../../src/services/error-handler';
 
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
+import { BinanceSmartChain } from '../../../src/chains/binance-smart-chain/binance-smart-chain';
+import { Solana } from '../../../src/chains/solana/solana';
+import { Hedera } from '../../../src/chains/hedera/hedera';
 let avalanche: Avalanche;
 let eth: Ethereum;
 let harmony: Harmony;
+let bsc: BinanceSmartChain;
+let solana: Solana;
+let hedera: Hedera;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
@@ -25,6 +33,9 @@ beforeAll(async () => {
   avalanche = Avalanche.getInstance('fuji');
   eth = Ethereum.getInstance('kovan');
   harmony = Harmony.getInstance('testnet');
+  bsc = BinanceSmartChain.getInstance('testnet');
+  solana = Solana.getInstance();
+  hedera = Hedera.getInstance('testnet');
 });
 
 beforeEach(() =>
@@ -35,6 +46,7 @@ afterAll(async () => {
   await avalanche.close();
   await eth.close();
   await harmony.close();
+  await bsc.close();
 });
 
 afterEach(() => unpatch());
@@ -145,6 +157,32 @@ describe('addWallet and getWallets', () => {
     expect(addresses[0]).toContain(oneAddress);
   });
 
+  it('add a Binance Smart Chain wallet', async () => {
+    patch(bsc, 'getWallet', () => {
+      return {
+        address: oneAddress,
+      };
+    });
+
+    patch(bsc, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await addWallet({
+      privateKey: onePrivateKey,
+      chain: 'binance-smart-chain',
+      network: 'testnet',
+    });
+
+    const wallets = await getWallets();
+
+    const addresses: string[][] = wallets
+      .filter((wallet) => wallet.chain === 'binance-smart-chain')
+      .map((wallet) => wallet.walletAddresses);
+
+    expect(addresses[0]).toContain(oneAddress);
+  });
+
   it('fail to add a wallet to unknown chain', async () => {
     await expect(
       addWallet({
@@ -156,8 +194,64 @@ describe('addWallet and getWallets', () => {
       new HttpException(
         500,
         UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE('shibainu'),
-
         UNKNOWN_CHAIN_ERROR_CODE
+      )
+    );
+  });
+
+  it('fail to retrieve eth wallet address', async () => {
+    patch(eth, 'getWalletFromPrivateKey', () => {
+      return {};
+    });
+    await expect(
+      addWallet({
+        privateKey: onePrivateKey,
+        chain: 'ethereum',
+        network: 'kovan',
+      })
+    ).rejects.toThrow(
+      new HttpException(
+        500,
+        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE(onePrivateKey),
+        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE
+      )
+    );
+  });
+
+  it('fail to retrieve solana wallet address', async () => {
+    patch(solana, 'getKeypairFromPrivateKey', () => {
+      return {};
+    });
+    await expect(
+      addWallet({
+        privateKey: onePrivateKey,
+        chain: 'solana',
+        network: 'testnet',
+      })
+    ).rejects.toThrow(
+      new HttpException(
+        500,
+        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE(onePrivateKey),
+        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE
+      )
+    );
+  });
+
+  it('fail to retrieve hedera wallet address', async () => {
+    patch(hedera, 'encrypt', () => {
+      return {};
+    });
+    await expect(
+      addWallet({
+        privateKey: `${onePrivateKey}-testId`,
+        chain: 'hedera',
+        network: 'testnet',
+      })
+    ).rejects.toThrow(
+      new HttpException(
+        500,
+        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE(onePrivateKey),
+        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE
       )
     );
   });
