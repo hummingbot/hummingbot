@@ -11,7 +11,6 @@ from bidict import bidict
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS, kucoin_web_utils as web_utils
 from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 from hummingbot.connector.trading_rule import TradingRule
@@ -427,7 +426,7 @@ class KucoinExchangeTests(unittest.TestCase):
 
         self.assertEqual(Decimal("0.01"), fee.percent)
 
-    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
+    @patch("hummingbot.connector.utils.get_tracking_nonce")
     def test_client_order_id_on_order(self, mocked_nonce):
         mocked_nonce.return_value = 9
 
@@ -893,7 +892,7 @@ class KucoinExchangeTests(unittest.TestCase):
         )
 
         # After the fourth time not finding the exchange order id the order should be marked as failed
-        for i in range(ClientOrderTracker.ORDER_NOT_FOUND_COUNT_LIMIT + 1):
+        for i in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(self.exchange._execute_cancel(
                 trading_pair=order.trading_pair,
                 order_id=order.client_order_id,

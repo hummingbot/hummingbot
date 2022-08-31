@@ -151,7 +151,29 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
     @property
     def network_status_request_successful_mock_response(self):
-        pass
+        return {
+            "code": 1000,
+            "trace": "886fb6ae-456b-4654-b4e0-d681ac05cea1",
+            "message": "OK",
+            "data": {
+                "serivce": [
+                    {
+                        "title": "Spot API Stop",
+                        "service_type": "spot",
+                        "status": "2",
+                        "start_time": 1527777538000,
+                        "end_time": 1527777538000
+                    },
+                    {
+                        "title": "Contract API Stop",
+                        "service_type": "contract",
+                        "status": "2",
+                        "start_time": 1527777538000,
+                        "end_time": 1527777538000
+                    }
+                ]
+            }
+        }
 
     @property
     def trading_rules_request_mock_response(self):
@@ -256,7 +278,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
     @property
     def balance_event_websocket_update(self):
         # Bitmart does not provide balance updates through websocket
-        pass
+        self.fail()
 
     @property
     def expected_latest_price(self):
@@ -334,20 +356,35 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         )
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
-        pass
+        request_headers = request_call.kwargs["headers"]
+        self.assertIn("X-BM-KEY", request_headers)
+        self.assertEqual("testAPIKey", request_headers["X-BM-KEY"])
+        self.assertIn("X-BM-TIMESTAMP", request_headers)
+        self.assertIn("X-BM-SIGN", request_headers)
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
-        pass
+        request_data = json.loads(request_call.kwargs["data"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_data["symbol"])
+        self.assertEqual("limit", request_data["type"])
+        self.assertEqual(order.trade_type.name.lower(), request_data["side"])
+        self.assertEqual(Decimal("100"), Decimal(request_data["size"]))
+        self.assertEqual(Decimal("10000"), Decimal(request_data["price"]))
+        self.assertEqual(order.client_order_id, request_data["clientOrderId"])
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = dict(json.loads(request_call.kwargs["data"]))
         self.assertEqual(order.client_order_id, request_data["clientOrderId"])
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
-        pass
+        request_params = request_call.kwargs["params"]
+        self.assertEqual(order.client_order_id, request_params["clientOrderId"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
-        pass
+        request_params = request_call.kwargs["params"]
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_params["symbol"])
+        self.assertEqual(order.exchange_order_id, request_params["order_id"])
 
     def configure_successful_cancelation_response(self,
                                                   order: InFlightOrder,
@@ -556,6 +593,27 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         pass
+
+    def test_time_synchronizer_related_request_error_detection(self):
+        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+                            'Error: {"code":30007,"msg":"Header X-BM-TIMESTAMP range. Within a minute"}')
+        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+                            'Error: {"code":30008,"msg":"Header X-BM-TIMESTAMP invalid format"}')
+        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+                            'Error: {"code":30000,"msg":"Header X-BM-TIMESTAMP range. Within a minute"}')
+        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+                            'Error: {"code":30007,"msg":"Other message"}')
+        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+                            'Error: {"code":30008,"msg":"Other message"}')
+        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {

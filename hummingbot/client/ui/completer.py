@@ -52,8 +52,12 @@ class HummingbotCompleter(Completer):
         self._py_file_completer = WordCompleter(file_name_list(str(PMM_SCRIPTS_PATH), "py"))
         self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
         self._rate_oracle_completer = WordCompleter([r.name for r in RateOracleSource], ignore_case=True)
+        self._gateway_chains = []
         self._gateway_networks = []
         self._list_gateway_wallets_parameters = {"wallets": [], "chain": ""}
+
+    def set_gateway_chains(self, gateway_chains):
+        self._gateway_chains = gateway_chains
 
     def set_gateway_networks(self, gateway_networks):
         self._gateway_networks = gateway_networks
@@ -83,6 +87,10 @@ class HummingbotCompleter(Completer):
                 break
         trading_pairs = trading_pair_fetcher.trading_pairs.get(market, []) if trading_pair_fetcher.ready and market else []
         return WordCompleter(trading_pairs, ignore_case=True, sentence=True)
+
+    @property
+    def _gateway_chain_completer(self):
+        return WordCompleter(self._gateway_chains, ignore_case=True)
 
     @property
     def _gateway_network_completer(self):
@@ -184,6 +192,9 @@ class HummingbotCompleter(Completer):
         return (("path" in self.prompt_text and "file" in self.prompt_text) or
                 "import" in text_before_cursor)
 
+    def _complete_gateway_chain(self, document: Document) -> bool:
+        return "Which chain do you want" in self.prompt_text
+
     def _complete_gateway_network(self, document: Document) -> bool:
         return "Which network do you want" in self.prompt_text
 
@@ -229,6 +240,10 @@ class HummingbotCompleter(Completer):
             for c in self._strategy_completer.get_completions(document, complete_event):
                 yield c
 
+        elif self._complete_gateway_chain(document):
+            for c in self._gateway_chain_completer.get_completions(document, complete_event):
+                yield c
+
         elif self._complete_gateway_network(document):
             for c in self._gateway_network_completer.get_completions(document, complete_event):
                 yield c
@@ -245,19 +260,12 @@ class HummingbotCompleter(Completer):
             if self._complete_spot_exchanges(document):
                 for c in self._spot_exchange_completer.get_completions(document, complete_event):
                     yield c
-            elif self._complete_derivatives(document):
-                for c in self._derivative_exchange_completer.get_completions(document, complete_event):
-                    yield c
             else:
                 for c in self._exchange_amm_completer.get_completions(document, complete_event):
                     yield c
 
         elif self._complete_spot_exchanges(document):
             for c in self._spot_exchange_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_derivatives(document):
-            for c in self._derivative_exchange_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_trading_timeframe(document):
@@ -301,11 +309,11 @@ class HummingbotCompleter(Completer):
                 yield c
 
         elif self._complete_derivatives(document):
-            if "(Exchange/AMM)" in self.prompt_text:
-                for c in self._derivative_completer.get_completions(document, complete_event):
+            if self._complete_exchanges(document):
+                for c in self._derivative_exchange_completer.get_completions(document, complete_event):
                     yield c
             else:
-                for c in self._derivative_exchange_completer.get_completions(document, complete_event):
+                for c in self._derivative_completer.get_completions(document, complete_event):
                     yield c
 
         elif self._complete_exchanges(document):

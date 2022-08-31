@@ -112,6 +112,7 @@ class TestAscendExExchange(unittest.TestCase):
                 commission_reserve_rate=Decimal("0.002"),
             ),
         }
+        self.exchange._trading_rules[self.trading_pair].min_order_size = Decimal(str(0.01))
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -763,7 +764,7 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertEqual(Decimal(10), self.exchange._account_available_balances[self.base_asset])
         self.assertEqual(Decimal(100), self.exchange._account_balances[self.base_asset])
 
-    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
+    @patch("hummingbot.connector.utils.get_tracking_nonce")
     def test_client_order_id_on_order(self, mocked_nonce):
         mocked_nonce.return_value = 6
 
@@ -1474,27 +1475,26 @@ class TestAscendExExchange(unittest.TestCase):
 
         mock_price.return_value = Decimal(98.7)
 
-        is_exception = False
-        exception_msg = ""
-
-        try:
-            self.async_run_with_timeout(self.exchange._create_order(
-                trade_type=TradeType.BUY,
-                order_id="testOrderId1",
-                trading_pair=self.trading_pair,
-                amount=Decimal(0),
-                order_type=OrderType.LIMIT,
-                price=Decimal(99),
-            ))
-        except ValueError as e:
-            is_exception = True
-            exception_msg = str(e)
+        self.async_run_with_timeout(self.exchange._create_order(
+            trade_type=TradeType.BUY,
+            order_id="testOrderId1",
+            trading_pair=self.trading_pair,
+            amount=Decimal(0),
+            order_type=OrderType.LIMIT,
+            price=Decimal(99),
+        ))
 
         self.assertNotIn("testOrderId1", self.exchange.in_flight_orders)
-        self.assertTrue(is_exception)
-        self.assertEqual("Order amount must be greater than zero.", exception_msg)
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                "Buy order amount 0 is lower than the minimum order size 0.01."
+            )
+        )
 
     def test_create_order_unsupported_order(self):
+        self._simulate_trading_rules_initialized()
+
         is_exception = False
         exception_msg = ""
 
