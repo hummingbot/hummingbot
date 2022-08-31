@@ -9,7 +9,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from os import listdir, scandir, unlink
 from os.path import isfile, join
-from pathlib import Path, PosixPath
+from pathlib import Path, PosixPath, PureWindowsPath
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Type, Union
 
 import ruamel.yaml
@@ -342,7 +342,10 @@ class ClientConfigAdapter:
             value = getattr(self, attribute)
             if isinstance(value, ClientConfigAdapter):
                 value = value._dict_in_conf_order()
-            conf_as_dictionary = {attribute: value}
+            if isinstance(traversal_item.value, PureWindowsPath):
+                conf_as_dictionary = {attribute: traversal_item.printable_value}
+            else:
+                conf_as_dictionary = {attribute: value}
             self._encrypt_secrets(conf_as_dictionary)
 
             yaml_config = yaml.safe_dump(conf_as_dictionary, sort_keys=False)
