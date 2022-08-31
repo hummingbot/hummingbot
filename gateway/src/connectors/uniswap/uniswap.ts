@@ -20,11 +20,12 @@ import { BigNumber, Transaction, Wallet } from 'ethers';
 import { logger } from '../../services/logger';
 import { percentRegexp } from '../../services/config-manager-v2';
 import { Ethereum } from '../../chains/ethereum/ethereum';
+import { Polygon } from '../../chains/polygon/polygon';
 import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 
 export class Uniswap implements Uniswapish {
   private static _instances: { [name: string]: Uniswap };
-  private ethereum: Ethereum;
+  private chain: Ethereum | Polygon;
   private _alphaRouter: AlphaRouter;
   private _router: string;
   private _routerAbi: ContractInterface;
@@ -35,15 +36,19 @@ export class Uniswap implements Uniswapish {
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
-  private constructor(network: string) {
+  private constructor(chain: string, network: string) {
     const config = UniswapConfig.config;
-    this.ethereum = Ethereum.getInstance(network);
-    this.chainId = this.ethereum.chainId;
+    if (chain === 'ethereum') {
+      this.chain = Ethereum.getInstance(network);
+    } else {
+      this.chain = Polygon.getInstance(network);
+    }
+    this.chainId = this.chain.chainId;
     this._ttl = UniswapConfig.config.ttl;
     this._maximumHops = UniswapConfig.config.maximumHops;
     this._alphaRouter = new AlphaRouter({
       chainId: this.chainId,
-      provider: this.ethereum.provider,
+      provider: this.chain.provider,
     });
     this._routerAbi = routerAbi.abi;
     this._gasLimitEstimate = UniswapConfig.config.gasLimitEstimate;
@@ -55,7 +60,7 @@ export class Uniswap implements Uniswapish {
       Uniswap._instances = {};
     }
     if (!(chain + network in Uniswap._instances)) {
-      Uniswap._instances[chain + network] = new Uniswap(network);
+      Uniswap._instances[chain + network] = new Uniswap(chain, network);
     }
 
     return Uniswap._instances[chain + network];
@@ -72,10 +77,10 @@ export class Uniswap implements Uniswapish {
   }
 
   public async init() {
-    if (!this.ethereum.ready()) {
-      await this.ethereum.init();
+    if (!this.chain.ready()) {
+      await this.chain.init();
     }
-    for (const token of this.ethereum.storedTokenList) {
+    for (const token of this.chain.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
         token.address,
@@ -286,16 +291,16 @@ export class Uniswap implements Uniswapish {
     );
 
     if (nonce === undefined) {
-      nonce = await this.ethereum.nonceManager.getNextNonce(wallet.address);
+      nonce = await this.chain.nonceManager.getNextNonce(wallet.address);
     }
     let tx: ContractTransaction;
     if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
       tx = await wallet.sendTransaction({
         data: methodParameters.calldata,
         to: uniswapRouter,
-        gasLimit: gasLimit.toFixed(0),
-        value: methodParameters.value,
-        nonce: nonce,
+        gasLimit: BigNumber.from(String(gasLimit)),
+        value: BigNumber.from(methodParameters.value),
+        nonce: BigNumber.from(String(nonce)),
         maxFeePerGas,
         maxPriorityFeePerGas,
       });
@@ -303,15 +308,15 @@ export class Uniswap implements Uniswapish {
       tx = await wallet.sendTransaction({
         data: methodParameters.calldata,
         to: this.router,
-        gasPrice: (gasPrice * 1e9).toFixed(0),
-        gasLimit: gasLimit.toFixed(0),
-        value: methodParameters.value,
-        nonce: nonce,
+        gasPrice: BigNumber.from(String((gasPrice * 1e9).toFixed(0))),
+        gasLimit: BigNumber.from(String(gasLimit)),
+        value: BigNumber.from(methodParameters.value),
+        nonce: BigNumber.from(String(nonce)),
       });
     }
 
     logger.info(tx);
-    await this.ethereum.nonceManager.commitNonce(wallet.address, nonce);
+    await this.chain.nonceManager.commitNonce(wallet.address, nonce);
     return tx;
   }
 }

@@ -3,7 +3,7 @@ configurations:
   $namespace harmony:
     configurationPath: harmony.yml
     schemaPath: harmony-schema.json
-    
+
   $namespace solana:
     configurationPath: solana.yml
     schemaPath: solana-schema.json
@@ -36,6 +36,10 @@ configurations:
     configurationPath: ssl.yml
     schemaPath: ssl-schema.json
 
+  $namespace defira:
+    configurationPath: defira.yml
+    schemaPath: defira-schema.json
+
   $namespace pangolin:
     configurationPath: pangolin.yml
     schemaPath: pangolin-schema.json
@@ -67,3 +71,11 @@ configurations:
   $namespace uniswap:
     configurationPath: uniswap.yml
     schemaPath: uniswap-schema.json
+
+  $namespace openocean:
+    configurationPath: openocean.yml
+    schemaPath: openocean-schema.json
+
+  $namespace defikingdoms:
+    configurationPath: defikingdoms.yml
+    schemaPath: defikingdoms-schema.json

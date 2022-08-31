@@ -2,13 +2,13 @@
 networks:
   mainnet:
     chainID: 137
-    nodeURL: https://polygon-rpc.com
+    nodeURL: https://rpc.ankr.com/polygon
     tokenListType: 'URL'
     tokenListSource: 'https://raw.githubusercontent.com/SetProtocol/uniswap-tokenlist/main/set.polygon.tokenlist.json'
     nativeCurrencySymbol: 'MATIC'  
   mumbai:
     chainID: 80001
-    nodeURL: https://matic-mumbai.chainstacklabs.com
+    nodeURL: https://rpc.ankr.com/polygon_mumbai
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/polygon/polygon_tokens_mumbai.json'
     nativeCurrencySymbol: 'MATIC'
