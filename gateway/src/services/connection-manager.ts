@@ -5,24 +5,27 @@ import { Polygon } from '../chains/polygon/polygon';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { Pangolin } from '../connectors/pangolin/pangolin';
-import { Cosmos } from '../chains/cosmos/cosmos';
 import { Openocean } from '../connectors/openocean/openocean';
 import { Quickswap } from '../connectors/quickswap/quickswap';
 import { Perp } from '../connectors/perp/perp';
-import { Perpish, Uniswapish, UniswapLPish } from './common-interfaces';
+import {
+  Ethereumish,
+  Perpish,
+  Uniswapish,
+  UniswapLPish,
+} from './common-interfaces';
 import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Sushiswap } from '../connectors/sushiswap/sushiswap';
 import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
 
 export async function getChain(chain: string, network: string) {
-  let chainInstance: any;
+  let chainInstance: Ethereumish;
 
   if (chain === 'ethereum') chainInstance = Ethereum.getInstance(network);
   else if (chain === 'avalanche')
     chainInstance = Avalanche.getInstance(network);
   else if (chain === 'polygon') chainInstance = Polygon.getInstance(network);
   else if (chain === 'harmony') chainInstance = Harmony.getInstance(network);
-  else if (chain === 'cosmos') chainInstance = Cosmos.getInstance(network);
   else throw new Error('unsupported chain');
   if (!chainInstance.ready()) {
     await chainInstance.init();

@@ -5,11 +5,7 @@ import NodeCache from 'node-cache';
 import fse from 'fs-extra';
 import { ConfigManagerCertPassphrase } from './config-manager-cert-passphrase';
 import { BigNumber } from 'ethers';
-import {
-  AccountData,
-  // DecodedTxRaw,
-  DirectSignResponse,
-} from '@cosmjs/proto-signing';
+import { AccountData, DirectSignResponse } from '@cosmjs/proto-signing';
 
 import { IndexedTx, setupIbcExtension } from '@cosmjs/stargate';
 

@@ -1,4 +1,3 @@
-/* WIP */
 import {
   validateTokenSymbols,
   mkValidator,
