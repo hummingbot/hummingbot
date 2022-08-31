@@ -52,15 +52,17 @@ export const toCosmosBalances = (
   balances: Record<string, TokenValue>,
   tokenSymbols: Array<string>
 ): Record<string, string> => {
-  const filteredBalancesKeys = Object.keys(balances).filter((symbol) =>
-    tokenSymbols.includes(symbol)
-  );
-
   const walletBalances: Record<string, string> = {};
 
-  filteredBalancesKeys.forEach(
-    (symbol) => (walletBalances[symbol] = tokenValueToString(balances[symbol]))
-  );
+  tokenSymbols.forEach((symbol) => {
+    let balance = '0.0';
+
+    if (balances[symbol]) {
+      balance = tokenValueToString(balances[symbol]);
+    }
+
+    walletBalances[symbol] = balance;
+  });
 
   return walletBalances;
 };

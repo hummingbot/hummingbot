@@ -32,7 +32,6 @@ export const cosmosTests = async (tokens: string[] = []) => {
   // Check wallet for public key is added
   console.log(`Checking if wallet ${publicKey} has been added...`);
   const wallets = await request('GET', '/wallet/', {});
-  console.log(wallets);
   let alreadyAdded = false;
   for (const chain of wallets) {
     if (chain.chain === 'cosmos' && publicKey in chain.walletAddresses) {
