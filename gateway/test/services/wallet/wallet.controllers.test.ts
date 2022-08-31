@@ -201,7 +201,9 @@ describe('addWallet and getWallets', () => {
 
   it('fail to retrieve eth wallet address', async () => {
     patch(eth, 'getWalletFromPrivateKey', () => {
-      return {};
+      return {
+        address: undefined,
+      };
     });
     await expect(
       addWallet({
@@ -267,6 +269,12 @@ describe('addWallet and removeWallets', () => {
 
     patch(eth, 'encrypt', () => {
       return JSON.stringify(encodedPrivateKey);
+    });
+
+    patch(eth, 'getWalletFromPrivateKey', () => {
+      return {
+        address: oneAddress,
+      };
     });
 
     await addWallet({
