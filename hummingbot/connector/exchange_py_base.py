@@ -422,6 +422,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
         :param price: the order price
         """
+        print("--- _create_order ---")
         exchange_order_id = ""
         trading_rule = self._trading_rules[trading_pair]
 

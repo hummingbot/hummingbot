@@ -49,6 +49,7 @@ from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, Tok
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.model.order_status import OrderStatus
+from hummingbot.connector.exchange.polkadex import polkadex_utils as p_utils
 
 
 def fee_levied_asset(side, base, quote):
@@ -333,7 +334,7 @@ class PolkadexExchange(ExchangePyBase):
                  amount: Decimal, price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
         return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
-
+    
     def balance_update_callback(self, message):
         """ Expected message structure
         {"SetBalance":
@@ -351,8 +352,11 @@ class PolkadexExchange(ExchangePyBase):
         self.logger().info("Callback message : ",message)
         print("Callback message : {:?}",message)
         asset_name = convert_asset_to_ticker(message["asset"])
-        free_balance = Decimal(message["free"]) / UNIT_BALANCE
-        total_balance = (Decimal(message["free"]) / UNIT_BALANCE) + (Decimal(message["reserved"]) / UNIT_BALANCE)
+
+
+        free_balance = p_utils.parse_price_or_qty(message["free"])
+        total_balance = p_utils.parse_price_or_qty(message["free"]) + p_utils.parse_price_or_qty(message["reserved"])
+
         self._account_available_balances[asset_name] = free_balance
         self._account_balances[asset_name] = total_balance
         self.logger().info("Callback free_balance : ",free_balance,", asset_name : ",asset_name)
@@ -381,7 +385,7 @@ class PolkadexExchange(ExchangePyBase):
             }
         }
         """
-        # TODO: Update based on event id
+        print(" --- Order Update Callback: ",message," ---\n")
         message = message["data"]["websocket_streams"]["data"]["SetOrder"]
         market, base_asset, quote_asset = convert_pair_to_market(message["pair"])
         print("trading pair", market)
@@ -412,8 +416,8 @@ class PolkadexExchange(ExchangePyBase):
                 exchange_order_id=str(message["id"]),
                 trading_pair=tracked_order.trading_pair,
                 fee=fee,
-                fill_base_amount=Decimal(message["filled_quantity"]) / UNIT_BALANCE,
-                fill_quote_amount=(Decimal(message["filled_quantity"]) / UNIT_BALANCE) * (
+                fill_base_amount= Decimal(message["filled_quantity"]) / UNIT_BALANCE,
+                fill_quote_amount= (Decimal(message["filled_quantity"]) / UNIT_BALANCE) * (
                         Decimal(message["avg_filled_price"]) / UNIT_BALANCE),
                 fill_price=Decimal(message["avg_filled_price"]) / UNIT_BALANCE,
                 fill_timestamp=ts,
@@ -573,10 +577,11 @@ class PolkadexExchange(ExchangePyBase):
         for balance_entry in balances:
             print("Update Before balance_entry : {:?}",balance_entry)
             asset_name = balance_entry["a"]
-            free_balance = Decimal(balance_entry["f"]) / UNIT_BALANCE
-            total_balance = Decimal(balance_entry["f"]) + Decimal(balance_entry["r"])
+            free_balance = p_utils.parse_price_or_qty(balance_entry["f"])
+            total_balance = p_utils.parse_price_or_qty(balance_entry["f"]) + p_utils.parse_price_or_qty(balance_entry["r"])
+
             self._account_available_balances[asset_name] = free_balance
-            self._account_balances[asset_name] = total_balance / UNIT_BALANCE
+            self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
             print("Update After free_balance : ",free_balance,", asset_name : ",asset_name)
             print("Update After total_balance : ",total_balance,", asset_name : ",asset_name)
@@ -631,4 +636,4 @@ class PolkadexExchange(ExchangePyBase):
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         recent_trade = await get_recent_trades(trading_pair, 1, None, self.endpoint, self.api_key)
-        return float(recent_trade[0]["p"])
+        return p_utils.parse_price_or_qty(recent_trade[0]["p"])
