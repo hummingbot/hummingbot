@@ -1,7 +1,6 @@
 import fs = require('fs');
 import path = require('path');
 import https = require('https');
-import { publicKey } from '../test/chains/solana/solana.validators.test';
 import axios from 'axios';
 import { ConfigManagerV2 } from '../src/services/config-manager-v2';
 
@@ -37,11 +36,14 @@ export const request = async (
 ) => {
   try {
     let response;
-    const gatewayAddress = `https://${host}:${port}`;
+    const gatewayAddress = `${
+      ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')
+        ? 'http://'
+        : 'https://'
+    }${host}:${port}`;
     if (method === 'GET') {
       response = await httpsAgent.get(gatewayAddress + path);
     } else {
-      params.address = publicKey;
       response = await httpsAgent.post(gatewayAddress + path, params);
     }
     return response.data;
