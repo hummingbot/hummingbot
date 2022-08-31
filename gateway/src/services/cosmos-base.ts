@@ -11,7 +11,7 @@ import {
   DirectSignResponse,
 } from '@cosmjs/proto-signing';
 
-import { IndexedTx } from '@cosmjs/stargate';
+import { IndexedTx, setupIbcExtension } from '@cosmjs/stargate';
 
 //Cosmos
 const { DirectSecp256k1Wallet } = require('@cosmjs/proto-signing');
@@ -96,10 +96,6 @@ export class CosmosBase {
   public get provider() {
     return this._provider;
   }
-
-  // public onDebugMessage(func: NewDebugMsgHandler) {
-  //   this.provider.on('debug', func);
-  // }
 
   async init(): Promise<void> {
     if (!this.ready() && !this._initializing) {
@@ -324,7 +320,24 @@ export class CosmosBase {
 
     await Promise.all(
       allTokens.map(async (t: { denom: string; amount: string }) => {
-        const token = this.getTokenByBase(t.denom);
+        let token = this.getTokenByBase(t.denom);
+
+        if (!token && t.denom.startsWith('ibc/')) {
+          const ibcHash: string = t.denom.replace('ibc/', '');
+
+          // Get base denom by IBC hash
+          if (ibcHash) {
+            const { denomTrace } = await setupIbcExtension(
+              await provider.queryClient
+            ).ibc.transfer.denomTrace(ibcHash);
+
+            if (denomTrace) {
+              const { baseDenom } = denomTrace;
+
+              token = this.getTokenByBase(baseDenom);
+            }
+          }
+        }
 
         // Not all tokens are added in the registry so we use the denom if the token doesn't exist
         balances[token ? token.symbol : t.denom] = {

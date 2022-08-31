@@ -33,7 +33,6 @@ export class Cosmos extends CosmosBase implements Cosmosish {
     this._requestCount = 0;
     this._metricsLogInterval = 300000; // 5 minutes
 
-    // this.onDebugMessage(this.requestCounter.bind(this));
     setInterval(this.metricLogger.bind(this), this.metricsLogInterval);
   }
 
