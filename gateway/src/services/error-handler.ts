@@ -131,7 +131,7 @@ export const UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE = (chainName: any) =>
 export const ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE = (
   privKey: string
 ) =>
-  `Unable to retrieve wallet address for provided privary key: ${privKey.substring(
+  `Unable to retrieve wallet address for provided private key: ${privKey.substring(
     0,
     5
   )}`;

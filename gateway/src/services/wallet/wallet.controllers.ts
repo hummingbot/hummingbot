@@ -39,8 +39,8 @@ export async function addWallet(
     throw new Error('There is no passphrase');
   }
   let connection: EthereumBase | HederaBase | Solana;
-  let address: string;
-  let encryptedPrivateKey: string;
+  let address: string | undefined;
+  let encryptedPrivateKey: string | undefined;
 
   if (req.chain === 'ethereum') {
     connection = Ethereum.getInstance(req.network);
@@ -83,24 +83,21 @@ export async function addWallet(
         req.privateKey,
         passphrase
       );
-    } else {
-      throw new HttpException(
-        500,
-        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE(req.privateKey),
-        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE
-      );
     }
-    const path = `${walletPath}/${req.chain}`;
-    await mkdirIfDoesNotExist(path);
-    await fse.writeFile(`${path}/${address}.json`, encryptedPrivateKey);
-    return { address };
-  } catch (e: unknown) {
+    if (address === undefined || encryptedPrivateKey === undefined) {
+      throw new Error('ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE');
+    }
+  } catch (_e: unknown) {
     throw new HttpException(
       500,
       ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE(req.privateKey),
       ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE
     );
   }
+  const path = `${walletPath}/${req.chain}`;
+  await mkdirIfDoesNotExist(path);
+  await fse.writeFile(`${path}/${address}.json`, encryptedPrivateKey);
+  return { address };
 }
 
 // if the file does not exist, this should not fail
