@@ -1,10 +1,13 @@
-from decimal import Decimal
 import unittest.mock
-import hummingbot.strategy.arbitrage.start as arbitrage_start
-from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.strategy.arbitrage.arbitrage_config_map import arbitrage_config_map
-from hummingbot.strategy.arbitrage.arbitrage import ArbitrageStrategy
+from decimal import Decimal
 from test.hummingbot.strategy import assign_config_default
+
+import hummingbot.strategy.arbitrage.start as arbitrage_start
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.strategy.arbitrage.arbitrage import ArbitrageStrategy
+from hummingbot.strategy.arbitrage.arbitrage_config_map import arbitrage_config_map
 
 
 class ArbitrageStartTest(unittest.TestCase):
@@ -12,7 +15,10 @@ class ArbitrageStartTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.strategy: ArbitrageStrategy = None
-        self.markets = {"binance": ConnectorBase(), "balancer": ConnectorBase()}
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.markets = {
+            "binance": ConnectorBase(client_config_map=self.client_config_map),
+            "balancer": ConnectorBase(client_config_map=self.client_config_map)}
         self.notifications = []
         self.log_errors = []
         assign_config_default(arbitrage_config_map)

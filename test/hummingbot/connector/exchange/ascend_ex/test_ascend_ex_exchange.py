@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS, ascend_ex_utils
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import (
@@ -48,8 +50,13 @@ class TestAscendExExchange(unittest.TestCase):
         super().setUp()
         self.log_records = []
         self.async_task: Optional[asyncio.Task] = None
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.exchange = AscendExExchange(self.api_key, self.api_secret_key, trading_pairs=[self.trading_pair])
+        self.exchange = AscendExExchange(
+            client_config_map=self.client_config_map,
+            ascend_ex_api_key=self.api_key,
+            ascend_ex_secret_key=self.api_secret_key,
+            trading_pairs=[self.trading_pair])
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
         self._initialize_event_loggers()

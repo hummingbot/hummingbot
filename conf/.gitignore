@@ -1,10 +1,3 @@
-/config_local.py
-/quote_api_secret.py
-/web3_wallet_secret.py
-/binance_secret.py
-/api_secrets.py
-/*secret*
-*encrypted*
-*key*
 *.yml
-/gateway_connections.json
+*.json
+.password_verification
