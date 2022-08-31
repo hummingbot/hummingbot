@@ -14,6 +14,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
+from hummingbot.strategy.utils import order_age
 
 hedge_logger = None
 
@@ -58,6 +59,7 @@ class HedgeStrategy(StrategyPyBase):
         offsets: Dict[MarketTradingPairTuple, Decimal],
         hedge_position_mode: PositionMode = PositionMode.ONEWAY,
         status_report_interval: float = 900,
+        max_order_age: float = 5,
     ):
         """
         Initializes the hedge strategy.
@@ -88,6 +90,7 @@ class HedgeStrategy(StrategyPyBase):
         self._last_timestamp = 0
         self._all_markets_ready = False
         self._value_mode = value_mode
+        self._max_order_age = max_order_age
         if value_mode:
             if len(self._hedge_market_pairs) != 1:
                 raise ValueError("Value mode is only supported for one hedge market pair.")
@@ -101,7 +104,11 @@ class HedgeStrategy(StrategyPyBase):
         self._derivatives_list = [
             market_pair for market_pair in self._all_markets if market_pair.market.name in derivative_markets
         ]
-        self.get_order_candidates = self.get_perpetual_order_candidates if self.is_derivative(self._hedge_market_pairs[0]) else self.get_spot_order_candidates
+        self.get_order_candidates = (
+            self.get_perpetual_order_candidates
+            if self.is_derivative(self._hedge_market_pairs[0])
+            else self.get_spot_order_candidates
+        )
 
         all_markets = list(set([market_pair.market for market_pair in self._all_markets]))
         self.add_markets(all_markets)
@@ -174,10 +181,11 @@ class HedgeStrategy(StrategyPyBase):
         return pd.DataFrame(data=data, columns=columns)
 
     @property
-    def active_orders(self) -> List[LimitOrder]:
+    def active_orders(self) -> List[Tuple[Any, LimitOrder]]:
         """
         Get the active orders of all markets.
         :return: The active orders of all hedge markets.
+
         """
         return self.order_tracker.active_limit_orders
 
@@ -188,6 +196,8 @@ class HedgeStrategy(StrategyPyBase):
         lines = []
         warning_lines = []
         warning_lines.extend(self.network_warning(self._all_markets))
+        wallet_df = self.wallet_balance_data_frame(self._all_markets)
+        lines.extend(["", "  Wallet:"] + ["    " + line for line in str(wallet_df).split("\n")])
         assets_df = self.wallet_df()
         lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
         positions_df = self.active_positions_df()
@@ -197,7 +207,8 @@ class HedgeStrategy(StrategyPyBase):
             lines.extend(["", "  No positions."])
         # See if there're any open orders.
         if self.active_orders:
-            df = LimitOrder.to_pandas(self.active_orders)
+            orders = [order[1] for order in self.active_orders]
+            df = LimitOrder.to_pandas(orders)
             df_lines = str(df).split("\n")
             lines.extend(["", "  Active orders:"] + ["    " + line for line in df_lines])
         else:
@@ -209,7 +220,12 @@ class HedgeStrategy(StrategyPyBase):
             price, amount = self.calculate_hedge_price_and_amount(is_buy, value_to_hedge)
             lines.extend(["", f"   Total value: {total_value:.6g}, Hedge value: {hedge_value:.6g}"])
             if amount > 0:
-                lines.extend(["", f"   Next Hedge direction: {'buy' if is_buy else 'sell'}, Hedge price: {price:.6g}, Hedge amount: {amount:.6g}"])
+                lines.extend(
+                    [
+                        "",
+                        f"   Next Hedge direction: {'buy' if is_buy else 'sell'}, Hedge price: {price:.6g}, Hedge amount: {amount:.6g}",
+                    ]
+                )
         return "\n".join(lines) + "\n" + "\n".join(warning_lines)
 
     def start(self, clock: Clock, timestamp: float) -> None:
@@ -251,9 +267,7 @@ class HedgeStrategy(StrategyPyBase):
                     self.logger().warning("Markets are not ready. No hedge trades are permitted.")
                 return
 
-            if not all(
-                [market.network_status is NetworkStatus.CONNECTED for market in self.active_markets]
-            ):
+            if not all([market.network_status is NetworkStatus.CONNECTED for market in self.active_markets]):
                 if should_report_warnings:
                     self.logger().warning(
                         "WARNING: Some markets are not connected or are down at the moment. "
@@ -262,7 +276,8 @@ class HedgeStrategy(StrategyPyBase):
                         self._hedge_interval,
                     )
                 return
-            self.check_and_cancel_active_orders()
+            if self.check_and_cancel_active_orders():
+                return
             self.hedge()
         finally:
             self._last_timestamp = timestamp
@@ -282,19 +297,6 @@ class HedgeStrategy(StrategyPyBase):
         if position_side:
             return [position for position in positions if position.position_side == position_side]
         return positions
-        # if self._position_mode == PositionMode.ONEWAY:
-        #     position = market_pair.market.get_position(trading_pair)
-        #     if position:
-        #         return [position]
-        #     return []
-        # positions = []
-        # long_position = market_pair.market.get_position(trading_pair, PositionSide.LONG)
-        # if long_position:
-        #     positions.append(long_position)
-        # short_position = market_pair.market.get_position(trading_pair, PositionSide.SHORT)
-        # if short_position:
-        #     positions.append(short_position)
-        # return positions
 
     def get_derivative_base_amount(self, market_pair: MarketTradingPairTuple) -> Decimal:
         """
@@ -422,6 +424,7 @@ class HedgeStrategy(StrategyPyBase):
         returns the order candidate if the order meets the accepted criteria
         else, return None
         """
+
         def get_closing_order_candidate(is_buy: bool, amount: Decimal, price: Decimal) -> PerpetualOrderCandidate:
             opp_position_side = PositionSide.SHORT if is_buy else PositionSide.LONG
             opp_position_list = self.get_positions(market_pair, opp_position_side)
@@ -441,6 +444,7 @@ class HedgeStrategy(StrategyPyBase):
                 adjusted_candidate_order = budget_checker.adjust_candidate(order_candidate)
                 return adjusted_candidate_order
             return None
+
         budget_checker = market_pair.market.budget_checker
         if amount * price < self._min_trade_size:
             return []
@@ -514,5 +518,10 @@ class HedgeStrategy(StrategyPyBase):
         if not self.active_orders:
             return False
         for market_pair, order in self.active_orders:
+            if order_age(order, self.current_timestamp) < self._max_order_age:
+                continue
+            self.logger().info(
+                f"Cancel {'buy' if order.is_buy else 'sell'} {order.quantity} {order.trading_pair} at {order.price}"
+            )
             market_pair.cancel(order.trading_pair, order.client_order_id)
         return True
