@@ -56,6 +56,8 @@ import {
 import { Trade as DefiraTrade } from '@zuzu-cat/defira-sdk';
 import { PerpPosition } from '../connectors/perp/perp';
 
+// TODO Check the possibility to have clob/solana/serum equivalents here
+//  Check this link https://hummingbot.org/developers/gateway/building-gateway-connectors/#5-add-sdk-classes-to-uniswapish-interface
 export type Tokenish =
   | Token
   | TokenPangolin
@@ -414,6 +416,11 @@ export interface Perpish {
   getPositions(tickerSymbol: string): Promise<PerpPosition | undefined>;
 
   /**
+   * Attempts to return balance of a connected acct
+   */
+  getAccountValue(): Promise<Big>;
+
+  /**
    * Given the necessary parameters, open a position.
    * @param isLong Will create a long position if true, else a short pos will be created.
    * @param tickerSymbol the market to create position on.
@@ -423,7 +430,8 @@ export interface Perpish {
   openPosition(
     isLong: boolean,
     tickerSymbol: string,
-    minBaseAmount: string
+    minBaseAmount: string,
+    allowedSlippage?: string
   ): Promise<Transaction>;
 
   /**
@@ -431,7 +439,10 @@ export interface Perpish {
    * @param tickerSymbol The market on which we want to close position.
    * @returns An ethers transaction object.
    */
-  closePosition(tickerSymbol: string): Promise<Transaction>;
+  closePosition(
+    tickerSymbol: string,
+    allowedSlippage?: string
+  ): Promise<Transaction>;
 }
 
 export interface Ethereumish extends EthereumBase {
@@ -452,9 +463,23 @@ export interface Cosmosish extends CosmosBase {
 }
 
 export interface NetworkSelectionRequest {
-  connector?: string; //the target connector (e.g. uniswap or pangolin)
   chain: string; //the target chain (e.g. ethereum, avalanche, or harmony)
   network: string; // the target network of the chain (e.g. mainnet)
+  connector?: string; //the target connector (e.g. uniswap or pangolin)
+}
+
+export class ResponseWrapper<T> {
+  get status(): number {
+    return this._status || -1;
+  }
+  set status(value: number) {
+    this._status = value;
+  }
+  private _status: number | undefined;
+
+  title?: string;
+  message?: string;
+  body?: T;
 }
 
 export interface CustomTransactionReceipt

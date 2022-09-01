@@ -764,7 +764,7 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertEqual(Decimal(10), self.exchange._account_available_balances[self.base_asset])
         self.assertEqual(Decimal(100), self.exchange._account_balances[self.base_asset])
 
-    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
+    @patch("hummingbot.connector.utils.get_tracking_nonce")
     def test_client_order_id_on_order(self, mocked_nonce):
         mocked_nonce.return_value = 6
 
