@@ -1,7 +1,7 @@
 import asyncio
+import inspect
 import logging
 import time
-import inspect
 
 
 async def safe_wrapper(c):
