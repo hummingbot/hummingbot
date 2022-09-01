@@ -53,6 +53,7 @@ import {
   Trade as TradeTraderjoe,
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
+import { Trade as DefiraTrade } from '@zuzu-cat/defira-sdk';
 import { PerpPosition } from '../connectors/perp/perp';
 
 export type Tokenish =
@@ -74,7 +75,8 @@ export type UniswapishTrade =
   | SushiswapTrade<SushiToken, SushiToken, SushiTradeType>
   | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
   | TradeUniswap
-  | TradeDefikingdoms;
+  | TradeDefikingdoms
+  | DefiraTrade<UniswapCoreToken, UniswapCoreToken, TradeType>;
 
 export type UniswapishAmount =
   | CurrencyAmount
