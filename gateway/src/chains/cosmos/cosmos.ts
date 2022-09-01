@@ -6,7 +6,6 @@ import { logger } from '../../services/logger';
 export class Cosmos extends CosmosBase implements Cosmosish {
   private static _instances: { [name: string]: Cosmos };
   private _gasPrice: number;
-  private _gasPriceLastUpdated: Date | null;
   private _nativeTokenSymbol: string;
   private _chain: string;
   private _requestCount: number;
@@ -25,9 +24,6 @@ export class Cosmos extends CosmosBase implements Cosmosish {
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
 
     this._gasPrice = config.manualGasPrice;
-    this._gasPriceLastUpdated = null;
-
-    // this.updateGasPrice();
 
     this._requestCount = 0;
     this._metricsLogInterval = 300000; // 5 minutes
@@ -73,10 +69,6 @@ export class Cosmos extends CosmosBase implements Cosmosish {
 
   public get nativeTokenSymbol(): string {
     return this._nativeTokenSymbol;
-  }
-
-  public get gasPriceLastDated(): Date | null {
-    return this._gasPriceLastUpdated;
   }
 
   public get requestCount(): number {
