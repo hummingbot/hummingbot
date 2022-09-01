@@ -20,10 +20,6 @@ configurations:
     configurationPath: ethereum.yml
     schemaPath: ethereum-schema.json
 
-  $namespace cosmos:
-    configurationPath: cosmos.yml
-    schemaPath: cosmos-schema.json
-
   $namespace polygon:
     configurationPath: polygon.yml
     schemaPath: ethereum-schema.json
@@ -87,3 +83,7 @@ configurations:
   $namespace serum:
     configurationPath: serum.yml
     schemaPath: serum-schema.json
+
+  $namespace cosmos:
+    configurationPath: cosmos.yml
+    schemaPath: cosmos-schema.json
