@@ -3,6 +3,7 @@ import express from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { ConfigRoutes } from './services/config/config.routes';
 import { SolanaRoutes } from './chains/solana/solana.routes';
+import { CosmosRoutes } from './chains/cosmos/cosmos.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
 import { logger } from './services/logger';
 import { addHttps } from './https';
@@ -67,6 +68,7 @@ gatewayApp.use('/clob', ClobRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
 gatewayApp.use('/serum', SerumRoutes.router);
+gatewayApp.use('/cosmos', CosmosRoutes.router);
 
 // a simple route to test that the server is running
 gatewayApp.get('/', (_req: Request, res: Response) => {
@@ -150,6 +152,7 @@ export const swaggerDocument = SwaggerManager.generateSwaggerJson(
     './docs/swagger/solana-routes.yml',
     './docs/swagger/clob-routes.yml',
     './docs/swagger/serum-routes.yml',
+    './docs/swagger/cosmos-routes.yml',
   ]
 );
 
@@ -175,6 +178,7 @@ export const startGateway = async () => {
     );
   }
   logger.info(`⚡️ Gateway API listening on port ${port}`);
+
   if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
     await gatewayApp.listen(port);
