@@ -25,8 +25,11 @@ import { UniswapConfig } from './connectors/uniswap/uniswap.config';
 import { OpenoceanConfig } from './connectors/openocean/openocean.config';
 import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
+import { ClobRoutes } from './clob/clob.routes';
+import { SerumRoutes } from './connectors/serum/serum.routes';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
 import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.config';
+import { SerumConfig } from './connectors/serum/serum.config';
 
 import swaggerUi from 'swagger-ui-express';
 
@@ -59,8 +62,10 @@ gatewayApp.use('/connectors', ConnectorsRoutes.router);
 gatewayApp.use('/amm', AmmRoutes.router);
 gatewayApp.use('/amm/perp', PerpAmmRoutes.router);
 gatewayApp.use('/amm/liquidity', AmmLiquidityRoutes.router);
+gatewayApp.use('/clob', ClobRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
+gatewayApp.use('/serum', SerumRoutes.router);
 
 // a simple route to test that the server is running
 gatewayApp.get('/', (_req: Request, res: Response) => {
@@ -75,6 +80,7 @@ interface ConnectorsResponse {
   openocean: Array<AvailableNetworks>;
   traderjoe: Array<AvailableNetworks>;
   defikingdoms: Array<AvailableNetworks>;
+  serum: Array<AvailableNetworks>;
 }
 
 gatewayApp.get(
@@ -88,6 +94,7 @@ gatewayApp.get(
       openocean: OpenoceanConfig.config.availableNetworks,
       traderjoe: TraderjoeConfig.config.availableNetworks,
       defikingdoms: DefikingdomsConfig.config.availableNetworks,
+      serum: SerumConfig.config.availableNetworks,
     });
   })
 );
@@ -128,6 +135,8 @@ export const swaggerDocument = SwaggerManager.generateSwaggerJson(
     './docs/swagger/evm-routes.yml',
     './docs/swagger/network-routes.yml',
     './docs/swagger/solana-routes.yml',
+    './docs/swagger/clob-routes.yml',
+    './docs/swagger/serum-routes.yml',
   ]
 );
 
