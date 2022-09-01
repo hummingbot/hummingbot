@@ -305,7 +305,7 @@ cdef class LiquidExchange(ExchangeBase):
         """
         assert path_url is not None or url is not None
 
-        url = f"{Constants.BASE_URL}{path_url}" if url is None else url
+        url = str(f"{Constants.BASE_URL}{path_url}") if url is None else url
         data_str = "" if data is None else json.dumps(data)
         headers = self.liquid_auth.get_headers(path_url)
 

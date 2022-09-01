@@ -42,10 +42,10 @@ cdef class LimitOrder:
             long long now_timestamp = int(time.time() * 1e6) if end_time_order_age == 0 else end_time_order_age
         sells.extend(buys)
         for order in sells:
-            order_id_txt = order.client_order_id if len(order.client_order_id) <= 7 else f"...{order.client_order_id[-4:]}"
+            order_id_txt = order.client_order_id if len(order.client_order_id) <= 7 else str(f"...{order.client_order_id[-4:]}")
             type_txt = "buy" if order.is_buy else "sell"
             price = float(order.price)
-            spread_txt = f"{(0 if mid_price == 0 else abs(float(order.price) - mid_price) / mid_price):.2%}"
+            spread_txt = str(f"{(0 if mid_price == 0 else abs(float(order.price) - mid_price) / mid_price):.2%}")
             quantity = float(order.quantity)
             age_txt = "n/a"
             age_seconds = order.age_til(now_timestamp)
