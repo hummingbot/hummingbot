@@ -94,7 +94,6 @@ def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
 
     inside_docker: bool = is_inside_docker()
 
-    gateway_container_name: str = get_gateway_container_name(client_config_map)
     external_certs_path: Optional[Path] = os.getenv("CERTS_FOLDER") and Path(os.getenv("CERTS_FOLDER"))
     external_conf_path: Optional[Path] = os.getenv("GATEWAY_CONF_FOLDER") and Path(os.getenv("GATEWAY_CONF_FOLDER"))
     external_logs_path: Optional[Path] = os.getenv("GATEWAY_LOGS_FOLDER") and Path(os.getenv("GATEWAY_LOGS_FOLDER"))
@@ -103,11 +102,7 @@ def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
         raise EnvironmentError("CERTS_FOLDER, GATEWAY_CONF_FOLDER and GATEWAY_LOGS_FOLDER must be defined when "
                                "running as container.")
 
-    base_path: Path = (
-        Path.home().joinpath(".hummingbot-gateway")
-        if inside_docker
-        else Path.home().joinpath(f".hummingbot-gateway/{gateway_container_name}")
-    )
+    base_path: Path = Path.home().joinpath(".hummingbot-gateway")
     local_certs_path: Path = base_path.joinpath("certs")
     local_conf_path: Path = base_path.joinpath("conf")
     local_logs_path: Path = base_path.joinpath("logs")
