@@ -182,6 +182,17 @@ export interface PerpMarketResponse {
   isActive: boolean;
 }
 
+export interface PerpBalanceRequest extends NetworkSelectionRequest {
+  address: string;
+}
+
+export interface PerpBalanceResponse {
+  network: string;
+  timestamp: number;
+  latency: number;
+  balance: string;
+}
+
 export interface PerpPositionRequest extends PerpMarketRequest {
   address: string;
 }
@@ -207,6 +218,7 @@ export interface PerpCreateTakerRequest extends NetworkSelectionRequest {
   address: string;
   amount?: string;
   side?: PerpSide;
+  allowedSlippage?: string;
   nonce?: number;
 }
 

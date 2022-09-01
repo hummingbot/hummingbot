@@ -9,14 +9,12 @@ import pandas as pd
 import hummingbot.client.settings as settings
 from hummingbot import init_logging
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager
-from hummingbot.client.command.rate_command import RateCommand
 from hummingbot.client.config.config_helpers import get_strategy_starter_file
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.connector_status import get_connector_status, warning_messages
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import OracleRateUnavailable
@@ -146,17 +144,7 @@ class StartCommand(GatewayChainApiManager):
                     ]
 
                     # check for node URL
-                    node_url_works: bool = await self._test_node_url_from_gateway_config(connector_details['chain'], connector_details['network'])
-                    if not node_url_works:
-                        node_url: str = await self._get_node_url(connector_details['chain'], connector_details['network'])
-                        await self._update_gateway_chain_network_node_url(connector_details['chain'], connector_details['network'], node_url)
-                        self.notify("Please wait for gateway to restart.")
-                        # wait for gateway to restart, config update causes gateway to restart
-
-                        # TODO: Review the necessity of the code snippet below
-                        await self._gateway_monitor.wait_for_online_status()
-                        if self._gateway_monitor.gateway_status == GatewayStatus.OFFLINE:
-                            raise Exception("Lost contact with gateway after updating the config.")
+                    await self._test_node_url_from_gateway_config(connector_details['chain'], connector_details['network'])
 
                     await UserBalances.instance().update_exchange_balance(connector, self.client_config_map)
                     balances: List[str] = [
@@ -270,7 +258,7 @@ class StartCommand(GatewayChainApiManager):
             self.placeholder_mode = True
             self.app.hide_input = True
             for pair in settings.rate_oracle_pairs:
-                msg = await RateCommand.oracle_rate_msg(pair)
+                msg = await self.oracle_rate_msg(pair)
                 self.notify("\nRate Oracle:\n" + msg)
             config = ConfigVar(key="confirm_oracle_use",
                                type_str="bool",
