@@ -22,8 +22,6 @@ import {
 
 const walletPath = './conf/wallets';
 
-const solana = Solana.getInstance();
-
 export async function mkdirIfDoesNotExist(path: string): Promise<void> {
   const exists = await fse.pathExists(path);
   if (!exists) {
@@ -53,6 +51,7 @@ export async function addWallet(
     address = polygon.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await polygon.encrypt(req.privateKey, passphrase);
   } else if (req.chain === 'solana') {
+    const solana = await Solana.getInstance(req.network);
     address = solana
       .getKeypairFromPrivateKey(req.privateKey)
       .publicKey.toBase58();
