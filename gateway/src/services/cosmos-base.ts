@@ -237,18 +237,16 @@ export class CosmosBase {
       hash: 'SHA-256',
     };
     const key = await CosmosBase.getKey(keyAlgorithm, keyMaterial);
-
     const cipherAlgorithm = {
       name: 'AES-GCM',
       iv: iv,
     };
     const enc = new TextEncoder();
-    const ciphertext: ArrayBuffer = await crypto.subtle.encrypt(
+    const ciphertext: Uint8Array = (await crypto.subtle.encrypt(
       cipherAlgorithm,
       key,
       enc.encode(privateKey)
-    );
-
+    )) as Uint8Array;
     return JSON.stringify(
       {
         keyAlgorithm,
@@ -260,7 +258,7 @@ export class CosmosBase {
           case 'ciphertext':
           case 'salt':
           case 'iv':
-            return toBase64(value);
+            return toBase64(Uint8Array.from(Object.values(value)));
           default:
             return value;
         }
