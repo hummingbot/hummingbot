@@ -50,7 +50,7 @@ export const solTests = async (tokens: string[] = []) => {
 
   // call /balances
   console.log('Checking balances...');
-  const balancesResponse = await request('POST', '/solana/balances', {
+  const balancesResponse = await request('GET', '/solana/balances', {
     address: publicKey,
     tokenSymbols: tokens,
   });
@@ -62,7 +62,7 @@ export const solTests = async (tokens: string[] = []) => {
   // call /balances with invalid token symbol
   // confirm expected error message
   console.log('calling balances with invalid token symbols 15B and LLL...');
-  const balancesResponse1 = await request('POST', '/solana/balances', {
+  const balancesResponse1 = await request('GET', '/solana/balances', {
     tokenSymbols: ['15B', 'LLL'],
   });
   expect(balancesResponse1).toBeUndefined();

@@ -84,6 +84,7 @@ Help us **democratize high-frequency trading** and make powerful trading algorit
 | <img src="assets/traderjoe-logo.png" alt="Traderjoe" width="80" /> | [TraderJoe](https://traderjoexyz.com/) | [amm](https://hummingbot.org/gateway/exchanges/traderjoe/)
 | <img src="assets/uniswap-logo.jpg" alt="Uniswap" width="90" /> | [Uniswap](https://uniswap.org/) | [concentrated liquidity amm](https://hummingbot.org/gateway/exchanges/uniswap/)
 
+
 ## Getting Started
 
 - [Website](https://hummingbot.org)
