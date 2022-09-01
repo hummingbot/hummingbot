@@ -15,7 +15,7 @@ paths:
             $ref: '#/definitions/SolanaConfigResponse'
 
   /solana/balances:
-    post:
+    get:
       tags:
         - 'solana'
       summary: 'Get the balances of an Solana private key'

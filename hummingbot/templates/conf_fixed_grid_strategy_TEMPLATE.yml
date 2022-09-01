@@ -20,7 +20,7 @@ grid_price_ceiling: null
 # Price at flow of grid (bottom most order)
 grid_price_floor: null
 
-# Bid/Ask spread for intial order to adjust inventory according to grid level
+# Bid/Ask spread for initial order to adjust inventory according to grid level
 start_order_spread: null
 
 # Time in seconds before cancelling and placing new start order.
