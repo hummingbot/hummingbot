@@ -4,7 +4,7 @@
 # export ETH_ADDRESS='<put-your-public-key-here>'
 # export AVALANCHE_ADDRESS='<put-your-public-key-here>'
 
-# -k is --insecure, this disables certificate verfication and should only be
+# -k is --insecure, this disables certificate verification and should only be
 # used for local development and testing
 
 # Config
@@ -42,7 +42,7 @@ curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: app
 
 curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/add_avalanche_key.json)" https://localhost:5000/wallet/add | jq
 
-## read publick keys
+## read public keys
 curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT https://localhost:5000/wallet | jq
 
 ## remove keys
@@ -144,5 +144,81 @@ curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: app
 
 # Solana
 
-## config
-curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT https://localhost:5000/solana | jq
+## get config
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/solana_get_root.json)" https://localhost:5000/solana | jq
+
+## get balances
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/solana_get_balances.json)" https://localhost:5000/solana/balances | jq
+
+## get token
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/solana_get_token.json)" https://localhost:5000/solana/token | jq
+
+## post token
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/solana_post_token.json)" https://localhost:5000/solana/token | jq
+
+## post poll
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/solana_post_poll.json)" https://localhost:5000/solana/poll | jq
+
+# CLOB
+
+## get config
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/clob_get_root.json)" https://localhost:5000/clob | jq
+
+## get markets
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/clob_get_markets.json)" https://localhost:5000/clob/markets | jq
+
+## get order books
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/clob_get_order_books.json)" https://localhost:5000/clob/orderBooks | jq
+
+## get tickers
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/clob_get_tickers.json)" https://localhost:5000/clob/tickers | jq
+
+## get orders
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/clob_get_orders.json)" https://localhost:5000/clob/orders | jq
+
+## post orders
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/clob_post_orders.json)" https://localhost:5000/clob/orders | jq
+
+## delete orders
+curl -s -X DELETE -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/clob_delete_orders.json)" https://localhost:5000/clob/orders | jq
+
+## get open orders
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/clob_get_open_orders.json)" https://localhost:5000/clob/orders/open | jq
+
+## get filled orders
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/clob_get_filled_orders.json)" https://localhost:5000/clob/orders/filled | jq
+
+## post settle funds
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/clob_post_settle_funds.json)" https://localhost:5000/clob/settleFunds | jq
+
+# Serum
+
+## get config
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/serum_get_root.json)" https://localhost:5000/serum | jq
+
+## get markets
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/serum_get_markets.json)" https://localhost:5000/serum/markets | jq
+
+## get order books
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/serum_get_order_books.json)" https://localhost:5000/serum/orderBooks | jq
+
+## get tickers
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/serum_get_tickers.json)" https://localhost:5000/serum/tickers | jq
+
+## get orders
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/serum_get_orders.json)" https://localhost:5000/serum/orders | jq
+
+## post orders
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/serum_post_orders.json)" https://localhost:5000/serum/orders | jq
+
+## delete orders
+curl -s -X DELETE -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/serum_delete_orders.json)" https://localhost:5000/serum/orders | jq
+
+## get open orders
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/serum_get_open_orders.json)" https://localhost:5000/serum/orders/open | jq
+
+## get filled orders
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/serum_get_filled_orders.json)" https://localhost:5000/serum/orders/filled | jq
+
+## post settle funds
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/serum_post_settle_funds.json)" https://localhost:5000/serum/settleFunds | jq

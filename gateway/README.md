@@ -19,6 +19,8 @@ This is a list of DEX connections currently supported by Gateway.
 | Traderjoe   | Avalanche  | AMM               |
 | Quickswap   | Polygon    | AMM               |
 | Perp        | Ethereum   | EVM_Perpetual     |
+| Serum       | Solana     | CLOB              |
+
 
 ## Contributing
 
