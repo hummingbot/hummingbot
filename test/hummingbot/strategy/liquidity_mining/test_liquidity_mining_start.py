@@ -36,6 +36,7 @@ class LiquidityMiningStartTest(unittest.TestCase):
         strategy_cmap.get("volatility_to_spread_multiplier").value = Decimal("1.1")
         strategy_cmap.get("max_spread").value = Decimal("4")
         strategy_cmap.get("max_order_age").value = 300.
+        self.client_config_map = ClientConfigMap()
 
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]

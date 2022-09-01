@@ -90,7 +90,7 @@ class ArbProposal:
         quote_conversion_pair: str = f"{sell_side.market_info.quote_asset}-{buy_side.market_info.quote_asset}"
 
         sell_base_to_buy_base_rate: Decimal = Decimal(1)
-        sell_quote_to_buy_quote_rate: Decimal = rate_source.rate(quote_conversion_pair)
+        sell_quote_to_buy_quote_rate: Decimal = rate_source.get_pair_rate(quote_conversion_pair)
 
         buy_fee_amount: Decimal = s_decimal_0
         sell_fee_amount: Decimal = s_decimal_0
