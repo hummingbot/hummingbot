@@ -66,8 +66,8 @@ class VWAPExample(ScriptStrategyBase):
         # USD conversion to quote and base asset
         conversion_base_asset = f"{base_asset}-USD"
         conversion_quote_asset = f"{quote_asset}-USD"
-        base_conversion_rate = RateOracle.get_instance().rate(conversion_base_asset)
-        quote_conversion_rate = RateOracle.get_instance().rate(conversion_quote_asset)
+        base_conversion_rate = RateOracle.get_instance().get_pair_rate(conversion_base_asset)
+        quote_conversion_rate = RateOracle.get_instance().get_pair_rate(conversion_quote_asset)
         vwap["start_price"] = vwap["connector"].get_price(vwap["trading_pair"], vwap["is_buy"])
         vwap["target_base_volume"] = vwap["total_volume_usd"] / base_conversion_rate
         vwap["ideal_quote_volume"] = vwap["total_volume_usd"] / quote_conversion_rate
