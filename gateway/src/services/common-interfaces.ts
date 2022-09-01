@@ -8,6 +8,7 @@ import {
   ethers,
 } from 'ethers';
 import { EthereumBase } from './ethereum-base';
+import { CosmosBase } from './cosmos-base';
 import { Provider } from '@ethersproject/abstract-provider';
 import { CurrencyAmount, Token, Trade as TradeUniswap } from '@uniswap/sdk';
 import { Trade } from '@uniswap/router-sdk';
@@ -451,6 +452,11 @@ export interface Ethereumish extends EthereumBase {
     tokenAddress: string,
     signerOrProvider?: Wallet | Provider
   ): Contract;
+  gasPrice: number;
+  nativeTokenSymbol: string;
+  chain: string;
+}
+export interface Cosmosish extends CosmosBase {
   gasPrice: number;
   nativeTokenSymbol: string;
   chain: string;

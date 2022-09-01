@@ -3,6 +3,7 @@ import { Avalanche } from '../../chains/avalanche/avalanche';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import { Polygon } from '../../chains/polygon/polygon';
 import { Solana } from '../../chains/solana/solana';
+import { Cosmos } from '../../chains/cosmos/cosmos';
 import { Harmony } from '../../chains/harmony/harmony';
 
 import {
@@ -60,6 +61,14 @@ export async function addWallet(
     const harmony = Harmony.getInstance(req.network);
     address = harmony.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await harmony.encrypt(req.privateKey, passphrase);
+  } else if (req.chain === 'cosmos') {
+    const cosmos = Cosmos.getInstance(req.network);
+    const wallet = await cosmos.getAccountsfromPrivateKey(
+      req.privateKey,
+      'cosmos'
+    );
+    address = wallet.address;
+    encryptedPrivateKey = await cosmos.encrypt(req.privateKey, passphrase);
   } else {
     throw new HttpException(
       500,

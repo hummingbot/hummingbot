@@ -21,10 +21,14 @@
     "test:debug": "node --inspect node_modules/.bin/jest --watch --runInBand",
     "test:unit": "NODE_OPTIONS=--max_old_space_size=8192 jest -w 1 --verbose --forceExit ./test/",
     "test:cov": "NODE_OPTIONS=--max_old_space_size=8192 jest -w 1 --coverage --forceExit ./test/",
-    "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts"
+    "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts",
+    "test:cosmos": "jest -i --verbose ./test-scripts/cosmos.test.ts",
+    "test:cosmosRoutes": "jest -i --verbose ./test/chains/cosmos/cosmos.routes.test.ts"
   },
   "dependencies": {
     "@blockworks-foundation/mango-client": "^3.2.14",
+    "@cosmjs/proto-signing": "^0.28.10",
+    "@cosmjs/stargate": "^0.28.13",
     "@ethersproject/experimental": "^5.3.0",
     "@harmony-js/core": "^0.1.57",
     "@harmony-js/utils": "^0.1.56",
@@ -57,6 +61,7 @@
     "axios": "^0.21.1",
     "bn.js": "^5.2.1",
     "body-parser": "^1.19.0",
+    "chain-registry": "^0.0.26",
     "bs58": "^5.0.0",
     "chalk": "^4.1.0",
     "copyfiles": "^2.4.1",
