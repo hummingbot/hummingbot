@@ -4,7 +4,7 @@
 
 template_version: 6
 strategy: null
-# The following configuations are only required for the
+# The following configurations are only required for the
 # twap strategy
 
 # Connector and token parameters
