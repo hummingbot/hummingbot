@@ -1,0 +1,11 @@
+#!/bin/bash
+
+cd $(dirname "$0")
+
+echo "Cleaning up all compiled Augmented Pure Python files"
+
+rm -f $(find . -name "*.py" | sed s/\.py$/\.cpython\*\.so/g)
+rm -f $(find . -name "*.py" | sed s/\.py$/\.cpp/g)
+rm -f $(find . -name "*.py" | sed s/\.py$/\.cpython\*\.so/g | sed s/hummingbot/build\\/\*\\/hummingbot/)
+
+echo "Done!"

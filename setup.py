@@ -22,6 +22,21 @@ if is_posix:
 if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
     os.environ["CFLAGS"] += " -O0"
 
+IS_PY_DEBUG = os.getenv('EXT_BUILD_PY_DEBUG', False)
+
+coverage_macros = []
+coverage_compiler_directives = dict()
+coverage_include_path = []
+
+if not IS_PY_DEBUG:
+    print('Extension IS_CYTHON_COVERAGE=True!')
+    # Adding cython line trace for coverage report
+    coverage_macros += ("CYTHON_TRACE_NOGIL", 1), ("CYTHON_TRACE", 1)
+    # Adding upper directory for supporting code coverage when running tests inside the cython package
+    coverage_include_path += ['..']
+    # Some extra info for cython compiler
+    coverage_compiler_directives = dict(linetrace=True, profile=True, binding=True)
+
 
 # Avoid a gcc warning below:
 # cc1plus: warning: command line option ???-Wstrict-prototypes??? is valid
@@ -46,8 +61,8 @@ def find_py_with_pxd() -> List[Extension]:
                                         include_dirs=["hummingbot/core",
                                                       "hummingbot/core/data_type",
                                                       "hummingbot/core/cpp"],
-                                        define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION"),
-                                                       ("CYTHON_TRACE_NOGIL", "1")],
+                                        define_macros=[("NPY_NO_DEPRECATED_API",
+                                                        "NPY_1_7_API_VERSION")] + coverage_macros,
                                         language="c++"))
     return extensions
 
@@ -124,14 +139,11 @@ def main():
     ]
 
     cython_kwargs = {
-        "language": "c++",
-        "language_level": 3,
+        "language_level": '3str',
+        "gdb_debug": False,
+        "force": False,
+        "annotate": False,
     }
-
-    python_sources = find_py_with_pxd()
-    cython_sources = [*python_sources,
-                      Extension("*", sources=["hummingbot/**/*.pyx"], define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")])
-                      ]
 
     if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
         compiler_directives = {
@@ -155,7 +167,17 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "build_ext" and is_posix:
         sys.argv.append(f"--parallel={cpu_count}")
 
-    cython_kwargs["annotate"] = True
+    cythonized_py = []
+    if not IS_PY_DEBUG:
+        python_sources = find_py_with_pxd()
+        cythonized_py = cythonize(python_sources, compiler_directives=coverage_compiler_directives, **cython_kwargs)
+
+    cythonized_pyx = cythonize(Extension("*",
+                                         sources=["hummingbot/**/*.pyx"],
+                                         language="c++",
+                                         define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")]),
+                               compiler_directives=compiler_directives, **cython_kwargs)
+
     setup(name="hummingbot",
           version=version,
           description="Hummingbot",
@@ -167,7 +189,7 @@ def main():
           package_data=package_data,
           install_requires=install_requires,
           zip_safe=False,
-          ext_modules=cythonize(cython_sources, compiler_directives=compiler_directives, **cython_kwargs),
+          ext_modules=[*cythonized_py, *cythonized_pyx],
           include_dirs=[
               np.get_include()
           ],

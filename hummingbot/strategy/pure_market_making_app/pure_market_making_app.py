@@ -19,12 +19,12 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.strategy.pure_market_making.inventory_cost_price_delegate import InventoryCostPriceDelegate
 from hummingbot.strategy.pure_market_making.moving_price_band import MovingPriceBand
-from hummingbot.strategy.pure_market_making.pure_market_making_order_tracker import PureMarketMakingOrderTracker
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.strategy.utils import order_age
 
 from .inventory_skew_calculator_app import calculate_bid_ask_ratios_from_base_asset_ratio, calculate_total_order_size
+from .pure_market_making_order_tracker_app import PureMarketMakingOrderTrackerAugmentedPurePython
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -91,7 +91,7 @@ class PureMarketMakingStrategyAugmentedPurePython(StrategyPyBase):
             moving_price_band = MovingPriceBand()
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
-        self._sb_order_tracker = PureMarketMakingOrderTracker()
+        self._sb_order_tracker = PureMarketMakingOrderTrackerAugmentedPurePython()
         self._market_info = market_info
         self._bid_spread = bid_spread
         self._ask_spread = ask_spread

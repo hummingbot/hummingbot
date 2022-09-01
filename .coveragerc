@@ -1,4 +1,5 @@
 [run]
+plugins = Cython.Coverage
 source_pkgs = hummingbot
 omit =
         hummingbot/core/gateway/*
@@ -41,7 +42,8 @@ omit =
         hummingbot/strategy/*/start.py
         hummingbot/strategy/dev*
         hummingbot/strategy/hedge*
-        hummingbot/user/user_balances.py        
+        hummingbot/strategy/pure_market_making_app/*.pxd
+        hummingbot/user/user_balances.py
 dynamic_context = test_function
 branch = true
 

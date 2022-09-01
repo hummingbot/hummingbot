@@ -45,7 +45,7 @@ def simulate_order_book_widening(order_book: OrderBook, top_bid: float, top_ask:
     order_book.apply_diffs(bid_diffs, ask_diffs, update_id)
 
 
-class PMMUnitTest(unittest.TestCase):
+class PMMAPPUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
@@ -193,6 +193,100 @@ class PMMUnitTest(unittest.TestCase):
             quantity
         )
         order_book.apply_trade(trade_event)
+
+    def test_initialization(self):
+        strategy = self.one_level_strategy
+        s_decimal_zero = Decimal(0)
+
+        self.assertEqual(all([market.ready for market in [self.market_info.market]]), strategy.all_markets_ready())
+        self.assertEqual(-1, strategy.minimum_spread)
+        self.assertEqual(False, strategy.ping_pong_enabled)
+
+        self.assertEqual(False, strategy.inventory_skew_enabled)
+        strategy.inventory_skew_enabled = True
+        self.assertEqual(True, strategy.inventory_skew_enabled)
+
+        self.assertEqual(False, strategy.hanging_orders_enabled)
+        strategy.hanging_orders_enabled = True
+        self.assertEqual(True, strategy.hanging_orders_enabled)
+
+        self.assertEqual(False, strategy.order_optimization_enabled)
+        strategy.order_optimization_enabled = True
+        self.assertEqual(True, strategy.order_optimization_enabled)
+
+        self.assertEqual(False, strategy.add_transaction_costs_to_orders)
+        strategy.add_transaction_costs_to_orders = True
+        self.assertEqual(True, strategy.add_transaction_costs_to_orders)
+
+        self.assertEqual(False, strategy.moving_price_band_enabled)
+        strategy.moving_price_band_enabled = True
+        self.assertEqual(True, strategy.moving_price_band_enabled)
+
+        self.assertEqual(s_decimal_zero, strategy.ask_order_optimization_depth)
+        self.assertEqual(s_decimal_zero, strategy.bid_order_optimization_depth)
+        self.assertEqual(strategy.get_price_type("mid_price"), strategy.price_type)
+
+        self.assertEqual(-1, strategy.order_refresh_tolerance_pct)
+        strategy.order_refresh_tolerance_pct = 0
+        self.assertEqual(0, strategy.order_refresh_tolerance_pct)
+
+        self.assertEqual(Decimal("1"), strategy.order_amount)
+        strategy.order_amount = Decimal("0")
+        self.assertEqual(Decimal("0"), strategy.order_amount)
+
+        self.assertEqual(1, strategy.order_levels)
+        strategy.order_levels = 3
+        self.assertEqual(3, strategy.order_levels)
+        self.assertEqual(3, strategy.buy_levels)
+        self.assertEqual(3, strategy.sell_levels)
+        strategy.buy_levels = 1
+        self.assertEqual(3, strategy.order_levels)
+        self.assertEqual(1, strategy.buy_levels)
+        self.assertEqual(3, strategy.sell_levels)
+        strategy.sell_levels = 2
+        self.assertEqual(3, strategy.order_levels)
+        self.assertEqual(1, strategy.buy_levels)
+        self.assertEqual(2, strategy.sell_levels)
+
+        self.assertEqual(5, strategy.order_refresh_time)
+        strategy.order_refresh_time = 3.5
+        self.assertEqual(3.5, strategy.order_refresh_time)
+
+        self.assertEqual(5, strategy.filled_order_delay)
+        strategy.filled_order_delay = 3.5
+        self.assertEqual(3.5, strategy.filled_order_delay)
+
+        self.assertEqual(Decimal(0), strategy.order_level_amount)
+        strategy.order_level_amount = Decimal(3)
+        self.assertEqual(Decimal(3), strategy.order_level_amount)
+
+        self.assertEqual(Decimal(0), strategy.inventory_target_base_pct)
+        strategy.inventory_target_base_pct = Decimal(3)
+        self.assertEqual(Decimal(3), strategy.inventory_target_base_pct)
+
+        self.assertEqual(Decimal(0), strategy.inventory_range_multiplier)
+        strategy.inventory_range_multiplier = Decimal(3)
+        self.assertEqual(Decimal(3), strategy.inventory_range_multiplier)
+
+        self.assertEqual(Decimal("0.1"), strategy.hanging_orders_cancel_pct)
+        strategy.hanging_orders_cancel_pct = Decimal(3)
+        self.assertEqual(Decimal(3), strategy.hanging_orders_cancel_pct)
+
+        self.assertEqual(Decimal("0.01"), strategy.bid_spread)
+        strategy.bid_spread = Decimal(3)
+        self.assertEqual(Decimal(3), strategy.bid_spread)
+
+        self.assertEqual(Decimal("0.01"), strategy.ask_spread)
+        strategy.ask_spread = Decimal(3)
+        self.assertEqual(Decimal(3), strategy.ask_spread)
+
+        self.assertEqual(Decimal("-1"), strategy.price_ceiling)
+        strategy.price_ceiling = Decimal(3)
+        self.assertEqual(Decimal(3), strategy.price_ceiling)
+
+        self.assertEqual(Decimal("-1"), strategy.price_floor)
+        strategy.price_floor = Decimal(3)
+        self.assertEqual(Decimal(3), strategy.price_floor)
 
     def test_basic_one_level(self):
         strategy = self.one_level_strategy
