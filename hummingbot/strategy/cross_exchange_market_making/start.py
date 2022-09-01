@@ -1,8 +1,8 @@
 from typing import List, Tuple, cast
 
 from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
-from hummingbot.connector.gateway_price_shim import GatewayPriceShim
+from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import (
     CrossExchangeMarketMakingStrategy,
     LogOption,
