@@ -4,6 +4,7 @@ from hummingbot.connector.exchange.polkadex.graphql.auth.client import subscribe
 
 
 async def websocket_streams_session_provided(name, session, callback, params=None):
+    print("in websocket_streams_session_provided")
     query = gql(
         """
 subscription WebsocketStreamsMessage($name: String!) {

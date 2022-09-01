@@ -16,18 +16,23 @@ def create_cancel_order_req(runtime_config, order_id):
     return runtime_config.create_scale_object("H256").encode(order_id)
 
 
-def create_order(runtime_config, price: Decimal, qty: Decimal, order_type, order_id: str, side, proxy, base, quote, ts):
+def create_order(runtime_config, price: Decimal, qty: Decimal, order_type, order_id: str, side, proxy,main, base, quote, ts):
     cid = bytearray()
     cid.extend(order_id.encode())
-    cid = "0x" + bytes(cid).hex()
+    cid = "0x" + bytes(cid).hex()   
+    price = round(price,4)
+    qty = round(qty,4)
+    print("qty: ",str(qty * UNIT_BALANCE))
+    print("price: ",str(price * UNIT_BALANCE))
     order = {
         "user": proxy,
+        "main_account":  main,
         "pair": {
             "base_asset": create_asset(base),
             "quote_asset": create_asset(quote)
         },
-        "qty": int(qty * UNIT_BALANCE),
-        "price": int(price * UNIT_BALANCE),
+        "qty": str(qty * UNIT_BALANCE)[0:13],#[0:8],#slicing qty
+        "price": str(price * UNIT_BALANCE)[0:13], #[0:8],#slicing price
         "timestamp": ts,
         "client_order_id": cid
     }

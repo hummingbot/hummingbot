@@ -13,6 +13,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+from hummingbot.connector.exchange.polkadex import polkadex_utils as p_utils
 
 if TYPE_CHECKING:
     from hummingbot.connector.exchange.polkadex.polkadex_exchange import PolkadexExchange
@@ -53,10 +54,12 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
                }
         """
         diff_message = PolkadexOrderbook.diff_message_from_exchange(raw_message)
+        print("receive diff message putting it in queue: ",diff_message)
         message_queue.put_nowait(diff_message)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         print("Getting orderbook snapshot for: ", trading_pair)
+        #result = dynamoDB
         result: List[Dict[str, Any]] = await get_orderbook(trading_pair, None, None, self._connector.endpoint,
                                                            self._api_key)
         snapshot_timestamp: float = time.time()
@@ -69,13 +72,45 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
 
     def on_recent_trade_callback(self, message, trading_pair):
         print("Recent trade: ", message)
-        message["market"] = trading_pair
+        #test it with the right message
+        new_message = {}
+        message = message["data"]["websocket_streams"]["data"]
+        message = message.literal_eval(message)
+        print("new generated message: ",message)
+        for change in message:
+            if change["side"] == "Ask":
+                change["price"] = p_utils.parse_price_or_qty(change["price"])
+                change["qty"] = p_utils.parse_price_or_qty(change["qty"])
+            else:
+                change["price"] = p_utils.parse_price_or_qty(change["price"])
+                change["qty"] = p_utils.parse_price_or_qty(change["qty"])
+            new_message["data"] += change
+
+        new_message["market"] = trading_pair
+        print("new msg on trade: ", new_message)
         self._message_queue[self._trade_messages_queue_key].put_nowait(message)
 
     def on_ob_increment(self, message, trading_pair):
         print("ob inc: ", message)
-        message["market"] = trading_pair
-        self._message_queue[self._diff_messages_queue_key].put_nowait(message)
+        #test it with the right message
+        new_message = {}
+        message = message["websocket_streams"]["data"]
+        message = message.literal_eval(message)
+        print("new generated message: ",message)
+        for change in message:
+            if change["side"] == "Ask":
+                change["price"] = p_utils.parse_price_or_qty(change["price"])
+                change["qty"] = p_utils.parse_price_or_qty(change["qty"])
+                change["seq"]  = p_utils.parse_price_or_qty(change["seq"])
+            else:
+                change["price"] = p_utils.parse_price_or_qty(change["price"])
+                change["qty"] = p_utils.parse_price_or_qty(change["qty"])
+                change["seq"]  = p_utils.parse_price_or_qty(change["seq"])
+            new_message["data"] += change
+            
+        new_message["market"] = trading_pair
+        print("new msg on ob_inc: ", new_message)
+        self._message_queue[self._diff_messages_queue_key].put_nowait(new_message)
 
     async def listen_for_subscriptions(self):
         transport = AppSyncWebsocketsTransport(url=self._connector.endpoint, auth=self._connector.auth)

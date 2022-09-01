@@ -4,6 +4,7 @@ from hummingbot.connector.exchange.polkadex.graphql.auth.client import execute_q
 
 
 async def get_klines_by_market_and_interval(market, interval, from_date, to_date):
+    print("in get_klines_by_market_and_interval")
     query = gql(
         """
 query getKlinesbyMarketInterval($from: AWSDateTime!, $interval: String!, $market: String!, $to: AWSDateTime!) {

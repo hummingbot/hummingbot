@@ -4,6 +4,8 @@ from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.exchange.polkadex.polkadex_payload import create_asset
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
+
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "PDEX-1"
@@ -52,3 +54,7 @@ def convert_ticker_to_enclave_trading_pair(market):
         "quote_asset": create_asset(market.split("-")[1])
     }
     return pair
+
+def parse_price_or_qty(value):
+    print("var type: ",type(value))
+    return Decimal(Decimal(value) / CONSTANTS.UNIT_BALANCE)
