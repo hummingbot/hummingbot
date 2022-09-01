@@ -161,8 +161,7 @@ class CreateCommand:
             prompt = await model.get_client_prompt(config)
             if prompt is not None:
                 if assign_default:
-                    default = model.get_default(config)
-                    default = str(default) if default is not None else ""
+                    default = model.get_default_str_repr(attr_name=config)
                     self.app.set_text(default)
                 prompt = f"{prompt} >>> "
                 client_data = model.get_client_data(config)

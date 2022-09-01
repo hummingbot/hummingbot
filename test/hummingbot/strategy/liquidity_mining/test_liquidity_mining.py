@@ -77,7 +77,9 @@ class LiquidityMiningTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
         self.default_strategy = LiquidityMiningStrategy()
+        client_config_map = ClientConfigMap()
         self.default_strategy.init_params(
+            client_config_map=client_config_map,
             exchange=self.market,
             market_infos=self.market_infos,
             token="ETH",
@@ -231,7 +233,9 @@ class LiquidityMiningTest(unittest.TestCase):
         market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance, "BTC": btc_balance})
 
         strategy = LiquidityMiningStrategy()
+        client_config_map = ClientConfigMap()
         strategy.init_params(
+            client_config_map=client_config_map,
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -279,7 +283,9 @@ class LiquidityMiningTest(unittest.TestCase):
         market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance, "BTC": btc_balance})
 
         skewed_base_strategy = LiquidityMiningStrategy()
+        client_config_map = ClientConfigMap()
         skewed_base_strategy.init_params(
+            client_config_map=client_config_map,
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -293,6 +299,7 @@ class LiquidityMiningTest(unittest.TestCase):
 
         unskewed_strategy = LiquidityMiningStrategy()
         unskewed_strategy.init_params(
+            client_config_map=client_config_map,
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -340,7 +347,9 @@ class LiquidityMiningTest(unittest.TestCase):
         market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "ETH": eth_balance})
 
         strategy = LiquidityMiningStrategy()
+        client_config_map = ClientConfigMap()
         strategy.init_params(
+            client_config_map=client_config_map,
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -411,7 +420,9 @@ class LiquidityMiningTest(unittest.TestCase):
         main_application_function_mock.return_value = hummingbot_application
 
         strategy = self.default_strategy = LiquidityMiningStrategy()
+        client_config_map = ClientConfigMap()
         self.default_strategy.init_params(
+            client_config_map=client_config_map,
             exchange=self.market,
             market_infos=self.market_infos,
             token="ETH",
