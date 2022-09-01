@@ -48,18 +48,6 @@
   },
   {
     "chainId": 101,
-    "address": "G6nZYEvhwFxxnp1KZr1v9igXtipuB5zL6oDGNMRZqF3q",
-    "symbol": "BAD",
-    "name": "EA Bad",
-    "decimals": 9,
-    "logoURI": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/G6nZYEvhwFxxnp1KZr1v9igXtipuB5zL6oDGNMRZqF3q/EABadlogo.PNG",
-    "tags": ["utility-token", "community-token", "meme-token"],
-    "extensions": {
-      "twitter": "https://twitter.com/EABadtoken"
-    }
-  },
-  {
-    "chainId": 101,
     "address": "Fm9rHUTF5v3hwMLbStjZXqNBBoZyGriQaFM6sTFz3K8A",
     "symbol": "MBS",
     "name": "MonkeyBucks",
