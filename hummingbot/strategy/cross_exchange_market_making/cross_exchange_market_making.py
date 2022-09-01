@@ -468,7 +468,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
     async def apply_gateway_transaction_cancel_interval(self):
         # XXX (martin_kou): Concurrent cancellations are not supported before the nonce architecture is fixed.
         # See: https://app.shortcut.com/coinalpha/story/24553/nonce-architecture-in-current-amm-trade-and-evm-approve-apis-is-incorrect-and-causes-trouble-with-concurrent-requests
-        from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
+        from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
         gateway_connectors: List[GatewayEVMAMM] = []
         for market_pair in self._market_pairs.values():
             if self.is_gateway_market(market_pair.taker):
