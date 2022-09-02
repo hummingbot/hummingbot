@@ -21,9 +21,7 @@
     "test:debug": "node --inspect node_modules/.bin/jest --watch --runInBand",
     "test:unit": "NODE_OPTIONS=--max_old_space_size=8192 jest -w 1 --verbose --forceExit ./test/",
     "test:cov": "NODE_OPTIONS=--max_old_space_size=8192 jest -w 1 --coverage --forceExit ./test/",
-    "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts",
-    "test:cosmos": "jest -i --verbose ./test-scripts/cosmos.test.ts",
-    "test:cosmosRoutes": "jest -i --verbose ./test/chains/cosmos/cosmos.routes.test.ts"
+    "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts"
   },
   "dependencies": {
     "@blockworks-foundation/mango-client": "^3.2.14",
