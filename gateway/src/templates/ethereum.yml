@@ -21,7 +21,7 @@ networks:
     tokenListType: URL
     nativeCurrencySymbol: ETH
     tokenListSource: >-
-      https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link
+      https://tokens.coingecko.com/uniswap/all.json
     gasPriceRefreshInterval: 60
   ropsten:
     chainID: 3
