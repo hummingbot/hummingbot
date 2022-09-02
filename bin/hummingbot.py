@@ -66,7 +66,7 @@ async def main_async(client_config_map: ClientConfigAdapter):
     if client_config_map.debug_console:
         if not hasattr(__builtins__, "help"):
             import _sitebuiltins
-            __builtins__.help = _sitebuiltins._Helper()
+            __builtins__["help"] = _sitebuiltins._Helper()
 
         from hummingbot.core.management.console import start_management_console
         management_port: int = detect_available_port(8211)

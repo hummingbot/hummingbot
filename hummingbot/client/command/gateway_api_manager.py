@@ -56,7 +56,6 @@ class GatewayChainApiManager:
                     return None
                 try:
                     node_url = node_url.strip()  # help check for an empty string which is valid input
-                    # TODO: different behavior will be necessary for non-EVM nodes
 
                     await self._update_gateway_chain_network_node_url(chain, network, node_url)
 
