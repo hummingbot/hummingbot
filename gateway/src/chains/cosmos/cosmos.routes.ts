@@ -1,4 +1,3 @@
-/* WIP */
 /* eslint-disable @typescript-eslint/ban-types */
 import { NextFunction, Router, Request, Response } from 'express';
 import { CosmosConfig } from './cosmos.config';
