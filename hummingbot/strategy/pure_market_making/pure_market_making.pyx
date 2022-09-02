@@ -592,6 +592,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         for idx in range(0, len(active_orders)):
             order = active_orders[idx]
             is_hanging_order = self._hanging_orders_tracker.is_order_id_in_hanging_orders(order.client_order_id)
+            amount_orig = ""
             if not is_hanging_order:
                 if order.is_buy:
                     level = lvl_buy + 1
@@ -599,16 +600,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 else:
                     level = no_sells - lvl_sell
                     lvl_sell += 1
-            spread = 0 if price == 0 else abs(order.price - price)/price
-            age = pd.Timestamp(order_age(order, self._current_timestamp), unit='s').strftime('%H:%M:%S')
-
-            if is_hanging_order:
+                amount_orig = self._order_amount + ((level - 1) * self._order_level_amount)
+            else:
                 level_for_calculation = lvl_buy if order.is_buy else lvl_sell
                 amount_orig = self._order_amount + ((level_for_calculation - 1) * self._order_level_amount)
                 level = "hang"
-            else:
-                amount_orig = ""
-
+            spread = 0 if price == 0 else abs(order.price - price)/price
+            age = pd.Timestamp(order_age(order, self._current_timestamp), unit='s').strftime('%H:%M:%S')
             data.append([
                 level,
                 "buy" if order.is_buy else "sell",
