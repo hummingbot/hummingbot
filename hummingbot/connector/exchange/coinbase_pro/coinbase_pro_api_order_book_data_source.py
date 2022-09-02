@@ -182,11 +182,11 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
             await ws.disconnect()
 
     async def listen_for_subscriptions(self):
-        # Trade messages are received from the order book web socket
+        # This is not needed for this connector
         pass
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        # Trade messages are received from the order book web socket
+        # This is not needed for this connector
         pass
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
