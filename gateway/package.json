@@ -61,7 +61,6 @@
     "axios": "^0.21.1",
     "bn.js": "^5.2.1",
     "body-parser": "^1.19.0",
-    "chain-registry": "^0.0.26",
     "bs58": "^5.0.0",
     "chalk": "^4.1.0",
     "copyfiles": "^2.4.1",
