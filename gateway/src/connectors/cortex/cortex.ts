@@ -46,13 +46,18 @@ export class Cortex implements Vaultish {
   private constructor(network: string) {
     // this._chain = this.ethereum.chainId
     // const config = CortexConfig.config;
+    logger.info(`this.ethereum= ${Ethereum.getInstance(network)}`);
     this.ethereum = Ethereum.getInstance(network);
+    logger.info(`cortex this.ethereum.provider: ${this.ethereum.provider}`);
+    logger.info(`cortex this.ethereum.rpcUrl= ${this.ethereum.rpcUrl}`);
     // this._chain = this.ethereum.chainId;
     // this._ttl = CortexConfig.config.ttl;
     // this._routerAbi = routerAbi.abi;
+    // logger.info(`curve: this._router ${this._router}`);
   }
 
   public static getInstance(chain: string, network: string): Cortex {
+    console.log('getInstance');
     if (Cortex._instances === undefined) {
       Cortex._instances = {};
     }
@@ -63,7 +68,10 @@ export class Cortex implements Vaultish {
   }
 
   public async init() {
+    console.log('init');
+    console.log(`this.ethereum.ready: ${this.ethereum.ready}`);
     if (!this.ethereum.ready()) {
+      console.log('if (!this.ethereum.ready()) {');
       await this.ethereum.init();
       console.log('this.ethereum.init()');
     }
@@ -71,6 +79,7 @@ export class Cortex implements Vaultish {
   }
 
   public ready(): boolean {
+    console.log('ready()');
     return this._ready;
   }
 

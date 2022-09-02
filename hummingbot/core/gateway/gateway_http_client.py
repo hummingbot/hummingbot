@@ -62,7 +62,8 @@ class GatewayHttpClient:
         api_port = client_config_map.gateway.gateway_api_port
         if GatewayHttpClient.__instance is None:
             self._base_url = f"https://{api_host}:{api_port}"
-        self._client_confi_map = client_config_map
+            self.logger().info(f'gateway_http_client __init__: self._base_url = {self._base_url}')
+        self._client_config_map = client_config_map
         GatewayHttpClient.__instance = self
 
     @classmethod
@@ -153,19 +154,30 @@ class GatewayHttpClient:
         :param fail_silently: used to determine if errors will be raise or silently ignored
         :returns A response in json format.
         """
+        self.logger().info(f'api_request: params: {params.values}')
         url = f"{self.base_url}/{path_url}"
-        client = self._http_client(self._client_confi_map)
+        self.logger().info(f'api_request: url: {url}')
+        client = self._http_client(self._client_config_map)
+        self.logger().info(f"apir_request: Client: {client}")
 
         parsed_response = {}
         try:
             if method == "get":
+                # print('method=get')
                 if len(params) > 0:
                     response = await client.get(url, params=params)
                 else:
                     response = await client.get(url)
             elif method == "post":
+                # print('method=post')
+                print(f'url: {url}')
+                print(f'params: {params}')
+                # self.logger().info('response = await client.post url, json=params')
                 response = await client.post(url, json=params)
+                print(f'response: {response}')
+                # self.logger().info(f'post response: {response}')
             else:
+                print('method not')
                 raise ValueError(f"Unsupported request method {method}")
             if not fail_silently and response.status == 504:
                 self.logger().network(f"The network call to {url} has timed out.")

@@ -1,9 +1,3 @@
-import {
-  InitializationError,
-  SERVICE_UNITIALIZED_ERROR_CODE,
-  SERVICE_UNITIALIZED_ERROR_MESSAGE,
-  // UniswapishPriceError,
-} from '../../services/error-handler';
 import { CurveConfig } from './curve.config';
 import routerAbi from './curve_router_abi.json';
 
@@ -49,22 +43,33 @@ export class Curve implements Uniswapish {
   private _ready: boolean = false;
 
   private constructor(chain: string, network: string) {
+    logger.info(`this._chain=${chain}`);
     this._chain = chain;
+    logger.info(`curve router add = ${CurveConfig.config.curveRouterAddress}`);
     const config = CurveConfig.config;
     this.ethereum = Ethereum.getInstance(network);
+    logger.info(`this.chainID= ${this.ethereum.chainId}`);
+    logger.info(`curve this.ethereum.rpcUrl= ${this.ethereum.rpcUrl}`);
+    logger.info(`curve this.ethereum.provider: ${this.ethereum.provider}`);
     this.chainId = this.ethereum.chainId;
     this._ttl = CurveConfig.config.ttl;
     this._routerAbi = routerAbi.abi;
     this._gasLimit = CurveConfig.config.gasLimit;
     this._router = config.curveRouterAddress(network);
+    logger.info(`curve: this._router ${this._router}`);
   }
 
   public static getInstance(chain: string, network: string): Curve {
+    logger.info('getInstance');
+    logger.info(`Curve._instances: ${Curve._instances}`);
     if (Curve._instances === undefined) {
       Curve._instances = {};
     }
     if (!(chain + network in Curve._instances)) {
+      logger.info(`network: ${network}`);
+      logger.info(`chain: ${chain}`);
       Curve._instances[chain + network] = new Curve(chain, network);
+      logger.info(`Curve._instances: ${Curve._instances}`);
     }
     logger.info(`Fetching pair data for ${chain}-${network}.`);
     return Curve._instances[chain + network];
@@ -83,11 +88,11 @@ export class Curve implements Uniswapish {
   }
 
   public async init() {
-    if (this._chain == 'ethereum' && !this.ethereum.ready())
-      throw new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
-        SERVICE_UNITIALIZED_ERROR_CODE
-      );
+    // console.log('public ansync init()');
+    console.log(`this.ethereum.ready: ${this.ethereum.ready()}`);
+    if (this._chain == 'ethereum' && !this.ethereum.ready()) {
+      await this.ethereum.init();
+    }
     for (const token of this.ethereum.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
@@ -176,10 +181,10 @@ export class Curve implements Uniswapish {
     quoteToken: Token,
     amount: BigNumber
   ): Promise<ExpectedTrade> {
-    logger.info(`Fetching pair data for ${'USDC'}-${'USDC'}.`);
+    logger.info(`Fetching pair data for ${baseToken}-${quoteToken}.`);
 
     const CURVE_CXD_ADDRESSES = {
-      1: '0x4535913573D299A6372ca43b90aA6Be1CF68f779',
+      1: '0x383aD525211B8A1A9c13532CC021773052b2F4f8',
       4: '0x4535913573D299A6372ca43b90aA6Be1CF68f779',
     };
     const CRV_CXD_Address = CURVE_CXD_ADDRESSES[1];
@@ -189,8 +194,8 @@ export class Curve implements Uniswapish {
     console.log(amount);
     console.log(amount.toString());
     const encodeGetDy = ifaceGetDy.encodeFunctionData('get_dy', [
-      1,
       0,
+      1,
       amount.toString(),
     ]);
     logger.info(`Encoded Request: ${encodeGetDy}`);
@@ -230,10 +235,10 @@ export class Curve implements Uniswapish {
     baseToken: Token,
     amount: BigNumber
   ): Promise<ExpectedTrade> {
-    logger.info(`Fetching pair data for ${'idxCVX'}-${'USDC'}.`);
+    logger.info(`Fetching pair data for ${baseToken}-${quoteToken}.`);
 
     const CURVE_CXD_ADDRESSES = {
-      1: '0x4535913573D299A6372ca43b90aA6Be1CF68f779',
+      1: '0x383aD525211B8A1A9c13532CC021773052b2F4f8',
       4: '0x4535913573D299A6372ca43b90aA6Be1CF68f779',
     };
     const CRV_CXD_Address = CURVE_CXD_ADDRESSES[1];
@@ -243,8 +248,8 @@ export class Curve implements Uniswapish {
     console.log(amount);
     console.log(amount.toString());
     const encodeGetDy = ifaceGetDy.encodeFunctionData('get_dy', [
-      1,
       0,
+      1,
       amount.toString(),
     ]);
     logger.info(`Encoded Request: ${encodeGetDy}`);

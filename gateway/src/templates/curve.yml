@@ -13,7 +13,7 @@ ttl: 600
 
 contractAddresses:
   mainnet: 
-    curveRouterAddress: '0x4535913573D299A6372ca43b90aA6Be1CF68f779'
+    curveRouterAddress: '0x383aD525211B8A1A9c13532CC021773052b2F4f8'
   kovan: 
     curveRouterAddress: '0x4535913573D299A6372ca43b90aA6Be1CF68f779'
   ropsten: 

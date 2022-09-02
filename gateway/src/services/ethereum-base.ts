@@ -139,6 +139,8 @@ export class EthereumBase {
     tokenListSource: string,
     tokenListType: TokenListType
   ): Promise<void> {
+    logger.info(`tokenListSource: ${tokenListSource}`);
+    logger.info(`tokenListType: ${tokenListType}`);
     this.tokenList = await this.getTokenList(tokenListSource, tokenListType);
     if (this.tokenList) {
       this.tokenList.forEach((token: TokenInfo) => {
