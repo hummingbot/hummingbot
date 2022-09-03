@@ -192,7 +192,7 @@ class HedgeStrategy(StrategyPyBase):
         return [
             order for order in self.order_tracker.active_limit_orders
             # TODO: remove after cancel order is fixed
-            if self._canceled_order_ids.get(order[1].id, 0) < 5
+            if self._canceled_order_ids.get(order[1].client_order_id, 0) < 5
         ]
 
     def format_status(self) -> str:
@@ -249,11 +249,18 @@ class HedgeStrategy(StrategyPyBase):
         """
         if not self.is_derivative(self._hedge_market_pairs[0]):
             return
+        msg = (
+            f"Please verify that the position mode on {self._hedge_market_pairs[0].market.name} "
+            f"is set to {self._position_mode.name}. "
+            f"Trying to automatically set position mode to {self._position_mode.name}."
+            "Hedge strategy may not work properly if both setting is different.")
+        self.notify_hb_app(msg)
+        self.logger().warning(msg)
         for market_pair in self._hedge_market_pairs:
             market = market_pair.market
             trading_pair = market_pair.trading_pair
             market.set_leverage(trading_pair, self._leverage)
-            market.set_position(trading_pair, self._position_mode)
+            market.set_position_mode(self._position_mode)
 
     def tick(self, timestamp: float) -> None:
         """
@@ -525,7 +532,7 @@ class HedgeStrategy(StrategyPyBase):
             return False
         for market_pair, order in self.active_orders:
             # TODO: remove after cancel order resolved
-            self._canceled_order_ids[order.id] = self._canceled_order_ids.get(order.id, 0) + 1
+            self._canceled_order_ids[order.client_order_id] = self._canceled_order_ids.get(order.client_order_id, 0) + 1
             if order_age(order, self.current_timestamp) < self._max_order_age:
                 continue
             self.logger().info(
