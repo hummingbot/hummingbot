@@ -252,7 +252,8 @@ class HedgeStrategy(StrategyPyBase):
         msg = (
             f"Please verify that the position mode on {self._hedge_market_pairs[0].market.name} "
             f"is set to {self._position_mode.name}. "
-            f"Trying to automatically set position mode to {self._position_mode.name}."
+            f"The bot will try to automatically set position mode to {self._position_mode.name} "
+            "but it does not work every time if there is position open."
             "Hedge strategy may not work properly if both setting is different.")
         self.notify_hb_app(msg)
         self.logger().warning(msg)
