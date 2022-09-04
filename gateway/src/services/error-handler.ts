@@ -109,7 +109,7 @@ export const OUT_OF_GAS_ERROR_MESSAGE = 'Transaction out of gas.';
 export const LOAD_WALLET_ERROR_MESSAGE = 'Failed to load wallet: ';
 export const TOKEN_NOT_SUPPORTED_ERROR_MESSAGE = 'Token not supported: ';
 export const TRADE_FAILED_ERROR_MESSAGE = 'Trade query failed: ';
-export const INCOMPLETE_REQUEST_PARAM = 'Incompelete request paramers.';
+export const INCOMPLETE_REQUEST_PARAM = 'Incomplete request parameters.';
 export const INVALID_NONCE_ERROR_MESSAGE = 'Invalid Nonce provided: ';
 export const SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE = (
   price: any,

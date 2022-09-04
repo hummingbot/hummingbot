@@ -2,7 +2,7 @@ import asyncio
 import logging
 from decimal import Decimal
 from statistics import mean
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Union
 
 import numpy as np
 import pandas as pd
@@ -17,10 +17,13 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator import (
-    calculate_bid_ask_ratios_from_base_asset_ratio
+    calculate_bid_ask_ratios_from_base_asset_ratio,
 )
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.strategy.utils import order_age
+
+from ...client.config.client_config_map import ClientConfigMap
+from ...client.config.config_helpers import ClientConfigAdapter
 from .data_types import PriceSize, Proposal
 
 NaN = float("nan")
@@ -39,6 +42,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return lms_logger
 
     def init_params(self,
+                    client_config_map: Union[ClientConfigAdapter, ClientConfigMap],
                     exchange: ExchangeBase,
                     market_infos: Dict[str, MarketTradingPairTuple],
                     token: str,
@@ -56,6 +60,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
                     max_order_age: float = 60. * 60.,
                     status_report_interval: float = 900,
                     hb_app_notification: bool = False):
+        self._client_config_map = client_config_map
         self._exchange = exchange
         self._market_infos = market_infos
         self._token = token
@@ -211,11 +216,13 @@ class LiquidityMiningStrategy(StrategyPyBase):
         Return the miner status (payouts, rewards, liquidity, etc.) in a DataFrame
         """
         data = []
-        g_sym = RateOracle.global_token_symbol
+        g_sym = self._client_config_map.global_token.global_token_symbol
         columns = ["Market", "Payout", "Reward/wk", "Liquidity", "Yield/yr", "Max spread"]
         campaigns = await get_campaign_summary(self._exchange.display_name, list(self._market_infos.keys()))
         for market, campaign in campaigns.items():
-            reward = await RateOracle.global_value(campaign.payout_asset, campaign.reward_per_wk)
+            reward = await RateOracle.get_instance().get_value(
+                amount=campaign.reward_per_wk, base_token=campaign.payout_asset
+            )
             data.append([
                 market,
                 campaign.payout_asset,
