@@ -42,16 +42,16 @@ class OracleConversionRateMode(ConversionRateModel):
         from .cross_exchange_market_making import CrossExchangeMarketMakingStrategy
         quote_pair = f"{market_pair.taker.quote_asset}-{market_pair.maker.quote_asset}"
         if market_pair.taker.quote_asset != market_pair.maker.quote_asset:
-            quote_rate_source = RateOracle.source.name
-            quote_rate = RateOracle.get_instance().rate(quote_pair)
+            quote_rate_source = RateOracle.get_instance().source.name
+            quote_rate = RateOracle.get_instance().get_pair_rate(quote_pair)
         else:
             quote_rate_source = "fixed"
             quote_rate = Decimal("1")
 
         base_pair = f"{market_pair.taker.base_asset}-{market_pair.maker.base_asset}"
         if market_pair.taker.base_asset != market_pair.maker.base_asset:
-            base_rate_source = RateOracle.source.name
-            base_rate = RateOracle.get_instance().rate(base_pair)
+            base_rate_source = RateOracle.get_instance().source.name
+            base_rate = RateOracle.get_instance().get_pair_rate(base_pair)
         else:
             base_rate_source = "fixed"
             base_rate = Decimal("1")
@@ -64,8 +64,8 @@ class OracleConversionRateMode(ConversionRateModel):
                     gas_pair = f"{transaction_fee.token}-{market_pair.maker.quote_asset}"
 
         if gas_pair is not None and transaction_fee.token != market_pair.maker.quote_asset:
-            gas_rate_source = RateOracle.source.name
-            gas_rate = RateOracle.get_instance().rate(gas_pair)
+            gas_rate_source = RateOracle.get_instance().source.name
+            gas_rate = RateOracle.get_instance().get_pair_rate(gas_pair)
         else:
             gas_rate_source = "fixed"
             gas_rate = Decimal("1")

@@ -169,6 +169,8 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       : new Contract(tokenAddress, abi.ERC20Abi, signerOrProvider);
   }
 
+  // TODO Check the possibility to use something similar for CLOB/Solana/Serum
+  // Use the following link: https://hummingbot.org/developers/gateway/building-gateway-connectors/#6-add-connector-to-spender-list
   getSpender(reqSpender: string): string {
     let spender: string;
     if (reqSpender === 'uniswap') {

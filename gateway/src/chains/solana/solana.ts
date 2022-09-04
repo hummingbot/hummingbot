@@ -1,10 +1,10 @@
-import { logger } from '../../services/logger';
-import { SolanaConfig } from './solana.config';
-import { countDecimals, TokenValue, walletPath } from '../../services/base';
-import NodeCache from 'node-cache';
-import bs58 from 'bs58';
-import { BigNumber } from 'ethers';
 import {
+  Account as TokenAccount,
+  getOrCreateAssociatedTokenAccount,
+} from '@solana/spl-token';
+import { TokenInfo, TokenListProvider } from '@solana/spl-token-registry';
+import {
+  Account,
   AccountInfo,
   Commitment,
   Connection,
@@ -17,19 +17,26 @@ import {
   TokenAmount,
   TransactionResponse,
 } from '@solana/web3.js';
-import {
-  AccountInfo as TokenAccount,
-  Token as TokenProgram,
-} from '@solana/spl-token';
-import { TokenInfo, TokenListProvider } from '@solana/spl-token-registry';
-import { TransactionResponseStatusCode } from './solana.requests';
+import bs58 from 'bs58';
+import { BigNumber } from 'ethers';
 import fse from 'fs-extra';
+import NodeCache from 'node-cache';
+import { Cache, CacheContainer } from 'node-ts-cache';
+import { MemoryStorage } from 'node-ts-cache-storage-memory';
+import { runWithRetryAndTimeout } from '../../connectors/serum/serum.helpers';
+import { countDecimals, TokenValue, walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
+import { logger } from '../../services/logger';
+import { getSolanaConfig } from './solana.config';
+import { TransactionResponseStatusCode } from './solana.requests';
+
 const crypto = require('crypto').webcrypto;
 
-export type Solanaish = Solana;
+const caches = {
+  instances: new CacheContainer(new MemoryStorage()),
+};
 
-export class Solana {
+export class Solana implements Solanaish {
   public rpcUrl;
   public transactionLamports;
   public cache: NodeCache;
@@ -37,8 +44,9 @@ export class Solana {
   protected tokenList: TokenInfo[] = [];
   private _tokenMap: Record<string, TokenInfo> = {};
   private _tokenAddressMap: Record<string, TokenInfo> = {};
+  private _keypairs: Record<string, Keypair> = {};
 
-  private static _instance: Solana;
+  private static _instances: { [name: string]: Solana };
 
   private _requestCount: number;
   private readonly _connection: Connection;
@@ -46,42 +54,27 @@ export class Solana {
   private readonly _lamportDecimals: number;
   private readonly _nativeTokenSymbol: string;
   private readonly _tokenProgramAddress: PublicKey;
-  private readonly _cluster: string;
+  private readonly _network: string;
   private readonly _metricsLogInterval: number;
   // there are async values set in the constructor
   private _ready: boolean = false;
-  private _initializing: boolean = false;
-  private _initPromise: Promise<void> = Promise.resolve();
+  private initializing: boolean = false;
 
-  constructor() {
-    this._cluster = SolanaConfig.config.network.slug;
+  constructor(network: string) {
+    this._network = network;
 
-    if (SolanaConfig.config.customRpcUrl == undefined) {
-      switch (this._cluster) {
-        case 'mainnet-beta':
-          this.rpcUrl = 'https://api.mainnet-beta.solana.com';
-          break;
-        case 'devnet':
-          this.rpcUrl = 'https://api.devnet.solana.com';
-          break;
-        case 'testnet':
-          this.rpcUrl = 'https://api.testnet.solana.com';
-          break;
-        default:
-          throw new Error('SOLANA_CHAIN not valid');
-      }
-    } else {
-      this.rpcUrl = SolanaConfig.config.customRpcUrl;
-    }
+    const config = getSolanaConfig('solana', network);
+
+    this.rpcUrl = config.network.nodeUrl;
 
     this._connection = new Connection(this.rpcUrl, 'processed' as Commitment);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
 
     this._nativeTokenSymbol = 'SOL';
-    this._tokenProgramAddress = new PublicKey(SolanaConfig.config.tokenProgram);
+    this._tokenProgramAddress = new PublicKey(config.tokenProgram);
 
-    this.transactionLamports = SolanaConfig.config.transactionLamports;
-    this._lamportPrice = SolanaConfig.config.lamportsToSol;
+    this.transactionLamports = config.transactionLamports;
+    this._lamportPrice = config.lamportsToSol;
     this._lamportDecimals = countDecimals(this._lamportPrice);
 
     this._requestCount = 0;
@@ -95,25 +88,20 @@ export class Solana {
     return this._lamportPrice;
   }
 
-  public static getInstance(): Solana {
-    if (!Solana._instance) {
-      Solana._instance = new Solana();
+  @Cache(caches.instances, { isCachedForever: true })
+  public static getInstance(network: string): Solana {
+    if (Solana._instances === undefined) {
+      Solana._instances = {};
+    }
+    if (!(network in Solana._instances)) {
+      Solana._instances[network] = new Solana(network);
     }
 
-    return Solana._instance;
+    return Solana._instances[network];
   }
 
   public static getConnectedInstances(): { [name: string]: Solana } {
-    return { solana: Solana._instance };
-  }
-
-  public static reload(): Solana {
-    Solana._instance = new Solana();
-    return Solana._instance;
-  }
-
-  ready(): boolean {
-    return this._ready;
+    return this._instances;
   }
 
   public get connection() {
@@ -129,14 +117,16 @@ export class Solana {
   }
 
   async init(): Promise<void> {
-    if (!this.ready() && !this._initializing) {
-      this._initializing = true;
-      this._initPromise = this.loadTokens().then(() => {
-        this._ready = true;
-        this._initializing = false;
-      });
+    if (!this.ready() && !this.initializing) {
+      this.initializing = true;
+      await this.loadTokens();
+      this._ready = true;
+      this.initializing = false;
     }
-    return this._initPromise;
+  }
+
+  ready(): boolean {
+    return this._ready;
   }
 
   async loadTokens(): Promise<void> {
@@ -149,8 +139,14 @@ export class Solana {
 
   // returns a Tokens for a given list source and list type
   async getTokenList(): Promise<TokenInfo[]> {
-    const tokens = await new TokenListProvider().resolve();
-    return tokens.filterByClusterSlug(this._cluster).getList();
+    const tokenListProvider = new TokenListProvider();
+    const tokens = await runWithRetryAndTimeout(
+      tokenListProvider,
+      tokenListProvider.resolve,
+      []
+    );
+
+    return tokens.filterByClusterSlug(this._network).getList();
   }
 
   // returns the price of 1 lamport in SOL
@@ -180,31 +176,82 @@ export class Solana {
   // returns Keypair for a private key, which should be encoded in Base58
   getKeypairFromPrivateKey(privateKey: string): Keypair {
     const decoded = bs58.decode(privateKey);
+
     return Keypair.fromSecretKey(decoded);
   }
 
+  async getAccount(address: string): Promise<Account> {
+    const keypair = await this.getKeypair(address);
+
+    return new Account(keypair.secretKey);
+  }
+
+  /**
+   *
+   * @param walletAddress
+   * @param tokenMintAddress
+   */
+  async findAssociatedTokenAddress(
+    walletAddress: PublicKey,
+    tokenMintAddress: PublicKey
+  ): Promise<PublicKey> {
+    const tokenProgramId = this._tokenProgramAddress;
+    const splAssociatedTokenAccountProgramId = (
+      await runWithRetryAndTimeout(
+        this.connection,
+        this.connection.getParsedTokenAccountsByOwner,
+        [
+          walletAddress,
+          {
+            programId: this._tokenProgramAddress,
+          },
+        ]
+      )
+    ).value.map((item) => item.pubkey)[0];
+
+    const programAddress = (
+      await runWithRetryAndTimeout(PublicKey, PublicKey.findProgramAddress, [
+        [
+          walletAddress.toBuffer(),
+          tokenProgramId.toBuffer(),
+          tokenMintAddress.toBuffer(),
+        ],
+        splAssociatedTokenAccountProgramId,
+      ])
+    )[0];
+
+    return programAddress;
+  }
+
   async getKeypair(address: string): Promise<Keypair> {
-    const path = `${walletPath}/solana`;
+    if (!this._keypairs[address]) {
+      const path = `${walletPath}/solana`;
 
-    const encryptedPrivateKey: any = JSON.parse(
-      await fse.readFile(`${path}/${address}.json`, 'utf8'),
-      (key, value) => {
-        switch (key) {
-          case 'ciphertext':
-          case 'salt':
-          case 'iv':
-            return bs58.decode(value);
-          default:
-            return value;
+      const encryptedPrivateKey: any = JSON.parse(
+        await fse.readFile(`${path}/${address}.json`, 'utf8'),
+        (key, value) => {
+          switch (key) {
+            case 'ciphertext':
+            case 'salt':
+            case 'iv':
+              return bs58.decode(value);
+            default:
+              return value;
+          }
         }
-      }
-    );
+      );
 
-    const passphrase = ConfigManagerCertPassphrase.readPassphrase();
-    if (!passphrase) {
-      throw new Error('missing passphrase');
+      const passphrase = ConfigManagerCertPassphrase.readPassphrase();
+      if (!passphrase) {
+        throw new Error('missing passphrase');
+      }
+      this._keypairs[address] = await this.decrypt(
+        encryptedPrivateKey,
+        passphrase
+      );
     }
-    return await this.decrypt(encryptedPrivateKey, passphrase);
+
+    return this._keypairs[address];
   }
 
   private static async getKeyMaterial(password: string) {
@@ -253,11 +300,11 @@ export class Solana {
       iv: iv,
     };
     const enc = new TextEncoder();
-    const ciphertext: ArrayBuffer = await crypto.subtle.encrypt(
+    const ciphertext: Uint8Array = (await crypto.subtle.encrypt(
       cipherAlgorithm,
       key,
       enc.encode(privateKey)
-    );
+    )) as Uint8Array;
     return JSON.stringify(
       {
         keyAlgorithm,
@@ -269,7 +316,7 @@ export class Solana {
           case 'ciphertext':
           case 'salt':
           case 'iv':
-            return bs58.encode(value);
+            return bs58.encode(Uint8Array.from(Object.values(value)));
           default:
             return value;
         }
@@ -278,9 +325,6 @@ export class Solana {
   }
 
   async decrypt(encryptedPrivateKey: any, password: string): Promise<Keypair> {
-    logger.info(encryptedPrivateKey.keyAlgorithm.salt);
-    logger.info(encryptedPrivateKey.cipherAlgorithm.iv);
-    logger.info(encryptedPrivateKey.ciphertext);
     const keyMaterial = await Solana.getKeyMaterial(password);
     const key = await Solana.getKey(
       encryptedPrivateKey.keyAlgorithm,
@@ -300,11 +344,14 @@ export class Solana {
   async getBalances(wallet: Keypair): Promise<Record<string, TokenValue>> {
     const balances: Record<string, TokenValue> = {};
 
-    balances['SOL'] = await this.getSolBalance(wallet);
+    balances['SOL'] = await runWithRetryAndTimeout(this, this.getSolBalance, [
+      wallet,
+    ]);
 
-    const allSplTokens = await this.connection.getParsedTokenAccountsByOwner(
-      wallet.publicKey,
-      { programId: this._tokenProgramAddress }
+    const allSplTokens = await runWithRetryAndTimeout(
+      this.connection,
+      this.connection.getParsedTokenAccountsByOwner,
+      [wallet.publicKey, { programId: this._tokenProgramAddress }]
     );
 
     allSplTokens.value.forEach(
@@ -314,7 +361,7 @@ export class Solana {
       }) => {
         const tokenInfo = tokenAccount.account.data.parsed['info'];
         const symbol = this.getTokenForMintAddress(tokenInfo['mint'])?.symbol;
-        if (symbol != null)
+        if (symbol != null && symbol.toUpperCase() !== 'SOL')
           balances[symbol.toUpperCase()] = this.tokenResponseToTokenValue(
             tokenInfo['tokenAmount']
           );
@@ -326,7 +373,11 @@ export class Solana {
 
   // returns the SOL balance, convert BigNumber to string
   async getSolBalance(wallet: Keypair): Promise<TokenValue> {
-    const lamports = await this.connection.getBalance(wallet.publicKey);
+    const lamports = await runWithRetryAndTimeout(
+      this.connection,
+      this.connection.getBalance,
+      [wallet.publicKey]
+    );
     return { value: BigNumber.from(lamports), decimals: this._lamportDecimals };
   }
 
@@ -342,9 +393,10 @@ export class Solana {
     walletAddress: PublicKey,
     mintAddress: PublicKey
   ): Promise<TokenValue> {
-    const response = await this.connection.getParsedTokenAccountsByOwner(
-      walletAddress,
-      { mint: mintAddress }
+    const response = await runWithRetryAndTimeout(
+      this.connection,
+      this.connection.getParsedTokenAccountsByOwner,
+      [walletAddress, { mint: mintAddress }]
     );
     if (response['value'].length == 0) {
       throw new Error(`Token account not initialized`);
@@ -359,9 +411,10 @@ export class Solana {
     walletAddress: PublicKey,
     mintAddress: PublicKey
   ): Promise<boolean> {
-    const response = await this.connection.getParsedTokenAccountsByOwner(
-      walletAddress,
-      { programId: this._tokenProgramAddress }
+    const response = await runWithRetryAndTimeout(
+      this.connection,
+      this.connection.getParsedTokenAccountsByOwner,
+      [walletAddress, { programId: this._tokenProgramAddress }]
     );
     for (const accountInfo of response.value) {
       if (
@@ -381,9 +434,10 @@ export class Solana {
     pubkey: PublicKey;
     account: AccountInfo<ParsedAccountData>;
   } | null> {
-    const response = await this.connection.getParsedTokenAccountsByOwner(
-      walletAddress,
-      { programId: this._tokenProgramAddress }
+    const response = await runWithRetryAndTimeout(
+      this.connection,
+      this.connection.getParsedTokenAccountsByOwner,
+      [walletAddress, { programId: this._tokenProgramAddress }]
     );
     for (const accountInfo of response.value) {
       if (
@@ -401,13 +455,10 @@ export class Solana {
     wallet: Keypair,
     tokenAddress: PublicKey
   ): Promise<TokenAccount | null> {
-    const tokenProgram = new TokenProgram(
+    return getOrCreateAssociatedTokenAccount(
       this._connection,
+      wallet,
       tokenAddress,
-      this._tokenProgramAddress,
-      wallet
-    );
-    return await tokenProgram.getOrCreateAssociatedAccountInfo(
       wallet.publicKey
     );
   }
@@ -421,9 +472,16 @@ export class Solana {
       return this.cache.get(payerSignature) as TransactionResponse;
     } else {
       // If it's not in the cache,
-      const fetchedTx = this._connection.getTransaction(payerSignature, {
-        commitment: 'confirmed',
-      });
+      const fetchedTx = runWithRetryAndTimeout(
+        this._connection,
+        this._connection.getTransaction,
+        [
+          payerSignature,
+          {
+            commitment: 'confirmed',
+          },
+        ]
+      );
 
       this.cache.set(payerSignature, fetchedTx); // Cache the fetched receipt, whether it's null or not
 
@@ -466,7 +524,11 @@ export class Solana {
 
   // returns the current slot number
   async getCurrentSlotNumber(): Promise<number> {
-    return await this._connection.getSlot();
+    return await runWithRetryAndTimeout(
+      this._connection,
+      this._connection.getSlot,
+      []
+    );
   }
 
   public requestCounter(msg: any): void {
@@ -483,8 +545,8 @@ export class Solana {
     this._requestCount = 0; // reset
   }
 
-  public get cluster(): string {
-    return this._cluster;
+  public get network(): string {
+    return this._network;
   }
 
   public get nativeTokenSymbol(): string {
@@ -501,6 +563,19 @@ export class Solana {
 
   // returns the current block number
   async getCurrentBlockNumber(): Promise<number> {
-    return await this.connection.getSlot('processed');
+    return await runWithRetryAndTimeout(
+      this.connection,
+      this.connection.getSlot,
+      ['processed']
+    );
+  }
+
+  async close() {
+    if (this._network in Solana._instances) {
+      delete Solana._instances[this._network];
+    }
   }
 }
+
+export type Solanaish = Solana;
+export const Solanaish = Solana;
