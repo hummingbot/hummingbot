@@ -15,7 +15,7 @@
     "lint": "eslint src test test-scripts --format table --fix",
     "dev": "nodemon src/index.ts",
     "dev:debug": "nodemon --inspect src/index.ts",
-    "start": "node dist/src/index.js",
+    "start": "/bin/bash ./startup.sh",
     "copy-files": "copyfiles -a 'src/**/schema/*.json' 'src/templates/*.yml' 'test/services/data/**/*.*' dist",
     "test": "jest --verbose",
     "test:debug": "node --inspect node_modules/.bin/jest --watch --runInBand",
