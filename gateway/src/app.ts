@@ -32,7 +32,6 @@ import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.confi
 import { SerumConfig } from './connectors/serum/serum.config';
 
 import swaggerUi from 'swagger-ui-express';
-import childProcess from 'child_process';
 
 export const gatewayApp = express();
 
@@ -100,23 +99,11 @@ gatewayApp.get(
   })
 );
 
-// watch the exit even, spawn an independent process with the same args and
-// pass the stdio from this process to it.
-process.on('exit', function (code) {
-  // don't restart when signal is 2.
-  if (code !== 2)
-    childProcess.spawn(process.argv.shift() as string, process.argv, {
-      cwd: process.cwd(),
-      detached: true,
-      stdio: 'inherit',
-    });
-});
-
 gatewayApp.post(
   '/restart',
   asyncHandler(async (_req, res) => {
     // kill the current process and trigger the exit event
-    process.exit();
+    process.exit(1);
     // this is only to satisfy the compiler, it will never be called.
     res.status(200).json();
   })
@@ -174,20 +161,20 @@ export const startGateway = async () => {
       Math.random().toString(16).substr(2, 14)
     );
   }
-  logger.info(`⚡️ Gateway API listening on port ${port}`);
+  logger.info(`⚡️ Starting Gateway API on port ${port}...`);
   if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
     await gatewayApp.listen(port);
   } else {
     try {
       await addHttps(gatewayApp).listen(port);
+      logger.info('The gateway server is secured behind HTTPS.');
     } catch (e) {
       logger.error(
         `Failed to start the server with https. Confirm that the SSL certificate files exist and are correct. Error: ${e}`
       );
-      process.exit(2);
+      process.exit();
     }
-    logger.info('The gateway server is secured behind HTTPS.');
   }
 
   await startSwagger();
