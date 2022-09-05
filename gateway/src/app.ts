@@ -25,11 +25,13 @@ import { UniswapConfig } from './connectors/uniswap/uniswap.config';
 import { OpenoceanConfig } from './connectors/openocean/openocean.config';
 import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
+import { ClobRoutes } from './clob/clob.routes';
+import { SerumRoutes } from './connectors/serum/serum.routes';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
 import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.config';
+import { SerumConfig } from './connectors/serum/serum.config';
 
 import swaggerUi from 'swagger-ui-express';
-import childProcess from 'child_process';
 
 export const gatewayApp = express();
 
@@ -60,8 +62,10 @@ gatewayApp.use('/connectors', ConnectorsRoutes.router);
 gatewayApp.use('/amm', AmmRoutes.router);
 gatewayApp.use('/amm/perp', PerpAmmRoutes.router);
 gatewayApp.use('/amm/liquidity', AmmLiquidityRoutes.router);
+gatewayApp.use('/clob', ClobRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
+gatewayApp.use('/serum', SerumRoutes.router);
 
 // a simple route to test that the server is running
 gatewayApp.get('/', (_req: Request, res: Response) => {
@@ -76,6 +80,7 @@ interface ConnectorsResponse {
   openocean: Array<AvailableNetworks>;
   traderjoe: Array<AvailableNetworks>;
   defikingdoms: Array<AvailableNetworks>;
+  serum: Array<AvailableNetworks>;
 }
 
 gatewayApp.get(
@@ -89,27 +94,16 @@ gatewayApp.get(
       openocean: OpenoceanConfig.config.availableNetworks,
       traderjoe: TraderjoeConfig.config.availableNetworks,
       defikingdoms: DefikingdomsConfig.config.availableNetworks,
+      serum: SerumConfig.config.availableNetworks,
     });
   })
 );
-
-// watch the exit even, spawn an independent process with the same args and
-// pass the stdio from this process to it.
-process.on('exit', function (code) {
-  // don't restart when signal is 2.
-  if (code !== 2)
-    childProcess.spawn(process.argv.shift() as string, process.argv, {
-      cwd: process.cwd(),
-      detached: true,
-      stdio: 'inherit',
-    });
-});
 
 gatewayApp.post(
   '/restart',
   asyncHandler(async (_req, res) => {
     // kill the current process and trigger the exit event
-    process.exit();
+    process.exit(1);
     // this is only to satisfy the compiler, it will never be called.
     res.status(200).json();
   })
@@ -141,6 +135,8 @@ export const swaggerDocument = SwaggerManager.generateSwaggerJson(
     './docs/swagger/evm-routes.yml',
     './docs/swagger/network-routes.yml',
     './docs/swagger/solana-routes.yml',
+    './docs/swagger/clob-routes.yml',
+    './docs/swagger/serum-routes.yml',
   ]
 );
 
@@ -165,20 +161,20 @@ export const startGateway = async () => {
       Math.random().toString(16).substr(2, 14)
     );
   }
-  logger.info(`⚡️ Gateway API listening on port ${port}`);
+  logger.info(`⚡️ Starting Gateway API on port ${port}...`);
   if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
     await gatewayApp.listen(port);
   } else {
     try {
       await addHttps(gatewayApp).listen(port);
+      logger.info('The gateway server is secured behind HTTPS.');
     } catch (e) {
       logger.error(
         `Failed to start the server with https. Confirm that the SSL certificate files exist and are correct. Error: ${e}`
       );
-      process.exit(2);
+      process.exit();
     }
-    logger.info('The gateway server is secured behind HTTPS.');
   }
 
   await startSwagger();

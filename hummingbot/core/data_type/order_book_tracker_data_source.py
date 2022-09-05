@@ -209,7 +209,7 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         """
-        Identifies the channel fot a particular event message. Used to find the correct queue to add the message in
+        Identifies the channel for a particular event message. Used to find the correct queue to add the message in
 
         :param event_message: the event received through the websocket connection
 
