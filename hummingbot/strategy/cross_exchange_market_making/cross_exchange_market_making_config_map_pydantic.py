@@ -214,24 +214,14 @@ class PassiveOrderRefreshMode(OrderRefreshMode):
 
 
 class ActiveOrderRefreshMode(OrderRefreshMode):
-    cancel_order_threshold: Decimal = Field(
-        default=Decimal("9999999999"),
-        description="Profitability threshold to cancel a trade."
-    )
-
-    limit_order_min_expiration: Decimal = Field(
-        default=Decimal("9999999999"),
-        description="Limit order expiration time limit."
-    )
-
     class Config:
         title = "active_order_refresh"
 
     def get_cancel_order_threshold(self) -> Decimal:
-        return Decimal('9999999999')
+        return Decimal('nan')
 
     def get_expiration_seconds(self) -> Decimal:
-        return Decimal('9999999999')
+        return Decimal('nan')
 
 
 ORDER_REFRESH_MODELS = {
@@ -269,7 +259,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             prompt=lambda mi: "Do you want to enable adjust order? (Yes/No)"
         ),
     )
-    order_refresh_mode: Union[PassiveOrderRefreshMode, ActiveOrderRefreshMode] = Field(
+    order_refresh_mode: Union[ActiveOrderRefreshMode, PassiveOrderRefreshMode] = Field(
         default=ActiveOrderRefreshMode.construct(),
         description="Refresh orders by cancellation or by letting them expire.",
         client_data=ClientFieldData(

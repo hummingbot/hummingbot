@@ -1456,7 +1456,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         order_price = active_order.price
 
         cancel_order_threshold = self._config_map.order_refresh_mode.get_cancel_order_threshold()
-        if cancel_order_threshold == 9999999999:
+        if cancel_order_threshold.is_nan():
             cancel_order_threshold = self.min_profitability
 
         if current_hedging_price is None:
@@ -1733,8 +1733,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         if order_type is OrderType.MARKET:
             price = s_decimal_nan
         expiration_seconds = self._config_map.order_refresh_mode.get_expiration_seconds()
-        if expiration_seconds == 9999999999:
-            expiration_seconds = Decimal('nan')
         order_id = None
         if is_buy:
             try:
