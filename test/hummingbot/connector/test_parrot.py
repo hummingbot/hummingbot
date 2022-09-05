@@ -224,8 +224,9 @@ class ParrotConnectorUnitTest(TestCase):
                 summary = self.ev_loop.run_until_complete(parrot.get_campaign_summary("binance", ["ALGO-USDT"]))
         # No snapshot, just dict re-arrangement
         self.assertEqual({'ALGO-USDT': self.expected_campaign_32_markets[32]}, summary)
+        print(self.log_records)
         self.assertTrue(self._is_logged("WARNING",
-                                        f"Failed to retrieve snapshot info. API response: {self.expected_snapshots_error}"))
+                                        "Snapshot info for ['ALGO-USDT'] is not available verify that this is a valid campaign pair for this exchange"))
 
     @aioresponses()
     def test_get_campaign_summary_exception(self, mocked_http):
