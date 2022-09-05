@@ -41,8 +41,7 @@ async def get_campaign_summary(exchange: str, trading_pairs: List[str] = []) -> 
             if isinstance(snapshot, Exception):
                 raise snapshot
             if snapshot['status'] != "success":
-                logger().warning(f"Snapshot info for {trading_pairs} is not available",
-                                 "verify that this is a valid campaign pair for this exchange")
+                logger().warning(f"Snapshot info for {trading_pairs} is not available verify that this is a valid campaign pair for this exchange")
                 continue
             if snapshot["market_snapshot"]:
                 snapshot = snapshot["market_snapshot"]
