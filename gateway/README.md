@@ -106,7 +106,7 @@ yarn jest test/app.test.ts
 
 #### Manual tests
 
-We have found it is useful to test individual endpoints with `curl` commands. We have a collection of prepared curl calls. POST bodies are stored in JSON files. Take a look at the [curl calls for gateway](./manual_tests/curl.sh). Note that some environment variables are expected.
+We have found it is useful to test individual endpoints with `curl` commands. We have a collection of prepared curl calls. POST bodies are stored in JSON files. Take a look at the [curl calls for gateway](./manual-tests/curl.sh). Note that some environment variables are expected.
 
 ## Linting
 
