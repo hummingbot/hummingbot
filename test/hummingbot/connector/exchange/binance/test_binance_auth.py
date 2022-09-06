@@ -33,7 +33,6 @@ class BinanceAuthTests(TestCase):
             "timeInForce": "GTC",
             "quantity": 1,
             "price": "0.1",
-            "recvWindow": 5000,
         }
         full_params = copy(params)
 
