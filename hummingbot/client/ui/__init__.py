@@ -39,8 +39,23 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager], style: Style):
     Enter your new password:""",
             password=True,
             style=style).run()
-        if password is None:
-            return None
+        if (password is None) or (not bool(password.strip())):
+            while (password is None) or (not bool(password.strip())):
+                password = input_dialog(
+                    title="Set Password Again",
+                    text="""
+                    Password must have at least one character. Try again!
+                    
+                    Create a password to protect your sensitive data.
+                    This password is not shared with us nor with anyone else, so please store it securely.
+
+                    If you have used hummingbot before and already have secure configs stored,
+                    input your previous password in this prompt. The next step will automatically
+                    migrate your existing configs.
+
+                    Enter your new password:""",
+                    password=True,
+                    style=style).run()
         re_password = input_dialog(
             title="Set Password",
             text="Please re-enter your password:",
