@@ -68,7 +68,7 @@ async def get_market_snapshots(market_id: int):
         resp_json = await resp.json()
 
     if not resp_json or "status" not in resp_json or resp_json.get("status") == "error":
-        logger().warning("Could not get market snapshot from Hummingbot API"
+        logger().warning("Could not get market snapshots from Hummingbot API"
                          f" (returned response '{resp_json}').")
         return None
     return resp_json
