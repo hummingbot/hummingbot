@@ -188,50 +188,97 @@ class ParrotConnectorUnitTest(TestCase):
     @aioresponses()
     def test_get_market_snapshots(self, mocked_http):
         market_id = 32
-        timestamp = 1657747860000
         mocked_http.get(
-            f"{parrot.PARROT_MINER_BASE_URL}user/single_snapshot?client_id=00000000000000000000000000000000000000000&market_id={market_id}&timestamp={timestamp}&aggregate_period=60",
+            f"{parrot.PARROT_MINER_BASE_URL}charts/market_band?chart_interval=1&market_id={market_id}",
+            body=json.dumps({"status": "success", "data": [
+                {"timestamp": 1662589860000, "price": 0.30005, "ask": 0.301145, "bid": 0.298362,
+                 "spread_ask": 0.3647958323482506, "spread_bid": 0.5624147716913023, "liquidity": 32932.5255}]}))
+        snapshot = self.ev_loop.run_until_complete(parrot.get_market_snapshots(market_id))
+        self.assertEqual({'data': [{'ask': 0.301145,
+                                    'bid': 0.298362,
+                                    'liquidity': 32932.5255,
+                                    'price': 0.30005,
+                                    'spread_ask': 0.3647958323482506,
+                                    'spread_bid': 0.5624147716913023,
+                                    'timestamp': 1662589860000}],
+                          'status': 'success'}, snapshot)
+
+    @aioresponses()
+    def test_get_market_snapshots_returns_none(self, mocked_http):
+        market_id = 32
+        # 'status' == "error"
+        mocked_http.get(
+            f"{parrot.PARROT_MINER_BASE_URL}charts/market_band?chart_interval=1&market_id={market_id}",
+            body=json.dumps({"status": "error", "data": []}))
+        snapshot = self.ev_loop.run_until_complete(parrot.get_market_snapshots(market_id))
+        self.assertEqual(None, snapshot)
+
+        # No 'status' field
+        mocked_http.get(
+            f"{parrot.PARROT_MINER_BASE_URL}charts/market_band?chart_interval=1&market_id={market_id}",
+            body=json.dumps({"data": []}))
+        snapshot = self.ev_loop.run_until_complete(parrot.get_market_snapshots(market_id))
+        self.assertEqual(None, snapshot)
+
+        # JSON resp is None
+        mocked_http.get(
+            f"{parrot.PARROT_MINER_BASE_URL}charts/market_band?chart_interval=1&market_id={market_id}",
+            body=json.dumps(None))
+        snapshot = self.ev_loop.run_until_complete(parrot.get_market_snapshots(market_id))
+        self.assertEqual(None, snapshot)
+
+    @aioresponses()
+    def test_get_market_last_snapshot(self, mocked_http):
+        market_id = 32
+        timestamp = 1662589860000
+        mocked_http.get(
+            f"{parrot.PARROT_MINER_BASE_URL}user/single_snapshot?aggregate_period=1m&market_id={market_id}&timestamp={timestamp}",
             body=json.dumps(self.snapshot_get_resp))
-        snapshot = self.ev_loop.run_until_complete(parrot.get_market_snapshots(market_id, timestamp))
+        with patch("hummingbot.connector.parrot.get_market_snapshots") as mocked_snapshots:
+            mocked_snapshots.return_value = {"status": "success", "data": [{"timestamp": timestamp}]}
+            snapshot = self.ev_loop.run_until_complete(parrot.get_market_last_snapshot(market_id))
         self.assertEqual(self.snapshot_get_resp, snapshot)
 
     # This test is likely to fail with time as the data will change
-    # def test_get_market_snapshots_live(self):
+    # def test_get_market_last_snapshot_live(self):
     #    market_id = 32
-    #    timestamp = 1657747860000
-    #    snapshot = self.ev_loop.run_until_complete(parrot.get_market_snapshots(market_id, timestamp))
+    #    snapshot = self.ev_loop.run_until_complete(parrot.get_market_last_snapshot(market_id))
     #    self.assertEqual(self.snapshot_get_resp, snapshot)
 
     @aioresponses()
     def test_get_campaign_summary(self, mocked_http):
+        timestamp = 16577478600000
         mocked_http.get(
-            f"{parrot.PARROT_MINER_BASE_URL}user/single_snapshot?client_id=00000000000000000000000000000000000000000&market_id={32}&timestamp={1657747860000}&aggregate_period=60",
+            f"{parrot.PARROT_MINER_BASE_URL}user/single_snapshot?aggregate_period=1m&market_id={32}&timestamp={timestamp}",
             body=json.dumps(self.snapshot_get_resp))
-        with patch('hummingbot.connector.parrot.get_active_campaigns') as mocked_ac:
-            mocked_ac.return_value = self.expected_campaign_32_markets
-            summary = self.ev_loop.run_until_complete(parrot.get_campaign_summary("binance", ["ALGO-USDT"]))
+        with patch("hummingbot.connector.parrot.get_market_snapshots") as mocked_snapshots:
+            mocked_snapshots.return_value = {"status": "success", "data": [{"timestamp": timestamp}]}
+            with patch('hummingbot.connector.parrot.get_active_campaigns') as mocked_ac:
+                mocked_ac.return_value = self.expected_campaign_32_markets
+                summary = self.ev_loop.run_until_complete(parrot.get_campaign_summary("binance", ["ALGO-USDT"]))
         self.assertEqual(self.expected_summary, summary)
 
     @aioresponses()
     def test_get_campaign_summary_http_error(self, mocked_http):
+        timestamp = 16577478600000
         mocked_http.get(
-            f"{parrot.PARROT_MINER_BASE_URL}user/single_snapshot?client_id=00000000000000000000000000000000000000000&market_id={32}&timestamp={1657747860000}&aggregate_period=60",
+            f"{parrot.PARROT_MINER_BASE_URL}user/single_snapshot?market_id={32}&timestamp={timestamp}&aggregate_period=1m",
             body=json.dumps(self.snapshot_get_resp))
         with patch('hummingbot.connector.parrot.get_active_campaigns') as mocked_ac:
-            with patch('hummingbot.connector.parrot.get_market_snapshots') as mocked_ss:
-                mocked_ac.return_value = self.expected_campaign_32_markets
-                mocked_ss.return_value = self.expected_snapshots_error
-                summary = self.ev_loop.run_until_complete(parrot.get_campaign_summary("binance", ["ALGO-USDT"]))
+            with patch("hummingbot.connector.parrot.get_market_snapshots") as mocked_snapshots:
+                mocked_snapshots.return_value = {"status": "success", "data": [{"timestamp": timestamp}]}
+                with patch('hummingbot.connector.parrot.get_market_snapshots') as mocked_ss:
+                    mocked_ac.return_value = self.expected_campaign_32_markets
+                    mocked_ss.return_value = self.expected_snapshots_error
+                    summary = self.ev_loop.run_until_complete(parrot.get_campaign_summary("binance", ["ALGO-USDT"]))
         # No snapshot, just dict re-arrangement
-        self.assertEqual({'ALGO-USDT': self.expected_campaign_32_markets[32]}, summary)
-        print(self.log_records)
-        self.assertTrue(self._is_logged("WARNING",
-                                        "Snapshot info for ['ALGO-USDT'] is not available verify that this is a valid campaign pair for this exchange"))
+        self.assertEqual({}, summary)
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error while requesting data from Hummingbot API."))
 
     @aioresponses()
     def test_get_campaign_summary_exception(self, mocked_http):
         mocked_http.get(
-            f"{parrot.PARROT_MINER_BASE_URL}user/single_snapshot?client_id=00000000000000000000000000000000000000000&market_id={32}&timestamp={1657747860000}&aggregate_period=60",
+            f"{parrot.PARROT_MINER_BASE_URL}user/single_snapshot?market_id={32}&timestamp={-1}&aggregate_period=1m",
             body=json.dumps(self.snapshot_get_resp))
         with patch('hummingbot.connector.parrot.get_active_campaigns') as mocked_ac:
             with patch('hummingbot.connector.parrot.get_market_snapshots') as mocked_ss:
