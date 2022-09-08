@@ -1382,7 +1382,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             "ext_info": "",
             "result": {
                 "order_id": "Abandoned!!",
-                "trade_list": [
+                "data": [
                     {
                         "closed_size": 0,
                         "cross_seq": 277136382,
@@ -1423,7 +1423,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             "ext_info": "",
             "result": {
                 "order_id": "Abandoned!!",
-                "trade_list": [
+                "data": [
                     {
                         "closed_size": 0,
                         "cross_seq": 277136382,
