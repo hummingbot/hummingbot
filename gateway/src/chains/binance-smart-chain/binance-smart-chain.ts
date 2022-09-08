@@ -9,9 +9,10 @@ import { PancakeSwapConfig } from '../../connectors/pancakeswap/pancakeswap.conf
 
 export class BinanceSmartChain extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: BinanceSmartChain };
-  private _gasPrice: number;
-  private _nativeTokenSymbol: string;
   private _chain: string;
+  private _gasPrice: number;
+  private _gasPriceRefreshInterval: number | null;
+  private _nativeTokenSymbol: string;
 
   private constructor(network: string) {
     const config = getBinanceSmartChainConfig('binance-smart-chain', network);
@@ -27,6 +28,12 @@ export class BinanceSmartChain extends EthereumBase implements Ethereumish {
     this._chain = config.network.name;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
     this._gasPrice = config.manualGasPrice;
+    this._gasPriceRefreshInterval =
+      config.network.gasPriceRefreshInterval !== undefined
+        ? config.network.gasPriceRefreshInterval
+        : null;
+
+    this.updateGasPrice();
   }
 
   public static getInstance(network: string): BinanceSmartChain {
@@ -42,6 +49,24 @@ export class BinanceSmartChain extends EthereumBase implements Ethereumish {
 
   public static getConnectedInstances(): { [name: string]: BinanceSmartChain } {
     return BinanceSmartChain._instances;
+  }
+
+  /**
+   * Automatically update the prevailing gas price on the network from the connected RPC node.
+   */
+  async updateGasPrice(): Promise<void> {
+    if (this._gasPriceRefreshInterval === null) {
+      return;
+    }
+
+    const gasPrice: number = (await this.provider.getGasPrice()).toNumber();
+
+    this._gasPrice = gasPrice * 1e-9;
+
+    setTimeout(
+      this.updateGasPrice.bind(this),
+      this._gasPriceRefreshInterval * 1000
+    );
   }
 
   // getters
