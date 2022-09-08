@@ -259,7 +259,7 @@ export class PancakeSwap implements Uniswapish {
    * @param wallet Wallet
    * @param trade Expected trade
    * @param gasPrice Base gas price, for pre-EIP1559 transactions
-   * @param uniswapRouter Router smart contract address
+   * @param pancakeswapRouter Router smart contract address
    * @param ttl How long the swap is valid before expiry, in seconds
    * @param abi Router contract ABI
    * @param gasLimit Gas limit
@@ -272,7 +272,7 @@ export class PancakeSwap implements Uniswapish {
     wallet: Wallet,
     trade: Trade,
     gasPrice: number,
-    uniswapRouter: string,
+    pancakeswapRouter: string,
     ttl: number,
     abi: ContractInterface,
     gasLimit: number,
@@ -287,14 +287,14 @@ export class PancakeSwap implements Uniswapish {
       allowedSlippage: this.getAllowedSlippage(allowedSlippage),
     });
 
-    const contract: Contract = new Contract(uniswapRouter, abi, wallet);
+    const contract: Contract = new Contract(pancakeswapRouter, abi, wallet);
     if (nonce === undefined) {
-      nonce = await this.bsc.nonceManager.getNonce(wallet.address);
+      nonce = await this.bsc.nonceManager.getNextNonce(wallet.address);
     }
     let tx: ContractTransaction;
-    if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
+    if (maxFeePerGas || maxPriorityFeePerGas) {
       tx = await contract[result.methodName](...result.args, {
-        gasLimit: gasLimit.toFixed(0),
+        gasLimit: gasLimit,
         value: result.value,
         nonce: nonce,
         maxFeePerGas,
