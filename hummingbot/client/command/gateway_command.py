@@ -183,7 +183,7 @@ class GatewayCommand(GatewayChainApiManager):
         self.notify("Creating new Gateway docker container...")
         host_config: Dict[str, Any] = await docker_ipc(
             "create_host_config",
-            port_bindings={5000: gateway_port},
+            port_bindings={15888: gateway_port},
             binds={
                 gateway_conf_mount_path: {
                     "bind": "/usr/src/app/conf/",
@@ -203,7 +203,7 @@ class GatewayCommand(GatewayChainApiManager):
             "create_container",
             image=f"{GATEWAY_DOCKER_REPO}:{GATEWAY_DOCKER_TAG}",
             name=gateway_container_name,
-            ports=[5000],
+            ports=[15888],
             volumes=[
                 gateway_conf_mount_path,
                 certificate_mount_path,
