@@ -102,7 +102,7 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
         )
         hb.strategy_name = (
             strategy_config.strategy
-            if isinstance(strategy_config, BaseStrategyConfigMap)
+            if hasattr(strategy_config, 'hb_config') and issubclass(type(strategy_config.hb_config), BaseStrategyConfigMap)
             else strategy_config.get("strategy").value
         )
         hb.strategy_config_map = strategy_config
