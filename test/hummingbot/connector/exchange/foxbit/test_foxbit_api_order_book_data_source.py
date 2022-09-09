@@ -88,7 +88,7 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         return {'m': 3, 'i': 10, 'n': 'TradeDataUpdateEvent', 'o': '[[194,1,"0.1","8432.0",787704,792085,1661952966311,0,0,false,0]]'}
 
     def _order_diff_event(self):
-        return {'m': 3, 'i': 8, 'n': 'Level2UpdateEvent', 'o': '[[187,0,1661952966257,1,8432,0,8432,4,7.6,1]]'}
+        return {'m': 3, 'i': 8, 'n': 'Level2UpdateEvent', 'o': '[[187,0,1661952966257,1,8432,0,8432,1,7.6,1]]'}
 
     def _snapshot_response(self):
         resp = {
@@ -190,7 +190,13 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        ixm_config = {
+            'm': 0,
+            'i': 1,
+            'n': 'GetInstruments',
+            'o': '[{"OMSId":1,"InstrumentId":1,"Symbol":"COINALPHA/HBOT","Product1":1,"Product1Symbol":"COINALPHA","Product2":2,"Product2Symbol":"HBOT","InstrumentType":"Standard","VenueInstrumentId":1,"VenueId":1,"SortIndex":0,"SessionStatus":"Running","PreviousSessionStatus":"Paused","SessionStatusDateTime":"2020-07-11T01:27:02.851Z","SelfTradePrevention":true,"QuantityIncrement":1e-8,"PriceIncrement":0.01,"MinimumQuantity":1e-8,"MinimumPrice":0.01,"VenueSymbol":"BTC/BRL","IsDisable":false,"MasterDataId":0,"PriceCollarThreshold":0,"PriceCollarPercent":0,"PriceCollarEnabled":false,"PriceFloorLimit":0,"PriceFloorLimitEnabled":false,"PriceCeilingLimit":0,"PriceCeilingLimitEnabled":false,"CreateWithMarketRunning":true,"AllowOnlyMarketMakerCounterParty":false}]'
+        }
 
         result_subscribe_trades = {
             "result": None,
@@ -201,6 +207,10 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             "id": 2
         }
 
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(ixm_config))
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(result_subscribe_trades))
@@ -215,17 +225,36 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
 
-        self.assertEqual(2, len(sent_subscription_messages))
-        expected_trade_subscription = {
-            "method": "SUBSCRIBE",
-            "params": [f"{self.ex_trading_pair.lower()}@trade"],
-            "id": 1}
-        self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
-        expected_diff_subscription = {
-            "method": "SUBSCRIBE",
-            "params": [f"{self.ex_trading_pair.lower()}@depth@100ms"],
-            "id": 2}
-        self.assertEqual(expected_diff_subscription, sent_subscription_messages[1])
+        self.assertEqual(3, len(sent_subscription_messages))
+        expected_get_instrument = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'HBOT',
+            'm': 0,
+            'i': 1,
+            'n': 'GetInstruments',
+            'o': '{"OMSId": 1}'
+        }
+        self.assertEqual(expected_get_instrument['o'], sent_subscription_messages[0]['o'])
+
+        expected_subscribe_level2 = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'HBOT',
+            'm': 2,
+            'i': 2,
+            'n': 'SubscribeLevel2',
+            'o': '{"OMSId": 1, "InstrumentId": 1, "Depth": 5}'
+        }
+        self.assertEqual(expected_subscribe_level2['o'], sent_subscription_messages[1]['o'])
+
+        expected_subscribe_trades = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'HBOT',
+            'm': 2,
+            'i': 3,
+            'n': 'SubscribeTrades',
+            'o': '{"InstrumentId": 1}'
+        }
+        self.assertEqual(expected_subscribe_trades['o'], sent_subscription_messages[2]['o'])
 
         self.assertTrue(self._is_logged(
             "INFO",
@@ -256,7 +285,20 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 "ERROR",
                 "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
 
-    def test_subscribe_channels_raises_cancel_exception(self):
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_subscribe_channels_raises_cancel_exception(self, ws_connect_mock):
+        ixm_config = {
+            'm': 0,
+            'i': 1,
+            'n': 'GetInstruments',
+            'o': '[{"OMSId":1,"InstrumentId":1,"Symbol":"COINALPHA/HBOT","Product1":1,"Product1Symbol":"COINALPHA","Product2":2,"Product2Symbol":"HBOT","InstrumentType":"Standard","VenueInstrumentId":1,"VenueId":1,"SortIndex":0,"SessionStatus":"Running","PreviousSessionStatus":"Paused","SessionStatusDateTime":"2020-07-11T01:27:02.851Z","SelfTradePrevention":true,"QuantityIncrement":1e-8,"PriceIncrement":0.01,"MinimumQuantity":1e-8,"MinimumPrice":0.01,"VenueSymbol":"BTC/BRL","IsDisable":false,"MasterDataId":0,"PriceCollarThreshold":0,"PriceCollarPercent":0,"PriceCollarEnabled":false,"PriceFloorLimit":0,"PriceFloorLimitEnabled":false,"PriceCeilingLimit":0,"PriceCeilingLimitEnabled":false,"CreateWithMarketRunning":true,"AllowOnlyMarketMakerCounterParty":false}]'
+        }
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(ixm_config))
+
         mock_ws = MagicMock()
         mock_ws.send.side_effect = asyncio.CancelledError
 
@@ -264,7 +306,20 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.listening_task = self.ev_loop.create_task(self.data_source._subscribe_channels(mock_ws))
             self.async_run_with_timeout(self.listening_task)
 
-    def test_subscribe_channels_raises_exception_and_logs_error(self):
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_subscribe_channels_raises_exception_and_logs_error(self, ws_connect_mock):
+        ixm_config = {
+            'm': 0,
+            'i': 1,
+            'n': 'GetInstruments',
+            'o': '[{"OMSId":1,"InstrumentId":1,"Symbol":"COINALPHA/HBOT","Product1":1,"Product1Symbol":"COINALPHA","Product2":2,"Product2Symbol":"HBOT","InstrumentType":"Standard","VenueInstrumentId":1,"VenueId":1,"SortIndex":0,"SessionStatus":"Running","PreviousSessionStatus":"Paused","SessionStatusDateTime":"2020-07-11T01:27:02.851Z","SelfTradePrevention":true,"QuantityIncrement":1e-8,"PriceIncrement":0.01,"MinimumQuantity":1e-8,"MinimumPrice":0.01,"VenueSymbol":"BTC/BRL","IsDisable":false,"MasterDataId":0,"PriceCollarThreshold":0,"PriceCollarPercent":0,"PriceCollarEnabled":false,"PriceFloorLimit":0,"PriceFloorLimitEnabled":false,"PriceCeilingLimit":0,"PriceCeilingLimitEnabled":false,"CreateWithMarketRunning":true,"AllowOnlyMarketMakerCounterParty":false}]'
+        }
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(ixm_config))
+
         mock_ws = MagicMock()
         mock_ws.send.side_effect = Exception("Test Error")
 
@@ -313,7 +368,20 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
-    def test_listen_for_trades_successful(self):
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_trades_successful(self, ws_connect_mock):
+        ixm_config = {
+            'm': 0,
+            'i': 1,
+            'n': 'GetInstruments',
+            'o': '[{"OMSId":1,"InstrumentId":1,"Symbol":"COINALPHA/HBOT","Product1":1,"Product1Symbol":"COINALPHA","Product2":2,"Product2Symbol":"HBOT","InstrumentType":"Standard","VenueInstrumentId":1,"VenueId":1,"SortIndex":0,"SessionStatus":"Running","PreviousSessionStatus":"Paused","SessionStatusDateTime":"2020-07-11T01:27:02.851Z","SelfTradePrevention":true,"QuantityIncrement":1e-8,"PriceIncrement":0.01,"MinimumQuantity":1e-8,"MinimumPrice":0.01,"VenueSymbol":"BTC/BRL","IsDisable":false,"MasterDataId":0,"PriceCollarThreshold":0,"PriceCollarPercent":0,"PriceCollarEnabled":false,"PriceFloorLimit":0,"PriceFloorLimitEnabled":false,"PriceCeilingLimit":0,"PriceCeilingLimitEnabled":false,"CreateWithMarketRunning":true,"AllowOnlyMarketMakerCounterParty":false}]'
+        }
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(ixm_config))
+
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [self._trade_update_event(), asyncio.CancelledError()]
         self.data_source._message_queue["trade"] = mock_queue
@@ -327,7 +395,20 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(194, msg.trade_id)
 
-    def test_listen_for_order_book_diffs_cancelled(self):
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_order_book_diffs_cancelled(self, ws_connect_mock):
+        ixm_config = {
+            'm': 0,
+            'i': 1,
+            'n': 'GetInstruments',
+            'o': '[{"OMSId":1,"InstrumentId":1,"Symbol":"COINALPHA/HBOT","Product1":1,"Product1Symbol":"COINALPHA","Product2":2,"Product2Symbol":"HBOT","InstrumentType":"Standard","VenueInstrumentId":1,"VenueId":1,"SortIndex":0,"SessionStatus":"Running","PreviousSessionStatus":"Paused","SessionStatusDateTime":"2020-07-11T01:27:02.851Z","SelfTradePrevention":true,"QuantityIncrement":1e-8,"PriceIncrement":0.01,"MinimumQuantity":1e-8,"MinimumPrice":0.01,"VenueSymbol":"BTC/BRL","IsDisable":false,"MasterDataId":0,"PriceCollarThreshold":0,"PriceCollarPercent":0,"PriceCollarEnabled":false,"PriceFloorLimit":0,"PriceFloorLimitEnabled":false,"PriceCeilingLimit":0,"PriceCeilingLimitEnabled":false,"CreateWithMarketRunning":true,"AllowOnlyMarketMakerCounterParty":false}]'
+        }
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(ixm_config))
+
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.data_source._message_queue["order_book_diff"] = mock_queue
@@ -364,7 +445,19 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
 
-    def test_listen_for_order_book_diffs_successful(self):
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_order_book_diffs_successful(self, ws_connect_mock):
+        ixm_config = {
+            'm': 0,
+            'i': 1,
+            'n': 'GetInstruments',
+            'o': '[{"OMSId":1,"InstrumentId":1,"Symbol":"COINALPHA/HBOT","Product1":1,"Product1Symbol":"COINALPHA","Product2":2,"Product2Symbol":"HBOT","InstrumentType":"Standard","VenueInstrumentId":1,"VenueId":1,"SortIndex":0,"SessionStatus":"Running","PreviousSessionStatus":"Paused","SessionStatusDateTime":"2020-07-11T01:27:02.851Z","SelfTradePrevention":true,"QuantityIncrement":1e-8,"PriceIncrement":0.01,"MinimumQuantity":1e-8,"MinimumPrice":0.01,"VenueSymbol":"BTC/BRL","IsDisable":false,"MasterDataId":0,"PriceCollarThreshold":0,"PriceCollarPercent":0,"PriceCollarEnabled":false,"PriceFloorLimit":0,"PriceFloorLimitEnabled":false,"PriceCeilingLimit":0,"PriceCeilingLimitEnabled":false,"CreateWithMarketRunning":true,"AllowOnlyMarketMakerCounterParty":false}]'
+        }
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(ixm_config))
 
         mock_queue = AsyncMock()
         diff_event = self._order_diff_event()
@@ -378,16 +471,16 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        self.assertEqual(diff_event["u"], msg.update_id)
+        self.assertEqual(eval(diff_event["o"])[0][0], msg.update_id)
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL.format(self.trading_pair), domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_api.get(regex_url, exception=asyncio.CancelledError)
+        mock_api.get(regex_url, exception=asyncio.TimeoutError)
 
-        with self.assertRaises(asyncio.CancelledError):
+        with self.assertRaises(asyncio.TimeoutError):
             self.async_run_with_timeout(
                 self.data_source.listen_for_order_book_snapshots(self.ev_loop, asyncio.Queue())
             )
@@ -402,28 +495,16 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_api.get(regex_url, exception=Exception)
+        mock_api.get(regex_url, exception=asyncio.TimeoutError)
 
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
         )
-        self.async_run_with_timeout(self.resume_test_event.wait())
-
-        self.assertTrue(
-            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}."))
+        with self.assertRaises(asyncio.TimeoutError):
+            self.async_run_with_timeout(
+                self.resume_test_event.wait()
+            )
 
     @aioresponses()
-    def test_listen_for_order_book_snapshots_successful(self, mock_api, ):
-        msg_queue: asyncio.Queue = asyncio.Queue()
-        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL.format(self.trading_pair), domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.get(regex_url, body=json.dumps(self._snapshot_response()))
-
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
-        )
-
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
-
-        self.assertEqual(1, msg.update_id)
+    def test_listen_for_order_book_snapshots_successful(self, mock_api):
+        pass
