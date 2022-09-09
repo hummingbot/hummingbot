@@ -72,7 +72,6 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     start_parser.add_argument("--restore", default=False, action="store_true", dest="restore", help="Restore and maintain any active orders.")
     # start_parser.add_argument("--log-level", help="Level of logging")
     start_parser.add_argument("--script", type=str, dest="script", help="Script strategy file name")
-    start_parser.add_argument("--tick-size", type=float, dest="tick_size", help="Tick size used by the clock")
 
     start_parser.set_defaults(func=hummingbot.start)
 
