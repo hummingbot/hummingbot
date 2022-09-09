@@ -309,7 +309,7 @@ export class PancakeSwap implements Uniswapish {
       });
     }
 
-    logger.info(tx);
+    logger.info(`Transaction Details: ${JSON.stringify(tx)}`);
     await this.bsc.nonceManager.commitNonce(wallet.address, nonce);
     return tx;
   }
