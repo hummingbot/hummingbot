@@ -1341,7 +1341,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 is_auth_required=True,
                 return_err=True,
             )
-            if response.get("code") == -2011 or "Unknown order sent" in response.get("msg", ""):
+            if response.get("code") == -2011 and "Unknown order sent" in response.get("msg", ""):
                 self.logger().debug(f"The order {client_order_id} does not exist on Binance Perpetuals. "
                                     f"No cancelation needed.")
                 self.stop_tracking_order(client_order_id)
