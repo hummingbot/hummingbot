@@ -1320,7 +1320,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         try:
             # Checks if order is not being tracked or order is waiting for created confirmation.
             # If so, ignores cancel request.
-            tracked_order: Optional[InFlightOrder] = self._client_order_tracker.fetch_order(client_order_id)
+            tracked_order: Optional[InFlightOrder] = self._client_order_tracker.fetch_tracked_order(client_order_id)
             if not tracked_order or tracked_order.is_pending_create:
                 return
 
