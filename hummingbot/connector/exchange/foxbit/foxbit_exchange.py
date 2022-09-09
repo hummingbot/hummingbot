@@ -222,6 +222,56 @@ class FoxbitExchange(ExchangePyBase):
         """
         return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(False))
 
+    def buy(self,
+            trading_pair: str,
+            amount: Decimal,
+            order_type=OrderType.LIMIT,
+            price: Decimal = s_decimal_NaN,
+            **kwargs) -> str:
+        """
+        Creates a promise to create a buy order using the parameters
+
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+
+        :return: the id assigned by the connector to the order (the client id)
+        """
+        order_id = foxbit_utils.get_client_order_id(True)
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.BUY,
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price))
+        return order_id
+
+    def sell(self,
+             trading_pair: str,
+             amount: Decimal,
+             order_type: OrderType = OrderType.LIMIT,
+             price: Decimal = s_decimal_NaN,
+             **kwargs) -> str:
+        """
+        Creates a promise to create a sell order using the parameters.
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+        :return: the id assigned by the connector to the order (the client id)
+        """
+        order_id = foxbit_utils.get_client_order_id(False)
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.SELL,
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price))
+        return order_id
+
     async def _create_order(self,
                             trade_type: TradeType,
                             order_id: str,
@@ -301,60 +351,10 @@ class FoxbitExchange(ExchangePyBase):
                 f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
                 f"{amount.normalize()} {trading_pair} {price.normalize()}.",
                 exc_info=True,
-                app_warning_msg=f"Failed to submit buy order to {self.name_cap}. Check API key and network connection."
+                app_warning_msg=f"Failed to submit {trade_type.name.lower()} order to {self.name_cap}. Check API key and network connection."
             )
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
         return order_id, exchange_order_id
-
-    def buy(self,
-            trading_pair: str,
-            amount: Decimal,
-            order_type=OrderType.LIMIT,
-            price: Decimal = s_decimal_NaN,
-            **kwargs) -> str:
-        """
-        Creates a promise to create a buy order using the parameters
-
-        :param trading_pair: the token pair to operate with
-        :param amount: the order amount
-        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
-        :param price: the order price
-
-        :return: the id assigned by the connector to the order (the client id)
-        """
-        order_id = foxbit_utils.get_client_order_id(True)
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.BUY,
-            order_id=order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price))
-        return order_id
-
-    def sell(self,
-             trading_pair: str,
-             amount: Decimal,
-             order_type: OrderType = OrderType.LIMIT,
-             price: Decimal = s_decimal_NaN,
-             **kwargs) -> str:
-        """
-        Creates a promise to create a sell order using the parameters.
-        :param trading_pair: the token pair to operate with
-        :param amount: the order amount
-        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
-        :param price: the order price
-        :return: the id assigned by the connector to the order (the client id)
-        """
-        order_id = foxbit_utils.get_client_order_id(False)
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.SELL,
-            order_id=order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price))
-        return order_id
 
     async def _place_order(self,
                            order_id: str,
@@ -447,7 +447,7 @@ class FoxbitExchange(ExchangePyBase):
                                 min_notional_size=Decimal(min_notional)))
 
             except Exception:
-                self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
+                self.logger().exception(f"Error parsing the trading pair rule {rule.get('symbol')}. Skipping.")
         return retval
 
     async def _status_polling_loop_fetch_updates(self):
@@ -527,9 +527,9 @@ class FoxbitExchange(ExchangePyBase):
                             trading_pair=trading_pair,
                             fee=fee,
                             fill_base_amount=Decimal(trade["quantity"]),
-                            # fill_quote_amount=Decimal(trade["quoteQty"]),
+                            fill_quote_amount=Decimal(trade["quantity"]),
                             fill_price=Decimal(trade["price"]),
-                            fill_timestamp=trade["created_at"] * 1e-3,
+                            fill_timestamp=datetime.fromisoformat(trade["created_at"]).timestamp(),
                         )
                         self._order_tracker.process_trade_update(trade_update)
                     elif self.is_confirmed_new_order_filled_event(str(trade["id"]), exchange_order_id, trading_pair):
@@ -541,11 +541,10 @@ class FoxbitExchange(ExchangePyBase):
                         self.trigger_event(
                             MarketEvent.OrderFilled,
                             OrderFilledEvent(
-                                timestamp=float(trade["created_at"]) * 1e-3,
+                                timestamp=datetime.fromisoformat(trade["created_at"]).timestamp(),
                                 order_id=self._exchange_order_ids.get(str(trade["order_id"]), None),
                                 trading_pair=trading_pair,
                                 trade_type=TradeType.BUY if trade["side"] == "BUY" else TradeType.SELL,
-                                # Foxbit API has no attribute for this field
                                 order_type=OrderType.LIMIT,
                                 price=Decimal(trade["price"]),
                                 amount=Decimal(trade["quantity"]),
@@ -622,26 +621,6 @@ class FoxbitExchange(ExchangePyBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    def _set_trading_pair_instrument_id_map(self, trading_pair_and_instrument_id_map: Optional[Mapping[str, str]]):
-        """
-        Method added to allow the pure Python subclasses to set the value of the map
-        """
-        self._trading_pair_instrument_id_map = trading_pair_and_instrument_id_map
-
-    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
-        mapping = bidict()
-        for symbol_data in filter(foxbit_utils.is_exchange_information_valid, exchange_info["data"]):
-            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data['base']['symbol'].upper(),
-                                                                        quote=symbol_data['quote']['symbol'].upper())
-        self._set_trading_pair_symbol_map(mapping)
-
-    def _initialize_trading_pair_instrument_id_from_exchange_info(self, exchange_info: Dict[str, Any]):
-        mapping = bidict()
-        for symbol_data in filter(foxbit_utils.is_exchange_information_valid, exchange_info):
-            mapping[symbol_data["InstrumentId"]] = combine_to_hb_trading_pair(symbol_data['Product1Symbol'].upper(),
-                                                                              symbol_data['Product2Symbol'].upper())
-        self._set_trading_pair_instrument_id_map(mapping)
-
     async def _initialize_trading_pair_instrument_id_map(self):
         try:
             ws: WSAssistant = await self._create_web_assistants_factory().get_ws_assistant()
@@ -662,17 +641,74 @@ class FoxbitExchange(ExchangePyBase):
         except Exception:
             self.logger().exception("There was an error requesting exchange info.")
 
-    async def _get_last_traded_price(self, trading_pair: str) -> float:
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        trade_updates = []
 
-        ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=web_utils.websocket_url(), ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        if order.exchange_order_id is not None:
+            exchange_order_id = int(order.exchange_order_id)
+            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
+            all_fills_response = await self._api_get(
+                path_url=CONSTANTS.MY_TRADES_PATH_URL,
+                params={
+                    "market_symbol": trading_pair,
+                    "order_id": exchange_order_id
+                },
+                is_auth_required=True
+            )
+
+            for trade in all_fills_response:
+                exchange_order_id = str(trade["id"])
+                fee = TradeFeeBase.new_spot_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    trade_type=order.trade_type,
+                    percent_token=trade["fee_currency_symbol"],
+                    flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=trade["fee_currency_symbol"])]
+                )
+                trade_update = TradeUpdate(
+                    trade_id=str(trade["id"]),
+                    client_order_id=order.client_order_id,
+                    exchange_order_id=exchange_order_id,
+                    trading_pair=trading_pair,
+                    fee=fee,
+                    fill_base_amount=Decimal(trade["quantity"]),
+                    fill_quote_amount=Decimal(trade["quantity"]),
+                    fill_price=Decimal(trade["price"]),
+                    fill_timestamp=datetime.fromisoformat(trade["created_at"]).timestamp(),
+                )
+                trade_updates.append(trade_update)
+
+        return trade_updates
+
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        updated_order_data = await self._api_get(
+            path_url=CONSTANTS.GET_ORDER_BY_ID.format(tracked_order.exchange_order_id),
+            is_auth_required=True,
+            limit_id=CONSTANTS.GET_ORDER_BY_ID
+        )
+
+        new_state = CONSTANTS.ORDER_STATE[updated_order_data["state"]]
+
+        order_update = OrderUpdate(
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=str(updated_order_data["id"]),
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=(datetime.now(timezone.utc).timestamp() * 1e3),
+            new_state=new_state,
+        )
+
+        return order_update
+
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
 
         ixm_id = await self.exchange_instrument_id_associated_to_pair(trading_pair=trading_pair)
 
-        auth_header = web_utils.get_ws_message_frame(endpoint=CONSTANTS.WS_SUBSCRIBE_TOB,
-                                                     msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Request"],
-                                                     payload={"OMSId": 1, "InstrumentId": ixm_id},
-                                                     )
+        ws: WSAssistant = await self._create_web_assistants_factory().get_ws_assistant()
+        await ws.connect(ws_url=web_utils.websocket_url(), ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+
+        auth_header = foxbit_utils.get_ws_message_frame(endpoint=CONSTANTS.WS_SUBSCRIBE_TOB,
+                                                        msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Request"],
+                                                        payload={"OMSId": 1, "InstrumentId": ixm_id},
+                                                        )
 
         subscribe_request: WSJSONRequest = WSJSONRequest(payload=web_utils.format_ws_header(auth_header))
 
@@ -688,3 +724,29 @@ class FoxbitExchange(ExchangePyBase):
             return float(data["LastTradedPx"])
 
         return 0.0
+
+    def _set_trading_pair_instrument_id_map(self, trading_pair_and_instrument_id_map: Optional[Mapping[str, str]]):
+        """
+        Method added to allow the pure Python subclasses to set the value of the map
+        """
+        self._trading_pair_instrument_id_map = trading_pair_and_instrument_id_map
+
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        mapping = bidict()
+        for symbol_data in filter(foxbit_utils.is_exchange_information_valid, exchange_info["data"]):
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data['base']['symbol'].upper(),
+                                                                        quote=symbol_data['quote']['symbol'].upper())
+        self._set_trading_pair_symbol_map(mapping)
+
+    def _initialize_trading_pair_instrument_id_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        mapping = bidict()
+        for symbol_data in filter(foxbit_utils.is_exchange_information_valid, exchange_info):
+            mapping[symbol_data["InstrumentId"]] = combine_to_hb_trading_pair(symbol_data['Product1Symbol'].upper(),
+                                                                              symbol_data['Product2Symbol'].upper())
+        self._set_trading_pair_instrument_id_map(mapping)
+
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
+        error_description = str(request_exception)
+        is_time_synchronizer_related = ("-1021" in error_description
+                                        and "Timestamp for this request" in error_description)
+        return is_time_synchronizer_related
