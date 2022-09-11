@@ -29,6 +29,9 @@ class EmptyMarketConfigMap(BaseClientModel):
     markets: Union[None, List[str]] = None
     offsets: Union[None, List[Decimal]] = None
 
+    class Config:
+        title = "n"
+
 
 class MarketConfigMap(BaseClientModel):
     connector: Union[None, ExchangeEnum] = Field(
@@ -98,6 +101,9 @@ class MarketConfigMap(BaseClientModel):
             f"Enter the token trading pair you would like to hedge/monitor on comma seperated"
             f" {exchange}{f' (e.g. {example})' if example else ''}"
         )
+
+    class Config:
+        title = "y"
 
 
 connector_field = Field(
@@ -202,7 +208,7 @@ class HedgeConfigMap(BaseStrategyConfigMap):
     connector_4: market_config_map = connector_field
 
     @validator("connector_0", "connector_1", "connector_2", "connector_3", "connector_4", pre=True)
-    def construct_market(cls, v: Union[str, bool, MarketConfigMap, Dict]):
+    def construct_connector(cls, v: Union[str, bool, MarketConfigMap, Dict]):
         if isinstance(v, (MarketConfigMap, Dict)):
             return v
         if validate_bool(v):
