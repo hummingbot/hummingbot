@@ -17,9 +17,16 @@ ExchangeEnum = ClientConfigEnum(  # rebuild the exchanges enum
     # using get_connector_settings instead of get_all_connector_names
     # due to all_connector_names does not include testnet
     names={e: e for e in AllConnectorSettings.get_connector_settings()},
-    type=str
+    type=str,
 )
-
+connector_field = Field(
+    default="y",
+    description="The name of the hedge exchange connector.",
+    client_data=ClientFieldData(
+        prompt=lambda mi: "Do you want to monitor another connector? (y/n)",
+        prompt_on_new=True,
+    ),
+)
 
 MAX_CONNECTOR = 5
 
@@ -75,7 +82,7 @@ class MarketConfigMap(BaseClientModel):
                 return validate_decimal(offset)
         markets = values["markets"]
         if len(offsets) >= len(markets):
-            return offsets[:len(markets)]
+            return offsets[: len(markets)]
         return offsets + ["0"] * (len(markets) - len(offsets))
 
     @validator("markets", pre=True)
@@ -91,8 +98,8 @@ class MarketConfigMap(BaseClientModel):
                 return validated
         return markets
 
-    @classmethod
-    def trading_pair_prompt(cls, model_instance: "MarketConfigMap") -> str:
+    @staticmethod
+    def trading_pair_prompt(model_instance: "MarketConfigMap") -> str:
         exchange = model_instance.connector
         if exchange is None:
             return ""
@@ -106,14 +113,6 @@ class MarketConfigMap(BaseClientModel):
         title = "y"
 
 
-connector_field = Field(
-    default="y",
-    description="The name of the hedge exchange connector.",
-    client_data=ClientFieldData(
-        prompt=lambda mi: "Do you want to monitor another connector? (y/n)",
-        prompt_on_new=True,
-    ),
-)
 market_config_map = Union[EmptyMarketConfigMap, MarketConfigMap]
 
 
@@ -208,8 +207,8 @@ class HedgeConfigMap(BaseStrategyConfigMap):
     connector_4: market_config_map = connector_field
 
     @validator("connector_0", "connector_1", "connector_2", "connector_3", "connector_4", pre=True)
-    def construct_connector(cls, v: Union[str, bool, MarketConfigMap, Dict]):
-        if isinstance(v, (MarketConfigMap, Dict)):
+    def construct_connector(cls, v: Union[str, bool, EmptyMarketConfigMap, MarketConfigMap, Dict]):
+        if isinstance(v, (EmptyMarketConfigMap, MarketConfigMap, Dict)):
             return v
         if validate_bool(v):
             raise ValueError("enter a boolean value")
@@ -227,7 +226,7 @@ class HedgeConfigMap(BaseStrategyConfigMap):
                 return validate_decimal(offset)
         markets = values["hedge_markets"]
         if len(offsets) >= len(markets):
-            return offsets[:len(markets)]
+            return offsets[: len(markets)]
         return offsets + ["0"] * (len(markets) - len(offsets))
 
     @validator("hedge_markets", pre=True)
@@ -250,18 +249,19 @@ class HedgeConfigMap(BaseStrategyConfigMap):
         """prompts for the markets to hedge"""
         exchange = mi.hedge_connector
         if mi.value_mode:
-            return f"Enter the trading pair to hedge on {exchange}. e.g. BTC-USDT"
-        return f"Enter the list of trading pair to hedge on {exchange}. comma seperated. \
-            e.g BTC-USDT,ETH-USDT. \
-            Only markets with the same base as the hedge markets will be hedged"
+            return f"Enter the trading pair you would like to hedge on {exchange}. (Example: BTC-USDT)"
+        return f"Enter the list of trading pair you would like to hedge on {exchange}. comma seperated. \
+            (Example: BTC-USDT,ETH-USDT) Only markets with the same base as the hedge markets will be hedged."
 
     @staticmethod
     def hedge_offsets_prompt(mi: "HedgeConfigMap") -> str:
         """prompts for the markets to hedge"""
         if mi.value_mode:
-            return "Enter the offset to use to hedge the market. e.g. 0.1"
-        return "Enter the offsets to use to hedge the markets comma seperated. \
-            the remainder will be assumed as 0 if no inputs. \
-            e.g if markets is BTC-USDT,ETH-USDT,LTC-USDT. \
-            and offsets is 0.1, -0.2. \
-            then the offset amount that will be added is 0.1 BTC, -0.2 ETH and 0 LTC. "
+            trading_pair = mi.hedge_markets[0]
+            base = trading_pair.split("-")[0]
+            return f"Enter the offset for {base}. (Example: 0.1 = +0.1{base} used in calculation of hedged value)"
+        return (
+            "Enter the offsets to use to hedge the markets comma seperated. "
+            "(Example: 0.1,-0.2 = +0.1BTC,-0.2ETH, 0LTC will be offset for the exchange amount "
+            "if markets is BTC-USDT,ETH-USDT,LTC-USDT)"
+        )
