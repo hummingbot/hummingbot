@@ -12,6 +12,7 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
+from hummingbot.strategy.hedge.hedge_config_map_pydantic import HedgeConfigMap
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.strategy.utils import order_age
@@ -48,16 +49,10 @@ class HedgeStrategy(StrategyPyBase):
 
     def __init__(
         self,
+        config_map: HedgeConfigMap,
         hedge_market_pairs: List[MarketTradingPairTuple],
         market_pairs: List[MarketTradingPairTuple],
-        hedge_ratio: float,
-        hedge_leverage: float,
-        slippage: float,
-        min_trade_size: float,
-        hedge_interval: float,
-        value_mode: bool,
         offsets: Dict[MarketTradingPairTuple, Decimal],
-        hedge_position_mode: PositionMode = PositionMode.ONEWAY,
         status_report_interval: float = 900,
         max_order_age: float = 5,
     ):
@@ -78,24 +73,22 @@ class HedgeStrategy(StrategyPyBase):
         super().__init__()
         self._hedge_market_pairs = hedge_market_pairs
         self._market_pairs = market_pairs
-        self._hedge_ratio = hedge_ratio
-        self._leverage = hedge_leverage
-        self._position_mode = hedge_position_mode
-        self._slippage = slippage
-        self._min_trade_size = min_trade_size
-        self._hedge_interval = hedge_interval
+        self._hedge_ratio = config_map.hedge_ratio
+        self._leverage = config_map.hedge_leverage
+        self._position_mode = config_map.hedge_position_mode
+        self._slippage = config_map.slippage
+        self._min_trade_size = config_map.min_trade_size
+        self._hedge_interval = config_map.hedge_interval
+        self._value_mode = config_map.value_mode
         self._offsets = offsets
         self._status_report_interval = status_report_interval
         self._all_markets = self._hedge_market_pairs + self._market_pairs
         self._last_timestamp = 0
         self._all_markets_ready = False
-        self._value_mode = value_mode
         self._max_order_age = max_order_age
         # TODO: remove after cancel order is fixed
         self._canceled_order_ids = {}
-        if value_mode:
-            if len(self._hedge_market_pairs) != 1:
-                raise ValueError("Value mode is only supported for one hedge market pair.")
+        if config_map.value_mode:
             self.hedge = self.hedge_by_value
             self._hedge_market_pair = hedge_market_pairs[0]
         else:
@@ -250,10 +243,10 @@ class HedgeStrategy(StrategyPyBase):
         if not self.is_derivative(self._hedge_market_pairs[0]):
             return
         msg = (
-            f"Please verify that the position mode on {self._hedge_market_pairs[0].market.name} "
-            f"is set to {self._position_mode.name}. "
-            f"The bot will try to automatically set position mode to {self._position_mode.name} "
-            "but it does not work every time if there is position open."
+            f"Please verify that the position mode on {self._hedge_market_pairs[0].market} "
+            f"is set to {self._position_mode}. "
+            f"The bot will try to automatically set position mode to {self._position_mode} "
+            "but it does not work if there is position open."
             "Hedge strategy may not work properly if both setting is different.")
         self.notify_hb_app(msg)
         self.logger().warning(msg)
