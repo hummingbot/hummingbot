@@ -82,7 +82,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         self._user_stream_tracker = UserStreamTracker(
             data_source=self._userstream_ds)
 
-        self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
+        self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self, lost_order_count_limit=10000)
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -873,12 +873,8 @@ class ExchangePyBase(ExchangeBase, ABC):
                            limit_id: Optional[str] = None,
                            **kwargs) -> Dict[str, Any]:
 
-<<<<<<< HEAD
         last_exception = None
-=======
         self.logger().debug(f"Before getting rest assistant {params}, {data}")
-
->>>>>>> debugging
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
         if is_auth_required:
             url = self.web_utils.private_rest_url(path_url, domain=self.domain)
