@@ -66,7 +66,8 @@ client_configs_to_display = ["autofill_import",
                              "commands_timeout",
                              "create_command_timeout",
                              "other_commands_timeout",
-                             "tables_format"]
+                             "tables_format",
+                             "tick_size"]
 color_settings_to_display = ["top_pane",
                              "bottom_pane",
                              "output_pane",
