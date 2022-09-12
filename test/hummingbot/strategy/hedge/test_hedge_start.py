@@ -9,7 +9,7 @@ from hummingbot.strategy.hedge.hedge_config_map_pydantic import EmptyMarketConfi
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
-class XEMMStartTest(unittest.TestCase):
+class HedgeStartTest(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
