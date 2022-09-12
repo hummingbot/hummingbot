@@ -43,8 +43,8 @@ class CurveCortexArb(ConnectorBase):
             "network": "mainnet",
             "connector": "curve",
             "quote": "USDC",
-            "base": "ETH",
-            "amount": "10",
+            "base": "USDC",
+            "amount": "1",
             "side": side
         })
 
@@ -56,7 +56,7 @@ class CurveCortexArb(ConnectorBase):
             "chain": "ethereum",
             "network": "mainnet",
             "connector": "cortex",
-            "amount": "10",
+            "amount": "1",
             "tradeType": tradeType
         })
 
@@ -69,17 +69,42 @@ class CurveCortexArb(ConnectorBase):
     # def did_complete_buy_order(self, order_completed_event):
     #     self.logger().info(f"Your limit buy order {order_completed_event.order_id} has been executed")
     #     self.logger().info(order_completed_event)
+    def notify_hb_app(self, msg: str):
+        """
+        Method called to display message on the Output Panel(upper left)
+        :param msg: The message to be notified
+        """
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+        HummingbotApplication.main_application().notify(msg)
 
     async def main(self):
 
-        self.vault_mint_price = await self.get_vault_price(tradeType="mint")
-        self.logger().info(f"vault mint price: {self.vault_mint_price}")
-        self.vault_redeem_price = await self.get_vault_price(tradeType="redeem")
-        self.logger().info(f"vault redeem price: {self.vault_redeem_price}")
+        self.vault_mint_output = await self.get_vault_price(tradeType="mint")
+        self.logger().info(f"vault mint price: {self.vault_mint_output}")
+        self.vault_redeem_output = await self.get_vault_price(tradeType="redeem")
+        self.logger().info(f"vault redeem price: {self.vault_redeem_output}")
 
         self.logger().info("calling self.get_curve_price(side=buy)")
-        self.curve_buy_price = await self.get_curve_price(side='BUY')
+        self.curve_buy_output = await self.get_curve_price(side='BUY')
         # # self.notify(f"curve buy price: {self.curve_buy_price}")
-        self.logger().info(f"curve buy price: {self.curve_buy_price}")
-        self.curve_sell_price = await self.get_curve_price(side="SELL")
-        self.logger().info(f"curve sell price: {self.curve_sell_price}")
+        self.logger().info(f"curve buy price: {self.curve_buy_output}")
+        self.curve_sell_output = await self.get_curve_price(side="SELL")
+        self.logger().info(f"curve sell price: {self.curve_sell_output}")
+
+        curve_buy_price = int(self.curve_buy_output['price']) / 10**12
+        self.logger().info(f"Curve Buy Price: {curve_buy_price}")
+        curve_sell_price = float(self.curve_sell_output['price']) * 10**12
+        self.logger().info(f"Curve sell Price: {curve_sell_price}")
+        # self.logger().info(f"Curve sell Price: {curve_sell_price*10**13}")
+
+        vault_redeem_price = int(self.vault_redeem_output['assetAmountWithFee'])
+        vault_mint_price = int(self.vault_mint_output['assetAmountWithFee'])
+        self.logger().info(f"Vault Reedem Price: {vault_redeem_price}, vault mint price: {vault_mint_price}")
+
+        self.logger().info(f"Curve-Buy-Price - Vault-Redeem-Price: {curve_buy_price - vault_redeem_price}")
+        self.logger().info(f"Curve-Sell-Price - Vault-Mint-Price: {curve_sell_price - vault_mint_price}")
+        self.notify_hb_app(f"Vault Reedem Price: {vault_redeem_price}, vault mint price: {vault_mint_price}")
+        # curveBuy_vaultRedeem_arb = curve_buy_price - vault_redeem_price
+        # self.logger().info(f"Vault Reedem Price: {vault_redeem_price}")
+        # self.logger().info(f"Curve Buy Price: {curve_buy_price}")
+        # self.logger().info(f"Buy Curve then Redeem Vault: {curveBuy_vaultRedeem_arb}")
