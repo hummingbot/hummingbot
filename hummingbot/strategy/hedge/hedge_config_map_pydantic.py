@@ -58,7 +58,7 @@ class MarketConfigMap(BaseClientModel):
         ),
     )
     offsets: Union[None, List[Decimal]] = Field(
-        default=Decimal("0"),
+        default=Decimal("0.0"),
         description="The offsets for each trading pair.",
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the offsets to use to hedge the markets comma seperated. "
@@ -143,7 +143,7 @@ class HedgeConfigMap(BaseStrategyConfigMap):
         ),
     )
     min_trade_size: Decimal = Field(
-        default=Decimal("0"),
+        default=Decimal("0.0"),
         description="The minimum trade size in quote asset.",
         ge=0,
         client_data=ClientFieldData(
@@ -177,7 +177,7 @@ class HedgeConfigMap(BaseStrategyConfigMap):
         ),
     )
     hedge_offsets: List[Decimal] = Field(
-        default=Decimal("0"),
+        default=Decimal("0.0"),
         description="The offsets for each trading pair.",
         client_data=ClientFieldData(
             prompt=lambda mi: HedgeConfigMap.hedge_offsets_prompt(mi),
