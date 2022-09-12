@@ -13,7 +13,7 @@ from tabulate import tabulate_formats
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
-from hummingbot.client.config.config_validators import validate_bool
+from hummingbot.client.config.config_validators import validate_bool, validate_float
 from hummingbot.client.settings import DEFAULT_LOG_FILE_PATH, PMM_SCRIPTS_PATH, AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector_metrics_collector import (
@@ -827,6 +827,18 @@ class ClientConfigMap(BaseClientModel):
     )
     paper_trade: PaperTradeConfigMap = Field(default=PaperTradeConfigMap())
     color: ColorConfigMap = Field(default=ColorConfigMap())
+    tick_size: float = Field(
+        default=1.0,
+        ge=0.1,
+        description="The tick size is the frequency with which the clock notifies the time iterators by calling the"
+                    "\nc_tick() method, that means for example that if the tick size is 1, the logic of the strategy"
+                    " \nwill run every second.",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "What tick size (in seconds) do you want to use? (Enter 0.5 to indicate 0.5 seconds)"
+            ),
+        ),
+    )
 
     class Config:
         title = "client_config_map"
@@ -933,6 +945,14 @@ class ClientConfigMap(BaseClientModel):
     def validate_decimals(cls, v: str, field: Field):
         """Used for client-friendly error output."""
         return super().validate_decimal(v, field)
+
+    @validator("tick_size", pre=True)
+    def validate_tick_size(cls, v: float):
+        """Used for client-friendly error output."""
+        ret = validate_float(v, min_value=0.1)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
 
     # === post-validations ===
 
