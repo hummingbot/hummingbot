@@ -86,8 +86,6 @@ class HedgeStrategy(StrategyPyBase):
         self._last_timestamp = 0
         self._all_markets_ready = False
         self._max_order_age = max_order_age
-        # TODO: remove after cancel order is fixed
-        self._canceled_order_ids = {}
         if config_map.value_mode:
             self.hedge = self.hedge_by_value
             self._hedge_market_pair = hedge_market_pairs[0]
@@ -182,11 +180,7 @@ class HedgeStrategy(StrategyPyBase):
         :return: The active orders of all hedge markets.
 
         """
-        return [
-            order for order in self.order_tracker.active_limit_orders
-            # TODO: remove after cancel order is fixed
-            if self._canceled_order_ids.get(order[1].client_order_id, 0) < 5
-        ]
+        return self.order_tracker.active_limit_orders
 
     def format_status(self) -> str:
         """
@@ -525,8 +519,6 @@ class HedgeStrategy(StrategyPyBase):
         if not self.active_orders:
             return False
         for market_pair, order in self.active_orders:
-            # TODO: remove after cancel order resolved
-            self._canceled_order_ids[order.client_order_id] = self._canceled_order_ids.get(order.client_order_id, 0) + 1
             if order_age(order, self.current_timestamp) < self._max_order_age:
                 continue
             self.logger().info(
