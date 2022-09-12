@@ -79,6 +79,7 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | ∟ create_command_timeout | 10                   |\n"
                            "    | ∟ other_commands_timeout | 30                   |\n"
                            "    | tables_format            | psql                 |\n"
+                           "    | tick_size                | 1.0                  |\n"
                            "    +--------------------------+----------------------+")
 
         self.assertEqual(df_str_expected, captures[1])
