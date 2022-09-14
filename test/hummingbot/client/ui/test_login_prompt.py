@@ -25,11 +25,11 @@ class LoginPromptTest(unittest.TestCase):
     @patch("hummingbot.client.config.security.Security.login")
     @patch("hummingbot.client.config.security.Security.new_password_required")
     def test_login_success(
-        self,
-        new_password_required_mock: MagicMock,
-        login_mock: MagicMock,
-        input_dialog_mock: MagicMock,
-        message_dialog_mock: MagicMock,
+            self,
+            new_password_required_mock: MagicMock,
+            login_mock: MagicMock,
+            input_dialog_mock: MagicMock,
+            message_dialog_mock: MagicMock,
     ):
         new_password_required_mock.return_value = False
         run_mock = MagicMock()
@@ -46,11 +46,11 @@ class LoginPromptTest(unittest.TestCase):
     @patch("hummingbot.client.config.security.Security.login")
     @patch("hummingbot.client.config.security.Security.new_password_required")
     def test_login_error_retries(
-        self,
-        new_password_required_mock: MagicMock,
-        login_mock: MagicMock,
-        input_dialog_mock: MagicMock,
-        message_dialog_mock: MagicMock,
+            self,
+            new_password_required_mock: MagicMock,
+            login_mock: MagicMock,
+            input_dialog_mock: MagicMock,
+            message_dialog_mock: MagicMock,
     ):
         new_password_required_mock.return_value = False
         run_mock = MagicMock()
@@ -65,20 +65,88 @@ class LoginPromptTest(unittest.TestCase):
 
     @patch("hummingbot.client.ui.message_dialog")
     @patch("hummingbot.client.ui.input_dialog")
+    @patch("hummingbot.client.config.security.Security.login")
     @patch("hummingbot.client.config.security.Security.new_password_required")
-    def test_iterate_or_skip_through_blank_password(
-        self,
-        new_password_required_mock: MagicMock,
-        input_dialog_mock: MagicMock,
-        message_dialog_mock: MagicMock,
+    def test_login_blank_password_error_retries(
+            self,
+            new_password_required_mock: MagicMock,
+            login_mock: MagicMock,
+            input_dialog_mock: MagicMock,
+            message_dialog_mock: MagicMock,
     ):
         new_password_required_mock.return_value = True
+        input_dialog_mock_run_mock = MagicMock()
+        input_dialog_mock_run_mock.run.side_effect = ["", "a", "a"]
+        input_dialog_mock.return_value = input_dialog_mock_run_mock
+
         run_mock = MagicMock()
-        run_mock.run.return_value = None
-        input_dialog_mock.return_value = run_mock
+        run_mock.run.return_value = "somePassword"
+
+        message_dialog_text = []
+
+        def side_effect(title, text, style):
+            message_dialog_text.append(text)
+            return run_mock
+
+        message_dialog_mock.side_effect = side_effect
+        login_mock.return_value = True
+
+        self.assertTrue(login_prompt(ETHKeyFileSecretManger, style=load_style(self.client_config_map)))
+        self.assertEqual(1, len(login_mock.mock_calls))
+        self.assertIn("The password must not be empty.", message_dialog_text)
+
+    @patch("hummingbot.client.ui.message_dialog")
+    @patch("hummingbot.client.ui.input_dialog")
+    @patch("hummingbot.client.config.security.Security.login")
+    @patch("hummingbot.client.config.security.Security.new_password_required")
+    def test_login_password_do_not_match_error_retries(
+            self,
+            new_password_required_mock: MagicMock,
+            login_mock: MagicMock,
+            input_dialog_mock: MagicMock,
+            message_dialog_mock: MagicMock,
+    ):
+        new_password_required_mock.return_value = True
+        input_dialog_mock_run_mock = MagicMock()
+        input_dialog_mock_run_mock.run.side_effect = ["a", "b", "a", "a"]
+        input_dialog_mock.return_value = input_dialog_mock_run_mock
+
+        run_mock = MagicMock()
+        run_mock.run.return_value = "somePassword"
+
+        message_dialog_text = []
+
+        def side_effect(title, text, style):
+            message_dialog_text.append(text)
+            return run_mock
+
+        message_dialog_mock.side_effect = side_effect
+        login_mock.return_value = True
+
+        self.assertTrue(login_prompt(ETHKeyFileSecretManger, style=load_style(self.client_config_map)))
+        self.assertEqual(1, len(login_mock.mock_calls))
+        self.assertIn("Passwords entered do not match, please try again.", message_dialog_text)
+
+    @patch("hummingbot.client.ui.message_dialog")
+    @patch("hummingbot.client.ui.input_dialog")
+    @patch("hummingbot.client.config.security.Security.login")
+    @patch("hummingbot.client.config.security.Security.new_password_required")
+    def test_login_password_none_exit(
+            self,
+            new_password_required_mock: MagicMock,
+            login_mock: MagicMock,
+            input_dialog_mock: MagicMock,
+            message_dialog_mock: MagicMock,
+    ):
+        new_password_required_mock.return_value = True
+        input_dialog_mock_run_mock = MagicMock()
+        input_dialog_mock_run_mock.run.side_effect = ["a", None]
+        input_dialog_mock.return_value = input_dialog_mock_run_mock
+
+        run_mock = MagicMock()
+        run_mock.run.return_value = "somePassword"
+
         message_dialog_mock.return_value = run_mock
+        login_mock.return_value = True
 
-        self.assertEqual(login_prompt(ETHKeyFileSecretManger, style=load_style(self.client_config_map)), None)
-
-        run_mock.run.return_value = str()
         self.assertEqual(login_prompt(ETHKeyFileSecretManger, style=load_style(self.client_config_map)), None)
