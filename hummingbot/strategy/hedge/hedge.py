@@ -75,7 +75,7 @@ class HedgeStrategy(StrategyPyBase):
         self._market_pairs = market_pairs
         self._hedge_ratio = config_map.hedge_ratio
         self._leverage = config_map.hedge_leverage
-        self._position_mode = config_map.hedge_position_mode
+        self._position_mode = PositionMode.ONEWAY if config_map.hedge_position_mode == "ONEWAY" else PositionMode.HEDGE
         self._slippage = config_map.slippage
         self._min_trade_size = config_map.min_trade_size
         self._hedge_interval = config_map.hedge_interval
@@ -211,7 +211,7 @@ class HedgeStrategy(StrategyPyBase):
             hedge_value = self.get_base_value(self._hedge_market_pair)
             is_buy, value_to_hedge = self.get_hedge_direction_and_value()
             price, amount = self.calculate_hedge_price_and_amount(is_buy, value_to_hedge)
-            lines.extend(["", f"   Total value: {total_value:.6g}, Hedge value: {hedge_value:.6g}"])
+            lines.extend(["", f"   Value Mode: {self._value_mode} Total value: {total_value:.6g}, Hedge value: {hedge_value:.6g}"])
             if amount > 0:
                 lines.extend(
                     [
@@ -238,8 +238,8 @@ class HedgeStrategy(StrategyPyBase):
             return
         msg = (
             f"Please verify that the position mode on {self._hedge_market_pairs[0].market} "
-            f"is set to {self._position_mode}. "
-            f"The bot will try to automatically set position mode to {self._position_mode} "
+            f"is set to {self._position_mode.value}. "
+            f"The bot will try to automatically set position mode to {self._position_mode.value} "
             "but it does not work if there is position open."
             "Hedge strategy may not work properly if both setting is different.")
         self.notify_hb_app(msg)
@@ -257,31 +257,29 @@ class HedgeStrategy(StrategyPyBase):
         """
         if timestamp - self._last_timestamp < self._hedge_interval:
             return
-        current_tick = timestamp // self._status_report_interval
-        last_tick = self._last_timestamp // self._status_report_interval
-        should_report_warnings = current_tick > last_tick
-        try:
-            self._all_markets_ready = all([market.ready for market in self.active_markets])
-            if not self._all_markets_ready:
-                # Markets not ready yet. Don't do anything.
-                if should_report_warnings:
-                    self.logger().warning("Markets are not ready. No hedge trades are permitted.")
-                return
+        self._last_timestamp = timestamp
+        self._all_markets_ready = all([market.ready for market in self.active_markets])
+        if not self._all_markets_ready:
+            # Markets not ready yet. Don't do anything.
+            for market in self.active_markets:
+                if not market.ready:
+                    self.logger().warning(f"Market {market.name} is not ready.")
+            self.logger().warning("Markets are not ready. No hedge trades are permitted.")
+            return
 
-            if not all([market.network_status is NetworkStatus.CONNECTED for market in self.active_markets]):
-                if should_report_warnings:
-                    self.logger().warning(
-                        "WARNING: Some markets are not connected or are down at the moment. "
-                        "Hedging may be dangerous when markets or networks are unstable. "
-                        "Retrying after %ss.",
-                        self._hedge_interval,
-                    )
-                return
-            if self.check_and_cancel_active_orders():
-                return
-            self.hedge()
-        finally:
-            self._last_timestamp = timestamp
+        if not all([market.network_status is NetworkStatus.CONNECTED for market in self.active_markets]):
+            self.logger().warning(
+                "WARNING: Some markets are not connected or are down at the moment. "
+                "Hedging may be dangerous when markets or networks are unstable. "
+                "Retrying after %ss.",
+                self._hedge_interval,
+            )
+            return
+        if self.check_and_cancel_active_orders():
+            self.logger().info("Active orders present.")
+            return
+        self.logger().info("Checking hedge conditions...")
+        self.hedge()
 
     def get_positions(self, market_pair: MarketTradingPairTuple, position_side: PositionSide = None) -> List[Position]:
         """
@@ -378,8 +376,13 @@ class HedgeStrategy(StrategyPyBase):
         """
         is_buy, value_to_hedge = self.get_hedge_direction_and_value()
         price, amount = self.calculate_hedge_price_and_amount(is_buy, value_to_hedge)
+        self.logger().info(
+            f"Hedging by value. Hedge direction: {'buy' if is_buy else 'sell'}. "
+            f"Hedge price: {price}. Hedge amount: {amount}."
+        )
         order_candidates = self.get_order_candidates(self._hedge_market_pair, is_buy, amount, price)
         if not order_candidates:
+            self.logger().info("No order candidates.")
             return
         self.place_orders(self._hedge_market_pair, order_candidates)
 
@@ -425,6 +428,7 @@ class HedgeStrategy(StrategyPyBase):
         returns the order candidate if the order meets the accepted criteria
         else, return None
         """
+        self.logger().info("Checking perpetual order candidates for %s %s %s %s", market_pair, "buy" if is_buy else "sell", amount, price)
 
         def get_closing_order_candidate(is_buy: bool, amount: Decimal, price: Decimal) -> PerpetualOrderCandidate:
             opp_position_side = PositionSide.SHORT if is_buy else PositionSide.LONG
@@ -442,12 +446,13 @@ class HedgeStrategy(StrategyPyBase):
                     leverage=Decimal(self._leverage),
                     position_close=True,
                 )
-                adjusted_candidate_order = budget_checker.adjust_candidate(order_candidate)
+                adjusted_candidate_order = budget_checker.adjust_candidate(order_candidate, all_or_none=False)
                 return adjusted_candidate_order
             return None
 
         budget_checker = market_pair.market.budget_checker
         if amount * price < self._min_trade_size:
+            self.logger().info("trade value (%s) is less than min trade size. (%s)", amount * price, self._min_trade_size)
             return []
         order_candidates = []
         if self._position_mode == PositionMode.HEDGE:
@@ -464,7 +469,9 @@ class HedgeStrategy(StrategyPyBase):
             price=price,
             leverage=Decimal(self._leverage),
         )
-        adjusted_candidate_order = budget_checker.adjust_candidate(order_candidate)
+        self.logger().info("order candidate: %s", order_candidate)
+        adjusted_candidate_order = budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+        self.logger().info("adjusted order candidate: %s", adjusted_candidate_order)
         if adjusted_candidate_order.amount > 0:
             order_candidates.append(adjusted_candidate_order)
         return order_candidates
@@ -480,6 +487,7 @@ class HedgeStrategy(StrategyPyBase):
         """
         budget_checker = market_pair.market.budget_checker
         if amount * price < self._min_trade_size:
+            self.logger().info("trade value (%s) is less than min trade size. (%s)", amount * price, self._min_trade_size)
             return []
         order_candidate = OrderCandidate(
             trading_pair=market_pair.trading_pair,
@@ -489,8 +497,12 @@ class HedgeStrategy(StrategyPyBase):
             amount=amount,
             price=price,
         )
-        adjusted_candidate_order = budget_checker.adjust_candidate(order_candidate)
-        return [adjusted_candidate_order]
+        self.logger().info("order candidate: %s", order_candidate)
+        adjusted_candidate_order = budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+        self.logger().info("adjusted order candidate: %s", adjusted_candidate_order)
+        if adjusted_candidate_order.amount > 0:
+            return [adjusted_candidate_order]
+        return []
 
     def place_orders(
         self, market_pair: MarketTradingPairTuple, orders: List[Union[OrderCandidate, PerpetualOrderCandidate]]
@@ -500,6 +512,7 @@ class HedgeStrategy(StrategyPyBase):
         :params market_pair: The market pair to place the order.
         :params orders: The list of orders to place.
         """
+        self.logger().info("Placing %s orders", len(orders))
         for order in orders:
             self.logger().info(f"Create {order.order_side} {order.amount} {order.trading_pair} at {order.price}")
             is_buy = order.order_side == TradeType.BUY
