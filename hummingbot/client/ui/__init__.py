@@ -22,6 +22,7 @@ with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
 def login_prompt(secrets_manager_cls: Type[BaseSecretsManager], style: Style):
     err_msg = None
     secrets_manager = None
+    blank_attemps = 0
     if Security.new_password_required() and legacy_confs_exist():
         secrets_manager = migrate_configs_prompt(secrets_manager_cls, style)
     if Security.new_password_required():
@@ -39,7 +40,25 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager], style: Style):
     Enter your new password:""",
             password=True,
             style=style).run()
-        if password is None:
+        while password is str() and blank_attemps < 5:
+            password = input_dialog(
+                title="Set Password Again",
+                text="""
+   Password must have at least one character.
+
+   Create a password to protect your sensitive data.
+   This password is not shared with us nor with anyone else, so please store it securely.
+
+   If you have used hummingbot before and already have secure configs stored,
+   input your previous password in this prompt. The next step will automatically
+   migrate your existing configs.
+
+   Enter your new password:""",
+                password=True,
+                style=style).run()
+            if password == str():
+                blank_attemps += 1
+        if password is None or password is str():
             return None
         re_password = input_dialog(
             title="Set Password",
