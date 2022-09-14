@@ -166,7 +166,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
-        return [order.to_limit_order() for order in self._client_order_tracker.all_orders.values()]
+        return [order.to_limit_order() for order in self.in_flight_orders.values()]
 
     @property
     def budget_checker(self) -> PerpetualBudgetChecker:
@@ -179,7 +179,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         return {
             client_order_id: in_flight_order.to_json()
-            for client_order_id, in_flight_order in self._client_order_tracker.active_orders.items()
+            for client_order_id, in_flight_order in self.in_flight_orders.items()
             if not in_flight_order.is_done
         }
 
@@ -327,7 +327,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         timeout_seconds:
             How long to wait before checking whether the orders were cancelled
         """
-        incomplete_orders = [order for order in self._client_order_tracker.active_orders.values() if not order.is_done]
+        incomplete_orders = [order for order in self.in_flight_orders.values() if not order.is_done]
         tasks = [self._execute_cancel(order.trading_pair, order.client_order_id) for order in incomplete_orders]
         successful_cancellations = []
         failed_cancellations = []
@@ -348,26 +348,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             )
         return successful_cancellations + failed_cancellations
 
-    async def cancel_all_account_orders(self, trading_pair: str):
-        try:
-            params = {
-                "symbol": trading_pair
-            }
-            response = await self._api_request(
-                path=CONSTANTS.CANCEL_ALL_OPEN_ORDERS_URL,
-                params=params,
-                method=RESTMethod.DELETE,
-                is_auth_required=True,
-            )
-            if response.get("code") == 200:
-                for order_id in list(self._client_order_tracker.active_orders.keys()):
-                    self.stop_tracking_order(order_id)
-            else:
-                raise IOError(f"Error canceling all account orders. Server Response: {response}")
-        except Exception as e:
-            self.logger().error("Could not cancel all account orders.")
-            raise e
-
     def cancel(self, trading_pair: str, client_order_id: str):
         """
         The function that takes in the trading pair and client order ID
@@ -385,13 +365,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         return client_order_id
 
     def quantize_order_amount(self, trading_pair: str, amount: object, price: object = Decimal(0)):
-        trading_rule: TradingRule = self._trading_rules[trading_pair]
-        # current_price: object = self.get_price(trading_pair, False)
-        notional_size: object
         quantized_amount = ExchangeBase.quantize_order_amount(self, trading_pair, amount)
-        if quantized_amount < trading_rule.min_order_size:
-            return Decimal(0)
-
         return quantized_amount
 
     def get_order_price_quantum(self, trading_pair: str, price: object):
@@ -655,51 +629,51 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             client_order_id = order_message.get("c", None)
 
             tracked_order: InFlightOrder = self._client_order_tracker.fetch_order(client_order_id)
-            if not tracked_order:
-                return
+            if tracked_order is not None:
+                trade_id: str = str(order_message["t"])
 
-            trade_id: str = str(order_message["t"])
+                if trade_id != "0":  # Indicates that there has been a trade
 
-            if trade_id != "0":  # Indicates that there has been a trade
+                    fee_asset = order_message.get("N", tracked_order.quote_asset)
+                    fee_amount = Decimal(order_message.get("n", "0"))
+                    position_side = order_message.get("ps", "LONG")
+                    position_action = (PositionAction.OPEN
+                                       if (tracked_order.trade_type is TradeType.BUY and position_side == "LONG"
+                                           or tracked_order.trade_type is TradeType.SELL and position_side == "SHORT")
+                                       else PositionAction.CLOSE)
+                    flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
 
-                fee_asset = order_message.get("N", tracked_order.quote_asset)
-                fee_amount = Decimal(order_message.get("n", "0"))
-                position_side = order_message.get("ps", "LONG")
-                position_action = (PositionAction.OPEN
-                                   if (tracked_order.trade_type is TradeType.BUY and position_side == "LONG"
-                                       or tracked_order.trade_type is TradeType.SELL and position_side == "SHORT")
-                                   else PositionAction.CLOSE)
-                flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
+                    fee = TradeFeeBase.new_perpetual_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        position_action=position_action,
+                        percent_token=fee_asset,
+                        flat_fees=flat_fees,
+                    )
 
-                fee = TradeFeeBase.new_perpetual_fee(
-                    fee_schema=self.trade_fee_schema(),
-                    position_action=position_action,
-                    percent_token=fee_asset,
-                    flat_fees=flat_fees,
-                )
+                    trade_update: TradeUpdate = TradeUpdate(
+                        trade_id=trade_id,
+                        client_order_id=client_order_id,
+                        exchange_order_id=str(order_message["i"]),
+                        trading_pair=tracked_order.trading_pair,
+                        fill_timestamp=order_message["T"] * 1e-3,
+                        fill_price=Decimal(order_message["L"]),
+                        fill_base_amount=Decimal(order_message["l"]),
+                        fill_quote_amount=Decimal(order_message["L"]) * Decimal(order_message["l"]),
+                        fee=fee,
+                    )
+                    self._client_order_tracker.process_trade_update(trade_update)
 
-                trade_update: TradeUpdate = TradeUpdate(
-                    trade_id=trade_id,
+            tracked_order: InFlightOrder = self._client_order_tracker.fetch_tracked_order(client_order_id)
+            if tracked_order is not None:
+                order_update: OrderUpdate = OrderUpdate(
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=event_message["T"] * 1e-3,
+                    new_state=CONSTANTS.ORDER_STATE[order_message["X"]],
                     client_order_id=client_order_id,
                     exchange_order_id=str(order_message["i"]),
-                    trading_pair=tracked_order.trading_pair,
-                    fill_timestamp=order_message["T"] * 1e-3,
-                    fill_price=Decimal(order_message["L"]),
-                    fill_base_amount=Decimal(order_message["l"]),
-                    fill_quote_amount=Decimal(order_message["L"]) * Decimal(order_message["l"]),
-                    fee=fee,
                 )
-                self._client_order_tracker.process_trade_update(trade_update)
 
-            order_update: OrderUpdate = OrderUpdate(
-                trading_pair=tracked_order.trading_pair,
-                update_timestamp=event_message["T"] * 1e-3,
-                new_state=CONSTANTS.ORDER_STATE[order_message["X"]],
-                client_order_id=client_order_id,
-                exchange_order_id=str(order_message["i"]),
-            )
-
-            self._client_order_tracker.process_order_update(order_update)
+                self._client_order_tracker.process_order_update(order_update)
 
         elif event_type == "ACCOUNT_UPDATE":
             update_data = event_message.get("a", {})
@@ -1223,19 +1197,50 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         price:
             Price for a limit order
         """
-        trading_rule: TradingRule = self._trading_rules[trading_pair]
-        if position_action not in [PositionAction.OPEN, PositionAction.CLOSE]:
-            raise ValueError("Specify either OPEN_POSITION or CLOSE_POSITION position_action.")
-
-        amount = self.quantize_order_amount(trading_pair, amount)
-        price = self.quantize_order_price(trading_pair, price)
-
-        if amount < trading_rule.min_order_size:
-            raise ValueError(
-                f"Buy order amount {amount} is lower than the minimum order size " f"{trading_rule.min_order_size}"
-            )
 
         order_result = None
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+
+        if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
+            price = self.quantize_order_price(trading_pair, price)
+            amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount)
+        elif order_type == OrderType.MARKET:
+            amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount)
+
+        self.start_tracking_order(
+            order_id=order_id,
+            trading_pair=trading_pair,
+            trading_type=trade_type,
+            price=price,
+            amount=amount,
+            order_type=order_type,
+            leverage=self._leverage[trading_pair],
+            position=position_action,
+        )
+
+        if position_action not in [PositionAction.OPEN, PositionAction.CLOSE]:
+            self.logger().error("Specify either OPEN_POSITION or CLOSE_POSITION position_action.")
+            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            return
+
+        if order_type not in self.supported_order_types():
+            self.logger().error(f"{order_type} is not in the list of supported order types")
+            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            return
+
+        if amount < trading_rule.min_order_size:
+            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order"
+                                  f" size {trading_rule.min_order_size}. The order will not be created.")
+            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            return
+
+        if price is not None and amount * price < trading_rule.min_notional_size:
+            self.logger().warning(f"{trade_type.name.title()} order notional {amount * price} is lower than the "
+                                  f"minimum notional size {trading_rule.min_notional_size}. "
+                                  "The order will not be created.")
+            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            return
+
         api_params = {
             "symbol": await BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(
                 hb_trading_pair=trading_pair,
@@ -1257,17 +1262,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 api_params["positionSide"] = "LONG" if trade_type is TradeType.BUY else "SHORT"
             else:
                 api_params["positionSide"] = "SHORT" if trade_type is TradeType.BUY else "LONG"
-
-        self.start_tracking_order(
-            order_id=order_id,
-            trading_pair=trading_pair,
-            trading_type=trade_type,
-            price=price,
-            amount=amount,
-            order_type=order_type,
-            leverage=self._leverage[trading_pair],
-            position=position_action,
-        )
 
         try:
             order_result = await self._api_request(
@@ -1306,6 +1300,15 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             # This should call stop_tracking_order
             self._client_order_tracker.process_order_update(order_update)
 
+    def _update_order_after_failure(self, order_id: str, trading_pair: str):
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order_id,
+            trading_pair=trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=OrderState.FAILED,
+        )
+        self._client_order_tracker.process_order_update(order_update)
+
     async def _execute_cancel(self, trading_pair: str, client_order_id: str) -> str:
         """
         Cancels the specified in-flight order and returns the client order ID.
@@ -1341,11 +1344,20 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 is_auth_required=True,
                 return_err=True,
             )
-            if response.get("code") == -2011 and "Unknown order sent" in response.get("msg", ""):
+            if response.get("code") == -2011 and "Unknown order sent." == response.get("msg", ""):
                 self.logger().debug(f"The order {client_order_id} does not exist on Binance Perpetuals. "
                                     f"No cancelation needed.")
-                self.stop_tracking_order(client_order_id)
+                await self._client_order_tracker.process_order_not_found(client_order_id)
                 return None
+            if response.get("status") == "CANCELED":
+                order_update: OrderUpdate = OrderUpdate(
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=response["updateTime"] * 1e-3,
+                    new_state=CONSTANTS.ORDER_STATE[response["status"]],
+                    client_order_id=client_order_id,
+                    exchange_order_id=str(response["orderId"]),
+                )
+                await self._client_order_tracker.process_order_update(order_update)
             return client_order_id
         except Exception as e:
             self.logger().error(f"Could not cancel order {client_order_id} on Binance Perp. {str(e)}")
