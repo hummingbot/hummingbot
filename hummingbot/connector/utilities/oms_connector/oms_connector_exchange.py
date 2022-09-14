@@ -84,10 +84,6 @@ class OMSExchange(ExchangePyBase):
         return CONSTANTS.RATE_LIMITS
 
     @property
-    def domain(self) -> str:
-        return ""
-
-    @property
     def client_order_id_max_length(self) -> int:
         return -1
 
