@@ -62,3 +62,23 @@ class LoginPromptTest(unittest.TestCase):
         self.assertTrue(login_prompt(ETHKeyFileSecretManger, style=load_style(self.client_config_map)))
         self.assertEqual(2, len(login_mock.mock_calls))
         message_dialog_mock.assert_called()
+
+    @patch("hummingbot.client.ui.message_dialog")
+    @patch("hummingbot.client.ui.input_dialog")
+    @patch("hummingbot.client.config.security.Security.new_password_required")
+    def test_iterate_or_skip_through_blank_password(
+        self,
+        new_password_required_mock: MagicMock,
+        input_dialog_mock: MagicMock,
+        message_dialog_mock: MagicMock,
+    ):
+        new_password_required_mock.return_value = True
+        run_mock = MagicMock()
+        run_mock.run.return_value = None
+        input_dialog_mock.return_value = run_mock
+        message_dialog_mock.return_value = run_mock
+
+        self.assertEqual(login_prompt(ETHKeyFileSecretManger, style=load_style(self.client_config_map)), None)
+
+        run_mock.run.return_value = str()
+        self.assertEqual(login_prompt(ETHKeyFileSecretManger, style=load_style(self.client_config_map)), None)
