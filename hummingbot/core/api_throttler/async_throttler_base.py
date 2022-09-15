@@ -4,10 +4,10 @@ import logging
 import math
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from hummingbot.core.api_throttler.async_request_context_base import AsyncRequestContextBase
-from hummingbot.core.api_throttler.data_types import RateLimit, TaskLog
+from hummingbot.core.api_throttler.data_types import RateLimit, TaskLog, TokenBucket, _T_Seconds
 from hummingbot.logger.logger import HummingbotLogger
 
 
@@ -25,11 +25,21 @@ class AsyncThrottlerBase(ABC):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
+    __slots__ = (
+        '_rate_limits',
+        'limits_in_pct',
+        '_id_to_limit_map',
+        '_task_logs',
+        '_retry_interval',
+        '_safety_margin_as_fraction',
+        '_lock',
+    )
+
     def __init__(self,
                  rate_limits: List[RateLimit],
-                 retry_interval: float = 0.1,
-                 safety_margin_pct: Optional[float] = 0.05,  # An extra safety margin, in percentage.
-                 limits_share_percentage: Optional[Decimal] = None
+                 retry_interval: Union[_T_Seconds, float] = _T_Seconds("0.1"),
+                 safety_margin_pct: Optional[float] = 5,  # An extra safety margin, in percentage
+                 limits_share_percentage: Optional[Decimal] = Decimal("100")
                  ):
         """
         :param rate_limits: List of RateLimit(s).
@@ -42,14 +52,16 @@ class AsyncThrottlerBase(ABC):
         self._rate_limits: List[RateLimit] = copy.deepcopy(rate_limits)
 
         # If configured, users can define the percentage of rate limits to allocate to the throttler.
-        share_percentage = limits_share_percentage or self._client_config_map().rate_limits_share_pct
-        self.limits_pct: Decimal = share_percentage / 100
+        self.limits_in_pct: Decimal = min(limits_share_percentage, self._client_config_map().rate_limits_share_pct) / Decimal("100")
         for rate_limit in self._rate_limits:
-            rate_limit.limit = max(Decimal("1"),
-                                   math.floor(Decimal(str(rate_limit.limit)) * self.limits_pct))
+            if isinstance(rate_limit, TokenBucket):
+                rate_limit.capacity = max(1, math.floor(rate_limit.capacity * self.limits_in_pct))
+                rate_limit.limit = max(1, math.floor(rate_limit.limit * self.limits_in_pct))
+            else:
+                rate_limit.limit = max(1, math.floor(rate_limit.limit * self.limits_in_pct))
 
         # Dictionary of path_url to RateLimit
-        self._id_to_limit_map: Dict[str, RateLimit] = {
+        self._id_to_limit_map: Dict[str, Union[RateLimit, TokenBucket]] = {
             limit.limit_id: limit
             for limit in self._rate_limits
         }
@@ -58,20 +70,19 @@ class AsyncThrottlerBase(ABC):
         self._task_logs: List[TaskLog] = []
 
         # Throttler Parameters
-        self._retry_interval: float = retry_interval
-        self._safety_margin_pct: float = safety_margin_pct
+        self._retry_interval: _T_Seconds = _T_Seconds(retry_interval)
+        self._safety_margin_as_fraction: Decimal = Decimal(safety_margin_pct) * Decimal("0.01")
 
         # Shared asyncio.Lock instance to prevent multiple async ContextManager from accessing the _task_logs variable
         self._lock = asyncio.Lock()
 
     def _client_config_map(self):
         from hummingbot.client.hummingbot_application import HummingbotApplication  # avoids circular import
-
         return HummingbotApplication.main_application().client_config_map
 
-    def get_related_limits(self, limit_id: str) -> Tuple[RateLimit, List[Tuple[RateLimit, int]]]:
-        rate_limit: Optional[RateLimit] = self._id_to_limit_map.get(limit_id, None)
-        linked_limits: List[RateLimit] = [] if rate_limit is None else rate_limit.linked_limits
+    def get_related_limits(self, limit_id: str) -> Tuple[Union[RateLimit, TokenBucket], List[Tuple[Union[RateLimit, TokenBucket], int]]]:
+        rate_limit: Optional[Union[RateLimit, TokenBucket]] = self._id_to_limit_map.get(limit_id, None)
+        linked_limits: List[Union[RateLimit, TokenBucket]] = [] if rate_limit is None else rate_limit.linked_limits
 
         related_limits = [(self._id_to_limit_map[limit_weight_pair.limit_id], limit_weight_pair.weight)
                           for limit_weight_pair in linked_limits
