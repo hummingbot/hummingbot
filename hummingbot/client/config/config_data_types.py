@@ -89,7 +89,7 @@ class BaseStrategyConfigMap(BaseClientModel):
 class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
     exchange: ClientConfigEnum(  # rebuild the exchanges enum
         value="Exchanges",  # noqa: F821
-        names={e: e for e in AllConnectorSettings.get_all_connectors()},
+        names={e: e for e in sorted(AllConnectorSettings.get_exchange_names())},
         type=str,
     ) = Field(
         default=...,
@@ -125,7 +125,7 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
             raise ValueError(ret)
         cls.__fields__["exchange"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
             value="Exchanges",  # noqa: F821
-            names={e: e for e in AllConnectorSettings.get_all_connectors()},
+            names={e: e for e in sorted(AllConnectorSettings.get_exchange_names())},
             type=str,
         )
         return v
