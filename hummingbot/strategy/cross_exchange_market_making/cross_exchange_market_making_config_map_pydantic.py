@@ -375,7 +375,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         default=...,
         description="The name of the taker exchange connector.",
         client_data=ClientFieldData(
-            prompt=lambda mi: "Enter your taker connector (Exchange/AMM)",
+            prompt=lambda mi: "Enter your taker connector (Exchange/AMM/CLOB)",
             prompt_on_new=True,
         ),
     )
