@@ -382,23 +382,6 @@ class AllConnectorSettings:
                 cls.all_connector_settings.update({f"{e}_paper_trade": paper_trade_settings})
 
     @classmethod
-    def get_all_connectors(cls) -> List[str]:
-        """Avoids circular import problems introduced by `create_connector_settings`."""
-        connector_names = PAPER_TRADE_EXCHANGES.copy()
-        type_dirs: List[DirEntry] = [
-            cast(DirEntry, f) for f in
-            scandir(f"{root_path() / 'hummingbot' / 'connector'}")
-            if f.is_dir()
-        ]
-        for type_dir in type_dirs:
-            connector_dirs: List[DirEntry] = [
-                cast(DirEntry, f) for f in scandir(type_dir.path)
-                if f.is_dir() and exists(join(f.path, "__init__.py"))
-            ]
-            connector_names.extend([connector_dir.name for connector_dir in connector_dirs])
-        return connector_names
-
-    @classmethod
     def get_connector_settings(cls) -> Dict[str, ConnectorSetting]:
         if len(cls.all_connector_settings) == 0:
             cls.all_connector_settings = cls.create_connector_settings()
