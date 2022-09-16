@@ -16,7 +16,6 @@ from bin.docker_connection import fork_and_start
 from bin.hummingbot import UIStartListener, detect_available_port
 from hummingbot import init_logging
 from hummingbot.client.config.config_crypt import BaseSecretsManager, ETHKeyFileSecretManger
-from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
 from hummingbot.client.config.config_helpers import (
     all_configs_complete,
     create_yml_files_legacy,
@@ -25,6 +24,7 @@ from hummingbot.client.config.config_helpers import (
     read_system_configs_from_yml,
 )
 from hummingbot.client.config.security import Security
+from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.settings import STRATEGIES_CONF_DIR_PATH, AllConnectorSettings
 from hummingbot.client.ui import login_prompt

@@ -5,13 +5,9 @@ from typing import Dict, Tuple, Union
 from pydantic import BaseModel, Field, root_validator, validator
 
 import hummingbot.client.settings as settings
-from hummingbot.client.config.config_data_types import (
-    BaseClientModel,
-    BaseTradingStrategyMakerTakerConfigMap,
-    ClientConfigEnum,
-    ClientFieldData,
-)
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_validators import validate_bool, validate_connector, validate_exchange
+from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyMakerTakerConfigMap
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle

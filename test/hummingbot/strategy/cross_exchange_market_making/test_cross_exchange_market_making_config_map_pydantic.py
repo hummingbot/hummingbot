@@ -99,9 +99,7 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
 
         self.assertEqual(expected, prompt)
 
-    @patch(
-        "hummingbot.client.config.config_data_types.validate_market_trading_pair"
-    )
+    @patch("hummingbot.client.config.strategy_config_data_types.validate_market_trading_pair")
     def test_validators(self, _):
         self.config_map.order_refresh_mode = "active_order_refresh"
         self.assertIsInstance(self.config_map.order_refresh_mode.hb_config, ActiveOrderRefreshMode)
