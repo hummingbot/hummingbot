@@ -158,7 +158,7 @@ class LiquidityMiningTest(unittest.TestCase):
                     return True
         return False
 
-    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
     def test_simulate_maker_market_trade(self, estimate_fee_mock):
         """
         Test that we can set up a liquidity mining strategy, and a trade
@@ -193,7 +193,7 @@ class LiquidityMiningTest(unittest.TestCase):
         self.simulate_maker_market_trade(False, Decimal("50"), Decimal("1"), "ETH-USDT")
         self.assertEqual(3, len(self.default_strategy.active_orders))
 
-    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
     def test_multiple_markets(self, estimate_fee_mock):
         """
         Liquidity Mining supports one base asset but multiple quote assets. This shows that the user can successfully
@@ -215,7 +215,7 @@ class LiquidityMiningTest(unittest.TestCase):
         self.simulate_maker_market_trade(False, 50, 1, "ETH-BTC")
         self.clock.backtest_til(self.start_timestamp + 16)
 
-    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
     def test_tolerance_level(self, estimate_fee_mock):
         """
         Test tolerance level
@@ -241,7 +241,7 @@ class LiquidityMiningTest(unittest.TestCase):
         proposal = Proposal("ETH-USDT", PriceSize(150, 1), PriceSize(50, 1))
         self.assertFalse(self.default_strategy.is_within_tolerance(self.default_strategy.active_orders, proposal))
 
-    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
     def test_budget_allocation(self, estimate_fee_mock):
         """
         Liquidity mining strategy budget allocation is different from pmm, it depends on the token base and it splits
@@ -294,7 +294,7 @@ class LiquidityMiningTest(unittest.TestCase):
         self.assertLess(strategy.sell_budgets["ETH-BTC"], eth_balance * 0.4)
         self.assertLess(strategy.sell_budgets["ETH-BUSD"], eth_balance * 0.4)
 
-    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
     def test_budget_allocation_empty_ob(self, estimate_fee_mock):
         """
         Liquidity mining strategy budget allocation is different from pmm, it depends on the token base and it splits
@@ -347,7 +347,7 @@ class LiquidityMiningTest(unittest.TestCase):
         self.assertFalse("ETH-BTC" in strategy.sell_budgets)
         self.assertFalse("ETH-BUSD" in strategy.sell_budgets)
 
-    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
     def test_budget_allocation_partially_empty_ob(self, estimate_fee_mock):
         """
         Liquidity mining strategy budget allocation is different from pmm, it depends on the token base and it splits
@@ -403,7 +403,7 @@ class LiquidityMiningTest(unittest.TestCase):
         self.assertTrue("ETH-BTC" in strategy.sell_budgets)
         self.assertFalse("ETH-BUSD" in strategy.sell_budgets)
 
-    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
     def test_inventory_skew(self, estimate_fee_mock):
         """
         When inventory_skew_enabled is true, the strategy will try to balance the amounts of base to match it
@@ -471,7 +471,7 @@ class LiquidityMiningTest(unittest.TestCase):
                         self.assertLessEqual(skewed_base_order.price, unskewed_order.price)
 
     @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.MarketTradingPairTuple.get_mid_price')
-    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
     def test_volatility(self, estimate_fee_mock, get_mid_price_mock):
         """
         Assert that volatility information is updated after the expected number of intervals
