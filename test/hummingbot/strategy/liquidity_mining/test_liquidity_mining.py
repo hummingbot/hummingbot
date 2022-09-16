@@ -56,6 +56,30 @@ class LiquidityMiningTest(unittest.TestCase):
 
         return market, market_infos
 
+    @staticmethod
+    def create_empty_ob_market(trading_pairs: List[str], mid_price, balances: Dict[str, int]) -> \
+            (MockPaperExchange, Dict[str, MarketTradingPairTuple]):
+        """
+        Create a BacktestMarket and marketinfo dictionary to be used by the liquidity mining strategy
+        """
+        market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
+        market_infos: Dict[str, MarketTradingPairTuple] = {}
+
+        _ = mid_price
+        for trading_pair in trading_pairs:
+            base_asset = trading_pair.split("-")[0]
+            quote_asset = trading_pair.split("-")[1]
+            market.new_empty_order_book(trading_pair=trading_pair, )
+            market.set_quantization_param(QuantizationParams(trading_pair, 6, 6, 6, 6))
+            market_infos[trading_pair] = MarketTradingPairTuple(market, trading_pair, base_asset, quote_asset)
+
+        for asset, value in balances.items():
+            market.set_balance(asset, value)
+
+        return market, market_infos
+
     def setUp(self) -> None:
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
@@ -155,10 +179,14 @@ class LiquidityMiningTest(unittest.TestCase):
         self.assertEqual(4, len(self.default_strategy.active_orders))
 
         # assert that a buy and sell order is made for each pair
-        self.assertTrue(self.has_limit_order(self.default_strategy.active_orders, 'ETH-USDT', True, Decimal(99.95), Decimal(2.0)))
-        self.assertTrue(self.has_limit_order(self.default_strategy.active_orders, 'ETH-USDT', False, Decimal(100.05), Decimal(2.0)))
-        self.assertTrue(self.has_limit_order(self.default_strategy.active_orders, 'ETH-BTC', True, Decimal(99.95), Decimal(1.0005)))
-        self.assertTrue(self.has_limit_order(self.default_strategy.active_orders, 'ETH-BTC', False, Decimal(100.05), Decimal(2)))
+        self.assertTrue(
+            self.has_limit_order(self.default_strategy.active_orders, 'ETH-USDT', True, Decimal(99.95), Decimal(2.0)))
+        self.assertTrue(
+            self.has_limit_order(self.default_strategy.active_orders, 'ETH-USDT', False, Decimal(100.05), Decimal(2.0)))
+        self.assertTrue(
+            self.has_limit_order(self.default_strategy.active_orders, 'ETH-BTC', True, Decimal(99.95), Decimal(1.0005)))
+        self.assertTrue(
+            self.has_limit_order(self.default_strategy.active_orders, 'ETH-BTC', False, Decimal(100.05), Decimal(2)))
 
         # Simulate buy order fill
         self.clock.backtest_til(self.start_timestamp + 8)
@@ -230,7 +258,9 @@ class LiquidityMiningTest(unittest.TestCase):
         btc_balance = 10
 
         trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BUSD", "BTC"]))
-        market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance, "BTC": btc_balance})
+        market, market_infos = self.create_market(trading_pairs, 100,
+                                                  {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance,
+                                                   "BTC": btc_balance})
 
         strategy = LiquidityMiningStrategy()
         client_config_map = ClientConfigMap()
@@ -265,6 +295,115 @@ class LiquidityMiningTest(unittest.TestCase):
         self.assertLess(strategy.sell_budgets["ETH-BUSD"], eth_balance * 0.4)
 
     @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    def test_budget_allocation_empty_ob(self, estimate_fee_mock):
+        """
+        Liquidity mining strategy budget allocation is different from pmm, it depends on the token base and it splits
+        its budget between the quote tokens.
+        """
+        estimate_fee_mock.return_value = AddedToCostTradeFee(
+            percent=0, flat_fees=[TokenAmount('ETH', Decimal(0.00005))]
+        )
+
+        # initiate
+        usdt_balance = 1000
+        busd_balance = 900
+        eth_balance = 100
+        btc_balance = 10
+
+        trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BUSD", "BTC"]))
+        market, market_infos = self.create_empty_ob_market(trading_pairs, 100,
+                                                           {"USDT": usdt_balance, "BUSD": busd_balance,
+                                                            "ETH": eth_balance, "BTC": btc_balance})
+
+        strategy = LiquidityMiningStrategy()
+        client_config_map = ClientConfigMap()
+        strategy.init_params(
+            client_config_map=client_config_map,
+            exchange=market,
+            market_infos=market_infos,
+            token="ETH",
+            order_amount=Decimal(2),
+            spread=Decimal(0.0005),
+            inventory_skew_enabled=False,
+            target_base_pct=Decimal(0.5),
+            order_refresh_time=5,
+            order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
+        )
+
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        # there should be a buy and sell budget for each pair
+        self.assertEqual(len(strategy.sell_budgets), 0)
+        self.assertEqual(len(strategy.buy_budgets), 0)
+
+        # No buy_budget calculated since no order books
+        self.assertFalse("ETH-USDT" in strategy.buy_budgets)
+        self.assertFalse("ETH-BTC" in strategy.buy_budgets)
+        self.assertFalse("ETH-BUSD" in strategy.buy_budgets)
+
+        # No buy_budget calculated since no order books
+        self.assertFalse("ETH-USDT" in strategy.sell_budgets)
+        self.assertFalse("ETH-BTC" in strategy.sell_budgets)
+        self.assertFalse("ETH-BUSD" in strategy.sell_budgets)
+
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    def test_budget_allocation_partially_empty_ob(self, estimate_fee_mock):
+        """
+        Liquidity mining strategy budget allocation is different from pmm, it depends on the token base and it splits
+        its budget between the quote tokens.
+        """
+        estimate_fee_mock.return_value = AddedToCostTradeFee(
+            percent=0, flat_fees=[TokenAmount('ETH', Decimal(0.00005))]
+        )
+
+        # initiate
+        usdt_balance = 1000
+        busd_balance = 900
+        eth_balance = 100
+        btc_balance = 10
+
+        trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BUSD"]))
+        _, market_eob_infos = self.create_empty_ob_market(trading_pairs, 100,
+                                                          {"USDT": usdt_balance, "BUSD": busd_balance,
+                                                           "ETH": eth_balance})
+        trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["BTC"]))
+        market, market_infos = self.create_market(trading_pairs, 100, {"BTC": btc_balance})
+        market_infos.update(market_eob_infos)
+
+        strategy = LiquidityMiningStrategy()
+        client_config_map = ClientConfigMap()
+        strategy.init_params(
+            client_config_map=client_config_map,
+            exchange=market,
+            market_infos=market_infos,
+            token="ETH",
+            order_amount=Decimal(2),
+            spread=Decimal(0.0005),
+            inventory_skew_enabled=False,
+            target_base_pct=Decimal(0.5),
+            order_refresh_time=5,
+            order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
+        )
+
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        # there should be a buy and sell budget for each pair
+        self.assertEqual(len(strategy.sell_budgets), 1)
+        self.assertEqual(len(strategy.buy_budgets), 1)
+
+        # Only BTC buy_budget calculated since no order books
+        self.assertFalse("ETH-USDT" in strategy.buy_budgets)
+        self.assertTrue("ETH-BTC" in strategy.buy_budgets)
+        self.assertFalse("ETH-BUSD" in strategy.buy_budgets)
+
+        # Only BTC buy_budget calculated since no order books
+        self.assertFalse("ETH-USDT" in strategy.sell_budgets)
+        self.assertTrue("ETH-BTC" in strategy.sell_budgets)
+        self.assertFalse("ETH-BUSD" in strategy.sell_budgets)
+
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
     def test_inventory_skew(self, estimate_fee_mock):
         """
         When inventory_skew_enabled is true, the strategy will try to balance the amounts of base to match it
@@ -280,7 +419,9 @@ class LiquidityMiningTest(unittest.TestCase):
         btc_balance = 1000
 
         trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BUSD", "BTC"]))
-        market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance, "BTC": btc_balance})
+        market, market_infos = self.create_market(trading_pairs, 100,
+                                                  {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance,
+                                                   "BTC": btc_balance})
 
         skewed_base_strategy = LiquidityMiningStrategy()
         client_config_map = ClientConfigMap()
@@ -380,7 +521,8 @@ class LiquidityMiningTest(unittest.TestCase):
 
     @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotApplication.main_application')
     @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotCLI')
-    def test_strategy_with_default_cfg_does_not_send_in_app_notifications(self, cli_class_mock, main_application_function_mock):
+    def test_strategy_with_default_cfg_does_not_send_in_app_notifications(self, cli_class_mock,
+                                                                          main_application_function_mock):
         messages = []
         cli_logs = []
 
