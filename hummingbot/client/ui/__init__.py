@@ -41,19 +41,22 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager], style: Style):
             style=style).run()
         if password is None:
             return None
-        re_password = input_dialog(
-            title="Set Password",
-            text="Please re-enter your password:",
-            password=True,
-            style=style).run()
-        if re_password is None:
-            return None
-        if password != re_password:
-            err_msg = "Passwords entered do not match, please try again."
+        if password == str():
+            err_msg = "The password must not be empty."
         else:
-            secrets_manager = secrets_manager_cls(password)
-            store_password_verification(secrets_manager)
-        migrate_non_secure_only_prompt(style)
+            re_password = input_dialog(
+                title="Set Password",
+                text="Please re-enter your password:",
+                password=True,
+                style=style).run()
+            if re_password is None:
+                return None
+            if password != re_password:
+                err_msg = "Passwords entered do not match, please try again."
+            else:
+                secrets_manager = secrets_manager_cls(password)
+                store_password_verification(secrets_manager)
+                migrate_non_secure_only_prompt(style)
     else:
         password = input_dialog(
             title="Welcome back to Hummingbot",
