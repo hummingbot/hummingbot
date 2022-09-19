@@ -1,3 +1,9 @@
+# Cortex Hummingbot Arbitrage Bot
+
+## Running Arbitrage Strategy
+
+### 1. Run Gateway Server
+
 ![Hummingbot](https://i.ibb.co/X5zNkKw/blacklogo-with-text.png)
 
 ----
