@@ -2,13 +2,9 @@
 
 ## Running Arbitrage Strategy
 
-### 1. Run Gateway Server
 
-1. Navigate to `/hummingbot/gateway` directory
-2. Deploy Gateway server: 
-  `yarn start --passphrase=(your set passphrase)`
 
-### 2. Install and Run Hummingbot Client
+### 1. Install and Run Hummingbot Client
 1. Install dependencies
   - `sudo apt-get update` 
   - `sudo apt-get install -y build-essential`
@@ -31,6 +27,12 @@
 
 7. Start Hummingbot
   -`bin/hummingbot.py`
+  
+### 2. Run Gateway Server
+
+1. Navigate to `/hummingbot/gateway` directory
+2. Deploy Gateway server: 
+  `yarn start --passphrase=(your set passphrase)`
 
 ### 3. Deploy Curve-Vault Arbitrage Strategy
 From within the Hummingbot client:
