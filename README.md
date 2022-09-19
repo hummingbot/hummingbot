@@ -15,22 +15,33 @@
 
 2. Install Miniconda3
   - `wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh`
-sh Miniconda3-latest-Linux-x86_64.sh
+  - `sh Miniconda3-latest-Linux-x86_64.sh`
 
-# 3) Reload .bashrc to register "conda" command
-exec bash
+3. Reload .bashrc to register "conda" command
+  - `exec bash`
 
-# 4) Clone Hummingbot
-git clone https://github.com/hummingbot/hummingbot.git
+4. Clone Hummingbot
+  - `git clone https://github.com/hummingbot/hummingbot.git`
 
-# 5) Install Hummingbot
-cd hummingbot && ./clean && ./install
+5. Install Hummingbot
+  - `cd hummingbot && ./clean && ./install`
 
-# 6) Activate environment and compile code
-conda activate hummingbot && ./compile
+6. Activate environment and compile code
+  - `conda activate hummingbot && ./compile`
 
-# 7) Start Hummingbot
-bin/hummingbot.py
+7. Start Hummingbot
+  -`bin/hummingbot.py`
+
+### 3. Deploy Curve-Vault Arbitrage Strategy
+From within the Hummingbot client:
+1. Enter password and choose 'ok'
+1. Begin creating strategy.
+  - At `>>>` prompt: `create`
+2. Choose curve-vault arbitrage strategy
+  -At `What is your market making strategy?>>>` prompt: `curve_cortex_arb`
+3. Accept the configuration file name.
+4. Start the strategy script
+  - At `>>>` prompt: `start`
 
 
 
