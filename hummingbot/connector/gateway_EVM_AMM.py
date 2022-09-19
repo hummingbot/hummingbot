@@ -79,6 +79,7 @@ class GatewayEVMAMM(ConnectorBase):
                  network: str,
                  wallet_address: str,
                  trading_pairs: List[str] = [],
+                 additional_spenders: List[str] = [],  # not implemented
                  trading_required: bool = True
                  ):
         """
@@ -112,7 +113,7 @@ class GatewayEVMAMM(ConnectorBase):
         self._poll_notifier = None
         self._native_currency = None
         self._network_transaction_fee: Optional[TokenAmount] = None
-        self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
+        self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self, lost_order_count_limit=10)
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -458,7 +459,7 @@ class GatewayEVMAMM(ConnectorBase):
         """
         return await self.get_quote_price(trading_pair, is_buy, amount, ignore_shim=ignore_shim)
 
-    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
+    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, **kwargs) -> str:
         """
         Buys an amount of base token for a given price (or cheaper).
         :param trading_pair: The market trading pair
@@ -469,7 +470,7 @@ class GatewayEVMAMM(ConnectorBase):
         """
         return self.place_order(True, trading_pair, amount, price)
 
-    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
+    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, **kwargs) -> str:
         """
         Sells an amount of base token for a given price (or at a higher price).
         :param trading_pair: The market trading pair
@@ -787,7 +788,13 @@ class GatewayEVMAMM(ConnectorBase):
                     new_state=OrderState.FILLED,
                 )
                 self._order_tracker.process_order_update(order_update)
-            elif tx_status in [-1, 2, 3, 0] or (tx_receipt is not None and tx_receipt.get("status") == 0):
+            elif tx_status in [0, 2, 3]:
+                # 0: in the mempool but we dont have data to guess its status
+                # 2: in the mempool and likely to succeed
+                # 3: in the mempool and likely to fail
+                pass
+
+            elif tx_status == -1 or (tx_receipt is not None and tx_receipt.get("status") == 0):
                 self.logger().network(
                     f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
                     app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."

@@ -22,7 +22,11 @@ export const validateSpender: Validator = mkValidator(
   invalidSpenderError,
   (val) =>
     typeof val === 'string' &&
-    (val === 'uniswap' || val === 'sushi' || isAddress(val))
+    (val === 'uniswap' ||
+      val === 'uniswapLP' ||
+      val === 'sushi' ||
+      val === 'quickswap' ||
+      isAddress(val))
 );
 
 export const validatePolygonApproveRequest: RequestValidator =

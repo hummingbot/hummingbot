@@ -1,3 +1,4 @@
+import { Big } from 'big.js';
 import {
   Contract,
   Transaction,
@@ -8,7 +9,7 @@ import {
 } from 'ethers';
 import { EthereumBase } from './ethereum-base';
 import { Provider } from '@ethersproject/abstract-provider';
-import { CurrencyAmount, Token } from '@uniswap/sdk';
+import { CurrencyAmount, Token, Trade as TradeUniswap } from '@uniswap/sdk';
 import { Trade } from '@uniswap/router-sdk';
 import { Trade as UniswapV3Trade } from '@uniswap/v3-sdk';
 import {
@@ -19,15 +20,28 @@ import {
   Fraction as UniswapFraction,
 } from '@uniswap/sdk-core';
 import {
+  Token as TokenDefikingdoms,
+  CurrencyAmount as CurrencyAmountDefikingdoms,
+  Trade as TradeDefikingdoms,
+  Fraction as DefikingdomsFraction,
+  // } from '@defikingdoms/sdk';
+} from '@switchboard-xyz/defikingdoms-sdk';
+import {
   Token as TokenPangolin,
   CurrencyAmount as CurrencyAmountPangolin,
   Trade as TradePangolin,
   Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
 import {
+  Token as TokenQuickswap,
+  CurrencyAmount as CurrencyAmountQuickswap,
+  Trade as TradeQuickswap,
+  Fraction as QuickswapFraction,
+} from 'quickswap-sdk';
+import {
   Trade as SushiswapTrade,
   Token as SushiToken,
-  CurrencyAmount as sushiCurrencyAmount,
+  CurrencyAmount as SushiCurrencyAmount,
   TradeType as SushiTradeType,
   Currency as SushiCurrency,
   Fraction as SushiFraction,
@@ -38,34 +52,47 @@ import {
   Trade as TradeTraderjoe,
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
+import { Trade as DefiraTrade } from '@zuzu-cat/defira-sdk';
+import { PerpPosition } from '../connectors/perp/perp';
 
 export type Tokenish =
   | Token
   | TokenPangolin
+  | UniswapCoreToken
+  | TokenQuickswap
   | TokenTraderjoe
   | UniswapCoreToken
-  | SushiToken;
+  | SushiToken
+  | TokenDefikingdoms;
+
 export type UniswapishTrade =
   | Trade<Currency, Currency, TradeType>
   | TradePangolin
+  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
+  | TradeQuickswap
   | TradeTraderjoe
-  | SushiswapTrade<
-      SushiToken,
-      SushiToken,
-      SushiTradeType.EXACT_INPUT | SushiTradeType.EXACT_OUTPUT
-    >
-  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
+  | SushiswapTrade<SushiToken, SushiToken, SushiTradeType>
+  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
+  | TradeUniswap
+  | TradeDefikingdoms
+  | DefiraTrade<UniswapCoreToken, UniswapCoreToken, TradeType>;
+
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
+  | CurrencyAmountQuickswap
   | UniswapCoreCurrencyAmount<Currency>
   | CurrencyAmountTraderjoe
-  | sushiCurrencyAmount<SushiCurrency | SushiToken>;
+  | SushiCurrencyAmount<SushiCurrency | SushiToken>
+  | CurrencyAmountDefikingdoms;
+
 export type Fractionish =
   | UniswapFraction
   | PangolinFraction
+  | QuickswapFraction
   | TraderjoeFraction
-  | SushiFraction;
+  | SushiFraction
+  | DefikingdomsFraction;
 
 export interface ExpectedTrade {
   trade: UniswapishTrade;
@@ -101,9 +128,9 @@ export interface Uniswapish {
   abiDecoder?: any;
 
   /**
-   * Default gas limit for swap transactions.
+   * Default gas estiamte for swap transactions.
    */
-  gasLimit: number;
+  gasLimitEstimate: number;
 
   /**
    * Default time-to-live for swap transactions, in seconds.
@@ -217,9 +244,9 @@ export interface UniswapLPish {
   abiDecoder: any;
 
   /**
-   * Default gas limit for swap transactions.
+   * Default gas limit used to estimate gasCost for swap transactions.
    */
-  gasLimit: number;
+  gasLimitEstimate: number;
 
   /**
    * Default time-to-live for swap transactions, in seconds.
@@ -338,6 +365,81 @@ export interface UniswapLPish {
     period: number,
     interval: number
   ): Promise<string[]>;
+}
+
+export interface Perpish {
+  gasLimit: number;
+
+  init(): Promise<void>;
+
+  ready(): boolean;
+
+  /**
+   * Given a token's address, return the connector's native representation of
+   * the token.
+   *
+   * @param address Token address
+   */
+  getTokenByAddress(address: string): Tokenish;
+
+  /**
+   * Function for retrieving token list.
+   * @returns a list of available marker pairs.
+   */
+  availablePairs(): string[];
+
+  /**
+   * Give a market, queries for market, index and indexTwap prices.
+   * @param tickerSymbol Market pair
+   */
+  prices(tickerSymbol: string): Promise<{
+    markPrice: Big;
+    indexPrice: Big;
+    indexTwapPrice: Big;
+  }>;
+
+  /**
+   * Used to know if a market is active/tradable.
+   * @param tickerSymbol Market pair
+   * @returns true | false
+   */
+  isMarketActive(tickerSymbol: string): Promise<boolean>;
+
+  /**
+   * Gets available Positions/Position.
+   * @param tickerSymbol An optional parameter to get specific position.
+   * @returns Return all Positions or specific position.
+   */
+  getPositions(tickerSymbol: string): Promise<PerpPosition | undefined>;
+
+  /**
+   * Attempts to return balance of a connected acct
+   */
+  getAccountValue(): Promise<Big>;
+
+  /**
+   * Given the necessary parameters, open a position.
+   * @param isLong Will create a long position if true, else a short pos will be created.
+   * @param tickerSymbol the market to create position on.
+   * @param minBaseAmount the min amount for the position to be opened.
+   * @returns An ethers transaction object.
+   */
+  openPosition(
+    isLong: boolean,
+    tickerSymbol: string,
+    minBaseAmount: string,
+    allowedSlippage?: string
+  ): Promise<Transaction>;
+
+  /**
+   * Closes an open position on the specified market.
+   * @param tickerSymbol The market on which we want to close position.
+   * @returns An ethers transaction object.
+   */
+  closePosition(
+    tickerSymbol: string,
+    allowedSlippage?: string
+  ): Promise<Transaction>;
 }
 
 export interface Ethereumish extends EthereumBase {

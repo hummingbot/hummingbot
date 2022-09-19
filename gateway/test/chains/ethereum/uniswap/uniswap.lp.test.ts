@@ -204,6 +204,7 @@ describe('verify UniswapLP Nft functions', () => {
     patchPoolState();
 
     expect(uniswapLP.ready()).toEqual(true);
+    expect(uniswapLP.gasLimitEstimate).toBeGreaterThan(0);
     expect(typeof uniswapLP.getContract('nft', ethereum.provider)).toEqual(
       'object'
     );
@@ -224,14 +225,14 @@ describe('verify UniswapLP Nft functions', () => {
       BigNumber.from(5),
       '6'
     );
-    expect(overrides.gasLimit).toEqual('1');
+    expect(overrides.gasLimit).toEqual(BigNumber.from('1'));
     expect(overrides.gasPrice).toBeUndefined();
-    expect(overrides.nonce).toEqual(3);
+    expect(overrides.nonce).toEqual(BigNumber.from(3));
     expect(overrides.maxFeePerGas as BigNumber).toEqual(BigNumber.from(4));
     expect(overrides.maxPriorityFeePerGas as BigNumber).toEqual(
       BigNumber.from(5)
     );
-    expect(overrides.value).toEqual('6');
+    expect(overrides.value).toEqual(BigNumber.from('6'));
   });
 
   it('reducePosition should work', async () => {
@@ -276,12 +277,7 @@ describe('verify UniswapLP Nft functions', () => {
   it('collectFees should work', async () => {
     patchContract();
 
-    const collectTx = (await uniswapLP.collectFees(
-      wallet,
-      1,
-      1,
-      1
-    )) as Transaction;
+    const collectTx = (await uniswapLP.collectFees(wallet, 1)) as Transaction;
     expect(collectTx.hash).toEqual(
       '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9' // noqa: mock
     );

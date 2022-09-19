@@ -17,21 +17,21 @@ import { AddPosReturn } from './uniswap.lp.interfaces';
 const MaxUint128 = BigNumber.from(2).pow(128).sub(1);
 
 export type Overrides = {
-  gasLimit: string;
-  gasPrice?: string;
-  value?: string;
-  nonce?: number;
+  gasLimit: BigNumber;
+  gasPrice?: BigNumber;
+  value?: BigNumber;
+  nonce?: BigNumber;
   maxFeePerGas?: BigNumber;
   maxPriorityFeePerGas?: BigNumber;
 };
 
 export class UniswapLP extends UniswapLPHelper implements UniswapLPish {
   private static _instances: { [name: string]: UniswapLP };
-  private _gasLimit: number;
+  private _gasLimitEstimate: number;
 
   private constructor(chain: string, network: string) {
     super(chain, network);
-    this._gasLimit = UniswapConfig.config.gasLimit;
+    this._gasLimitEstimate = UniswapConfig.config.gasLimitEstimate;
   }
 
   public static getInstance(chain: string, network: string): UniswapLP {
@@ -48,8 +48,8 @@ export class UniswapLP extends UniswapLPHelper implements UniswapLPish {
   /**
    * Default gas limit for swap transactions.
    */
-  public get gasLimit(): number {
-    return this._gasLimit;
+  public get gasLimitEstimate(): number {
+    return this._gasLimitEstimate;
   }
 
   async getPosition(tokenId: number): Promise<PositionInfo> {
@@ -199,7 +199,7 @@ export class UniswapLP extends UniswapLPHelper implements UniswapLPish {
   async collectFees(
     wallet: Wallet | providers.StaticJsonRpcProvider,
     tokenId: number,
-    gasLimit: number = this.gasLimit,
+    gasLimit: number = this.gasLimitEstimate,
     gasPrice: number = 0,
     nonce?: number,
     maxFeePerGas?: BigNumber,
@@ -241,15 +241,17 @@ export class UniswapLP extends UniswapLPHelper implements UniswapLPish {
     maxPriorityFeePerGas?: BigNumber,
     value?: string
   ): Overrides {
-    const overrides: Overrides = { gasLimit: gasLimit.toFixed(0) };
+    const overrides: Overrides = {
+      gasLimit: BigNumber.from(String(gasLimit.toFixed(0))),
+    };
     if (maxFeePerGas && maxPriorityFeePerGas) {
       overrides.maxFeePerGas = maxFeePerGas;
       overrides.maxPriorityFeePerGas = maxPriorityFeePerGas;
     } else {
-      overrides.gasPrice = (gasPrice * 1e9).toFixed(0);
+      overrides.gasPrice = BigNumber.from(String((gasPrice * 1e9).toFixed(0)));
     }
-    if (nonce) overrides.nonce = nonce;
-    if (value) overrides.value = value;
+    if (nonce) overrides.nonce = BigNumber.from(String(nonce));
+    if (value) overrides.value = BigNumber.from(value);
     return overrides;
   }
 }

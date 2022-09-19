@@ -26,7 +26,7 @@ export class Harmony extends EthereumBase implements Ethereumish {
       config.network.tokenListSource,
       config.network.tokenListType,
       config.manualGasPrice,
-      config.gasLimit,
+      config.gasLimitTransaction,
       ConfigManagerV2.getInstance().get('database.nonceDbPath'),
       ConfigManagerV2.getInstance().get('database.transactionDbPath')
     );
@@ -120,8 +120,8 @@ export class Harmony extends EthereumBase implements Ethereumish {
 
       const { data } = await axios(config);
 
-      // divide by 10 to convert it to Gwei
-      this._gasPrice = data['result'] / 10;
+      // divide by 1e9 to convert it to Gwei
+      this._gasPrice = data['result'] / 1e9;
       this._gasPriceLastUpdated = new Date();
 
       setTimeout(
@@ -136,13 +136,16 @@ export class Harmony extends EthereumBase implements Ethereumish {
   }
 
   getSpender(reqSpender: string): string {
-    // TODO: add SushiswapConfig and ViperswapConfig
+    // TODO: add SushiswapConfig and ViperswapConfig and Defira configs (or move `approve` to AMM)
     let spender: string;
     if (reqSpender === 'sushiswap') {
       spender = '0x1b02da8cb0d097eb8d57a175b88c7d8b47997506';
-    }
-    if (reqSpender === 'viperswap') {
+    } else if (reqSpender === 'viperswap') {
       spender = '0xf012702a5f0e54015362cbca26a26fc90aa832a3';
+    } else if (reqSpender === 'defikingdoms') {
+      spender = '0x24ad62502d1C652Cc7684081169D04896aC20f30';
+    } else if (reqSpender === 'defira') {
+      spender = '0x3C8BF7e25EbfAaFb863256A4380A8a93490d8065';
     } else {
       spender = reqSpender;
     }

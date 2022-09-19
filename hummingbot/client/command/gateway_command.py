@@ -6,15 +6,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import pandas as pd
 
-from hummingbot.client.command.gateway_api_manager import Chain, GatewayChainApiManager, begin_placeholder_mode
+from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager, begin_placeholder_mode
 from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import (
-    CLIENT_CONFIG_PATH,
-    GATEWAY_CONNECTORS,
-    AllConnectorSettings,
-    GatewayConnectionSetting,
-)
+from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, GatewayConnectionSetting
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.gateway import (
     GATEWAY_DOCKER_REPO,
@@ -29,7 +24,7 @@ from hummingbot.core.gateway import (
     stop_gateway,
 )
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-from hummingbot.core.gateway.status_monitor import Status
+from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display,
@@ -235,22 +230,29 @@ class GatewayCommand(GatewayChainApiManager):
         # create Gateway configs
         await self._generate_gateway_confs(container_id=container_info["Id"])
 
-        # get the infura key
-        infura_api_key: Optional[str] = await self._get_api_key(Chain.ETHEREUM)
-
+        self.notify("Gateway is starting, please wait a moment.")
         # wait about 30 seconds for the gateway to start
         docker_and_gateway_live = await self.ping_gateway_docker_and_api(30)
-        if not docker_and_gateway_live:
-            self.notify("Error starting Gateway container. If you need the Infura API Key, try updating gateway later.")
+        if docker_and_gateway_live:
+            self.notify("Gateway has started succesfully.")
         else:
-            # update the infura_api_key if necessary. Both restart to make the
-            # configs take effect.
-            if infura_api_key is not None:
-                await self._get_gateway_instance().update_config("ethereum.nodeAPIKey", infura_api_key)
-            else:
-                await self._get_gateway_instance().post_restart()
+            self.notify("Error starting Gateway container.")
 
-            self.notify(f"Loaded new configs into Gateway container {container_info['Id']}")
+    async def ping_gateway_api(self, max_wait: int) -> bool:
+        """
+        Try to reach the gateway API for up to max_wait seconds
+        """
+        now = int(time.time())
+        gateway_live = await self._get_gateway_instance().ping_gateway()
+        while not gateway_live:
+            later = int(time.time())
+            if later - now > max_wait:
+                return False
+            await asyncio.sleep(0.5)
+            gateway_live = await self._get_gateway_instance().ping_gateway()
+            later = int(time.time())
+
+        return True
 
     async def ping_gateway_docker_and_api(self, max_wait: int) -> bool:
         """
@@ -265,16 +267,7 @@ class GatewayCommand(GatewayChainApiManager):
             await asyncio.sleep(0.5)
             docker_live = await self.ping_gateway_docker()
 
-        gateway_live = await self._get_gateway_instance().ping_gateway()
-        while not gateway_live:
-            later = int(time.time())
-            if later - now > max_wait:
-                return False
-            await asyncio.sleep(0.5)
-            gateway_live = await self._get_gateway_instance().ping_gateway()
-            later = int(time.time())
-
-        return True
+        return await self.ping_gateway_api(max_wait)
 
     async def ping_gateway_docker(self) -> bool:
         try:
@@ -298,7 +291,7 @@ class GatewayCommand(GatewayChainApiManager):
                         "work without it. Please install or start Docker and restart Hummingbot.")
             return
 
-        if self._gateway_monitor.current_status == Status.ONLINE:
+        if self._gateway_monitor.gateway_status is GatewayStatus.ONLINE:
             try:
                 status = await self._get_gateway_instance().get_gateway_status()
                 if status is None or status == []:
@@ -362,45 +355,48 @@ class GatewayCommand(GatewayChainApiManager):
                     return
                 available_networks: List[Dict[str, Any]] = connector_config[0]["available_networks"]
                 trading_type: str = connector_config[0]["trading_type"][0]
+                additional_spenders: List[str] = connector_config[0].get("additional_spenders", [])
 
                 # ask user to select a chain. Automatically select if there is only one.
                 chains: List[str] = [d['chain'] for d in available_networks]
                 chain: str
-                if len(chains) == 1:
-                    chain = chains[0]
-                else:
-                    # chains as options
-                    while True:
-                        chain = await self.app.prompt(
-                            prompt=f"Which chain do you want {connector} to connect to?({', '.join(chains)}) >>> "
-                        )
-                        if self.app.to_stop_config:
-                            self.app.to_stop_config = False
-                            return
 
-                        if chain in GATEWAY_CONNECTORS:
-                            break
-                        self.notify(f"{chain} chain not supported.\n")
+                # chains as options
+                while True:
+                    self.app.input_field.completer.set_gateway_chains(chains)
+                    chain = await self.app.prompt(
+                        prompt=f"Which chain do you want {connector} to connect to? ({', '.join(chains)}) >>> "
+                    )
+                    if self.app.to_stop_config:
+                        self.app.to_stop_config = False
+                        return
+
+                    if chain in chains:
+                        break
+                    self.notify(f"{chain} chain not supported.\n")
 
                 # ask user to select a network. Automatically select if there is only one.
                 networks: List[str] = list(
                     itertools.chain.from_iterable([d['networks'] for d in available_networks if d['chain'] == chain])
                 )
-                network: str
 
-                if len(networks) == 1:
-                    network = networks[0]
-                else:
-                    while True:
-                        self.app.input_field.completer.set_gateway_networks(networks)
-                        network = await self.app.prompt(
-                            prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> "
-                        )
-                        if self.app.to_stop_config:
-                            return
-                        if network in networks:
-                            break
-                        self.notify("Error: Invalid network")
+                network: str
+                while True:
+                    self.app.input_field.completer.set_gateway_networks(networks)
+                    network = await self.app.prompt(
+                        prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> "
+                    )
+                    if self.app.to_stop_config:
+                        return
+                    if network in networks:
+                        break
+                    self.notify("Error: Invalid network")
+
+                # test you can connect to the uri, otherwise request the url
+                await self._test_node_url_from_gateway_config(chain, network, attempt_connection=False)
+
+                if self.app.to_stop_config:
+                    return
 
                 # get wallets for the selected chain
                 wallets_response: List[Dict[str, Any]] = await self._get_gateway_instance().get_wallets()
@@ -461,7 +457,7 @@ class GatewayCommand(GatewayChainApiManager):
                             if self.app.to_stop_config:
                                 return
                             if wallet_address in wallets:
-                                self.notify(f"You have selected {wallet_address}")
+                                self.notify(f"You have selected {wallet_address}.")
                                 break
                             self.notify("Error: Invalid wallet address")
 
@@ -481,14 +477,24 @@ class GatewayCommand(GatewayChainApiManager):
                                     chain, network, wallet_private_key
                                 )
                                 wallet_address = response["address"]
+
                                 break
                             except Exception:
                                 self.notify("Error adding wallet. Check private key.\n")
 
+                        # display wallet balance
+                        native_token: str = native_tokens[chain]
+                        balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
+                            chain, network, wallet_address, [native_token]
+                        )
+                        wallet_table: List[Dict[str, Any]] = [{"balance": balances['balances'][native_token], "address": wallet_address}]
+                        wallet_df: pd.DataFrame = build_wallet_display(native_token, wallet_table)
+                        self.notify(wallet_df.to_string(index=False))
+
                 self.app.clear_input()
 
                 # write wallets to Gateway connectors settings.
-                GatewayConnectionSetting.upsert_connector_spec(connector, chain, network, trading_type, wallet_address)
+                GatewayConnectionSetting.upsert_connector_spec(connector, chain, network, trading_type, wallet_address, additional_spenders)
                 self.notify(f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
 
                 # update AllConnectorSettings and fee overrides.

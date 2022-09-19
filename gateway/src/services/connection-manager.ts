@@ -5,9 +5,19 @@ import { Polygon } from '../chains/polygon/polygon';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { Pangolin } from '../connectors/pangolin/pangolin';
-import { Ethereumish, Uniswapish, UniswapLPish } from './common-interfaces';
+import { Openocean } from '../connectors/openocean/openocean';
+import { Quickswap } from '../connectors/quickswap/quickswap';
+import { Perp } from '../connectors/perp/perp';
+import {
+  Ethereumish,
+  Perpish,
+  Uniswapish,
+  UniswapLPish,
+} from './common-interfaces';
 import { Traderjoe } from '../connectors/traderjoe/traderjoe';
 import { Sushiswap } from '../connectors/sushiswap/sushiswap';
+import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
+import { Defira } from '../connectors/defira/defira';
 
 export async function getChain(chain: string, network: string) {
   let chainInstance: Ethereumish;
@@ -23,24 +33,41 @@ export async function getChain(chain: string, network: string) {
   return chainInstance;
 }
 
-type ConnectorType<T> = T extends Uniswapish ? Uniswapish : UniswapLPish;
+type ConnectorType<T> = T extends Uniswapish ? Uniswapish : T;
 
 export async function getConnector<T>(
   chain: string,
   network: string,
-  connector: string | undefined
+  connector: string | undefined,
+  address?: string
 ): Promise<ConnectorType<T>> {
-  let connectorInstance: Uniswapish | UniswapLPish;
-  if (chain === 'ethereum' && connector === 'uniswap') {
+  let connectorInstance: Uniswapish | UniswapLPish | Perpish;
+  if (
+    (chain === 'ethereum' || chain === 'polygon') &&
+    connector === 'uniswap'
+  ) {
     connectorInstance = Uniswap.getInstance(chain, network);
+  } else if (chain === 'polygon' && connector === 'quickswap') {
+    connectorInstance = Quickswap.getInstance(chain, network);
   } else if (chain === 'ethereum' && connector === 'sushiswap') {
     connectorInstance = Sushiswap.getInstance(chain, network);
-  } else if (chain === 'ethereum' && connector === 'uniswapLP') {
+  } else if (
+    (chain === 'ethereum' || chain === 'polygon') &&
+    connector === 'uniswapLP'
+  ) {
     connectorInstance = UniswapLP.getInstance(chain, network);
+  } else if (chain === 'ethereum' && connector === 'perp') {
+    connectorInstance = Perp.getInstance(chain, network, address);
   } else if (chain === 'avalanche' && connector === 'pangolin') {
     connectorInstance = Pangolin.getInstance(chain, network);
+  } else if (chain === 'avalanche' && connector === 'openocean') {
+    connectorInstance = Openocean.getInstance(chain, network);
   } else if (chain === 'avalanche' && connector === 'traderjoe') {
     connectorInstance = Traderjoe.getInstance(chain, network);
+  } else if (chain === 'harmony' && connector === 'defikingdoms') {
+    connectorInstance = Defikingdoms.getInstance(chain, network);
+  } else if (chain === 'harmony' && connector === 'defira') {
+    connectorInstance = Defira.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
   }

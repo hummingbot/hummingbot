@@ -1,0 +1,18 @@
+# how much the execution price is allowed to move unfavorably from the trade
+# execution price. It uses a rational number for precision.
+allowedSlippage: '2/100'
+
+# the maximum gas allowed for a defira trade.
+gasLimitEstimate: 150688
+
+# how long a trade is valid in seconds. After time passes defira will not
+# perform the trade, but the gas will still be spent.
+ttl: 600
+
+contractAddresses:
+  mainnet: 
+    routerAddress: '0x3C8BF7e25EbfAaFb863256A4380A8a93490d8065'
+    initCodeHash: '0x8e129668eb66a23d5dbb072b9b801a6ca1147df379e11546ad4ac19e28557e6c'
+  testnet:
+    routerAddress: '0xA5C5D1fd1Fd07F95359E2bde419CB5B2cdC622A9'
+    initCodeHash: '0x7224a10f5f94e12d3973f5ef0f63a558539a93e1eef47935934ffc4d741b4b9f'
