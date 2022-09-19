@@ -8,22 +8,22 @@
 2. Deploy Gateway server: `yarn start --passphrase=(your set passphrase)`
 
 ### 2. Run Hummingbot Client
-# 1) Clone Hummingbot repo
+#### 1) Clone Hummingbot repo
 git clone https://github.com/hummingbot/hummingbot.git
 
-# 2) Navigate into the hummingbot folder
+##### 2) Navigate into the hummingbot folder
 cd hummingbot
 
-# 3) Run install script
+##### 3) Run install script
 ./install
 
-# 4) Activate the environment
+##### 4) Activate the environment
 conda activate hummingbot
 
-# 5) Compile
+##### 5) Compile
 ./compile
 
-# 6) Run Hummingbot
+##### 6) Run Hummingbot
 bin/hummingbot.py
 
 
