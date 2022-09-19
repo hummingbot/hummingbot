@@ -37,11 +37,11 @@ From within the Hummingbot client:
 1. Enter password and choose 'ok'
 1. Begin creating strategy.
   - At `>>>` prompt: `create`
-2. Choose curve-vault arbitrage strategy 
-  -At `What is your market making strategy?>>>` prompt: `curve_cortex_arb`
+2. Choose curve-vault arbitrage strategy  
+  -`What is your market making strategy?>>>`: `curve_cortex_arb`
 3. Accept the configuration file name.
 4. Start the strategy script
-  - At `>>>` prompt: `start`
+  - `>>>` prompt: `start`
 
 
 
