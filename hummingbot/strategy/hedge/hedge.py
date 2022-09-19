@@ -278,7 +278,7 @@ class HedgeStrategy(StrategyPyBase):
         if self.check_and_cancel_active_orders():
             self.logger().info("Active orders present.")
             return
-        self.logger().info("Checking hedge conditions...")
+        self.logger().debug("Checking hedge conditions...")
         self.hedge()
 
     def get_positions(self, market_pair: MarketTradingPairTuple, position_side: PositionSide = None) -> List[Position]:
@@ -376,6 +376,9 @@ class HedgeStrategy(StrategyPyBase):
         """
         is_buy, value_to_hedge = self.get_hedge_direction_and_value()
         price, amount = self.calculate_hedge_price_and_amount(is_buy, value_to_hedge)
+        if amount == Decimal("0"):
+            self.logger().debug("No hedge required.")
+            return
         self.logger().info(
             f"Hedging by value. Hedge direction: {'buy' if is_buy else 'sell'}. "
             f"Hedge price: {price}. Hedge amount: {amount}."
