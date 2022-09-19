@@ -93,11 +93,11 @@ class CurveCortexArb(ConnectorBase):
         curve_buy_price = int(self.curve_buy_output['price']) / 10**12
         self.logger().info(f"Curve Buy Price: {curve_buy_price}")
         curve_sell_price = float(self.curve_sell_output['price']) * 10**12
-        self.logger().info(f"Curve sell Price: {curve_sell_price}")
+        self.logger().info(f"Curve sell Price: {round(curve_sell_price,3)}")
 
         vault_redeem_price = int(self.vault_redeem_output['assetAmountWithFee'])
         vault_mint_price = int(self.vault_mint_output['assetAmountWithFee'])
         self.logger().info(f"Vault Reedem Price: {vault_redeem_price}, vault mint price: {vault_mint_price}")
 
-        self.notify_hb_app(f"Curve-Buy-Price - Vault-Redeem-Price: {curve_buy_price - vault_redeem_price}")
-        self.notify_hb_app(f"Curve-Sell-Price - Vault-Mint-Price: {curve_sell_price - vault_mint_price}")
+        new_line = '\n'
+        self.notify_hb_app(f"Curve_Buy - Vault_Redeem: {round(curve_buy_price - vault_redeem_price,4)}{new_line}Curve_Sell - Vault_Mint: {round(curve_sell_price - vault_mint_price,4)}")

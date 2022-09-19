@@ -5,6 +5,9 @@
   "main": "index.js",
   "license": "Apache-2.0",
   "repository": "https://github.com/coinalpha/gateway-v2",
+  "engines": {
+    "node": "=14.x"
+  },
   "scripts": {
     "prebuild": "rimraf dist && mkdir dist",
     "build": "tsc --skipLibCheck --project ./ && yarn copy-files",
