@@ -7,7 +7,10 @@ from unittest.mock import patch
 from hummingbot.client import settings
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, ConfigValidationError
-from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyConfigMap
+from hummingbot.client.config.strategy_config_data_types import (
+    BaseTradingStrategyConfigMap,
+    BaseTradingStrategyMakerTakerConfigMap,
+)
 from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 
 
@@ -96,3 +99,32 @@ class BaseTradingStrategyConfigMapTest(TestCase):
         expected_connectors.extend(settings.PAPER_TRADE_EXCHANGES)
         expected_connectors.sort()
         self.assertEqual(expected_connectors, schema_dict["definitions"]["Exchanges"]["enum"])
+
+
+class BaseTradingStrategyMakerTakerConfigMapTests(TestCase):
+
+    def test_maker_field_jason_schema_includes_all_connectors_for_exchange_field(self):
+
+        schema = BaseTradingStrategyMakerTakerConfigMap.schema_json()
+        schema_dict = json.loads(schema)
+
+        self.assertIn("MakerMarkets", schema_dict["definitions"])
+        expected_connectors = [connector_setting.name for connector_setting in
+                               AllConnectorSettings.get_connector_settings().values()
+                               if connector_setting.type is ConnectorType.Exchange]
+        expected_connectors.extend(settings.PAPER_TRADE_EXCHANGES)
+        expected_connectors.sort()
+        self.assertEqual(expected_connectors, schema_dict["definitions"]["MakerMarkets"]["enum"])
+
+    def test_taker_field_jason_schema_includes_all_connectors_for_exchange_field(self):
+
+        schema = BaseTradingStrategyMakerTakerConfigMap.schema_json()
+        schema_dict = json.loads(schema)
+
+        self.assertIn("TakerMarkets", schema_dict["definitions"])
+        expected_connectors = [connector_setting.name for connector_setting in
+                               AllConnectorSettings.get_connector_settings().values()
+                               if connector_setting.type is ConnectorType.Exchange]
+        expected_connectors.extend(settings.PAPER_TRADE_EXCHANGES)
+        expected_connectors.sort()
+        self.assertEqual(expected_connectors, schema_dict["definitions"]["TakerMarkets"]["enum"])

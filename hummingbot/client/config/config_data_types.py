@@ -45,6 +45,10 @@ class BaseClientModel(BaseModel):
             **dumps_kwargs
         )
 
+    @classmethod
+    def _clear_schema_cache(cls):
+        cls.__schema_cache__ = {}
+
     def is_required(self, attr: str) -> bool:
         return self.__fields__[attr].required
 
