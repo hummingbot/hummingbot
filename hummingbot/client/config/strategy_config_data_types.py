@@ -2,14 +2,13 @@ from typing import Dict
 
 from pydantic import Field, validator
 
-from hummingbot.client import settings
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_validators import (
     validate_exchange,
     validate_market_trading_pair,
     validate_strategy,
 )
-from hummingbot.client.settings import AllConnectorSettings, ConnectorType
+from hummingbot.client.settings import AllConnectorSettings
 
 
 class BaseStrategyConfigMap(BaseClientModel):
@@ -32,10 +31,7 @@ class BaseStrategyConfigMap(BaseClientModel):
 class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
     exchange: ClientConfigEnum(  # rebuild the exchanges enum
         value="Exchanges",  # noqa: F821
-        names={e: e for e in
-               sorted([connector_setting.name for connector_setting
-                       in AllConnectorSettings.get_connector_settings().values()
-                       if connector_setting.type is ConnectorType.Exchange] + settings.PAPER_TRADE_EXCHANGES)},
+        names={e: e for e in sorted(AllConnectorSettings.get_exchange_names())},
         type=str,
     ) = Field(
         default=...,
@@ -81,7 +77,11 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
 
 
 class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
-    maker_market: str = Field(
+    maker_market: ClientConfigEnum(  # rebuild the exchanges enum
+        value="MakerMarkets",  # noqa: F821
+        names={e: e for e in sorted(AllConnectorSettings.get_exchange_names())},
+        type=str,
+    ) = Field(
         default=...,
         description="The name of the maker exchange connector.",
         client_data=ClientFieldData(
@@ -89,7 +89,11 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
             prompt_on_new=True,
         ),
     )
-    taker_market: str = Field(
+    taker_market: ClientConfigEnum(  # rebuild the exchanges enum
+        value="TakerMarkets",  # noqa: F821
+        names={e: e for e in sorted(AllConnectorSettings.get_exchange_names())},
+        type=str,
+    ) = Field(
         default=...,
         description="The name of the taker exchange connector.",
         client_data=ClientFieldData(
@@ -139,18 +143,6 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
         ret = validate_exchange(v)
         if ret is not None:
             raise ValueError(ret)
-        if field.name == "maker_market_trading_pair":
-            cls.__fields__["maker_market"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
-                value="Exchanges",  # noqa: F821
-                names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
-                type=str,
-            )
-        if field.name == "taker_market_trading_pair":
-            cls.__fields__["taker_market"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
-                value="Exchanges",  # noqa: F821
-                names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
-                type=str,
-            )
         return v
 
     @validator(
