@@ -8,13 +8,13 @@
 2. Deploy Gateway server: 
   `yarn start --passphrase=(your set passphrase)`
 
-### 2. Run Hummingbot Client
+### 2. Install and Run Hummingbot Client
 1. Install dependencies
-- `sudo apt-get update`
-- `sudo apt-get install -y build-essential`
+  - `sudo apt-get update` 
+  - `sudo apt-get install -y build-essential`
 
-# 2) Install Miniconda3
-wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+2. Install Miniconda3
+  - `wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh`
 sh Miniconda3-latest-Linux-x86_64.sh
 
 # 3) Reload .bashrc to register "conda" command
