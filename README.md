@@ -1,3 +1,52 @@
+# Cortex Hummingbot Arbitrage Bot
+
+## Running Arbitrage Strategy
+
+
+
+### 1. Install and Run Hummingbot Client
+1. Install dependencies
+  - `sudo apt-get update` 
+  - `sudo apt-get install -y build-essential`
+
+2. Install Miniconda3
+  - `wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh`
+  - `sh Miniconda3-latest-Linux-x86_64.sh`
+
+3. Reload .bashrc to register "conda" command
+  - `exec bash`
+
+4. Clone Hummingbot
+  - `git clone https://github.com/hummingbot/hummingbot.git`
+
+5. Install Hummingbot
+  - `cd hummingbot && ./clean && ./install`
+
+6. Activate environment and compile code
+  - `conda activate hummingbot && ./compile`
+
+7. Start Hummingbot
+  -`bin/hummingbot.py`
+  
+### 2. Run Gateway Server
+
+1. Navigate to `/hummingbot/gateway` directory
+2. Deploy Gateway server: 
+  `yarn start --passphrase=(your set passphrase)`
+
+### 3. Deploy Curve-Vault Arbitrage Strategy
+From within the Hummingbot client:
+1. Enter password and choose 'ok'
+1. Begin creating strategy.
+  - `>>>`: `create`
+2. Choose curve-vault arbitrage strategy  
+  - `What is your market making strategy?>>>`: `curve_cortex_arb`
+3. Accept the configuration file name.
+4. Start the strategy script
+  - `>>>`: `start`
+
+
+
 ![Hummingbot](https://i.ibb.co/X5zNkKw/blacklogo-with-text.png)
 
 ----
