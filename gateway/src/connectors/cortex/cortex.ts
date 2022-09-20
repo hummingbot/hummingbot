@@ -42,7 +42,7 @@ export class Cortex implements Vaultish {
     };
     const CXD_IDX_Address = CORTEX_INDEX_ADDRESSES[1];
     const ifacePreviewRedeem = new utils.Interface([
-      'function previewRedeem(uint256 shareAmount) public view virtual override returns (uint256)',
+      'function previewRedeem(uint256 shareAmount) public view returns (uint256)',
     ]);
     const encodePreviewRedeem = ifacePreviewRedeem.encodeFunctionData(
       'previewRedeem',
@@ -68,7 +68,7 @@ export class Cortex implements Vaultish {
     };
     const CXD_IDX_Address = CORTEX_INDEX_ADDRESSES[1];
     const ifacePreviewMint = new utils.Interface([
-      'function previewMint(uint256 shares) public view virtual override returns (uint256)',
+      'function previewMint(uint256 shares) public view returns (uint256)',
     ]);
     const encodePreviewMint = ifacePreviewMint.encodeFunctionData(
       'previewMint',
