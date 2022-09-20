@@ -201,8 +201,8 @@ cdef class PaperTradeExchange(ExchangeBase):
 
     #  <editor-fold desc="Property">
     @property
-    def trading_pair(self) -> Dict[str, TradingPair]:
-        return self._trading_pairs
+    def trading_pairs(self) -> List[str]:
+        return [trading_pair for trading_pair in self._trading_pairs]
 
     @property
     def name(self) -> str:
