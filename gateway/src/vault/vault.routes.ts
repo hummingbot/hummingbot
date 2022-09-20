@@ -2,25 +2,9 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../services/error-handler';
-import {
-  price,
-  // trade,
-  // estimateGas
-} from './vault.controllers';
-import {
-  // EstimateGasResponse,
-  PriceRequest,
-  PriceResponse,
-  // TradeRequest,
-  // TradeResponse,
-} from './vault.requests';
-import {
-  // validateEstimateGasRequest,
-  validatePriceRequest,
-  // validateTradeRequest,
-} from './vault.validators';
-// import { NetworkSelectionRequest } from '../services/common-interfaces';
-
+import { price } from './vault.controllers';
+import { PriceRequest, PriceResponse } from './vault.requests';
+import { validatePriceRequest } from './vault.validators';
 export namespace VaultRoutes {
   export const router = Router();
 
