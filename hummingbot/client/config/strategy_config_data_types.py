@@ -89,7 +89,7 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
             prompt_on_new=True,
         ),
     )
-    taker_market: ClientConfigEnum(  # rebuild the exchanges enum
+    taker_market: ClientConfigEnum(
         value="TakerMarkets",  # noqa: F821
         names={e: e for e in sorted(AllConnectorSettings.get_exchange_names())},
         type=str,
