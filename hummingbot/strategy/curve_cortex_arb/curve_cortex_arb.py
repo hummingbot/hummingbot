@@ -15,8 +15,8 @@ hws_logger = None
 
 
 class CurveCortexArb(ConnectorBase):
-    # We use StrategyPyBase to inherit the structure. We also
-    # create a logger object before adding a constructor to the class.
+    # Most scripts use StrategyPyBase to inherit the structure, however this script goes straight to it's inherited 'ConnectorBase'.
+    # We also create a logger object before adding a constructor to the class.
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global hws_logger
@@ -93,7 +93,7 @@ class CurveCortexArb(ConnectorBase):
         curve_buy_price = int(self.curve_buy_output['price']) / 10**12
         self.logger().info(f"Curve Buy Price: {curve_buy_price}")
         curve_sell_price = float(self.curve_sell_output['price']) * 10**12
-        self.logger().info(f"Curve sell Price: {round(curve_sell_price,3)}")
+        self.logger().info(f"Curve sell Price: {curve_sell_price}")
 
         vault_redeem_price = int(self.vault_redeem_output['assetAmountWithFee'])
         vault_mint_price = int(self.vault_mint_output['assetAmountWithFee'])

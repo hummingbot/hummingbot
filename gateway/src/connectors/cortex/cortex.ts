@@ -1,63 +1,19 @@
-// import {
-// InitializationError,
-// SERVICE_UNITIALIZED_ERROR_CODE,
-// SERVICE_UNITIALIZED_ERROR_MESSAGE,
-// UniswapishPriceError,
-// } from '../../services/error-handler';
-// import { CortexConfig } from './cortex.config';
-import {
-  // EstimateGasResponse,
-  // PriceRequest,
-  PriceResponse,
-  // TradeRequest,
-  // TradeResponse,
-} from '../../vault/vault.requests';
+import { PriceResponse } from '../../vault/vault.requests';
 
-// import { ContractInterface } from '@ethersproject/contracts';
-
-import {
-  // NetworkSelectionRequest,
-  Vaultish,
-} from '../../services/common-interfaces';
+import { Vaultish } from '../../services/common-interfaces';
 import { Ethereum } from '../../chains/ethereum/ethereum';
-import {
-  // BigNumber,
-  // Wallet,
-  // Transaction,
-  // Contract,
-  // ContractTransaction,
-  utils,
-} from 'ethers';
-import { logger } from '../../services/logger';
+import { utils } from 'ethers';
+// import { logger } from '../../services/logger';
 
 export class Cortex implements Vaultish {
   private static _instances: { [name: string]: Cortex };
   private ethereum: Ethereum;
-  // private _chain;
-  // private _chain: string;
-  // private _router: string;
-  // private _routerAbi: ContractInterface;
-  // private _gasLimit: number;
-  // private _ttl: number;
-
-  // private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
-
   private constructor(network: string) {
-    // this._chain = this.ethereum.chainId
-    // const config = CortexConfig.config;
-    logger.info(`this.ethereum= ${Ethereum.getInstance(network)}`);
     this.ethereum = Ethereum.getInstance(network);
-    logger.info(`cortex this.ethereum.provider: ${this.ethereum.provider}`);
-    logger.info(`cortex this.ethereum.rpcUrl= ${this.ethereum.rpcUrl}`);
-    // this._chain = this.ethereum.chainId;
-    // this._ttl = CortexConfig.config.ttl;
-    // this._routerAbi = routerAbi.abi;
-    // logger.info(`curve: this._router ${this._router}`);
   }
 
   public static getInstance(chain: string, network: string): Cortex {
-    console.log('getInstance');
     if (Cortex._instances === undefined) {
       Cortex._instances = {};
     }
@@ -68,23 +24,17 @@ export class Cortex implements Vaultish {
   }
 
   public async init() {
-    console.log('init');
-    console.log(`this.ethereum.ready: ${this.ethereum.ready}`);
     if (!this.ethereum.ready()) {
-      console.log('if (!this.ethereum.ready()) {');
       await this.ethereum.init();
-      console.log('this.ethereum.init()');
     }
     this._ready = true;
   }
 
   public ready(): boolean {
-    console.log('ready()');
     return this._ready;
   }
 
-  async previewRedeem(tradeType: string, amount: number) {
-    logger.info(`Fetching price data for ${tradeType}-${amount}`);
+  async previewRedeem(amount: number) {
     const provider = this.ethereum.provider;
     const CORTEX_INDEX_ADDRESSES = {
       1: '0x82E4bb17a00B32e5672d5EBe122Cd45bEEfD32b3',
@@ -110,8 +60,7 @@ export class Cortex implements Vaultish {
     return { assetAmountWithFee };
   }
 
-  async previewMint(tradeType: string, amount: number) {
-    logger.info(`Fetching price data for ${tradeType}-${amount}`);
+  async previewMint(amount: number) {
     const provider = this.ethereum.provider;
     const CORTEX_INDEX_ADDRESSES = {
       1: '0x82E4bb17a00B32e5672d5EBe122Cd45bEEfD32b3',
@@ -140,19 +89,12 @@ export class Cortex implements Vaultish {
   async price(tradeType: string, amount: number): Promise<PriceResponse> {
     let previewMintRedeem;
     if (tradeType == 'mint') {
-      previewMintRedeem = await this.previewMint(tradeType, amount);
+      previewMintRedeem = await this.previewMint(amount);
     } else if (tradeType == 'redeem') {
-      previewMintRedeem = await this.previewRedeem(tradeType, amount);
+      previewMintRedeem = await this.previewRedeem(amount);
     } else {
       throw new Error('tradeType needs to be "mint" or "redeem"');
     }
     return { assetAmountWithFee: previewMintRedeem.assetAmountWithFee };
   }
 }
-
-// async trade(network: string, req: TradeRequest): Promise<TradeResponse> {}
-
-// async estimateGas(
-//   network: string,
-//   req: NetworkSelectionRequest
-// ): Promise<EstimateGasResponse> {}

@@ -13,7 +13,6 @@ import {
   SwapParameters,
   TradeType,
 } from '@sushiswap/sdk';
-// import { Trade as CurveTrade } from '../curve/curve_helper';
 import IUniswapV2Pair from '@uniswap/v2-core/build/IUniswapV2Pair.json';
 import JSBI from 'jsbi';
 export declare type BigintIsh = JSBI | string | number;
@@ -28,7 +27,7 @@ import {
   utils,
 } from 'ethers';
 import { percentRegexp } from '../../services/config-manager-v2';
-import { logger } from '../../services/logger';
+// import { logger } from '../../services/logger';
 
 export class Curve implements Uniswapish {
   private static _instances: { [name: string]: Curve };
@@ -43,35 +42,23 @@ export class Curve implements Uniswapish {
   private _ready: boolean = false;
 
   private constructor(chain: string, network: string) {
-    logger.info(`this._chain=${chain}`);
     this._chain = chain;
-    logger.info(`curve router add = ${CurveConfig.config.curveRouterAddress}`);
     const config = CurveConfig.config;
     this.ethereum = Ethereum.getInstance(network);
-    logger.info(`this.chainID= ${this.ethereum.chainId}`);
-    logger.info(`curve this.ethereum.rpcUrl= ${this.ethereum.rpcUrl}`);
-    logger.info(`curve this.ethereum.provider: ${this.ethereum.provider}`);
     this.chainId = this.ethereum.chainId;
     this._ttl = CurveConfig.config.ttl;
     this._routerAbi = routerAbi.abi;
     this._gasLimit = CurveConfig.config.gasLimit;
     this._router = config.curveRouterAddress(network);
-    logger.info(`curve: this._router ${this._router}`);
   }
 
   public static getInstance(chain: string, network: string): Curve {
-    logger.info('getInstance');
-    logger.info(`Curve._instances: ${Curve._instances}`);
     if (Curve._instances === undefined) {
       Curve._instances = {};
     }
     if (!(chain + network in Curve._instances)) {
-      logger.info(`network: ${network}`);
-      logger.info(`chain: ${chain}`);
       Curve._instances[chain + network] = new Curve(chain, network);
-      logger.info(`Curve._instances: ${Curve._instances}`);
     }
-    logger.info(`Fetching pair data for ${chain}-${network}.`);
     return Curve._instances[chain + network];
   }
 
@@ -82,14 +69,10 @@ export class Curve implements Uniswapish {
    * @param address Token address
    */
   public getTokenByAddress(address: string): Token {
-    logger.info(`token address ${address}.`);
-
     return this.tokenList[address];
   }
 
   public async init() {
-    // console.log('public ansync init()');
-    console.log(`this.ethereum.ready: ${this.ethereum.ready()}`);
     if (this._chain == 'ethereum' && !this.ethereum.ready()) {
       await this.ethereum.init();
     }
@@ -157,8 +140,6 @@ export class Curve implements Uniswapish {
    */
 
   async fetchData(baseToken: Token, quoteToken: Token): Promise<Pair> {
-    logger.info(`FetchDatafor.`);
-
     const pairAddress = Pair.getAddress(baseToken, quoteToken);
     const contract = new Contract(
       pairAddress,
@@ -181,8 +162,6 @@ export class Curve implements Uniswapish {
     quoteToken: Token,
     amount: BigNumber
   ): Promise<ExpectedTrade> {
-    logger.info(`Fetching pair data for ${baseToken}-${quoteToken}.`);
-
     const CURVE_CXD_ADDRESSES = {
       1: '0x383aD525211B8A1A9c13532CC021773052b2F4f8',
       4: '0x4535913573D299A6372ca43b90aA6Be1CF68f779',
@@ -191,41 +170,31 @@ export class Curve implements Uniswapish {
     const ifaceGetDy = new utils.Interface([
       'function get_dy(uint256 i, uint256 j, uint256 dx) view returns (uint256)',
     ]);
-    console.log(amount);
-    console.log(amount.toString());
     const encodeGetDy = ifaceGetDy.encodeFunctionData('get_dy', [
       0,
       1,
       amount.toString(),
     ]);
-    logger.info(`Encoded Request: ${encodeGetDy}`);
 
     const provider = this.ethereum.provider;
-    logger.info(`Provider: ${provider._network}`);
 
     const getDyHexString = await provider.call({
       to: CRV_CXD_Address,
       data: encodeGetDy,
     });
-    console.log(getDyHexString);
     const dy = BigNumber.from(getDyHexString.toString());
     const expectedAmount = CurrencyAmount.fromRawAmount(
       baseToken,
       dy.toString()
     );
 
-    logger.info(`dy_tostring": ${dy.toString()}`);
-    logger.info(`expectedAmount: ${expectedAmount}`);
-
     const executionPrice = new Fraction(amount.toString(), dy.toString());
-    logger.info(`executionPrice: ${executionPrice}`);
 
     const trades = {
       executionPrice: executionPrice,
       baseToken: baseToken,
       quoteToken: quoteToken,
     };
-    logger.info(`trades: ${trades}`);
 
     return { trade: trades, expectedAmount: expectedAmount };
   }
@@ -235,8 +204,6 @@ export class Curve implements Uniswapish {
     baseToken: Token,
     amount: BigNumber
   ): Promise<ExpectedTrade> {
-    logger.info(`Fetching pair data for ${baseToken}-${quoteToken}.`);
-
     const CURVE_CXD_ADDRESSES = {
       1: '0x383aD525211B8A1A9c13532CC021773052b2F4f8',
       4: '0x4535913573D299A6372ca43b90aA6Be1CF68f779',
@@ -245,41 +212,30 @@ export class Curve implements Uniswapish {
     const ifaceGetDy = new utils.Interface([
       'function get_dy(uint256 i, uint256 j, uint256 dx) view returns (uint256)',
     ]);
-    console.log(amount);
-    console.log(amount.toString());
     const encodeGetDy = ifaceGetDy.encodeFunctionData('get_dy', [
       0,
       1,
       amount.toString(),
     ]);
-    logger.info(`Encoded Request: ${encodeGetDy}`);
 
     const provider = this.ethereum.provider;
-    logger.info(`Provider: ${provider._network}`);
 
     const getDyHexString = await provider.call({
       to: CRV_CXD_Address,
       data: encodeGetDy,
     });
-    console.log(getDyHexString);
     const dy = BigNumber.from(getDyHexString.toString());
     const expectedAmount = CurrencyAmount.fromRawAmount(
       baseToken,
       dy.toString()
     );
-
-    logger.info(`dy_tostring": ${dy.toString()}`);
-    logger.info(`expectedAmount: ${expectedAmount}`);
-
     const executionPrice = new Fraction(amount.toString(), dy.toString());
-    logger.info(`executionPrice: ${executionPrice}`);
 
     const trades = {
       executionPrice: executionPrice,
       baseToken: baseToken,
       quoteToken: quoteToken,
     };
-    logger.info(`trades: ${trades}`);
 
     return { trade: trades, expectedAmount: expectedAmount };
   }
@@ -338,7 +294,6 @@ export class Curve implements Uniswapish {
       });
     }
 
-    logger.info(tx);
     await this.ethereum.nonceManager.commitNonce(wallet.address, nonce);
     return tx;
   }

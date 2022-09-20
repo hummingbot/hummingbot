@@ -59,16 +59,11 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   }
 
   public static getInstance(network: string): Ethereum {
-    logger.info(`running ethereum.getInstance`);
     if (Ethereum._instances === undefined) {
-      logger.info(`Assign Ethereum._instances = ${Ethereum._instances}`);
       Ethereum._instances = {};
     }
     if (!(network in Ethereum._instances)) {
       Ethereum._instances[network] = new Ethereum(network);
-      logger.info(`AssignED chainID = ${Ethereum._instances[network].chainId}`);
-      logger.info(`AssignED rpcurl = ${Ethereum._instances[network].rpcUrl}`);
-      logger.info(`tkstSrc = ${Ethereum._instances[network].tokenListSource}`);
     }
 
     return Ethereum._instances[network];
