@@ -77,7 +77,7 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
 
 
 class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
-    maker_market: ClientConfigEnum(  # rebuild the exchanges enum
+    maker_market: ClientConfigEnum(
         value="MakerMarkets",  # noqa: F821
         names={e: e for e in sorted(AllConnectorSettings.get_exchange_names())},
         type=str,
