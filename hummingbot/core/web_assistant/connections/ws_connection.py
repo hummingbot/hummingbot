@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from json import JSONDecodeError
 from typing import Any, Dict, Mapping, Optional
@@ -6,10 +7,23 @@ from typing import Any, Dict, Mapping, Optional
 import aiohttp
 
 from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
+from hummingbot.logger import HummingbotLogger
+
+s_logger = None
 
 
 class WSConnection:
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        global s_logger
+        if s_logger is None:
+            s_logger = logging.getLogger(__name__)
+        return s_logger
+
     def __init__(self, aiohttp_client_session: aiohttp.ClientSession):
+        self._ping_timeout = None
+        self._ws_headers = None
+        self._ws_url = None
         self._client_session = aiohttp_client_session
         self._connection: Optional[aiohttp.ClientWebSocketResponse] = None
         self._connected = False
@@ -25,13 +39,16 @@ class WSConnection:
         return self._connected
 
     async def connect(
-        self,
-        ws_url: str,
-        ping_timeout: float = 10,
-        message_timeout: Optional[float] = None,
-        ws_headers: Optional[Dict] = {},
+            self,
+            ws_url: str,
+            ping_timeout: float = 10,
+            message_timeout: Optional[float] = None,
+            ws_headers: Optional[Dict] = {},
     ):
         self._ensure_not_connected()
+        self._ws_url = ws_url
+        self._ws_headers = ws_headers
+        self._ping_timeout = ping_timeout
         self._connection = await self._client_session.ws_connect(
             ws_url,
             headers=ws_headers,
@@ -75,10 +92,19 @@ class WSConnection:
 
     async def _read_message(self) -> aiohttp.WSMessage:
         try:
-            msg = await self._connection.receive(self._message_timeout)
-        except asyncio.TimeoutError:
-            raise asyncio.TimeoutError("Message receive timed out.")
-        return msg
+            while True:
+                try:
+                    msg = await self._connection.receive(self._message_timeout)
+                    return msg
+                except asyncio.TimeoutError:
+                    # We timed-out, but is the connection even alive? Ping-Pong
+                    await self._connection.ping()
+                    await self._connection.receive(self._ping_timeout)
+
+        # The ping timeout exceeded or various type of errors, let's just try to reconnect
+        except (asyncio.TimeoutError, asyncio.CancelledError, aiohttp.WebSocketError, aiohttp.ClientError):
+            # self.logger().warning("WebSocket reception and ping test timed out. Going to reconnect...")
+            return aiohttp.WSMessage(type=aiohttp.WSMsgType.CLOSED, data=None)
 
     async def _process_message(self, msg: aiohttp.WSMessage) -> Optional[aiohttp.WSMessage]:
         msg = await self._check_msg_types(msg)
@@ -95,10 +121,17 @@ class WSConnection:
         if msg is not None and msg.type in [aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSE]:
             if self._connected:
                 close_code = self._connection.close_code
-                await self.disconnect()
-                raise ConnectionError(
-                    f"The WS connection was closed unexpectedly. Close code = {close_code} msg data: {msg.data}"
+                self.logger().warning(
+                    "The WS connection was closed unexpectedly, attempting to reconnect. "
+                    f"Close code = {close_code} msg data: {msg.data}"
                 )
+                await self.disconnect()
+                self._connected = False
+                # Attempting to reconnect
+                await self.connect(self._ws_url, self._ping_timeout, self._message_timeout, self._ws_headers)
+                # raise ConnectionError(
+                #    f"The WS connection was closed unexpectedly. Close code = {close_code} msg data: {msg.data}"
+                # )
             msg = None
         return msg
 
