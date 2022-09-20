@@ -1,4 +1,5 @@
 import asyncio
+import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -32,6 +33,16 @@ if TYPE_CHECKING:
 class KucoinExchange(ExchangePyBase):
     web_utils = web_utils
 
+    __slots__ = (
+        "kucoin_api_key",
+        "kucoin_passphrase",
+        "kucoin_secret_key",
+        "_domain",
+        "_trading_required",
+        "_trading_pairs",
+        "_last_order_fills_request_ts_s",
+    )
+
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
                  kucoin_api_key: str,
@@ -46,6 +57,7 @@ class KucoinExchange(ExchangePyBase):
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._last_order_fills_request_ts_s: float = 0
         super().__init__(client_config_map=client_config_map)
 
     @property
@@ -360,50 +372,54 @@ class KucoinExchange(ExchangePyBase):
         # be sufficient, the rate limit seems better suited
         all_trades_updates: List[TradeUpdate] = []
         try:
-            all_trades_updates: List[TradeUpdate] = await self._all_trades_updates()
+            all_trades_updates: List[TradeUpdate] = await self._all_trades_updates(orders)
         except asyncio.CancelledError:
             raise
         except Exception as request_error:
             self.logger().warning(
                 f"Failed to fetch trade updates. Error: {request_error}")
 
-        for order in orders:
-            # Matching the orders based on their exchange_order_id
-            trade_updates = [t for t in all_trades_updates if t.exchange_order_id == order.exchange_order_id]
-            for trade_update in trade_updates:
-                # We need to update the client_order_id and trading pair
-                trade_update.client_order_id = order.client_order_id
-                trade_update.trading_pair = order.trading_pair
-                self._order_tracker.process_trade_update(trade_update)
+        for trade_update in all_trades_updates:
+            self._order_tracker.process_trade_update(trade_update)
 
-    async def _all_trades_updates(self) -> List[TradeUpdate]:
+    async def _all_trades_updates(self, orders: List[InFlightOrder]) -> List[TradeUpdate]:
         trade_updates: List[TradeUpdate] = []
+        exchange_to_client = {o.exchange_order_id: {"client_id": o.client_order_id, "trading_pair": o.trading_pair} for o in orders}
+
+        # We don't need updates for trades created earlier than last_update
+        last_update_ms: int = int(1000 * max(self._last_order_fills_request_ts_s, min([o.creation_timestamp for o in orders])))
+        self._last_order_fills_request_ts_s = time.time()
+
         all_fills_response = await self._api_get(
-            path_url=CONSTANTS.ORDER_FILLS_URL,
+            path_url=CONSTANTS.FILLS_PATH_URL,
             params={
                 "pageSize": 500,
+                "endAt": last_update_ms,
             },
             is_auth_required=True)
 
         for trade in all_fills_response.get("items", []):
-            fee = TradeFeeBase.new_spot_fee(
-                fee_schema=self.trade_fee_schema(),
-                trade_type=TradeType.BUY if trade["side"] == "buy" else "sell",
-                percent_token=trade["feeCurrency"],
-                flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=trade["feeCurrency"])]
-            )
-            trade_update = TradeUpdate(
-                trade_id=str(trade["tradeId"]),
-                client_order_id="hb_order_id",
-                trading_pair=str(trade["symbol"]),
-                exchange_order_id=str(trade["orderId"]),
-                fee=fee,
-                fill_base_amount=Decimal(trade["size"]),
-                fill_quote_amount=Decimal(trade["funds"]),
-                fill_price=Decimal(trade["price"]),
-                fill_timestamp=trade["createdAt"] * 1e-3,
-            )
-            trade_updates.append(trade_update)
+            if str(trade["orderId"]) in exchange_to_client:
+                fee = TradeFeeBase.new_spot_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    trade_type=TradeType.BUY if trade["side"] == "buy" else "sell",
+                    percent_token=trade["feeCurrency"],
+                    flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=trade["feeCurrency"])]
+                )
+
+                client_info = exchange_to_client[str(trade["orderId"])]
+                trade_update = TradeUpdate(
+                    trade_id=str(trade["tradeId"]),
+                    client_order_id=client_info["client_id"],
+                    trading_pair=client_info["trading_pair"],
+                    exchange_order_id=str(trade["orderId"]),
+                    fee=fee,
+                    fill_base_amount=Decimal(trade["size"]),
+                    fill_quote_amount=Decimal(trade["funds"]),
+                    fill_price=Decimal(trade["price"]),
+                    fill_timestamp=trade["createdAt"] * 1e-3,
+                )
+                trade_updates.append(trade_update)
 
         return trade_updates
 
@@ -415,7 +431,7 @@ class KucoinExchange(ExchangePyBase):
         if order.exchange_order_id is not None:
             exchange_order_id = order.exchange_order_id
             all_fills_response = await self._api_get(
-                path_url=CONSTANTS.ORDER_FILLS_URL,
+                path_url=CONSTANTS.FILLS_PATH_URL,
                 params={
                     "orderId": exchange_order_id,
                     "pageSize": 500,
