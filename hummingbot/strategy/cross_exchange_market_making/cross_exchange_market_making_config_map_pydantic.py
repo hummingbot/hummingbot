@@ -57,9 +57,10 @@ class OracleConversionRateMode(ConversionRateModel):
             base_rate = Decimal("1")
 
         gas_pair = None
-        transaction_fee: TokenAmount = market_pair.taker.market.network_transaction_fee
+        transaction_fee: TokenAmount = TokenAmount("", Decimal("NaN"))
         if CrossExchangeMarketMakingStrategy.is_gateway_market(market_pair.taker):
             if hasattr(market_pair.taker.market, "network_transaction_fee"):
+                transaction_fee: TokenAmount = market_pair.taker.market.network_transaction_fee
                 if transaction_fee is not None:
                     gas_pair = f"{transaction_fee.token}-{market_pair.maker.quote_asset}"
 
