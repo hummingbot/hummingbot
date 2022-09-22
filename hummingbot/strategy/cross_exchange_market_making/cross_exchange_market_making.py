@@ -483,7 +483,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 return True
         return False
 
-    async def process_market_pair(self, timestamp: float, market_pair: MarketTradingPairTuple, active_orders: List):
+    async def process_market_pair(self, timestamp: float, market_pair: MakerTakerMarketPair, active_orders: List):
         """
         For market pair being managed by this strategy object, do the following:
 
@@ -557,7 +557,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             return
 
         # If there are pending taker orders, wait for them to complete
-        if self.has_active_taker_order(market_pair):
+        if self.has_active_taker_order(market_pair.taker):
             return
 
         # See if it's profitable to place a limit order on maker market.
@@ -1022,7 +1022,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     f"allowed on the taker market. No hedging possible yet."
                 )
 
-    def get_adjusted_limit_order_size(self, market_pair: MakerTakerMarketPair) -> Tuple[Decimal, Decimal]:
+    def get_adjusted_limit_order_size(self, market_pair: MakerTakerMarketPair) -> Decimal:
         """
         Given the proposed order size of a proposed limit order (regardless of bid or ask), adjust and refine the order
         sizing according to either the trade size override setting (if it exists), or the portfolio ratio limit (if
@@ -1158,7 +1158,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             return maker_market.quantize_order_amount(market_pair.maker.trading_pair, Decimal(order_amount))
 
     async def get_market_making_price(self,
-                                      market_pair: MarketTradingPairTuple,
+                                      market_pair: MakerTakerMarketPair,
                                       is_bid: bool,
                                       size: Decimal):
         """
@@ -1286,7 +1286,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             return maker_price
 
     async def calculate_effective_hedging_price(self,
-                                                market_pair: MarketTradingPairTuple,
+                                                market_pair: MakerTakerMarketPair,
                                                 is_bid: bool,
                                                 size: Decimal):
         """
@@ -1470,13 +1470,13 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             self.cancel_maker_order(market_pair, active_order.client_order_id)
             return False
 
-        transaction_fee = 0
+        transaction_fee: Decimal("0")
         pl = 0
         if self.is_gateway_market(market_pair.taker):
             if hasattr(market_pair.taker.market, "network_transaction_fee"):
                 _, _, quote_rate, _, _, base_rate, _, _, gas_rate = self.get_conversion_rates(market_pair)
-                transaction_fee: TokenAmount = getattr(market_pair.taker.market, "network_transaction_fee")
-                transaction_fee = transaction_fee.amount
+                market_fee: TokenAmount = getattr(market_pair.taker.market, "network_transaction_fee")
+                transaction_fee = market_fee.amount
                 # Transaction fee in maker quote asset
                 transaction_fee *= gas_rate
 
@@ -1610,7 +1610,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             return False
         return True
 
-    def markettaker_to_maker_base_conversion_rate(self, market_pair: MarketTradingPairTuple) -> Decimal:
+    def markettaker_to_maker_base_conversion_rate(self, market_pair: MakerTakerMarketPair) -> Decimal:
         """
         Return price conversion rate for from taker quote asset to maker quote asset
         """
@@ -1625,7 +1625,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         #     return quote_rate / base_rate
 
     async def check_and_create_new_orders(self,
-                                          market_pair: MarketTradingPairTuple,
+                                          market_pair: MakerTakerMarketPair,
                                           has_active_bid: bool,
                                           has_active_ask: bool):
         """
