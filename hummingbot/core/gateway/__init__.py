@@ -20,7 +20,7 @@ _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "hummingbot/gateway-v2"
-GATEWAY_DOCKER_TAG: str = "gateway-v2-master-arm" if platform.machine() in {"arm64", "aarch64"} else "gateway-v2-dev"
+GATEWAY_DOCKER_TAG: str = "gateway-v2-master-arm" if platform.machine() in {"arm64", "aarch64"} else "gateway-v2-master"
 S_DECIMAL_0: Decimal = Decimal(0)
 
 
