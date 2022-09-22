@@ -1,5 +1,4 @@
 import asyncio
-import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -33,16 +32,6 @@ if TYPE_CHECKING:
 class KucoinExchange(ExchangePyBase):
     web_utils = web_utils
 
-    __slots__ = (
-        "kucoin_api_key",
-        "kucoin_passphrase",
-        "kucoin_secret_key",
-        "_domain",
-        "_trading_required",
-        "_trading_pairs",
-        "_last_order_fills_request_ts_s",
-    )
-
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
                  kucoin_api_key: str,
@@ -57,7 +46,7 @@ class KucoinExchange(ExchangePyBase):
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._last_order_fills_request_ts_s: float = 0
+        self._last_order_fill_ts_s: float = 0
         super().__init__(client_config_map=client_config_map)
 
     @property
@@ -386,15 +375,19 @@ class KucoinExchange(ExchangePyBase):
         trade_updates: List[TradeUpdate] = []
         exchange_to_client = {o.exchange_order_id: {"client_id": o.client_order_id, "trading_pair": o.trading_pair} for o in orders}
 
-        # We don't need updates for trades created earlier than last_update
-        last_update_ms: int = int(1000 * max(self._last_order_fills_request_ts_s, min([o.creation_timestamp for o in orders])))
-        self._last_order_fills_request_ts_s = time.time()
+        # We request updates from either:
+        #    - The earliest order creation_timestamp in the list (first couple requests)
+        #    - The last time we got a fill
+        self._last_order_fill_ts_s = int(max(self._last_order_fill_ts_s, min([o.creation_timestamp for o in orders])))
 
+        # From Kucoin https://docs.kucoin.com/#list-fills:
+        # "If you only specified the start time, the system will automatically
+        #  calculate the end time (end time = start time + 7 * 24 hours)"
         all_fills_response = await self._api_get(
             path_url=CONSTANTS.FILLS_PATH_URL,
             params={
                 "pageSize": 500,
-                "endAt": last_update_ms,
+                "startAt": self._last_order_fill_ts_s * 1000,
             },
             is_auth_required=True)
 
@@ -420,6 +413,8 @@ class KucoinExchange(ExchangePyBase):
                     fill_timestamp=trade["createdAt"] * 1e-3,
                 )
                 trade_updates.append(trade_update)
+                # Update the last fill timestamp with the latest one
+                self._last_order_fill_ts_s = max(self._last_order_fill_ts_s, trade["createdAt"] * 1e-3)
 
         return trade_updates
 

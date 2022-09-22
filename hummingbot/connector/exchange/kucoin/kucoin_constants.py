@@ -25,7 +25,7 @@ FEE_PATH_URL = "/api/v1/trade-fees"
 ALL_TICKERS_PATH_URL = "/api/v1/market/allTickers"
 FILLS_PATH_URL = "/api/v1/fills"
 LIMIT_FILLS_PATH_URL = "/api/v1/limit/fills"
-ORDER_CLIENT_ORDER_PATH_URL = "/api/v1/order/client-order/{clientOid}"
+ORDER_CLIENT_ORDER_PATH_URL = "/api/v1/order/client-order"
 
 WS_CONNECTION_LIMIT_ID = "WSConnection"
 WS_CONNECTION_LIMIT = 30
