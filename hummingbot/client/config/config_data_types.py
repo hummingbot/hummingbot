@@ -55,6 +55,7 @@ class BaseClientModel(BaseModel):
     def is_required(self, attr: str) -> bool:
         return self.__fields__[attr].required
 
+    @staticmethod
     def validate_decimal(v: str, field: Field):
         """Used for client-friendly error output."""
         field_info = field.field_info
