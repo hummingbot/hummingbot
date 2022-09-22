@@ -147,13 +147,14 @@ class TakerToMakerConversionRateMode(ConversionRateModel):
 
         return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, gas_rate
 
+    @staticmethod
     @validator(
         "taker_to_maker_base_conversion_rate",
         "taker_to_maker_quote_conversion_rate",
         "gas_to_maker_base_conversion_rate",
         pre=True,
     )
-    def validate_decimal(self, v: str, values: Dict, config: BaseModel.Config, field: Field):
+    def validate_decimal(v: str, values: Dict, config: BaseModel.Config, field: Field):
         return super().validate_decimal(v=v, field=field)
 
 
