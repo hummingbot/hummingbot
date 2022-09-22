@@ -32,7 +32,7 @@ class OracleConversionRateMode(ConversionRateModel):
 
     def get_conversion_rates(
         self, market_pair: MakerTakerMarketPair
-    ) -> Tuple[str, str, Decimal, str, str, Decimal]:
+    ) -> Tuple[str, str, Decimal, str, str, Decimal, str, str, Decimal]:
         """
         Find conversion rates from taker market to maker market
         :param market_pair: maker and taker trading pairs for which to do conversion
@@ -57,9 +57,9 @@ class OracleConversionRateMode(ConversionRateModel):
             base_rate = Decimal("1")
 
         gas_pair = None
+        transaction_fee: TokenAmount = market_pair.taker.market.network_transaction_fee
         if CrossExchangeMarketMakingStrategy.is_gateway_market(market_pair.taker):
             if hasattr(market_pair.taker.market, "network_transaction_fee"):
-                transaction_fee: TokenAmount = market_pair.taker.market.network_transaction_fee
                 if transaction_fee is not None:
                     gas_pair = f"{transaction_fee.token}-{market_pair.maker.quote_asset}"
 
@@ -119,7 +119,7 @@ class TakerToMakerConversionRateMode(ConversionRateModel):
 
     def get_conversion_rates(
         self, market_pair: MakerTakerMarketPair
-    ) -> Tuple[str, str, Decimal, str, str, Decimal]:
+    ) -> Tuple[str, str, Decimal, str, str, Decimal, str, str, Decimal]:
         """
         Find conversion rates from taker market to maker market
         :param market_pair: maker and taker trading pairs for which to do conversion
@@ -153,7 +153,7 @@ class TakerToMakerConversionRateMode(ConversionRateModel):
         "gas_to_maker_base_conversion_rate",
         pre=True,
     )
-    def validate_decimal(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
+    def validate_decimal(self, v: str, values: Dict, config: BaseModel.Config, field: Field):
         return super().validate_decimal(v=v, field=field)
 
 

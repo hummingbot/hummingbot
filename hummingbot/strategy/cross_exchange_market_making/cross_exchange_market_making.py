@@ -245,7 +245,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
     def is_gateway_market(market_info: MarketTradingPairTuple) -> bool:
         return market_info.market.name in AllConnectorSettings.get_gateway_evm_amm_connector_names()
 
-    def get_conversion_rates(self, market_pair: MarketTradingPairTuple):
+    def get_conversion_rates(self, market_pair: MakerTakerMarketPair):
         quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source,\
             gas_rate = self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
         if quote_rate is None:
