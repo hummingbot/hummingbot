@@ -123,7 +123,6 @@ execute_docker () {
    -e GATEWAY_CONF_FOLDER="${FOLDERS[$j]}/gateway_conf" \
    -e GATEWAY_LOGS_FOLDER="${FOLDERS[$j]}/gateway_logs" \
    hummingbot/hummingbot:$TAG
-   sudo chown -R hummingbot:hummingbot "${FOLDERS[@]}"
    j=$[$j+1]
    # Update file ownership
  done
