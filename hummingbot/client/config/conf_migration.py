@@ -202,6 +202,9 @@ def _migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: D
     _migrate_global_config_field(
         client_config_map.mqtt_broker, data, "mqtt_commands"
     )
+    _migrate_global_config_field(
+        client_config_map.mqtt_broker, data, "mqtt_events"
+    )
 
     anonymized_metrics_enabled = data.pop("anonymized_metrics_enabled")
     anonymized_metrics_interval_min = data.pop("anonymized_metrics_interval_min")
