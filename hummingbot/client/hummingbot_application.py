@@ -43,7 +43,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.notifier.notifier_base import NotifierBase
-from hummingbot.remote_iface.mqtt import MQTTEventForwarder, MQTTGateway
+from hummingbot.remote_iface.mqtt import MQTTGateway
 from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -126,14 +126,12 @@ class HummingbotApplication(*commands):
         # gateway variables and monitor
         self._gateway_monitor = GatewayStatusMonitor(self)
 
-        if os.getenv('HBOT_MQTT_GATEWAY') in (
-            '1', 'True', 'true', 'Yes',
-            'Nai', 'Si', 'Da', 'sudo'
-        ):
+        if self.client_config_map.mqtt_broker.mqtt_logger or \
+                self.client_config_map.mqtt_broker.mqtt_notifier or \
+                self.client_config_map.mqtt_broker.mqtt_commands:
             self.logger().info('Starting MQTT Gateway...')
             self._mqtt = MQTTGateway(self)
             self._mqtt.run()
-            self.notifiers.append(self._mqtt._notifier)
 
         if os.getenv('HBOT_HAS_TUI') in ('1', 'Yes', 'yes', 'YES', 'Y'):
             command_tabs = self.init_command_tabs()
@@ -147,13 +145,6 @@ class HummingbotApplication(*commands):
             )
         else:
             self.app = HeadlessExecutor(self)
-
-        if os.getenv('HBOT_MQTT_GATEWAY') in (
-            '1', 'True', 'true', 'Yes',
-            'Nai', 'Si', 'Da', 'sudo'
-        ):
-            self.mqtt_event_forwarder = MQTTEventForwarder(self)
-            self.mqtt_event_forwarder.start()
 
         self._init_gateway_monitor()
 
