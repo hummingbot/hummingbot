@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
 import asyncio
-import logging
-import os
 import threading
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
@@ -16,8 +14,8 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
     from hummingbot.core.event.event_listener import EventListener
 
-from commlib.msg import DataClass, DataField, PubSubMessage
-from commlib.node import Node, TransportType
+from commlib.msg import PubSubMessage
+from commlib.node import Node
 from commlib.transports.mqtt import ConnectionParameters as MQTTConnectionParameters
 
 from hummingbot.core.event import events
@@ -25,21 +23,19 @@ from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.pubsub import PubSub
 from hummingbot.notifier.notifier_base import NotifierBase
 
-lms_logger = None
+mqtts_logger: HummingbotLogger = None
 
 
-@DataClass
 class NotifyMessage(PubSubMessage):
-    seq: int = DataField(default=0)
-    timestamp: int = DataField(default=-1)
-    msg: str = DataField(default='')
+    seq: int = 0
+    timestamp: int = -1
+    msg: str = ''
 
 
-@DataClass
 class EventMessage(PubSubMessage):
-    timestamp: int = DataField(default=-1)
-    type: str = DataField(default='Unknown')
-    data: dict = DataField(default_factory=dict)
+    timestamp: int = -1
+    type: str = 'Unknown'
+    data: dict = {}
 
 
 class MQTTCommands(Node):
@@ -151,18 +147,24 @@ class MQTTCommands(Node):
 class MQTTEventForwarder:
     EVENT_URI = 'hbot/$UID/events'
 
-    def __init__(self, hb_app: "HummingbotApplication"):
+    def __init__(self,
+                 hb_app: "HummingbotApplication",
+                 mqtt_node: Node):
 
         if threading.current_thread() != threading.main_thread():
-            raise EnvironmentError("MQTTEventForwarder can only be initialized from the main thread.")
+            raise EnvironmentError(
+                "MQTTEventForwarder can only be initialized from the main thread."
+            )
 
         self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self._hb_app = hb_app
+        self._node = mqtt_node
         self._markets: List[ConnectorBase] = list(self._hb_app.markets.values())
 
         self._topic = self.EVENT_URI.replace('$UID', self._hb_app.uid())
 
-        self._mqtt_fowarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._send_mqtt_event)
+        self._mqtt_fowarder: SourceInfoEventForwarder = \
+            SourceInfoEventForwarder(self._send_mqtt_event)
         self._market_event_pairs: List[Tuple[int, EventListener]] = [
             (events.MarketEvent.BuyOrderCreated, self._mqtt_fowarder),
             (events.MarketEvent.BuyOrderCompleted, self._mqtt_fowarder),
@@ -179,7 +181,10 @@ class MQTTEventForwarder:
         #     (events.CustomEvent.MarketInitialized, self._mqtt_fowarder),
         # ]
 
-        self.event_fw_pub = hb_app._mqtt.create_publisher(topic=self._topic, msg_type=EventMessage)
+        self.event_fw_pub = self._node.create_publisher(
+            topic=self._topic, msg_type=EventMessage
+        )
+        self.start_event_listener()
 
     def _send_mqtt_event(self, event_tag: int, pubsub: PubSub, event):
         if threading.current_thread() != threading.main_thread():
@@ -218,16 +223,22 @@ class MQTTEventForwarder:
         except KeyError:
             timestamp = datetime.now().timestamp()
 
-        self.event_fw_pub.publish(EventMessage(timestamp=int(timestamp), type=event_type, data=event_data))
+        self.event_fw_pub.publish(
+            EventMessage(
+                timestamp=int(timestamp),
+                type=event_type,
+                data=event_data
+            )
+        )
 
-    def start(self):
+    def start_event_listener(self):
         for market in self._markets:
             for event_pair in self._market_event_pairs:
                 market.add_listener(event_pair[0], event_pair[1])
         for event_pair in self._app_event_pairs:
             self._hb_app.app.add_listener(event_pair[0], event_pair[1])
 
-    def stop(self):
+    def stop_event_listener(self):
         for market in self._markets:
             for event_pair in self._market_event_pairs:
                 market.remove_listener(event_pair[0], event_pair[1])
@@ -267,49 +278,49 @@ class MQTTGateway(Node):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
+        global mqtts_logger
+        if mqtts_logger is None:
+            mqtts_logger = HummingbotLogger(__name__)
+        return mqtts_logger
 
     def __init__(self,
                  hb_app: "HummingbotApplication",
-                 mqtt_params: MQTTConnectionParameters = None,
                  *args, **kwargs):
         self.hb_app = hb_app
         self.HEARTBEAT_URI = self.HEARTBEAT_URI.replace('$UID', hb_app.uid())
 
-        if mqtt_params is None:
-            mqtt_params = self._load_mqtt_params_from_env()
+        self._params = self._create_mqtt_params_from_conf()
 
         super().__init__(
             node_name=self.NODE_NAME.replace('$UID', hb_app.uid()),
-            transport_type=TransportType.MQTT,
-            connection_params=mqtt_params,
+            connection_params=self._params,
             heartbeat_uri=self.HEARTBEAT_URI,
             *args,
             **kwargs
         )
-        self._commands = MQTTCommands(self.hb_app, self)
-        self._notifier = MQTTNotifier(self.hb_app, self)
 
-    def _load_mqtt_params_from_env(self):
-        host = 'localhost'
-        port = 1883
-        username = ''
-        password = ''
-        if os.getenv('HBOT_MQTT_HOST'):
-            host = os.getenv('HBOT_MQTT_HOST')
-        if os.getenv('HBOT_MQTT_PORT'):
-            port = os.getenv('HBOT_MQTT_PORT')
-        if os.getenv('HBOT_MQTT_USERNAME'):
-            username = os.getenv('HBOT_MQTT_USERNAME')
-        if os.getenv('HBOT_MQTT_PASSWORD'):
-            password = os.getenv('HBOT_MQTT_PASSWORD')
+    def _init_features(self):
+        if self.hb_app.client_config_map.mqtt_broker.mqtt_commands:
+            self._commands = MQTTCommands(self.hb_app, self)
+        if self.hb_app.client_config_map.mqtt_broker.mqtt_notifier:
+            self._notifier = MQTTNotifier(self.hb_app, self)
+            self.hb_app.notifiers.append(self._notifier)
+        if self.hb_app.client_config_map.mqtt_broker.mqtt_events:
+            self.mqtt_event_forwarder = MQTTEventForwarder(self.hb_app, self)
+
+    def _create_mqtt_params_from_conf(self):
+        host = self.hb_app.client_config_map.mqtt_broker.mqtt_host
+        port = self.hb_app.client_config_map.mqtt_broker.mqtt_port
+        username = self.hb_app.client_config_map.mqtt_broker.mqtt_username
+        password = self.hb_app.client_config_map.mqtt_broker.mqtt_password
         conn_params = MQTTConnectionParameters(
             host=host,
-            port=int(port)
+            port=int(port),
+            username=username,
+            password=password
         )
-        conn_params.creds.username = username
-        conn_params.creds.password = password
         return conn_params
+
+    def run(self):
+        self._init_features()
+        super().run()
