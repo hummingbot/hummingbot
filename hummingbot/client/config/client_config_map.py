@@ -50,13 +50,16 @@ def using_exchange(exchange: str) -> Callable:
 
 
 class MQTTConfigMap(BaseClientModel):
-    host: str = Field(default="localhost")
-    port: int = Field(default=1883)
-    username: str = Field(default="")
-    password: str = Field(default="")
-    logger: bool = Field(default=True)
-    notifier: bool = Field(default=True)
-    commands: bool = Field(default=True)
+    mqtt_host: str = Field(default="localhost")
+    mqtt_port: int = Field(default=1883)
+    mqtt_username: str = Field(default="")
+    mqtt_password: str = Field(default="")
+    mqtt_logger: bool = Field(default=True)
+    mqtt_notifier: bool = Field(default=True)
+    mqtt_commands: bool = Field(default=True)
+
+    class Config:
+        title = "mqtt_broker"
 
 
 class ColorConfigMap(BaseClientModel):
@@ -740,9 +743,9 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: f"Select the desired telegram mode ({'/'.join(list(TELEGRAM_MODES.keys()))})"
         )
     )
-    mqtt_gateway: MQTTConfigMap = Field(
+    mqtt_broker: MQTTConfigMap = Field(
         default=MQTTConfigMap(),
-        description=('MQTT Gateway configuration.'),
+        description=('MQTT Broker configuration.'),
     )
     send_error_logs: bool = Field(
         default=True,
