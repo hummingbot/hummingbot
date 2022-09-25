@@ -5,15 +5,12 @@ import os
 import sys
 import time
 import traceback
-from logging import Handler
-from logging import Logger as PythonLogger
-from logging import LogRecord
-from typing import Optional
+from logging import Handler, Logger as PythonLogger, LogRecord
+from typing import Optional, Type
 
 import pandas as pd
 from commlib.msg import DataClass, DataField, PubSubMessage
-from commlib.transports.mqtt import ConnectionParameters as MQTTConnectionParameters
-from commlib.transports.mqtt import Publisher as MQTTPublisher
+from commlib.transports.mqtt import ConnectionParameters as MQTTConnectionParameters, Publisher as MQTTPublisher
 
 from .application_warning import ApplicationWarning
 

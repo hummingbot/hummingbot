@@ -22,8 +22,8 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.config.gateway_ssl_config_map import SSLConfigMap
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
-from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, ConnectorType
 from hummingbot.client.executor import HeadlessExecutor
+from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, ConnectorType
 from hummingbot.client.tab import __all__ as tab_classes
 from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.ui.completer import load_completer
@@ -43,9 +43,8 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.notifier.notifier_base import NotifierBase
-from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.remote_iface.mqtt import MQTTEventForwarder, MQTTGateway
-from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
+from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 
@@ -136,10 +135,11 @@ class HummingbotApplication(*commands):
             self._mqtt.run()
             self.notifiers.append(self._mqtt._notifier)
 
-        if os.getenv('HBOT_HAS_TUI') in ('1', 'Yes', 'yes', 'Nai', 'nai'):
+        if os.getenv('HBOT_HAS_TUI') in ('1', 'Yes', 'yes', 'YES', 'Y'):
             command_tabs = self.init_command_tabs()
             self.parser: ThrowingArgumentParser = load_parser(self, command_tabs)
             self.app = HummingbotCLI(
+                self.client_config_map,
                 input_handler=self._handle_command,
                 bindings=load_key_bindings(self),
                 completer=load_completer(self),

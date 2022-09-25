@@ -1,21 +1,12 @@
 import asyncio
-import logging
 from typing import TYPE_CHECKING
 
 from hummingbot import init_logging
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.pubsub import PubSub
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
-
-
-# Monkey patching here as _handle_exception gets the UI hanged into Press ENTER screen mode
-def _handle_exception_patch(self, loop, context):
-    if "exception" in context:
-        logging.getLogger(__name__).error(f"Unhandled error in prompt_toolkit: {context.get('exception')}",
-                                          exc_info=True)
 
 
 class HeadlessExecutor(PubSub):
@@ -44,8 +35,9 @@ class HeadlessExecutor(PubSub):
         pass
 
     def did_start(self):
-        log_level = global_config_map.get("log_level").value
-        init_logging("hummingbot_logs.yml", override_log_level=log_level)
+        log_level = self.hb_app.client_config_map.log_level
+        init_logging("hummingbot_logs.yml", self.hb_app.client_config_map,
+                     override_log_level=log_level)
         self.trigger_event(HummingbotUIEvent.Start, self)
 
     async def run(self):
