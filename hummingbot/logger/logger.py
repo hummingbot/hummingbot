@@ -9,7 +9,7 @@ from logging import Handler, Logger as PythonLogger, LogRecord
 from typing import Optional, Type
 
 import pandas as pd
-from commlib.msg import DataClass, DataField, PubSubMessage
+from commlib.msg import PubSubMessage
 from commlib.transports.mqtt import ConnectionParameters as MQTTConnectionParameters, Publisher as MQTTPublisher
 
 from .application_warning import ApplicationWarning
@@ -30,13 +30,12 @@ else:   # pragma: no cover
 #  --- Copied from logging module ---
 
 
-@DataClass
 class LogMessage(PubSubMessage):
-    timestamp: float = DataField(default=0.0)
-    msg: str = DataField(default='')
-    level_no: int = DataField(default=0)
-    level_name: str = DataField(default='')
-    logger_name: str = DataField(default='')
+    timestamp: float = 0.0
+    msg: str = ''
+    level_no: int = 0
+    level_name: str = ''
+    logger_name: str = ''
 
 
 class MQTTHandler(Handler):
