@@ -109,7 +109,6 @@ create_instance () {
  -e GATEWAY_LOGS_FOLDER="$GATEWAY_LOGS_FOLDER" \
  -e GATEWAY_CONF_FOLDER="$GATEWAY_CONF_FOLDER" \
  hummingbot/hummingbot:$TAG
- sudo chown -R hummingbot:hummingbot $FOLDER
 }
 
 prompt_proceed
