@@ -5,6 +5,7 @@ import { BinanceSmartChain } from '../chains/binance-smart-chain/binance-smart-c
 import { Harmony } from '../chains/harmony/harmony';
 import { Solana, Solanaish } from '../chains/solana/solana';
 import { Polygon } from '../chains/polygon/polygon';
+import { Xdc } from '../chains/xdc/xdc';
 import { MadMeerkat } from '../connectors/mad_meerkat/mad_meerkat';
 import { Openocean } from '../connectors/openocean/openocean';
 import { Pangolin } from '../connectors/pangolin/pangolin';
@@ -51,6 +52,7 @@ export async function getChain<T>(
   else if (chain === 'avalanche')
     chainInstance = Avalanche.getInstance(network);
   else if (chain === 'polygon') chainInstance = Polygon.getInstance(network);
+  else if (chain === 'xdc') chainInstance = Xdc.getInstance(network);
   else if (chain === 'harmony') chainInstance = Harmony.getInstance(network);
   else if (chain === 'near') chainInstance = Near.getInstance(network);
   else if (chain === 'solana')

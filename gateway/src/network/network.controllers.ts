@@ -10,6 +10,7 @@ import { BinanceSmartChain } from '../chains/binance-smart-chain/binance-smart-c
 import { Ethereum } from '../chains/ethereum/ethereum';
 import { Harmony } from '../chains/harmony/harmony';
 import { Polygon } from '../chains/polygon/polygon';
+import { Xdc } from '../chains/xdc/xdc';
 import { TokenInfo } from '../services/ethereum-base';
 import {
   HttpException,
@@ -43,6 +44,8 @@ export async function getStatus(
       connections.push(Ethereum.getInstance(req.network as string));
     } else if (req.chain === 'polygon') {
       connections.push(Polygon.getInstance(req.network as string));
+    } else if (req.chain === 'xdc') {
+      connections.push(Xdc.getInstance(req.network as string));
     } else if (req.chain === 'solana') {
       connections.push(Solana.getInstance(req.network as string));
     } else if (req.chain === 'near') {
@@ -75,6 +78,11 @@ export async function getStatus(
     const polygonConnections = Polygon.getConnectedInstances();
     connections = connections.concat(
       polygonConnections ? Object.values(polygonConnections) : []
+    );
+
+    const xdcConnections = Xdc.getConnectedInstances();
+    connections = connections.concat(
+      xdcConnections ? Object.values(xdcConnections) : []
     );
 
     const solanaConnections = Solana.getConnectedInstances();
@@ -139,6 +147,8 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
       connection = Ethereum.getInstance(req.network);
     } else if (req.chain === 'polygon') {
       connection = Polygon.getInstance(req.network);
+    } else if (req.chain === 'xdc') {
+      connection = Xdc.getInstance(req.network);
     } else if (req.chain === 'solana') {
       connection = Solana.getInstance(req.network);
     } else if (req.chain === 'near') {

@@ -4,6 +4,7 @@ import { BinanceSmartChain } from '../../chains/binance-smart-chain/binance-smar
 import { Cronos } from '../../chains/cronos/cronos';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import { Polygon } from '../../chains/polygon/polygon';
+import { Xdc } from '../../chains/xdc/xdc';
 import { Solana } from '../../chains/solana/solana';
 import { Harmony } from '../../chains/harmony/harmony';
 
@@ -59,6 +60,10 @@ export async function addWallet(
     connection = Solana.getInstance(req.network);
   } else if (req.chain === 'polygon') {
     connection = Polygon.getInstance(req.network);
+  } else if (req.chain === 'xdc') {
+    const xdc = Xdc.getInstance(req.network);
+    address = xdc.getWalletFromPrivateKey(req.privateKey).address;
+    encryptedPrivateKey = await xdc.encrypt(req.privateKey, passphrase);    
   } else if (req.chain === 'near') {
     if (!('address' in req))
       throw new HttpException(

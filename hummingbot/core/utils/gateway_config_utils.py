@@ -11,7 +11,8 @@ native_tokens = {
     "harmony": "ONE",
     "binance-smart-chain": "BNB",
     "cronos": "CRO",
-    "near": "NEAR"
+    "near": "NEAR",
+    "xdc": "XDC"
 }
 
 SUPPORTED_CHAINS = set(native_tokens.keys())
