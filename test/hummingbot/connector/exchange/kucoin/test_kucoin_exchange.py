@@ -1302,18 +1302,32 @@ class KucoinExchangeTests(unittest.TestCase):
 
         list_updates = self.async_run_with_timeout(self.exchange._update_order_status())
 
-        print(list_updates)
         order_request = next(((key, value) for key, value in mock_api.requests.items()
                               if key[1].human_repr().startswith(url)))
         request_params = order_request[1][0].kwargs["params"]
         self.assertIsNone(request_params)
         self._validate_auth_credentials_present(order_request[1][0])
+        self.assertIsNone(list_updates)
 
         self.assertTrue(order.is_open)
         self.assertFalse(order.is_filled)
         self.assertFalse(order.is_done)
 
     # ---- Testing the _update_orders_fills() method overwritten from the ExchangePyBase
+    @aioresponses()
+    def test__all_trades_updates_empty_orders(self, mock_api):
+        orders: List[InFlightOrder] = []
+
+        # Simulate the order has been filled with a TradeUpdate
+        # Updating with only the oldest order(fee called once)
+        self.assertEqual(0., self.exchange._last_order_fill_ts_s)
+        with patch.object(TradeFeeBase, "new_spot_fee") as mock_fee:
+            trades = self.async_run_with_timeout(self.exchange._all_trades_updates(orders))
+            mock_fee.assert_not_called()
+        self.assertEqual(0, self.exchange._last_order_fill_ts_s)
+
+        self.assertEqual(0, len(trades))
+
     @aioresponses()
     def test__all_trades_updates_last_fill(self, mock_api):
         orders: List[InFlightOrder] = []
@@ -1390,7 +1404,6 @@ class KucoinExchangeTests(unittest.TestCase):
             mock_fee.assert_called_once()
         self.assertEqual(1640780003.0, self.exchange._last_order_fill_ts_s)
 
-        print(mock_api.requests.items())
         order_request = next(((key, value) for key, value in mock_api.requests.items()
                               if key[1].human_repr().startswith(
             web_utils.private_rest_url(f"{CONSTANTS.FILLS_PATH_URL}?pageSize=500&startAt="))))
