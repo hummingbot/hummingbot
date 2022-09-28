@@ -16,11 +16,11 @@ import {
 export const invalidSpenderError: string =
   'The spender param is not a valid xdc address (0x followed by 40 hexidecimal characters).';
 
-// given a request, look for a key called spender that is 'uniswap', 'sushi' or an Ethereum address
+// given a request, look for a key called spender that is 'xdcswap' or an Ethereum address
 export const validateSpender: Validator = mkValidator(
   'spender',
   invalidSpenderError,
-  (val) => typeof val === 'string' && (val === 'uniswap' || isAddress(val))
+  (val) => typeof val === 'string' && (val === 'xdcswap' || isAddress(val))
 );
 
 export const validateXdcApproveRequest: RequestValidator =
@@ -33,4 +33,8 @@ export const validateXdcApproveRequest: RequestValidator =
   ]);
 
 export const validateXdcAllowancesRequest: RequestValidator =
-  mkRequestValidator([validateAddress, validateSpender, validateTokenSymbols]);
+  mkRequestValidator([
+    validateAddress,
+    validateSpender,
+    validateTokenSymbols
+  ]);

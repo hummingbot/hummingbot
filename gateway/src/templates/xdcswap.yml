@@ -1,0 +1,17 @@
+# allowedSlippage: how much the execution price is allowed to move unfavorably
+# from the trade execution price. It uses a rational number for precision.
+allowedSlippage: '2/100'
+
+# the maximum gas used to estimate cost of a xdcswap trade.
+gasLimitEstimate: 300000
+
+# ttl: how long a trade is valid in seconds. After this time passes
+# xdcswap will not perform the trade, but the gas will still be sent.
+ttl: 600
+
+contractAddresses:
+  # constant used for each supported network
+  xinfin:
+    routerAddress: '0x49dc40FC5708376Cff6De423561cD5a9176FA8BA'
+  apothem:
+    routerAddress: '0x49dc40FC5708376Cff6De423561cD5a9176FA8BA'

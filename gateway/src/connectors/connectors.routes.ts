@@ -3,6 +3,7 @@ import { asyncHandler } from '../services/error-handler';
 import { DefiraConfig } from './defira/defira.config';
 import { PangolinConfig } from './pangolin/pangolin.config';
 import { QuickswapConfig } from './quickswap/quickswap.config';
+import { XdcswapConfig } from './xdcswap/xdcswap.config';
 import { PerpConfig } from './perp/perp.config';
 import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
@@ -43,6 +44,11 @@ export namespace ConnectorsRoutes {
             name: 'quickswap',
             trading_type: QuickswapConfig.config.tradingTypes,
             available_networks: QuickswapConfig.config.availableNetworks,
+          },
+          {
+            name: 'xdcswap',
+            trading_type: XdcswapConfig.config.tradingTypes,
+            available_networks: XdcswapConfig.config.availableNetworks,
           },
           {
             name: 'perp',

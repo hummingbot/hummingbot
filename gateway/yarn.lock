@@ -12423,6 +12423,19 @@ ws@^8.5.0:
   resolved "https://registry.yarnpkg.com/ws/-/ws-8.8.0.tgz#8e71c75e2f6348dbf8d78005107297056cb77769"
   integrity sha512-JDAgSYQ1ksuwqfChJusw1LSJ8BizJ2e/vVu5Lxjq3YvNJNlROv1ui4i+c/kUUrPheBvQl4c5UbERhTwKa6QBJQ==
 
+xdcswap-sdk@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/xdcswap-sdk/-/xdcswap-sdk-1.0.0.tgz#11b108adcf6b8806225beb4295e16bf11ecc0133"
+  integrity sha512-olNuhpe1l/hWlbGImHFfFC11FyRjacElvIk2/Cdi9lKjuPPrK3UMiQdeXk7L+wnJwzkqqmSgDbLDFLxpmKnFwA==
+  dependencies:
+    "@uniswap/v2-core" "^1.0.0"
+    big.js "^5.2.2"
+    decimal.js-light "^2.5.0"
+    jsbi "^3.1.1"
+    tiny-invariant "^1.1.0"
+    tiny-warning "^1.0.3"
+    toformat "^2.0.0"
+
 xdg-basedir@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/xdg-basedir/-/xdg-basedir-3.0.0.tgz#496b2cc109eca8dbacfe2dc72b603c17c5870ad4"

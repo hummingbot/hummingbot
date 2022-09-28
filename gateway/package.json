@@ -71,6 +71,7 @@
     "uuid": "^8.3.2",
     "winston": "^3.3.3",
     "winston-daily-rotate-file": "^4.5.5",
+    "xdcswap-sdk": "^1.0.0",
     "yarn": "^1.22.17"
   },
   "devDependencies": {
