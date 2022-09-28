@@ -15,7 +15,7 @@ configurations:
   $namespace database:
     configurationPath: database.yml
     schemaPath: database-schema.json
-    
+
   $namespace ethereum:
     configurationPath: ethereum.yml
     schemaPath: ethereum-schema.json
@@ -23,7 +23,11 @@ configurations:
   $namespace polygon:
     configurationPath: polygon.yml
     schemaPath: ethereum-schema.json
-    
+
+  $namespace xdc:
+    configurationPath: xdc.yml
+    schemaPath: ethereum-schema.json
+
   $namespace ethereumGasStation:
     configurationPath: ethereum-gas-station.yml
     schemaPath: ethereum-gas-station-schema.json
@@ -47,7 +51,7 @@ configurations:
   $namespace quickswap:
     configurationPath: quickswap.yml
     schemaPath: quickswap-schema.json
-    
+
   $namespace perp:
     configurationPath: perp.yml
     schemaPath: perp-schema.json
@@ -59,7 +63,7 @@ configurations:
   $namespace traderjoe:
     configurationPath: traderjoe.yml
     schemaPath: traderjoe-schema.json
-    
+
   $namespace server:
     configurationPath: server.yml
     schemaPath: server-schema.json

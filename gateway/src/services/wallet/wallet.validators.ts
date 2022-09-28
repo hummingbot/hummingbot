@@ -56,6 +56,7 @@ export const validateChain: Validator = mkValidator(
     (val === 'ethereum' ||
       val === 'avalanche' ||
       val === 'polygon' ||
+      val === 'xdc' ||
       val === 'solana' ||
       val === 'harmony')
 );
