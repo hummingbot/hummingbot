@@ -17,6 +17,7 @@ import {
 import IUniswapV2Pair from '@uniswap/v2-core/build/IUniswapV2Pair.json';
 import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 import { Ethereum } from '../../chains/ethereum/ethereum';
+import { Polygon } from '../../chains/polygon/polygon';
 import {
   BigNumber,
   Wallet,
@@ -29,7 +30,7 @@ import { logger } from '../../services/logger';
 
 export class Sushiswap implements Uniswapish {
   private static _instances: { [name: string]: Sushiswap };
-  private ethereum: Ethereum;
+  private chain: Ethereum | Polygon;
   private _router: string;
   private _routerAbi: ContractInterface;
   private _gasLimitEstimate: number;
@@ -38,14 +39,18 @@ export class Sushiswap implements Uniswapish {
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
-  private constructor(network: string) {
+  private constructor(chain: string, network: string) {
     const config = SushiswapConfig.config;
-    this.ethereum = Ethereum.getInstance(network);
-    this.chainId = this.ethereum.chainId;
+    if (chain === 'ethereum') {
+      this.chain = Ethereum.getInstance(network);
+    } else {
+      this.chain = Polygon.getInstance(network);
+    }
+    this.chainId = this.chain.chainId;
     this._ttl = config.ttl;
     this._routerAbi = routerAbi.abi;
     this._gasLimitEstimate = config.gasLimitEstimate;
-    this._router = config.sushiswapRouterAddress(network);
+    this._router = config.sushiswapRouterAddress(chain, network);
   }
 
   public static getInstance(chain: string, network: string): Sushiswap {
@@ -53,7 +58,7 @@ export class Sushiswap implements Uniswapish {
       Sushiswap._instances = {};
     }
     if (!(chain + network in Sushiswap._instances)) {
-      Sushiswap._instances[chain + network] = new Sushiswap(network);
+      Sushiswap._instances[chain + network] = new Sushiswap(chain, network);
     }
 
     return Sushiswap._instances[chain + network];
@@ -70,10 +75,10 @@ export class Sushiswap implements Uniswapish {
   }
 
   public async init() {
-    if (!this.ethereum.ready()) {
-      await this.ethereum.init();
+    if (!this.chain.ready()) {
+      await this.chain.init();
     }
-    for (const token of this.ethereum.storedTokenList) {
+    for (const token of this.chain.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
         token.address,
@@ -132,8 +137,8 @@ export class Sushiswap implements Uniswapish {
   /**
    * Fetches information about a pair and constructs a pair from the given two tokens.
    * This is to replace the Fetcher Class
-   * @param tokenA first token
-   * @param tokenB second token
+   * @param baseToken first token
+   * @param quoteToken second token
    */
 
   async fetchData(baseToken: Token, quoteToken: Token): Promise<Pair> {
@@ -141,7 +146,7 @@ export class Sushiswap implements Uniswapish {
     const contract = new Contract(
       pairAddress,
       IUniswapV2Pair.abi,
-      this.ethereum.provider
+      this.chain.provider
     );
     const [reserves0, reserves1] = await contract.getReserves();
     const balances = baseToken.sortsBefore(quoteToken)
@@ -233,16 +238,16 @@ export class Sushiswap implements Uniswapish {
   /**
    * Given a wallet and a Uniswap trade, try to execute it on blockchain.
    *
-   * @param _wallet Wallet
-   * @param _trade Expected trade
-   * @param _gasPrice Base gas price, for pre-EIP1559 transactions
-   * @param uniswapRouter Router smart contract address
-   * @param _ttl How long the swap is valid before expiry, in seconds
-   * @param _abi Router contract ABI
-   * @param _gasLimit Gas limit
-   * @param _nonce (Optional) EVM transaction nonce
-   * @param _maxFeePerGas (Optional) Maximum total fee per gas you want to pay
-   * @param _maxPriorityFeePerGas (Optional) Maximum tip per gas you want to pay
+   * @param wallet Wallet
+   * @param trade Expected trade
+   * @param gasPrice Base gas price, for pre-EIP1559 transactions
+   * @param sushswapRouter Router smart contract address
+   * @param ttl How long the swap is valid before expiry, in seconds
+   * @param abi Router contract ABI
+   * @param gasLimit Gas limit
+   * @param nonce (Optional) EVM transaction nonce
+   * @param maxFeePerGas (Optional) Maximum total fee per gas you want to pay
+   * @param maxPriorityFeePerGas (Optional) Maximum tip per gas you want to pay
    */
 
   async executeTrade(
@@ -264,7 +269,7 @@ export class Sushiswap implements Uniswapish {
     });
     const contract: Contract = new Contract(sushswapRouter, abi, wallet);
     if (nonce === undefined) {
-      nonce = await this.ethereum.nonceManager.getNextNonce(wallet.address);
+      nonce = await this.chain.nonceManager.getNextNonce(wallet.address);
     }
     let tx: ContractTransaction;
     if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
@@ -285,7 +290,7 @@ export class Sushiswap implements Uniswapish {
     }
 
     logger.info(tx);
-    await this.ethereum.nonceManager.commitNonce(wallet.address, nonce);
+    await this.chain.nonceManager.commitNonce(wallet.address, nonce);
     return tx;
   }
 }

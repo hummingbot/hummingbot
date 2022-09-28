@@ -5,7 +5,21 @@
     "allowedSlippage": { "type": "string" },
     "gasLimitEstimate": { "type": "integer" },
     "ttl": { "type": "integer" },
-    "contractAddresses": {
+    "ethereum": {
+      "type": "object",
+      "patternProperties": {
+        "^\\w+$": {
+          "type": "object",
+          "properties": {
+            "sushiswapRouterAddress": { "type": "string" }
+          },
+          "required": ["sushiswapRouterAddress"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "polygon": {
       "type": "object",
       "patternProperties": {
         "^\\w+$": {
@@ -25,6 +39,7 @@
     "allowedSlippage",
     "gasLimitEstimate",
     "ttl",
-    "contractAddresses"
+    "ethereum",
+    "polygon"
   ]
 }

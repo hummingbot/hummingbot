@@ -49,7 +49,7 @@ export async function getConnector<T>(
     connectorInstance = Uniswap.getInstance(chain, network);
   } else if (chain === 'polygon' && connector === 'quickswap') {
     connectorInstance = Quickswap.getInstance(chain, network);
-  } else if (chain === 'ethereum' && connector === 'sushiswap') {
+  } else if ((chain === 'ethereum' || chain === 'polygon') && connector === 'sushiswap') {
     connectorInstance = Sushiswap.getInstance(chain, network);
   } else if (
     (chain === 'ethereum' || chain === 'polygon') &&
