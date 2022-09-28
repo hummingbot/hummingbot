@@ -92,6 +92,7 @@
     "web3": "^1.7.3",
     "winston": "^3.3.3",
     "winston-daily-rotate-file": "^4.5.5",
+    "xsswap-sdk": "^1.0.1",
     "yarn": "^1.22.17"
   },
   "devDependencies": {

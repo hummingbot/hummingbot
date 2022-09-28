@@ -11,6 +11,7 @@ import { Openocean } from '../connectors/openocean/openocean';
 import { Pangolin } from '../connectors/pangolin/pangolin';
 import { Perp } from '../connectors/perp/perp';
 import { Quickswap } from '../connectors/quickswap/quickswap';
+import { Xsswap } from '../connectors/xsswap/xsswap';
 import { PancakeSwap } from '../connectors/pancakeswap/pancakeswap';
 import { Serum } from '../connectors/serum/serum';
 import { Uniswap } from '../connectors/uniswap/uniswap';
@@ -105,6 +106,8 @@ export async function getConnector<T>(
     connectorInstance = Uniswap.getInstance(chain, network);
   } else if (chain === 'polygon' && connector === 'quickswap') {
     connectorInstance = Quickswap.getInstance(chain, network);
+  } else if (chain === 'xdc' && connector === 'xsswap') {
+    connectorInstance = Xsswap.getInstance(chain, network);
   } else if (
     (chain === 'ethereum' || chain === 'polygon') &&
     connector === 'uniswapLP'

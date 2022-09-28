@@ -15506,6 +15506,19 @@ xss@^1.0.8:
     commander "^2.20.3"
     cssfilter "0.0.10"
 
+xsswap-sdk@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/xsswap-sdk/-/xsswap-sdk-1.0.1.tgz#39a3b3a5e946b750d8a801a6f1fa78db64b96bbb"
+  integrity sha512-erBr5eDlzqrxbto+uDkVGE0G5oKZZ05Na3150g8dnEf5zeAnmwl3+ze7cjpeLgCbO2vidCQqgs9dFeGC7KShlw==
+  dependencies:
+    "@uniswap/v2-core" "^1.0.0"
+    big.js "^5.2.2"
+    decimal.js-light "^2.5.0"
+    jsbi "^3.1.1"
+    tiny-invariant "^1.1.0"
+    tiny-warning "^1.0.3"
+    toformat "^2.0.0"
+
 xtend@^4.0.0, xtend@^4.0.1, xtend@^4.0.2, xtend@~4.0.0, xtend@~4.0.1:
   version "4.0.2"
   resolved "https://registry.yarnpkg.com/xtend/-/xtend-4.0.2.tgz#bb72779f5fa465186b1f438f674fa347fdb5db54"

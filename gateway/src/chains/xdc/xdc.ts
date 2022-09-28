@@ -4,7 +4,7 @@ import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
 import { getEthereumConfig as getXdcConfig } from '../ethereum/ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
-import { UniswapConfig } from '../../connectors/uniswap/uniswap.config';
+import { XsswapConfig } from '../../connectors/xsswap/xsswap.config';
 import { Ethereumish } from '../../services/common-interfaces';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
@@ -65,8 +65,8 @@ export class Xdc extends EthereumBase implements Ethereumish {
 
   getSpender(reqSpender: string): string {
     let spender: string;
-    if (reqSpender === 'uniswap') {
-      spender = UniswapConfig.config.uniswapV3SmartOrderRouterAddress(this._chain);
+    if (reqSpender === 'xsswap') {
+        spender = XsswapConfig.config.routerAddress(this._chain);
     } else {
       spender = reqSpender;
     }

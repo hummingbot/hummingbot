@@ -56,6 +56,10 @@ configurations:
     configurationPath: quickswap.yml
     schemaPath: quickswap-schema.json
 
+  $namespace xsswap:
+    configurationPath: xsswap.yml
+    schemaPath: xsswap-schema.json
+
   $namespace perp:
     configurationPath: perp.yml
     schemaPath: perp-schema.json

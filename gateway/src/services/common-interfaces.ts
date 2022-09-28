@@ -39,6 +39,12 @@ import {
   Fraction as QuickswapFraction,
 } from 'quickswap-sdk';
 import {
+  Token as TokenXsswap,
+  CurrencyAmount as CurrencyAmountXsswap,
+  Trade as TradeXsswap,
+  Fraction as XsswapFraction
+} from 'xsswap-sdk';
+import {
   Trade as SushiswapTrade,
   Token as SushiToken,
   CurrencyAmount as SushiCurrencyAmount,
@@ -98,6 +104,7 @@ export type Tokenish =
   | TokenPangolin
   | UniswapCoreToken
   | TokenQuickswap
+  | TokenXsswap
   | TokenTraderjoe
   | UniswapCoreToken
   | SushiToken
@@ -119,6 +126,7 @@ export type UniswapishTrade =
   | TradePangolin
   | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
   | TradeQuickswap
+  | TradeXsswap
   | TradeTraderjoe
   | SushiswapTrade<SushiToken, SushiToken, SushiTradeType>
   | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
@@ -141,6 +149,7 @@ export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
   | CurrencyAmountQuickswap
+  | CurrencyAmountXsswap
   | UniswapCoreCurrencyAmount<Currency>
   | CurrencyAmountTraderjoe
   | SushiCurrencyAmount<SushiCurrency | SushiToken>
@@ -153,6 +162,7 @@ export type Fractionish =
   | UniswapFraction
   | PangolinFraction
   | QuickswapFraction
+  | XsswapFraction
   | TraderjoeFraction
   | SushiFraction
   | DefikingdomsFraction
