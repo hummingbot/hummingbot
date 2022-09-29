@@ -7,7 +7,14 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Tuple, Union
 
 from hummingbot.core.api_throttler.async_request_context_base import AsyncRequestContextBase
-from hummingbot.core.api_throttler.data_types import RateLimit, TaskLog, TokenBucket, _T_Seconds
+from hummingbot.core.api_throttler.data_types import (
+    RateLimit,
+    TaskLog,
+    TokenBucket,
+    _T_Buckets,
+    _T_RateToken,
+    _T_Seconds,
+)
 from hummingbot.logger.logger import HummingbotLogger
 
 
@@ -30,6 +37,7 @@ class AsyncThrottlerBase(ABC):
         'limits_in_pct',
         '_id_to_limit_map',
         '_task_logs',
+        '_token_buckets',
         '_retry_interval',
         '_safety_margin_as_fraction',
         '_lock',
@@ -52,7 +60,8 @@ class AsyncThrottlerBase(ABC):
         self._rate_limits: List[RateLimit] = copy.deepcopy(rate_limits)
 
         # If configured, users can define the percentage of rate limits to allocate to the throttler.
-        self.limits_in_pct: Decimal = min(limits_share_percentage, self._client_config_map().rate_limits_share_pct) / Decimal("100")
+        self.limits_in_pct: Decimal = min(limits_share_percentage,
+                                          self._client_config_map().rate_limits_share_pct) / Decimal("100")
         for rate_limit in self._rate_limits:
             if isinstance(rate_limit, TokenBucket):
                 rate_limit.capacity = max(1, math.floor(rate_limit.capacity * self.limits_in_pct))
@@ -61,13 +70,16 @@ class AsyncThrottlerBase(ABC):
                 rate_limit.limit = max(1, math.floor(rate_limit.limit * self.limits_in_pct))
 
         # Dictionary of path_url to RateLimit
-        self._id_to_limit_map: Dict[str, Union[RateLimit, TokenBucket]] = {
+        self._id_to_limit_map: Dict[str, _T_RateToken] = {
             limit.limit_id: limit
             for limit in self._rate_limits
         }
 
         # List of TaskLog used to determine the API requests within a set time window.
         self._task_logs: List[TaskLog] = []
+
+        # Buckets for Token Bucket algorithm.
+        self._token_buckets: _T_Buckets = {}
 
         # Throttler Parameters
         self._retry_interval: _T_Seconds = _T_Seconds(retry_interval)
@@ -80,13 +92,12 @@ class AsyncThrottlerBase(ABC):
         from hummingbot.client.hummingbot_application import HummingbotApplication  # avoids circular import
         return HummingbotApplication.main_application().client_config_map
 
-    def get_related_limits(self, limit_id: str) -> Tuple[Union[RateLimit, TokenBucket], List[Tuple[Union[RateLimit, TokenBucket], int]]]:
-        rate_limit: Optional[Union[RateLimit, TokenBucket]] = self._id_to_limit_map.get(limit_id, None)
-        linked_limits: List[Union[RateLimit, TokenBucket]] = [] if rate_limit is None else rate_limit.linked_limits
+    def get_related_limits(self, limit_id: str) -> Tuple[_T_RateToken, List[Tuple[_T_RateToken, int]]]:
+        rate_limit: Optional[_T_RateToken] = self._id_to_limit_map.get(limit_id, None)
+        linked_limits: List[_T_RateToken] = [] if rate_limit is None else rate_limit.linked_limits
 
         related_limits = [(self._id_to_limit_map[limit_weight_pair.limit_id], limit_weight_pair.weight)
-                          for limit_weight_pair in linked_limits
-                          if limit_weight_pair.limit_id in self._id_to_limit_map]
+                          for limit_weight_pair in linked_limits if limit_weight_pair.limit_id in self._id_to_limit_map]
         # Append self as part of the related_limits
         if rate_limit is not None:
             related_limits.append((rate_limit, rate_limit.weight))

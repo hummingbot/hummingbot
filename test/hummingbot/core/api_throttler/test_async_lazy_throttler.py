@@ -4,6 +4,7 @@ import math
 import sys
 from asyncio import wait_for
 from decimal import Decimal
+from pprint import pprint
 from typing import Dict, List
 from unittest.mock import patch
 
@@ -12,8 +13,8 @@ from aiounittest import AsyncTestCase
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.core.api_throttler.async_request_context_base import AsyncRequestContextBase
-from hummingbot.core.api_throttler.async_throttler import AsyncRequestContext, AsyncThrottler, time_counter_in_s
-from hummingbot.core.api_throttler.data_types import LimiterMethod, LinkedLimitWeightPair, TaskLog, TokenBucket
+from hummingbot.core.api_throttler.async_throttler import AsyncRequestContext, AsyncThrottler
+from hummingbot.core.api_throttler.data_types import LimiterMethod, LinkedLimitWeightPair, TokenBucket
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 TEST_PATH_URL = "/hummingbot"
@@ -120,59 +121,22 @@ class AsyncLazyThrottlerUnitTests(AsyncTestCase):
         _, related_limits = self.throttler.get_related_limits(TEST_PATH_URL)
         self.assertEqual(2, len(related_limits))
 
-    def test_flush_empty_task_logs(self):
-        # Test: No entries in task_logs to flush
-        lock = asyncio.Lock()
-
-        rate_limit = self.rate_limits[0]
-        self.assertEqual(0, len(self.throttler._task_logs))
-        context = AsyncRequestContext(task_logs=self.throttler._task_logs,
-                                      rate_limit=rate_limit,
-                                      related_limits=[(rate_limit, rate_limit.weight)],
-                                      lock=lock,
-                                      safety_margin_as_fraction=self.throttler._safety_margin_as_fraction,
-                                      method=LimiterMethod.FILL_TOKEN_BUCKET
-                                      )
-        context._flush()
-        self.assertEqual(0, len(self.throttler._task_logs))
-
-    def test_flush_only_elapsed_tasks_are_flushed(self):
-        lock = asyncio.Lock()
-        rate_limit = self.rate_limits[0]
-        self.throttler._task_logs = [
-            TaskLog(timestamp=Decimal("1"), rate_limit=rate_limit, weight=rate_limit.weight),
-            TaskLog(timestamp=time_counter_in_s(), rate_limit=rate_limit, weight=rate_limit.weight)
-        ]
-
-        self.assertEqual(2, len(self.throttler._task_logs))
-        context = AsyncRequestContext(task_logs=self.throttler._task_logs,
-                                      rate_limit=rate_limit,
-                                      related_limits=[(rate_limit, rate_limit.weight)],
-                                      lock=lock,
-                                      safety_margin_as_fraction=self.throttler._safety_margin_as_fraction,
-                                      method=LimiterMethod.FILL_TOKEN_BUCKET
-                                      )
-        context._flush()
-        self.assertEqual(1, len(self.throttler._task_logs))
-
     def test_within_capacity_singular_non_weighted_task_returns_false(self):
         rate_limit, _ = self.throttler.get_related_limits(limit_id=TEST_POOL_ID)
-        print(rate_limit)
-        self.throttler._task_logs.append(
-            TaskLog(timestamp=time_counter_in_s(), rate_limit=rate_limit, weight=rate_limit.weight))
 
-        context = AsyncRequestContext(task_logs=self.throttler._task_logs,
+        context = AsyncRequestContext(task_logs=[],
                                       rate_limit=rate_limit,
                                       related_limits=[(rate_limit, rate_limit.weight)],
                                       lock=asyncio.Lock(),
                                       safety_margin_as_fraction=self.throttler._safety_margin_as_fraction,
                                       method=LimiterMethod.FILL_TOKEN_BUCKET
                                       )
+        self.assertTrue(context.within_capacity())
         self.assertFalse(context.within_capacity())
 
     def test_within_capacity_singular_non_weighted_task_returns_true(self):
         rate_limit, _ = self.throttler.get_related_limits(limit_id=TEST_POOL_ID)
-        context = AsyncRequestContext(task_logs=self.throttler._task_logs,
+        context = AsyncRequestContext(task_logs=[],
                                       rate_limit=rate_limit,
                                       related_limits=[(rate_limit, rate_limit.weight)],
                                       lock=asyncio.Lock(),
@@ -184,23 +148,30 @@ class AsyncLazyThrottlerUnitTests(AsyncTestCase):
     def test_within_capacity_pool_non_weighted_task_returns_false(self):
         rate_limit, related_limits = self.throttler.get_related_limits(limit_id=TEST_PATH_URL)
 
-        for linked_limit, weight in related_limits:
-            self.throttler._task_logs.append(
-                TaskLog(timestamp=time_counter_in_s(), rate_limit=linked_limit, weight=weight))
-
-        context = AsyncRequestContext(task_logs=self.throttler._task_logs,
+        print(rate_limit)
+        context = AsyncRequestContext(task_logs=[],
                                       rate_limit=rate_limit,
                                       related_limits=related_limits,
                                       lock=asyncio.Lock(),
                                       safety_margin_as_fraction=self.throttler._safety_margin_as_fraction,
                                       method=LimiterMethod.FILL_TOKEN_BUCKET
                                       )
+        self.assertTrue(context.within_capacity())
+
+        context = AsyncRequestContext(task_logs=[],
+                                      rate_limit=rate_limit,
+                                      related_limits=related_limits,
+                                      lock=asyncio.Lock(),
+                                      safety_margin_as_fraction=self.throttler._safety_margin_as_fraction,
+                                      method=LimiterMethod.FILL_TOKEN_BUCKET,
+                                      token_buckets=context.token_buckets
+                                      )
         self.assertFalse(context.within_capacity())
 
     def test_within_capacity_pool_non_weighted_task_returns_true(self):
         rate_limit, related_limits = self.throttler.get_related_limits(limit_id=TEST_PATH_URL)
 
-        context = AsyncRequestContext(task_logs=self.throttler._task_logs,
+        context = AsyncRequestContext(task_logs=[],
                                       rate_limit=rate_limit,
                                       related_limits=related_limits,
                                       lock=asyncio.Lock(),
@@ -218,7 +189,7 @@ class AsyncLazyThrottlerUnitTests(AsyncTestCase):
                                       related_limits=task_1_related_limits,
                                       lock=asyncio.Lock(),
                                       safety_margin_as_fraction=self.throttler._safety_margin_as_fraction,
-                                      method=LimiterMethod.FILL_TOKEN_BUCKET
+                                      method=LimiterMethod.FILL_TOKEN_BUCKET,
                                       )
         self.assertTrue(context.within_capacity())
 
@@ -228,34 +199,39 @@ class AsyncLazyThrottlerUnitTests(AsyncTestCase):
                                       related_limits=task_2_related_limits,
                                       lock=asyncio.Lock(),
                                       safety_margin_as_fraction=self.throttler._safety_margin_as_fraction,
-                                      method=LimiterMethod.FILL_TOKEN_BUCKET
+                                      method=LimiterMethod.FILL_TOKEN_BUCKET,
+                                      token_buckets=context.token_buckets
                                       )
         self.assertTrue(context.within_capacity())
+        pprint(context.token_buckets)
 
         # Another Task 1(weight=5) will exceed the capacity(11/10)
-        context = AsyncRequestContext(task_logs=self.throttler._task_logs,
+        context = AsyncRequestContext(task_logs=[],
                                       rate_limit=task_1,
                                       related_limits=task_1_related_limits,
                                       lock=asyncio.Lock(),
                                       safety_margin_as_fraction=self.throttler._safety_margin_as_fraction,
-                                      method=LimiterMethod.FILL_TOKEN_BUCKET
+                                      method=LimiterMethod.FILL_TOKEN_BUCKET,
+                                      token_buckets=context.token_buckets
                                       )
+        pprint(context.token_buckets)
         self.assertFalse(context.within_capacity())
 
         # However Task 2(weight=1) will not exceed the capacity(7/10)
-        context = AsyncRequestContext(task_logs=self.throttler._task_logs,
+        context = AsyncRequestContext(task_logs=[],
                                       rate_limit=task_2,
                                       related_limits=task_2_related_limits,
                                       lock=asyncio.Lock(),
                                       safety_margin_as_fraction=self.throttler._safety_margin_as_fraction,
-                                      method=LimiterMethod.FILL_TOKEN_BUCKET
+                                      method=LimiterMethod.FILL_TOKEN_BUCKET,
+                                      token_buckets=context.token_buckets
                                       )
         self.assertTrue(context.within_capacity())
 
     def test_within_capacity_returns_true(self):
         lock = asyncio.Lock()
         rate_limit = self.rate_limits[0]
-        context = AsyncRequestContext(task_logs=self.throttler._task_logs,
+        context = AsyncRequestContext(task_logs=[],
                                       rate_limit=rate_limit,
                                       related_limits=[(rate_limit, rate_limit.weight)],
                                       lock=lock,
@@ -266,7 +242,7 @@ class AsyncLazyThrottlerUnitTests(AsyncTestCase):
 
     async def test_acquire_does_not_append_to_task_logs(self):
         rate_limit = self.rate_limits[0]
-        context = AsyncRequestContext(task_logs=self.throttler._task_logs,
+        context = AsyncRequestContext(task_logs=[],
                                       rate_limit=rate_limit,
                                       related_limits=[(rate_limit, rate_limit.weight)],
                                       lock=asyncio.Lock(),
@@ -376,6 +352,7 @@ class AsyncLazyThrottlerUnitTests(AsyncTestCase):
     def test_within_capacity_for_limits_with_milliseconds_interval(self, time_mock):  # , flush_mock, accept_mock):
         # flush_mock.return_value = None
         # accept_mock.return_value = None
+        per_microsecond_limit = TokenBucket(limit_id="generic_per_microsecond", capacity=100, rate_per_s=1e6)
         per_second_limit = TokenBucket(limit_id="generic_per_second", capacity=3, rate_per_s=1)
         per_millisecond_limit = TokenBucket(limit_id="generic_per_millisecond", capacity=2, rate_per_s=1000,
                                             time_interval=0.2)
@@ -398,28 +375,49 @@ class AsyncLazyThrottlerUnitTests(AsyncTestCase):
         # Initialize the buckets and consume the tokens for the specific task
         time_mock.return_value = (Decimal("1640000000.0000"))
         context.within_capacity()
+        print(context.token_buckets)
 
         # Simulate 2 tasks were also called at 0 milliseconds
-        context._token_bucket[per_millisecond_limit.limit_id]["amount"] -= 1
-        context._token_bucket[per_second_limit.limit_id]["amount"] -= 1
+        token_buckets = context.token_buckets
+        token_buckets[per_millisecond_limit.limit_id]["amount"] -= 1
+        token_buckets[per_second_limit.limit_id]["amount"] -= 1
+        context = AsyncRequestContext(
+            task_logs=[],
+            rate_limit=per_microsecond_limit,
+            related_limits=[(per_microsecond_limit, 1)],
+            lock=asyncio.Lock(),
+            safety_margin_as_fraction=0,
+            method=LimiterMethod.FILL_TOKEN_BUCKET,
+            token_buckets=token_buckets
+        )
 
         result = context.within_capacity()
         self.assertTrue(result)
 
         # Add one more occurrence of the same task but at 0.1 ms
-        context._token_bucket[per_millisecond_limit.limit_id]["amount"] -= 1
-        context._token_bucket[per_second_limit.limit_id]["amount"] -= 1
+        token_buckets = context.token_buckets
+        token_buckets[per_millisecond_limit.limit_id]["amount"] -= 1
+        token_buckets[per_second_limit.limit_id]["amount"] -= 1
+        context = AsyncRequestContext(
+            task_logs=[],
+            rate_limit=specific_limit,
+            related_limits=[(per_millisecond_limit, 1), (per_second_limit, 1), (specific_limit, 1)],
+            lock=asyncio.Lock(),
+            safety_margin_as_fraction=0,
+            method=LimiterMethod.FILL_TOKEN_BUCKET,
+            token_buckets=token_buckets
+        )
 
         time_mock.return_value = (Decimal("1640000000.0001"))
         result = context.within_capacity()
         self.assertFalse(result)
 
         # Still no capacity at the 1ms
-        time_mock.return_value = (Decimal("1640000000.0010"))
+        time_mock.return_value = (Decimal("1640000000.0009"))
         result = context.within_capacity()
         self.assertFalse(result)
 
         # Capacity after replenishing at 1.1 ms
-        time_mock.return_value = (Decimal("1640000000.0011"))
+        time_mock.return_value = (Decimal("1640000000.0010"))
         result = context.within_capacity()
         self.assertTrue(result)

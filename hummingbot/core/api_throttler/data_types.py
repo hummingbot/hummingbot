@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
 from fractions import Fraction
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 _T_Limit = int  # Integer representing the no. of requests be time interval
 _T_RequestPath = str  # String representing the request path url
@@ -118,6 +118,8 @@ class TokenBucket(RateLimit):
 
 
 _T_RateToken = Union[RateLimit, TokenBucket]
+_T_Bucket = Dict[_T_RequestPath, Union[_T_Capacity, Decimal]]
+_T_Buckets = Dict[_T_RequestPath, _T_Bucket]
 
 
 @dataclass

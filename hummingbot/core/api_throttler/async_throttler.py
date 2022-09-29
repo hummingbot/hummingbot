@@ -7,7 +7,6 @@ from typing import Callable, List
 from hummingbot.core.api_throttler.async_request_context_base import (
     MAX_CAPACITY_REACHED_WARNING_INTERVAL,
     AsyncRequestContextBase,
-    _T_Bucket,
 )
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.api_throttler.data_types import (
@@ -15,6 +14,7 @@ from hummingbot.core.api_throttler.data_types import (
     RateLimit,
     TaskLog,
     TokenBucket,
+    _T_Bucket,
     _T_Capacity,
     _T_Rate,
     _T_RequestPath,
@@ -62,21 +62,21 @@ class AsyncRequestContext(AsyncRequestContextBase):
 
         2. Consume/Replenish weighted tokens for the current request
         """
-        limit_id: _T_RequestPath = self._rate_limit.limit_id
-        weight: _T_RequestWeight = self._rate_limit.weight
+        for rate_limit, weight in self._related_limits:
+            limit_id: _T_RequestPath = rate_limit.limit_id
 
-        if self._method == LimiterMethod.FILL_TOKEN_BUCKET:
-            amount: _T_Bucket = self._token_bucket[limit_id]
-            amount['amount']: _T_RequestWeight = amount['amount'] - weight
+            if self._method == LimiterMethod.FILL_TOKEN_BUCKET:
+                amount: _T_Bucket = self._token_buckets[limit_id]
+                amount['amount']: _T_RequestWeight = amount['amount'] - weight
 
-        elif self._method == LimiterMethod.LEAK_TOKEN_BUCKET:
-            amount: _T_Bucket = self._token_bucket[limit_id]
-            amount['amount']: _T_RequestWeight = amount['amount'] + weight
+            elif self._method == LimiterMethod.LEAK_TOKEN_BUCKET:
+                amount: _T_Bucket = self._token_buckets[limit_id]
+                amount['amount']: _T_RequestWeight = amount['amount'] + weight
 
-        elif self._method == LimiterMethod.SLIDING_WINDOW:
-            self._task_logs.append(TaskLog(timestamp=now, rate_limit=self._rate_limit, weight=self._rate_limit.weight))
-            for limit, weight in self._related_limits:
-                self._task_logs.append(TaskLog(timestamp=now, rate_limit=limit, weight=weight))
+            elif self._method == LimiterMethod.SLIDING_WINDOW:
+                self._task_logs.append(TaskLog(timestamp=now, rate_limit=self._rate_limit, weight=self._rate_limit.weight))
+                for limit, weight in self._related_limits:
+                    self._task_logs.append(TaskLog(timestamp=now, rate_limit=limit, weight=weight))
 
     def _check_rate_limit_capacity(self, rate_limit: RateLimit, now: _T_Seconds) -> int:
         """
@@ -95,11 +95,11 @@ class AsyncRequestContext(AsyncRequestContextBase):
         limit_id: _T_RequestPath = rate_limit.limit_id
 
         if self._method in (LimiterMethod.LEAK_TOKEN_BUCKET, LimiterMethod.FILL_TOKEN_BUCKET):
-            if limit_id not in self._token_bucket:
+            if limit_id not in self._token_buckets:
                 amount: int = capacity if self._method == LimiterMethod.FILL_TOKEN_BUCKET else 0
-                self._token_bucket[limit_id]: _T_Bucket = dict(amount=amount, last_checked=Decimal("-1"))
+                self._token_buckets[limit_id]: _T_Bucket = dict(amount=amount, last_checked=Decimal("-1"))
 
-            bucket: _T_Bucket = self._token_bucket[limit_id]
+            bucket: _T_Bucket = self._token_buckets[limit_id]
 
             if (tokens := floor((now - bucket['last_checked']) * rate_per_s)) >= 1:
                 bucket['last_checked']: _T_Seconds = now
@@ -196,5 +196,6 @@ class AsyncThrottler(AsyncThrottlerBase):
             lock=self._lock,
             safety_margin_as_fraction=self._safety_margin_as_fraction,
             retry_interval=self._retry_interval,
-            method=method
+            method=method,
+            token_buckets=self._token_buckets
         )
