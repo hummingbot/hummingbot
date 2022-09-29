@@ -25,8 +25,8 @@ class vwapmm_MM_Rewards(ScriptStrategyBase):
                     "is_buy": True,
                     "total_volume_usd": 20000,  # Episode Size
                     "price_spread": 0.00025,
-                    "volume_perc": 0.0005,
-                    "order_delay_time": 30,
+                    "volume_perc": 0.001,
+                    "order_delay_time": 10,
                     "order_stale_factor": 5
                     }
     markets = {vwapmm["connector_name"]: {vwapmm["trading_pair"]}}
@@ -87,7 +87,7 @@ class vwapmm_MM_Rewards(ScriptStrategyBase):
                         price=vwapmm_order_adjusted_opp.price)
             elif self.vwapmm.get("status") == "COMPLETE":
                 bal_df = self.get_balance_df()
-                act_orders = self.get_active_orders()
+                act_orders = self.get_active_orders(self.vwapmm["connector_name"])
                 if len(act_orders) > 0:
                     active_orders_df = self.active_orders_df()
                 else:
@@ -107,6 +107,7 @@ class vwapmm_MM_Rewards(ScriptStrategyBase):
         vwapmm = self.vwapmm.copy()
         vwapmm["connector"] = self.connectors[vwapmm["connector_name"]]
         vwapmm["delta"] = 0
+        vwapmm["delta_opposite"] = 0
         vwapmm["trades"] = []
         vwapmm["status"] = "ACTIVE"
         vwapmm["trade_type"] = TradeType.BUY if self.vwapmm["is_buy"] else TradeType.SELL
@@ -119,6 +120,7 @@ class vwapmm_MM_Rewards(ScriptStrategyBase):
         quote_conversion_rate = RateOracle.get_instance().get_pair_rate(conversion_quote_asset)
         vwapmm["start_price"] = vwapmm["connector"].get_price(vwapmm["trading_pair"], vwapmm["is_buy"])
         vwapmm["target_base_volume"] = vwapmm["total_volume_usd"] / base_conversion_rate
+        vwapmm["target_base_volume_opposite"] = vwapmm["total_volume_usd"] / base_conversion_rate
         vwapmm["ideal_quote_volume"] = vwapmm["total_volume_usd"] / quote_conversion_rate
 
         # Compute market order scenario
@@ -126,7 +128,9 @@ class vwapmm_MM_Rewards(ScriptStrategyBase):
         vwapmm["market_order_base_volume"] = orderbook_query.query_volume
         vwapmm["market_order_quote_volume"] = orderbook_query.result_volume
         vwapmm["volume_remaining"] = vwapmm["target_base_volume"]
+        vwapmm["volume_remaining_opposite"] = vwapmm["target_base_volume"]
         vwapmm["real_quote_volume"] = Decimal(0)
+        vwapmm["real_quote_volume_opposite"] = Decimal(0)
         self.vwapmm = vwapmm
 
     def create_order(self) -> OrderCandidate:
@@ -181,13 +185,26 @@ class vwapmm_MM_Rewards(ScriptStrategyBase):
          Listens to fill order event to log it and notify the Hummingbot application.
          If you set up Telegram bot, you will get notification there as well.
          """
-        if event.trading_pair == self.vwapmm["trading_pair"] and event.trade_type == self.vwapmm["trade_type"]:
-            self.vwapmm["volume_remaining"] -= event.amount
-            self.vwapmm["delta"] = (self.vwapmm["target_base_volume"] - self.vwapmm["volume_remaining"]) / self.vwapmm[
-                "target_base_volume"]
-            self.vwapmm["real_quote_volume"] += event.price * event.amount
+        if event.trading_pair == self.vwapmm["trading_pair"] and (event.trade_type.name == 'BUY' or event.trade_type.name == 'SELL'):
+            if event.trade_type.name == "BUY":  # BUY
+                self.vwapmm["volume_remaining"] -= event.amount
+                self.vwapmm["delta"] = (self.vwapmm["target_base_volume"] - self.vwapmm["volume_remaining"]) / self.vwapmm[
+                    "target_base_volume"]
+                self.vwapmm["real_quote_volume"] += event.price * event.amount
+
+            else:  # SELL
+                self.vwapmm["volume_remaining_opposite"] -= event.amount
+                self.vwapmm["delta_opposite"] = (self.vwapmm["target_base_volume"] - self.vwapmm["volume_remaining_opposite"]) / self.vwapmm[
+                    "target_base_volume"]
+                self.vwapmm["real_quote_volume_opposite"] += event.price * event.amount
+
             self.vwapmm["trades"].append(event)
-            if math.isclose(self.vwapmm["delta"], 1, rel_tol=1e-5):
+
+            if ((self.vwapmm["delta"] >= 1.0)
+                or (self.vwapmm["delta_opposite"] >= 1.0)
+                or math.isclose(self.vwapmm["delta"], 1, rel_tol=1e-5)
+                    or math.isclose(self.vwapmm["delta_opposite"], 1, rel_tol=1e-5)):
+
                 self.vwapmm["status"] = "COMPLETE"
 
         msg = (f"({event.trading_pair}) {event.trade_type.name} order (price: {round(event.price, 2)}) of "
