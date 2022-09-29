@@ -14,7 +14,7 @@ import {
 } from '../ethereum/ethereum.validators';
 
 export const invalidSpenderError: string =
-  'The spender param is not a valid xdc address (0x followed by 40 hexidecimal characters).';
+  'The spender param is invalid xdc address (0x or xdc followed by 40 hexidecimal characters).';
 
 // given a request, look for a key called spender that is 'xsswap' or an Ethereum address
 export const validateSpender: Validator = mkValidator(
