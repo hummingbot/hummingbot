@@ -16,7 +16,7 @@ export const invalidSolPrivateKeyError: string =
 
 // test if a string matches the shape of an Ethereum private key
 export const isEthPrivateKey = (str: string): boolean => {
-  return /^(0x)?[a-fA-F0-9]{64}$/.test(str);
+  return /^(0x|xdc)?[a-fA-F0-9]{64}$/.test(str);
 };
 
 // test if a string matches the shape of an Solana private key

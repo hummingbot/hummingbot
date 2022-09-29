@@ -24,6 +24,8 @@ import {
 } from './error-handler';
 import { ReferenceCountingCloseable } from './refcounting-closeable';
 
+import { convertXdcPublicKey } from '../helpers';
+
 // information about an Ethereum token
 export interface TokenInfo {
   chainId: number;
@@ -194,7 +196,7 @@ export class EthereumBase {
     const path = `${walletPath}/${this.chainName}`;
 
     const encryptedPrivateKey: string = await fse.readFile(
-      `${path}/${address}.json`,
+      `${path}/${convertXdcPublicKey(address)}.json`,
       'utf8'
     );
 

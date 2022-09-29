@@ -32,7 +32,7 @@ export const invalidNetworkError: string = 'The network param is not a string.';
 
 // test if a string matches the shape of an Ethereum address
 export const isAddress = (str: string): boolean => {
-  return /^0x[a-fA-F0-9]{40}$/.test(str);
+  return /^(0x|xdc)[a-fA-F0-9]{40}$/.test(str);
 };
 
 // given a request, look for a key called address that is an Ethereum wallet
