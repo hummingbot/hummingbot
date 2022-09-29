@@ -2,13 +2,13 @@
 networks:
   xinfin:
     chainID: 50
-    nodeURL: https://erpc.xinfin.network
+    nodeURL: https://rpc.xinfin.network
     tokenListType: 'URL'
     tokenListSource: 'https://raw.githubusercontent.com/pro100skm/xdc-token-list/master/mainnet.tokenlist.json'
     nativeCurrencySymbol: 'XDC'
   apothem:
     chainID: 51
-    nodeURL: https://erpc.apothem.network
+    nodeURL: https://rpc.apothem.network
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/xdc/xdc_tokens_apothem.json'
     nativeCurrencySymbol: 'XDC'
