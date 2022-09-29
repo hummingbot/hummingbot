@@ -475,6 +475,7 @@ class ExchangePyBase(ExchangeBase, ABC):
                                   f"minimum notional size {trading_rule.min_notional_size}. "
                                   "The order will not be created.")
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            return
 
         try:
             exchange_order_id, update_timestamp = await self._place_order(
