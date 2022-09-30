@@ -65,6 +65,7 @@ class ConnectorType(Enum):
     EVM_AMM = "EVM_AMM"
     EVM_Perpetual = "EVM_Perpetual"
     EVM_AMM_LP = "EVM_AMM_LP"
+    SOL_CLOB = "SOL_CLOB"
     Connector = "connector"
     Exchange = "exchange"
     Derivative = "derivative"
@@ -175,7 +176,12 @@ class ConnectorSetting(NamedTuple):
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
         if self.uses_gateway_generic_connector():
-            return f"gateway_{self.type.name}"
+            if ConnectorType.EVM_AMM == self.type or ConnectorType.EVM_Perpetual == self.type or ConnectorType.EVM_AMM_LP == self.type:
+                return f"gateway.amm.gateway_{self.type.name.lower()}"
+            elif ConnectorType.SOL_CLOB == self.type:
+                return f"gateway.clob.gateway_{self.type.name.lower()}"
+            else:
+                raise ValueError(f"Unsupported connector type: {self.type}")
         return f"{self.base_name()}_{self.type.name.lower()}"
 
     def module_path(self) -> str:
@@ -187,8 +193,13 @@ class ConnectorSetting(NamedTuple):
     def class_name(self) -> str:
         # return connector class name, e.g. BinanceExchange
         if self.uses_gateway_generic_connector():
-            splited_name = self.module_name().split('_')
-            splited_name[0] = splited_name[0].capitalize()
+            file_name = self.module_name().split('.')[-1]
+            splited_name = file_name.split('_')
+            for i in range(len(splited_name)):
+                if splited_name[i] in ['evm', 'amm', 'clob', 'lp', 'sol']:
+                    splited_name[i] = splited_name[i].upper()
+                else:
+                    splited_name[i] = splited_name[i].capitalize()
             return "".join(splited_name)
         return "".join([o.capitalize() for o in self.module_name().split("_")])
 
@@ -273,6 +284,8 @@ class AllConnectorSettings:
             if f.is_dir() and f.name not in CONNECTOR_SUBMODULES_THAT_ARE_NOT_TYPES
         ]
         for type_dir in type_dirs:
+            if type_dir.name == 'gateway':
+                continue
             connector_dirs: List[DirEntry] = [
                 cast(DirEntry, f) for f in scandir(type_dir.path)
                 if f.is_dir() and exists(join(f.path, "__init__.py"))
@@ -442,6 +455,10 @@ class AllConnectorSettings:
     @classmethod
     def get_gateway_evm_amm_lp_connector_names(cls) -> Set[str]:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.EVM_AMM_LP}
+
+    @classmethod
+    def get_gateway_clob_connector_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.SOL_CLOB}
 
     @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:

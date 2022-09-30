@@ -9,7 +9,6 @@ import pandas as pd
 import hummingbot.client.settings as settings
 from hummingbot import init_logging
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager
-from hummingbot.client.command.rate_command import RateCommand
 from hummingbot.client.config.config_helpers import get_strategy_starter_file
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.config_var import ConfigVar
@@ -208,7 +207,9 @@ class StartCommand(GatewayChainApiManager):
                                   restore: Optional[bool] = False):
         try:
             self.start_time = time.time() * 1e3  # Time in milliseconds
-            self.clock = Clock(ClockMode.REALTIME)
+            tick_size = self.client_config_map.tick_size
+            self.logger().info(f"Creating the clock with tick size: {tick_size}")
+            self.clock = Clock(ClockMode.REALTIME, tick_size=tick_size)
             for market in self.markets.values():
                 if market is not None:
                     self.clock.add_iterator(market)
@@ -259,7 +260,7 @@ class StartCommand(GatewayChainApiManager):
             self.placeholder_mode = True
             self.app.hide_input = True
             for pair in settings.rate_oracle_pairs:
-                msg = await RateCommand.oracle_rate_msg(pair)
+                msg = await self.oracle_rate_msg(pair)
                 self.notify("\nRate Oracle:\n" + msg)
             config = ConfigVar(key="confirm_oracle_use",
                                type_str="bool",

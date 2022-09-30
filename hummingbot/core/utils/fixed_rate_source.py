@@ -20,10 +20,11 @@ class FixedRateSource:
         """
         self._known_rates[token_pair] = rate
 
-    def rate(self, pair: str) -> Decimal:
+    def get_pair_rate(self, pair: str) -> Decimal:
         """
         Finds a conversion rate for a given symbol, this can be direct or indirect prices as long as it can find a route
         to achieve this.
+
         :param pair: A trading pair, e.g. BTC-USDT
         :return A conversion rate
         """

@@ -1,14 +1,15 @@
 import { Router } from 'express';
 import { asyncHandler } from '../services/error-handler';
 import { DefiraConfig } from './defira/defira.config';
+import { DefikingdomsConfig } from './defikingdoms/defikingdoms.config';
+import { OpenoceanConfig } from './openocean/openocean.config';
 import { PangolinConfig } from './pangolin/pangolin.config';
-import { QuickswapConfig } from './quickswap/quickswap.config';
 import { PerpConfig } from './perp/perp.config';
+import { QuickswapConfig } from './quickswap/quickswap.config';
+import { SerumConfig } from './serum/serum.config';
 import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
-import { OpenoceanConfig } from './openocean/openocean.config';
-import { DefikingdomsConfig } from './defikingdoms/defikingdoms.config';
 
 export namespace ConnectorsRoutes {
   export const router = Router();
@@ -26,7 +27,9 @@ export namespace ConnectorsRoutes {
           {
             name: 'uniswapLP',
             trading_type: UniswapConfig.config.tradingTypes('LP'),
-            available_networks: UniswapConfig.config.availableNetworks,
+            available_networks: JSON.parse(
+              JSON.stringify(UniswapConfig.config.availableNetworks)
+            ),
             additional_spenders: ['uniswap'],
           },
           {
@@ -68,6 +71,11 @@ export namespace ConnectorsRoutes {
             name: 'defira',
             trading_type: DefiraConfig.config.tradingTypes,
             available_networks: DefiraConfig.config.availableNetworks,
+          },
+          {
+            name: 'serum',
+            trading_type: SerumConfig.config.tradingTypes,
+            available_networks: SerumConfig.config.availableNetworks,
           },
         ],
       });

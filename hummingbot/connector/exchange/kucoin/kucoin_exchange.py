@@ -103,6 +103,10 @@ class KucoinExchange(ExchangePyBase):
     def supported_order_types(self):
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
+    async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
+        pairs_prices = await self._api_get(path_url=CONSTANTS.ALL_TICKERS_PATH_URL)
+        return pairs_prices
+
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         # API documentation does not clarify the error message for timestamp related problems
         return False
