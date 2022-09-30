@@ -12243,9 +12243,9 @@ underscore@^1.9.1:
   integrity sha512-BQFnUDuAQ4Yf/cYY5LNrK9NCJFKriaRbD9uR1fTeXnBeoa97W0i41qkZfGO9pSo8I5KzjAcSY2XYtdf0oKd7KQ==
 
 undici@^5.4.0:
-  version "5.8.1"
-  resolved "https://registry.yarnpkg.com/undici/-/undici-5.8.1.tgz#511d43ff6be02f84ec2513ae7f4b07c589319272"
-  integrity sha512-iDRmWX4Zar/4A/t+1LrKQRm102zw2l9Wgat3LtTlTn8ykvMZmAmpq9tjyHEigx18FsY7IfATvyN3xSw9BDz0eA==
+  version "5.10.0"
+  resolved "https://registry.yarnpkg.com/undici/-/undici-5.10.0.tgz#dd9391087a90ccfbd007568db458674232ebf014"
+  integrity sha512-c8HsD3IbwmjjbLvoZuRI26TZic+TSEe8FPMLLOkN1AfYRhdjnKBU6yL+IwcSCbdZiX4e5t0lfMDLDCqj4Sq70g==
 
 unfetch@^4.2.0:
   version "4.2.0"
