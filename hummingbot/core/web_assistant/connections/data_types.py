@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
@@ -86,37 +87,30 @@ class RESTResponse:
     method: RESTMethod
     status: int
     headers: Optional[Mapping[str, str]]
+    _text: str
+    _json: Any
 
-    def __init__(self, aiohttp_response: aiohttp.ClientResponse):
-        self._aiohttp_response = aiohttp_response
+    # We could also use this, but an await is needed,
+    # so backward compatibility is broken anyway
+    # def __await__(self, aiohttp_response: aiohttp.ClientResponse):
+    #    return self.read(aiohttp_response).__await__()
 
-    @property
-    def url(self) -> str:
-        url_str = str(self._aiohttp_response.url)
-        return url_str
-
-    @property
-    def method(self) -> RESTMethod:
-        method_ = RESTMethod[self._aiohttp_response.method.upper()]
-        return method_
-
-    @property
-    def status(self) -> int:
-        status_ = int(self._aiohttp_response.status)
-        return status_
-
-    @property
-    def headers(self) -> Optional[Mapping[str, str]]:
-        headers_ = self._aiohttp_response.headers
-        return headers_
+    async def read(self, aiohttp_response: aiohttp.ClientResponse):
+        self._json = await aiohttp_response.json()
+        self._text = await aiohttp_response.text()
+        self.method = RESTMethod[aiohttp_response.method.upper()]
+        self.status = int(aiohttp_response.status)
+        self.url = str(aiohttp_response.url)
+        self.headers = aiohttp_response.headers
+        return self
 
     async def json(self) -> Any:
-        json_ = await self._aiohttp_response.json()
-        return json_
+        await asyncio.sleep(0)
+        return self._json
 
     async def text(self) -> str:
-        text_ = await self._aiohttp_response.text()
-        return text_
+        await asyncio.sleep(0)
+        return self._text
 
 
 class WSRequest(ABC):
