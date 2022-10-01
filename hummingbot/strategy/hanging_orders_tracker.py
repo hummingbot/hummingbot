@@ -347,6 +347,18 @@ class HangingOrdersTracker:
             if any(o.client_order_id == order_id for o in self.strategy.active_orders):
                 self.strategy.cancel_order(order_id)
                 self.orders_being_cancelled.add(order_id)
+            else:
+                self.logger().info(f"Hanging order not in active_orders so skipping cancel: {order_id}")
+                order_to_be_removed = next((order for order in self.strategy_current_hanging_orders
+                                            if order.order_id == order_id), None)
+                if order_to_be_removed:
+                    self.strategy_current_hanging_orders.remove(order_to_be_removed)
+                    self.logger().info(f"Hanging order removed from strategy_current_hanging_orders: {order_id}")
+
+                limit_order_to_be_removed = next((order for order in self.original_orders
+                                                  if order.client_order_id == order_id), None)
+                if limit_order_to_be_removed:
+                    self.remove_order(limit_order_to_be_removed)
 
     def _get_equivalent_orders_no_aggregation(self, orders):
         return frozenset(self._get_hanging_order_from_limit_order(o) for o in orders)
