@@ -60,7 +60,8 @@ def start(self):
         LogOption.MAKER_ORDER_FILLED,
         LogOption.REMOVING_ORDER,
         LogOption.STATUS_REPORT,
-        LogOption.MAKER_ORDER_HEDGED
+        LogOption.MAKER_ORDER_HEDGED,
+        LogOption.NULL_ORDER_SIZE
     )
     self.strategy = CrossExchangeMarketMakingStrategy()
     self.strategy.init_params(

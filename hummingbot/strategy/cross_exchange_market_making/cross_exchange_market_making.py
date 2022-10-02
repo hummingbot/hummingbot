@@ -25,9 +25,11 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
 )
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map_pydantic import (
     CrossExchangeMarketMakingConfigMap,
+    OracleConversionRateMode,
     PassiveOrderRefreshMode,
 )
 from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
@@ -100,6 +102,9 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         self._maker_markets = set([market_pair.maker.market for market_pair in market_pairs])
         self._taker_markets = set([market_pair.taker.market for market_pair in market_pairs])
         self._all_markets_ready = False
+        self._rate_oracle_ready = False
+
+        self._rate_oracle_task = None
 
         self._anti_hysteresis_timers = {}
         self._order_fill_buy_events = {}
@@ -383,8 +388,19 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         # Perform clock tick with the market pair tracker.
         self._market_pair_tracker.tick(timestamp)
 
-        if not self._all_markets_ready:
+        if not self._all_markets_ready or not self._rate_oracle_ready:
             self._all_markets_ready = all([market.ready for market in self.active_markets])
+            self._rate_oracle_ready = RateOracle.get_instance().ready
+            # If conversation rate mode is not oracle rate mode, it should not check rate oracle
+            if not self._config_map.conversion_rate_mode.hb_config.__class__ == OracleConversionRateMode:
+                self._rate_oracle_ready = True
+            if not self._rate_oracle_ready:
+                # Oracle rate not ready. Don't do anything.
+                if should_report_warnings:
+                    self.logger().warning("Rate oracle is not ready. No market making trades are permitted.")
+                if self._rate_oracle_task is None:
+                    self._rate_oracle_task = safe_ensure_future(RateOracle.get_instance().start_network())
+                return
             if not self._all_markets_ready:
                 # Markets not ready yet. Don't do anything.
                 if should_report_warnings:

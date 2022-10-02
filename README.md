@@ -115,3 +115,9 @@ Hummingbot was created and is maintained by CoinAlpha, Inc. We are [a global tea
 
 - **License**: Hummingbot is licensed under [Apache 2.0](./LICENSE).
 - **Data collection**: read important information regarding [Hummingbot Data Collection](./DATA_COLLECTION.md).
+
+docker build . -t hummingbot-coinhub-sandbox --platform=linux/amd64
+
+docker tag hummingbot:latest giva9712/hummingbot:latest
+
+docker push giva9712/hummingbot:latest

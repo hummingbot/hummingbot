@@ -17,7 +17,7 @@ For instructions on operating `hummingbot` with Docker, navigate to [`hummingbot
 export TAG=my-label
 
 # Build docker image
-$ docker build -t coinalpha/hummingbot:$TAG -f Dockerfile .
+$ docker build -t giva9712/hummingbot:latest -f Dockerfile .
 
 # Push docker image to docker hub
 $ docker push coinalpha/hummingbot:$TAG

@@ -27,6 +27,7 @@ connector_status = {
     'coinflex_test': 'yellow',
     'coinflex_perpetual': 'yellow',
     'coinflex_perpetual_testnet': 'yellow',
+    'coinhub_sandbox': 'green',
     'coinzoom': 'yellow',
     'crypto_com': 'green',
     'digifinex': "yellow",

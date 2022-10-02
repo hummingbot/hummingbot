@@ -20,32 +20,32 @@ If you do not have `docker` permissions:
 
 #### Linux
 ```
-wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create.sh
-wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/start.sh
-wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update.sh
-wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create-web3.sh
-wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update-web3.sh
+wget https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/create.sh
+wget https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/start.sh
+wget https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/update.sh
+wget https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/create-web3.sh
+wget https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/update-web3.sh
 chmod a+x *.sh
 ```
 
 #### MacOS
 ```
-curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create.sh -o create.sh
-curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/start.sh -o start.sh
-curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update.sh -o update.sh
-curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create-web3.sh -o create-web3.sh
-curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update-web3.sh -o update-web3.sh
+curl https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/create.sh -o create.sh
+curl https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/start.sh -o start.sh
+curl https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/update.sh -o update.sh
+curl https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/create-web3.sh -o create-web3.sh
+curl https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/update-web3.sh -o update-web3.sh
 chmod a+x *.sh
 ```
 
 #### Windows (Docker Toolbox)
 ```
 cd ~
-curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create.sh -o create.sh
-curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/start.sh -o start.sh
-curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update.sh -o update.sh
-curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create-web3.sh -o create-web3.sh
-curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update-web3.sh -o update-web3.sh
+curl https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/create.sh -o create.sh
+curl https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/start.sh -o start.sh
+curl https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/update.sh -o update.sh
+curl https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/create-web3.sh -o create-web3.sh
+curl https://raw.githubusercontent.com/tuvshinbayar-coinhub/hummingbot-coinhub/coinhub_connector/installation/docker-commands/update-web3.sh -o update-web3.sh
 chmod a+x *.sh
 ```
 

@@ -47,7 +47,7 @@ echo
 echo "ℹ️  Confirm below if the instance and its folders are correct:"
 echo
 printf "%30s %5s\n" "Instance name:" "$INSTANCE_NAME"
-printf "%30s %5s\n" "Version:" "hummingbot/hummingbot:$TAG"
+printf "%30s %5s\n" "Version:" "giva9712/hummingbot:$TAG"
 echo
 printf "%30s %5s\n" "Main folder path:" "$FOLDER"
 printf "%30s %5s\n" "Config files:" "├── $CONF_FOLDER"
@@ -89,7 +89,7 @@ create_instance () {
  # 3) Set required permissions to save hummingbot password the first time
  sudo chmod a+rw $CONF_FOLDER
  # 4) Launch a new instance of hummingbot
- docker run -it --log-opt max-size=10m --log-opt max-file=5 \
+ docker run -it --log-opt max-size=10m --log-opt max-file=5 --platform linux/amd64 \
  --name $INSTANCE_NAME \
  --network host \
  --mount "type=bind,source=$CONF_FOLDER,destination=/conf/" \
@@ -107,7 +107,7 @@ create_instance () {
  -e CERTS_FOLDER="$CERTS_FOLDER" \
  -e GATEWAY_LOGS_FOLDER="$GATEWAY_LOGS_FOLDER" \
  -e GATEWAY_CONF_FOLDER="$GATEWAY_CONF_FOLDER" \
- hummingbot/hummingbot:$TAG
+ giva9712/hummingbot:$TAG
 }
 
 prompt_proceed

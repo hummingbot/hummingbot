@@ -164,6 +164,9 @@ class PaperTradeConfigMap(BaseClientModel):
             "WETH": 10,
             "USDC": 1000,
             "DAI": 1000,
+            "MNT": 5000000000,
+            "SHIB": 1000000000000,
+            "IHC": 100000000,
         },
         client_data=ClientFieldData(
             prompt=lambda cm: (
@@ -656,11 +659,23 @@ class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
         title = "kucoin"
 
 
+class CoinbaseRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="coinbase",
+        const=True,
+        client_data=None,
+    )
+
+    class Config:
+        title = "coinbase"
+
+
 RATE_SOURCE_MODES = {
     AscendExRateSourceMode.Config.title: AscendExRateSourceMode,
     BinanceRateSourceMode.Config.title: BinanceRateSourceMode,
     CoinGeckoRateSourceMode.Config.title: CoinGeckoRateSourceMode,
     KuCoinRateSourceMode.Config.title: KuCoinRateSourceMode,
+    CoinbaseRateSourceMode.Config.title: CoinbaseRateSourceMode,
 }
 
 
@@ -674,7 +689,7 @@ class CommandShortcutModel(BaseModel):
 class ClientConfigMap(BaseClientModel):
     instance_id: str = Field(default=generate_client_id())
     log_level: str = Field(default="INFO")
-    debug_console: bool = Field(default=False)
+    debug_console: bool = Field(default=True)
     strategy_report_interval: float = Field(default=900)
     logger_override_whitelist: List = Field(
         default=["hummingbot.strategy.arbitrage", "hummingbot.strategy.cross_exchange_market_making", "conf"]
