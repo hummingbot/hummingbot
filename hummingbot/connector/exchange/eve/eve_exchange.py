@@ -17,11 +17,13 @@ class EveExchange(OMSExchange):
         eve_user_id: int,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
         url_creator: Optional[EveURLCreator] = None,
     ):
+        self._domain = domain
         url_creator = url_creator or EveURLCreator(
-            rest_base_url=CONSTANTS.REST_URLS[CONSTANTS.DEFAULT_VARIANT],
-            ws_base_url=CONSTANTS.WS_URLS[CONSTANTS.DEFAULT_VARIANT],
+            rest_base_url=CONSTANTS.REST_URLS[self._domain],
+            ws_base_url=CONSTANTS.WS_URLS[self._domain],
         )
         super().__init__(
             client_config_map=client_config_map,
@@ -40,3 +42,7 @@ class EveExchange(OMSExchange):
     @property
     def oms_id(self) -> int:
         return CONSTANTS.OMS_ID
+
+    @property
+    def domain(self):
+        return self._domain
