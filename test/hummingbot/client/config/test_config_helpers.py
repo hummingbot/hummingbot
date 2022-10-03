@@ -11,7 +11,7 @@ from pydantic import Field, SecretStr
 from hummingbot.client.config import config_helpers
 from hummingbot.client.config.client_config_map import ClientConfigMap, CommandShortcutModel
 from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
-from hummingbot.client.config.config_data_types import BaseClientModel, BaseConnectorConfigMap, BaseStrategyConfigMap
+from hummingbot.client.config.config_data_types import BaseClientModel, BaseConnectorConfigMap
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     ReadOnlyClientConfigAdapter,
@@ -21,6 +21,7 @@ from hummingbot.client.config.config_helpers import (
     save_to_yml,
 )
 from hummingbot.client.config.security import Security
+from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
     AvellanedaMarketMakingConfigMap,
 )
