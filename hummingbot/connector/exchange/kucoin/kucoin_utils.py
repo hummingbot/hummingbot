@@ -66,7 +66,7 @@ KEYS = KuCoinConfigMap.construct()
 OTHER_DOMAINS = ["kucoin_testnet"]
 OTHER_DOMAINS_PARAMETER = {"kucoin_testnet": "testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"kucoin_testnet": "ETH-USDT"}
-OTHER_DOMAINS_DEFAULT_FEES = {"kucoin_testnet": [0.1, 0.1]}
+OTHER_DOMAINS_DEFAULT_FEES = {"kucoin_testnet": DEFAULT_FEES}
 
 
 class KuCoinTestnetConfigMap(BaseConnectorConfigMap):
