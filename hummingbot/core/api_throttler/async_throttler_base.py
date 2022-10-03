@@ -88,6 +88,10 @@ class AsyncThrottlerBase(ABC):
         # Shared asyncio.Lock instance to prevent multiple async ContextManager from accessing the _task_logs variable
         self._lock = asyncio.Lock()
 
+    @property
+    def token_buckets(self):
+        return self._token_buckets
+
     def _client_config_map(self):
         from hummingbot.client.hummingbot_application import HummingbotApplication  # avoids circular import
         return HummingbotApplication.main_application().client_config_map

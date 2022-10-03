@@ -1,10 +1,8 @@
 import asyncio
 import logging
 import math
-import sys
 from asyncio import wait_for
 from decimal import Decimal
-from pprint import pprint
 from typing import Dict, List
 from unittest.mock import patch
 
@@ -148,7 +146,6 @@ class AsyncLazyThrottlerUnitTests(AsyncTestCase):
     def test_within_capacity_pool_non_weighted_task_returns_false(self):
         rate_limit, related_limits = self.throttler.get_related_limits(limit_id=TEST_PATH_URL)
 
-        print(rate_limit)
         context = AsyncRequestContext(task_logs=[],
                                       rate_limit=rate_limit,
                                       related_limits=related_limits,
@@ -203,7 +200,6 @@ class AsyncLazyThrottlerUnitTests(AsyncTestCase):
                                       token_buckets=context.token_buckets
                                       )
         self.assertTrue(context.within_capacity())
-        pprint(context.token_buckets)
 
         # Another Task 1(weight=5) will exceed the capacity(11/10)
         context = AsyncRequestContext(task_logs=[],
@@ -214,7 +210,6 @@ class AsyncLazyThrottlerUnitTests(AsyncTestCase):
                                       method=LimiterMethod.FILL_TOKEN_BUCKET,
                                       token_buckets=context.token_buckets
                                       )
-        pprint(context.token_buckets)
         self.assertFalse(context.within_capacity())
 
         # However Task 2(weight=1) will not exceed the capacity(7/10)
@@ -345,79 +340,3 @@ class AsyncLazyThrottlerUnitTests(AsyncTestCase):
         self.assertFalse(self.is_logged(log_level="INFO", message=log))
         self.assertFalse(context.within_capacity())
         self.assertTrue(self.is_logged(log_level="INFO", message=log))
-
-    # @patch("hummingbot.core.api_throttler.async_throttler.AsyncRequestContext._flush")
-    # @patch("hummingbot.core.api_throttler.async_throttler.AsyncRequestContext._accept_request")
-    @patch("hummingbot.core.api_throttler.async_throttler.time_counter_in_s")
-    def test_within_capacity_for_limits_with_milliseconds_interval(self, time_mock):  # , flush_mock, accept_mock):
-        # flush_mock.return_value = None
-        # accept_mock.return_value = None
-        per_microsecond_limit = TokenBucket(limit_id="generic_per_microsecond", capacity=100, rate_per_s=1e6)
-        per_second_limit = TokenBucket(limit_id="generic_per_second", capacity=3, rate_per_s=1)
-        per_millisecond_limit = TokenBucket(limit_id="generic_per_millisecond", capacity=2, rate_per_s=1000,
-                                            time_interval=0.2)
-        specific_limit = TokenBucket(limit_id="specific_limit", capacity=sys.maxsize, rate_per_s=sys.maxsize,
-                                     linked_limits=[
-                                         LinkedLimitWeightPair(per_second_limit.limit_id),
-                                         LinkedLimitWeightPair(per_millisecond_limit.limit_id),
-                                     ])
-
-        # Scenario where one specific task was executed at 0 milliseconds
-        context = AsyncRequestContext(
-            task_logs=[],
-            rate_limit=specific_limit,
-            related_limits=[(per_millisecond_limit, 1), (per_second_limit, 1), (specific_limit, 1)],
-            lock=asyncio.Lock(),
-            safety_margin_as_fraction=0,
-            method=LimiterMethod.FILL_TOKEN_BUCKET,
-        )
-
-        # Initialize the buckets and consume the tokens for the specific task
-        time_mock.return_value = (Decimal("1640000000.0000"))
-        context.within_capacity()
-        print(context.token_buckets)
-
-        # Simulate 2 tasks were also called at 0 milliseconds
-        token_buckets = context.token_buckets
-        token_buckets[per_millisecond_limit.limit_id]["amount"] -= 1
-        token_buckets[per_second_limit.limit_id]["amount"] -= 1
-        context = AsyncRequestContext(
-            task_logs=[],
-            rate_limit=per_microsecond_limit,
-            related_limits=[(per_microsecond_limit, 1)],
-            lock=asyncio.Lock(),
-            safety_margin_as_fraction=0,
-            method=LimiterMethod.FILL_TOKEN_BUCKET,
-            token_buckets=token_buckets
-        )
-
-        result = context.within_capacity()
-        self.assertTrue(result)
-
-        # Add one more occurrence of the same task but at 0.1 ms
-        token_buckets = context.token_buckets
-        token_buckets[per_millisecond_limit.limit_id]["amount"] -= 1
-        token_buckets[per_second_limit.limit_id]["amount"] -= 1
-        context = AsyncRequestContext(
-            task_logs=[],
-            rate_limit=specific_limit,
-            related_limits=[(per_millisecond_limit, 1), (per_second_limit, 1), (specific_limit, 1)],
-            lock=asyncio.Lock(),
-            safety_margin_as_fraction=0,
-            method=LimiterMethod.FILL_TOKEN_BUCKET,
-            token_buckets=token_buckets
-        )
-
-        time_mock.return_value = (Decimal("1640000000.0001"))
-        result = context.within_capacity()
-        self.assertFalse(result)
-
-        # Still no capacity at the 1ms
-        time_mock.return_value = (Decimal("1640000000.0009"))
-        result = context.within_capacity()
-        self.assertFalse(result)
-
-        # Capacity after replenishing at 1.1 ms
-        time_mock.return_value = (Decimal("1640000000.0010"))
-        result = context.within_capacity()
-        self.assertTrue(result)

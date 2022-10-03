@@ -99,7 +99,7 @@ class AsyncThrottlerUnitTests(AsyncTestCase):
                                       related_limits=[(rate_limit, rate_limit.weight)],
                                       lock=lock,
                                       safety_margin_as_fraction=self.throttler._safety_margin_as_fraction)
-        context._flush()
+        context._flush(time_counter_in_s())
         self.assertEqual(0, len(self.throttler._task_logs))
 
     def test_flush_only_elapsed_tasks_are_flushed(self):
@@ -116,7 +116,7 @@ class AsyncThrottlerUnitTests(AsyncTestCase):
                                       related_limits=[(rate_limit, rate_limit.weight)],
                                       lock=lock,
                                       safety_margin_as_fraction=self.throttler._safety_margin_as_fraction)
-        context._flush()
+        context._flush(time_counter_in_s())
         self.assertEqual(1, len(self.throttler._task_logs))
 
     def test_within_capacity_singular_non_weighted_task_returns_false(self):
@@ -260,10 +260,14 @@ class AsyncThrottlerUnitTests(AsyncTestCase):
         tasks_log.append(TaskLog(timestamp=Decimal("1640000000.1000"), rate_limit=per_millisecond_limit, weight=1))
         tasks_log.append(TaskLog(timestamp=Decimal("1640000000.1000"), rate_limit=per_second_limit, weight=1))
 
+        time_mock.return_value = Decimal("1640000000.1900")
+        result = context.within_capacity()
+        self.assertFalse(result)
+
         time_mock.return_value = Decimal("1640000000.2000")
         result = context.within_capacity()
         self.assertFalse(result)
 
-        time_mock.return_value = Decimal("1640000000.2101")
+        time_mock.return_value = Decimal("1640000000.2100")
         result = context.within_capacity()
         self.assertTrue(result)
