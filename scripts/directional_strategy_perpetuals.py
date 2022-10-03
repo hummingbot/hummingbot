@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from hummingbot.connector.derivative.position import Position, PositionSide
 from hummingbot.core.data_type.common import OrderType, PositionAction
+from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -22,6 +23,7 @@ class DirectionalPosition:
 
 class DirectionalStrategyPerpetuals(ScriptStrategyBase):
     position_cfg = {
+        "signal_id": 1,
         "stages": [
             {
                 "stage": 1,
@@ -41,8 +43,6 @@ class DirectionalStrategyPerpetuals(ScriptStrategyBase):
     active_position = {
         "position": None,
         "stage": None,
-        "take_profit": None,
-        "stop_loss": None
     }
     markets = {position_cfg["exchange"]: {position_cfg["trading_pair"]}}
 
@@ -57,7 +57,7 @@ class DirectionalStrategyPerpetuals(ScriptStrategyBase):
         if signal > self.signal_thresholds["long"] or signal < self.signal_thresholds["short"]:
             price = self.connectors[self.position_cfg["exchange"]].get_mid_price(self.position_cfg["trading_pair"])
             is_buy = True if signal > self.signal_thresholds["long"] else False
-            self.place_order(
+            order_id = self.place_order(
                 connector_name=self.position_cfg["exchange"],
                 trading_pair=self.position_cfg["trading_pair"],
                 amount=Decimal(self.position_cfg["order_amount_usd"]) / price,
@@ -66,6 +66,7 @@ class DirectionalStrategyPerpetuals(ScriptStrategyBase):
                 position_action=PositionAction.OPEN,
                 is_buy=is_buy
             )
+            print(order_id)
 
     def control_position(self):
         # positions = self.connectors[self.position_cfg["exchange"]].account_positions
@@ -84,6 +85,9 @@ class DirectionalStrategyPerpetuals(ScriptStrategyBase):
                     price=Decimal("NaN"),
                     ):
         if is_buy:
-            self.buy(connector_name, trading_pair, amount, order_type, price, position_action)
+            return self.buy(connector_name, trading_pair, amount, order_type, price, position_action)
         else:
-            self.sell(connector_name, trading_pair, amount, order_type, price, position_action)
+            return self.sell(connector_name, trading_pair, amount, order_type, price, position_action)
+
+    def did_fill_order(self, event: OrderFilledEvent):
+        print(event)
