@@ -214,7 +214,7 @@ class OkxExchange(ExchangePyBase):
             # Cancelation failed because order has been cancelled
             final_result = True
         else:
-            raise IOError(cancel_result["msg"])
+            raise IOError(f"Error cancelling order {order_id}: {cancel_result}")
 
         return final_result
 
