@@ -115,9 +115,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         expected = "Please enter the end time (HH:MM:SS)"
         self.assertEqual(expected, prompt)
 
-    @patch(
-        "hummingbot.client.config.config_data_types.validate_market_trading_pair"
-    )
+    @patch("hummingbot.client.config.strategy_config_data_types.validate_market_trading_pair")
     def test_validators(self, _):
         self.config_map.execution_timeframe_mode = "infinite"
         self.assertIsInstance(self.config_map.execution_timeframe_mode.hb_config, InfiniteModel)
