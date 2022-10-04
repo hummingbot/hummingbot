@@ -29,7 +29,6 @@ class RateOracleTest(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.target_token = "COINALPHA"
         cls.global_token = "HBOT"
         cls.trading_pair = combine_to_hb_trading_pair(base=cls.target_token, quote=cls.global_token)
@@ -45,8 +44,8 @@ class RateOracleTest(unittest.IsolatedAsyncioTestCase):
     def tearDown(self) -> None:
         RateOracle._shared_instance = None
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+    async def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = await asyncio.wait_for(coroutine, timeout)
         return ret
 
     async def test_find_rate_from_source(self):
@@ -61,12 +60,12 @@ class RateOracleTest(unittest.IsolatedAsyncioTestCase):
         rate_oracle = RateOracle(source=DummyRateSource(price_dict={self.trading_pair: expected_rate}))
 
         rate_oracle.start()
-        await rate_oracle.get_ready()
+        await self.async_run_with_timeout(rate_oracle.get_ready())
         self.assertGreater(len(rate_oracle.prices), 0)
         rate = rate_oracle.get_pair_rate(self.trading_pair)
         self.assertEqual(expected_rate, rate)
 
-        await rate_oracle.stop_network()
+        await self.async_run_with_timeout(rate_oracle.stop_network())
 
         self.assertEqual(0, len(rate_oracle.prices))
 

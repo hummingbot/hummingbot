@@ -11,19 +11,21 @@ from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGecko
 from hummingbot.data_feed.coin_gecko_data_feed import coin_gecko_constants as CONSTANTS
 
 
-class CoinGeckoRateSourceTest(unittest.TestCase):
+class CoinGeckoRateSourceTest(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.target_token = "COINALPHA"
         cls.global_token = "HBOT"
         cls.extra_token = "EXTRA"
         cls.trading_pair = combine_to_hb_trading_pair(base=cls.target_token, quote=cls.global_token)
         cls.extra_trading_pair = combine_to_hb_trading_pair(base=cls.extra_token, quote=cls.global_token)
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+    async def asyncSetUp(self):
+        self.ev_loop = asyncio.get_event_loop()
+
+    async def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = await asyncio.wait_for(coroutine, timeout)
         return ret
 
     def get_coin_markets_data_mock(self, price: float):
@@ -126,26 +128,26 @@ class CoinGeckoRateSourceTest(unittest.TestCase):
         mock_api.get(url=url, body=json.dumps(data))
 
     @aioresponses()
-    def test_get_prices_no_extra_tokens(self, mock_api: aioresponses):
+    async def test_get_prices_no_extra_tokens(self, mock_api: aioresponses):
         expected_rate = Decimal("10")
         self.setup_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = CoinGeckoRateSource(extra_token_ids=[])
 
-        prices = self.async_run_with_timeout(rate_source.get_prices(quote_token=self.global_token))
+        prices = await self.async_run_with_timeout(rate_source.get_prices(quote_token=self.global_token))
 
         self.assertIn(self.trading_pair, prices)
         self.assertNotIn(self.extra_trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])
 
     @aioresponses()
-    def test_get_prices_with_extra_tokens(self, mock_api: aioresponses):
+    async def test_get_prices_with_extra_tokens(self, mock_api: aioresponses):
         expected_rate = Decimal("10")
         self.setup_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = CoinGeckoRateSource(extra_token_ids=[self.extra_token])
 
-        prices = self.async_run_with_timeout(rate_source.get_prices(quote_token=self.global_token))
+        prices = await self.async_run_with_timeout(rate_source.get_prices(quote_token=self.global_token))
 
         self.assertIn(self.trading_pair, prices)
         self.assertIn(self.extra_trading_pair, prices)

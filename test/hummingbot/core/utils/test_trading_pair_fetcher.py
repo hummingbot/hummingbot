@@ -16,12 +16,10 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 
-class TestTradingPairFetcher(unittest.TestCase):
+class TestTradingPairFetcher(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-
-        cls.ev_loop = asyncio.get_event_loop()
 
     @classmethod
     async def wait_until_trading_pair_fetcher_ready(cls, tpf):
@@ -31,8 +29,11 @@ class TestTradingPairFetcher(unittest.TestCase):
             else:
                 await asyncio.sleep(0)
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+    async def asyncSetUp(self):
+        self.ev_loop = asyncio.get_event_loop()
+
+    async def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = await asyncio.wait_for(coroutine, timeout)
         return ret
 
     class MockConnectorSetting(MagicMock):
@@ -59,7 +60,7 @@ class TestTradingPairFetcher(unittest.TestCase):
         def uses_gateway_generic_connector(self) -> bool:
             return False
 
-        def non_trading_connector_instance_with_default_configuration(self, trading_pairs = None):
+        def non_trading_connector_instance_with_default_configuration(self, trading_pairs=None):
             return self._connector
 
     @classmethod
@@ -73,7 +74,7 @@ class TestTradingPairFetcher(unittest.TestCase):
 
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._sf_shared_instance")
-    def test_fetched_connector_trading_pairs(self, _, mock_connector_settings):
+    async def test_fetched_connector_trading_pairs(self, _, mock_connector_settings):
         connector = AsyncMock()
         connector.all_trading_pairs.return_value = ["MOCK-HBOT"]
         mock_connector_settings.return_value = {
@@ -83,7 +84,7 @@ class TestTradingPairFetcher(unittest.TestCase):
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         trading_pair_fetcher = TradingPairFetcher(client_config_map)
-        self.async_run_with_timeout(self.wait_until_trading_pair_fetcher_ready(trading_pair_fetcher), 1.0)
+        await self.async_run_with_timeout(self.wait_until_trading_pair_fetcher_ready(trading_pair_fetcher), 1.0)
         trading_pairs = trading_pair_fetcher.trading_pairs
         self.assertEqual(2, len(trading_pairs))
         self.assertEqual({"mockConnector": ["MOCK-HBOT"], "mock_paper_trade": ["MOCK-HBOT"]}, trading_pairs)
@@ -92,7 +93,7 @@ class TestTradingPairFetcher(unittest.TestCase):
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
     @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_perp_markets")
     @patch("hummingbot.client.settings.GatewayConnectionSetting.get_connector_spec_from_market_name")
-    def test_fetch_all(self, mock_api, con_spec_mock, perp_market_mock, all_connector_settings_mock, ):
+    async def test_fetch_all(self, mock_api, con_spec_mock, perp_market_mock, all_connector_settings_mock, ):
         all_connector_settings_mock.return_value = {
             "binance": ConnectorSetting(
                 name='binance',
@@ -239,7 +240,7 @@ class TestTradingPairFetcher(unittest.TestCase):
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         fetcher = TradingPairFetcher(client_config_map)
-        asyncio.get_event_loop().run_until_complete(fetcher._fetch_task)
+        await fetcher._fetch_task
         trading_pairs = fetcher.trading_pairs
 
         self.assertEqual(2, len(trading_pairs.keys()))

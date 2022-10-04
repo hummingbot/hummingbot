@@ -11,11 +11,10 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.rate_oracle.sources.binance_rate_source import BinanceRateSource
 
 
-class BinanceRateSourceTest(unittest.TestCase):
+class BinanceRateSourceTest(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.target_token = "COINALPHA"
         cls.global_token = "HBOT"
         cls.binance_pair = f"{cls.target_token}{cls.global_token}"
@@ -25,8 +24,11 @@ class BinanceRateSourceTest(unittest.TestCase):
         cls.binance_ignored_pair = "SOMEPAIR"
         cls.ignored_trading_pair = combine_to_hb_trading_pair(base="SOME", quote="PAIR")
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+    async def asyncSetUp(self):
+        self.ev_loop = asyncio.get_event_loop()
+
+    async def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = await asyncio.wait_for(coroutine, timeout)
         return ret
 
     def setup_binance_responses(self, mock_api, expected_rate: Decimal):
@@ -96,12 +98,12 @@ class BinanceRateSourceTest(unittest.TestCase):
         mock_api.get(binance_prices_global_url, body=json.dumps(binance_prices_global_response))
 
     @aioresponses()
-    def test_get_binance_prices(self, mock_api):
+    async def test_get_binance_prices(self, mock_api):
         expected_rate = Decimal("10")
         self.setup_binance_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = BinanceRateSource()
-        prices = self.async_run_with_timeout(rate_source.get_prices())
+        prices = await self.async_run_with_timeout(rate_source.get_prices())
 
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])

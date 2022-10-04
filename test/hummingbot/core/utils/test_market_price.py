@@ -17,24 +17,26 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 
 
-class MarketPriceUnitTests(unittest.TestCase):
+class MarketPriceUnitTests(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
 
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.binance_ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}"
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+    async def asyncSetUp(self):
+        self.ev_loop = asyncio.get_event_loop()
+
+    async def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = await asyncio.wait_for(coroutine, timeout)
         return ret
 
     @aioresponses()
     @patch("hummingbot.client.settings.ConnectorSetting.non_trading_connector_instance_with_default_configuration")
-    def test_get_last_price(self, mock_api, connector_creator_mock):
+    async def test_get_last_price(self, mock_api, connector_creator_mock):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         connector = BinanceExchange(
             client_config_map,
@@ -54,7 +56,7 @@ class MarketPriceUnitTests(unittest.TestCase):
         }
         mock_api.get(regex_url, body=ujson.dumps(mock_response))
 
-        result = self.async_run_with_timeout(market_price.get_last_price(
+        result = await self.async_run_with_timeout(market_price.get_last_price(
             exchange="binance",
             trading_pair=self.trading_pair,
         ))

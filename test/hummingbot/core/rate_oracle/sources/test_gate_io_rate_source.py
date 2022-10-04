@@ -23,8 +23,8 @@ class GateIoRateSourceTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.ev_loop = asyncio.get_event_loop()
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+    async def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = await asyncio.wait_for(coroutine, timeout)
         return ret
 
     def setup_gate_io_responses(self, mock_api, expected_rate: Decimal):
@@ -107,7 +107,7 @@ class GateIoRateSourceTest(unittest.IsolatedAsyncioTestCase):
         self.setup_gate_io_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = GateIoRateSource()
-        prices = await rate_source.get_prices()
+        prices = await self.async_run_with_timeout(rate_source.get_prices())
 
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])

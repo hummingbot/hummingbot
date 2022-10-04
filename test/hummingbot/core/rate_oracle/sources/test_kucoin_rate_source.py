@@ -11,7 +11,7 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.rate_oracle.sources.kucoin_rate_source import KucoinRateSource
 
 
-class KucoinRateSourceTest(unittest.TestCase):
+class KucoinRateSourceTest(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -23,8 +23,8 @@ class KucoinRateSourceTest(unittest.TestCase):
     async def asyncSetUp(self):
         self.ev_loop = asyncio.get_event_loop()
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+    async def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = await asyncio.wait_for(coroutine, timeout)
         return ret
 
     def setup_kucoin_responses(self, mock_api, expected_rate: Decimal):
@@ -74,7 +74,7 @@ class KucoinRateSourceTest(unittest.TestCase):
         self.setup_kucoin_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = KucoinRateSource()
-        prices = await rate_source.get_prices()
+        prices = await self.async_run_with_timeout(rate_source.get_prices())
 
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])
