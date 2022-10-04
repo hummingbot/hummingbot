@@ -15,11 +15,13 @@ class KucoinRateSourceTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.target_token = "COINALPHA"
         cls.global_token = "HBOT"
         cls.trading_pair = combine_to_hb_trading_pair(base=cls.target_token, quote=cls.global_token)
         cls.ignored_trading_pair = combine_to_hb_trading_pair(base="SOME", quote="PAIR")
+
+    async def asyncSetUp(self):
+        self.ev_loop = asyncio.get_event_loop()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -67,12 +69,12 @@ class KucoinRateSourceTest(unittest.TestCase):
         mock_api.get(url=prices_url, body=json.dumps(prices_response))
 
     @aioresponses()
-    def test_get_prices(self, mock_api):
+    async def test_get_prices(self, mock_api):
         expected_rate = Decimal("10")
         self.setup_kucoin_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = KucoinRateSource()
-        prices = self.async_run_with_timeout(rate_source.get_prices())
+        prices = await rate_source.get_prices()
 
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])
