@@ -3,6 +3,7 @@ import hmac
 import json
 from typing import Any, Dict, List, Optional
 
+from hummingbot.connector.exchange.bitmart import bitmart_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
@@ -67,6 +68,7 @@ class BitmartAuth(AuthBase):
             "X-BM-KEY": self.api_key,
             "X-BM-SIGN": sign,
             "X-BM-TIMESTAMP": timestamp,
+            "X-BM-BROKER-ID": CONSTANTS.BROKER_ID,
         }
 
         return header
