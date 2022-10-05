@@ -38,10 +38,10 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | b
     rm -rf /home/hummingbot/.cache
 
 # Copy environment only to optimize build caching, so changes in sources will not cause conda env invalidation
-COPY --chown=hummingbot:hummingbot setup/environment-linux-aarch64.yml setup/
+COPY --chown=hummingbot:hummingbot setup/environment-linux.yml setup/
 
 # ./install | create hummingbot environment
-RUN ~/miniconda3/bin/conda env create -f setup/environment-linux-aarch64.yml && \
+RUN ~/miniconda3/bin/conda env create -f setup/environment-linux.yml && \
     ~/miniconda3/bin/conda clean -tipy && \
     # clear pip cache
     rm -rf /home/hummingbot/.cache
@@ -57,15 +57,15 @@ COPY --chown=hummingbot:hummingbot README.md .
 COPY --chown=hummingbot:hummingbot DATA_COLLECTION.md .
 
 # activate hummingbot env when entering the CT
-RUN echo "source /home/hummingbot/miniconda3/etc/profile.d/conda.sh && conda activate $(head -1 setup/environment-linux-aarch64.yml | cut -d' ' -f2)" >> ~/.bashrc
+RUN echo "source /home/hummingbot/miniconda3/etc/profile.d/conda.sh && conda activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)" >> ~/.bashrc
 
 # ./compile + cleanup build folder
-RUN /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux-aarch64.yml | cut -d' ' -f2)/bin/python3 setup.py build_ext --inplace -j 8 && \
+RUN /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 setup.py build_ext --inplace -j 8 && \
     rm -rf build/ && \
     find . -type f -name "*.cpp" -delete
 
 # Build final image using artifacts from builer
-FROM arm64v8/python:3.8-slim AS release
+FROM amd64/python:3.8-slim AS release
 # Dockerfile author / maintainer 
 LABEL maintainer="CoinAlpha, Inc. <dev@coinalpha.com>"
 
