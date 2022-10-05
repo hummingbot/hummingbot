@@ -1,5 +1,5 @@
 # Set the base image
-FROM arm64v8/python:3.8-slim AS builder
+FROM amd64/python:3.8-slim AS builder
 
 # Install linux dependencies
 RUN apt-get update && \
@@ -17,7 +17,7 @@ USER hummingbot:hummingbot
 WORKDIR /home/hummingbot
 
 # Install miniconda
-RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py38_4.10.3-Linux-aarch64.sh -o ~/miniconda.sh && \
+RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py38_4.10.3-Linux-x86_64.sh -o ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b && \
     rm ~/miniconda.sh && \
     ~/miniconda3/bin/conda update -n base conda -y && \
