@@ -45,6 +45,13 @@ networks:
     tokenListSource: src/chains/ethereum/erc20_tokens_kovan.json
     nativeCurrencySymbol: ETH
     gasPriceRefreshInterval: 60
+  goerli:
+    chainID: 5
+    nodeURL: https://rpc.ankr.com/eth_goerli
+    tokenListType: FILE
+    tokenListSource: src/chains/ethereum/erc20_tokens_goerli.json
+    nativeCurrencySymbol: ETH
+    gasPriceRefreshInterval: 60
 
 gasLimitTransaction: 3000000
 manualGasPrice: 110
