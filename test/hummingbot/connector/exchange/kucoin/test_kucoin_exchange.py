@@ -2017,7 +2017,8 @@ class KucoinExchangeTests(unittest.TestCase):
 
         self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[orders[0].client_order_id])
 
-    def test_update_order_status_marks_order_with_no_exchange_id_as_not_found_using_fills(self):
+    @aioresponses()
+    def test_update_order_status_marks_order_with_no_exchange_id_as_not_found_using_fills(self, mock_api):
         update_event = MagicMock()
         update_event.wait.side_effect = asyncio.TimeoutError
 
@@ -2045,6 +2046,11 @@ class KucoinExchangeTests(unittest.TestCase):
                                        self.exchange.in_flight_orders["OID2"]]
         orders[0].exchange_order_id_update_event = update_event
 
+        url_fills = web_utils.private_rest_url(
+            f"{CONSTANTS.FILLS_PATH_URL}?pageSize=500&startAt={int(orders[0].creation_timestamp * 1000)}")
+        regex_url_fills = re.compile(f"^{url_fills}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url_fills, status=404)
         self.async_run_with_timeout(self.exchange._update_order_status())
 
         self.assertTrue(orders[0].is_open)
