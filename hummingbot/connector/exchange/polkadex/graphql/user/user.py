@@ -15,7 +15,7 @@ async def cancel_order(params, url, proxy_addr):
         """
     )
     # print("params: ", params)
-    encoded_params = json.dumps({"CancelOrder": params});
+    encoded_params = json.dumps({"CancelOrder": params})
     variables = {"input": {"payload": encoded_params}}
     try:
         result = await execute_query_command(mutation, variables, url, proxy_addr)

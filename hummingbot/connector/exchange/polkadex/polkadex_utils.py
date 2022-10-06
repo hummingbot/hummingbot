@@ -1,14 +1,10 @@
 from decimal import Decimal
 
-from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.config_var import ConfigVar
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.connector.exchange.polkadex.polkadex_payload import create_asset
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
-from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
-
-from pydantic import Field, SecretStr
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
-
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "PDEX-1"
@@ -18,6 +14,7 @@ DEFAULT_FEES = TradeFeeSchema(
     taker_percent_fee_decimal=Decimal("0.002"),
     buy_percent_fee_deducted_from_returns=True
 )
+
 
 class PolkadexConfigMap(BaseConnectorConfigMap):
     connector: str = Field(default="polkadex", const=True, client_data=None)
@@ -67,6 +64,7 @@ def convert_ticker_to_enclave_trading_pair(market):
         "quote_asset": create_asset(market.split("-")[1])
     }
     return pair
+
 
 def parse_price_or_qty(value):
     return Decimal(value)

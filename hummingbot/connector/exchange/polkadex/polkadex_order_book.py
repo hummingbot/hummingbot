@@ -1,14 +1,9 @@
-import ast
-import json
-from decimal import Decimal
-from typing import Dict, List, Optional
 import time
+from typing import Dict, List, Optional
 
-from hummingbot.core.data_type.order_book import OrderBook
-
-from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
 from hummingbot.connector.exchange.polkadex import polkadex_utils as p_utils
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
 class PolkadexOrderbook(OrderBook):

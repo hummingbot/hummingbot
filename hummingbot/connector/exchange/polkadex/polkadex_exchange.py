@@ -1,19 +1,16 @@
 import asyncio
 import json
-import re
 import time
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 from bidict import bidict
-from dateutil import parser
-from gql import Client, gql
-from gql.transport.appsync_auth import AppSyncApiKeyAuthentication, AppSyncJWTAuthentication
+from gql import Client
+from gql.transport.appsync_auth import AppSyncJWTAuthentication
 from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
 from gql.transport.exceptions import TransportQueryError
 from substrateinterface import Keypair, KeypairType, SubstrateInterface
-from substrateinterface.utils.ss58 import ss58_decode, ss58_encode
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS, polkadex_utils as p_utils
@@ -28,20 +25,13 @@ from hummingbot.connector.exchange.polkadex.graphql.user.user import (
 )
 from hummingbot.connector.exchange.polkadex.polkadex_auth import PolkadexAuth
 from hummingbot.connector.exchange.polkadex.polkadex_constants import (
-    MIN_PRICE,
-    MIN_QTY,
-    ORDER_STATE,
     POLKADEX_SS58_PREFIX,
     UPDATE_ORDER_STATUS_MIN_INTERVAL,
 )
 from hummingbot.connector.exchange.polkadex.polkadex_order_book_data_source import PolkadexOrderbookDataSource
 from hummingbot.connector.exchange.polkadex.polkadex_payload import create_cancel_order_req, create_order
-from hummingbot.connector.exchange.polkadex.polkadex_utils import (
-    convert_asset_to_ticker,
-    convert_pair_to_market,
-    convert_ticker_to_enclave_trading_pair,
-)
 from hummingbot.connector.exchange.polkadex.polkadex_user_stream_data_source import PolkadexUserStreamDataSource
+from hummingbot.connector.exchange.polkadex.polkadex_utils import convert_asset_to_ticker, convert_pair_to_market
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
@@ -51,11 +41,10 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from hummingbot.model.order_status import OrderStatus
-
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 
 def fee_levied_asset(side, base, quote):
     if side == "Bid":
@@ -175,7 +164,6 @@ class PolkadexExchange(ExchangePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         raise NotImplementedError
 
-    # _all_trade_updates_for_order, _is_request_exception_related_to_time_synchronizer, _request_order_status
     def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         raise NotImplementedError
 
@@ -256,17 +244,17 @@ class PolkadexExchange(ExchangePyBase):
         if tracked_order.exchange_order_id is not None:
             try:
                 encoded_cancel_req = create_cancel_order_req(self.blockchain, tracked_order.exchange_order_id)
-            except Exception as e:
+            except Exception:
                 return False
             try:
                 signature = self.proxy_pair.sign(encoded_cancel_req)
                 params = [tracked_order.exchange_order_id, self.user_proxy_address, tracked_order.trading_pair,
                           {"Sr25519": signature.hex()}]
-            except Exception as e:
+            except Exception:
                 return False
             try:
-                result = await cancel_order(params, self.host, self.user_proxy_address)
-            except Exception as e:
+                await cancel_order(params, self.host, self.user_proxy_address)
+            except Exception:
                 return False
             return True
         else:
@@ -279,7 +267,7 @@ class PolkadexExchange(ExchangePyBase):
                 if self.user_main_address is None:
                     self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address,
                                                                                self.host, self.user_proxy_address)
-            except Exception as e:
+            except Exception:
                 raise Exception("Main account not found")
 
             ts = int(time.time())
@@ -290,12 +278,12 @@ class PolkadexExchange(ExchangePyBase):
                                                     trading_pair.split("-")[0],
                                                     trading_pair.split("-")[1],
                                                     int(time.time()))
-            except Exception as e:
+            except Exception:
                 raise Exception("Unable to create encoded order")
             try:
                 signature = self.proxy_pair.sign(encoded_order)
                 params = [order, {"Sr25519": signature.hex()}]
-            except Exception as e:
+            except Exception:
                 raise Exception("Unable to create signature")
             try:
                 result = await place_order(params, self.host, self.user_proxy_address)
@@ -304,7 +292,7 @@ class PolkadexExchange(ExchangePyBase):
                 else:
                     raise Exception("Exchange result none")
             except TransportQueryError:
-                self.logger().error("TransportQuery Error for id: ", order_id);
+                self.logger().error("TransportQuery Error for id: ", order_id)
                 raise Exception("Transport Query Error")
         except Exception as e:
             print("Inside Main Exception : ", e)
@@ -340,7 +328,7 @@ class PolkadexExchange(ExchangePyBase):
         {
                 "type": "Order"
                 "event_id":10,
-                "client_order_id":"0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e",
+                "client_order_id":"",
                 "avg_filled_price":10,
                 "fee":100,
                 "filled_quantity":100,

@@ -1,8 +1,6 @@
 import asyncio
 import json
-import logging
 import time
-from shutil import ExecError
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from gql import Client
@@ -39,7 +37,7 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
                                      domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
-    async def _parse_trade_message(self, raw_message: Dict[str,Any],
+    async def _parse_trade_message(self, raw_message: Dict[str, Any],
                                    message_queue: asyncio.Queue):
         trade_message = PolkadexOrderbook.trade_message_from_exchange(raw_message['data'][0])
         message_queue.put_nowait(trade_message)
@@ -109,12 +107,10 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
             for trading_pair in self._trading_pairs:
                 tasks.append(
                     asyncio.create_task(
-                        websocket_streams_session_provided(trading_pair + "-recent-trades", session,
-                                                         self.on_recent_trade_callback, trading_pair)))
+                        websocket_streams_session_provided(trading_pair + "-recent-trades", session, self.on_recent_trade_callback, trading_pair)))
                 tasks.append(
                     asyncio.create_task(
-                        websocket_streams_session_provided(trading_pair + "-ob-inc", session,
-                                                           self.on_ob_increment, trading_pair)))
+                        websocket_streams_session_provided(trading_pair + "-ob-inc", session, self.on_ob_increment, trading_pair)))
 
             if tasks:
                 done, pending = await asyncio.wait(tasks)
@@ -145,7 +141,6 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
             try:
                 diff_event = await message_queue.get()
                 await self._parse_order_book_diff_message(raw_message=diff_event, message_queue=output)
-
 
             except asyncio.CancelledError:
                 raise

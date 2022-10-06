@@ -1,12 +1,7 @@
 import asyncio
-from typing import List, TYPE_CHECKING
-
-from gql import Client
-from gql.transport.appsync_websockets import AppSyncWebsocketsTransport
+from typing import TYPE_CHECKING, List
 
 from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
-from hummingbot.connector.exchange.polkadex.graphql.user.streams import on_balance_update, on_order_update
-from hummingbot.connector.exchange.polkadex.graphql.user.user import get_main_acc_from_proxy_acc
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
