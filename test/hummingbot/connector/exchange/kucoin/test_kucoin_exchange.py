@@ -11,14 +11,15 @@ from bidict import bidict
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS, kucoin_web_utils as web_utils
 from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
-from hummingbot.core.data_type.trade_fee import TradeFeeBase
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -1314,6 +1315,95 @@ class KucoinExchangeTests(unittest.TestCase):
         self.assertFalse(order.is_done)
 
     # ---- Testing the _update_orders_fills() method overwritten from the ExchangePyBase
+    def test__update_orders_fills_raises_asyncio(self):
+        orders: List[InFlightOrder] = [InFlightOrder(client_order_id="COID1-1",
+                                                     exchange_order_id="EOID1-1",
+                                                     trading_pair=self.trading_pair,
+                                                     order_type=OrderType.LIMIT,
+                                                     trade_type=TradeType.BUY,
+                                                     price=Decimal("10000"),
+                                                     amount=Decimal("1"),
+                                                     creation_timestamp=1234567890,
+                                                     )]
+
+        # Simulate the order has been filled with a TradeUpdate
+        self.assertEqual(0., self.exchange._last_order_fill_ts_s)
+
+        with patch.object(ClientOrderTracker, "process_trade_update") as mock_tracker:
+            with patch.object(KucoinExchange, "_all_trades_updates") as mock_updates:
+                mock_updates.side_effect = [asyncio.CancelledError]
+                with self.assertRaises(asyncio.CancelledError):
+                    self.async_run_with_timeout(self.exchange._update_orders_fills(orders))
+                mock_tracker.assert_not_called()
+
+        self.assertEqual(0, self.exchange._last_order_fill_ts_s)
+
+    def test__update_orders_fills_calls_on_orders(self):
+        orders: List[InFlightOrder] = [InFlightOrder(client_order_id="COID1-1",
+                                                     exchange_order_id="EOID1-1",
+                                                     trading_pair=self.trading_pair,
+                                                     order_type=OrderType.LIMIT,
+                                                     trade_type=TradeType.BUY,
+                                                     price=Decimal("10000"),
+                                                     amount=Decimal("1"),
+                                                     creation_timestamp=1234567890,
+                                                     ),
+                                       InFlightOrder(client_order_id="COID1-2",
+                                                     exchange_order_id="EOID1-2",
+                                                     trading_pair=self.trading_pair,
+                                                     order_type=OrderType.LIMIT,
+                                                     trade_type=TradeType.BUY,
+                                                     price=Decimal("10000"),
+                                                     amount=Decimal("1"),
+                                                     creation_timestamp=1234567890,
+                                                     )
+                                       ]
+        fee: TradeFeeBase = TradeFeeBase.new_spot_fee(
+            fee_schema=TradeFeeSchema(),
+            trade_type=TradeType.BUY,
+            percent_token="USDT",
+            flat_fees=[TokenAmount(amount=Decimal("0"), token="USDT")]
+        )
+        trade: TradeUpdate = TradeUpdate(client_order_id="COID1-1",
+                                         exchange_order_id="EOID1-1",
+                                         trading_pair=self.trading_pair,
+                                         trade_id="0",
+                                         fill_timestamp=1234567890,
+                                         fill_price=Decimal("0"),
+                                         fill_base_amount=Decimal("0"),
+                                         fill_quote_amount=Decimal("0"),
+                                         fee=fee)
+        # Simulate the order has been filled with a TradeUpdate
+        self.assertEqual(0., self.exchange._last_order_fill_ts_s)
+
+        with patch.object(ClientOrderTracker, "process_trade_update") as mock_tracker:
+            with patch.object(KucoinExchange, "_all_trades_updates") as mock_updates:
+                mock_updates.side_effect = [[trade]]
+                self.async_run_with_timeout(self.exchange._update_orders_fills(orders))
+                mock_tracker.assert_called_with(trade)
+                mock_updates.assert_called_once_with(orders)
+
+    def test__update_orders_fills_handles_exception(self):
+        orders: List[InFlightOrder] = [InFlightOrder(client_order_id="COID1-1",
+                                                     exchange_order_id="EOID1-1",
+                                                     trading_pair=self.trading_pair,
+                                                     order_type=OrderType.LIMIT,
+                                                     trade_type=TradeType.BUY,
+                                                     price=Decimal("10000"),
+                                                     amount=Decimal("1"),
+                                                     creation_timestamp=1234567890,
+                                                     )]
+
+        with patch.object(ClientOrderTracker, "process_trade_update") as mock_tracker:
+            with patch.object(KucoinExchange, "_all_trades_updates") as mock_updates:
+                mock_updates.side_effect = [Exception("test")]
+                self.async_run_with_timeout(self.exchange._update_orders_fills(orders))
+                # Empty trade updates due to exception
+                mock_tracker.assert_not_called()
+
+        print(self.log_records)
+        self.assertTrue(self._is_logged("WARNING", "Failed to fetch trade updates. Error: test"))
+
     @aioresponses()
     def test__all_trades_updates_empty_orders(self, mock_api):
         orders: List[InFlightOrder] = []
@@ -1327,6 +1417,21 @@ class KucoinExchangeTests(unittest.TestCase):
         self.assertEqual(0, self.exchange._last_order_fill_ts_s)
 
         self.assertEqual(0, len(trades))
+
+    @patch('hummingbot.connector.exchange_py_base.ClientOrderTracker',
+           **{'return_value.process_trade_update.return_value': None})
+    @patch('hummingbot.connector.exchange.kucoin.kucoin_exchange.KucoinExchange',
+           **{'return_value._all_trades_updates.side_effect': [asyncio.CancelledError, Exception]})
+    def test__update_orders_fills_empty_orders(self, mock_tracker, mock_exception):
+        orders: List[InFlightOrder] = []
+
+        with patch.object(TradeFeeBase, "new_spot_fee") as mock_fee:
+            self.async_run_with_timeout(self.exchange._update_orders_fills(orders))
+            mock_fee.assert_not_called()
+            mock_exception.assert_not_called()
+            mock_tracker.assert_not_called()
+
+        self.assertEqual(0, self.exchange._last_order_fill_ts_s)
 
     @aioresponses()
     def test__all_trades_updates_last_fill(self, mock_api):
