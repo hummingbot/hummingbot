@@ -101,7 +101,7 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
         self._message_queue[self._diff_messages_queue_key].put_nowait(new_message)
 
     async def listen_for_subscriptions(self):
-        transport = AppSyncWebsocketsTransport(url=self._connector.endpoint, auth=self._connector.auth)
+        transport = AppSyncWebsocketsTransport(url=self._connector.wss_url, auth=self._connector.auth)
         tasks = []
         async with Client(transport=transport, fetch_schema_from_transport=False) as session:
             for trading_pair in self._trading_pairs:
@@ -127,41 +127,3 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
             exc_info=True
         )
         raise NotImplementedError
-
-    async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
-        """
-        Reads the order diffs events queue. For each event creates a diff message instance and adds it to the
-        output queue
-
-        :param ev_loop: the event loop the method will run in
-        :param output: a queue to add the created diff messages
-        """
-        message_queue = self._message_queue[self._diff_messages_queue_key]
-        while True:
-            try:
-                diff_event = await message_queue.get()
-                await self._parse_order_book_diff_message(raw_message=diff_event, message_queue=output)
-
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                print("Raise Exception")
-                self.logger().exception("Unexpected error when processing public order book updates from exchange")
-
-    async def listen_for_trades(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
-        """
-        Reads the trade events queue. For each event creates a trade message instance and adds it to the output queue
-
-        :param ev_loop: the event loop the method will run in
-        :param output: a queue to add the created trade messages
-        """
-        message_queue = self._message_queue[self._trade_messages_queue_key]
-        while True:
-            try:
-                trade_event = await message_queue.get()
-                await self._parse_trade_message(raw_message=trade_event, message_queue=output)
-
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception("Unexpected error when processing public trade updates from exchange")

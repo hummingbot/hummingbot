@@ -69,7 +69,7 @@ class PolkadexOrderbook(OrderBook):
             msg.update(metadata)
 
         market = msg["market"]
-        # What does this signify
+
         if msg["qty"] == '0':
             msg["price"] = '0'
 
@@ -82,32 +82,19 @@ class PolkadexOrderbook(OrderBook):
         else:
             bids.append((p_utils.parse_price_or_qty(msg["price"]), p_utils.parse_price_or_qty(msg["qty"]), float(msg["id"])))
             seq = float(msg["id"])
-        if bids and asks:
-            var = OrderBookMessage(OrderBookMessageType.DIFF, {
-                "trading_pair": market,
-                "update_id": int(seq),
-                "bids": bids,
-                "asks": asks
-            }, timestamp=time.time())
-        elif asks:
+
+        if asks:
             var = OrderBookMessage(OrderBookMessageType.DIFF, {
                 "trading_pair": market,
                 "update_id": int(seq),
                 "asks": asks,
                 "bids": []
             }, timestamp=time.time())
-        elif bids:
-            var = OrderBookMessage(OrderBookMessageType.DIFF, {
-                "trading_pair": market,
-                "update_id": int(seq),
-                "bids": bids,
-                "asks": []
-            }, timestamp=time.time())
         else:
             var = OrderBookMessage(OrderBookMessageType.DIFF, {
                 "trading_pair": market,
                 "update_id": int(seq),
-                "bids": [],
+                "bids": bids,
                 "asks": []
             }, timestamp=time.time())
         return var
