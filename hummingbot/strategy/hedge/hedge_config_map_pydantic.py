@@ -3,13 +3,9 @@ from typing import Dict, List, Literal, Union
 
 from pydantic import Field, validator
 
-from hummingbot.client.config.config_data_types import (
-    BaseClientModel,
-    BaseStrategyConfigMap,
-    ClientConfigEnum,
-    ClientFieldData,
-)
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_validators import validate_bool, validate_decimal, validate_market_trading_pair
+from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
 from hummingbot.client.settings import AllConnectorSettings
 
 ExchangeEnum = ClientConfigEnum(  # rebuild the exchanges enum
