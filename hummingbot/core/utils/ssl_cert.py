@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
+from hummingbot import root_path
 from hummingbot.core.gateway import get_gateway_paths
 
 if TYPE_CHECKING:
@@ -24,6 +25,7 @@ CERT_SUBJECT = [
 # Set alternative DNS
 SAN_DNS = [x509.DNSName('localhost')]
 VALIDITY_DURATION = 365
+CONF_DIR_PATH = root_path() / "conf"
 
 
 def generate_private_key(password, filepath):
