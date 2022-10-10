@@ -34,6 +34,7 @@ from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 
+from ...core.rate_oracle.rate_oracle import RateOracle
 from .order_id_market_pair_tracker import OrderIDMarketPairTracker
 
 s_float_nan = float("nan")
@@ -100,6 +101,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         self._maker_markets = set([market_pair.maker.market for market_pair in market_pairs])
         self._taker_markets = set([market_pair.taker.market for market_pair in market_pairs])
         self._all_markets_ready = False
+        self._rate_oracle_task = None
 
         self._anti_hysteresis_timers = {}
         self._order_fill_buy_events = {}
@@ -385,10 +387,17 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
         if not self._all_markets_ready:
             self._all_markets_ready = all([market.ready for market in self.active_markets])
-            if not self._all_markets_ready:
+
+            # Create a task to check the RateOracle availability
+            # The first time or if the check is done but the RateOracle is not connected
+            oracle_ready = self._rate_oracle_task and self._rate_oracle_task.done() and self._rate_oracle_task.result() is NetworkStatus.NOT_CONNECTED
+            if not oracle_ready:
+                self._rate_oracle_task = safe_ensure_future(RateOracle.get_instance().check_network())
+
+            if not self._all_markets_ready or not oracle_ready:
                 # Markets not ready yet. Don't do anything.
                 if should_report_warnings:
-                    self.logger().warning("Markets are not ready. No market making trades are permitted.")
+                    self.logger().warning("Markets or RateOracle are not ready. No market making trades are permitted.")
                 return
             else:
                 # Markets are ready, ok to proceed.
