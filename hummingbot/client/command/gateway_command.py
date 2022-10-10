@@ -97,6 +97,10 @@ class GatewayCommand(GatewayChainApiManager):
             from_client_password: bool = False
     ):
         cert_path: str = get_gateway_paths(self.client_config_map).local_certs_path.as_posix()
+        current_path: str = self.client_config_map.certs.path
+        if current_path != cert_path:
+            self.client_config_map.certs.path = cert_path
+            save_to_yml(CLIENT_CONFIG_PATH, self.client_config_map)  # Update config file
         if not from_client_password:
             if certs_files_exist(self.client_config_map):
                 self.notify(f"Gateway SSL certification files exist in {cert_path}.")
