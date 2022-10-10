@@ -1418,18 +1418,18 @@ class KucoinExchangeTests(unittest.TestCase):
 
         self.assertEqual(0, len(trades))
 
-    @patch('hummingbot.connector.exchange_py_base.ClientOrderTracker',
-           **{'return_value.process_trade_update.return_value': None})
-    @patch('hummingbot.connector.exchange.kucoin.kucoin_exchange.KucoinExchange',
-           **{'return_value._all_trades_updates.side_effect': [asyncio.CancelledError, Exception]})
-    def test__update_orders_fills_empty_orders(self, mock_tracker, mock_exception):
+    def test__update_orders_fills_empty_orders(self):
         orders: List[InFlightOrder] = []
 
-        with patch.object(TradeFeeBase, "new_spot_fee") as mock_fee:
-            self.async_run_with_timeout(self.exchange._update_orders_fills(orders))
-            mock_fee.assert_not_called()
-            mock_exception.assert_not_called()
-            mock_tracker.assert_not_called()
+        with patch.object(ClientOrderTracker, "process_trade_update") as mock_tracker:
+            mock_tracker.return_value = None
+            with patch.object(KucoinExchange, "_all_trades_updates") as mock_exception:
+                mock_exception.side_effect = [asyncio.CancelledError, Exception]
+                with patch.object(TradeFeeBase, "new_spot_fee") as mock_fee:
+                    self.async_run_with_timeout(self.exchange._update_orders_fills(orders))
+                    mock_fee.assert_not_called()
+                    mock_exception.assert_not_called()
+                    mock_tracker.assert_not_called()
 
         self.assertEqual(0, self.exchange._last_order_fill_ts_s)
 
