@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Awaitable, Dict
 from unittest import TestCase
@@ -338,8 +339,7 @@ class FtxPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     def test_get_new_order_book_raises_exception(self, mock_api):
-        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
-        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.FTX_ORDER_BOOK_PATH.format(self.ex_trading_pair))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=400)
@@ -349,49 +349,74 @@ class FtxPerpetualAPIOrderBookDataSourceTests(TestCase):
             )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_subscribes_to_trades_diffs_and_funding_info(self, ws_connect_mock):
+    def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        result_subscribe_diffs = self.get_ws_snapshot_msg()
-        result_subscribe_funding_info = self.get_funding_info_msg()
+        result_subscribe_trades = {
+            "channel": CONSTANTS.WS_TRADES_CHANNEL,
+            "market": self.ex_trading_pair,
+            "type": "subscribed",
+            "code": 0,
+            "msg": "",
+            "data": None,
+        }
+        result_subscribe_order_book = {
+            "channel": CONSTANTS.WS_ORDER_BOOK_CHANNEL,
+            "market": self.ex_trading_pair,
+            "type": "subscribed",
+            "code": 0,
+            "msg": "",
+            "data": None,
+        }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_diffs),
-        )
+            message=json.dumps(result_subscribe_trades))
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_funding_info),
-        )
+            message=json.dumps(result_subscribe_order_book))
 
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value
-        )
+            websocket_mock=ws_connect_mock.return_value)
 
-        self.assertEqual(3, len(sent_subscription_messages))
+        self.assertEqual(2, len(sent_subscription_messages))
         expected_trade_subscription = {
             "op": "subscribe",
-            "args": [f"trade.{self.ex_trading_pair}"],
-        }
+            "channel": CONSTANTS.WS_TRADES_CHANNEL,
+            "market": self.ex_trading_pair}
         self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
         expected_diff_subscription = {
             "op": "subscribe",
-            "args": [f"orderBook_200.100ms.{self.ex_trading_pair}"],
-        }
+            "channel": CONSTANTS.WS_ORDER_BOOK_CHANNEL,
+            "market": self.ex_trading_pair}
         self.assertEqual(expected_diff_subscription, sent_subscription_messages[1])
-        expected_funding_info_subscription = {
-            "op": "subscribe",
-            "args": [f"instrument_info.100ms.{self.ex_trading_pair}"],
-        }
-        self.assertEqual(expected_funding_info_subscription, sent_subscription_messages[2])
+
+        self.assertTrue(self._is_logged(
+            "INFO",
+            "Subscribed to public order book and trade channels..."
+        ))
+
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
+        mock_ws.side_effect = Exception("TEST ERROR.")
+        sleep_mock.side_effect = asyncio.CancelledError
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+
+        try:
+            self.async_run_with_timeout(self.listening_task)
+        except asyncio.CancelledError:
+            pass
 
         self.assertTrue(
-            self._is_logged("INFO", "Subscribed to public order book, trade and funding info channels...")
-        )
+            self._is_logged(
+                "ERROR",
+                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -402,42 +427,12 @@ class FtxPerpetualAPIOrderBookDataSourceTests(TestCase):
             self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
             self.async_run_with_timeout(self.listening_task)
 
-    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
-        mock_ws.side_effect = Exception("TEST ERROR.")
-        sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
-
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
-
-        self.async_run_with_timeout(self.resume_test_event.wait())
-
-        self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams"
-                " wss://stream-testnet.ftx.com/realtime. Retrying in 5 seconds...",
-            )
-        )
-
-    def test_subscribe_to_channels_raises_cancel_exception(self):
-        mock_ws = MagicMock()
-        mock_ws.send.side_effect = asyncio.CancelledError
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source._subscribe_to_channels(mock_ws, [self.trading_pair])
-            )
-            self.async_run_with_timeout(self.listening_task)
-
-    def test_subscribe_to_channels_raises_exception_and_logs_error(self):
+    def test_subscribe_channels_raises_exception_and_logs_error(self):
         mock_ws = MagicMock()
         mock_ws.send.side_effect = Exception("Test Error")
 
         with self.assertRaises(Exception):
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source._subscribe_to_channels(mock_ws, [self.trading_pair])
-            )
+            self.listening_task = self.ev_loop.create_task(self.data_source._subscribe_channels(mock_ws))
             self.async_run_with_timeout(self.listening_task)
 
         self.assertTrue(
@@ -459,17 +454,12 @@ class FtxPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_trades_logs_exception(self):
         incomplete_resp = {
-            "topic": f"trade.{self.ex_trading_pair}",
+            "channel": CONSTANTS.WS_TRADES_CHANNEL,
+            "market": self.ex_trading_pair,
+            "type": "update",
             "data": [
                 {
-                    "timestamp": "2020-01-12T16:59:59.000Z",
-                    "symbol": self.ex_trading_pair,
-                    "side": "Sell",
-                    "size": 328,
-                    "price": 8098,
-                    "tick_direction": "MinusTick",
-                    "trade_id": "00c706e1-ba52-5bb0-98d0-bf694bdc69f7",
-                    "cross_seq": 1052816407
+                    "price": 10000,
                 }
             ]
         }
@@ -495,21 +485,21 @@ class FtxPerpetualAPIOrderBookDataSourceTests(TestCase):
     def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
         trade_event = {
-            "topic": f"trade.{self.ex_trading_pair}",
+            "channel": CONSTANTS.WS_TRADES_CHANNEL,
+            "market": self.ex_trading_pair,
+            "type": "update",
             "data": [
                 {
-                    "timestamp": "2020-01-12T16:59:59.000Z",
-                    "trade_time_ms": 1582793344685,
-                    "symbol": self.ex_trading_pair,
-                    "side": "Sell",
-                    "size": 328,
-                    "price": 8098,
-                    "tick_direction": "MinusTick",
-                    "trade_id": "00c706e1-ba52-5bb0-98d0-bf694bdc69f7",
-                    "cross_seq": 1052816407
+                    "id": 4442208960,
+                    "price": 42219.9,
+                    "size": 0.12060306,
+                    "side": "buy",
+                    "liquidation": False,
+                    "time": datetime.fromtimestamp(1640002223.334445, tz=timezone.utc).isoformat()
                 }
             ]
         }
+
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
 
@@ -521,8 +511,8 @@ class FtxPerpetualAPIOrderBookDataSourceTests(TestCase):
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
-        self.assertEqual(trade_event["data"][0]["trade_id"], msg.trade_id)
-        self.assertEqual(trade_event["data"][0]["trade_time_ms"] * 1e-3, msg.timestamp)
+        self.assertEqual(int(trade_event["data"][0]["id"]), msg.trade_id)
+        self.assertEqual(1640002223.334445, msg.timestamp)
 
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
@@ -538,8 +528,12 @@ class FtxPerpetualAPIOrderBookDataSourceTests(TestCase):
             self.async_run_with_timeout(self.listening_task)
 
     def test_listen_for_order_book_diffs_logs_exception(self):
-        incomplete_resp = self.get_ws_diff_msg()
-        del incomplete_resp["timestamp_e6"]
+        incomplete_resp = {
+            "channel": CONSTANTS.WS_ORDER_BOOK_CHANNEL,
+            "market": self.ex_trading_pair,
+            "type": "update",
+            "data": {}
+        }
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
@@ -561,7 +555,21 @@ class FtxPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
-        diff_event = self.get_ws_diff_msg()
+        diff_event = {
+            "channel": CONSTANTS.WS_ORDER_BOOK_CHANNEL,
+            "market": self.ex_trading_pair,
+            "type": "update",
+            "data": {
+                "time": 1640001112.223334,
+                "checksum": 329366394,
+                "bids": [
+                    [20447.0, 0.1901],
+                    [20444.0, 0.3037],
+                ],
+                "asks": [[20460.0, 0.039]],
+                "action": "update"
+            }
+        }
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
 
@@ -574,58 +582,61 @@ class FtxPerpetualAPIOrderBookDataSourceTests(TestCase):
 
         self.assertEqual(OrderBookMessageType.DIFF, msg.type)
         self.assertEqual(-1, msg.trade_id)
-        self.assertEqual(diff_event["timestamp_e6"] * 1e-6, msg.timestamp)
-        expected_update_id = int(diff_event["timestamp_e6"])
+        self.assertEqual(1640001112.223334, msg.timestamp)
+        expected_update_id = int(1640001112.223334 * 1e3)
         self.assertEqual(expected_update_id, msg.update_id)
 
         bids = msg.bids
         asks = msg.asks
         self.assertEqual(2, len(bids))
-        self.assertEqual(2999.0, bids[0].price)
-        self.assertEqual(8, bids[0].amount)
+        self.assertEqual(20447.0, bids[0].price)
+        self.assertEqual(0.1901, bids[0].amount)
         self.assertEqual(expected_update_id, bids[0].update_id)
         self.assertEqual(1, len(asks))
-        self.assertEqual(3001, asks[0].price)
-        self.assertEqual(0, asks[0].amount)
+        self.assertEqual(20460.0, asks[0].price)
+        self.assertEqual(0.039, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
-    @aioresponses()
-    def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
-        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=endpoint, trading_pair=self.trading_pair, domain=self.domain
-        )
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+    def test_listen_for_order_book_snapshots_cancelled(self):
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = asyncio.CancelledError()
+        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
 
-        mock_api.get(regex_url, exception=asyncio.CancelledError)
+        msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(
-                self.data_source.listen_for_order_book_snapshots(self.ev_loop, asyncio.Queue())
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
             )
+            self.async_run_with_timeout(self.listening_task)
 
-    @aioresponses()
-    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
+    @patch("hummingbot.connector.exchange.ftx.ftx_api_order_book_data_source"
+           ".FtxAPIOrderBookDataSource._sleep")
+    def test_listen_for_order_book_snapshots_log_exception(self, _):
+        incomplete_resp = {
+            "channel": CONSTANTS.WS_ORDER_BOOK_CHANNEL,
+            "market": self.ex_trading_pair,
+            "type": "partial",
+            "data": {}
+        }
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
+
         msg_queue: asyncio.Queue = asyncio.Queue()
-        sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
-
-        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=endpoint, trading_pair=self.trading_pair, domain=self.domain
-        )
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.get(regex_url, exception=Exception)
 
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
         )
-        self.async_run_with_timeout(self.resume_test_event.wait())
+
+        try:
+            self.async_run_with_timeout(self.listening_task)
+        except asyncio.CancelledError:
+            pass
 
         self.assertTrue(
-            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}.")
-        )
+            self._is_logged("ERROR", "Unexpected error when processing public order book snapshots from exchange"))
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_successful(self, mock_api):

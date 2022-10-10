@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
@@ -6,7 +7,6 @@ import pandas as pd
 
 from hummingbot.connector.derivative.ftx_perpetual import (
     ftx_perpetual_constants as CONSTANTS,
-    ftx_perpetual_utils,
     ftx_perpetual_web_utils as web_utils,
 )
 from hummingbot.core.data_type.common import TradeType
@@ -54,94 +54,40 @@ class FtxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         )
         return funding_info
 
-    async def listen_for_subscriptions(self):
-        """
-        Subscribe to all required events and start the listening cycle.
-        """
-        tasks_future = None
-        try:
-            linear_trading_pairs, non_linear_trading_pairs = ftx_perpetual_utils.get_linear_non_linear_split(
-                self._trading_pairs
-            )
-
-            tasks = []
-            if linear_trading_pairs:
-                tasks.append(self._listen_for_subscriptions_on_url(
-                    url=web_utils.wss_linear_public_url(self._domain),
-                    trading_pairs=linear_trading_pairs))
-            if non_linear_trading_pairs:
-                tasks.append(self._listen_for_subscriptions_on_url(
-                    url=web_utils.wss_non_linear_public_url(self._domain),
-                    trading_pairs=non_linear_trading_pairs))
-
-            if tasks:
-                tasks_future = asyncio.gather(*tasks)
-                await tasks_future
-
-        except asyncio.CancelledError:
-            tasks_future and tasks_future.cancel()
-            raise
-
-    async def _listen_for_subscriptions_on_url(self, url: str, trading_pairs: List[str]):
-        """
-        Subscribe to all required events and start the listening cycle.
-        :param url: the wss url to connect to
-        :param trading_pairs: the trading pairs for which the function should listen events
-        """
-
-        ws: Optional[WSAssistant] = None
-        while True:
-            try:
-                ws = await self._get_connected_websocket_assistant(url)
-                await self._subscribe_to_channels(ws, trading_pairs)
-                await self._process_websocket_messages(ws)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception(
-                    f"Unexpected error occurred when listening to order book streams {url}. Retrying in 5 seconds..."
-                )
-                await self._sleep(5.0)
-            finally:
-                ws and await ws.disconnect()
-
-    async def _get_connected_websocket_assistant(self, ws_url: str) -> WSAssistant:
+    async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(
-            ws_url=ws_url, message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE
-        )
+        async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
+            await ws.connect(
+                ws_url=CONSTANTS.FTX_WS_URL,
+                message_timeout=CONSTANTS.WS_PING_INTERVAL)
         return ws
 
-    async def _subscribe_to_channels(self, ws: WSAssistant, trading_pairs: List[str]):
+    async def _subscribe_channels(self, ws: WSAssistant):
         try:
-            symbols = [
-                await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                for trading_pair in trading_pairs
-            ]
-            symbols_str = "|".join(symbols)
+            for trading_pair in self._trading_pairs:
+                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-            payload = {
-                "op": "subscribe",
-                "args": [f"{CONSTANTS.WS_TRADES_TOPIC}.{symbols_str}"],
-            }
-            subscribe_trade_request = WSJSONRequest(payload=payload)
+                payload = {
+                    "op": "subscribe",
+                    "channel": CONSTANTS.WS_TRADES_CHANNEL,
+                    "market": symbol
+                }
+                subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-            payload = {
-                "op": "subscribe",
-                "args": [f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}.{symbols_str}"],
-            }
-            subscribe_orderbook_request = WSJSONRequest(payload=payload)
+                payload = {
+                    "op": "subscribe",
+                    "channel": CONSTANTS.WS_ORDER_BOOK_CHANNEL,
+                    "market": symbol
+                }
+                subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-            payload = {
-                "op": "subscribe",
-                "args": [f"{CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC}.{symbols_str}"],
-            }
-            subscribe_instruments_request = WSJSONRequest(payload=payload)
+                async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_REQUEST_LIMIT_ID):
+                    await ws.send(subscribe_trade_request)
+                async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_REQUEST_LIMIT_ID):
+                    await ws.send(subscribe_orderbook_request)
 
-            await ws.send(subscribe_trade_request)  # not rate-limited
-            await ws.send(subscribe_orderbook_request)  # not rate-limited
-            await ws.send(subscribe_instruments_request)  # not rate-limited
-            self.logger().info("Subscribed to public order book, trade and funding info channels...")
+            self._last_ws_message_sent_timestamp = self._time()
+            self.logger().info("Subscribed to public order book and trade channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -151,71 +97,87 @@ class FtxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         while True:
             try:
-                async for ws_response in websocket_assistant.iter_messages():
-                    data: Dict[str, Any] = ws_response.data
-                    channel: str = self._channel_originating_message(event_message=data)
-                    if channel in self._message_channels:
-                        self._message_queue[channel].put_nowait(data)
+                seconds_until_next_ping = (CONSTANTS.WS_PING_INTERVAL
+                                           - (self._time() - self._last_ws_message_sent_timestamp))
+                await asyncio.wait_for(super()._process_websocket_messages(websocket_assistant=websocket_assistant),
+                                       timeout=seconds_until_next_ping)
             except asyncio.TimeoutError:
-                ping_request = WSJSONRequest(payload={"op": "ping"})
-                await websocket_assistant.send(ping_request)
+                payload = {"op": "ping"}
+                ping_request = WSJSONRequest(payload=payload)
+                self._last_ws_message_sent_timestamp = self._time()
+                await websocket_assistant.send(request=ping_request)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
-        channel = ""
-        if "success" not in event_message:
-            event_channel = event_message["topic"]
-            event_channel = ".".join(event_channel.split(".")[:-1])
-            if event_channel == CONSTANTS.WS_TRADES_TOPIC:
+        event_type = event_message["type"]
+        channel = None
+        if event_type == "error":
+            raise IOError(f"An error occurred processing an event message in the order book data source "
+                          f"(code: {event_message.get('code')}, message: {event_message.get('msg')})")
+        elif event_type in ["partial", "update"]:
+            event_channel = event_message["channel"]
+            if event_channel == CONSTANTS.WS_TRADES_CHANNEL:
                 channel = self._trade_messages_queue_key
-            elif event_channel == CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC:
+            elif event_channel == CONSTANTS.WS_ORDER_BOOK_CHANNEL and event_type == "update":
                 channel = self._diff_messages_queue_key
-            elif event_channel == CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC:
-                channel = self._funding_info_messages_queue_key
+            elif event_channel == CONSTANTS.WS_ORDER_BOOK_CHANNEL and event_type == "partial":
+                channel = self._snapshot_messages_queue_key
+
         return channel
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        event_type = raw_message["type"]
+        await self._parse_order_book_message(
+            raw_message=raw_message,
+            message_queue=message_queue,
+            message_type=OrderBookMessageType.DIFF)
 
-        if event_type == "delta":
-            symbol = raw_message["topic"].split(".")[-1]
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            timestamp_us = int(raw_message["timestamp_e6"])
-            update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp_us * 1e-6)
-            diffs_data = raw_message["data"]
-            bids, asks = self._get_bids_and_asks_from_ws_msg_data(diffs_data)
-            order_book_message_content = {
-                "trading_pair": trading_pair,
-                "update_id": update_id,
-                "bids": bids,
-                "asks": asks,
-            }
-            diff_message = OrderBookMessage(
-                message_type=OrderBookMessageType.DIFF,
-                content=order_book_message_content,
-                timestamp=timestamp_us * 1e-6,
-            )
-            message_queue.put_nowait(diff_message)
+    async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        await self._parse_order_book_message(
+            raw_message=raw_message,
+            message_queue=message_queue,
+            message_type=OrderBookMessageType.SNAPSHOT)
+
+    async def _parse_order_book_message(
+            self,
+            raw_message: Dict[str, Any],
+            message_queue: asyncio.Queue,
+            message_type: OrderBookMessageType):
+        diff_data: Dict[str, Any] = raw_message["data"]
+
+        timestamp: float = diff_data["time"]
+        update_id: int = int(timestamp * 1e3)
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["market"])
+
+        order_book_message_content = {
+            "trading_pair": trading_pair,
+            "update_id": update_id,
+            "bids": [(price, amount) for price, amount in diff_data.get("bids", [])],
+            "asks": [(price, amount) for price, amount in diff_data.get("asks", [])],
+        }
+        diff_message: OrderBookMessage = OrderBookMessage(
+            message_type,
+            order_book_message_content,
+            timestamp)
+
+        message_queue.put_nowait(diff_message)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trade_updates = raw_message["data"]
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["market"])
 
         for trade_data in trade_updates:
-            symbol = trade_data["symbol"]
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            ts_ms = int(trade_data["trade_time_ms"])
-            trade_type = float(TradeType.BUY.value) if trade_data["side"] == "Buy" else float(TradeType.SELL.value)
             message_content = {
-                "trade_id": trade_data["trade_id"],
+                "trade_id": trade_data["id"],
                 "trading_pair": trading_pair,
-                "trade_type": trade_type,
+                "trade_type": float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(
+                    TradeType.SELL.value),
                 "amount": trade_data["size"],
-                "price": trade_data["price"],
+                "price": trade_data["price"]
             }
-            trade_message = OrderBookMessage(
+            trade_message: Optional[OrderBookMessage] = OrderBookMessage(
                 message_type=OrderBookMessageType.TRADE,
                 content=message_content,
-                timestamp=ts_ms * 1e-3,
-            )
+                timestamp=datetime.fromisoformat(trade_data["time"]).timestamp())
+
             message_queue.put_nowait(trade_message)
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -297,6 +259,11 @@ class FtxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         return data
 
+    async def _request_order_book_snapshots(self, output: asyncio.Queue):
+        # FTX receives the full snapshot as the first orderbook channel event. The full order book should only be
+        # refreshed after a reconnection. To ensure that we disable the full order book snapshot through HTTP request
+        pass
+
     @staticmethod
     def _get_bids_and_asks_from_rest_msg_data(
         snapshot: List[Dict[str, Union[str, int, float]]]
@@ -335,9 +302,3 @@ class FtxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 else:
                     asks.append(row_tuple)
         return bids, asks
-
-    async def _connected_websocket_assistant(self) -> WSAssistant:
-        pass  # unused
-
-    async def _subscribe_channels(self, ws: WSAssistant):
-        pass  # unused
