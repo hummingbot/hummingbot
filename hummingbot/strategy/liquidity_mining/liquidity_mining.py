@@ -291,10 +291,12 @@ class LiquidityMiningStrategy(StrategyPyBase):
             if markets[market].get_price(False).is_nan():
                 self._empty_ob_market_infos[market] = market_info
                 if market in self._market_infos:
+                    self.logger().warning(f"{market} has an empty order book. Trading is paused")
                     self._market_infos.pop(market)
             else:
                 self._market_infos[market] = market_info
                 if market in self._empty_ob_market_infos:
+                    self.logger().warning(f"{market} is being reactivated")
                     self._empty_ob_market_infos.pop(market)
         return len(self._market_infos)
 
