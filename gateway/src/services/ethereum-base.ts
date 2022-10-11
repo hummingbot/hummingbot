@@ -179,7 +179,7 @@ export class EthereumBase {
   // getTokenList, we can read the stored tokenList value from when the
   // object was initiated.
   public get storedTokenList(): TokenInfo[] {
-    return this.tokenList;
+    return Object.values(this._tokenMap);
   }
 
   // return the Token object for a symbol
