@@ -15,9 +15,9 @@ class SimpleXEMM(ScriptStrategyBase):
     and taker hedge price) dips below min_spread, the bot refreshes the order
     """
 
-    maker_exchange = "kucoin"
+    maker_exchange = "kucoin_paper_trade"
     maker_pair = "ETH-USDT"
-    taker_exchange = "gate_io"
+    taker_exchange = "gate_io_paper_trade"
     taker_pair = "ETH-USDT"
 
     order_amount = 0.1                  # amount for each order
