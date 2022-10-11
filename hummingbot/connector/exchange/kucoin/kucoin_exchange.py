@@ -356,7 +356,7 @@ class KucoinExchange(ExchangePyBase):
         # This method in the base ExchangePyBase, makes an API call for each order.
         # Given the rate limit of the API method and the breadth of info provided by the method
         # the mitigation proposal is to collect all orders in one shot, then parse them
-        # Note that this is limited to 50000 orders
+        # Note that this is limited to 500 orders (pagination)
         # An alternative for Kucoin would be to use the limit/fills that returns 24hr updates, which should
         # be sufficient, the rate limit seems better suited
         all_trades_updates: List[TradeUpdate] = []
