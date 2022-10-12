@@ -1,13 +1,8 @@
 import asyncio
 import json
-import re
 import unittest
-from socket import gaierror, socket
 from typing import Awaitable
-from unittest.mock import AsyncMock, MagicMock, patch
-
 from aioresponses.core import aioresponses
-from bidict import bidict
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -256,7 +251,7 @@ class PolkadexOrderBookDataSourceUnitTests(unittest.TestCase):
         print(order_book_message)
         # self.assertEqual(1,0)
 
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    """ @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscription(self, ws_connect_mock):
         mock_ws = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value = mock_ws
@@ -268,7 +263,7 @@ class PolkadexOrderBookDataSourceUnitTests(unittest.TestCase):
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(result_subscribe_trades))
 
-        """ self.async_run_with_timeout(
+        self.async_run_with_timeout(
           self.data_source.listen_for_subscriptions()
         ) """
 
@@ -285,25 +280,25 @@ class PolkadexOrderBookDataSourceUnitTests(unittest.TestCase):
             }
         }
         mock_api.post(raw_url, body=json.dumps(resp))
-        prices = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.data_source.get_last_traded_prices([self.trading_pair])
         )
 
     @aioresponses()
     def test_parse_trade_message(self, mock_api):
-        raw_url = "https://szzsvapgkjdurfl7ijvc3vtbba.appsync-api.eu-central-1.amazonaws.com/graphql"
+        # raw_url = "https://szzsvapgkjdurfl7ijvc3vtbba.appsync-api.eu-central-1.amazonaws.com/graphql"
         resp = {
-                    "data": [{"m": "PDEX-1", "p": 1000000000000, "q": 1000000000000, "tid": 20, "t": 1661927828000}],
+            "data": [{"m": "PDEX-1", "p": 1000000000000, "q": 1000000000000, "tid": 20, "t": 1661927828000}],
         }
         msg_queue: asyncio.Queue = asyncio.Queue()
-        trade_message = self.async_run_with_timeout(
-            self.data_source._parse_trade_message(raw_message=resp,  message_queue=msg_queue)
+        self.async_run_with_timeout(
+            self.data_source._parse_trade_message(raw_message=resp, message_queue=msg_queue)
         )
 
     @aioresponses()
     def test_parse_order_book_diff_message(self, mock_api):
         msg_queue: asyncio.Queue = asyncio.Queue()
-        diff_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.data_source._parse_order_book_diff_message(raw_message={'side': 'Ask', 'price': '11.11', 'qty': '10.1', 'id': 263, 'market': 'PDEX-1'}, message_queue=msg_queue)
         )
 
@@ -322,7 +317,7 @@ class PolkadexOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_on_ob_increment(self, mock_api):
         msg = {
             "websocket_streams": {
-                        "data": '{"type":"IncOB","changes":[["Ask","3","2",123]]}'
+                "data": '{"type":"IncOB","changes":[["Ask","3","2",123]]}'
             }
         }
         self.data_source.on_ob_increment(msg, self.trading_pair)
@@ -367,8 +362,3 @@ class PolkadexOrderBookDataSourceUnitTests(unittest.TestCase):
             self.async_run_with_timeout(
                 self.data_source.listen_for_subscriptions()
             )
-
-
-
-
-

@@ -1,17 +1,10 @@
 import asyncio
 import json
-import quopri
-import re
 import unittest
 from decimal import Decimal
-from operator import truediv
-from socket import gaierror, socket
 from typing import Awaitable
-from unittest.mock import AsyncMock, MagicMock, patch
-from urllib import request
 
 from aioresponses.core import aioresponses
-from bidict import bidict
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -19,12 +12,9 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 # Polkadex Classes
 from hummingbot.connector.exchange.polkadex.polkadex_exchange import PolkadexExchange, fee_levied_asset
 from hummingbot.connector.exchange.polkadex.polkadex_order_book_data_source import PolkadexOrderbookDataSource
-from hummingbot.connector.exchange.polkadex.polkadex_payload import create_order
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.in_flight_order import InFlightOrder
 
 
 class PolkadexExchangeUnitTests(unittest.TestCase):
@@ -99,7 +89,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             self.connector._get_last_traded_price(self.trading_pair)
         )
 
-        # self.assertEqual(20.0, order_book_message)
+        self.assertEqual(20.0, order_book_message)
 
     # Need response from `get_all_markets`
     @aioresponses()
@@ -120,7 +110,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             }
         }
         mock_api.post(raw_url, body=json.dumps(resp))
-        order_book_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.connector._initialize_trading_pair_symbol_map()
         )
 
@@ -160,7 +150,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         }
         mock_api.post(raw_url, body=json.dumps(resp))
         mock_api.post(raw_url, body=json.dumps(resp))
-        order_book_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.connector._update_balances()
         )
 
@@ -178,7 +168,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             }
         }
         mock_api.post(raw_url, body=json.dumps(resp))
-        order_book_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.connector._update_order_status()
         )
 
@@ -207,7 +197,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         self.connector.in_flight_orders[order.client_order_id] = order
         self.connector._last_poll_timestamp = 0
         # self.connector.current_timestamp = 40
-        tracked_orders = list(self.connector.in_flight_orders.values())
+        # tracked_orders = list(self.connector.in_flight_orders.values())
         # self.assertEqual(len(tracked_orders),1)
         # self.assertEqual(self.connector._last_poll_timestamp > self.connector.current_timestamp, True)
         mock_api.post(raw_url, body=json.dumps(resp))
@@ -233,7 +223,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         }
 
         mock_api.post(raw_url, body=json.dumps(resp))
-        order_book_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.connector._update_order_status()
         )
 
@@ -262,7 +252,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         self.connector.in_flight_orders[order.client_order_id] = order
         self.connector._last_poll_timestamp = 0
         # self.connector.current_timestamp = 40
-        tracked_orders = list(self.connector.in_flight_orders.values())
+        # tracked_orders = list(self.connector.in_flight_orders.values())
         # self.assertEqual(len(tracked_orders),1)
         # self.assertEqual(self.connector._last_poll_timestamp > self.connector.current_timestamp, True)
         mock_api.post(raw_url, body=json.dumps(resp))
@@ -273,7 +263,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         }
 
         mock_api.post(raw_url, body=json.dumps(resp))
-        order_book_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.connector._update_order_status()
         )
 
@@ -302,7 +292,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         self.connector.in_flight_orders[order.client_order_id] = order
         self.connector._last_poll_timestamp = 0
         # self.connector.current_timestamp = 40
-        tracked_orders = list(self.connector.in_flight_orders.values())
+        # _tracked_orders = list(self.connector.in_flight_orders.values())
         # self.assertEqual(len(tracked_orders),1)
         # self.assertEqual(self.connector._last_poll_timestamp > self.connector.current_timestamp, True)
         mock_api.post(raw_url, body=json.dumps(resp))
@@ -313,7 +303,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         }
 
         mock_api.post(raw_url, body=json.dumps(resp))
-        order_book_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.connector._update_order_status()
         )
 
@@ -348,22 +338,22 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             exchange_order_id=None
         )
         # self.connector.user_proxy_address = "esrJNKDP4tvAkGMC9Su2VYTAycU2nrQy8qt4dFhdXwV19Yh1K"
-        order_book_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.connector._place_cancel(order_id="123", tracked_order=order)
         )
         # self.assertEqual(order_book_message, True)
 
     @aioresponses()
     def test_place_order(self, mock_api):
-        order = InFlightOrder(
-            client_order_id="123",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            creation_timestamp=1640001112.0,
-            price=Decimal("1.0"),
-        )
+        # order = InFlightOrder(
+        #    client_order_id="123",
+        #    trading_pair=self.trading_pair,
+        #    order_type=OrderType.LIMIT,
+        #    trade_type=TradeType.BUY,
+        #    amount=Decimal("1000.0"),
+        #    creation_timestamp=1640001112.0,
+        #    price=Decimal("1.0"),
+        # )
 
         order_book_message = self.async_run_with_timeout(
             self.connector._place_order(order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e",
@@ -382,7 +372,6 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
     def test_initialize_Trading_pair_symbols_from_exchange_info(self):
         with self.assertRaises(NotImplementedError):
             self.connector._initialize_trading_pair_symbols_from_exchange_info(exchange_info={"Error": "404"})
-
 
     @aioresponses()
     def test_update_trading_rules(self, mock_api):
@@ -428,8 +417,6 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             price=Decimal("1.0"),
             exchange_order_id="0x1f6853a78a1629c15fc3db2da3c902169ddd7a72f243d0b753a06f4ec62556a5"
         )
-        #szzsvapgkjdurfl7ijvc3vtbba
-        # szzsvapgkjdurfl7ijvc3vtbba
         raw_url = "https://szzsvapgkjdurfl7ijvc3vtbba.appsync-api.eu-central-1.amazonaws.com/graphql"
         resp = {
             "data": {
@@ -438,7 +425,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         }
         mock_api.post(raw_url, body=json.dumps(resp))
         mock_api.get(raw_url, body=json.dumps(resp))
-        order_book_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.connector._place_cancel(order_id="123", tracked_order=order)
         )
 
@@ -462,7 +449,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         }
         mock_api.post(raw_url, body=json.dumps(resp))
         mock_api.get(raw_url, body=json.dumps(resp))
-        order_book_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.connector._place_cancel(order_id="123", tracked_order=order)
         )
 
@@ -486,21 +473,21 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         }
         mock_api.post(raw_url, body=json.dumps(resp))
         mock_api.get(raw_url, body=json.dumps(resp))
-        order_book_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.connector._place_cancel(order_id="123", tracked_order=order)
         )
 
     @aioresponses()
     def test_place_order_with_account(self, mock_api):
-        order = InFlightOrder(
-            client_order_id="123",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            creation_timestamp=1640001112.0,
-            price=Decimal("1.0"),
-        )
+        # order = InFlightOrder(
+        #    client_order_id="123",
+        #    trading_pair=self.trading_pair,
+        #    order_type=OrderType.LIMIT,
+        #    trade_type=TradeType.BUY,
+        #    amount=Decimal("1000.0"),
+        #    creation_timestamp=1640001112.0,
+        #    price=Decimal("1.0"),
+        # )
 
         raw_url = "https://szzsvapgkjdurfl7ijvc3vtbba.appsync-api.eu-central-1.amazonaws.com/graphql"
         resp = {
@@ -529,15 +516,15 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_place_order_could_not_encode(self, mock_api):
-        order = InFlightOrder(
-            client_order_id="123",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            creation_timestamp=1640001112.0,
-            price=Decimal("1.0"),
-        )
+        # order = InFlightOrder(
+        #    client_order_id="123",
+        #    trading_pair=self.trading_pair,
+        #    order_type=OrderType.LIMIT,
+        #    trade_type=TradeType.BUY,
+        #    amount=Decimal("1000.0"),
+        #    creation_timestamp=1640001112.0,
+        #    price=Decimal("1.0"),
+        # )
 
         raw_url = "https://szzsvapgkjdurfl7ijvc3vtbba.appsync-api.eu-central-1.amazonaws.com/graphql"
         resp = {
@@ -551,22 +538,22 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         }
         mock_api.post(raw_url, body=json.dumps(resp))
 
-        order_book_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.connector._place_order(order_id="123", trading_pair=str("PDEX-1"), amount=Decimal("1.0"),
                                         trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("1.0"))
         )
 
     @aioresponses()
     def test_place_order_with_account_could_not_gql(self, mock_api):
-        order = InFlightOrder(
-            client_order_id="123",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            creation_timestamp=1640001112.0,
-            price=Decimal("1.0"),
-        )
+        # _order = InFlightOrder(
+        #    client_order_id="123",
+        #    trading_pair=self.trading_pair,
+        #    order_type=OrderType.LIMIT,
+        #    trade_type=TradeType.BUY,
+        #    amount=Decimal("1000.0"),
+        #    creation_timestamp=1640001112.0,
+        #    price=Decimal("1.0"),
+        # )
 
         raw_url = "https://szzsvapgkjdurfl7ijvc3vtbba.appsync-api.eu-central-1.amazonaws.com/graphql"
         resp = {
@@ -580,7 +567,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         }
         mock_api.post(raw_url, body=json.dumps(resp))
 
-        order_book_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.connector._place_order(order_id="HBOTBPX1118318974b805f4676d66446", trading_pair=str("PDEX-1"),
                                         amount=Decimal("1.0"), trade_type=TradeType.BUY, order_type=OrderType.LIMIT,
                                         price=Decimal("1.0"))
@@ -597,7 +584,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             "status": "OPEN",
             "id": 0,
             "user": "5C62Ck4UrFPiBtoCmeSrgF7x9yv9mn38446dhCpsi2mLHiFT",
-            "pair": {"base_asset":"polkadex","quote_asset":{"asset":1}},
+            "pair": {"base_asset": "polkadex", "quote_asset": {"asset": 1}},
             "side": "Ask",
             "order_type": "LIMIT",
             "qty": 10,
@@ -605,14 +592,14 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             "nonce": 100
         }
 
-        request = {
-            "data": {
-                "websocket_streams": {
-                    "data":
-                        msg
-                }
-            }
-        }
+        # _request = {
+        #    "data": {
+        #        "websocket_streams": {
+        #            "data":
+        #                msg
+        #        }
+        #    }
+        # }
         order = InFlightOrder(
             client_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e",
             trading_pair=self.trading_pair,
@@ -638,14 +625,14 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             "reserved": 0
         }
 
-        request = {
-            "data": {
-                "websocket_streams": {
-                    "data":
-                        msg
-                }
-            }
-        }
+        # request = {
+        #    "data": {
+        #        "websocket_streams": {
+        #            "data":
+        #                msg
+        #        }
+        #    }
+        # }
         self.connector.balance_update_callback(msg)
 
     """ def test_handle_websocket_message(self):
@@ -695,7 +682,6 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         }
         print("request 2: ", request)
         self.connector.handle_websocket_message(request) """
-        # assert (1, 2)
 
     @aioresponses()
     def test_user_stream_event_listener(self, mock_api):
@@ -717,13 +703,13 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_check_network(self, mock_api):
-        order_book_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.connector.check_network()
         )
 
     @aioresponses()
     def test_update_time_synchronizer(self, mock_api):
-        order_book_message = self.async_run_with_timeout(
+        self.async_run_with_timeout(
             self.connector._update_time_synchronizer()
         )
 
@@ -739,6 +725,3 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
 
         with self.assertRaises(NotImplementedError):
             self.connector.check_network_request_path
-
-
-

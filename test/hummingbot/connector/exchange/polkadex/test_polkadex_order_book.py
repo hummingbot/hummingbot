@@ -1,7 +1,6 @@
 from unittest import TestCase
 
 from hummingbot.connector.exchange.polkadex.polkadex_order_book import PolkadexOrderbook
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
 class PolkadexOrderbookUnitTests(TestCase):
@@ -19,42 +18,39 @@ class PolkadexOrderbookUnitTests(TestCase):
                {'p': '8500000000000', 'q': '95000000000000', 's': 'Ask'},
                {'p': '1000000000000', 'q': '7000000000000', 's': 'Bid'},
                {'p': '200000000000', 'q': '5000000000000', 's': 'Bid'}]
-        snapshot_message = PolkadexOrderbook.snapshot_message_from_exchange(msg, timestamp=1.0,
-                                                                            metadata={"trading_pair": "PDEX-BTC"})
+        PolkadexOrderbook.snapshot_message_from_exchange(msg, timestamp=1.0, metadata={"trading_pair": "PDEX-BTC"})
 
     def test_diff_message_from_exchange(self):
-        snapshot_message = PolkadexOrderbook.diff_message_from_exchange(msg={'side': 'Ask', 'price': '11.11', 'qty': '10.1', 'id': 263, 'market': 'PDEX-1'})
+        PolkadexOrderbook.diff_message_from_exchange(msg={'side': 'Ask', 'price': '11.11', 'qty': '10.1', 'id': 263, 'market': 'PDEX-1'})
 
     def test_trade_message_from_exchange(self):
-        snapshot_message = PolkadexOrderbook.trade_message_from_exchange(
+        PolkadexOrderbook.trade_message_from_exchange(
             msg={"m": "PDEX-1", "p": 1000000000000, "q": 1000000000000, "tid": 20, "t": 1661927828000})
 
     def test_trade_message_from_exchange_containing_metadata(self):
-        snapshot_message = PolkadexOrderbook.trade_message_from_exchange(
+        PolkadexOrderbook.trade_message_from_exchange(
             msg={"m": "PDEX-1", "p": 1000000000000, "q": 1000000000000, "tid": 20, "t": 1661927828000},
             metadata={"market": "PDEX-1"})
 
     def test_diff_message_from_exchange_containing_metadata(self):
         resp = {'side': 'Ask', 'price': '11.11', 'qty': '10.1', 'id': 263, 'market': 'PDEX-1'}
-        snapshot_message = PolkadexOrderbook.diff_message_from_exchange(msg=resp, metadata={"market": "PDEX-1"})
+        PolkadexOrderbook.diff_message_from_exchange(msg=resp, metadata={"market": "PDEX-1"})
 
     def test_diff_message_from_exchange_containing_asks(self):
         resp = {'side': 'Ask', 'price': '11.11', 'qty': '10.1', 'id': 263, 'market': 'PDEX-1'}
-        snapshot_message = PolkadexOrderbook.diff_message_from_exchange(msg=resp, metadata={"market": "PDEX-1"})
-        # self.assertEqual(1,0)
+        PolkadexOrderbook.diff_message_from_exchange(msg=resp, metadata={"market": "PDEX-1"})
 
     def test_diff_message_from_exchange_containing_qty_0(self):
         resp = {'side': 'Ask', 'price': '0', 'qty': '0', 'id': 263, 'market': 'PDEX-1'}
-        snapshot_message = PolkadexOrderbook.diff_message_from_exchange(msg=resp, metadata={"market": "PDEX-1"})
+        PolkadexOrderbook.diff_message_from_exchange(msg=resp, metadata={"market": "PDEX-1"})
 
     def test_diff_message_from_exchange_containing_no_side(self):
         resp = {'side': '', 'price': '0', 'qty': '0', 'id': 263, 'market': 'PDEX-1'}
-        snapshot_message = PolkadexOrderbook.diff_message_from_exchange(msg=resp, metadata={"market": "PDEX-1"})
+        PolkadexOrderbook.diff_message_from_exchange(msg=resp, metadata={"market": "PDEX-1"})
 
     def test_diff_message_from_exchange_containing_bids(self):
         resp = {'side': 'Bid', 'price': '11.11', 'qty': '10.1', 'id': 263, 'market': 'PDEX-1'}
-        snapshot_message = PolkadexOrderbook.diff_message_from_exchange(msg=resp, metadata={"market": "PDEX-1"})
-        # self.assertEqual(1,0)
+        PolkadexOrderbook.diff_message_from_exchange(msg=resp, metadata={"market": "PDEX-1"})
 
     """ def test_diff_message_from_exchange_containing_asks_and_bids_2(self):
         resp = {
