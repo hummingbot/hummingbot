@@ -10,7 +10,7 @@ from hummingbot.connector.derivative.ftx_perpetual import (
     ftx_perpetual_web_utils as web_utils,
 )
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
+from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
@@ -43,14 +43,15 @@ class FtxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
-        funding_info_response = await self._request_complete_funding_info(trading_pair)
-        symbol_info: Dict[str, Any] = (funding_info_response["result"][0])
+        future_info, funding_stats = await self._request_complete_funding_info(trading_pair)
+        future_info_result: Dict[str, Any] = (future_info["result"])
+        funding_stats_result: Dict[str, Any] = (funding_stats["result"])
         funding_info = FundingInfo(
             trading_pair=trading_pair,
-            index_price=Decimal(str(symbol_info["index_price"])),
-            mark_price=Decimal(str(symbol_info["mark_price"])),
-            next_funding_utc_timestamp=int(pd.Timestamp(symbol_info["next_funding_time"]).timestamp()),
-            rate=Decimal(str(symbol_info["predicted_funding_rate"])),
+            index_price=Decimal(str(future_info_result["index"])),
+            mark_price=Decimal(str(future_info_result["mark"])),
+            next_funding_utc_timestamp=int(pd.Timestamp(funding_stats_result["nextFundingTime"]).timestamp()),
+            rate=Decimal(str(funding_stats_result["nextFundingRate"])),
         )
         return funding_info
 
@@ -181,43 +182,26 @@ class FtxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             message_queue.put_nowait(trade_message)
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        event_type = raw_message["type"]
-        if event_type == "delta":
-            symbol = raw_message["topic"].split(".")[-1]
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            entries = raw_message["data"]["update"]
-            for entry in entries:
-                info_update = FundingInfoUpdate(trading_pair)
-                if "index_price" in entry:
-                    info_update.index_price = Decimal(str(entry["index_price"]))
-                if "mark_price" in entry:
-                    info_update.mark_price = Decimal(str(entry["mark_price"]))
-                if "next_funding_time" in entry:
-                    info_update.next_funding_utc_timestamp = int(
-                        pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp()
-                    )
-                if "predicted_funding_rate_e6" in entry:
-                    info_update.rate = (
-                        Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6)
-                    )
-                message_queue.put_nowait(info_update)
+        # FTX Perpetuals does not include this websocket channel
+        pass
 
-    async def _request_complete_funding_info(self, trading_pair: str) -> Dict[str, Any]:
-        params = {
-            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-        }
+    async def _request_complete_funding_info(self, trading_pair: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
         rest_assistant = await self._api_factory.get_rest_assistant()
-        endpoint = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
-        url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, trading_pair=trading_pair, domain=self._domain)
-        limit_id = web_utils.get_rest_api_limit_id_for_endpoint(endpoint)
-        data = await rest_assistant.execute_request(
-            url=url,
-            throttler_limit_id=limit_id,
-            params=params,
+        future_stats_url = web_utils.public_rest_url(CONSTANTS.FTX_FUTURE_STATS.format(trading_pair))
+        future_info_url = web_utils.public_rest_url(CONSTANTS.FTX_SINGLE_FUTURE_PATH.format(trading_pair))
+        future_stats_data = await rest_assistant.execute_request(
+            url=future_stats_url,
+            throttler_limit_id=CONSTANTS.FTX_FUTURE_STATS,
             method=RESTMethod.GET,
         )
-        return data
+        future_info_data = await rest_assistant.execute_request(
+            url=future_info_url,
+            throttler_limit_id=CONSTANTS.FTX_SINGLE_FUTURE_PATH,
+            method=RESTMethod.GET,
+        )
+        return future_info_data, future_stats_data
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)

@@ -14,12 +14,15 @@ FTX_NETWORK_STATUS_PATH = ""
 FTX_ORDER_BOOK_PATH = "/markets/{}/orderbook"
 FTX_MARKETS_PATH = "/markets"
 FTX_SINGLE_MARKET_PATH = "/markets/{}"
+FTX_SINGLE_FUTURE_PATH = "/futures/{}"
+FTX_FUTURE_STATS = "/futures/{}/stats"
 
 # Private endpoints (require authentication)
 FTX_PLACE_ORDER_PATH = "/orders"
 FTX_ORDER_WITH_CLIENT_ID_PATH = "/orders/by_client_id/{}"
 FTX_ORDER_FILLS_PATH = "/fills"
 FTX_BALANCES_PATH = "/wallet/balances"
+FTX_FUNDING_PAYMENTS = "/funding_payments"
 
 WS_PING_INTERVAL = 15
 WS_TRADES_CHANNEL = "trades"
@@ -57,6 +60,8 @@ RATE_LIMITS = [
     RateLimit(limit_id=FTX_NETWORK_STATUS_PATH, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=FTX_ORDER_BOOK_LIMIT_ID, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=FTX_MARKETS_PATH, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=FTX_FUTURE_STATS, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=FTX_SINGLE_FUTURE_PATH, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=FTX_PLACE_ORDER_PATH, limit=NO_LIMIT, time_interval=1, linked_limits=[
         LinkedLimitWeightPair(limit_id=FTX_PER_SECOND_ORDER_PERP_LIMIT_ID),
         LinkedLimitWeightPair(limit_id=FTX_PER_MS_ORDER_PERP_LIMIT_ID),
