@@ -205,6 +205,10 @@ cdef class PaperTradeExchange(ExchangeBase):
         return self._trading_pairs
 
     @property
+    def trading_pairs(self) -> List[str]:
+        return [trading_pair for trading_pair in self._trading_pairs]
+
+    @property
     def name(self) -> str:
         return self._exchange_name
 
