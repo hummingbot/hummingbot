@@ -40,7 +40,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         # Polkadex Connector
         self.connector = PolkadexExchange(
             client_config_map=client_config_map,
-            polkadex_seed_phrase="empower open normal dream vendor day catch flee entry monitor like april",
+            polkadex_seed_phrase="empower open normal dream vendor day catch flee entry monitor like april", # noqa: {Mock connector}
             trading_pairs=["HBOT-PDEX"]
         )
         # Polkadex OrderBookDataSource
@@ -122,7 +122,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             "data": {
                 "findUserByProxyAccount": {
                     "items": [
-                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}"
+                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}" # noqa: {Mock connector}
                     ]
                 }
             }
@@ -162,7 +162,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             "data": {
                 "findUserByProxyAccount": {
                     "items": [
-                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}"
+                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}" # noqa: {Mock connector}
                     ]
                 }
             }
@@ -179,20 +179,20 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             "data": {
                 "findUserByProxyAccount": {
                     "items": [
-                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}"
+                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}" # noqa: {Mock connector}
                     ]
                 }
             }
         }
         order = InFlightOrder(
-            client_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e",
+            client_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e", # noqa: {Mock connector}
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1.0"),
             creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
-            exchange_order_id="0x98157fdd3bacbc07d26c0b2ba271e76612241e83556968a9fcb54bd626698131"
+            exchange_order_id="0x98157fdd3bacbc07d26c0b2ba271e76612241e83556968a9fcb54bd626698131" # noqa: {Mock connector}
         )
         self.connector.in_flight_orders[order.client_order_id] = order
         self.connector._last_poll_timestamp = 0
@@ -205,10 +205,10 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             "data": {
                 "findOrderByMainAccount": {
                     "afp": "0",
-                    "cid": "0x14c7ed1b5c973ab484f74271e78fd19d34737ef80dfd4660b1df0aefdaa6ef17",
+                    "cid": "0x14c7ed1b5c973ab484f74271e78fd19d34737ef80dfd4660b1df0aefdaa6ef17", # noqa: {Mock connector}
                     "fee": "0",
                     "fq": "0",
-                    "id": "0x10d67cc2914f306b3d73d026f72ad5dabd465b49fcb40cd5828bb6cf264fe620",
+                    "id": "0x10d67cc2914f306b3d73d026f72ad5dabd465b49fcb40cd5828bb6cf264fe620", # noqa: {Mock connector}
                     "m": "PDEX-1",
                     "ot": "LIMIT",
                     "q": "1",
@@ -217,7 +217,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
                     "sid": "0",
                     "st": "OPEN",
                     "t": "1662612081000",
-                    "u": "esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk"
+                    "u": "esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk" # noqa: {Mock connector}
                 }
             }
         }
@@ -234,13 +234,13 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             "data": {
                 "findUserByProxyAccount": {
                     "items": [
-                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}"
+                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}" # noqa: {Mock connector}
                     ]
                 }
             }
         }
         order = InFlightOrder(
-            client_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e",
+            client_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e", # noqa: {Mock connector}
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
@@ -274,20 +274,20 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             "data": {
                 "findUserByProxyAccount": {
                     "items": [
-                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}"
+                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}" # noqa: {Mock connector}
                     ]
                 }
             }
         }
         order = InFlightOrder(
-            client_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e",
+            client_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e", # noqa: {Mock connector}
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1.0"),
             creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
-            exchange_order_id="0x98157fdd3bacbc07d26c0b2ba271e76612241e83556968a9fcb54bd626698131"
+            exchange_order_id="0x98157fdd3bacbc07d26c0b2ba271e76612241e83556968a9fcb54bd626698131" # noqa: {Mock connector}
         )
         self.connector.in_flight_orders[order.client_order_id] = order
         self.connector._last_poll_timestamp = 0
@@ -310,16 +310,16 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
     @aioresponses()
     def test_cancel_order(self, mock_api):
         order = InFlightOrder(
-            client_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e",
+            client_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e", # noqa: {Mock connector}
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1.0"),
             creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
-            exchange_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e"
+            exchange_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e" # noqa: {Mock connector}
         )
-        self.connector.user_proxy_address = "esrJNKDP4tvAkGMC9Su2VYTAycU2nrQy8qt4dFhdXwV19Yh1K"
+        self.connector.user_proxy_address = "esrJNKDP4tvAkGMC9Su2VYTAycU2nrQy8qt4dFhdXwV19Yh1K" # noqa: {Mock connector}
         order_book_message = self.async_run_with_timeout(
             self.connector._place_cancel(order_id="123", tracked_order=order)
         )
@@ -328,7 +328,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
     @aioresponses()
     def test_cancel_order_exchange_order_id_none(self, mock_api):
         order = InFlightOrder(
-            client_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e",
+            client_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e", # noqa: {Mock connector}
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
@@ -337,7 +337,6 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             price=Decimal("1.0"),
             exchange_order_id=None
         )
-        # self.connector.user_proxy_address = "esrJNKDP4tvAkGMC9Su2VYTAycU2nrQy8qt4dFhdXwV19Yh1K"
         self.async_run_with_timeout(
             self.connector._place_cancel(order_id="123", tracked_order=order)
         )
@@ -356,7 +355,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         # )
 
         order_book_message = self.async_run_with_timeout(
-            self.connector._place_order(order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e",
+            self.connector._place_order(order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e", # noqa: {Mock connector}
                                         trading_pair=self.trading_pair, amount=Decimal("1000.0"),
                                         trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("1000.0"))
         )
@@ -408,14 +407,14 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
     @aioresponses()
     def test_cancel_order_exchange_id_not_none(self, mock_api):
         order = InFlightOrder(
-            client_order_id="HBOTBPX1118318974b805f4676d66446",
+            client_order_id="HBOTBPX1118318974b805f4676d66446", # noqa: {Mock connector}
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
-            exchange_order_id="0x1f6853a78a1629c15fc3db2da3c902169ddd7a72f243d0b753a06f4ec62556a5"
+            exchange_order_id="0x1f6853a78a1629c15fc3db2da3c902169ddd7a72f243d0b753a06f4ec62556a5" # noqa: {Mock connector}
         )
         raw_url = "https://szzsvapgkjdurfl7ijvc3vtbba.appsync-api.eu-central-1.amazonaws.com/graphql"
         resp = {
@@ -432,14 +431,14 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
     @aioresponses()
     def test_cancel_order_could_not_encode_cancel_request(self, mock_api):
         order = InFlightOrder(
-            client_order_id="HBOTBPX1118318974b805f4676d66446",
+            client_order_id="HBOTBPX1118318974b805f4676d66446", # noqa: {Mock connector}
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
-            exchange_order_id="HBOTBPX1118318974b805f4676d66446"
+            exchange_order_id="HBOTBPX1118318974b805f4676d66446" # noqa: {Mock connector}
         )
         raw_url = "https://szzsvapgkjdurfl7ijvc3vtbba.appsync-api.eu-central-1.amazonaws.com/graphql"
         resp = {
@@ -463,7 +462,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             amount=Decimal("1000.0"),
             creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
-            exchange_order_id="0x1f6853a78a1629c15fc3db2da3c902169ddd7a72f243d0b753a06f4ec62556a5"
+            exchange_order_id="0x1f6853a78a1629c15fc3db2da3c902169ddd7a72f243d0b753a06f4ec62556a5" # noqa: {Mock connector}
         )
         raw_url = "https://szzsvapgkjdurfl7ijvc3vtbba.appsync-api.eu-central-1.amazonaws.com/graphql"
         resp = {
@@ -494,7 +493,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             "data": {
                 "findUserByProxyAccount": {
                     "items": [
-                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}"
+                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}" # noqa: {Mock connector}
                     ]
                 }
             }
@@ -531,7 +530,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             "data": {
                 "findUserByProxyAccount": {
                     "items": [
-                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}"
+                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}" # noqa: {Mock connector}
                     ]
                 }
             }
@@ -560,7 +559,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             "data": {
                 "findUserByProxyAccount": {
                     "items": [
-                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}"
+                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}" # noqa: {Mock connector}
                     ]
                 }
             }
@@ -568,7 +567,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         mock_api.post(raw_url, body=json.dumps(resp))
 
         self.async_run_with_timeout(
-            self.connector._place_order(order_id="HBOTBPX1118318974b805f4676d66446", trading_pair=str("PDEX-1"),
+            self.connector._place_order(order_id="HBOTBPX1118318974b805f4676d66446", trading_pair=str("PDEX-1"), # noqa: {Mock connector}
                                         amount=Decimal("1.0"), trade_type=TradeType.BUY, order_type=OrderType.LIMIT,
                                         price=Decimal("1.0"))
         )
@@ -577,13 +576,13 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         msg = {
             "type": "SetOrder",
             "event_id": 10,
-            "client_order_id": "0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e",
+            "client_order_id": "0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e", # noqa: {Mock connector}
             "avg_filled_price": 10,
             "fee": 100,
             "filled_quantity": 100,
             "status": "OPEN",
             "id": 0,
-            "user": "5C62Ck4UrFPiBtoCmeSrgF7x9yv9mn38446dhCpsi2mLHiFT",
+            "user": "5C62Ck4UrFPiBtoCmeSrgF7x9yv9mn38446dhCpsi2mLHiFT", # noqa: {Mock connector}
             "pair": {"base_asset": "polkadex", "quote_asset": {"asset": 1}},
             "side": "Ask",
             "order_type": "LIMIT",
@@ -601,7 +600,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         #    }
         # }
         order = InFlightOrder(
-            client_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e",
+            client_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e", # noqa: {Mock connector}
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
@@ -618,7 +617,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         msg = {
             "type": "SetBalance",
             "event_id": 0,
-            "user": "5C62Ck4UrFPiBtoCmeSrgF7x9yv9mn38446dhCpsi2mLHiFT",
+            "user": "5C62Ck4UrFPiBtoCmeSrgF7x9yv9mn38446dhCpsi2mLHiFT", # noqa: {Mock connector}
             "asset": "polkadex",
             "free": 0,
             "pending_withdrawal": 0,
@@ -639,7 +638,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         msg = {
             "type": "SetBalance",
             "event_id": 0,
-            "user": "5C62Ck4UrFPiBtoCmeSrgF7x9yv9mn38446dhCpsi2mLHiFT",
+            "user": "5C62Ck4UrFPiBtoCmeSrgF7x9yv9mn38446dhCpsi2mLHiFT", noqa: {Mock connector}
             "asset": "polkadex",
             "free": 0,
             "pending_withdrawal": 0,
@@ -658,13 +657,13 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         msg = {
             "type": "SetOrder",
             "event_id": 10,
-            "client_order_id": "0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e",
+            "client_order_id": "0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e", noqa: {Mock connector}
             "avg_filled_price": 10,
             "fee": 100,
             "filled_quantity": 100,
             "status": "OPEN",
             "id": 0,
-            "user": "5C62Ck4UrFPiBtoCmeSrgF7x9yv9mn38446dhCpsi2mLHiFT",
+            "user": "5C62Ck4UrFPiBtoCmeSrgF7x9yv9mn38446dhCpsi2mLHiFT", noqa: {Mock connector}
             "pair": {"base_asset": "polkadex", "quote_asset": {"asset": 1}},
             "side": "Ask",
             "order_type": "LIMIT",
@@ -690,7 +689,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             "data": {
                 "findUserByProxyAccount": {
                     "items": [
-                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}"
+                        "{eid=1, hash_key=proxy-esqacydQWhJ9D7Wg5G7VZfPYGd6uM6X7kk8Jq3fyNDh2HvYrk, range_key=esoGSWG1uQFx1HPLpdZgsNRZBdtPLtpkSUruL1ZFqjLH3e9B4}" # noqa: {Mock connector}
                     ]
                 }
             }
