@@ -1,6 +1,5 @@
 import { providers } from 'near-api-js';
-import { NetworkSelectionRequest } from "../../services/common-interfaces";
-
+import { NetworkSelectionRequest } from '../../services/common-interfaces';
 
 export interface NonceRequest extends NetworkSelectionRequest {
   address: string; // the user's Near account Id

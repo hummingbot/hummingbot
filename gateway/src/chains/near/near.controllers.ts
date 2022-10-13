@@ -1,5 +1,5 @@
 import { Account, providers, utils } from 'near-api-js';
-import { latency  } from '../../services/base';
+import { latency } from '../../services/base';
 import {
   HttpException,
   OUT_OF_GAS_ERROR_CODE,
@@ -18,11 +18,8 @@ import {
   BalanceRequest,
   BalanceResponse,
 } from './near.requests';
-import {
-} from '../../network/network.requests';
 import { logger } from '../../services/logger';
 import { Nearish } from '../../services/common-interfaces';
-
 
 export const getTokenSymbolsToTokens = (
   near: Nearish,
@@ -59,12 +56,15 @@ export async function balances(
   const balances: Record<string, string> = {};
   if (req.tokenSymbols.includes(nearish.nativeTokenSymbol)) {
     balances[nearish.nativeTokenSymbol] = utils.format.formatNearAmount(
-      (await nearish.getNativeBalance(account))
+      await nearish.getNativeBalance(account)
     );
   }
   await Promise.all(
     Object.keys(tokens).map(async (symbol) => {
-      if (tokens[symbol] !== undefined && symbol !== nearish.nativeTokenSymbol) {
+      if (
+        tokens[symbol] !== undefined &&
+        symbol !== nearish.nativeTokenSymbol
+      ) {
         const address = tokens[symbol].address;
         const decimals = tokens[symbol].decimals;
         // instantiate a contract and pass in provider for read-only access
@@ -101,14 +101,21 @@ export async function poll(
 ): Promise<PollResponse> {
   const initTime = Date.now();
   const currentBlock = await nearish.getCurrentBlockNumber();
-  const txReceipt: providers.FinalExecutionOutcome = await nearish.getTransaction(txHash, address);
+  const txReceipt: providers.FinalExecutionOutcome =
+    await nearish.getTransaction(txHash, address);
   let txStatus = -1;
-  if (typeof txReceipt.status === "object" && 'SuccessValue' in txReceipt.status) {
+  if (
+    typeof txReceipt.status === 'object' &&
+    'SuccessValue' in txReceipt.status
+  ) {
     txStatus = 1;
   }
-  console.log(txReceipt.transaction_outcome.outcome.gas_burnt / nearish.gasLimitTransaction);
 
-  if (txReceipt.transaction_outcome.outcome.gas_burnt / nearish.gasLimitTransaction > 0.9) {
+  if (
+    txReceipt.transaction_outcome.outcome.gas_burnt /
+      nearish.gasLimitTransaction >
+    0.9
+  ) {
     throw new HttpException(
       503,
       OUT_OF_GAS_ERROR_MESSAGE,
@@ -116,9 +123,7 @@ export async function poll(
     );
   }
 
-  logger.info(
-    `Poll ${nearish.chain}, txHash ${txHash}, status ${txStatus}.`
-  );
+  logger.info(`Poll ${nearish.chain}, txHash ${txHash}, status ${txStatus}.`);
   return {
     network: nearish.chain,
     currentBlock,
