@@ -463,10 +463,7 @@ export interface Ethereumish extends BasicChainMethods, EthereumBase {
 
 export interface Nearish extends BasicChainMethods, NearBase {
   cancelTx(account: Account, nonce: number): Promise<string>;
-  getContract(
-    tokenAddress: string,
-    account: Account
-  ): NearContract;
+  getContract(tokenAddress: string, account: Account): NearContract;
 }
 
 export interface NetworkSelectionRequest {

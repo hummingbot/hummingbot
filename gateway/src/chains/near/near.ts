@@ -1,7 +1,4 @@
-import {
-  Account,
-  Contract,
-} from 'near-api-js';
+import { Account, Contract } from 'near-api-js';
 import abi from './near.abi.json';
 import { logger } from '../../services/logger';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
