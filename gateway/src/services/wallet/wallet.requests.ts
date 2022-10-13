@@ -2,6 +2,7 @@ export interface AddWalletRequest {
   chain: string;
   network: string;
   privateKey: string;
+  address?: string;
 }
 
 export interface AddWalletResponse {

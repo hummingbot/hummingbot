@@ -54,6 +54,8 @@ import {
 } from '@traderjoe-xyz/sdk';
 import { Trade as DefiraTrade } from '@zuzu-cat/defira-sdk';
 import { PerpPosition } from '../connectors/perp/perp';
+import { NearBase } from '../chains/near/near.base';
+import { Account, Contract as NearContract } from 'near-api-js';
 
 // TODO Check the possibility to have clob/solana/serum equivalents here
 //  Check this link https://hummingbot.org/developers/gateway/building-gateway-connectors/#5-add-sdk-classes-to-uniswapish-interface
@@ -444,16 +446,27 @@ export interface Perpish {
   ): Promise<Transaction>;
 }
 
-export interface Ethereumish extends EthereumBase {
-  cancelTx(wallet: Wallet, nonce: number): Promise<Transaction>;
+export interface BasicChainMethods {
   getSpender(reqSpender: string): string;
+  gasPrice: number;
+  nativeTokenSymbol: string;
+  chain: string;
+}
+
+export interface Ethereumish extends BasicChainMethods, EthereumBase {
+  cancelTx(wallet: Wallet, nonce: number): Promise<Transaction>;
   getContract(
     tokenAddress: string,
     signerOrProvider?: Wallet | Provider
   ): Contract;
-  gasPrice: number;
-  nativeTokenSymbol: string;
-  chain: string;
+}
+
+export interface Nearish extends BasicChainMethods, NearBase {
+  cancelTx(account: Account, nonce: number): Promise<string>;
+  getContract(
+    tokenAddress: string,
+    account: Account
+  ): NearContract;
 }
 
 export interface NetworkSelectionRequest {

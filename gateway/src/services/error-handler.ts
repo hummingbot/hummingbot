@@ -99,6 +99,7 @@ export const UNKNOWN_CHAIN_ERROR_CODE = 1011;
 export const INVALID_NONCE_ERROR_CODE = 1012;
 export const PRICE_FAILED_ERROR_CODE = 1013;
 export const INCOMPLETE_REQUEST_PARAM_CODE = 1014;
+export const ACCOUNT_NOT_SPECIFIED_CODE = 1015
 export const UNKNOWN_ERROR_ERROR_CODE = 1099;
 
 export const NETWORK_ERROR_MESSAGE =
@@ -126,6 +127,9 @@ export const SERVICE_UNITIALIZED_ERROR_MESSAGE = (service: any) =>
 
 export const UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE = (chainName: any) =>
   `Unrecognized chain name ${chainName}.`;
+
+export const ACCOUNT_NOT_SPECIFIED_ERROR_MESSAGE = () =>
+  `AccountID or address not specified.`;
 
 export const UNKNOWN_ERROR_MESSAGE = 'Unknown error.';
 

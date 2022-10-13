@@ -12,6 +12,7 @@ import { Quickswap } from '../connectors/quickswap/quickswap';
 import { Perp } from '../connectors/perp/perp';
 import {
   Ethereumish,
+  Nearish,
   Perpish,
   Uniswapish,
   UniswapLPish,
@@ -21,13 +22,16 @@ import { Sushiswap } from '../connectors/sushiswap/sushiswap';
 import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
 import { Defira } from '../connectors/defira/defira';
 import { Serumish } from '../connectors/serum/serum';
+import { Near } from '../chains/near/near';
 
-export type ChainUnion = Ethereumish | Solanaish;
+export type ChainUnion = Ethereumish | Solanaish | Nearish;
 
 export type Chain<T> = T extends Ethereumish
   ? Ethereumish
   : T extends Solanaish
   ? Solanaish
+  : T extends Nearish
+  ? Nearish
   : never;
 
 export async function getChain<T>(
@@ -41,6 +45,7 @@ export async function getChain<T>(
     chainInstance = Avalanche.getInstance(network);
   else if (chain === 'polygon') chainInstance = Polygon.getInstance(network);
   else if (chain === 'harmony') chainInstance = Harmony.getInstance(network);
+  else if (chain === 'near') chainInstance = Near.getInstance(network);
   else if (chain === 'solana')
     chainInstance = await Solana.getInstance(network);
   else throw new Error('unsupported chain');

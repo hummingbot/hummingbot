@@ -16,6 +16,8 @@ import {
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../services/error-handler';
 import { EthereumBase } from '../services/ethereum-base';
+import { Near } from '../chains/near/near';
+import { Nearish } from '../services/common-interfaces';
 
 export async function getStatus(
   req: StatusRequest
@@ -38,7 +40,9 @@ export async function getStatus(
     } else if (req.chain === 'polygon') {
       connections.push(Polygon.getInstance(req.network as string));
     } else if (req.chain === 'solana') {
-      connections.push(await Solana.getInstance(req.network as string));
+      connections.push(Solana.getInstance(req.network as string));
+    } else if (req.chain === 'near') {
+      connections.push(Near.getInstance(req.network as string));
     } else {
       throw new HttpException(
         500,
@@ -71,6 +75,11 @@ export async function getStatus(
     connections = connections.concat(
       solanaConnections ? Object.values(solanaConnections) : []
     );
+
+    const nearConnections = Near.getConnectedInstances();
+    connections = connections.concat(
+      nearConnections ? Object.values(nearConnections) : []
+    );
   }
 
   for (const connection of connections) {
@@ -101,7 +110,7 @@ export async function getStatus(
 }
 
 export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
-  let connection: EthereumBase | Solanaish;
+  let connection: EthereumBase | Solanaish | Nearish;
   let tokens: TokenInfo[] = [];
 
   if (req.chain && req.network) {
@@ -114,7 +123,9 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
     } else if (req.chain === 'polygon') {
       connection = Polygon.getInstance(req.network);
     } else if (req.chain === 'solana') {
-      connection = await Solana.getInstance(req.network);
+      connection = Solana.getInstance(req.network);
+    } else if (req.chain === 'near') {
+      connection = Near.getInstance(req.network);
     } else {
       throw new HttpException(
         500,
