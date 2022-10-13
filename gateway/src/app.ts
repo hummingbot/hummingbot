@@ -32,6 +32,7 @@ import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.confi
 import { SerumConfig } from './connectors/serum/serum.config';
 
 import swaggerUi from 'swagger-ui-express';
+import { NearRoutes } from './chains/near/near.routes';
 
 export const gatewayApp = express();
 
@@ -66,6 +67,7 @@ gatewayApp.use('/clob', ClobRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
 gatewayApp.use('/serum', SerumRoutes.router);
+gatewayApp.use('/near', NearRoutes.router);
 
 // a simple route to test that the server is running
 gatewayApp.get('/', (_req: Request, res: Response) => {

@@ -1,0 +1,6 @@
+{
+  "privateKey": "$NEAR_PRIVATE_KEY",
+  "address": "$NEAR_ADDRESS",
+  "chain": "near",
+  "network": "testnet"
+}
