@@ -1,0 +1,63 @@
+paths:
+  /near/balances:
+    get:
+      tags:
+        - 'near'
+      summary: 'Get the balances of an Near private key'
+      operationId: 'near.balances'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/NearBalancesRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/NearBalancesResponse'
+
+  /near/tokens:
+    get:
+      tags:
+        - 'near'
+      summary: 'Request token information and balance of requested token symbol'
+      operationId: 'near.token'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/NetworkSelectionRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/TokensResponse'
+
+  /near/poll:
+    post:
+      tags:
+        - 'near'
+      summary: 'Poll the status of a Near transaction'
+      operationId: 'near.poll'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/NearPollRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/NearPollResponse'

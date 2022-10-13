@@ -2391,3 +2391,100 @@ definitions:
       txHash:
         type: 'string'
 
+  NearBalancesRequest:
+    type: 'object'
+    required:
+      - 'address'
+      - 'tokenSymbols'
+      - 'chain'
+      - 'network'
+    properties:
+      privateKey:
+        type: 'string'
+        example: 'hummingbot.near'
+      tokenSymbols:
+        type: 'array'
+        items: 'string'
+        example: ["NEAR", "ETH", "AURORA"]
+      chain:
+        type: 'string'
+        example: 'near'
+      network:
+        type: 'string'
+        example: 'testnet'
+
+  NearBalancesResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'balances'
+    properties:
+      network:
+        type: 'string'
+        example: 'testnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      balances:
+        type: 'object'
+        properties:
+          id:
+            type: 'string'
+          name:
+            type: 'string'
+        example: '{"NEAR": "1.5", "ETH": "100", "AURORA": "300"}'
+
+  NearPollRequest:
+    type: 'object'
+    required:
+      - 'address'
+      - 'txHash'
+      - 'chain'
+      - 'network'
+    properties:
+      address:
+        type: 'string'
+        example: 'hummingbot.near'
+      txHash:
+        type: 'string'
+        example: 'HnpRwb8PjrtLjExxz4YxdiyJ2AwuRFhZHKa9WUASwyxk'
+      chain:
+        type: 'string'
+        example: 'near'
+      network:
+        type: 'string'
+        example: 'testnet'
+
+  NearPollResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'currentBlock'
+      - 'txHash'
+      - 'txStatus'
+      - 'txReceipt'
+    properties:
+      network:
+        type: 'string'
+        example: 'testnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      currentBlock:
+        type: 'integer'
+        example: 28243911
+      txHash:
+        type: 'string'
+        example: 'HnpRwb8PjrtLjExxz4YxdiyJ2AwuRFhZHKa9WUASwyxk'
+      txStatus:
+        type: 'number'
+        example: 1
+      txReceipt:
+        type: 'object'
+
