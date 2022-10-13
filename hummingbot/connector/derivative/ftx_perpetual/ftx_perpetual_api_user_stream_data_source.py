@@ -1,171 +1,114 @@
 import asyncio
-from typing import List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from hummingbot.connector.derivative.ftx_perpetual import (
-    ftx_perpetual_constants as CONSTANTS,
-    ftx_perpetual_web_utils as web_utils,
-)
+from hummingbot.connector.derivative.ftx_perpetual import ftx_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_auth import FtxPerpetualAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSResponse
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_derivative import FtxPerpetualDerivative
 
-class FtxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
+
+class FtxPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
+
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(
-        self,
-        auth: FtxPerpetualAuth,
-        api_factory: WebAssistantsFactory,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
-    ):
+            self,
+            auth: FtxPerpetualAuth,
+            connector: 'FtxPerpetualDerivative',
+            api_factory: WebAssistantsFactory):
         super().__init__()
-        self._domain = domain
+        self._auth: FtxPerpetualAuth = auth
+        self._connector = connector
         self._api_factory = api_factory
-        self._auth = auth
-        self._ws_assistants: List[WSAssistant] = []
+        self._last_ws_message_sent_timestamp = 0
 
-    @property
-    def last_recv_time(self) -> float:
+    async def _connected_websocket_assistant(self) -> WSAssistant:
         """
-        Returns the time of the last received message
-
-        :return: the timestamp of the last received message in seconds
+        Creates an instance of WSAssistant connected to the exchange
         """
-        t = 0.0
-        if len(self._ws_assistants) > 0:
-            t = min([wsa.last_recv_time for wsa in self._ws_assistants])
-        return t
 
-    async def listen_for_user_stream(self, output: asyncio.Queue):
-        """
-        Connects to the user private channel in the exchange using a websocket connection. With the established
-        connection listens to all balance events and order updates provided by the exchange, and stores them in the
-        output queue
+        ws: WSAssistant = await self._get_ws_assistant()
+        async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
+            await ws.connect(ws_url=CONSTANTS.FTX_WS_URL)
 
-        :param output: the queue to use to store the received messages
-        """
-        tasks_future = None
-        try:
-            tasks = []
-            tasks.append(
-                self._listen_for_user_stream_on_url(
-                    url=web_utils.wss_linear_private_url(self._domain), output=output
-                )
-            )
-            tasks.append(
-                self._listen_for_user_stream_on_url(
-                    url=web_utils.wss_non_linear_private_url(self._domain), output=output
-                )
-            )
+        payload = {
+            "op": "login",
+            "args": self._auth.websocket_login_parameters()
+        }
 
-            tasks_future = asyncio.gather(*tasks)
-            await tasks_future
+        login_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-        except asyncio.CancelledError:
-            tasks_future and tasks_future.cancel()
-            raise
+        async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_REQUEST_LIMIT_ID):
+            await ws.send(login_request)
 
-    async def _listen_for_user_stream_on_url(self, url: str, output: asyncio.Queue):
-        ws: Optional[WSAssistant] = None
-        while True:
-            try:
-                ws = await self._get_connected_websocket_assistant(url)
-                self._ws_assistants.append(ws)
-                await self._subscribe_to_channels(ws, url)
-                await ws.ping()  # to update last_recv_timestamp
-                await self._process_websocket_messages(websocket_assistant=ws, queue=output)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception(
-                    f"Unexpected error while listening to user stream {url}. Retrying after 5 seconds..."
-                )
-                await self._sleep(5.0)
-            finally:
-                await self._on_user_stream_interruption(ws)
-                ws and self._ws_assistants.remove(ws)
-
-    async def _get_connected_websocket_assistant(self, ws_url: str) -> WSAssistant:
-        ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=ws_url, message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)
-        await self._authenticate(ws)
         return ws
 
-    async def _authenticate(self, ws: WSAssistant):
-        """
-        Authenticates user to websocket
-        """
-        auth_payload: List[str] = self._auth.get_ws_auth_payload()
-        payload = {"op": "auth", "args": auth_payload}
-        login_request: WSJSONRequest = WSJSONRequest(payload=payload)
-        await ws.send(login_request)
-        response: WSResponse = await ws.receive()
-        message = response.data
-
-        if (
-            message["success"] is not True
-            or not message["request"]
-            or not message["request"]["op"]
-            or message["request"]["op"] != "auth"
-        ):
-            self.logger().error("Error authenticating the private websocket connection")
-            raise IOError("Private websocket connection authentication failed")
-
-    async def _subscribe_to_channels(self, ws: WSAssistant, url: str):
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         try:
             payload = {
                 "op": "subscribe",
-                "args": [f"{CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME}"],
+                "channel": CONSTANTS.WS_PRIVATE_FILLS_CHANNEL,
             }
-            subscribe_positions_request = WSJSONRequest(payload)
-            payload = {
-                "op": "subscribe",
-                "args": [f"{CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME}"],
-            }
-            subscribe_orders_request = WSJSONRequest(payload)
-            payload = {
-                "op": "subscribe",
-                "args": [f"{CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME}"],
-            }
-            subscribe_executions_request = WSJSONRequest(payload)
-            payload = {
-                "op": "subscribe",
-                "args": [f"{CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME}"],
-            }
-            subscribe_wallet_request = WSJSONRequest(payload)
+            subscribe_fills_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-            await ws.send(subscribe_positions_request)
-            await ws.send(subscribe_orders_request)
-            await ws.send(subscribe_executions_request)
-            await ws.send(subscribe_wallet_request)
+            payload = {
+                "op": "subscribe",
+                "channel": CONSTANTS.WS_PRIVATE_ORDERS_CHANNEL,
+            }
+            subscribe_orders_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-            self.logger().info(
-                f"Subscribed to private account and orders channels {url}..."
-            )
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_REQUEST_LIMIT_ID):
+                await websocket_assistant.send(subscribe_fills_request)
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_REQUEST_LIMIT_ID):
+                await websocket_assistant.send(subscribe_orders_request)
+
+            self._last_ws_message_sent_timestamp = self._time()
+            self.logger().info("Subscribed to private fills and orders channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().exception(
-                f"Unexpected error occurred subscribing to order book trading and delta streams {url}..."
-            )
+            self.logger().exception("Unexpected error occurred subscribing to order book trading and delta streams...")
             raise
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         while True:
             try:
-                await super()._process_websocket_messages(
+                seconds_until_next_ping = (CONSTANTS.WS_PING_INTERVAL
+                                           - (self._time() - self._last_ws_message_sent_timestamp))
+                await asyncio.wait_for(super()._process_websocket_messages(
                     websocket_assistant=websocket_assistant,
-                    queue=queue)
+                    queue=queue),
+                    timeout=seconds_until_next_ping)
             except asyncio.TimeoutError:
-                ping_request = WSJSONRequest(payload={"op": "ping"})
-                await websocket_assistant.send(ping_request)
+                payload = {"op": "ping"}
+                ping_request = WSJSONRequest(payload=payload)
+                self._last_ws_message_sent_timestamp = self._time()
+                await websocket_assistant.send(request=ping_request)
 
-    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
-        pass  # unused
+    async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
+        event_type = event_message.get("type")
+        error_code = event_message.get("code")
+        error_message = event_message.get("msg")
+        if (event_type == CONSTANTS.WS_EVENT_ERROR_TYPE
+                and error_code == CONSTANTS.WS_EVENT_ERROR_CODE
+                and error_message in [
+                    CONSTANTS.WS_EVENT_INVALID_LOGIN_MESSAGE,
+                    CONSTANTS.WS_EVENT_NOT_LOGGED_IN_MESSAGE]):
+            raise IOError(f"Error authenticating the user stream websocket connection "
+                          f"(code: {error_code}, message: {error_message})")
+        elif (event_type == CONSTANTS.WS_EVENT_UPDATE_TYPE
+              and event_message.get("channel") in [
+                  CONSTANTS.WS_PRIVATE_ORDERS_CHANNEL,
+                  CONSTANTS.WS_PRIVATE_FILLS_CHANNEL]):
+            queue.put_nowait(event_message)
 
-    async def _connected_websocket_assistant(self) -> WSAssistant:
-        pass  # unused
+    async def _get_ws_assistant(self) -> WSAssistant:
+        if self._ws_assistant is None:
+            self._ws_assistant = await self._api_factory.get_ws_assistant()
+        return self._ws_assistant
