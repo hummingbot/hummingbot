@@ -12,7 +12,7 @@ from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_api_order_book_
     FtxPerpetualAPIOrderBookDataSource,
 )
 from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_api_user_stream_data_source import (
-    FtxPerpetualUserStreamDataSource,
+    FtxPerpetualAPIUserStreamDataSource,
 )
 from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_auth import FtxPerpetualAuth
 from hummingbot.connector.derivative.position import Position
@@ -47,6 +47,7 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         client_config_map: "ClientConfigAdapter",
         ftx_perpetual_api_key: str = None,
         ftx_perpetual_secret_key: str = None,
+        ftx_subaccount_name: str = None,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -54,6 +55,7 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
 
         self.ftx_perpetual_api_key = ftx_perpetual_api_key
         self.ftx_perpetual_secret_key = ftx_perpetual_secret_key
+        self._subaccount_name = ftx_subaccount_name
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
@@ -278,10 +280,10 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        return FtxPerpetualUserStreamDataSource(
+        return FtxPerpetualAPIUserStreamDataSource(
             auth=self._auth,
+            connector=self,
             api_factory=self._web_assistants_factory,
-            domain=self._domain,
         )
 
     async def _status_polling_loop_fetch_updates(self):
