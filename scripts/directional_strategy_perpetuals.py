@@ -1,9 +1,12 @@
 from decimal import Decimal
-from typing import Union
+from enum import Enum
+from typing import List, Union
+
+from pydantic import BaseModel
 
 from hummingbot.connector.derivative.position import PositionSide
 from hummingbot.core.data_type.common import OrderType, PositionAction
-from hummingbot.core.data_type.in_flight_order import OrderState
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -13,8 +16,70 @@ from hummingbot.core.event.events import (
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
+class PositionConfig(BaseModel):
+    stop_loss: float
+    take_profit: float
+    time_limit: int
+    order_type: Union[OrderType.MARKET, OrderType.LIMIT]
+    price: float
+    amount: float
+    side: PositionSide
+
+
+class Signal(BaseModel):
+    id: int
+    timestamp: float
+    value: float
+    trading_pair: str
+    position_config: PositionConfig
+
+
+class BotProfile(BaseModel):
+    balance_limit: float
+    max_order_amount: float
+    take_profit_threshold: float
+    stop_loss_threshold: float
+    leverage: float
+
+
+class DirectionalPositionStatus(Enum):
+    NOT_STARTED = 1
+    ORDER_PLACED = 2
+    ACTIVE_POSITION = 3
+    CLOSE_PLACED = 4
+    CLOSED = 5
+
+
+class DirectionalPositionActions(Enum):
+    PLACE_OPEN_ORDER = 1
+    PLACE_TAKE_PROFIT = 2
+    PLACE_EXIT_ORDER = 3
+
+
 class DirectionalPosition:
-    def __init__(self, order_id: str, trading_pair: str, position_side: PositionSide, take_profit: float, stop_loss: float, time_in_position: float):
+    def __init__(self, signal: Signal, bot_profile: BotProfile):
+        self._signal = signal
+        self._bot_profile = bot_profile
+        self._valid = False
+        self._status: DirectionalPositionStatus = DirectionalPositionStatus.NOT_STARTED
+        self._open_order: Union[InFlightOrder, None] = None
+        self._exit_order: Union[InFlightOrder, None] = None
+        self._take_profit_order: Union[InFlightOrder, None] = None
+
+    def control_position(self) -> List[DirectionalPositionActions]:
+        actions = []
+        if self._valid:
+            if self._status == DirectionalPositionStatus.NOT_STARTED:
+                actions.append(DirectionalPositionActions.PLACE_OPEN_ORDER)
+            elif self._status == DirectionalPositionStatus.ACTIVE_POSITION:
+                pass
+        else:
+            return actions
+
+
+class DirectionalPositionold:
+    def __init__(self, order_id: str, trading_pair: str, position_side: PositionSide, take_profit: float,
+                 stop_loss: float, time_in_position: float):
         self._order_id = order_id
         self._position_side = position_side
         self._trading_pair = trading_pair
