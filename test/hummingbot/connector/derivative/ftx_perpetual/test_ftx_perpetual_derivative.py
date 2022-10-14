@@ -32,6 +32,9 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         cls.api_key = "someKey"
         cls.api_secret_key = "someSecretKey"
         cls.subaccount_name = "someSubaccountName"
+        cls.base_asset = "HBOT"
+        cls.quote_asset = "USD"
+        cls.trading_pair = f"{cls.base_asset}-PERP"
 
     @property
     def all_symbols_url(self):
@@ -69,16 +72,16 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "success": True,
             "result": [
                 {
-                    "name": self.exchange_symbol_for_tokens(base_token=self.base_asset, quote_token=self.quote_asset),
-                    "baseCurrency": self.base_asset,
-                    "quoteCurrency": self.quote_asset,
+                    "name": self.trading_pair,
+                    "baseCurrency": None,
+                    "quoteCurrency": None,
                     "quoteVolume24h": 28914.76,
                     "change1h": 0.012,
                     "change24h": 0.0299,
                     "changeBod": 0.0156,
                     "highLeverageFeeExempt": False,
                     "minProvideSize": 0.001,
-                    "type": "spot",
+                    "type": "future",
                     "underlying": None,
                     "enabled": True,
                     "ask": 3949.25,
@@ -102,21 +105,21 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "success": True,
             "result": [
                 {
-                    "name": self.exchange_symbol_for_tokens(base_token=self.base_asset, quote_token=self.quote_asset),
-                    "baseCurrency": self.base_asset,
-                    "quoteCurrency": self.quote_asset,
+                    "name": self.trading_pair,
+                    "baseCurrency": None,
+                    "quoteCurrency": None,
                     "quoteVolume24h": 28914.76,
                     "change1h": 0.012,
                     "change24h": 0.0299,
                     "changeBod": 0.0156,
                     "highLeverageFeeExempt": False,
                     "minProvideSize": 0.001,
-                    "type": "spot",
+                    "type": "future",
                     "underlying": None,
                     "enabled": True,
                     "ask": 3949.25,
                     "bid": 3949,
-                    "last": float(self.expected_latest_price),
+                    "last": 10579.52,
                     "postOnly": False,
                     "price": 10579.52,
                     "priceIncrement": 0.25,
@@ -144,7 +147,7 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "changeBod": 0.0156,
                     "highLeverageFeeExempt": False,
                     "minProvideSize": 0.001,
-                    "type": "spot",
+                    "type": "future",
                     "underlying": None,
                     "enabled": True,
                     "ask": 3949.25,
@@ -202,17 +205,17 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "success": True,
             "result": [
                 {
-                    "name": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "baseCurrency": self.base_asset,
-                    "quoteCurrency": self.quote_asset,
+                    "name": self.trading_pair,
+                    "baseCurrency": None,
+                    "quoteCurrency": None,
                     "quoteVolume24h": 28914.76,
                     "change1h": 0.012,
                     "change24h": 0.0299,
                     "changeBod": 0.0156,
                     "highLeverageFeeExempt": False,
                     "minProvideSize": 0.001,
-                    "type": "spot",
-                    "underlying": "BTC",
+                    "type": "future",
+                    "underlying": None,
                     "enabled": True,
                     "ask": 3949.25,
                     "bid": 3949,
@@ -242,7 +245,7 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "change1h": 0.012,
                     "change24h": 0.0299,
                     "changeBod": 0.0156,
-                    "type": "spot",
+                    "type": "future",
                     "enabled": True,
                 }
             ]
@@ -317,11 +320,11 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def expected_latest_price(self):
-        return 9999.9
+        return 10579.52
 
     @property
     def expected_supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.MARKET]
 
     @property
     def expected_trading_rule(self):
@@ -394,7 +397,7 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def expected_supported_position_modes(self) -> List[PositionMode]:
-        raise NotImplementedError  # test is overwritten
+        return [PositionMode.ONEWAY]
 
     @property
     def funding_info_mock_response(self):
@@ -408,17 +411,13 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def funding_info_url(self):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT, trading_pair=self.trading_pair
-        )
+        url = web_utils.public_rest_url(CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
     @property
     def funding_payment_url(self):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL, trading_pair=self.trading_pair
-        )
+        url = web_utils.private_rest_url(CONSTANTS.FTX_FUNDING_PAYMENTS)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -444,7 +443,7 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         }
 
     def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
-        return f"{base_token}/{quote_token}"
+        return f"{base_token}-PERP"
 
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
@@ -981,54 +980,34 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         }
 
     def configure_failed_set_leverage(
-        self,
-        leverage: PositionMode,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            leverage: PositionMode,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> Tuple[str, str]:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL, trading_pair=self.trading_pair
-        )
+        url = web_utils.private_rest_url(CONSTANTS.SET_LEVERAGE_PATH_URL)
         regex_url = re.compile(f"^{url}")
 
-        err_code = 1
-        err_msg = "Some problem"
         mock_response = {
-            "ret_code": err_code,
-            "ret_msg": err_msg,
-            "ext_code": "",
-            "result": leverage,
-            "ext_info": None,
-            "time_now": "1577477968.175013",
-            "rate_limit_status": 74,
-            "rate_limit_reset_ms": 1577477968183,
-            "rate_limit": 75
+            "success": False,
+            "result": []
         }
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
 
-        return url, f"ret_code <{err_code}> - {err_msg}"
+        return url, []
 
     def configure_successful_set_leverage(
-        self,
-        leverage: int,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            leverage: int,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL, trading_pair=self.trading_pair
-        )
+        url = web_utils.private_rest_url(CONSTANTS.SET_LEVERAGE_PATH_URL)
         regex_url = re.compile(f"^{url}")
 
         mock_response = {
-            "ret_code": 0,
-            "ret_msg": "ok",
-            "ext_code": "",
-            "result": leverage,
-            "ext_info": None,
-            "time_now": "1577477968.175013",
-            "rate_limit_status": 74,
-            "rate_limit_reset_ms": 1577477968183,
-            "rate_limit": 75
+            "success": True,
+            "result": []
         }
 
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
@@ -1131,57 +1110,31 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             str(exception_context.exception)
         )
 
-    def configure_successful_set_position_mode(
-            self,
-            position_mode: PositionMode,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
-    ):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.SET_POSITION_MODE_URL, trading_pair=self.trading_pair
+    def configure_successful_set_position_mode(self):
+        pass
+
+    def test_set_position_mode_success(self):
+        self.exchange.set_position_mode(PositionMode.ONEWAY)
+
+        self.assertTrue(
+            self.is_logged(
+                log_level="DEBUG",
+                message=f"Only {PositionMode.ONEWAY} is supported",
+            )
         )
-        response = {
-            "ret_code": 0,
-            "ret_msg": "ok",
-            "ext_code": "",
-            "result": None,
-            "ext_info": None,
-            "time_now": "1577477968.175013",
-            "rate_limit_status": 74,
-            "rate_limit_reset_ms": 1577477968183,
-            "rate_limit": 75
-        }
-        mock_api.post(url, body=json.dumps(response), callback=callback)
 
-        return url
+    def configure_failed_set_position_mode(self):
+        pass
 
-    def configure_failed_set_position_mode(
-            self,
-            position_mode: PositionMode,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
-    ):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.SET_POSITION_MODE_URL, trading_pair=self.trading_pair
+    def test_set_position_mode_failure(self):
+        self.exchange.set_position_mode(PositionMode.HEDGE)
+
+        self.assertTrue(
+            self.is_logged(
+                log_level="DEBUG",
+                message="FTX Perpetual don't allow position mode change",
+            )
         )
-        regex_url = re.compile(f"^{url}")
-
-        error_code = 1_000
-        error_msg = "Some problem"
-        mock_response = {
-            "ret_code": error_code,
-            "ret_msg": error_msg,
-            "ext_code": "",
-            "result": None,
-            "ext_info": None,
-            "time_now": "1577477968.175013",
-            "rate_limit_status": 74,
-            "rate_limit_reset_ms": 1577477968183,
-            "rate_limit": 75
-        }
-        mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
-
-        return url, f"ret_code <{error_code}> - {error_msg}"
 
     def test_get_buy_and_sell_collateral_tokens(self):
         self._simulate_trading_rules_initialized()

@@ -6,7 +6,7 @@ import pandas as pd
 from bidict import bidict
 
 import hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_constants as CONSTANTS
-import hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_utils as ftx_utils
+import hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_utils as ftx_perpetual_utils
 from hummingbot.connector.derivative.ftx_perpetual import ftx_perpetual_web_utils as web_utils
 from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_api_order_book_data_source import (
     FtxPerpetualAPIOrderBookDataSource,
@@ -26,9 +26,9 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.event.events import AccountEvent, PositionModeChangeEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -39,18 +39,17 @@ s_decimal_0 = Decimal(0)
 
 
 class FtxPerpetualDerivative(PerpetualDerivativePyBase):
-
     web_utils = web_utils
 
     def __init__(
-        self,
-        client_config_map: "ClientConfigAdapter",
-        ftx_perpetual_api_key: str = None,
-        ftx_perpetual_secret_key: str = None,
-        ftx_subaccount_name: str = None,
-        trading_pairs: Optional[List[str]] = None,
-        trading_required: bool = True,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+            self,
+            client_config_map: "ClientConfigAdapter",
+            ftx_perpetual_api_key: str = None,
+            ftx_perpetual_secret_key: str = None,
+            ftx_subaccount_name: str = None,
+            trading_pairs: Optional[List[str]] = None,
+            trading_required: bool = True,
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
 
         self.ftx_perpetual_api_key = ftx_perpetual_api_key
@@ -77,11 +76,11 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def domain(self) -> str:
-        return self._domain
+        return CONSTANTS.DEFAULT_DOMAIN
 
     @property
     def client_order_id_max_length(self) -> int:
-        return CONSTANTS.MAX_ID_LEN
+        return CONSTANTS.MAX_ORDER_ID_LEN
 
     @property
     def client_order_id_prefix(self) -> str:
@@ -89,15 +88,15 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def trading_rules_request_path(self) -> str:
-        return CONSTANTS.QUERY_SYMBOL_ENDPOINT
+        return CONSTANTS.FTX_MARKETS_PATH
 
     @property
     def trading_pairs_request_path(self) -> str:
-        return CONSTANTS.QUERY_SYMBOL_ENDPOINT
+        return CONSTANTS.FTX_MARKETS_PATH
 
     @property
     def check_network_request_path(self) -> str:
-        return CONSTANTS.SERVER_TIME_PATH_URL
+        return CONSTANTS.FTX_NETWORK_STATUS_PATH
 
     @property
     def trading_pairs(self):
@@ -122,17 +121,7 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         return [OrderType.LIMIT, OrderType.MARKET]
 
     def supported_position_modes(self) -> List[PositionMode]:
-        if all(ftx_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
-            return [PositionMode.ONEWAY, PositionMode.HEDGE]
-        elif all(not ftx_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
-            # As of ByBit API v2, we only support ONEWAY mode for non-linear perpetuals
-            return [PositionMode.ONEWAY]
-        else:
-            self.logger().warning(
-                "Currently there is no support for both linear and non-linear markets concurrently."
-                " Please start another hummingbot instance."
-            )
-            return []
+        return [PositionMode.ONEWAY]
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
@@ -144,20 +133,31 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
 
     def start(self, clock: Clock, timestamp: float):
         super().start(clock, timestamp)
-        if self._domain == CONSTANTS.DEFAULT_DOMAIN and self.is_trading_required:
-            self.set_position_mode(PositionMode.HEDGE)
+        self.set_position_mode(PositionMode.ONEWAY)
 
-    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        error_description = str(request_exception)
-        ts_error_target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_AUTH_TIMESTAMP_ERROR)
-        param_error_target_str = (
-            f"{self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_PARAMS_ERROR)} - invalid timestamp"
-        )
-        is_time_synchronizer_related = (
-            ts_error_target_str in error_description
-            or param_error_target_str in error_description
-        )
-        return is_time_synchronizer_related
+    def set_position_mode(self, mode: PositionMode):
+        if mode in self.supported_position_modes():
+            self._perpetual_trading.set_position_mode(PositionMode.ONEWAY)
+            self.logger().debug(f"Only {PositionMode.ONEWAY} is supported")
+        else:
+            msg = "FTX Perpetual don't allow position mode change"
+            self.logger().debug(msg)
+            self.trigger_event(
+                AccountEvent.PositionModeChangeFailed,
+                PositionModeChangeEvent(
+                    self.current_timestamp,
+                    "ALL",
+                    mode,
+                    msg,
+                ),
+            )
+
+    async def _trading_pair_position_mode_set(self, mode, trading_pair):
+        pass
+
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
+        # FTX API does not include an endpoint to get the server time, thus the TimeSynchronizer is not used
+        return False
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         data = {"symbol": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)}
@@ -182,15 +182,15 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         return True
 
     async def _place_order(
-        self,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        trade_type: TradeType,
-        order_type: OrderType,
-        price: Decimal,
-        position_action: PositionAction = PositionAction.NIL,
-        **kwargs,
+            self,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            trade_type: TradeType,
+            order_type: OrderType,
+            price: Decimal,
+            position_action: PositionAction = PositionAction.NIL,
+            **kwargs,
     ) -> Tuple[str, float]:
         position_idx = self._get_position_idx(trade_type, position_action)
         data = {
@@ -429,7 +429,7 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
             unrealized_pnl = Decimal(str(data["unrealised_pnl"]))
             entry_price = Decimal(str(data["entry_price"]))
             amount = Decimal(str(data["size"]))
-            leverage = Decimal(str(data["leverage"])) if ftx_utils.is_linear_perpetual(hb_trading_pair) \
+            leverage = Decimal(str(data["leverage"])) if ftx_perpetual_utils.is_linear_perpetual(hb_trading_pair) \
                 else Decimal(str(data["effective_leverage"]))
             pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             if amount != s_decimal_0:
@@ -451,7 +451,8 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         if order.exchange_order_id is not None:
             try:
                 all_fills_response = await self._request_order_fills(order=order)
-                trades_list_key = "data" if ftx_utils.is_linear_perpetual(order.trading_pair) else "trade_list"
+                trades_list_key = "data" if ftx_perpetual_utils.is_linear_perpetual(
+                    order.trading_pair) else "trade_list"
                 fills_data = all_fills_response["result"].get(trades_list_key, [])
 
                 if fills_data is not None:
@@ -671,45 +672,67 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         self._account_balances[symbol] = Decimal(str(wallet_msg["wallet_balance"]))
         self._account_available_balances[symbol] = Decimal(str(wallet_msg["available_balance"]))
 
-    async def _format_trading_rules(self, instrument_info_dict: Dict[str, Any]) -> List[TradingRule]:
+    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
-        Converts JSON API response into a local dictionary of trading rules.
-        :param instrument_info_dict: The JSON API response.
-        :returns: A dictionary of trading pair to its respective TradingRule.
-        """
-        trading_rules = {}
-        symbol_map = await self.trading_pair_symbol_map()
-        for instrument in instrument_info_dict["result"]:
+            Example:
+            {{
+              "success": true,
+              "result": [
+                {
+                  "name": "BTC-PERP",
+                  "baseCurrency": null,
+                  "quoteCurrency": null,
+                  "quoteVolume24h": 28914.76,
+                  "change1h": 0.012,
+                  "change24h": 0.0299,
+                  "changeBod": 0.0156,
+                  "highLeverageFeeExempt": false,
+                  "minProvideSize": 0.001,
+                  "type": "future",
+                  "underlying": "BTC",
+                  "enabled": true,
+                  "ask": 3949.25,
+                  "bid": 3949,
+                  "last": 10579.52,
+                  "postOnly": false,
+                  "price": 10579.52,
+                  "priceIncrement": 0.25,
+                  "sizeIncrement": 0.0001,
+                  "restricted": false,
+                  "volumeUsd24h": 28914.76,
+                  "largeOrderThreshold": 5000.0,
+                  "isEtfMarket": false,
+                }
+              ]
+            }
+            """
+        trading_pair_rules = exchange_info_dict.get("result", [])
+        retval = []
+        for rule in filter(ftx_perpetual_utils.is_exchange_information_valid, trading_pair_rules):
             try:
-                exchange_symbol = instrument["name"]
-                if exchange_symbol in symbol_map:
-                    trading_pair = combine_to_hb_trading_pair(instrument['base_currency'], instrument['quote_currency'])
-                    is_linear = ftx_utils.is_linear_perpetual(trading_pair)
-                    collateral_token = instrument["quote_currency"] if is_linear else instrument["base_currency"]
-                    trading_rules[trading_pair] = TradingRule(
-                        trading_pair=trading_pair,
-                        min_order_size=Decimal(str(instrument["lot_size_filter"]["min_trading_qty"])),
-                        max_order_size=Decimal(str(instrument["lot_size_filter"]["max_trading_qty"])),
-                        min_price_increment=Decimal(str(instrument["price_filter"]["tick_size"])),
-                        min_base_amount_increment=Decimal(str(instrument["lot_size_filter"]["qty_step"])),
-                        buy_order_collateral_token=collateral_token,
-                        sell_order_collateral_token=collateral_token,
-                    )
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("name"))
+                min_trade_size = Decimal(str(rule.get("minProvideSize")))
+                price_increment = Decimal(str(rule.get("priceIncrement")))
+                size_increment = Decimal(str(rule.get("sizeIncrement")))
+                min_quote_amount_increment = price_increment * size_increment
+                min_order_value = min_trade_size * price_increment
+
+                retval.append(TradingRule(trading_pair,
+                                          min_order_size=min_trade_size,
+                                          min_price_increment=price_increment,
+                                          min_base_amount_increment=size_increment,
+                                          min_quote_amount_increment=min_quote_amount_increment,
+                                          min_order_value=min_order_value,
+                                          min_notional_size=min_order_value
+                                          ))
             except Exception:
-                self.logger().exception(f"Error parsing the trading pair rule: {instrument}. Skipping...")
-        return list(trading_rules.values())
+                self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
+        return retval
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
-        for symbol_data in filter(ftx_utils.is_exchange_information_valid, exchange_info["result"]):
-            exchange_symbol = symbol_data["name"]
-            base = symbol_data["base_currency"]
-            quote = symbol_data["quote_currency"]
-            trading_pair = combine_to_hb_trading_pair(base, quote)
-            if trading_pair in mapping.inverse:
-                self._resolve_trading_pair_symbols_duplicate(mapping, exchange_symbol, base, quote)
-            else:
-                mapping[exchange_symbol] = trading_pair
+        for symbol_data in filter(ftx_perpetual_utils.is_exchange_information_valid, exchange_info["result"]):
+            mapping[symbol_data["name"]] = symbol_data["name"]
         self._set_trading_pair_symbol_map(mapping)
 
     def _resolve_trading_pair_symbols_duplicate(self, mapping: bidict, new_exchange_symbol: str, base: str, quote: str):
@@ -727,91 +750,41 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
             mapping.pop(current_exchange_symbol)
             mapping[new_exchange_symbol] = trading_pair
         else:
-            self.logger().error(f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}")
+            self.logger().error(
+                f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}")
             mapping.pop(current_exchange_symbol)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-        params = {"symbol": exchange_symbol}
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
         resp_json = await self._api_get(
-            path_url=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
-            params=params,
+            path_url=CONSTANTS.FTX_SINGLE_MARKET_PATH.format(symbol),
+            limit_id=CONSTANTS.FTX_MARKETS_PATH
         )
 
-        price = float(resp_json["result"][0]["last_price"])
-        return price
-
-    async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
-        msg = ""
-        success = True
-
-        api_mode = CONSTANTS.POSITION_MODE_MAP[mode]
-        is_linear = ftx_utils.is_linear_perpetual(trading_pair)
-
-        if is_linear:
-            exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-            data = {"symbol": exchange_symbol, "mode": api_mode}
-
-            response = await self._api_post(
-                path_url=CONSTANTS.SET_POSITION_MODE_URL,
-                data=data,
-                is_auth_required=True,
-            )
-
-            response_code = response["ret_code"]
-
-            if response_code not in [CONSTANTS.RET_CODE_OK, CONSTANTS.RET_CODE_MODE_NOT_MODIFIED]:
-                formatted_ret_code = self._format_ret_code_for_print(response_code)
-                msg = f"{formatted_ret_code} - {response['ret_msg']}"
-                success = False
-        else:
-            #  Inverse Perpetuals don't have set_position_mode()
-            msg = "Inverse Perpetuals don't allow for a position mode change."
-            success = False
-
-        return success, msg
+        return float(resp_json["result"][0]["last"])
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
-        exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-
-        if ftx_utils.is_linear_perpetual(trading_pair):
-            data = {
-                "symbol": exchange_symbol,
-                "buy_leverage": leverage,
-                "sell_leverage": leverage
-            }
-        else:
-            data = {
-                "symbol": exchange_symbol,
-                "leverage": leverage
-            }
-
+        data = {
+            "leverage": leverage
+        }
         resp: Dict[str, Any] = await self._api_post(
             path_url=CONSTANTS.SET_LEVERAGE_PATH_URL,
             data=data,
             is_auth_required=True,
-            trading_pair=trading_pair,
         )
-
-        success = False
-        msg = ""
-        if resp["ret_code"] == CONSTANTS.RET_CODE_OK or (resp["ret_code"] == CONSTANTS.RET_CODE_LEVERAGE_NOT_MODIFIED and resp["ret_msg"] == "leverage not modified"):
-            success = True
-        else:
-            formatted_ret_code = self._format_ret_code_for_print(resp['ret_code'])
-            msg = f"{formatted_ret_code} - {resp['ret_msg']}"
-
+        success = resp.get("success", False)
+        msg = resp.get("result")
         return success, msg
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
 
         params = {
-            "symbol": exchange_symbol
+            "future": exchange_symbol
         }
         raw_response: Dict[str, Any] = await self._api_get(
-            path_url=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
+            path_url=CONSTANTS.FTX_FUNDING_PAYMENTS,
             params=params,
             is_auth_required=True,
             trading_pair=trading_pair,
@@ -822,45 +795,11 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
             # An empty funding fee/payment is retrieved.
             timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
         else:
-            funding_rate: Decimal = Decimal(str(data["funding_rate"]))
-            position_size: Decimal = Decimal(str(data["size"]))
-            payment: Decimal = funding_rate * position_size
-            if ftx_utils.is_linear_perpetual(trading_pair):
-                timestamp: int = int(pd.Timestamp(data["exec_time"], tz="UTC").timestamp())
-            else:
-                timestamp: int = int(data["exec_timestamp"])
+            funding_rate: Decimal = Decimal(str(data["rate"]))
+            payment: Decimal = Decimal(str(data["payment"]))
+            timestamp: int = int(pd.Timestamp(data["time"], tz="UTC").timestamp())
 
         return timestamp, funding_rate, payment
-
-    async def _api_request(self,
-                           path_url,
-                           method: RESTMethod = RESTMethod.GET,
-                           params: Optional[Dict[str, Any]] = None,
-                           data: Optional[Dict[str, Any]] = None,
-                           is_auth_required: bool = False,
-                           return_err: bool = False,
-                           limit_id: Optional[str] = None,
-                           trading_pair: Optional[str] = None,
-                           **kwargs) -> Dict[str, Any]:
-
-        rest_assistant = await self._web_assistants_factory.get_rest_assistant()
-        if limit_id is None:
-            limit_id = web_utils.get_rest_api_limit_id_for_endpoint(
-                endpoint=path_url,
-                trading_pair=trading_pair,
-            )
-        url = web_utils.get_rest_url_for_endpoint(endpoint=path_url, trading_pair=trading_pair, domain=self._domain)
-
-        resp = await rest_assistant.execute_request(
-            url=url,
-            params=params,
-            data=data,
-            method=method,
-            is_auth_required=is_auth_required,
-            return_err=return_err,
-            throttler_limit_id=limit_id if limit_id else path_url,
-        )
-        return resp
 
     @staticmethod
     def _format_ret_code_for_print(ret_code: Union[str, int]) -> str:
