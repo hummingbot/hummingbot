@@ -1,9 +1,10 @@
+import logging
 from decimal import Decimal
 from typing import List
 
 from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -58,5 +59,10 @@ class SimplePMM(ScriptStrategyBase):
                      order_type=order.order_type, price=order.price)
 
     def cancel_all_orders(self):
-        for exchange in self.connectors.values():
-            safe_ensure_future(exchange.cancel_all(timeout_seconds=5))
+        for order in self.get_active_orders(connector_name=self.exchange):
+            self.cancel(self.exchange, order.trading_pair, order.client_order_id)
+
+    def did_fill_order(self, event: OrderFilledEvent):
+        msg = (f"{event.trade_type.name} {round(event.amount, 2)} {event.trading_pair} {self.exchange} at {round(event.price, 2)}")
+        self.log_with_clock(logging.INFO, msg)
+        self.notify_hb_app_with_timestamp(msg)
