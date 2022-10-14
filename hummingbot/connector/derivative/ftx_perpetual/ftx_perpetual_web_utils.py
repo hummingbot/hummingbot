@@ -37,7 +37,7 @@ def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncTh
     return api_factory
 
 
-def public_rest_url(path_url: str) -> str:
+def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Creates a full URL for provided REST endpoint
 
@@ -49,8 +49,8 @@ def public_rest_url(path_url: str) -> str:
     return CONSTANTS.FTX_BASE_URL + path_url
 
 
-def private_rest_url(path_url: str) -> str:
-    return public_rest_url(path_url)
+def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+    return public_rest_url(path_url, domain)
 
 
 async def get_current_server_time(
