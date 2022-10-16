@@ -896,7 +896,11 @@ class ExchangePyBase(ExchangeBase, ABC):
                     self.logger().error(last_exception)
                     raise
 
-        self.logger().error(f"API request failed after 2 attempts - exception: {last_exception}")
+        # Failed even after the last retry
+        self.logger().network(
+            f"Failed api request {last_exception}",
+            app_warning_msg=f"Failed API request {method} {path_url}"
+        )
         raise last_exception
 
     async def _status_polling_loop_fetch_updates(self):
@@ -924,8 +928,10 @@ class ExchangePyBase(ExchangeBase, ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as request_error:
-                self.logger().warning(
-                    f"Failed to fetch trade updates for order {order.client_order_id}. Error: {request_error}")
+                self.logger().network(
+                    f"Failed to fetch trade updates for order {order.client_order_id}. Error: {request_error}",
+                    app_warning_msg=f"Failed to fetch trade updates for the order {order.client_order_id}"
+                )
 
     async def _update_orders(self):
         orders_to_update = self.in_flight_orders.copy()
