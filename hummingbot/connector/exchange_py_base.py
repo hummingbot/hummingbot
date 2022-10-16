@@ -884,10 +884,9 @@ class ExchangePyBase(ExchangeBase, ABC):
                     return_err=return_err,
                     throttler_limit_id=limit_id if limit_id else path_url,
                 )
-                self.logger().info(f"[bp] API request success - {url}")
                 return request_result
             except IOError as request_exception:
-                self.logger().error(f"API request failed - exception: {request_exception}, Retrying...")
+                self.logger().network(f"API request failed - exception: {request_exception}, Retrying...")
                 last_exception = request_exception
                 if self._is_request_exception_related_to_time_synchronizer(request_exception=request_exception):
                     self._time_synchronizer.clear_time_offset_ms_samples()
