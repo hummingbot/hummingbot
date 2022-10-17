@@ -2,14 +2,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { Nearish } from '../../services/common-interfaces';
 import { asyncHandler } from '../../services/error-handler';
-import { cancel } from './near.controllers';
 
-import { validateCancelRequest } from './near.validators';
 import { getChain } from '../../services/connection-manager';
 import {
   BalanceResponse,
-  CancelRequest,
-  CancelResponse,
   PollRequest,
   PollResponse,
 } from './near.requests';
@@ -62,7 +58,7 @@ export namespace NearRoutes {
         res.status(200).json(await approve(chain, req.body));
       }
     )
-  );*/
+  );
 
   router.post(
     '/cancel',
@@ -76,7 +72,7 @@ export namespace NearRoutes {
         res.status(200).json(await cancel(chain, req.body));
       }
     )
-  );
+  );*/
 
   router.get(
     '/balances',
