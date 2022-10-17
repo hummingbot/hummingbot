@@ -1,4 +1,3 @@
-from email.mime import base
 import logging
 from collections import defaultdict, deque
 from decimal import Decimal
