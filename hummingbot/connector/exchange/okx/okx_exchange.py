@@ -320,25 +320,26 @@ class OkxExchange(ExchangePyBase):
             all_fills_response = await self._request_order_fills(order=order)
             fills_data = all_fills_response["data"]
 
-        for fill_data in fills_data:
-            fee = TradeFeeBase.new_spot_fee(
-                fee_schema=self.trade_fee_schema(),
-                trade_type=order.trade_type,
-                percent_token=fill_data["feeCcy"],
-                flat_fees=[TokenAmount(amount=Decimal(fill_data["fee"]), token=fill_data["feeCcy"])]
-            )
-            trade_update = TradeUpdate(
-                trade_id=str(fill_data["tradeId"]),
-                client_order_id=order.client_order_id,
-                exchange_order_id=str(fill_data["ordId"]),
-                trading_pair=order.trading_pair,
-                fee=fee,
-                fill_base_amount=Decimal(fill_data["fillSz"]),
-                fill_quote_amount=Decimal(fill_data["fillSz"]) * Decimal(fill_data["fillPx"]),
-                fill_price=Decimal(fill_data["fillPx"]),
-                fill_timestamp=int(fill_data["ts"]) * 1e-3,
-            )
-            trade_updates.append(trade_update)
+            for fill_data in fills_data:
+                fee = TradeFeeBase.new_spot_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    trade_type=order.trade_type,
+                    percent_token=fill_data["feeCcy"],
+                    flat_fees=[TokenAmount(amount=Decimal(fill_data["fee"]), token=fill_data["feeCcy"])]
+                )
+                trade_update = TradeUpdate(
+                    trade_id=str(fill_data["tradeId"]),
+                    client_order_id=order.client_order_id,
+                    exchange_order_id=str(fill_data["ordId"]),
+                    trading_pair=order.trading_pair,
+                    fee=fee,
+                    fill_base_amount=Decimal(fill_data["fillSz"]),
+                    fill_quote_amount=Decimal(fill_data["fillSz"]) * Decimal(fill_data["fillPx"]),
+                    fill_price=Decimal(fill_data["fillPx"]),
+                    fill_timestamp=int(fill_data["ts"]) * 1e-3,
+                )
+                trade_updates.append(trade_update)
+
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
