@@ -41,6 +41,8 @@ SCRIPT_STRATEGIES_MODULE = "scripts"
 SCRIPT_STRATEGIES_PATH = root_path() / SCRIPT_STRATEGIES_MODULE
 CERTS_PATH = root_path() / "certs"
 
+GATEWAY_SSL_CONF_FILE = root_path() / "gateway" / "conf" / "ssl.yml"
+
 # Certificates for securely communicating with the gateway api
 GATEAWAY_CA_CERT_PATH = CERTS_PATH / "ca_cert.pem"
 GATEAWAY_CLIENT_CERT_PATH = CERTS_PATH / "client_cert.pem"

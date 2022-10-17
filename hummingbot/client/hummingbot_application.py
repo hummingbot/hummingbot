@@ -14,8 +14,10 @@ from hummingbot.client.config.config_helpers import (
     get_connector_class,
     get_strategy_config_map,
     load_client_config_map_from_file,
+    load_ssl_config_map_from_file,
     save_to_yml,
 )
+from hummingbot.client.config.gateway_ssl_config_map import SSLConfigMap
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
 from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, ConnectorType
@@ -68,6 +70,9 @@ class HummingbotApplication(*commands):
     def __init__(self, client_config_map: Optional[ClientConfigAdapter] = None):
         self.client_config_map: Union[ClientConfigMap, ClientConfigAdapter] = (  # type-hint enables IDE auto-complete
             client_config_map or load_client_config_map_from_file()
+        )
+        self.ssl_config_map: SSLConfigMap = (  # type-hint enables IDE auto-complete
+            load_ssl_config_map_from_file()
         )
         # This is to start fetching trading pairs for auto-complete
         TradingPairFetcher.get_instance(self.client_config_map)
