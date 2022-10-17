@@ -103,7 +103,7 @@ describe('validatePrivateKey', () => {
       validatePrivateKey({
         chain: 'harmony',
         privateKey:
-          '5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4uppgaLegmuPpq4ftBpcMw7NNoJHJefiTt',
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
       })
     ).toEqual([]);
   });
@@ -113,7 +113,7 @@ describe('validatePrivateKey', () => {
       validatePrivateKey({
         chain: 'avalanche',
         privateKey:
-          '5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4uppgaLegmuPpq4ftBpcMw7NNoJHJefiTt',
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
       })
     ).toEqual([]);
   });
