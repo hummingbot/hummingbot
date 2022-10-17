@@ -38,21 +38,32 @@ export const isNearPrivateKey = (str: string): boolean => {
 export const validatePrivateKey: Validator = mkSelectingValidator(
   'chain',
   (req, key) => req[key],
-  {'solana': mkValidator(
+  {
+    solana: mkValidator(
       'privateKey',
       invalidSolPrivateKeyError,
       (val) => typeof val === 'string' && isSolPrivateKey(val)
     ),
-   'ethereum': mkValidator(
+    ethereum: mkValidator(
       'privateKey',
       invalidEthPrivateKeyError,
       (val) => typeof val === 'string' && isEthPrivateKey(val)
     ),
-   'near': mkValidator(
+    avalanche: mkValidator(
+      'privateKey',
+      invalidEthPrivateKeyError,
+      (val) => typeof val === 'string' && isEthPrivateKey(val)
+    ),
+    harmony: mkValidator(
+      'privateKey',
+      invalidEthPrivateKeyError,
+      (val) => typeof val === 'string' && isEthPrivateKey(val)
+    ),
+    near: mkValidator(
       'privateKey',
       invalidNearPrivateKeyError,
       (val) => typeof val === 'string' && isNearPrivateKey(val)
-    )
+    ),
   }
 );
 

@@ -81,15 +81,21 @@ export const mkBranchingValidator = (
 export const mkSelectingValidator = (
   branchingKey: string,
   branchingCondition: (req: any, key: string) => string,
-  validators: { [id: string] : Validator; }
+  validators: { [id: string]: Validator }
 ): Validator => {
   return (req: any) => {
     let errors: Array<string> = [];
     if (req[branchingKey]) {
-      if (Object.keys(validators).includes(branchingCondition(req, branchingKey))) {
-        errors = errors.concat(validators[branchingCondition(req, branchingKey)](req));
+      if (
+        Object.keys(validators).includes(branchingCondition(req, branchingKey))
+      ) {
+        errors = errors.concat(
+          validators[branchingCondition(req, branchingKey)](req)
+        );
       } else {
-        errors.push(`No validator exists for ${branchingCondition(req, branchingKey)}.`);
+        errors.push(
+          `No validator exists for ${branchingCondition(req, branchingKey)}.`
+        );
       }
     } else {
       errors.push(missingParameter(branchingKey));
@@ -97,7 +103,6 @@ export const mkSelectingValidator = (
     return errors;
   };
 };
-
 
 export const mkValidator = (
   key: string,

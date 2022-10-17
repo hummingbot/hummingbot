@@ -71,7 +71,9 @@ export async function addWallet(
         ACCOUNT_NOT_SPECIFIED_ERROR_MESSAGE(),
         ACCOUNT_NOT_SPECIFIED_CODE
       );
-    address = (await near.getWalletFromPrivateKey(req.privateKey, <string>req.address)).accountId;
+    address = (
+      await near.getWalletFromPrivateKey(req.privateKey, <string>req.address)
+    ).accountId;
     encryptedPrivateKey = near.encrypt(req.privateKey, passphrase);
   } else {
     throw new HttpException(
