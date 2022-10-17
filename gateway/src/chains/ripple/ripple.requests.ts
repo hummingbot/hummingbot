@@ -1,30 +1,38 @@
-import { TransactionResponse } from '@solana/web3.js';
+import {
+  TransactionEntryResponse,
+  AccountLinesResponse,
+} from 'xrpl';
 import {
   CustomTransactionReceipt,
   CustomTransactionResponse,
   NetworkSelectionRequest,
 } from '../../services/common-interfaces';
 
-export type SolanaTransactionResponse = TransactionResponse;
+export type RippleTransactionResponse = TransactionEntryResponse;
 
-export interface SolanaBalanceRequest extends NetworkSelectionRequest {
-  address: string; // the user's Solana address as Base58
-  tokenSymbols: string[]; // a list of token symbol
+export interface RippleBalanceRequest extends NetworkSelectionRequest {
+  // the user's Ripple address as Base58
+  address: string;
+  // a list of trustlines to query
+  linesSymbols: string[];
 }
 
-export interface SolanaBalanceResponse {
+export interface RippleBalanceResponse {
   network: string;
   timestamp: number;
   latency: number;
-  balances: Record<string, string>; // the balance should be a string encoded number
+  // should be a string encoded number
+  balances: Record<string, string>;
 }
 
-export interface SolanaTokenRequest extends NetworkSelectionRequest {
-  address: string; // the user's Solana address as Base58
-  token: string; // the token symbol the spender will be approved for
+export interface RippleTokenRequest extends NetworkSelectionRequest {
+  // the user's Ripple address as Base58
+  address: string;
+  // the trustlines the spender will be approved for
+  line: string;
 }
 
-export interface SolanaTokenResponse {
+export interface RippleTokenResponse {
   network: string;
   timestamp: number;
   token: string; // the token symbol the spender will be approved for

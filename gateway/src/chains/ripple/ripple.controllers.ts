@@ -9,21 +9,21 @@ import {
   TOKEN_NOT_SUPPORTED_ERROR_CODE,
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
 } from '../../services/error-handler';
-import { Solanaish } from './solana';
+import { Ripplish } from './ripple';
 
 import {
-  SolanaBalanceRequest,
-  SolanaBalanceResponse,
+  RippleBalanceRequest,
+  RippleBalanceResponse,
   SolanaPollRequest,
   SolanaPollResponse,
-  SolanaTokenRequest,
-  SolanaTokenResponse,
-} from './solana.requests';
+  RippleTokenRequest,
+  RippleTokenResponse,
+} from './ripple.requests';
 
 export async function balances(
-  solanaish: Solanaish,
-  req: SolanaBalanceRequest
-): Promise<SolanaBalanceResponse | string> {
+  solanaish: Ripplish,
+  req: RippleBalanceRequest
+): Promise<RippleBalanceResponse | string> {
   const initTime = Date.now();
   let wallet: Keypair;
   try {
@@ -36,7 +36,7 @@ export async function balances(
     );
   }
   const balances = await solanaish.getBalances(wallet);
-  const filteredBalances = toSolanaBalances(balances, req.tokenSymbols);
+  const filteredBalances = toSolanaBalances(balances, req.linesSymbols);
 
   return {
     network: solanaish.network,
@@ -69,7 +69,7 @@ const toSolanaBalances = (
 };
 
 export async function poll(
-  solanaish: Solanaish,
+  solanaish: Ripplish,
   req: SolanaPollRequest
 ): Promise<SolanaPollResponse> {
   const initTime = Date.now();
@@ -92,15 +92,15 @@ export async function poll(
 }
 
 export async function token(
-  solanaish: Solanaish,
-  req: SolanaTokenRequest
-): Promise<SolanaTokenResponse> {
+  solanaish: Ripplish,
+  req: RippleTokenRequest
+): Promise<RippleTokenResponse> {
   const initTime = Date.now();
-  const tokenInfo = solanaish.getTokenForSymbol(req.token);
+  const tokenInfo = solanaish.getTokenForSymbol(req.line);
   if (!tokenInfo) {
     throw new HttpException(
       500,
-      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.token,
+      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.line,
       TOKEN_NOT_SUPPORTED_ERROR_CODE
     );
   }
@@ -121,7 +121,7 @@ export async function token(
   return {
     network: solanaish.network,
     timestamp: initTime,
-    token: req.token,
+    token: req.line,
     mintAddress: mintAddress.toBase58(),
     accountAddress: account?.pubkey.toBase58(),
     amount,
@@ -129,15 +129,15 @@ export async function token(
 }
 
 export async function getOrCreateTokenAccount(
-  solanaish: Solanaish,
-  req: SolanaTokenRequest
-): Promise<SolanaTokenResponse> {
+  solanaish: Ripplish,
+  req: RippleTokenRequest
+): Promise<RippleTokenResponse> {
   const initTime = Date.now();
-  const tokenInfo = solanaish.getTokenForSymbol(req.token);
+  const tokenInfo = solanaish.getTokenForSymbol(req.line);
   if (!tokenInfo) {
     throw new HttpException(
       500,
-      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.token,
+      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.line,
       TOKEN_NOT_SUPPORTED_ERROR_CODE
     );
   }
@@ -159,7 +159,7 @@ export async function getOrCreateTokenAccount(
   return {
     network: solanaish.network,
     timestamp: initTime,
-    token: req.token,
+    token: req.line,
     mintAddress: mintAddress.toBase58(),
     accountAddress: account?.address.toBase58(),
     amount,

@@ -1,34 +1,34 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
-import { Solana } from './solana';
-import { verifySolanaIsAvailable } from './solana-middlewares';
+import { Ripple } from './ripple';
+import { verifySolanaIsAvailable } from './ripple-middlewares';
 import { asyncHandler } from '../../services/error-handler';
 import {
   balances,
   getOrCreateTokenAccount,
   poll,
   token,
-} from './solana.controllers';
+} from './ripple.controllers';
 import {
-  SolanaBalanceRequest,
-  SolanaBalanceResponse,
+  RippleBalanceRequest,
+  RippleBalanceResponse,
   SolanaPollRequest,
   SolanaPollResponse,
-  SolanaTokenRequest,
-  SolanaTokenResponse,
-} from './solana.requests';
+  RippleTokenRequest,
+  RippleTokenResponse,
+} from './ripple.requests';
 import {
   validateSolanaBalanceRequest,
   validateSolanaGetTokenRequest,
   validateSolanaPollRequest,
   validateSolanaPostTokenRequest,
-} from './solana.validators';
+} from './ripple.validators';
 
 export namespace SolanaRoutes {
   export const router = Router();
 
   export const getSolana = async (request: Request) => {
-    const solana = await Solana.getInstance(request.body.network);
+    const solana = await Ripple.getInstance(request.body.network);
     await solana.init();
 
     return solana;
@@ -57,8 +57,8 @@ export namespace SolanaRoutes {
     '/balances',
     asyncHandler(
       async (
-        request: Request<ParamsDictionary, unknown, SolanaBalanceRequest>,
-        response: Response<SolanaBalanceResponse | string>,
+        request: Request<ParamsDictionary, unknown, RippleBalanceRequest>,
+        response: Response<RippleBalanceResponse | string>,
         _next: NextFunction
       ) => {
         const solana = await getSolana(request);
@@ -74,8 +74,8 @@ export namespace SolanaRoutes {
     '/token',
     asyncHandler(
       async (
-        request: Request<ParamsDictionary, unknown, SolanaTokenRequest>,
-        response: Response<SolanaTokenResponse | string>,
+        request: Request<ParamsDictionary, unknown, RippleTokenRequest>,
+        response: Response<RippleTokenResponse | string>,
         _next: NextFunction
       ) => {
         const solana = await getSolana(request);
@@ -91,8 +91,8 @@ export namespace SolanaRoutes {
     '/token',
     asyncHandler(
       async (
-        request: Request<ParamsDictionary, unknown, SolanaTokenRequest>,
-        response: Response<SolanaTokenResponse | string>,
+        request: Request<ParamsDictionary, unknown, RippleTokenRequest>,
+        response: Response<RippleTokenResponse | string>,
         _next: NextFunction
       ) => {
         const solana = await getSolana(request);

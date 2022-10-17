@@ -1,22 +1,9 @@
 import {
-  Account as TokenAccount,
-  getOrCreateAssociatedTokenAccount,
-} from '@solana/spl-token';
-import { TokenInfo, TokenListProvider } from '@solana/spl-token-registry';
-import {
-  Account,
-  AccountInfo,
-  Commitment,
-  Connection,
-  Keypair,
-  LogsCallback,
-  LogsFilter,
-  ParsedAccountData,
-  PublicKey,
-  SlotUpdateCallback,
-  TokenAmount,
-  TransactionResponse,
-} from '@solana/web3.js';
+  Client,
+  Wallet,
+  LedgerStream,
+  ValidationStream
+} from 'xrpl';
 import bs58 from 'bs58';
 import { BigNumber } from 'ethers';
 import fse from 'fs-extra';
@@ -27,8 +14,16 @@ import { runWithRetryAndTimeout } from '../../connectors/serum/serum.helpers';
 import { countDecimals, TokenValue, walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { logger } from '../../services/logger';
-import { getSolanaConfig } from './solana.config';
-import { TransactionResponseStatusCode } from './solana.requests';
+import { getRippleConfig } from './ripple.config';
+import { TransactionResponseStatusCode } from './ripple.requests';
+
+type TrustlineInfo = {
+  code: string;
+  display_decimals: number;
+  issuer: string;
+  network: string;
+  symbol: string;
+}
 
 const crypto = require('crypto').webcrypto;
 
@@ -36,24 +31,25 @@ const caches = {
   instances: new CacheContainer(new MemoryStorage()),
 };
 
-export class Solana implements Solanaish {
+export class Ripple implements Ripplish {
   public rpcUrl;
-  public transactionLamports;
+  // @note: Smallest unit of XRP is called a "drop"
+  public transactionDrops;
   public cache: NodeCache;
 
-  protected tokenList: TokenInfo[] = [];
-  private _tokenMap: Record<string, TokenInfo> = {};
-  private _tokenAddressMap: Record<string, TokenInfo> = {};
-  private _keypairs: Record<string, Keypair> = {};
+  protected tokenList: TrustlineInfo[] = [];
+  private _tokenMap: Record<string, TrustlineInfo> = {};
+  private _tokenAddressMap: Record<string, TrustlineInfo> = {};
 
-  private static _instances: { [name: string]: Solana };
+  private _wallets: Record<string, Wallet> = {};
+
+  private static _instances: { [name: string]: Ripple };
 
   private _requestCount: number;
-  private readonly _connection: Connection;
-  private readonly _lamportPrice: number;
-  private readonly _lamportDecimals: number;
+  private readonly _client: Client;
+  private readonly _dropCost: number;
+  private readonly _dropDecimals: number;
   private readonly _nativeTokenSymbol: string;
-  private readonly _tokenProgramAddress: PublicKey;
   private readonly _network: string;
   private readonly _metricsLogInterval: number;
   // there are async values set in the constructor
@@ -63,57 +59,63 @@ export class Solana implements Solanaish {
   constructor(network: string) {
     this._network = network;
 
-    const config = getSolanaConfig('solana', network);
+    const config = getRippleConfig('xrpl', network);
 
     this.rpcUrl = config.network.nodeUrl;
 
-    this._connection = new Connection(this.rpcUrl, 'processed' as Commitment);
+    this._client = new Client(this.rpcUrl, {
+      timeout: config.timeToLive,
+      // @todo: Add configs
+    });
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
 
-    this._nativeTokenSymbol = 'SOL';
-    this._tokenProgramAddress = new PublicKey(config.tokenProgram);
+    this._nativeTokenSymbol = 'XRP';
 
-    this.transactionLamports = config.transactionLamports;
-    this._lamportPrice = config.lamportsToSol;
-    this._lamportDecimals = countDecimals(this._lamportPrice);
+    this.transactionDrops = config.minimumFee;
+    this._dropCost = config.dropsToXRP;
+    this._dropDecimals = countDecimals(this._dropCost);
 
     this._requestCount = 0;
     this._metricsLogInterval = 300000; // 5 minutes
 
-    this.onDebugMessage('all', this.requestCounter.bind(this));
+    this.onValidationReceived(this.requestCounter.bind(this));
     setInterval(this.metricLogger.bind(this), this.metricsLogInterval);
   }
 
   public get gasPrice(): number {
-    return this._lamportPrice;
+    return this._dropCost;
   }
 
   @Cache(caches.instances, { isCachedForever: true })
-  public static getInstance(network: string): Solana {
-    if (Solana._instances === undefined) {
-      Solana._instances = {};
+  public static getInstance(network: string): Ripple {
+    if (Ripple._instances === undefined) {
+      Ripple._instances = {};
     }
-    if (!(network in Solana._instances)) {
-      Solana._instances[network] = new Solana(network);
+    if (!(network in Ripple._instances)) {
+      Ripple._instances[network] = new Ripple(network);
     }
 
-    return Solana._instances[network];
+    return Ripple._instances[network];
   }
 
-  public static getConnectedInstances(): { [name: string]: Solana } {
+  public static getConnectedInstances(): { [name: string]: Ripple } {
     return this._instances;
   }
 
-  public get connection() {
-    return this._connection;
+  public get client() {
+    return this._client;
   }
 
-  public onNewSlot(func: SlotUpdateCallback) {
-    this._connection.onSlotUpdate(func);
+  public onLedgerClosed(callback: (ledger: LedgerStream) => void) {
+    this._client.on('ledgerClosed', callback);
   }
 
-  public onDebugMessage(filter: LogsFilter, func: LogsCallback) {
-    this._connection.onLogs(filter, func);
+  public onError(callback: (...err: any[]) => void): void {
+    this._client.on('error', callback);
+  }
+
+  public onValidationReceived(callback: (validation: ValidationStream) => void): void {
+    this._client.on('validationReceived', callback);
   }
 
   async init(): Promise<void> {
@@ -130,15 +132,15 @@ export class Solana implements Solanaish {
   }
 
   async loadTokens(): Promise<void> {
-    this.tokenList = await this.getTokenList();
-    this.tokenList.forEach((token: TokenInfo) => {
+    this.tokenList = await this.getTrustlineList();
+    this.tokenList.forEach((token: TrustlineInfo) => {
       this._tokenMap[token.symbol] = token;
       this._tokenAddressMap[token.address] = token;
     });
   }
 
   // returns a Tokens for a given list source and list type
-  async getTokenList(): Promise<TokenInfo[]> {
+  async getTrustlineList(): Promise<[]> {
     const tokenListProvider = new TokenListProvider();
     const tokens = await runWithRetryAndTimeout(
       tokenListProvider,
@@ -149,25 +151,29 @@ export class Solana implements Solanaish {
     return tokens.filterByClusterSlug(this._network).getList();
   }
 
+  async loadXrpLedgerToml() {
+    this._client.connection.getUrl()
+  }
+
   // returns the price of 1 lamport in SOL
-  public get lamportPrice(): number {
-    return this._lamportPrice;
+  public get dropCost(): number {
+    return this._dropCost;
   }
 
   // solana token lists are large. instead of reloading each time with
   // getTokenList, we can read the stored tokenList value from when the
   // object was initiated.
-  public get storedTokenList(): TokenInfo[] {
+  public get storedTokenList(): TrustlineInfo[] {
     return this.tokenList;
   }
 
   // return the TokenInfo object for a symbol
-  getTokenForSymbol(symbol: string): TokenInfo | null {
+  getTokenForSymbol(symbol: string): TrustlineInfo | null {
     return this._tokenMap[symbol] ?? null;
   }
 
   // return the TokenInfo object for a symbol
-  getTokenForMintAddress(mintAddress: PublicKey): TokenInfo | null {
+  getTokenForMintAddress(mintAddress: PublicKey): TrustlineInfo | null {
     return this._tokenAddressMap[mintAddress.toString()]
       ? this._tokenAddressMap[mintAddress.toString()]
       : null;
@@ -198,8 +204,8 @@ export class Solana implements Solanaish {
     const tokenProgramId = this._tokenProgramAddress;
     const splAssociatedTokenAccountProgramId = (
       await runWithRetryAndTimeout(
-        this.connection,
-        this.connection.getParsedTokenAccountsByOwner,
+        this.client,
+        this.client.getParsedTokenAccountsByOwner,
         [
           walletAddress,
           {
@@ -224,7 +230,7 @@ export class Solana implements Solanaish {
   }
 
   async getKeypair(address: string): Promise<Keypair> {
-    if (!this._keypairs[address]) {
+    if (!this._wallets[address]) {
       const path = `${walletPath}/solana`;
 
       const encryptedPrivateKey: any = JSON.parse(
@@ -245,13 +251,13 @@ export class Solana implements Solanaish {
       if (!passphrase) {
         throw new Error('missing passphrase');
       }
-      this._keypairs[address] = await this.decrypt(
+      this._wallets[address] = await this.decrypt(
         encryptedPrivateKey,
         passphrase
       );
     }
 
-    return this._keypairs[address];
+    return this._wallets[address];
   }
 
   private static async getKeyMaterial(password: string) {
@@ -287,14 +293,14 @@ export class Solana implements Solanaish {
   async encrypt(privateKey: string, password: string): Promise<string> {
     const iv = crypto.getRandomValues(new Uint8Array(16));
     const salt = crypto.getRandomValues(new Uint8Array(16));
-    const keyMaterial = await Solana.getKeyMaterial(password);
+    const keyMaterial = await Ripple.getKeyMaterial(password);
     const keyAlgorithm = {
       name: 'PBKDF2',
       salt: salt,
       iterations: 500000,
       hash: 'SHA-256',
     };
-    const key = await Solana.getKey(keyAlgorithm, keyMaterial);
+    const key = await Ripple.getKey(keyAlgorithm, keyMaterial);
     const cipherAlgorithm = {
       name: 'AES-GCM',
       iv: iv,
@@ -325,8 +331,8 @@ export class Solana implements Solanaish {
   }
 
   async decrypt(encryptedPrivateKey: any, password: string): Promise<Keypair> {
-    const keyMaterial = await Solana.getKeyMaterial(password);
-    const key = await Solana.getKey(
+    const keyMaterial = await Ripple.getKeyMaterial(password);
+    const key = await Ripple.getKey(
       encryptedPrivateKey.keyAlgorithm,
       keyMaterial
     );
@@ -349,8 +355,8 @@ export class Solana implements Solanaish {
     ]);
 
     const allSplTokens = await runWithRetryAndTimeout(
-      this.connection,
-      this.connection.getParsedTokenAccountsByOwner,
+      this.client,
+      this.client.getParsedTokenAccountsByOwner,
       [wallet.publicKey, { programId: this._tokenProgramAddress }]
     );
 
@@ -374,11 +380,11 @@ export class Solana implements Solanaish {
   // returns the SOL balance, convert BigNumber to string
   async getSolBalance(wallet: Keypair): Promise<TokenValue> {
     const lamports = await runWithRetryAndTimeout(
-      this.connection,
-      this.connection.getBalance,
+      this.client,
+      this.client.getBalance,
       [wallet.publicKey]
     );
-    return { value: BigNumber.from(lamports), decimals: this._lamportDecimals };
+    return { value: BigNumber.from(lamports), decimals: this._dropDecimals };
   }
 
   tokenResponseToTokenValue(account: TokenAmount): TokenValue {
@@ -394,8 +400,8 @@ export class Solana implements Solanaish {
     mintAddress: PublicKey
   ): Promise<TokenValue> {
     const response = await runWithRetryAndTimeout(
-      this.connection,
-      this.connection.getParsedTokenAccountsByOwner,
+      this.client,
+      this.client.getParsedTokenAccountsByOwner,
       [walletAddress, { mint: mintAddress }]
     );
     if (response['value'].length == 0) {
@@ -412,8 +418,8 @@ export class Solana implements Solanaish {
     mintAddress: PublicKey
   ): Promise<boolean> {
     const response = await runWithRetryAndTimeout(
-      this.connection,
-      this.connection.getParsedTokenAccountsByOwner,
+      this.client,
+      this.client.getParsedTokenAccountsByOwner,
       [walletAddress, { programId: this._tokenProgramAddress }]
     );
     for (const accountInfo of response.value) {
@@ -435,8 +441,8 @@ export class Solana implements Solanaish {
     account: AccountInfo<ParsedAccountData>;
   } | null> {
     const response = await runWithRetryAndTimeout(
-      this.connection,
-      this.connection.getParsedTokenAccountsByOwner,
+      this.client,
+      this.client.getParsedTokenAccountsByOwner,
       [walletAddress, { programId: this._tokenProgramAddress }]
     );
     for (const accountInfo of response.value) {
@@ -456,7 +462,7 @@ export class Solana implements Solanaish {
     tokenAddress: PublicKey
   ): Promise<TokenAccount | null> {
     return getOrCreateAssociatedTokenAccount(
-      this._connection,
+      this._client,
       wallet,
       tokenAddress,
       wallet.publicKey
@@ -473,8 +479,8 @@ export class Solana implements Solanaish {
     } else {
       // If it's not in the cache,
       const fetchedTx = runWithRetryAndTimeout(
-        this._connection,
-        this._connection.getTransaction,
+        this._client,
+        this._client.getTransaction,
         [
           payerSignature,
           {
@@ -510,23 +516,23 @@ export class Solana implements Solanaish {
   }
 
   // caches transaction receipt once they arrive
-  cacheTransactionReceipt(tx: TransactionResponse) {
+  cacheTransactionReceipt(tx: ) {
     // first (payer) signature is used as cache key since it is unique enough
     this.cache.set(tx.transaction.signatures[0], tx);
   }
 
-  public getTokenBySymbol(tokenSymbol: string): TokenInfo | undefined {
+  public getTokenBySymbol(tokenSymbol: string): TrustlineInfo | undefined {
     return this.tokenList.find(
-      (token: TokenInfo) =>
+      (token: TrustlineInfo) =>
         token.symbol.toUpperCase() === tokenSymbol.toUpperCase()
     );
   }
 
-  // returns the current slot number
-  async getCurrentSlotNumber(): Promise<number> {
+  // returns the current ledger number (block/slot number)
+  async getCurrentLedgerIndex(): Promise<number> {
     return await runWithRetryAndTimeout(
-      this._connection,
-      this._connection.getSlot,
+      this._client,
+      this._client.getLedgerIndex,
       []
     );
   }
@@ -564,18 +570,18 @@ export class Solana implements Solanaish {
   // returns the current block number
   async getCurrentBlockNumber(): Promise<number> {
     return await runWithRetryAndTimeout(
-      this.connection,
-      this.connection.getSlot,
+      this.client,
+      this.client.getSlot,
       ['processed']
     );
   }
 
   async close() {
-    if (this._network in Solana._instances) {
-      delete Solana._instances[this._network];
+    if (this._network in Ripple._instances) {
+      delete Ripple._instances[this._network];
     }
   }
 }
 
-export type Solanaish = Solana;
-export const Solanaish = Solana;
+export type Ripplish = Ripple;
+export const Ripplish = Ripple;
