@@ -1,3 +1,4 @@
+from email.mime import base
 import logging
 from collections import defaultdict, deque
 from decimal import Decimal
@@ -100,6 +101,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         self._maker_markets = set([market_pair.maker.market for market_pair in market_pairs])
         self._taker_markets = set([market_pair.taker.market for market_pair in market_pairs])
         self._all_markets_ready = False
+        self._conversions_ready = False
 
         self._anti_hysteresis_timers = {}
         self._order_fill_buy_events = {}
@@ -249,14 +251,11 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source,\
             gas_rate = self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
         if quote_rate is None:
-            self.logger().warning(f"Can't find a conversion rate for {quote_pair}, using 1.0 instead.")
-            quote_rate = Decimal("1")
+            self.logger().warning(f"Can't find a conversion rate for {quote_pair}")
         if base_rate is None:
-            self.logger().warning(f"Can't find a conversion rate for {base_pair}, using 1.0 instead.")
-            base_rate = Decimal("1")
+            self.logger().warning(f"Can't find a conversion rate for {base_pair}")
         if gas_rate is None:
-            self.logger().warning(f"Can't find a conversion rate for {gas_pair}, using 1.0 instead.")
-            gas_rate = Decimal("1")
+            self.logger().warning(f"Can't find a conversion rate for {gas_pair}")
         return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair,\
             gas_rate_source, gas_rate
 
@@ -393,7 +392,20 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             else:
                 # Markets are ready, ok to proceed.
                 if LogOption.STATUS_REPORT:
-                    self.logger().info("Markets are ready. Trading started.")
+                    self.logger().info("Markets are ready.")
+
+        if not self._conversions_ready:
+            for market_pair in self._market_pairs.values():
+                _, _, quote_rate, _, _, base_rate, _, _, _ = self.get_conversion_rates(market_pair)
+                if not quote_rate or not base_rate:
+                    if should_report_warnings:
+                        self.logger().warning("Conversion rates are not ready. No market making trades are permitted.")
+                    return
+
+            # Conversion rates are ready, ok to proceed.
+            self._conversions_ready = True
+            if LogOption.STATUS_REPORT:
+                self.logger().info("Conversion rates are ready. Trading started.")
 
         if should_report_warnings:
             # Check if all markets are still connected or not. If not, log a warning.
