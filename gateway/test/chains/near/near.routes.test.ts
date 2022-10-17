@@ -103,6 +103,7 @@ describe('GET /near/balances', () => {
   });
 });
 
+/**
 describe('POST /near/cancel', () => {
   it('should return 200', async () => {
     // override getWallet (network call)
@@ -144,6 +145,7 @@ describe('POST /near/cancel', () => {
       .expect(404);
   });
 });
+*/
 
 describe('POST /near/poll', () => {
   it('should get a NETWORK_ERROR_CODE when the network is unavailable', async () => {
