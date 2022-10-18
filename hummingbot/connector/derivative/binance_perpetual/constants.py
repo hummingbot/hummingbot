@@ -34,6 +34,7 @@ SERVER_TIME_PATH_URL = "/time"
 # Private API v1 Endpoints
 ORDER_URL = "/order"
 CANCEL_ALL_OPEN_ORDERS_URL = "/allOpenOrders"
+CANCEL_ORDER_URL = "/order"
 ACCOUNT_TRADE_LIST_URL = "/userTrades"
 SET_LEVERAGE_URL = "/leverage"
 GET_INCOME_HISTORY_URL = "/income"
@@ -125,3 +126,10 @@ RATE_LIMITS = [
     RateLimit(limit_id=MARK_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
 ]
+
+# Request error codes
+RET_CODE_OK = 0
+RET_CODE_PARAMS_ERROR = 1130
+RET_CODE_API_KEY_INVALID = 2015
+RET_CODE_AUTH_TIMESTAMP_ERROR = 1021
+RET_CODE_MODE_NOT_MODIFIED = 1130
