@@ -2,78 +2,55 @@ from unittest import TestCase
 
 import pandas as pd
 
-from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, bybit_perpetual_utils as utils
+from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_utils as utils
 
 
 class BybitPerpetualUtilsTests(TestCase):
-    def test_trading_pair_convertion(self):
-        trading_pair = "BTC-USDT"
-        self.assertEqual("BTCUSDT", utils.convert_to_exchange_trading_pair(trading_pair))
+    def test_is_exchange_information_valid(self):
+        exchange_info = {
+            "name": "BTCUSD",
+            "alias": "BTCUSD",
+            "status": "Trading",
+            "base_currency": "BTC",
+            "quote_currency": "USD",
+            "price_scale": 2,
+            "taker_fee": "0.00075",
+            "maker_fee": "-0.00025",
+            "funding_interval": 480,
+            "leverage_filter": {
+                "min_leverage": 1,
+                "max_leverage": 100,
+                "leverage_step": "0.01"
+            },
+            "price_filter": {
+                "min_price": "0.5",
+                "max_price": "999999.5",
+                "tick_size": "0.5"
+            },
+            "lot_size_filter": {
+                "max_trading_qty": 1000000,
+                "min_trading_qty": 1,
+                "qty_step": 1,
+                "post_only_max_trading_qty": "5000000"
+            }
+        }
 
-    def test_rest_api_path_for_endpoint(self):
-        endpoint = {"linear": "/testEndpoint/linear",
-                    "non_linear": "/testEndpoint/non_linear"}
+        self.assertTrue(utils.is_exchange_information_valid(exchange_info))
 
-        api_path = utils.rest_api_path_for_endpoint(endpoint=endpoint)
-        self.assertEqual("/testEndpoint/linear", api_path)
+        exchange_info["status"] = "Closed"
 
-        api_path = utils.rest_api_path_for_endpoint(endpoint=endpoint, trading_pair="BTC-USD")
-        self.assertEqual("/testEndpoint/non_linear", api_path)
+        self.assertFalse(utils.is_exchange_information_valid(exchange_info))
 
-        api_path = utils.rest_api_path_for_endpoint(endpoint=endpoint, trading_pair="BTC-USDT")
-        self.assertEqual("/testEndpoint/linear", api_path)
+        del exchange_info["status"]
 
-    def test_rest_api_url(self):
-        endpoint = "/testEndpoint"
+        self.assertFalse(utils.is_exchange_information_valid(exchange_info))
 
-        url = utils.rest_api_url_for_endpoint(endpoint=endpoint, domain=None, )
-        self.assertEqual(CONSTANTS.REST_URLS.get("bybit_perpetual_main") + "/testEndpoint", url)
+    def test_get_linear_non_linear_split(self):
+        trading_pairs = ["ETH-USDT", "ETH-BTC"]
+        linear_trading_pairs, non_linear_trading_pairs = utils.get_linear_non_linear_split(trading_pairs)
 
-        url = utils.rest_api_url_for_endpoint(endpoint=endpoint, domain="bybit_perpetual_main")
-        self.assertEqual(CONSTANTS.REST_URLS.get("bybit_perpetual_main") + "/testEndpoint", url)
-
-        url = utils.rest_api_url_for_endpoint(endpoint=endpoint, domain="bybit_perpetual_testnet")
-        self.assertEqual(CONSTANTS.REST_URLS.get("bybit_perpetual_testnet") + "/testEndpoint", url)
-
-    def test_wss_linear_public_url(self):
-        url = utils.wss_linear_public_url(None)
-        self.assertEqual(CONSTANTS.WSS_LINEAR_PUBLIC_URLS.get("bybit_perpetual_main"), url)
-
-        url = utils.wss_linear_public_url("bybit_perpetual_main")
-        self.assertEqual(CONSTANTS.WSS_LINEAR_PUBLIC_URLS.get("bybit_perpetual_main"), url)
-
-        url = utils.wss_linear_public_url("bybit_perpetual_testnet")
-        self.assertEqual(CONSTANTS.WSS_LINEAR_PUBLIC_URLS.get("bybit_perpetual_testnet"), url)
-
-    def test_wss_linear_private_url(self):
-        url = utils.wss_linear_private_url(None)
-        self.assertEqual(CONSTANTS.WSS_LINEAR_PRIVATE_URLS.get("bybit_perpetual_main"), url)
-
-        url = utils.wss_linear_private_url("bybit_perpetual_main")
-        self.assertEqual(CONSTANTS.WSS_LINEAR_PRIVATE_URLS.get("bybit_perpetual_main"), url)
-
-        url = utils.wss_linear_private_url("bybit_perpetual_testnet")
-        self.assertEqual(CONSTANTS.WSS_LINEAR_PRIVATE_URLS.get("bybit_perpetual_testnet"), url)
-
-    def test_wss_non_linear_public_url(self):
-        url = utils.wss_non_linear_public_url(None)
-        self.assertEqual(CONSTANTS.WSS_NON_LINEAR_PUBLIC_URLS.get("bybit_perpetual_main"), url)
-
-        url = utils.wss_non_linear_public_url("bybit_perpetual_main")
-        self.assertEqual(CONSTANTS.WSS_NON_LINEAR_PUBLIC_URLS.get("bybit_perpetual_main"), url)
-
-        url = utils.wss_non_linear_public_url("bybit_perpetual_testnet")
-        self.assertEqual(CONSTANTS.WSS_NON_LINEAR_PUBLIC_URLS.get("bybit_perpetual_testnet"), url)
-
-    def test_wss_non_linear_private_url(self):
-        url = utils.wss_non_linear_private_url(None)
-        self.assertEqual(CONSTANTS.WSS_NON_LINEAR_PRIVATE_URLS.get("bybit_perpetual_main"), url)
-
-        url = utils.wss_non_linear_private_url("bybit_perpetual_main")
-        self.assertEqual(CONSTANTS.WSS_NON_LINEAR_PRIVATE_URLS.get("bybit_perpetual_main"), url)
-
-        url = utils.wss_non_linear_private_url("bybit_perpetual_testnet")
-        self.assertEqual(CONSTANTS.WSS_NON_LINEAR_PRIVATE_URLS.get("bybit_perpetual_testnet"), url)
+        self.assertEqual(["ETH-USDT"], linear_trading_pairs)
+        self.assertEqual(["ETH-BTC"], non_linear_trading_pairs)
 
     def test_get_next_funding_timestamp(self):
         # Simulate 01:00 UTC

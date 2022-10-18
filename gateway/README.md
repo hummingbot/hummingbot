@@ -13,7 +13,14 @@ This is a list of DEX connections currently supported by Gateway.
 | Connector   | Blockchain | Trading Interface |
 |-------------|------------|-------------------|
 | UniswapV2   | Ethereum   | AMM               |
+| Sushiswap   | Ethereum   | AMM               |
+| UniswapV3   | Ethereum   | EVM_Range_AMM     |
 | Pangolin    | Avalanche  | AMM               |
+| Traderjoe   | Avalanche  | AMM               |
+| Quickswap   | Polygon    | AMM               |
+| Perp        | Ethereum   | EVM_Perpetual     |
+| Serum       | Solana     | CLOB              |
+
 
 ## Contributing
 
@@ -36,8 +43,6 @@ There are a number of ways to contribute to gateway.
 Before running gateway, you need to setup some configs. You can start by copying all of the yml files from [src/templates](./src/templates) to [conf](./conf). The format of this files are dictated by [src/services/config-manager-v2.ts](./src/services/config-manager-v2.ts) and the corresponding schema files in [src/services/schema](./src/services/schema) .
 
 ### Useful configuration options
-
-- If you want to use Ethereum, add your Infura API key to [conf/ethereum.yml](./conf/ethereum.yml). 
 
 - If you want to turn off `https`, set `unsafeDevModeWithHTTP` to `true` in [conf/server.yml](./conf/server.yml). 
 
@@ -99,7 +104,7 @@ yarn jest test/app.test.ts
 
 #### Manual tests
 
-We have found it is useful to test individual endpoints with `curl` commands. We have a collection of prepared curl calls. POST bodies are stored in JSON files. Take a look at the [curl calls for gateway](./manual_tests/curl.sh). Note that some environment variables are expected.
+We have found it is useful to test individual endpoints with `curl` commands. We have a collection of prepared curl calls. POST bodies are stored in JSON files. Take a look at the [curl calls for gateway](./manual-tests/curl.sh). Note that some environment variables are expected.
 
 ## Linting
 

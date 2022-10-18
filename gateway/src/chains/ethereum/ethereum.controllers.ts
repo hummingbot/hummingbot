@@ -391,23 +391,10 @@ export async function poll(
       // decode logs
       if (req.connector) {
         try {
-          const connector = await getConnector(
-            req.chain,
-            req.network,
-            req.connector
-          );
-          if (
-            (<any>connector).types === 'Uniswap' ||
-            (<any>connector).types === 'Pangolin'
-          ) {
-            txReceipt.logs = (<Uniswapish>connector).abiDecoder?.decodeLogs(
-              txReceipt.logs
-            );
-          } else if ((<any>connector).types === 'UniswapLP') {
-            txReceipt.logs = (<UniswapLPish>connector).abiDecoder?.decodeLogs(
-              txReceipt.logs
-            );
-          }
+          const connector: Uniswapish | UniswapLPish = await getConnector<
+            Uniswapish | UniswapLPish
+          >(req.chain, req.network, req.connector);
+          txReceipt.logs = connector.abiDecoder?.decodeLogs(txReceipt.logs);
         } catch (e) {
           logger.error(e);
         }

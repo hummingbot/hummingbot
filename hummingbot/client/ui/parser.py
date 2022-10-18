@@ -161,9 +161,9 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
 
     rate_parser = subparsers.add_parser('rate', help="Show rate of a given trading pair")
     rate_parser.add_argument("-p", "--pair", default=None,
-                             dest="pair", help="The market trading pair you want to see rate.")
+                             dest="pair", help="The market trading pair for which you want to get a rate.")
     rate_parser.add_argument("-t", "--token", default=None,
-                             dest="token", help="The token you want to see its value.")
+                             dest="token", help="The token who's value you want to get.")
     rate_parser.set_defaults(func=hummingbot.rate)
 
     for name, command_tab in command_tabs.items():

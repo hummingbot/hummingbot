@@ -21,14 +21,19 @@ import {
 } from '@traderjoe-xyz/sdk';
 import { logger } from '../../services/logger';
 import { Avalanche } from '../../chains/avalanche/avalanche';
-import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
+import {
+  ConnectorType,
+  ExpectedTrade,
+  Uniswapish,
+} from '../../services/common-interfaces';
 
 export class Traderjoe implements Uniswapish {
+  public readonly connectorType: ConnectorType = ConnectorType.Uniswapish;
   private static _instances: { [name: string]: Traderjoe };
   private avalanche: Avalanche;
   private _router: string;
   private _routerAbi: ContractInterface;
-  private _gasLimit: number;
+  private _gasLimitEstimate: number;
   private _ttl: number;
   private chainId;
   private tokenList: Record<string, Token> = {};
@@ -41,7 +46,7 @@ export class Traderjoe implements Uniswapish {
     this._router = config.routerAddress(network);
     this._ttl = config.ttl;
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = config.gasLimit;
+    this._gasLimitEstimate = config.gasLimitEstimate;
   }
 
   public static getInstance(chain: string, network: string): Traderjoe {
@@ -101,10 +106,10 @@ export class Traderjoe implements Uniswapish {
   }
 
   /**
-   * Default gas limit for swap transactions.
+   * Default gas limit estimate for swap transactions.
    */
-  public get gasLimit(): number {
-    return this._gasLimit;
+  public get gasLimitEstimate(): number {
+    return this._gasLimitEstimate;
   }
 
   /**

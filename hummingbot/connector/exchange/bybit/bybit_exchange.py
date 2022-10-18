@@ -523,7 +523,8 @@ class BybitExchange(ExchangeBase):
                 method=RESTMethod.POST,
                 path_url=CONSTANTS.ORDER_PATH_URL,
                 params=api_params,
-                is_auth_required=True)
+                is_auth_required=True,
+                referer_header_required=True)
 
             exchange_order_id = str(order_result["result"]["orderId"])
 
@@ -862,7 +863,12 @@ class BybitExchange(ExchangeBase):
                            path_url: str,
                            params: Optional[Dict[str, Any]] = None,
                            data: Optional[Dict[str, Any]] = None,
-                           is_auth_required: bool = False) -> Dict[str, Any]:
+                           is_auth_required: bool = False,
+                           referer_header_required: Optional[bool] = False) -> Dict[str, Any]:
+        if referer_header_required:
+            headers = self._auth.get_referral_code_headers()
+        else:
+            headers = {}
         response = await web_utils.api_request(
             path=path_url,
             api_factory=self._api_factory,
@@ -873,6 +879,7 @@ class BybitExchange(ExchangeBase):
             data=data,
             method=method,
             is_auth_required=is_auth_required,
+            headers=headers
         )
         if response["ret_code"] != 0:
             raise IOError(f"The request to Bybit failed. Error: {response['ret_msg']}. Error code: {response['ret_code']}")

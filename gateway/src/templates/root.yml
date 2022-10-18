@@ -3,7 +3,7 @@ configurations:
   $namespace harmony:
     configurationPath: harmony.yml
     schemaPath: harmony-schema.json
-    
+
   $namespace solana:
     configurationPath: solana.yml
     schemaPath: solana-schema.json
@@ -40,9 +40,21 @@ configurations:
     configurationPath: curve.yml
     schemaPath: curve-schema.json
     
+  $namespace defira:
+    configurationPath: defira.yml
+    schemaPath: defira-schema.json
+
   $namespace pangolin:
     configurationPath: pangolin.yml
     schemaPath: pangolin-schema.json
+
+  $namespace quickswap:
+    configurationPath: quickswap.yml
+    schemaPath: quickswap-schema.json
+    
+  $namespace perp:
+    configurationPath: perp.yml
+    schemaPath: perp-schema.json
 
   $namespace sushiswap:
     configurationPath: sushiswap.yml
@@ -63,3 +75,15 @@ configurations:
   $namespace uniswap:
     configurationPath: uniswap.yml
     schemaPath: uniswap-schema.json
+
+  $namespace openocean:
+    configurationPath: openocean.yml
+    schemaPath: openocean-schema.json
+
+  $namespace defikingdoms:
+    configurationPath: defikingdoms.yml
+    schemaPath: defikingdoms-schema.json
+
+  $namespace serum:
+    configurationPath: serum.yml
+    schemaPath: serum-schema.json

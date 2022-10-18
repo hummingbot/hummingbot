@@ -6,6 +6,7 @@ import { Transaction, Wallet } from 'ethers';
 import BigNumber from 'bignumber.js';
 import { getEthereumConfig } from '../../chains/ethereum/ethereum.config';
 import { TokenInfo } from '../../services/ethereum-base';
+import { ConnectorType } from '../../services/common-interfaces';
 import { CurveConfig } from './curve.config';
 
 // TODO: (james-hummingbot) rewrite curve-js to not use a global object. Instead
@@ -32,8 +33,11 @@ export interface PreviousCurveInitParams {
   maxPriorityFeePerGas?: BigNumber;
 }
 
+export type Curvish = Curve;
+
 export class Curve {
-  public readonly types: string = 'Curve';
+  public readonly connectorType: ConnectorType = ConnectorType.Curvish;
+
   private static _instances: { [name: string]: Curve };
   private _chain: string;
   private _chainId; // OBS: curve-js only supports 1 (Ethereum Mainnet) and 137 (Polygon Mainnet)
@@ -49,7 +53,7 @@ export class Curve {
     this._chain = chain;
     this._chainId = this._ethereum.chainId;
     this._network = network;
-    this._gasLimit = this._ethereum.gasLimit;
+    this._gasLimit = this._ethereum.gasLimitTransaction;
   }
 
   public static getInstance(chain: string, network: string): Curve {
@@ -68,11 +72,19 @@ export class Curve {
       await this._ethereum.init();
     }
 
+    const urlSplit = getEthereumConfig(
+      this._chain,
+      this._network
+    ).network.nodeURL.split('/');
+    const last = urlSplit.pop();
+    const apiKey = last ? last : '';
+    const network = urlSplit.join('/');
+
     await curve.init(
       'Infura',
       {
-        network: getEthereumConfig(this._chain, this._network).network.nodeURL,
-        apiKey: getEthereumConfig(this._chain, this._network).nodeAPIKey,
+        network,
+        apiKey,
       },
       { chainId: this._chainId }
     );
@@ -86,9 +98,15 @@ export class Curve {
     maxFeePerGas?: BigNumber,
     maxPriorityFeePerGas?: BigNumber
   ): Promise<void> {
+    const newInitParams = {
+      wallet,
+      gasPrice,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+    };
     if (
-      this._previousCurveInitParams !==
-      { wallet, gasPrice, maxFeePerGas, maxPriorityFeePerGas }
+      JSON.stringify(this._previousCurveInitParams) !==
+      JSON.stringify(newInitParams)
     ) {
       const options: Record<string, any> = {};
       if (gasPrice !== null) options['gasPrice'] = gasPrice;
@@ -96,31 +114,33 @@ export class Curve {
       if (maxPriorityFeePerGas !== null)
         options['maxPriorityFeePerGas'] = maxPriorityFeePerGas;
 
+      const urlSplit = getEthereumConfig(
+        this._chain,
+        this._network
+      ).network.nodeURL.split('/');
+      const last = urlSplit.pop();
+      const apiKey = last ? last : '';
+      const network = urlSplit.join('/');
+
       // OBS: this behavior is from our forked version of curve-js.
       await curve.init(
         'Infura',
         {
-          network: getEthereumConfig(this._chain, this._network).network
-            .nodeURL,
-          apiKey: getEthereumConfig(this._chain, this._network).nodeAPIKey,
+          network,
+          apiKey,
           privateKey_: wallet.privateKey,
         },
         { ...options, chainId: this._chainId }
       );
 
-      this._previousCurveInitParams = {
-        wallet,
-        gasPrice,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      };
+      this._previousCurveInitParams = newInitParams;
     }
   }
 
   /**
    * Return true if init has run succesfully.
    */
-  public get ready(): boolean {
+  public ready(): boolean {
     return this._ready;
   }
 

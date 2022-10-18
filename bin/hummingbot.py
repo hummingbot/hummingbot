@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import asyncio
-from typing import Coroutine, List
+from typing import Coroutine, List, Optional
 from weakref import ReferenceType, ref
 
 import path_util  # noqa: F401
@@ -27,9 +27,10 @@ from hummingbot.core.utils.async_utils import safe_gather
 
 
 class UIStartListener(EventListener):
-    def __init__(self, hummingbot_app: HummingbotApplication):
+    def __init__(self, hummingbot_app: HummingbotApplication, is_quickstart: Optional[bool] = False):
         super().__init__()
         self._hb_ref: ReferenceType = ref(hummingbot_app)
+        self._is_quickstart = is_quickstart
 
     def __call__(self, _):
         asyncio.create_task(self.ui_start_handler())
@@ -42,7 +43,8 @@ class UIStartListener(EventListener):
         hb: HummingbotApplication = self.hummingbot_app
         if hb.strategy_config_map is not None:
             write_config_to_yml(hb.strategy_config_map, hb.strategy_file_name, hb.client_config_map)
-            hb.start(self._hb_ref.client_config_map.log_level)
+            hb.start(log_level=hb.client_config_map.log_level,
+                     is_quickstart=self._is_quickstart)
 
 
 async def main_async(client_config_map: ClientConfigAdapter):
@@ -64,7 +66,7 @@ async def main_async(client_config_map: ClientConfigAdapter):
     if client_config_map.debug_console:
         if not hasattr(__builtins__, "help"):
             import _sitebuiltins
-            __builtins__.help = _sitebuiltins._Helper()
+            __builtins__["help"] = _sitebuiltins._Helper()
 
         from hummingbot.core.management.console import start_management_console
         management_port: int = detect_available_port(8211)
