@@ -2,8 +2,10 @@
 
 import asyncio
 import threading
+import time
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
+from logging import Handler, LogRecord
 from typing import TYPE_CHECKING, List, Tuple
 
 # from hummingbot.strategy.strategy_py_base import StrategyPyBase
@@ -324,3 +326,32 @@ class MQTTGateway(Node):
     def run(self):
         self._init_features()
         super().run()
+
+
+class LogMessage(PubSubMessage):
+    timestamp: float = 0.0
+    msg: str = ''
+    level_no: int = 0
+    level_name: str = ''
+    logger_name: str = ''
+
+
+class MQTTHandler(Handler):
+    MQTT_URI = 'hbot/$UID/log'
+
+    def __init__(self,
+                 mqtt_params: MQTTConnectionParameters = None,
+                 mqtt_topic: str = ''):
+        super().__init__()
+
+    def emit(self, record: LogRecord):
+        msg_str = self.format(record)
+        msg = LogMessage(
+            timestamp=time.time(),
+            msg=msg_str,
+            level_no=record.levelno,
+            level_name=record.levelname,
+            logger_name=record.name
+
+        )
+        return msg

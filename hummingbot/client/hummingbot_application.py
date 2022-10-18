@@ -50,11 +50,11 @@ from hummingbot.strategy.strategy_base import StrategyBase
 
 s_logger = None
 
-UID = os.getenv('HBOT_UID')
+UID = os.getenv('HBOT_ID')
 
 if UID is None:
     UID = uuid.uuid4()
-    os.environ['HBOT_UID'] = str(UID)
+    os.environ['HBOT_ID'] = str(UID)
 
 
 class HummingbotApplication(*commands):
