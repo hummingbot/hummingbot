@@ -16,6 +16,7 @@ import {
   SlotUpdateCallback,
   TokenAmount,
   TransactionResponse,
+  VersionedTransactionResponse,
 } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { BigNumber } from 'ethers';
@@ -158,7 +159,7 @@ export class Solana implements Solanaish {
   // getTokenList, we can read the stored tokenList value from when the
   // object was initiated.
   public get storedTokenList(): TokenInfo[] {
-    return this.tokenList;
+    return Object.values(this._tokenMap);
   }
 
   // return the TokenInfo object for a symbol
@@ -466,7 +467,7 @@ export class Solana implements Solanaish {
   // returns an ethereum TransactionResponse for a txHash.
   async getTransaction(
     payerSignature: string
-  ): Promise<TransactionResponse | null> {
+  ): Promise<VersionedTransactionResponse | null> {
     if (this.cache.keys().includes(payerSignature)) {
       // If it's in the cache, return the value in cache, whether it's null or not
       return this.cache.get(payerSignature) as TransactionResponse;

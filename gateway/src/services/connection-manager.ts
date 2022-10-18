@@ -63,9 +63,7 @@ export type Connector<T> = T extends Uniswapish
   ? Perpish
   : T extends Serumish
   ? Serumish
-  : T extends Curvish
-  ? Curvish
-  : never;
+  : Curvish;
 
 export async function getConnector<T>(
   chain: string,

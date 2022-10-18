@@ -34,7 +34,6 @@ import {
   poolPrice as uniswapV3PoolPrice,
   estimateGas as uniswapEstimateGas,
 } from '../connectors/uniswap/uniswap.controllers';
-import { Curvish } from '../connectors/curve/curve';
 import {
   estimateGas as curveEstimateGas,
   price as curvePrice,
@@ -55,22 +54,16 @@ import {
   Ethereumish,
   NetworkSelectionRequest,
   Perpish,
-  Uniswapish,
-  UniswapLPish,
 } from '../services/common-interfaces';
 
 export async function price(req: PriceRequest): Promise<PriceResponse> {
   const chain = await getChain<Ethereumish>(req.chain, req.network);
-  const connector = await getConnector<Uniswapish>(
-    req.chain,
-    req.network,
-    req.connector
-  );
+  const connector = await getConnector(req.chain, req.network, req.connector);
 
   if (connector.connectorType === ConnectorType.Uniswapish) {
-    return uniswapPrice(chain, <Uniswapish>connector, req);
+    return uniswapPrice(chain, connector as any, req);
   } else if (connector.connectorType === ConnectorType.Curvish) {
-    return curvePrice(chain, connector as unknown as Curvish, req);
+    return curvePrice(chain, connector as any, req);
   } else {
     throw new Error('Unsupported connector');
   }
@@ -79,13 +72,10 @@ export async function price(req: PriceRequest): Promise<PriceResponse> {
 export async function trade(req: TradeRequest): Promise<TradeResponse> {
   const chain = await getChain(req.chain, req.network);
   const connector = await getConnector(req.chain, req.network, req.connector);
-  if (
-    (<any>connector).types === 'Uniswap' ||
-    (<any>connector).types === 'Pangolin'
-  ) {
-    return uniswapTrade(chain, <Uniswapish>connector, req);
-  } else if ((<any>connector).types === 'Curve') {
-    return curveTrade(chain, <Curvish>connector, req);
+  if (connector.connectorType === ConnectorType.Uniswapish) {
+    return uniswapTrade(chain, connector as any, req);
+  } else if (connector.connectorType === ConnectorType.Curvish) {
+    return curveTrade(chain, connector as any, req);
   } else {
     throw new Error('Unsupported connector');
   }
@@ -96,8 +86,8 @@ export async function addLiquidity(
 ): Promise<AddLiquidityResponse> {
   const chain = await getChain(req.chain, req.network);
   const connector = await getConnector(req.chain, req.network, req.connector);
-  if ((<any>connector).types === 'UniswapLP') {
-    return uniswapV3AddLiquidity(chain, <UniswapLPish>connector, req);
+  if (connector.connectorType === ConnectorType.UniswapLPish) {
+    return uniswapV3AddLiquidity(chain, connector as any, req);
   } else {
     throw new Error('Unsupported connector');
   }
@@ -109,8 +99,8 @@ export async function reduceLiquidity(
   const chain = await getChain(req.chain, req.network);
   const connector = await getConnector(req.chain, req.network, req.connector);
 
-  if ((<any>connector).types === 'UniswapLP') {
-    return uniswapV3RemoveLiquidity(chain, <UniswapLPish>connector, req);
+  if (connector.connectorType === ConnectorType.UniswapLPish) {
+    return uniswapV3RemoveLiquidity(chain, connector as any, req);
   } else {
     throw new Error('Unsupported connector');
   }
@@ -121,8 +111,8 @@ export async function collectFees(
 ): Promise<RemoveLiquidityResponse> {
   const chain = await getChain(req.chain, req.network);
   const connector = await getConnector(req.chain, req.network, req.connector);
-  if ((<any>connector).types === 'UniswapLP') {
-    return uniswapV3CollectEarnedFees(chain, <UniswapLPish>connector, req);
+  if (connector.connectorType === ConnectorType.UniswapLPish) {
+    return uniswapV3CollectEarnedFees(chain, connector as any, req);
   } else {
     throw new Error('Unsupported connector');
   }
@@ -133,8 +123,8 @@ export async function positionInfo(
 ): Promise<PositionResponse> {
   const chain = await getChain(req.chain, req.network);
   const connector = await getConnector(req.chain, req.network, req.connector);
-  if ((<any>connector).types === 'UniswapLP') {
-    return uniswapV3PositionInfo(chain, <UniswapLPish>connector, req);
+  if (connector.connectorType === ConnectorType.UniswapLPish) {
+    return uniswapV3PositionInfo(chain, connector as any, req);
   } else {
     throw new Error('Unsupported connector');
   }
@@ -145,8 +135,8 @@ export async function poolPrice(
 ): Promise<PoolPriceResponse> {
   const chain = await getChain(req.chain, req.network);
   const connector = await getConnector(req.chain, req.network, req.connector);
-  if ((<any>connector).types === 'UniswapLP') {
-    return uniswapV3PoolPrice(chain, <UniswapLPish>connector, req);
+  if (connector.connectorType === ConnectorType.UniswapLPish) {
+    return uniswapV3PoolPrice(chain, connector as any, req);
   } else {
     throw new Error('Unsupported connector');
   }
@@ -157,13 +147,10 @@ export async function estimateGas(
 ): Promise<EstimateGasResponse> {
   const chain = await getChain(req.chain, req.network);
   const connector = await getConnector(req.chain, req.network, req.connector);
-  if (
-    (<any>connector).types === 'Uniswap' ||
-    (<any>connector).types === 'Pangolin'
-  ) {
-    return uniswapEstimateGas(chain, <Uniswapish>connector);
-  } else if ((<any>connector).types === 'Curve') {
-    return curveEstimateGas(chain, <Curvish>connector);
+  if (connector.connectorType === ConnectorType.Uniswapish) {
+    return uniswapEstimateGas(chain, connector as any);
+  } else if (connector.connectorType === ConnectorType.Curvish) {
+    return curveEstimateGas(chain, connector as any);
   } else {
     throw new Error('Unknown connector');
   }
@@ -213,8 +200,11 @@ export async function perpBalance(
   req: PerpBalanceRequest
 ): Promise<PerpBalanceResponse> {
   const chain = await getChain(req.chain, req.network);
-  const connector: Perpish = <Perpish>(
-    await getConnector(req.chain, req.network, req.connector, req.address)
+  const connector: Perpish = await getConnector<Perpish>(
+    req.chain,
+    req.network,
+    req.connector,
+    req.address
   );
   return getAccountValue(chain, connector);
 }
