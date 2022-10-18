@@ -5,12 +5,15 @@ import time
 from collections import defaultdict
 from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional
-
+import pandas as pd
 from bidict import ValueDuplicationError, bidict
+
+
 
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_utils as web_utils
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book import BinancePerpetualOrderBook
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import combine_to_hb_trading_pair
@@ -19,6 +22,7 @@ from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -26,7 +30,7 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 
-class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     _bpobds_logger: Optional[HummingbotLogger] = None
     _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
     _mapping_initialization_lock = asyncio.Lock()
@@ -411,6 +415,28 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "Unexpected error occurred fetching orderbook snapshots. Retrying in 5 seconds...", exc_info=True
                 )
                 await self._sleep(5.0)
+
+    async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        event_type = raw_message["event"]
+        if event_type == "update":
+            symbol = raw_message['result'][0]["contract"]
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
+            entries = raw_message['result']
+            for entry in entries:
+                info_update = FundingInfoUpdate(trading_pair)
+                if "index_price" in entry:
+                    info_update.index_price = Decimal(str(entry["index_price"]))
+                if "mark_price" in entry:
+                    info_update.mark_price = Decimal(str(entry["mark_price"]))
+                if "next_funding_time" in entry:
+                    info_update.next_funding_utc_timestamp = int(
+                        pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp()
+                    )
+                if "funding_rate_indicative" in entry:
+                    info_update.rate = (
+                        Decimal(str(entry["funding_rate_indicative"]))
+                    )
+                message_queue.put_nowait(info_update)
 
     async def listen_for_funding_info(self):
         """
