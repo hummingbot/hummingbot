@@ -25,7 +25,7 @@ import {
 export namespace NearRoutes {
   export const router = Router();
 
-  /** Commenting out allowance and approve endpoints for now.
+  /** To-do: Commenting out cancel, allowance and approve endpoints for now.
   router.post(
     '/allowances',
     asyncHandler(
