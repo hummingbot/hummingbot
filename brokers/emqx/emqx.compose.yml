@@ -7,13 +7,25 @@ volumes:
     name: emqx-log
 
 services:
-  emqx:
+  emqx1:
     image: emqx:latest
     restart: always
     environment:
       EMQX_NAME: emqx
-      EMQX_HOST: 127.0.0.1
+      EMQX_HOST: "node1.emqx.io"
+      EMQX_CLUSTER__DISCOVERY_STRATEGY: "static"
+      EMQX_CLUSTER__STATIC__SEEDS: "[emqx@node1.emqx.io]"
     volumes:
       - vol-emqx-data:/opt/emqx/data
       - vol-emqx-log:/opt/emqx/log
       - vol-emqx-etc:/opt/emqx/etc
+    ports:
+      - "1883:1883"
+    networks:
+      emqx-bridge:
+        aliases:
+        - node1.emqx.io
+
+networks:
+  emqx-bridge:
+    driver: bridge

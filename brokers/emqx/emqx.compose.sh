@@ -8,4 +8,6 @@
 #   - 5683: CoAP-UDP
 #   - 5684: CoAP-DTLS
 ##
-docker-compose -f emqx.compose.yml run emqx
+docker-compose -f emqx.compose.yml down --remove-orphans &&
+    # docker compose -f emqx.compose.yml run emqx1
+    docker compose -f emqx.compose.yml up
