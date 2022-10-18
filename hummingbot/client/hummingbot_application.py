@@ -130,10 +130,13 @@ class HummingbotApplication(*commands):
                 self.client_config_map.mqtt_broker.mqtt_notifier or \
                 self.client_config_map.mqtt_broker.mqtt_commands:
             self.logger().info('Starting MQTT Gateway...')
-            self._mqtt = MQTTGateway(self)
-            self._mqtt.run()
+            try:
+                self._mqtt = MQTTGateway(self)
+                self._mqtt.run()
+            except Exception as e:
+                self.logger().error(e)
 
-        if os.getenv('HBOT_HAS_TUI') in ('1', 'Yes', 'yes', 'YES', 'Y'):
+        if os.getenv('HBOT_HAS_TUI') in ('1', 'Yes', 'yes', 'YES', 'Y', '', None):
             command_tabs = self.init_command_tabs()
             self.parser: ThrowingArgumentParser = load_parser(self, command_tabs)
             self.app = HummingbotCLI(
