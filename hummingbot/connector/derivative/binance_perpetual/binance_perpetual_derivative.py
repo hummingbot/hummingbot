@@ -64,6 +64,8 @@ bpm_logger = None
 s_float_NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
+
+
 class BinancePerpetualDerivative(PerpetualDerivativePyBase):
     MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG = MarketEvent.FundingPaymentCompleted
     API_CALL_TIMEOUT = 10.0
@@ -107,7 +109,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
 
         PerpetualDerivativePyBase.__init__(self, client_config_map=client_config_map)
         PerpetualTrading.__init__(self, self._trading_pairs)
-        
+
         self._user_stream_tracker = UserStreamTracker(
             data_source=BinancePerpetualUserStreamDataSource(
                 auth=self._auth,
@@ -195,7 +197,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
         return CONSTANTS.RATE_LIMITS
-        
+
     @property
     def funding_fee_poll_interval(self) -> int:
         return self.LONG_POLL_INTERVAL
@@ -231,11 +233,11 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def is_trading_required(self) -> bool:
         return self._trading_required
-    
+
     @property
     def domain(self) -> str:
         return self._domain
-        
+
     @staticmethod
     def _format_ret_code_for_print(ret_code: Union[str, int]) -> str:
         return f"ret_code <{ret_code}>"
@@ -329,19 +331,19 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             Price for a limit order
         """
         order_id: str = get_new_client_order_id(
-            is_buy=True,
-            trading_pair=trading_pair,
-            hbot_order_id_prefix=CONSTANTS.BROKER_ID,
-            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
+                is_buy=True,
+                trading_pair=trading_pair,
+                hbot_order_id_prefix=CONSTANTS.BROKER_ID,
+                max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
         )
         safe_ensure_future(
-            self._place_order(TradeType.BUY,
-                order_id,
-                trading_pair,
-                amount,
-                order_type,
-                kwargs["position_action"],
-                price)
+                self._place_order(TradeType.BUY,
+                    order_id,
+                    trading_pair,
+                    amount,
+                    order_type,
+                    kwargs["position_action"],
+                    price)
         )
         return order_id
 
@@ -372,19 +374,19 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             Price for a limit order
         """
         order_id: str = get_new_client_order_id(
-            is_buy=False,
-            trading_pair=trading_pair,
-            hbot_order_id_prefix=CONSTANTS.BROKER_ID,
-            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
+                is_buy=False,
+                trading_pair=trading_pair,
+                hbot_order_id_prefix=CONSTANTS.BROKER_ID,
+                max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
         )
         safe_ensure_future(
-            self._place_order(TradeType.SELL,
-                order_id,
-                trading_pair,
-                amount,
-                order_type,
-                kwargs["position_action"],
-                price)
+                    self._place_order(TradeType.SELL,
+                        order_id,
+                        trading_pair,
+                        amount,
+                        order_type,
+                        kwargs["position_action"],
+                        price)
         )
         return order_id
 
@@ -545,8 +547,8 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         """
         now = time.time()
         poll_interval = (self.SHORT_POLL_INTERVAL
-                         if now - self._user_stream_tracker.last_recv_time > 60.0
-                         else self.LONG_POLL_INTERVAL)
+                             if now - self._user_stream_tracker.last_recv_time > 60.0
+                             else self.LONG_POLL_INTERVAL)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
@@ -554,11 +556,10 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                 self._poll_notifier.set()
         if now >= self._next_funding_fee_timestamp + CONSTANTS.FUNDING_SETTLEMENT_DURATION[1]:
             self._funding_fee_poll_notifier.set()
-
         self._last_timestamp = timestamp
 
     def _get_fee(self, base_currency: str, quote_currency: str, order_type: object, order_side: object,
-                amount: object, price: object, is_maker: Optional[bool] = None):
+                            amount: object, price: object, is_maker: Optional[bool] = None):
         """
         To get trading fee, this function is simplified by using a fee override configuration.
         Most parameters to this function are ignored except order_type. Use OrderType.LIMIT_MAKER to specify
@@ -656,7 +657,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         else:
             self.logger().error("Unable to set leverage.")
         return leverage
-    
+
     def set_position_mode(self, position_mode: PositionMode):
         safe_ensure_future(self._set_position_mode(position_mode))
 
@@ -695,11 +696,6 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = self._funding_fee_polling_task = None
 
-    async def _get_rest_assistant(self) -> RESTAssistant:
-        if self._rest_assistant is None:
-            self._rest_assistant = await self._api_factory.get_rest_assistant()
-        return self._rest_assistant
-
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:
             self._ws_assistant = await self._api_factory.get_ws_assistant()
@@ -734,42 +730,42 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                 await self._sleep(5.0)
 
     async def _process_user_stream_event(self, event_message: Dict[str, Any]):
-            event_type = event_message.get("e")
-            if event_type == "ORDER_TRADE_UPDATE":
-                order_message = event_message.get("o")
-                client_order_id = order_message.get("c", None)
-                tracked_order: InFlightOrder = self._client_order_tracker.fetch_order(client_order_id)
-                if tracked_order is not None:
-                    trade_id: str = str(order_message["t"])
+        event_type = event_message.get("e")
+        if event_type == "ORDER_TRADE_UPDATE":
+            order_message = event_message.get("o")
+            client_order_id = order_message.get("c", None)
+            tracked_order: InFlightOrder = self._client_order_tracker.fetch_order(client_order_id)
+            if tracked_order is not None:
+                trade_id: str = str(order_message["t"])
 
-                    if trade_id != "0":  # Indicates that there has been a trade
+                if trade_id != "0":  # Indicates that there has been a trade
 
-                        fee_asset = order_message.get("N", tracked_order.quote_asset)
-                        fee_amount = Decimal(order_message.get("n", "0"))
-                        position_side = order_message.get("ps", "LONG")
-                        position_action = (PositionAction.OPEN
-                                        if (tracked_order.trade_type is TradeType.BUY and position_side == "LONG"
-                                            or tracked_order.trade_type is TradeType.SELL and position_side == "SHORT")
-                                        else PositionAction.CLOSE)
-                        flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
-                        fee = TradeFeeBase.new_perpetual_fee(
+                    fee_asset = order_message.get("N", tracked_order.quote_asset)
+                    fee_amount = Decimal(order_message.get("n", "0"))
+                    position_side = order_message.get("ps", "LONG")
+                    position_action = (PositionAction.OPEN
+                                    if (tracked_order.trade_type is TradeType.BUY and position_side == "LONG"
+                                        or tracked_order.trade_type is TradeType.SELL and position_side == "SHORT")
+                                    else PositionAction.CLOSE)
+                    flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
+                    fee = TradeFeeBase.new_perpetual_fee(
                                 fee_schema=self.trade_fee_schema(),
                                 position_action=position_action,
                                 percent_token=fee_asset,
                                 flat_fees=flat_fees,
-                        )
-                        trade_update: TradeUpdate = TradeUpdate(
-                                trade_id=trade_id,
-                                client_order_id=client_order_id,
-                                exchange_order_id=str(order_message["i"]),
-                                trading_pair=tracked_order.trading_pair,
-                                fill_timestamp=order_message["T"] * 1e-3,
-                                fill_price=Decimal(order_message["L"]),
-                                fill_base_amount=Decimal(order_message["l"]),
-                                fill_quote_amount=Decimal(order_message["L"]) * Decimal(order_message["l"]),
-                                fee=fee,
-                        )
-                        self._client_order_tracker.process_trade_update(trade_update)
+                    )
+                    trade_update: TradeUpdate = TradeUpdate(
+                        trade_id=trade_id,
+                        client_order_id=client_order_id,
+                        exchange_order_id=str(order_message["i"]),
+                        trading_pair=tracked_order.trading_pair,
+                        fill_timestamp=order_message["T"] * 1e-3,
+                        fill_price=Decimal(order_message["L"]),
+                        fill_base_amount=Decimal(order_message["l"]),
+                        fill_quote_amount=Decimal(order_message["L"]) * Decimal(order_message["l"]),
+                        fee=fee,
+                    )
+                    self._client_order_tracker.process_trade_update(trade_update)
 
     async def _update_trading_rules(self):
         """
@@ -946,13 +942,11 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
-
         if order.exchange_order_id is not None:
             try:
                 all_fills_response = await self._request_order_fills(order=order)
                 trades_list_key = "data" if order.trading_pair else "trade_list"
                 fills_data = all_fills_response["result"].get(trades_list_key, [])
-
                 if fills_data is not None:
                     for fill_data in fills_data:
                         trade_update = self._parse_trade_update(trade_msg=fill_data, tracked_order=order)
@@ -960,7 +954,6 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             except IOError as ex:
                 if not self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
                     raise
-
         return trade_updates
 
     async def _update_balances(self):
@@ -969,10 +962,9 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-
         account_info = await self._api_request(path=CONSTANTS.ACCOUNT_INFO_URL,
-                                is_auth_required=True,
-                                api_version=CONSTANTS.API_VERSION_V2,)
+                                    is_auth_required=True,
+                                    api_version=CONSTANTS.API_VERSION_V2,)
         assets = account_info.get("assets")
         for asset in assets:
             asset_name = asset.get("asset")
@@ -981,62 +973,61 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             self._account_available_balances[asset_name] = available_balance
             self._account_balances[asset_name] = wallet_balance
             remote_asset_names.add(asset_name)
-
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
     async def _update_positions(self):
-            """
-            Retrieves all positions using the REST API.
-            """
-            position_tasks = []
-            for trading_pair in self._trading_pairs:
-                ex_trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair)
-                body_params = {"symbol": ex_trading_pair}
-                position_tasks.append(
-                    asyncio.create_task(self._api_get(
-                        path=CONSTANTS.POSITION_INFORMATION_URL,
-                        params=body_params,
-                        is_auth_required=True,
-                        trading_pair=trading_pair,
-                    ))
-                )
-            raw_responses: List[Dict[str, Any]] = await safe_gather(*position_tasks, return_exceptions=True)
+        """
+        Retrieves all positions using the REST API.
+        """
+        position_tasks = []
+        for trading_pair in self._trading_pairs:
+            ex_trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair)
+            body_params = {"symbol": ex_trading_pair}
+            position_tasks.append(
+                asyncio.create_task(self._api_get(
+                    path=CONSTANTS.POSITION_INFORMATION_URL,
+                    params=body_params,
+                    is_auth_required=True,
+                    trading_pair=trading_pair,
+                ))
+            )
+        raw_responses: List[Dict[str, Any]] = await safe_gather(*position_tasks, return_exceptions=True)
 
-            # Initial parsing of responses. Joining all the responses
-            parsed_resps: List[Dict[str, Any]] = []
-            for resp, trading_pair in zip(raw_responses, self._trading_pairs):
-                if not isinstance(resp, Exception):
-                    result = resp["result"]
-                    if result:
-                        position_entries = result if isinstance(result, list) else [result]
-                        parsed_resps.extend(position_entries)
-                else:
-                    self.logger().error(f"Error fetching positions for {trading_pair}. Response: {resp}")
-            for position in parsed_resps:
-                data = position
-                ex_trading_pair = data.get("symbol")
-                hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
-                position_side = PositionSide.LONG if data["side"] == "Buy" else PositionSide.SHORT
-                unrealized_pnl = Decimal(str(data["unrealised_pnl"]))
-                entry_price = Decimal(str(data["entry_price"]))
-                amount = Decimal(str(data["size"]))
-                leverage = Decimal(str(data["leverage"])) 
-                pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
-                if amount != s_decimal_0:
-                    position = Position(
-                        trading_pair=hb_trading_pair,
-                        position_side=position_side,
-                        unrealized_pnl=unrealized_pnl,
-                        entry_price=entry_price,
-                        amount=amount * (Decimal("-1.0") if position_side == PositionSide.SHORT else Decimal("1.0")),
-                        leverage=leverage,
-                    )
-                    self._perpetual_trading.set_position(pos_key, position)
-                else:
-                    self._perpetual_trading.remove_position(pos_key)
+        # Initial parsing of responses. Joining all the responses
+        parsed_resps: List[Dict[str, Any]] = []
+        for resp, trading_pair in zip(raw_responses, self._trading_pairs):
+            if not isinstance(resp, Exception):
+                result = resp["result"]
+                if result:
+                    position_entries = result if isinstance(result, list) else [result]
+                    parsed_resps.extend(position_entries)
+            else:
+                self.logger().error(f"Error fetching positions for {trading_pair}. Response: {resp}")
+        for position in parsed_resps:
+            data = position
+            ex_trading_pair = data.get("symbol")
+            hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
+            position_side = PositionSide.LONG if data["side"] == "Buy" else PositionSide.SHORT
+            unrealized_pnl = Decimal(str(data["unrealised_pnl"]))
+            entry_price = Decimal(str(data["entry_price"]))
+            amount = Decimal(str(data["size"]))
+            leverage = Decimal(str(data["leverage"]))
+            pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
+            if amount != s_decimal_0:
+                position = Position(
+                    trading_pair=hb_trading_pair,
+                    position_side=position_side,
+                    unrealized_pnl=unrealized_pnl,
+                    entry_price=entry_price,
+                    amount=amount * (Decimal("-1.0") if position_side == PositionSide.SHORT else Decimal("1.0")),
+                    leverage=leverage,
+                )
+                self._perpetual_trading.set_position(pos_key, position)
+            else:
+                self._perpetual_trading.remove_position(pos_key)
 
     async def _update_order_fills_from_trades(self):
         last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
@@ -1489,26 +1480,26 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         return success, msg
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
-            msg = ""
-            success = True
-            api_mode = CONSTANTS.CHANGE_POSITION_MODE_URL[mode]
-            exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-            data = {"symbol": exchange_symbol, "mode": api_mode}
-            response = await self._api_post(
-                path_url=CONSTANTS.POST_POSITION_MODE_LIMIT_ID,
-                data=data,
-                is_auth_required=True,
-            )
-            response_code = response["ret_code"]
-            if response_code not in [CONSTANTS.RET_CODE_OK, CONSTANTS.RET_CODE_MODE_NOT_MODIFIED]:
-                formatted_ret_code = self._format_ret_code_for_print(response_code)
-                msg = f"{formatted_ret_code} - {response['ret_msg']}"
-                success = False
-            else:
-                #  Inverse Perpetuals don't have set_position_mode()
-                msg = "Inverse Perpetuals don't allow for a position mode change."
-                success = False
-            return success, msg
+        msg = ""
+        success = True
+        api_mode = CONSTANTS.CHANGE_POSITION_MODE_URL[mode]
+        exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+        data = {"symbol": exchange_symbol, "mode": api_mode}
+        response = await self._api_post(
+            path_url=CONSTANTS.POST_POSITION_MODE_LIMIT_ID,
+            data=data,
+            is_auth_required=True,
+        )
+        response_code = response["ret_code"]
+        if response_code not in [CONSTANTS.RET_CODE_OK, CONSTANTS.RET_CODE_MODE_NOT_MODIFIED]:
+            formatted_ret_code = self._format_ret_code_for_print(response_code)
+            msg = f"{formatted_ret_code} - {response['ret_msg']}"
+            success = False
+        else:
+            #  Inverse Perpetuals don't have set_position_mode()
+            msg = "Inverse Perpetuals don't allow for a position mode change."
+            success = False
+        return success, msg
 
     async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
         # This method should be removed and instead we should implement _get_last_traded_price
@@ -1519,7 +1510,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _sleep(self, delay: float):
         await asyncio.sleep(delay)
-  
+
     async def _update_trading_fees(self):
         pass
 
@@ -1545,7 +1536,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
             auth=self._auth,
-        )    
+        )
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return BinancePerpetualAPIOrderBookDataSource(
@@ -1566,13 +1557,13 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         )
 
     async def _initialize_trading_pair_symbols_from_exchange_info(self):
-            # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
-            return await BinancePerpetualAPIOrderBookDataSource.trading_pair_symbol_map(
-                domain=self._domain,
-                throttler=self._throttler,
-                api_factory=self._api_factory,
-                time_synchronizer=self._binance_time_synchronizer,
-            )
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await BinancePerpetualAPIOrderBookDataSource.trading_pair_symbol_map(
+            domain=self._domain,
+            throttler=self._throttler,
+            api_factory=self._api_factory,
+            time_synchronizer=self._binance_time_synchronizer,
+        )
 
     def _resolve_trading_pair_symbols_duplicate(self, mapping: bidict, new_exchange_symbol: str, base: str, quote: str):
         """Resolves name conflicts provoked by futures contracts.
@@ -1604,7 +1595,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         )
         data: Dict[str, Any] = raw_response["result"]
         if not data:
-        # An empty funding fee/payment is retrieved.
+            # An empty funding fee/payment is retrieved.
             timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
         else:
             funding_rate: Decimal = Decimal(str(data["funding_rate"]))
