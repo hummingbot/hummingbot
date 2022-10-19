@@ -31,6 +31,7 @@
     "@pangolindex/sdk": "^1.1.0",
     "@perp/sdk-curie": "^1.6.1",
     "@project-serum/serum": "^0.13.65",
+    "@ref_finance/ref-sdk": "^1.0.2",
     "@solana/buffer-layout": "^4.0.0",
     "@solana/spl-token": "^0.2.0",
     "@solana/spl-token-registry": "^0.2.4177",

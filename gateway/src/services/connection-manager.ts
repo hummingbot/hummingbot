@@ -14,6 +14,7 @@ import {
   Ethereumish,
   Nearish,
   Perpish,
+  RefAMMish,
   Uniswapish,
   UniswapLPish,
 } from './common-interfaces';
@@ -23,6 +24,7 @@ import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
 import { Defira } from '../connectors/defira/defira';
 import { Serumish } from '../connectors/serum/serum';
 import { Near } from '../chains/near/near';
+import { Ref } from '../connectors/ref/ref';
 
 export type ChainUnion = Ethereumish | Solanaish | Nearish;
 
@@ -57,7 +59,12 @@ export async function getChain<T>(
   return chainInstance as Chain<T>;
 }
 
-type ConnectorUnion = Uniswapish | UniswapLPish | Perpish | Serumish;
+type ConnectorUnion =
+  | Uniswapish
+  | UniswapLPish
+  | Perpish
+  | Serumish
+  | RefAMMish;
 
 export type Connector<T> = T extends Uniswapish
   ? Uniswapish
@@ -67,6 +74,8 @@ export type Connector<T> = T extends Uniswapish
   ? Perpish
   : T extends Serumish
   ? Serumish
+  : T extends RefAMMish
+  ? RefAMMish
   : never;
 
 export async function getConnector<T>(
@@ -105,6 +114,8 @@ export async function getConnector<T>(
     connectorInstance = Defira.getInstance(chain, network);
   } else if (chain === 'solana' && connector === 'serum') {
     connectorInstance = await Serum.getInstance(chain, network);
+  } else if (chain === 'near' && connector === 'ref') {
+    connectorInstance = Ref.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
   }
