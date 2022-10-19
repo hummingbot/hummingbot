@@ -36,8 +36,8 @@ from hummingbot.strategy.strategy_base import StrategyBase
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
-PMM_SCRIPT_ENABLED_KEY: str = "pmm_script_enabled"
-PMM_SCRIPT_FILE_PATH_KEY: str = "pmm_script_file_path"
+PMM_SCRIPT_ENABLED_KEY = "pmm_script_enabled"
+PMM_SCRIPT_FILE_PATH_KEY = "pmm_script_file_path"
 
 
 def generate_client_id() -> str:
@@ -200,7 +200,7 @@ class KillSwitchEnabledMode(KillSwitchMode):
     )
 
     class Config:
-        title: str = "kill_switch_enabled"
+        title = "kill_switch_enabled"
 
     def get_kill_switch(self, hb: "HummingbotApplication") -> ActiveKillSwitch:
         kill_switch = ActiveKillSwitch(kill_switch_rate=self.kill_switch_rate, hummingbot_application=hb)
@@ -214,15 +214,14 @@ class KillSwitchEnabledMode(KillSwitchMode):
 
 class KillSwitchDisabledMode(KillSwitchMode):
     class Config:
-        title: str = "kill_switch_disabled"
+        title = "kill_switch_disabled"
 
     def get_kill_switch(self, hb: "HummingbotApplication") -> PassThroughKillSwitch:
         kill_switch = PassThroughKillSwitch()
         return kill_switch
 
 
-T_KILL_SWITCH_MODES = Union[KillSwitchEnabledMode, KillSwitchDisabledMode]
-KILL_SWITCH_MODES: Dict[str, T_KILL_SWITCH_MODES] = {
+KILL_SWITCH_MODES = {
     KillSwitchEnabledMode.Config.title: KillSwitchEnabledMode,
     KillSwitchDisabledMode.Config.title: KillSwitchDisabledMode,
 }
@@ -251,7 +250,7 @@ class TelegramEnabledMode(TelegramMode):
     )
 
     class Config:
-        title: str = "telegram_enabled"
+        title = "telegram_enabled"
 
     def get_notifiers(self, hb: "HummingbotApplication") -> List[TelegramNotifier]:
         notifiers = [
@@ -262,14 +261,13 @@ class TelegramEnabledMode(TelegramMode):
 
 class TelegramDisabledMode(TelegramMode):
     class Config:
-        title: str = "telegram_disabled"
+        title = "telegram_disabled"
 
     def get_notifiers(self, hb: "HummingbotApplication") -> List[TelegramNotifier]:
         return []
 
 
-T_TELEGRAM_MODES = Union[TelegramEnabledMode, TelegramDisabledMode]
-TELEGRAM_MODES: Dict[str, T_TELEGRAM_MODES] = {
+TELEGRAM_MODES = {
     TelegramEnabledMode.Config.title: TelegramEnabledMode,
     TelegramDisabledMode.Config.title: TelegramDisabledMode,
 }
@@ -293,7 +291,7 @@ class DBSqliteMode(DBMode):
     )
 
     class Config:
-        title: str = "sqlite_db_engine"
+        title = "sqlite_db_engine"
 
     def get_url(self, db_path: str) -> str:
         return f"{self.db_engine}:///{db_path}"
@@ -340,7 +338,7 @@ class DBOtherMode(DBMode):
     )
 
     class Config:
-        title: str = "other_db_engine"
+        title = "other_db_engine"
 
     def get_url(self, db_path: str) -> str:
         return f"{self.db_engine}://{self.db_username}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
@@ -351,8 +349,7 @@ class DBOtherMode(DBMode):
         return v
 
 
-T_DB_MODES = Union[DBSqliteMode, DBOtherMode]
-DB_MODES: Dict[str, T_DB_MODES] = {
+DB_MODES = {
     DBSqliteMode.Config.title: DBSqliteMode,
     DBOtherMode.Config.title: DBOtherMode,
 }
@@ -370,7 +367,7 @@ class PMMScriptMode(BaseClientModel, ABC):
 
 class PMMScriptDisabledMode(PMMScriptMode):
     class Config:
-        title: str = "pmm_script_disabled"
+        title = "pmm_script_disabled"
 
     def get_iterator(
             self,
@@ -387,7 +384,7 @@ class PMMScriptEnabledMode(PMMScriptMode):
     )
 
     class Config:
-        title: str = "pmm_script_enabled"
+        title = "pmm_script_enabled"
 
     def get_iterator(
             self,
@@ -422,8 +419,7 @@ class PMMScriptEnabledMode(PMMScriptMode):
         return file_path
 
 
-T_PMM_SCRIPT_MODES = Union[PMMScriptDisabledMode, PMMScriptEnabledMode]
-PMM_SCRIPT_MODES: Dict[str, T_PMM_SCRIPT_MODES] = {
+PMM_SCRIPT_MODES = {
     PMMScriptDisabledMode.Config.title: PMMScriptDisabledMode,
     PMMScriptEnabledMode.Config.title: PMMScriptEnabledMode,
 }
@@ -439,7 +435,7 @@ class GatewayConfigMap(BaseClientModel):
     )
 
     class Config:
-        title: str = "gateway"
+        title = "gateway"
 
 
 class GlobalTokenConfigMap(BaseClientModel):
@@ -459,7 +455,7 @@ class GlobalTokenConfigMap(BaseClientModel):
     )
 
     class Config:
-        title: str = "global_token"
+        title = "global_token"
 
     @validator("global_token_name")
     def validate_global_token_name(cls, v: str) -> str:
@@ -499,7 +495,7 @@ class CommandsTimeoutConfigMap(BaseClientModel):
     )
 
     class Config:
-        title: str = "commands_timeout"
+        title = "commands_timeout"
 
     @validator(
         "create_command_timeout",
@@ -525,7 +521,7 @@ class AnonymizedMetricsMode(BaseClientModel, ABC):
 
 class AnonymizedMetricsDisabledMode(AnonymizedMetricsMode):
     class Config:
-        title: str = "anonymized_metrics_disabled"
+        title = "anonymized_metrics_disabled"
 
     def get_collector(
             self,
@@ -547,7 +543,7 @@ class AnonymizedMetricsEnabledMode(AnonymizedMetricsMode):
     )
 
     class Config:
-        title: str = "anonymized_metrics_enabled"
+        title = "anonymized_metrics_enabled"
 
     def get_collector(
             self,
@@ -571,8 +567,7 @@ class AnonymizedMetricsEnabledMode(AnonymizedMetricsMode):
         return super().validate_decimal(v, field)
 
 
-T_METRICS_MODES = Union[AnonymizedMetricsDisabledMode, AnonymizedMetricsEnabledMode]
-METRICS_MODES: Dict[str, T_METRICS_MODES] = {
+METRICS_MODES = {
     AnonymizedMetricsDisabledMode.Config.title: AnonymizedMetricsDisabledMode,
     AnonymizedMetricsEnabledMode.Config.title: AnonymizedMetricsEnabledMode,
 }
@@ -597,7 +592,7 @@ class AscendExRateSourceMode(ExchangeRateSourceModeBase):
     )
 
     class Config:
-        title: str = "ascend_ex"
+        title = "ascend_ex"
 
 
 class BinanceRateSourceMode(ExchangeRateSourceModeBase):
@@ -608,7 +603,7 @@ class BinanceRateSourceMode(ExchangeRateSourceModeBase):
     )
 
     class Config:
-        title: str = "binance"
+        title = "binance"
 
 
 class CoinGeckoRateSourceMode(RateSourceModeBase):
@@ -630,7 +625,7 @@ class CoinGeckoRateSourceMode(RateSourceModeBase):
     )
 
     class Config:
-        title: str = "coin_gecko"
+        title = "coin_gecko"
 
     def build_rate_source(self) -> RateSourceBase:
         rate_source = RATE_ORACLE_SOURCES[self.Config.title](
@@ -658,7 +653,7 @@ class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
     )
 
     class Config:
-        title: str = "kucoin"
+        title = "kucoin"
 
 
 class GateIoRateSourceMode(ExchangeRateSourceModeBase):
@@ -672,12 +667,7 @@ class GateIoRateSourceMode(ExchangeRateSourceModeBase):
         title: str = "gate_io"
 
 
-T_RATE_SOURCE_MODES = Union[AscendExRateSourceMode,
-                            BinanceRateSourceMode,
-                            CoinGeckoRateSourceMode,
-                            KuCoinRateSourceMode,
-                            GateIoRateSourceMode]
-RATE_SOURCE_MODES: Dict[str, T_RATE_SOURCE_MODES] = {
+RATE_SOURCE_MODES = {
     AscendExRateSourceMode.Config.title: AscendExRateSourceMode,
     BinanceRateSourceMode.Config.title: BinanceRateSourceMode,
     CoinGeckoRateSourceMode.Config.title: CoinGeckoRateSourceMode,
@@ -707,7 +697,7 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: f"Where would you like to save your logs? (default '{DEFAULT_LOG_FILE_PATH}')",
         ),
     )
-    kill_switch_mode: T_KILL_SWITCH_MODES = Field(
+    kill_switch_mode: Union[tuple(KILL_SWITCH_MODES.values())] = Field(
         default=KillSwitchDisabledMode(),
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select your kill-switch mode ({'/'.join(list(KILL_SWITCH_MODES.keys()))})",
@@ -722,7 +712,7 @@ class ClientConfigMap(BaseClientModel):
             ),
         )
     )
-    telegram_mode: T_TELEGRAM_MODES = Field(
+    telegram_mode: Union[tuple(TELEGRAM_MODES.values())] = Field(
         default=TelegramDisabledMode(),
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select the desired telegram mode ({'/'.join(list(TELEGRAM_MODES.keys()))})"
@@ -739,7 +729,7 @@ class ClientConfigMap(BaseClientModel):
         default=None,
         description="Can store the previous strategy ran for quick retrieval."
     )
-    db_mode: T_DB_MODES = Field(
+    db_mode: Union[tuple(DB_MODES.values())] = Field(
         default=DBSqliteMode(),
         description=("Advanced database options, currently supports SQLAlchemy's included dialects"
                      "\nReference: https://docs.sqlalchemy.org/en/13/dialects/"
@@ -751,7 +741,7 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: f"Select the desired db mode ({'/'.join(list(DB_MODES.keys()))})",
         ),
     )
-    pmm_script_mode: T_PMM_SCRIPT_MODES = Field(
+    pmm_script_mode: Union[tuple(PMM_SCRIPT_MODES.values())] = Field(
         default=PMMScriptDisabledMode(),
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select the desired PMM script mode ({'/'.join(list(PMM_SCRIPT_MODES.keys()))})",
@@ -785,7 +775,7 @@ class ClientConfigMap(BaseClientModel):
                      "\ndefault host to only use localhost"
                      "\nPort need to match the final installation port for Gateway"),
     )
-    anonymized_metrics_mode: T_METRICS_MODES = Field(
+    anonymized_metrics_mode: Union[tuple(METRICS_MODES.values())] = Field(
         default=AnonymizedMetricsEnabledMode(),
         description="Whether to enable aggregated order and trade data collection",
         client_data=ClientFieldData(
@@ -805,7 +795,7 @@ class ClientConfigMap(BaseClientModel):
                      "\nDefine abbreviations for often used commands"
                      "\nor batch grouped commands together"),
     )
-    rate_oracle_source: T_RATE_SOURCE_MODES = Field(
+    rate_oracle_source: Union[tuple(RATE_SOURCE_MODES.values())] = Field(
         default=BinanceRateSourceMode(),
         description=f"A source for rate oracle, currently {', '.join(RATE_SOURCE_MODES.keys())}",
         client_data=ClientFieldData(
@@ -863,11 +853,11 @@ class ClientConfigMap(BaseClientModel):
     )
 
     class Config:
-        title: str = "client_config_map"
+        title = "client_config_map"
 
     @validator("kill_switch_mode", pre=True)
-    def validate_kill_switch_mode(cls, v: Union[str, Dict, T_KILL_SWITCH_MODES]):
-        if isinstance(v, tuple(KILL_SWITCH_MODES.values()) + (dict,)):
+    def validate_kill_switch_mode(cls, v: Union[(str, Dict) + tuple(KILL_SWITCH_MODES.values())]):
+        if isinstance(v, tuple(KILL_SWITCH_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in KILL_SWITCH_MODES:
             raise ValueError(
@@ -884,8 +874,8 @@ class ClientConfigMap(BaseClientModel):
         return v
 
     @validator("telegram_mode", pre=True)
-    def validate_telegram_mode(cls, v: Union[str, Dict, T_TELEGRAM_MODES]):
-        if isinstance(v, tuple(TELEGRAM_MODES.values()) + (dict,)):
+    def validate_telegram_mode(cls, v: Union[(str, Dict) + tuple(TELEGRAM_MODES.values())]):
+        if isinstance(v, tuple(TELEGRAM_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in TELEGRAM_MODES:
             raise ValueError(
@@ -905,8 +895,8 @@ class ClientConfigMap(BaseClientModel):
         return v
 
     @validator("db_mode", pre=True)
-    def validate_db_mode(cls, v: Union[str, Dict, T_DB_MODES]):
-        if isinstance(v, tuple(DB_MODES.values()) + (dict,)):
+    def validate_db_mode(cls, v: Union[(str, Dict) + tuple(DB_MODES.values())]):
+        if isinstance(v, tuple(DB_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in DB_MODES:
             raise ValueError(
@@ -917,8 +907,8 @@ class ClientConfigMap(BaseClientModel):
         return sub_model
 
     @validator("pmm_script_mode", pre=True)
-    def validate_pmm_script_mode(cls, v: Union[str, Dict, T_PMM_SCRIPT_MODES]):
-        if isinstance(v, tuple(PMM_SCRIPT_MODES.values()) + (dict,)):
+    def validate_pmm_script_mode(cls, v: Union[(str, Dict) + tuple(PMM_SCRIPT_MODES.values())]):
+        if isinstance(v, tuple(PMM_SCRIPT_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in PMM_SCRIPT_MODES:
             raise ValueError(
@@ -929,8 +919,8 @@ class ClientConfigMap(BaseClientModel):
         return sub_model
 
     @validator("anonymized_metrics_mode", pre=True)
-    def validate_anonymized_metrics_mode(cls, v: Union[str, Dict, T_METRICS_MODES]):
-        if isinstance(v, tuple(METRICS_MODES.values()) + (dict,)):
+    def validate_anonymized_metrics_mode(cls, v: Union[(str, Dict) + tuple(METRICS_MODES.values())]):
+        if isinstance(v, tuple(METRICS_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in METRICS_MODES:
             raise ValueError(
@@ -941,8 +931,8 @@ class ClientConfigMap(BaseClientModel):
         return sub_model
 
     @validator("rate_oracle_source", pre=True)
-    def validate_rate_oracle_source(cls, v: Union[str, Dict, T_RATE_SOURCE_MODES]):
-        if isinstance(v, tuple(RATE_SOURCE_MODES.values()) + (dict,)):
+    def validate_rate_oracle_source(cls, v: Union[(str, Dict) + tuple(RATE_SOURCE_MODES.values())]):
+        if isinstance(v, tuple(RATE_SOURCE_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in RATE_SOURCE_MODES:
             raise ValueError(
@@ -971,7 +961,7 @@ class ClientConfigMap(BaseClientModel):
     @validator("tick_size", pre=True)
     def validate_tick_size(cls, v: float):
         """Used for client-friendly error output."""
-        ret = validate_float(str(v), min_value=0.1)
+        ret = validate_float(v, min_value=0.1)
         if ret is not None:
             raise ValueError(ret)
         return v
