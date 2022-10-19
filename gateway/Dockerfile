@@ -31,7 +31,7 @@ RUN chown -R hummingbot /var/lib/gateway
 COPY . .
 
 # install dependencies
-RUN yarn
+RUN yarn install --frozen-lockfile
 
 EXPOSE 15888
 
