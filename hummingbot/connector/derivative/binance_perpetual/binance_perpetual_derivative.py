@@ -559,25 +559,25 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
 
     def _get_fee(self, base_currency: str, quote_currency: str, order_type: object, order_side: object,
                 amount: object, price: object, is_maker: Optional[bool] = None):
-            """
-            To get trading fee, this function is simplified by using a fee override configuration.
-            Most parameters to this function are ignored except order_type. Use OrderType.LIMIT_MAKER to specify
-            you want a trading fee for the maker order.
-            Parameters
-            ----------
-            base_currency:
-                Base currency of the order.
-            quote_currency:
-                Quote currency of the order.
-            order_type:
-                LIMIT, MARKET or LIMIT_MAKER
-            order_side:
-                BUY or SELL
-            amount:
-                Amount in which the order will be placed
-            price:
-                Price in which the order will be placed
-            """
+        """
+        To get trading fee, this function is simplified by using a fee override configuration.
+        Most parameters to this function are ignored except order_type. Use OrderType.LIMIT_MAKER to specify
+        you want a trading fee for the maker order.
+        Parameters
+        ----------
+        base_currency:
+            Base currency of the order.
+        quote_currency:
+            Quote currency of the order.
+        order_type:
+            LIMIT, MARKET or LIMIT_MAKER
+        order_side:
+            BUY or SELL
+        amount:
+            Amount in which the order will be placed
+        price:
+            Price in which the order will be placed
+        """
         warnings.warn(
             "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
             DeprecationWarning,
