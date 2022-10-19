@@ -26,9 +26,9 @@ class ClientFieldData:
 
 class BaseClientModel(BaseModel):
     class Config:
-        validate_assignment: bool = True
-        title: str = None
-        smart_union: bool = True
+        validate_assignment = True
+        title = None
+        smart_union = True
         extra = Extra.forbid
         json_encoders = {
             datetime: lambda dt: dt.strftime("%Y-%m-%d %H:%M:%S"),
@@ -52,7 +52,6 @@ class BaseClientModel(BaseModel):
     def is_required(self, attr: str) -> bool:
         return self.__fields__[attr].required
 
-    @staticmethod
     def validate_decimal(v: str, field: Field):
         """Used for client-friendly error output."""
         field_info = field.field_info
