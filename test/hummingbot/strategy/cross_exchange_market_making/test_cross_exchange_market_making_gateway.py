@@ -1029,20 +1029,22 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         get_connector_spec_from_market_name_mock.return_value = self.get_mock_gateway_settings()
         get_connector_settings_mock.return_value = self.get_mock_connector_settings()
 
-        config_map_with_slippage_buffer = ClientConfigAdapter(
-            CrossExchangeMarketMakingConfigMap(
-                maker_market=self.exchange_name_maker,
-                taker_market=self.exchange_name_taker,
-                maker_market_trading_pair=self.trading_pairs_maker[0],
-                taker_market_trading_pair=self.trading_pairs_taker[0],
-                order_amount=Decimal("4"),
-                min_profitability=Decimal("25"),
-                order_size_taker_volume_factor=Decimal("100"),
-                order_size_taker_balance_factor=Decimal("100"),
-                order_size_portfolio_ratio_limit=Decimal("100"),
-                slippage_buffer=Decimal("25"),
-            )
+        config_map_with_slippage_buffer_raw = CrossExchangeMarketMakingConfigMap(
+            maker_market=self.exchange_name_maker,
+            taker_market=self.exchange_name_taker,
+            maker_market_trading_pair=self.trading_pairs_maker[0],
+            taker_market_trading_pair=self.trading_pairs_taker[0],
+            order_amount=Decimal("4"),
+            min_profitability=Decimal("25"),
+            order_size_taker_volume_factor=Decimal("100"),
+            order_size_taker_balance_factor=Decimal("100"),
+            order_size_portfolio_ratio_limit=Decimal("100"),
+            conversion_rate_mode=TakerToMakerConversionRateMode(),
+            slippage_buffer=Decimal("25"),
         )
+        config_map_with_slippage_buffer_raw.conversion_rate_mode.taker_to_maker_base_conversion_rate = Decimal("1.0")
+        config_map_with_slippage_buffer_raw.conversion_rate_mode.taker_to_maker_quote_conversion_rate = Decimal("1.0")
+        config_map_with_slippage_buffer = ClientConfigAdapter(config_map_with_slippage_buffer_raw)
 
         strategy_with_slippage_buffer: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         strategy_with_slippage_buffer.init_params(
