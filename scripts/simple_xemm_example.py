@@ -10,6 +10,10 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class SimpleXEMM(ScriptStrategyBase):
     """
+    BotCamp Cohort: Sept 2022
+    Design Template: https://www.notion.so/hummingbot-foundation/Cross-Exchange-Making-Script-f08cf7546ea94a44b389672fd21bb9ad
+    Video: https://www.loom.com/share/ca08fe7bc3d14ba68ae704305ac78a3a
+    Description:
     A simplified version of Hummingbot cross-exchange market making strategy, this bot makes a market on
     the maker pair and hedges any filled trades in the taker pair. If the spread (difference between maker order price
     and taker hedge price) dips below min_spread, the bot refreshes the order
