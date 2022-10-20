@@ -2,7 +2,7 @@ import logging
 import time
 from decimal import Decimal
 from math import floor
-from typing import Callable, List
+from typing import Callable, List, Union
 
 from hummingbot.core.api_throttler.async_request_context_base import (
     MAX_CAPACITY_REACHED_WARNING_INTERVAL,
@@ -46,11 +46,12 @@ class AsyncRequestContext(AsyncRequestContextBase):
 
     def _flush(self, now: _T_Seconds):
         """
-        Remove task logs that have passed rate limit periods for the Sliding window method
+        Remove task logs that started before the current window [now - interval:now] for the Sliding window method
         """
         for task in self._task_logs:
             elapsed: _T_Seconds = now - task.timestamp
             task_interval: _T_Seconds = task.rate_limit.time_interval
+            # Remove if the current task has been created earlier than the safe window interval
             if elapsed > task_interval * (1 + self._safety_margin_as_fraction):
                 self._task_logs.remove(task)
 
@@ -61,7 +62,9 @@ class AsyncRequestContext(AsyncRequestContextBase):
         as well as the sliding window capacity calculation
 
         2. Consume/Replenish weighted tokens for the current request
+        For the Sliding Window limiter, add the limit and related limits to the tasks log
         """
+        # The related_limits list includes the current rate_limit
         for rate_limit, weight in self._related_limits:
             limit_id: _T_RequestPath = rate_limit.limit_id
 
@@ -74,11 +77,9 @@ class AsyncRequestContext(AsyncRequestContextBase):
                 amount['amount']: _T_RequestWeight = amount['amount'] + weight
 
             elif self._method == LimiterMethod.SLIDING_WINDOW:
-                self._task_logs.append(TaskLog(timestamp=now, rate_limit=self._rate_limit, weight=self._rate_limit.weight))
-                for limit, weight in self._related_limits:
-                    self._task_logs.append(TaskLog(timestamp=now, rate_limit=limit, weight=weight))
+                self._task_logs.append(TaskLog(timestamp=now, rate_limit=rate_limit, weight=weight))
 
-    def _check_rate_limit_capacity(self, rate_limit: RateLimit, now: _T_Seconds) -> int:
+    def _check_rate_limit_capacity(self, rate_limit: RateLimit, now: _T_Seconds) -> Union[int, None]:
         """
         Implements the bucket update for a weighted Leaky or Fill Token Bucket algorithm
             (https://en.m.wikipedia.org/wiki/Token_bucket)
@@ -88,7 +89,7 @@ class AsyncRequestContext(AsyncRequestContextBase):
            token_amount = max(burst, previous_token_amount -/+ (current_time - previous_request_time) * refresh_rate)
         :param rate_limit: Rate limit for the current request
         :returns: Available capacity
-        :rtype: int
+        :rtype: int|None
         """
         capacity: _T_Capacity = rate_limit.capacity if hasattr(rate_limit, "capacity") else _T_Capacity(rate_limit.limit)
         rate_per_s: _T_Rate = rate_limit.rate_per_s if hasattr(rate_limit, "rate_per_s") else _T_Rate(ONE)
@@ -135,6 +136,9 @@ class AsyncRequestContext(AsyncRequestContextBase):
         :return: True if it is within capacity to add a new task
         """
         now: _T_Seconds = time_counter_in_s()
+
+        # For the Sliding Window limiter, the tasks log removes the requests sentprior to the start
+        # of the current time window [now - interval:now]
         if self._method == LimiterMethod.SLIDING_WINDOW:
             self._flush(now)
 
