@@ -294,7 +294,7 @@ export class Ref implements RefAMMish {
     const signedTransactions: SignedTransaction[] = await getSignedTransactions(
       { transactionsRef, account }
     );
-    const transaction = sendTransactions({
+    const transaction = await sendTransactions({
       signedTransactions,
       provider: account.connection.provider,
     });

@@ -16,10 +16,7 @@ export interface Config {
   gasLimitTransaction: number;
 }
 
-export function getNearConfig(
-  chainName: string,
-  networkName: string
-): Config {
+export function getNearConfig(chainName: string, networkName: string): Config {
   const network = networkName;
   return {
     network: {
