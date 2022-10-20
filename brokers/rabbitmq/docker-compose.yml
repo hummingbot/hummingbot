@@ -1,0 +1,27 @@
+version: "3.2"
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: 'rabbitmq'
+    ports:
+      - 5672:5672    # AMQP
+      - 15672:15672  # Management
+      - 1883:1883    # MQTT
+      - 61613:61613  # STOMP
+      - 15675:15675  # Web MQTT
+      - 15674:15674  # Web STOMP
+    volumes:
+      - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./rabbitmq/20-main.conf:/etc/rabbitmq/conf.d/20-main.conf:ro
+      - ./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./rabbitmq/data:/var/lib/rabbitmq/mnesia/rabbit@my-rabbit
+      - ./rabbitmq/logs:/var/log/rabbitmq/log
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:-admin}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:-admin}
+    networks:
+      - se2net
+
+networks:
+  se2net:
+    driver: bridge
