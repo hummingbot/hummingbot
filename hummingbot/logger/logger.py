@@ -29,8 +29,6 @@ else:   # pragma: no cover
 
 
 class HummingbotLogger(PythonLogger):
-    init_mqtt: bool = False
-
     def __init__(self, name: str):
         super().__init__(name)
 
