@@ -10,6 +10,7 @@ import { SerumConfig } from './serum/serum.config';
 import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
+import { RefConfig } from './ref/ref.config';
 
 export namespace ConnectorsRoutes {
   export const router = Router();
@@ -76,6 +77,11 @@ export namespace ConnectorsRoutes {
             name: 'serum',
             trading_type: SerumConfig.config.tradingTypes,
             available_networks: SerumConfig.config.availableNetworks,
+          },
+          {
+            name: 'ref',
+            trading_type: RefConfig.config.tradingTypes,
+            available_networks: RefConfig.config.availableNetworks,
           },
         ],
       });

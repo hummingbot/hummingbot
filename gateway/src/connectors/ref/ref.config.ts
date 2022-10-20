@@ -3,7 +3,7 @@ import { AvailableNetworks } from '../../services/config-manager-types';
 export namespace RefConfig {
   export interface NetworkConfig {
     allowedSlippage: string;
-    gasLimit: number;
+    gasLimitEstimate: number;
     ttl: number;
     routerAddress: (network: string) => string;
     tradingTypes: Array<string>;
@@ -12,7 +12,7 @@ export namespace RefConfig {
 
   export const config: NetworkConfig = {
     allowedSlippage: ConfigManagerV2.getInstance().get(`ref.allowedSlippage`),
-    gasLimit: ConfigManagerV2.getInstance().get(`ref.gasLimit`),
+    gasLimitEstimate: ConfigManagerV2.getInstance().get(`ref.gasLimitEstimate`),
     ttl: ConfigManagerV2.getInstance().get(`ref.ttl`),
     routerAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(
