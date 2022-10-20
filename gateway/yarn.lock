@@ -376,6 +376,18 @@
   resolved "https://registry.yarnpkg.com/@chainlink/contracts/-/contracts-0.4.1.tgz#1c4f824920b89fbe5ff2294c35a86bca83c8253d"
   integrity sha512-eC8biY6Ks8k9kZKVt5305veCP3z57yyiy6Os5aR6auta6Bp34xWQ/s4qvrifcW4FNgWw1HJPwMPXDGfiehcLjg==
 
+"@coinalpha/ref-sdk@git+https://github.com/CoinAlpha/ref-sdk#e81ee8a":
+  version "1.0.2"
+  resolved "git+https://github.com/CoinAlpha/ref-sdk#e81ee8ac08d3408696a1419e484ae5deab99d36c"
+  dependencies:
+    "@types/big.js" "^6.1.5"
+    "@types/bn.js" "^5.1.1"
+    "@types/lodash" "^4.14.182"
+    big.js "^6.2.1"
+    lodash-es "^4.17.21"
+    mathjs "^9.3.0"
+    near-api-js "0.44.2"
+
 "@colors/colors@1.5.0":
   version "1.5.0"
   resolved "https://registry.yarnpkg.com/@colors/colors/-/colors-1.5.0.tgz#bb504579c1cae923e6576a4f5da43d25f97bdbd9"
@@ -2182,19 +2194,6 @@
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/@protobufjs/utf8/-/utf8-1.1.0.tgz#a777360b5b39a1a2e5106f8e858f2fd2d060c570"
   integrity sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==
-
-"@ref_finance/ref-sdk@^1.0.2":
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/@ref_finance/ref-sdk/-/ref-sdk-1.0.2.tgz#2e1c5d836ee039645adc43f9a6af11b07b1880c6"
-  integrity sha512-6K0LMNJTQ1iFig7TcmbV3DL4R9CTKkzn3szloId7OVEKil6V52jNi6Ct+rSmnuosF5mRVCtGIUNvR/+bkTukgA==
-  dependencies:
-    "@types/big.js" "^6.1.5"
-    "@types/bn.js" "^5.1.1"
-    "@types/lodash" "^4.14.182"
-    big.js "^6.2.1"
-    lodash-es "^4.17.21"
-    mathjs "^9.3.0"
-    near-api-js "0.44.2"
 
 "@resolver-engine/core@^0.2.1":
   version "0.2.1"

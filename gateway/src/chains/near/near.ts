@@ -9,6 +9,7 @@ import { getNearConfig } from './near.config';
 export class Near extends NearBase {
   private static _instances: { [name: string]: Near };
   private _gasPrice: number;
+  private _gasPriceRefreshInterval: number | null;
   private _nativeTokenSymbol: string;
   private _chain: string;
 
@@ -27,6 +28,12 @@ export class Near extends NearBase {
     this._chain = config.network.name;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
     this._gasPrice = config.manualGasPrice;
+    this._gasPriceRefreshInterval =
+      config.network.gasPriceRefreshInterval !== undefined
+        ? config.network.gasPriceRefreshInterval
+        : null;
+
+    this.updateGasPrice();
   }
 
   public static getInstance(network: string): Near {
@@ -62,6 +69,27 @@ export class Near extends NearBase {
 
   getSpender(reqSpender: string): string {
     return reqSpender;
+  }
+
+  /**
+   * Automatically update the prevailing gas price on the network.
+   */
+  async updateGasPrice(): Promise<void> {
+    if (this._gasPriceRefreshInterval === null) {
+      return;
+    }
+
+    const gasPrice = await this.getGasPrice();
+    if (gasPrice !== null) {
+      this._gasPrice = Number(gasPrice);
+    } else {
+      logger.info('gasPrice is unexpectedly null.');
+    }
+
+    setTimeout(
+      this.updateGasPrice.bind(this),
+      this._gasPriceRefreshInterval * 1000
+    );
   }
 
   // cancel transaction

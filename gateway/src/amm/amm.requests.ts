@@ -78,8 +78,8 @@ export interface TradeResponse {
   gasPriceToken: string;
   gasLimit: number;
   gasCost: string;
-  nonce: number;
-  txHash: string | undefined;
+  nonce?: number;
+  txHash: string | any | undefined;
 }
 
 export interface AddLiquidityRequest extends NetworkSelectionRequest {

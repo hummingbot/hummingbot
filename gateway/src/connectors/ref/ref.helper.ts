@@ -10,7 +10,7 @@ import {
   Transaction,
   transformTransactions,
   TransformedTransaction,
-} from '@ref_finance/ref-sdk';
+} from '@coinalpha/ref-sdk';
 
 const validateAccessKey = (
   transaction: TransformedTransaction,
@@ -62,7 +62,10 @@ export const getSignedTransactions = async ({
   for (let i = 0; i < transactions.length; i += 1) {
     const transaction = transactions[i];
 
-    const publicKey = await account.connection.signer.getPublicKey();
+    const publicKey = await account.connection.signer.getPublicKey(
+      account.accountId,
+      account.connection.networkId
+    );
     if (!publicKey) {
       throw 'Wallet not properly initialized.';
     }

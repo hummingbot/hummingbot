@@ -9,7 +9,8 @@ import {
   SwapOptions,
   TokenMetadata,
   Transaction,
-} from '@ref_finance/ref-sdk';
+  toReadableNumber,
+} from '@coinalpha/ref-sdk';
 import { logger } from '../../services/logger';
 import { percentRegexp } from '../../services/config-manager-v2';
 import { RefAMMish } from '../../services/common-interfaces';
@@ -17,10 +18,15 @@ import { Near } from '../../chains/near/near';
 import { Account } from 'near-api-js';
 import { SignedTransaction } from 'near-api-js/lib/transaction';
 import { getSignedTransactions, sendTransactions } from './ref.helper';
+import { FinalExecutionOutcome } from 'near-api-js/lib/providers';
 
 export type ExpectedTrade = {
   trade: EstimateSwapView[];
   expectedAmount: string;
+};
+
+type PoolEntries = {
+  [key: string]: { inputAmount: string; outputAmount: string };
 };
 
 export class Ref implements RefAMMish {
@@ -36,7 +42,7 @@ export class Ref implements RefAMMish {
     const config = RefConfig.config;
     this.near = Near.getInstance(network);
     this._ttl = RefConfig.config.ttl;
-    this._gasLimitEstimate = RefConfig.config.gasLimit;
+    this._gasLimitEstimate = RefConfig.config.gasLimitEstimate;
     this._router = config.routerAddress(network);
   }
 
@@ -130,8 +136,41 @@ export class Ref implements RefAMMish {
     estimatedPrice: string;
     expectedAmount: string;
   } {
-    console.log(trades);
-    return { estimatedPrice: '', expectedAmount: '' };
+    const paths: PoolEntries = {};
+    for (const trade of trades) {
+      if (trade.nodeRoute) {
+        if (!paths[trade.nodeRoute.join()])
+          paths[trade.nodeRoute.join()] = {
+            inputAmount: '0',
+            outputAmount: '0',
+          };
+
+        if (trade.inputToken === trade.nodeRoute[0]) {
+          const token: TokenMetadata[] = <TokenMetadata[]>(
+            trade.tokens?.filter((t) => t.id === trade.inputToken)
+          );
+
+          paths[trade.nodeRoute.join()].inputAmount = toReadableNumber(
+            token[0].decimals,
+            trade.pool.partialAmountIn
+          );
+        } else if (
+          trade.outputToken === trade.nodeRoute[trade.nodeRoute.length - 1]
+        ) {
+          paths[trade.nodeRoute.join()].outputAmount = trade.estimate;
+        }
+      }
+    }
+    let expectedAmount = 0,
+      amountIn = 0;
+    Object.values(paths).forEach((entries) => {
+      expectedAmount += Number(entries.outputAmount);
+      amountIn += Number(entries.inputAmount);
+    });
+    return {
+      estimatedPrice: String(expectedAmount / amountIn),
+      expectedAmount: String(expectedAmount),
+    };
   }
 
   /**
@@ -164,7 +203,6 @@ export class Ref implements RefAMMish {
       simplePools,
       options,
     });
-    console.log(trades);
     if (!trades || trades.length === 0) {
       throw new AMMishPriceError(
         `priceSwapIn: no trade pair found for ${baseToken} to ${quoteToken}.`
@@ -210,7 +248,6 @@ export class Ref implements RefAMMish {
       simplePools,
       options,
     });
-    console.log(trades);
     if (!trades || trades.length === 0) {
       throw new AMMishPriceError(
         `priceSwapOut: no trade pair found for ${quoteToken.id} to ${baseToken.id}.`
@@ -244,7 +281,7 @@ export class Ref implements RefAMMish {
     tokenIn: TokenMetadata,
     tokenOut: TokenMetadata,
     allowedSlippage?: string
-  ): Promise<any> {
+  ): Promise<FinalExecutionOutcome[]> {
     const transactionsRef: Transaction[] = await instantSwap({
       tokenIn,
       tokenOut,

@@ -76,6 +76,10 @@ configurations:
     configurationPath: uniswap.yml
     schemaPath: uniswap-schema.json
 
+  $namespace ref:
+    configurationPath: ref.yml
+    schemaPath: ref-schema.json
+
   $namespace openocean:
     configurationPath: openocean.yml
     schemaPath: openocean-schema.json

@@ -324,8 +324,7 @@ export class NearBase {
   }
 
   /**
-   * Get the base gas fee and the current max priority fee from the EVM
-   * node, and add them together.
+   * Get the gas fee.
    */
   async getGasPrice(): Promise<string | null> {
     if (!this.ready) {

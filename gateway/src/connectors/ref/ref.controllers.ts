@@ -25,7 +25,7 @@ import {
   TradeRequest,
   TradeResponse,
 } from '../../amm/amm.requests';
-import { EstimateSwapView, TokenMetadata } from '@ref_finance/ref-sdk';
+import { EstimateSwapView, TokenMetadata } from '@coinalpha/ref-sdk';
 import { Account } from 'near-api-js';
 import { ExpectedTrade } from './ref';
 
@@ -221,8 +221,7 @@ export async function trade(
       gasPriceToken: nearish.nativeTokenSymbol,
       gasLimit: gasLimitTransaction,
       gasCost: gasCostInEthString(gasPrice, gasLimitEstimate),
-      nonce: tx.nonce,
-      txHash: tx.hash,
+      txHash: tx,
     };
   } else {
     logger.info(
@@ -266,8 +265,7 @@ export async function trade(
       gasPriceToken: nearish.nativeTokenSymbol,
       gasLimit: gasLimitTransaction,
       gasCost: gasCostInEthString(gasPrice, gasLimitEstimate),
-      nonce: tx.nonce,
-      txHash: tx.hash,
+      txHash: tx,
     };
   }
 }

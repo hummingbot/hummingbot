@@ -1,0 +1,16 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "allowedSlippage": { "type": "string" },
+      "gasLimitEstimate": { "type": "integer" },
+      "ttl": { "type": "integer" }
+    },
+    "additionalProperties": false,
+    "required": [
+      "allowedSlippage",
+      "gasLimitEstimate",
+      "ttl"
+    ]
+  }
+  
