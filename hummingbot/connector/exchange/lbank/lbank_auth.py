@@ -19,7 +19,10 @@ from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WS
 
 class LbankAuth(AuthBase):
 
-    RSA_KEY_FORMAT = "-----BEGIN RSA PRIVATE KEY-----\n{}\n-----END RSA PRIVATE KEY-----"  # noqa: mock
+    RSA_KEY_TEXT = "-----{} RSA PRIVATE KEY-----"
+    RSA_HEADER = RSA_KEY_TEXT.format("BEGIN")
+    RSA_FOOTER = RSA_KEY_TEXT.format("END")
+    RSA_KEY_FORMAT = RSA_HEADER + "\n{}\n" + RSA_FOOTER
 
     def __init__(self, api_key: str, secret_key: str, auth_method: Optional[str] = "RSA") -> None:
         self.api_key: str = api_key
@@ -86,7 +89,7 @@ class LbankAuth(AuthBase):
         signature: Optional[str] = self._generate_auth_signature(data)
 
         if signature is None:
-            raise ValueError("Error occured generating signature. "
+            raise ValueError("Error occurred generating signature. "
                              f"Request: {request} "
                              f"API Key: {self.api_key} ")
 
