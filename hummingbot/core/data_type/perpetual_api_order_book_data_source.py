@@ -10,9 +10,6 @@ class PerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
     def __init__(self, trading_pairs: List[str]):
         super().__init__(trading_pairs)
         self._funding_info_messages_queue_key = "funding_info"
-        self._message_channels = [
-            self._diff_messages_queue_key, self._trade_messages_queue_key, self._funding_info_messages_queue_key
-        ]
 
     @abstractmethod
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
@@ -40,3 +37,11 @@ class PerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
     @abstractmethod
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         raise NotImplementedError
+
+    def _get_messages_queue_keys(self) -> List[str]:
+        return [
+            self._snapshot_messages_queue_key,
+            self._diff_messages_queue_key,
+            self._trade_messages_queue_key,
+            self._funding_info_messages_queue_key,
+        ]
