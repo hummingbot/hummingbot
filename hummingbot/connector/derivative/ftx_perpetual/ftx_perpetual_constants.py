@@ -4,6 +4,7 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 
 HBOT_BROKER_ID = "hummingbot1"
 MAX_ORDER_ID_LEN = None
+TOKEN_COLATERAL = "USD"
 
 DEFAULT_DOMAIN = ""
 FTX_BASE_URL = "https://ftx.com/api"
@@ -24,6 +25,7 @@ FTX_ORDER_FILLS_PATH = "/fills"
 FTX_BALANCES_PATH = "/wallet/balances"
 FTX_FUNDING_PAYMENTS = "/funding_payments"
 SET_LEVERAGE_PATH_URL = "/account/leverage"
+ACCOUNT = "/account"
 
 WS_PING_INTERVAL = 15
 WS_TRADES_CHANNEL = "trades"
@@ -44,8 +46,8 @@ FTX_GET_ORDER_LIMIT_ID = "FTXGetOrderHTTPRequest"
 FTX_CANCEL_ORDER_LIMIT_ID = "FTXCancelOrderHTTPRequest"
 WS_CONNECTION_LIMIT_ID = "FTXWSConnection"
 WS_REQUEST_LIMIT_ID = "FTXWSRequest"
-FTX_PER_SECOND_ORDER_PERP_LIMIT_ID = "FTXPerSecondOrderSpot"
-FTX_PER_MS_ORDER_PERP_LIMIT_ID = "FTXPerMSOrderSpot"
+FTX_PER_SECOND_ORDER_PERP_LIMIT_ID = "FTXPerSecondOrderPerp"
+FTX_PER_MS_ORDER_PERP_LIMIT_ID = "FTXPerMSOrderPerp"
 # The limits are configured considering Tiers 1-5 defaults. They have to be changed for other tiers according to
 # https://help.ftx.com/hc/en-us/articles/360052595091-2020-11-20-Ratelimit-Updates
 PER_SECOND_PERP_LIMIT = 7
@@ -63,7 +65,9 @@ RATE_LIMITS = [
     RateLimit(limit_id=FTX_MARKETS_PATH, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=FTX_FUTURE_STATS, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=FTX_FUNDING_PAYMENTS, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=FTX_SINGLE_FUTURE_PATH, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=SET_LEVERAGE_PATH_URL, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=ACCOUNT, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=FTX_PLACE_ORDER_PATH, limit=NO_LIMIT, time_interval=1, linked_limits=[
         LinkedLimitWeightPair(limit_id=FTX_PER_SECOND_ORDER_PERP_LIMIT_ID),
         LinkedLimitWeightPair(limit_id=FTX_PER_MS_ORDER_PERP_LIMIT_ID),

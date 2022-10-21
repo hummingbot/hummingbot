@@ -27,8 +27,8 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     is_futures_market = exchange_info.get("type", None) == "future"
     is_trading_enabled = exchange_info.get("enabled", False)
     market = exchange_info.get("name", False)
-    if market:
-        is_perp_market = market.split("-")[1] == "PERP"
+    if market and "PERP" in market:
+        is_perp_market = True
     else:
         is_perp_market = False
     return is_futures_market and is_trading_enabled and is_perp_market

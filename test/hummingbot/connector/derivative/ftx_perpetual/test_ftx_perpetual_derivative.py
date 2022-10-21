@@ -20,6 +20,7 @@ from hummingbot.connector.test_support.perpetual_derivative_test import Abstract
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import PositionAction, PositionMode
+from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.events import BuyOrderCompletedEvent, OrderFilledEvent
@@ -45,7 +46,7 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     def latest_prices_url(self):
         return web_utils.public_rest_url(
             path_url=CONSTANTS.FTX_SINGLE_MARKET_PATH.format(
-                self.exchange_symbol_for_tokens(base_token=self.base_asset, quote_token=self.quote_asset)))
+                self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), ))
 
     @property
     def network_status_url(self):
@@ -139,9 +140,9 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "success": True,
             "result": [
                 {
-                    "name": self.exchange_symbol_for_tokens(base_token=self.base_asset, quote_token=self.quote_asset),
-                    "baseCurrency": self.base_asset,
-                    "quoteCurrency": self.quote_asset,
+                    "name": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "baseCurrency": None,
+                    "quoteCurrency": None,
                     "quoteVolume24h": 28914.76,
                     "change1h": 0.012,
                     "change24h": 0.0299,
@@ -165,8 +166,8 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                 },
                 {
                     "name": self.exchange_symbol_for_tokens(base_token="INVALID", quote_token="PAIR"),
-                    "baseCurrency": self.base_asset,
-                    "quoteCurrency": self.quote_asset,
+                    "baseCurrency": None,
+                    "quoteCurrency": None,
                     "quoteVolume24h": 28914.76,
                     "change1h": 0.012,
                     "change24h": 0.0299,
@@ -240,8 +241,8 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "result": [
                 {
                     "name": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "baseCurrency": self.base_asset,
-                    "quoteCurrency": self.quote_asset,
+                    "baseCurrency": None,
+                    "quoteCurrency": None,
                     "quoteVolume24h": 28914.76,
                     "change1h": 0.012,
                     "change24h": 0.0299,
@@ -385,15 +386,13 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     @property
     def empty_funding_payment_mock_response(self):
         return {
-            "ret_code": 0,
-            "ret_msg": "ok",
-            "ext_code": "",
-            "result": None,
-            "ext_info": None,
-            "time_now": "1577446900.717204",
-            "rate_limit_status": 119,
-            "rate_limit_reset_ms": 1577446900724,
-            "rate_limit": 120
+            "success": False,
+            "result": [
+                {
+                    "future": "ETH-PERP",
+                    "id": 33830,
+                }
+            ]
         }
 
     @property
@@ -402,17 +401,56 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def funding_info_mock_response(self):
-        mock_response = self.latest_prices_request_mock_response
-        funding_info = mock_response["result"][0]
-        funding_info["index_price"] = self.target_funding_info_index_price
-        funding_info["mark_price"] = self.target_funding_info_mark_price
-        funding_info["next_funding_time"] = self.target_funding_info_next_funding_utc_str
-        funding_info["predicted_funding_rate"] = self.target_funding_info_rate
-        return mock_response
+        return {
+            "success": True,
+            "result": {
+                "volume": 1000.23,
+                "nextFundingRate": 3,
+                "nextFundingTime": "2022-07-06T09:17:33+00:00",
+                "expirationPrice": 3992.1,
+                "predictedExpirationPrice": 3993.6,
+                "strikePrice": 8182.35,
+                "openInterest": 21124.583
+            }
+        }
+
+    @property
+    def future_info_mock_response(self):
+        return {
+            "success": True,
+            "result": {
+                "ask": 4196,
+                "bid": 4114.25,
+                "change1h": 0,
+                "change24h": 0,
+                "description": "Bitcoin March 2019 Futures",
+                "enabled": True,
+                "expired": True,
+                "expiry": "2022-07-6T06:17:33+00:00",
+                "index": 1,
+                "last": 4196,
+                "lowerBound": 3663.75,
+                "mark": 2,
+                "name": self.trading_pair,
+                "perpetual": True,
+                "postOnly": True,
+                "priceIncrement": 0.25,
+                "sizeIncrement": 0.0001,
+                "underlying": "BTC",
+                "upperBound": 4112.2,
+                "type": "future"
+            }
+        }
 
     @property
     def funding_info_url(self):
-        url = web_utils.public_rest_url(CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT)
+        url = web_utils.public_rest_url(CONSTANTS.FTX_FUTURE_STATS.format(self.trading_pair))
+        url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        return url
+
+    @property
+    def future_info_url(self):
+        url = web_utils.public_rest_url(CONSTANTS.FTX_SINGLE_FUTURE_PATH.format(self.trading_pair))
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -425,22 +463,16 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     @property
     def funding_payment_mock_response(self):
         return {
-            "ret_code": 0,
-            "ret_msg": "ok",
-            "ext_code": "",
-            "result": {
-                "symbol": self.exchange_trading_pair,
-                "side": "Buy",
-                "size": float(self.target_funding_payment_payment_amount / self.target_funding_payment_funding_rate),
-                "funding_rate": float(self.target_funding_payment_funding_rate),
-                "exec_fee": "0.0001",
-                "exec_time": self.target_funding_payment_timestamp_str,
-            },
-            "ext_info": None,
-            "time_now": "1577446900.717204",
-            "rate_limit_status": 119,
-            "rate_limit_reset_ms": 1577446900724,
-            "rate_limit": 120
+            "success": True,
+            "result": [
+                {
+                    "future": self.trading_pair,
+                    "id": 33830,
+                    "payment": 200,
+                    "time": "2022-07-06T12:20:53+00:00",
+                    "rate": 100
+                }
+            ]
         }
 
     def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
@@ -1100,79 +1132,10 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         return url
 
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
-        position_value = unrealized_pnl + order.amount * order.price * order.leverage
-        return {
-            "topic": "position",
-            "data": [
-                {
-                    "user_id": 533285,
-                    "symbol": self.exchange_trading_pair,
-                    "size": float(order.amount),
-                    "side": order.trade_type.name.capitalize(),
-                    "position_value": str(position_value),
-                    "entry_price": str(order.price),
-                    "liq_price": "489",
-                    "bust_price": "489",
-                    "leverage": str(order.leverage),
-                    "order_margin": "0",
-                    "position_margin": "0.39929535",
-                    "available_balance": "0.39753405",
-                    "take_profit": "0",
-                    "stop_loss": "0",
-                    "realised_pnl": "0.00055631",
-                    "trailing_stop": "0",
-                    "trailing_active": "0",
-                    "wallet_balance": "0.40053971",
-                    "risk_id": 1,
-                    "occ_closing_fee": "0.0002454",
-                    "occ_funding_fee": "0",
-                    "auto_add_margin": 1,
-                    "cum_realised_pnl": "0.00055105",
-                    "position_status": "Normal",
-                    "position_seq": 0,
-                    "Isolated": False,
-                    "mode": 0,
-                    "position_idx": 0,
-                    "tp_sl_mode": "Partial",
-                    "tp_order_num": 0,
-                    "sl_order_num": 0,
-                    "tp_free_size_x": 200,
-                    "sl_free_size_x": 200
-                }
-            ]
-        }
+        pass
 
     def funding_info_event_for_websocket_update(self):
-        return {
-            "topic": f"instrument_info.100ms.{self.exchange_trading_pair}",
-            "type": "delta",
-            "data": {
-                "delete": [],
-                "update": [
-                    {
-                        "id": 1,
-                        "symbol": self.exchange_trading_pair,
-                        "prev_price_24h_e4": 81565000,
-                        "prev_price_24h": "81565000",
-                        "price_24h_pcnt_e6": -4904,
-                        "open_value_e8": 2000479681106,
-                        "total_turnover_e8": 2029370495672976,
-                        "turnover_24h_e8": 9066215468687,
-                        "volume_24h": 735316391,
-                        "cross_seq": 1053192657,
-                        "created_at": "2018-11-14T16:33:26Z",
-                        "updated_at": "2020-01-12T18:25:25Z",
-                        "index_price": self.target_funding_info_index_price_ws_updated,
-                        "mark_price": self.target_funding_info_mark_price_ws_updated,
-                        "next_funding_time": self.target_funding_info_next_funding_utc_str_ws_updated,
-                        "predicted_funding_rate_e6": self.target_funding_info_rate_ws_updated * 1e6,
-                    }
-                ],
-                "insert": []
-            },
-            "cross_seq": 1053192657,
-            "timestamp_e6": 1578853525691123
-        }
+        pass
 
     def test_create_order_with_invalid_position_action_raises_value_error(self):
         self._simulate_trading_rules_initialized()
@@ -1224,18 +1187,47 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     def test_get_buy_and_sell_collateral_tokens(self):
         self._simulate_trading_rules_initialized()
 
-        linear_buy_collateral_token = self.exchange.get_buy_collateral_token(self.trading_pair)
-        linear_sell_collateral_token = self.exchange.get_sell_collateral_token(self.trading_pair)
+        buy_collateral_token = self.exchange.get_buy_collateral_token(self.trading_pair)
+        sell_collateral_token = self.exchange.get_sell_collateral_token(self.trading_pair)
 
-        self.assertEqual(self.quote_asset, linear_buy_collateral_token)
-        self.assertEqual(self.quote_asset, linear_sell_collateral_token)
-
-        non_linear_buy_collateral_token = self.exchange.get_buy_collateral_token(self.non_linear_trading_pair)
-        non_linear_sell_collateral_token = self.exchange.get_sell_collateral_token(self.non_linear_trading_pair)
-
-        self.assertEqual(self.non_linear_quote_asset, non_linear_buy_collateral_token)
-        self.assertEqual(self.non_linear_quote_asset, non_linear_sell_collateral_token)
+        self.assertEqual(self.quote_asset, buy_collateral_token)
+        self.assertEqual(self.quote_asset, sell_collateral_token)
 
     def test_user_stream_update_for_order_full_fill(self):
-        # FTX don't have ws channel for position updates
+        # FTX doesn't have ws channel for position updates
         pass
+
+    @aioresponses()
+    @patch("asyncio.Queue.get")
+    def test_listen_for_funding_info_update_initializes_funding_info(self, mock_api, mock_queue_get):
+        # FTX doesn't have ws for funding info
+        pass
+
+    @aioresponses()
+    @patch("asyncio.Queue.get")
+    def test_listen_for_funding_info_update_updates_funding_info(self, mock_api, mock_queue_get):
+        # FTX doesn't have ws for funding info
+        pass
+
+    @aioresponses()
+    def test_init_funding_info(self, mock_api):
+        # In FTX we have to call two endpoints to get the funding info
+        url = self.funding_info_url
+        response = self.funding_info_mock_response
+        mock_api.get(url, body=json.dumps(response))
+
+        url = self.future_info_url
+        response = self.future_info_mock_response
+        mock_api.get(url, body=json.dumps(response))
+
+        self.async_run_with_timeout(coroutine=self.exchange._init_funding_info())
+
+        funding_info: FundingInfo = self.exchange.get_funding_info(self.trading_pair)
+
+        self.assertEqual(self.trading_pair, funding_info.trading_pair)
+        self.assertEqual(self.target_funding_info_index_price, funding_info.index_price)
+        self.assertEqual(self.target_funding_info_mark_price, funding_info.mark_price)
+        self.assertEqual(
+            self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp
+        )
+        self.assertEqual(self.target_funding_info_rate, funding_info.rate)

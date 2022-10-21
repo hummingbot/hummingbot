@@ -53,6 +53,7 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
             trading_required: bool = True,
     ):
 
+        self.FUNDING_INFO_INTERVAL = 60.0
         self.ftx_perpetual_api_key = ftx_perpetual_api_key
         self.ftx_perpetual_secret_key = ftx_perpetual_secret_key
         self._subaccount_name = ftx_subaccount_name
@@ -63,6 +64,7 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         super().__init__(client_config_map)
 
         self._real_time_balance_update = False
+        self._funding_info_polling_task: Optional[asyncio.Task] = None
 
     @property
     def name(self) -> str:
@@ -129,16 +131,35 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         return [PositionMode.ONEWAY]
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
-        trading_rule: TradingRule = self._trading_rules[trading_pair]
-        return trading_rule.buy_order_collateral_token
+        return CONSTANTS.TOKEN_COLATERAL
 
     def get_sell_collateral_token(self, trading_pair: str) -> str:
-        trading_rule: TradingRule = self._trading_rules[trading_pair]
-        return trading_rule.sell_order_collateral_token
+        return CONSTANTS.TOKEN_COLATERAL
 
     def start(self, clock: Clock, timestamp: float):
         super().start(clock, timestamp)
         self.set_position_mode(PositionMode.ONEWAY)
+
+    async def start_network(self):
+        """
+        Start all required tasks to update the status of the connector. Those tasks include:
+        - The order book tracker
+        - The polling loops to update the trading rules and trading fees
+        - The polling loop to update order status and balance status using REST API (backup for main update process)
+        - The background task to process the events received through the user stream tracker (websocket connection)
+        """
+        self._stop_network()
+        self.order_book_tracker.start()
+        self._perpetual_trading.start()
+        self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
+        self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
+        self._funding_info_polling_task = safe_ensure_future(self._funding_info_polling_loop())
+        if self.is_trading_required:
+            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
+            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+            self._lost_orders_update_task = safe_ensure_future(self._lost_orders_update_polling_loop())
+            self._funding_fee_polling_task = safe_ensure_future(self._funding_payment_polling_loop())
 
     def set_position_mode(self, mode: PositionMode):
         if mode in self.supported_position_modes():
@@ -252,58 +273,29 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _status_polling_loop_fetch_updates(self):
         await safe_gather(
-            self._update_trade_history(),
             self._update_order_status(),
             self._update_balances(),
             self._update_positions(),
         )
 
-    async def _update_trade_history(self):
+    async def _funding_info_polling_loop(self):
         """
-        Calls REST API to get trade history (order fills)
+        Initializes and updates teh funding info
         """
-
-        trade_history_tasks = []
-
-        for trading_pair in self._trading_pairs:
-            exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-            body_params = {
-                "symbol": exchange_symbol,
-                "limit": 200,
-            }
-            if self._last_trade_history_timestamp:
-                body_params["start_time"] = int(int(self._last_trade_history_timestamp) * 1e3)
-
-            trade_history_tasks.append(
-                asyncio.create_task(self._api_get(
-                    path_url=CONSTANTS.USER_TRADE_RECORDS_PATH_URL,
-                    params=body_params,
-                    is_auth_required=True,
-                    trading_pair=trading_pair,
-                ))
-            )
-
-        raw_responses: List[Dict[str, Any]] = await safe_gather(*trade_history_tasks, return_exceptions=True)
-
-        # Initial parsing of responses. Joining all the responses
-        parsed_history_resps: List[Dict[str, Any]] = []
-        for trading_pair, resp in zip(self._trading_pairs, raw_responses):
-            if not isinstance(resp, Exception):
-                self._last_trade_history_timestamp = float(resp["time_now"])
-                trade_entries = (resp["result"]["trade_list"]
-                                 if "trade_list" in resp["result"]
-                                 else resp["result"]["data"])
-                if trade_entries:
-                    parsed_history_resps.extend(trade_entries)
-            else:
+        while True:
+            try:
+                await self._init_funding_info()
+                await self._sleep(self.FUNDING_INFO_INTERVAL)
+            except NotImplementedError:
+                raise
+            except asyncio.CancelledError:
+                raise
+            except Exception:
                 self.logger().network(
-                    f"Error fetching status update for {trading_pair}: {resp}.",
-                    app_warning_msg=f"Failed to fetch status update for {trading_pair}."
-                )
-
-        # Trade updates must be handled before any order status updates.
-        for trade in parsed_history_resps:
-            self._process_trade_event_message(trade)
+                    "Unexpected error while fetching funding info.", exc_info=True,
+                    app_warning_msg=f"Could not fetch new funding info from {self.name_cap}"
+                                    " Check network connection.")
+                await self._sleep(0.5)
 
     async def _update_balances(self):
         msg = await self._api_request(
@@ -326,56 +318,29 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         """
         Retrieves all positions using the REST API.
         """
-        position_tasks = []
+        account_response = await self._api_get(
+            path_url=CONSTANTS.ACCOUNT,
+            is_auth_required=True,
+        )
+        if account_response.get("success", False):
+            positions = account_response["result"]["positions"]
+            leverage = account_response["result"]["leverage"]
+        else:
+            raise Exception(account_response['msg'])
 
-        for trading_pair in self._trading_pairs:
-            ex_trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair)
-            body_params = {"symbol": ex_trading_pair}
-            position_tasks.append(
-                asyncio.create_task(self._api_get(
-                    path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
-                    params=body_params,
-                    is_auth_required=True,
-                    trading_pair=trading_pair,
-                ))
-            )
-
-        raw_responses: List[Dict[str, Any]] = await safe_gather(*position_tasks, return_exceptions=True)
-
-        # Initial parsing of responses. Joining all the responses
-        parsed_resps: List[Dict[str, Any]] = []
-        for resp, trading_pair in zip(raw_responses, self._trading_pairs):
-            if not isinstance(resp, Exception):
-                result = resp["result"]
-                if result:
-                    position_entries = result if isinstance(result, list) else [result]
-                    parsed_resps.extend(position_entries)
-            else:
-                self.logger().error(f"Error fetching positions for {trading_pair}. Response: {resp}")
-
-        for position in parsed_resps:
-            data = position
-            ex_trading_pair = data.get("symbol")
-            hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
-            position_side = PositionSide.LONG if data["side"] == "Buy" else PositionSide.SHORT
-            unrealized_pnl = Decimal(str(data["unrealised_pnl"]))
-            entry_price = Decimal(str(data["entry_price"]))
-            amount = Decimal(str(data["size"]))
-            leverage = Decimal(str(data["leverage"])) if ftx_perpetual_utils.is_linear_perpetual(hb_trading_pair) \
-                else Decimal(str(data["effective_leverage"]))
-            pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
-            if amount != s_decimal_0:
+        for position in positions:
+            if Decimal(str(position["size"])) != s_decimal_0:
                 position = Position(
-                    trading_pair=hb_trading_pair,
-                    position_side=position_side,
-                    unrealized_pnl=unrealized_pnl,
-                    entry_price=entry_price,
-                    amount=amount * (Decimal("-1.0") if position_side == PositionSide.SHORT else Decimal("1.0")),
+                    trading_pair=position["future"],
+                    position_side=PositionSide.LONG if position["side"] == "buy" else PositionSide.SHORT,
+                    unrealized_pnl=position["unrealizedPnl"],
+                    entry_price=position["entryPrice"],
+                    amount=position["size"] * (Decimal("-1.0") if position["side"] == "sell" else Decimal("1.0")),
                     leverage=leverage,
                 )
-                self._perpetual_trading.set_position(pos_key, position)
+                self._perpetual_trading.set_position(position["future"], position)
             else:
-                self._perpetual_trading.remove_position(pos_key)
+                self._perpetual_trading.remove_position(position["future"])
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
@@ -444,6 +409,11 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         )
 
         return resp
+
+    async def _listen_for_funding_info(self):
+        # FTX doesn't have a channel for funding info.
+        # To supply this, a funding info polling task is created
+        pass
 
     async def _user_stream_event_listener(self):
         """
@@ -712,12 +682,12 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True,
             trading_pair=trading_pair,
         )
-        data: Dict[str, Any] = raw_response["result"]
-
-        if not data:
+        data = raw_response["result"]
+        if len(data) == 0:
             # An empty funding fee/payment is retrieved.
             timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
         else:
+            data: Dict[str, Any] = max(raw_response["result"], key=lambda x: pd.Timestamp(x["time"]))
             funding_rate: Decimal = Decimal(str(data["rate"]))
             payment: Decimal = Decimal(str(data["payment"]))
             timestamp: int = int(pd.Timestamp(data["time"], tz="UTC").timestamp())

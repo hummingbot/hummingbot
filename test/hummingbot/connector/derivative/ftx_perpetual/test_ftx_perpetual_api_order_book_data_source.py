@@ -20,7 +20,7 @@ from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_api_order_book_
 )
 from hummingbot.connector.derivative.ftx_perpetual.ftx_perpetual_derivative import FtxPerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
+from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
@@ -501,30 +501,8 @@ class FtxPerpetualAPIOrderBookDataSourceTests(TestCase):
             self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
 
     def test_listen_for_funding_info_successful(self):
-        funding_info_event = self.get_funding_info_event()
-
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [funding_info_event, asyncio.CancelledError()]
-        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
-
-        msg_queue: asyncio.Queue = asyncio.Queue()
-
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
-
-        msg: FundingInfoUpdate = self.async_run_with_timeout(msg_queue.get())
-        funding_update = funding_info_event["data"]["update"][0]
-
-        self.assertEqual(self.trading_pair, msg.trading_pair)
-        expected_index_price = Decimal(str(funding_update["index_price"]))
-        self.assertEqual(expected_index_price, msg.index_price)
-        expected_mark_price = Decimal(str(funding_update["mark_price"]))
-        self.assertEqual(expected_mark_price, msg.mark_price)
-        expected_funding_time = int(
-            pd.Timestamp(str(funding_update["next_funding_time"]), tz="UTC").timestamp()
-        )
-        self.assertEqual(expected_funding_time, msg.next_funding_utc_timestamp)
-        expected_rate = Decimal(str(funding_update["predicted_funding_rate_e6"])) * Decimal(1e-6)
-        self.assertEqual(expected_rate, msg.rate)
+        # FTX doesn't have ws updates for funding info
+        pass
 
     @aioresponses()
     def test_get_funding_info(self, mock_api):
