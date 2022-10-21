@@ -1,0 +1,5 @@
+{
+  "privateKey": "$CRONOS_PRIVATE_KEY",
+  "chain": "cronos",
+  "network": "testnet"
+}
