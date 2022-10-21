@@ -46,6 +46,7 @@ class KucoinExchange(ExchangePyBase):
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._last_order_fill_ts_s: float = 0
         super().__init__(client_config_map=client_config_map)
 
     @property
@@ -351,13 +352,83 @@ class KucoinExchange(ExchangePyBase):
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=fee_json["symbol"])
             self._trading_fees[trading_pair] = fee_json
 
+    async def _update_orders_fills(self, orders: List[InFlightOrder]):
+        # This method in the base ExchangePyBase, makes an API call for each order.
+        # Given the rate limit of the API method and the breadth of info provided by the method
+        # the mitigation proposal is to collect all orders in one shot, then parse them
+        # Note that this is limited to 500 orders (pagination)
+        # An alternative for Kucoin would be to use the limit/fills that returns 24hr updates, which should
+        # be sufficient, the rate limit seems better suited
+        all_trades_updates: List[TradeUpdate] = []
+        if len(orders) > 0:
+            try:
+                all_trades_updates: List[TradeUpdate] = await self._all_trades_updates(orders)
+            except asyncio.CancelledError:
+                raise
+            except Exception as request_error:
+                self.logger().warning(
+                    f"Failed to fetch trade updates. Error: {request_error}")
+
+            for trade_update in all_trades_updates:
+                self._order_tracker.process_trade_update(trade_update)
+
+    async def _all_trades_updates(self, orders: List[InFlightOrder]) -> List[TradeUpdate]:
+        trade_updates: List[TradeUpdate] = []
+        if len(orders) > 0:
+            exchange_to_client = {o.exchange_order_id: {"client_id": o.client_order_id, "trading_pair": o.trading_pair} for o in orders}
+
+            # We request updates from either:
+            #    - The earliest order creation_timestamp in the list (first couple requests)
+            #    - The last time we got a fill
+            self._last_order_fill_ts_s = int(max(self._last_order_fill_ts_s, min([o.creation_timestamp for o in orders])))
+
+            # From Kucoin https://docs.kucoin.com/#list-fills:
+            # "If you only specified the start time, the system will automatically
+            #  calculate the end time (end time = start time + 7 * 24 hours)"
+            all_fills_response = await self._api_get(
+                path_url=CONSTANTS.FILLS_PATH_URL,
+                params={
+                    "pageSize": 500,
+                    "startAt": self._last_order_fill_ts_s * 1000,
+                },
+                is_auth_required=True)
+
+            for trade in all_fills_response.get("items", []):
+                if str(trade["orderId"]) in exchange_to_client:
+                    fee = TradeFeeBase.new_spot_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        trade_type=TradeType.BUY if trade["side"] == "buy" else "sell",
+                        percent_token=trade["feeCurrency"],
+                        flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=trade["feeCurrency"])]
+                    )
+
+                    client_info = exchange_to_client[str(trade["orderId"])]
+                    trade_update = TradeUpdate(
+                        trade_id=str(trade["tradeId"]),
+                        client_order_id=client_info["client_id"],
+                        trading_pair=client_info["trading_pair"],
+                        exchange_order_id=str(trade["orderId"]),
+                        fee=fee,
+                        fill_base_amount=Decimal(trade["size"]),
+                        fill_quote_amount=Decimal(trade["funds"]),
+                        fill_price=Decimal(trade["price"]),
+                        fill_timestamp=trade["createdAt"] * 1e-3,
+                    )
+                    trade_updates.append(trade_update)
+                    # Update the last fill timestamp with the latest one
+                    self._last_order_fill_ts_s = max(self._last_order_fill_ts_s, trade["createdAt"] * 1e-3)
+
+        return trade_updates
+
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        raise Exception("Developer: This method should not be called, it is obsoleted for Kucoin")
+
         trade_updates = []
 
         if order.exchange_order_id is not None:
             exchange_order_id = order.exchange_order_id
             all_fills_response = await self._api_get(
-                path_url=CONSTANTS.ORDER_FILLS_URL,
+                path_url=CONSTANTS.FILLS_PATH_URL,
                 params={
                     "orderId": exchange_order_id,
                     "pageSize": 500,
