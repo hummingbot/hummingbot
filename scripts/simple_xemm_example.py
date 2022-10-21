@@ -11,7 +11,7 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 class SimpleXEMM(ScriptStrategyBase):
     """
     BotCamp Cohort: Sept 2022
-    Design Template: https://www.notion.so/hummingbot-foundation/Cross-Exchange-Making-Script-f08cf7546ea94a44b389672fd21bb9ad
+    Design Template: https://hummingbot-foundation.notion.site/Simple-XEMM-Example-f08cf7546ea94a44b389672fd21bb9ad
     Video: https://www.loom.com/share/ca08fe7bc3d14ba68ae704305ac78a3a
     Description:
     A simplified version of Hummingbot cross-exchange market making strategy, this bot makes a market on
@@ -57,7 +57,7 @@ class SimpleXEMM(ScriptStrategyBase):
 
         for order in self.get_active_orders(connector_name=self.maker_exchange):
             cancel_timestamp = order.creation_timestamp / 1000000 + self.max_order_age
-            if order.is_buy is True:
+            if order.is_buy:
                 buy_cancel_threshold = taker_sell_result.result_price * Decimal(1 - self.min_spread_bps / 10000)
                 if order.price > buy_cancel_threshold or cancel_timestamp < self.current_timestamp:
                     self.logger().info(f"Cancelling buy order: {order.client_order_id}")
@@ -69,9 +69,6 @@ class SimpleXEMM(ScriptStrategyBase):
                     self.logger().info(f"Cancelling sell order: {order.client_order_id}")
                     self.cancel(self.maker_exchange, order.trading_pair, order.client_order_id)
                     self.sell_order_placed = False
-
-            if order.creation_timestamp + self.max_order_age < self.current_timestamp:
-                self.cancel(self.maker_exchange, order.trading_pair, order.client_order_id)
         return
 
     def buy_hedging_budget(self) -> Decimal:
