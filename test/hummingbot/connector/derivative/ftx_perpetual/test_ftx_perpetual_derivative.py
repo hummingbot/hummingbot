@@ -22,6 +22,7 @@ from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import PositionAction, PositionMode
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.event.events import BuyOrderCompletedEvent, OrderFilledEvent
 
 
 class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
@@ -258,9 +259,9 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "result": {
                 "createdAt": "2019-03-05T09:56:55.728933+00:00",
                 "filledSize": 0,
-                "future": self.exchange_symbol_for_tokens(base_token=self.base_asset, quote_token=self.quote_asset),
+                "future": self.trading_pair,
                 "id": int(self.expected_exchange_order_id),
-                "market": self.exchange_symbol_for_tokens(base_token=self.base_asset, quote_token=self.quote_asset),
+                "market": self.trading_pair,
                 "price": 0.306525,
                 "remainingSize": 31431,
                 "side": "buy",
@@ -749,6 +750,90 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         exception = IOError("FTX does not have a documented error for wrong timestamp")
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
+    @aioresponses()
+    def test_update_order_status_when_filled(self, mock_api):
+        # Override perpetual derivate test because the order_id was a string and in FTX is an integer.
+        self.exchange._set_current_timestamp(1640780000)
+        request_sent_event = asyncio.Event()
+
+        self.exchange.start_tracking_order(
+            order_id="11",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders["11"]
+
+        url = self.configure_completely_filled_order_status_response(
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
+
+        if self.is_order_fill_http_update_included_in_status_update:
+            trade_url = self.configure_full_fill_trade_response(
+                order=order,
+                mock_api=mock_api)
+        else:
+            # If the fill events will not be requested with the order status, we need to manually set the event
+            # to allow the ClientOrderTracker to process the last status update
+            order.completely_filled_event.set()
+        self.async_run_with_timeout(self.exchange._update_order_status())
+        # Execute one more synchronization to ensure the async task that processes the update is finished
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_status_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_status_request)
+        self.validate_order_status_request(
+            order=order,
+            request_call=order_status_request)
+
+        self.async_run_with_timeout(order.wait_until_completely_filled())
+        self.assertTrue(order.is_done)
+
+        if self.is_order_fill_http_update_included_in_status_update:
+            self.assertTrue(order.is_filled)
+            trades_request = self._all_executed_requests(mock_api, trade_url)[0]
+            self.validate_auth_credentials_present(trades_request)
+            self.validate_trades_request(
+                order=order,
+                request_call=trades_request)
+
+            fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+            self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
+            self.assertEqual(order.client_order_id, fill_event.order_id)
+            self.assertEqual(order.trading_pair, fill_event.trading_pair)
+            self.assertEqual(order.trade_type, fill_event.trade_type)
+            self.assertEqual(order.order_type, fill_event.order_type)
+            self.assertEqual(order.price, fill_event.price)
+            self.assertEqual(order.amount, fill_event.amount)
+            self.assertEqual(self.expected_fill_fee, fill_event.trade_fee)
+
+        buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, buy_event.timestamp)
+        self.assertEqual(order.client_order_id, buy_event.order_id)
+        self.assertEqual(order.base_asset, buy_event.base_asset)
+        self.assertEqual(order.quote_asset, buy_event.quote_asset)
+        self.assertEqual(
+            order.amount if self.is_order_fill_http_update_included_in_status_update else Decimal(0),
+            buy_event.base_asset_amount)
+        self.assertEqual(
+            order.amount * order.price
+            if self.is_order_fill_http_update_included_in_status_update
+            else Decimal(0),
+            buy_event.quote_asset_amount)
+        self.assertEqual(order.order_type, buy_event.order_type)
+        self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
+
     def test_user_stream_update_for_order_full_fill_for_different_exchange_order_id_is_ignored(self):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
@@ -1150,3 +1235,7 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
         self.assertEqual(self.non_linear_quote_asset, non_linear_buy_collateral_token)
         self.assertEqual(self.non_linear_quote_asset, non_linear_sell_collateral_token)
+
+    def test_user_stream_update_for_order_full_fill(self):
+        # FTX don't have ws channel for position updates
+        pass

@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
@@ -22,13 +23,14 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.events import AccountEvent, PositionModeChangeEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
+from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -49,7 +51,6 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
             ftx_subaccount_name: str = None,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
 
         self.ftx_perpetual_api_key = ftx_perpetual_api_key
@@ -57,18 +58,22 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         self._subaccount_name = ftx_subaccount_name
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._domain = domain
         self._last_trade_history_timestamp = None
 
         super().__init__(client_config_map)
+
+        self._real_time_balance_update = False
 
     @property
     def name(self) -> str:
         return "ftx_perpetual"
 
     @property
-    def authenticator(self) -> FtxPerpetualAuth:
-        return FtxPerpetualAuth(self.ftx_perpetual_api_key, self.ftx_perpetual_secret_key)
+    def authenticator(self) -> AuthBase:
+        return FtxPerpetualAuth(
+            api_key=self.ftx_perpetual_api_key,
+            secret_key=self.ftx_perpetual_secret_key,
+            subaccount_name=self._subaccount_name)
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
@@ -160,26 +165,16 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         return False
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        data = {"symbol": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)}
-        if tracked_order.exchange_order_id:
-            data["order_id"] = tracked_order.exchange_order_id
-        else:
-            data["order_link_id"] = tracked_order.client_order_id
-        cancel_result = await self._api_post(
-            path_url=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL,
-            data=data,
+        cancel_result = await self._api_delete(
+            path_url=CONSTANTS.FTX_ORDER_WITH_CLIENT_ID_PATH.format(order_id),
             is_auth_required=True,
-            trading_pair=tracked_order.trading_pair,
-        )
-        response_code = cancel_result["ret_code"]
+            limit_id=CONSTANTS.FTX_CANCEL_ORDER_LIMIT_ID)
 
-        if response_code != CONSTANTS.RET_CODE_OK:
-            if response_code == CONSTANTS.RET_CODE_ORDER_NOT_EXISTS:
-                await self._order_tracker.process_order_not_found(order_id)
-            formatted_ret_code = self._format_ret_code_for_print(response_code)
-            raise IOError(f"{formatted_ret_code} - {cancel_result['ret_msg']}")
+        if not cancel_result.get("success", False):
+            self.logger().warning(
+                f"Failed to cancel order {order_id} ({cancel_result})")
 
-        return True
+        return cancel_result.get("success", False)
 
     async def _place_order(
             self,
@@ -192,55 +187,24 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
             position_action: PositionAction = PositionAction.NIL,
             **kwargs,
     ) -> Tuple[str, float]:
-        position_idx = self._get_position_idx(trade_type, position_action)
-        data = {
-            "side": "Buy" if trade_type == TradeType.BUY else "Sell",
-            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
-            "qty": float(amount),
-            "time_in_force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
-            "close_on_trigger": position_action == PositionAction.CLOSE,
-            "order_link_id": order_id,
-            "reduce_only": position_action == PositionAction.CLOSE,
-            "position_idx": position_idx,
-            "order_type": CONSTANTS.ORDER_TYPE_MAP[order_type],
-        }
-        if order_type.is_limit_type():
-            data["price"] = float(price)
-
-        resp = await self._api_post(
-            path_url=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL,
-            data=data,
-            is_auth_required=True,
-            trading_pair=trading_pair,
-            headers={"referer": CONSTANTS.HBOT_BROKER_ID},
-            **kwargs,
-        )
-
-        if resp["ret_code"] != CONSTANTS.RET_CODE_OK:
-            formatted_ret_code = self._format_ret_code_for_print(resp['ret_code'])
-            raise IOError(f"Error submitting order {order_id}: {formatted_ret_code} - {resp['ret_msg']}")
-
-        return str(resp["result"]["order_id"]), self.current_timestamp
-
-    def _get_position_idx(self, trade_type: TradeType, position_action: PositionAction) -> int:
         if position_action == PositionAction.NIL:
             raise NotImplementedError
-        if self.position_mode == PositionMode.ONEWAY:
-            position_idx = CONSTANTS.POSITION_IDX_ONEWAY
-        elif trade_type == TradeType.BUY:
-            if position_action == PositionAction.CLOSE:
-                position_idx = CONSTANTS.POSITION_IDX_HEDGE_SELL
-            else:  # position_action == PositionAction.Open
-                position_idx = CONSTANTS.POSITION_IDX_HEDGE_BUY
-        elif trade_type == TradeType.SELL:
-            if position_action == PositionAction.CLOSE:
-                position_idx = CONSTANTS.POSITION_IDX_HEDGE_BUY
-            else:  # position_action == PositionAction.Open
-                position_idx = CONSTANTS.POSITION_IDX_HEDGE_SELL
-        else:  # trade_type == TradeType.RANGE
-            raise NotImplementedError
+        api_params = {
+            "market": await self.exchange_symbol_associated_to_pair(trading_pair),
+            "side": trade_type.name.lower(),
+            "price": float(price),
+            "type": "market" if trade_type == OrderType.MARKET else "limit",
+            "size": float(amount),
+            "clientId": order_id,
+            "reduceOnly": position_action == PositionAction.CLOSE,
+        }
+        order_result = await self._api_post(
+            path_url=CONSTANTS.FTX_PLACE_ORDER_PATH,
+            data=api_params,
+            is_auth_required=True)
+        exchange_order_id = str(order_result["result"]["id"])
 
-        return position_idx
+        return exchange_order_id, self.current_timestamp
 
     def _get_fee(self,
                  base_currency: str,
@@ -341,54 +305,22 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         for trade in parsed_history_resps:
             self._process_trade_event_message(trade)
 
-    async def _update_order_status(self):
-        """
-        Calls REST API to get order status
-        """
-
-        active_orders: List[InFlightOrder] = list(self.in_flight_orders.values())
-
-        tasks = []
-        for active_order in active_orders:
-            tasks.append(asyncio.create_task(self._request_order_status_data(tracked_order=active_order)))
-
-        raw_responses: List[Dict[str, Any]] = await safe_gather(*tasks, return_exceptions=True)
-
-        # Initial parsing of responses. Removes Exceptions.
-        parsed_status_responses: List[Dict[str, Any]] = []
-        for resp, active_order in zip(raw_responses, active_orders):
-            if not isinstance(resp, Exception):
-                parsed_status_responses.append(resp["result"])
-            else:
-                self.logger().network(
-                    f"Error fetching status update for the order {active_order.client_order_id}: {resp}.",
-                    app_warning_msg=f"Failed to fetch status update for the order {active_order.client_order_id}."
-                )
-                await self._order_tracker.process_order_not_found(active_order.client_order_id)
-
-        for order_status in parsed_status_responses:
-            self._process_order_event_message(order_status)
-
     async def _update_balances(self):
-        """
-        Calls REST API to update total and available balances
-        """
-        wallet_balance: Dict[str, Dict[str, Any]] = await self._api_get(
-            path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL,
-            is_auth_required=True,
-        )
+        msg = await self._api_request(
+            path_url=CONSTANTS.FTX_BALANCES_PATH,
+            is_auth_required=True)
 
-        if wallet_balance["ret_code"] != CONSTANTS.RET_CODE_OK:
-            formatted_ret_code = self._format_ret_code_for_print(wallet_balance['ret_code'])
-            raise IOError(f"{formatted_ret_code} - {wallet_balance['ret_msg']}")
+        if msg.get("success", False):
+            balances = msg["result"]
+        else:
+            raise Exception(msg['msg'])
 
         self._account_available_balances.clear()
         self._account_balances.clear()
 
-        if wallet_balance["result"] is not None:
-            for asset_name, balance_json in wallet_balance["result"].items():
-                self._account_balances[asset_name] = Decimal(str(balance_json["wallet_balance"]))
-                self._account_available_balances[asset_name] = Decimal(str(balance_json["available_balance"]))
+        for balance in balances:
+            self._account_balances[balance["coin"]] = Decimal(str(balance["total"]))
+            self._account_available_balances[balance["coin"]] = Decimal(str(balance["free"]))
 
     async def _update_positions(self):
         """
@@ -448,20 +380,24 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
 
-        if order.exchange_order_id is not None:
-            try:
-                all_fills_response = await self._request_order_fills(order=order)
-                trades_list_key = "data" if ftx_perpetual_utils.is_linear_perpetual(
-                    order.trading_pair) else "trade_list"
-                fills_data = all_fills_response["result"].get(trades_list_key, [])
+        try:
+            exchange_order_id = await order.get_exchange_order_id()
+            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
+            all_fills_response = await self._api_get(
+                path_url=CONSTANTS.FTX_ORDER_FILLS_PATH,
+                params={
+                    "market": trading_pair,
+                    "orderId": int(exchange_order_id)
+                },
+                is_auth_required=True)
 
-                if fills_data is not None:
-                    for fill_data in fills_data:
-                        trade_update = self._parse_trade_update(trade_msg=fill_data, tracked_order=order)
-                        trade_updates.append(trade_update)
-            except IOError as ex:
-                if not self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
-                    raise
+            for trade_fill in all_fills_response.get("result", []):
+                trade_update = self._create_trade_update_with_order_fill_data(order_fill_msg=trade_fill, order=order)
+                trade_updates.append(trade_update)
+
+        except asyncio.TimeoutError:
+            raise IOError(f"Skipped order update with order fills for {order.client_order_id} "
+                          "- waiting for exchange order id.")
 
         return trade_updates
 
@@ -480,31 +416,14 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         return res
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        try:
-            order_status_data = await self._request_order_status_data(tracked_order=tracked_order)
-            order_msg = order_status_data["result"]
-            client_order_id = str(order_msg["order_link_id"])
+        updated_order_data = await self._api_get(
+            path_url=CONSTANTS.FTX_ORDER_WITH_CLIENT_ID_PATH.format(tracked_order.client_order_id),
+            is_auth_required=True,
+            limit_id=CONSTANTS.FTX_GET_ORDER_LIMIT_ID)
 
-            order_update: OrderUpdate = OrderUpdate(
-                trading_pair=tracked_order.trading_pair,
-                update_timestamp=self.current_timestamp,
-                new_state=CONSTANTS.ORDER_STATE[order_msg["order_status"]],
-                client_order_id=client_order_id,
-                exchange_order_id=order_msg["order_id"],
-            )
-
-            return order_update
-
-        except IOError as ex:
-            if self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
-                order_update = OrderUpdate(
-                    client_order_id=tracked_order.client_order_id,
-                    trading_pair=tracked_order.trading_pair,
-                    update_timestamp=self.current_timestamp,
-                    new_state=tracked_order.current_state,
-                )
-            else:
-                raise
+        order_update = self._create_order_update_with_order_status_data(
+            order_status_msg=updated_order_data["result"],
+            order=tracked_order)
 
         return order_update
 
@@ -528,33 +447,37 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _user_stream_event_listener(self):
         """
-        Listens to message in _user_stream_tracker.user_stream queue.
+        Listens to messages from _user_stream_tracker.user_stream queue.
+        Traders, Orders, and Balance updates from the WS.
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                endpoint = web_utils.endpoint_from_message(event_message)
-                payload = web_utils.payload_from_message(event_message)
+                channel: str = event_message["channel"]
+                data: Dict[str, Any] = event_message["data"]
+                if channel == CONSTANTS.WS_PRIVATE_FILLS_CHANNEL:
+                    exchange_order_id = str(data["orderId"])
+                    order = next((order for order in self._order_tracker.all_fillable_orders.values()
+                                  if order.exchange_order_id == exchange_order_id),
+                                 None)
+                    if order is not None:
+                        trade_update = self._create_trade_update_with_order_fill_data(
+                            order_fill_msg=data,
+                            order=order)
+                        self._order_tracker.process_trade_update(trade_update=trade_update)
+                elif channel == CONSTANTS.WS_PRIVATE_ORDERS_CHANNEL:
+                    client_order_id = data["clientId"]
+                    order = self._order_tracker.all_updatable_orders.get(client_order_id)
+                    if order is not None:
+                        order_update = self._create_order_update_with_order_status_data(
+                            order_status_msg=data,
+                            order=order)
+                        self._order_tracker.process_order_update(order_update=order_update)
 
-                if endpoint == CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME:
-                    for position_msg in payload:
-                        await self._process_account_position_event(position_msg)
-                elif endpoint == CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME:
-                    for order_msg in payload:
-                        self._process_order_event_message(order_msg)
-                elif endpoint == CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME:
-                    for trade_msg in payload:
-                        self._process_trade_event_message(trade_msg)
-                elif endpoint == CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME:
-                    for wallet_msg in payload:
-                        self._process_wallet_event_message(wallet_msg)
-                elif endpoint is None:
-                    self.logger().error(f"Could not extract endpoint from {event_message}.")
-                    raise ValueError
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception("Unexpected error in user stream listener loop.")
-                await self._sleep(5.0)
+                self.logger().error(
+                    "Unexpected error in user stream listener loop.", exc_info=True)
 
     async def _process_account_position_event(self, position_msg: Dict[str, Any]):
         """
@@ -800,6 +723,58 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
             timestamp: int = int(pd.Timestamp(data["time"], tz="UTC").timestamp())
 
         return timestamp, funding_rate, payment
+
+    def _create_trade_update_with_order_fill_data(self, order_fill_msg: Dict[str, Any], order: InFlightOrder):
+
+        # Estimated fee token implemented according to https://help.ftx.com/hc/en-us/articles/360024479432-Fees
+        is_maker = order_fill_msg["liquidity"] == "maker"
+        if is_maker:
+            estimated_fee_token = order.base_asset if order.trade_type == TradeType.BUY else order.quote_asset
+        else:
+            estimated_fee_token = order.quote_asset
+
+        fee = TradeFeeBase.new_spot_fee(
+            fee_schema=self.trade_fee_schema(),
+            trade_type=order.trade_type,
+            percent_token=order_fill_msg.get("feeCurrency", estimated_fee_token),
+            flat_fees=[TokenAmount(
+                amount=Decimal(str(order_fill_msg["fee"])),
+                token=order_fill_msg.get("feeCurrency", estimated_fee_token)
+            )]
+        )
+        trade_update = TradeUpdate(
+            trade_id=str(order_fill_msg["tradeId"]),
+            client_order_id=order.client_order_id,
+            exchange_order_id=str(order_fill_msg.get("orderId", order.exchange_order_id)),
+            trading_pair=order.trading_pair,
+            fee=fee,
+            fill_base_amount=Decimal(str(order_fill_msg["size"])),
+            fill_quote_amount=Decimal(str(order_fill_msg["size"])) * Decimal(str(order_fill_msg["price"])),
+            fill_price=Decimal(str(order_fill_msg["price"])),
+            fill_timestamp=datetime.fromisoformat(order_fill_msg["time"]).timestamp(),
+        )
+        return trade_update
+
+    def _create_order_update_with_order_status_data(self, order_status_msg: Dict[str, Any], order: InFlightOrder):
+        state = order.current_state
+        msg_status = order_status_msg["status"]
+        if msg_status == "new":
+            state = OrderState.OPEN
+        elif msg_status == "open" and (Decimal(str(order_status_msg["filledSize"])) > s_decimal_0):
+            state = OrderState.PARTIALLY_FILLED
+        elif msg_status == "closed":
+            state = (OrderState.CANCELED
+                     if Decimal(str(order_status_msg["filledSize"])) == s_decimal_0
+                     else OrderState.FILLED)
+
+        order_update = OrderUpdate(
+            trading_pair=order.trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=state,
+            client_order_id=order.client_order_id,
+            exchange_order_id=str(order_status_msg["id"]),
+        )
+        return order_update
 
     @staticmethod
     def _format_ret_code_for_print(ret_code: Union[str, int]) -> str:
