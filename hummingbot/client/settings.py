@@ -108,9 +108,9 @@ class GatewayConnectionSetting:
 
     @staticmethod
     def get_connector_spec_from_market_name(market_name: str) -> Optional[Dict[str, str]]:
-        vals = market_name.split("_")
-        if len(vals) >= 3:
-            return GatewayConnectionSetting.get_connector_spec(vals[0], vals[1], "_".join(vals[2:]))
+        vals = market_name.rsplit("_", 2)
+        if len(vals) == 3:
+            return GatewayConnectionSetting.get_connector_spec(vals[0], vals[1], vals[2])
         else:
             return None
 
@@ -136,9 +136,8 @@ class GatewayConnectionSetting:
             connectors_conf.append(new_connector_spec)
         GatewayConnectionSetting.save(connectors_conf)
 
-    @staticmethod
-    def upsert_connector_spec_tokens(connector_chain_network: str, tokens: str):
-        updated_connector: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+    def upsert_connector_spec_tokens(connector_chain_network: str, tokens: List[str]):
+        updated_connector: Optional[Dict[str, Any]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
         updated_connector['tokens'] = tokens
 
         connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
@@ -210,13 +209,16 @@ class ConnectorSetting(NamedTuple):
             if self.config_keys is not None:
                 params: Dict[str, Any] = {k: v.value for k, v in self.config_keys.items()}
             connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(self.name)
-            params.update(
-                connector_name=connector_spec["connector"],
-                chain=connector_spec["chain"],
-                network=connector_spec["network"],
-                wallet_address=connector_spec["wallet_address"],
-                additional_spenders=connector_spec.get("additional_spenders", []),
-            )
+            try:
+                params.update(
+                    connector_name=connector_spec["connector"],
+                    chain=connector_spec["chain"],
+                    network=connector_spec["network"],
+                    wallet_address=connector_spec["wallet_address"],
+                    additional_spenders=connector_spec.get("additional_spenders", []),
+                )
+            except TypeError as e:
+                print(str(e))
             return params
 
         if not self.is_sub_domain:

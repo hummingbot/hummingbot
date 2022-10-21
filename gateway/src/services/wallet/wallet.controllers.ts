@@ -1,5 +1,6 @@
 import fse from 'fs-extra';
 import { Avalanche } from '../../chains/avalanche/avalanche';
+import { Cronos } from '../../chains/cronos/cronos';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import { Polygon } from '../../chains/polygon/polygon';
 import { Solana } from '../../chains/solana/solana';
@@ -15,10 +16,13 @@ import {
 import { ConfigManagerCertPassphrase } from '../config-manager-cert-passphrase';
 
 import {
+  ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE,
+  ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE,
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../error-handler';
+import { EthereumBase } from '../ethereum-base';
 
 const walletPath = './conf/wallets';
 
@@ -36,30 +40,22 @@ export async function addWallet(
   if (!passphrase) {
     throw new Error('There is no passphrase');
   }
-  let address: string;
-  let encryptedPrivateKey: string;
+  let connection: EthereumBase | Solana;
+  let address: string | undefined;
+  let encryptedPrivateKey: string | undefined;
+
   if (req.chain === 'ethereum') {
-    const ethereum = Ethereum.getInstance(req.network);
-    address = ethereum.getWalletFromPrivateKey(req.privateKey).address;
-    encryptedPrivateKey = await ethereum.encrypt(req.privateKey, passphrase);
+    connection = Ethereum.getInstance(req.network);
   } else if (req.chain === 'avalanche') {
-    const avalanche = Avalanche.getInstance(req.network);
-    address = avalanche.getWalletFromPrivateKey(req.privateKey).address;
-    encryptedPrivateKey = await avalanche.encrypt(req.privateKey, passphrase);
-  } else if (req.chain === 'polygon') {
-    const polygon = Polygon.getInstance(req.network);
-    address = polygon.getWalletFromPrivateKey(req.privateKey).address;
-    encryptedPrivateKey = await polygon.encrypt(req.privateKey, passphrase);
-  } else if (req.chain === 'solana') {
-    const solana = await Solana.getInstance(req.network);
-    address = solana
-      .getKeypairFromPrivateKey(req.privateKey)
-      .publicKey.toBase58();
-    encryptedPrivateKey = await solana.encrypt(req.privateKey, passphrase);
+    connection = Avalanche.getInstance(req.network);
   } else if (req.chain === 'harmony') {
-    const harmony = Harmony.getInstance(req.network);
-    address = harmony.getWalletFromPrivateKey(req.privateKey).address;
-    encryptedPrivateKey = await harmony.encrypt(req.privateKey, passphrase);
+    connection = Harmony.getInstance(req.network);
+  } else if (req.chain === 'cronos') {
+    connection = Cronos.getInstance(req.network);
+  } else if (req.chain === 'solana') {
+    connection = Solana.getInstance(req.network);
+  } else if (req.chain === 'polygon') {
+    connection = Polygon.getInstance(req.network);
   } else {
     throw new HttpException(
       500,
@@ -68,6 +64,36 @@ export async function addWallet(
     );
   }
 
+  if (!connection.ready()) {
+    await connection.init();
+  }
+
+  try {
+    if (connection instanceof Solana) {
+      address = connection
+        .getKeypairFromPrivateKey(req.privateKey)
+        .publicKey.toBase58();
+      encryptedPrivateKey = await connection.encrypt(
+        req.privateKey,
+        passphrase
+      );
+    } else if (connection instanceof EthereumBase) {
+      address = connection.getWalletFromPrivateKey(req.privateKey).address;
+      encryptedPrivateKey = await connection.encrypt(
+        req.privateKey,
+        passphrase
+      );
+    }
+    if (address === undefined || encryptedPrivateKey === undefined) {
+      throw new Error('ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE');
+    }
+  } catch (_e: unknown) {
+    throw new HttpException(
+      500,
+      ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE(req.privateKey),
+      ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE
+    );
+  }
   const path = `${walletPath}/${req.chain}`;
   await mkdirIfDoesNotExist(path);
   await fse.writeFile(`${path}/${address}.json`, encryptedPrivateKey);
