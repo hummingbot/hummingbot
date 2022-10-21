@@ -128,8 +128,8 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
                     await self._parse_order_book_snapshot_message(raw_message=snapshot_event, message_queue=output)
                 except asyncio.TimeoutError:
                     await self._request_order_book_snapshots(output=output)
-            except asyncio.CancelledError as cancelled_ex:
-                raise cancelled_ex
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 self.logger().exception("Unexpected error when processing public order book snapshots from exchange")
                 await self._sleep(1.0)
@@ -221,13 +221,14 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
             channel: str = self._channel_originating_message(event_message=data)
-            possible_channels = [
-                self._snapshot_messages_queue_key,
-                self._diff_messages_queue_key,
-                self._trade_messages_queue_key
-            ]
-            if channel in possible_channels:
+            valid_channels = self._get_messages_queue_keys()
+            if channel in valid_channels:
                 self._message_queue[channel].put_nowait(data)
+
+    def _get_messages_queue_keys(self) -> List[str]:
+        return [
+            self._snapshot_messages_queue_key, self._diff_messages_queue_key, self._trade_messages_queue_key
+        ]
 
     async def _sleep(self, delay):
         """
