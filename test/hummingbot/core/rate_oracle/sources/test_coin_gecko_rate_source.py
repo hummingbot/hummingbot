@@ -22,7 +22,7 @@ class CoinGeckoRateSourceTest(unittest.TestCase):
         cls.trading_pair = combine_to_hb_trading_pair(base=cls.target_token, quote=cls.global_token)
         cls.extra_trading_pair = combine_to_hb_trading_pair(base=cls.extra_token, quote=cls.global_token)
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 300):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 

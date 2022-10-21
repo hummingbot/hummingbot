@@ -11,7 +11,7 @@ from hummingbot.logger import HummingbotLogger
 
 
 class CoinGeckoDataFeed(DataFeedBase):
-    cgdf_logger: Optional[HummingbotLogger] = None
+    cgdf_logger: HummingbotLogger = None
     _cgdf_shared_instance: "CoinGeckoDataFeed" = None
 
     @classmethod
@@ -32,7 +32,9 @@ class CoinGeckoDataFeed(DataFeedBase):
         self._price_dict: Dict[str, float] = {}
         self._update_interval = update_interval
         self.fetch_data_loop_task: Optional[asyncio.Task] = None
-        async_throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self._rate_limit_retry_s: float = 60.0 / 47.5  # Rate limit of Coin Gecko with 5% margin
+        async_throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS,
+                                         retry_interval=self._rate_limit_retry_s)
         self._api_factory = WebAssistantsFactory(throttler=async_throttler)
 
     @property
@@ -46,6 +48,10 @@ class CoinGeckoDataFeed(DataFeedBase):
     @property
     def health_check_endpoint(self) -> str:
         return f"{CONSTANTS.BASE_URL}{CONSTANTS.PING_REST_ENDPOINT}"
+
+    @property
+    def rate_limit_retry_s(self) -> float:
+        return self._rate_limit_retry_s
 
     async def start_network(self):
         await self.stop_network()
