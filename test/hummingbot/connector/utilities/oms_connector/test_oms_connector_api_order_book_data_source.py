@@ -42,6 +42,10 @@ class TestExchange(OMSExchange):
     def oms_id(self) -> int:
         return 1
 
+    @property
+    def domain(self):
+        return ""
+
 
 class OMSConnectorAPIOrderBookDataSourceTest(unittest.TestCase):
     level = 0
