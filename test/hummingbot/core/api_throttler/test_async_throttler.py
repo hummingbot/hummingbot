@@ -208,7 +208,9 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
                                       lock=asyncio.Lock(),
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         self.ev_loop.run_until_complete(context.acquire())
-        self.assertEqual(2, len(self.throttler._task_logs))
+
+        # We acquire()'d just one rate_limit, task log should have only one entry
+        self.assertEqual(1, len(self.throttler._task_logs))
 
     def test_acquire_awaits_when_exceed_capacity(self):
         rate_limit = self.rate_limits[0]
