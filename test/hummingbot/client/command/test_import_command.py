@@ -11,9 +11,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from pydantic import Field
 
 from hummingbot.client.command import import_command
-from hummingbot.client.config.config_data_types import BaseClientModel, BaseTradingStrategyConfigMap, ClientConfigEnum
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml, save_to_yml
 from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyConfigMap
 from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
