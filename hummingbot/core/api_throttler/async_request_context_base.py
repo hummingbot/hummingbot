@@ -77,9 +77,11 @@ class AsyncRequestContextBase(ABC):
         async with self._lock:
             now = time.time()
             # Each related limit is represented as it own individual TaskLog
-            self._task_logs.append(TaskLog(timestamp=now,
-                                           rate_limit=self._rate_limit,
-                                           weight=self._rate_limit.weight))
+            # This duplicates the current rate_limit acquire()'d since it is already
+            # in the self._related_limits
+            # self._task_logs.append(TaskLog(timestamp=now,
+            #                               rate_limit=self._rate_limit,
+            #                               weight=self._rate_limit.weight))
             for limit, weight in self._related_limits:
                 task = TaskLog(timestamp=now, rate_limit=limit, weight=weight)
                 self._task_logs.append(task)
