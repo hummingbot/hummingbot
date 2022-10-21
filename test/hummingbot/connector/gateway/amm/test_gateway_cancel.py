@@ -61,6 +61,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
             trading_pairs=[TRADING_PAIR],
             trading_required=True
         )
+        cls._connector._amount_quantum_dict = {"WETH": Decimal(str(1e-15)), "DAI": Decimal(str(1e-15))}
         cls._clock.add_iterator(cls._connector)
         cls._patch_stack = ExitStack()
         cls._patch_stack.enter_context(cls._http_player.patch_aiohttp_client())
