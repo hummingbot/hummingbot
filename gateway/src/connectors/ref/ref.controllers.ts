@@ -115,7 +115,8 @@ export async function price(
   }
 
   const { estimatedPrice, expectedAmount } = refAMMish.parseTrade(
-    tradeInfo.expectedTrade
+    tradeInfo.expectedTrade,
+    req.side
   );
 
   const gasLimitTransaction = nearish.gasLimitTransaction;
@@ -180,7 +181,8 @@ export async function trade(
   const gasLimitTransaction: number = nearish.gasLimitTransaction;
   const gasLimitEstimate: number = refAMMish.gasLimitEstimate;
   const { estimatedPrice, expectedAmount } = refAMMish.parseTrade(
-    tradeInfo.expectedTrade
+    tradeInfo.expectedTrade,
+    req.side
   );
 
   if (req.side === 'BUY') {

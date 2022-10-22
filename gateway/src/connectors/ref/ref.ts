@@ -10,6 +10,7 @@ import {
   TokenMetadata,
   Transaction,
   toReadableNumber,
+  Pool,
 } from '@coinalpha/ref-sdk';
 import { logger } from '../../services/logger';
 import { percentRegexp } from '../../services/config-manager-v2';
@@ -37,6 +38,7 @@ export class Ref implements RefAMMish {
   private _ttl: number;
   private tokenList: Record<string, TokenMetadata> = {};
   private _ready: boolean = false;
+  private _cachedPools: Pool[] = [];
 
   private constructor(network: string) {
     const config = RefConfig.config;
@@ -132,7 +134,10 @@ export class Ref implements RefAMMish {
    * Calculated expected execution price and expected amount in after a swap/trade
    * @param trades The trade path object
    */
-  parseTrade(trades: EstimateSwapView[]): {
+  parseTrade(
+    trades: EstimateSwapView[],
+    side: string
+  ): {
     estimatedPrice: string;
     expectedAmount: string;
   } {
@@ -168,7 +173,10 @@ export class Ref implements RefAMMish {
       amountIn += Number(entries.inputAmount);
     });
     return {
-      estimatedPrice: String(expectedAmount / amountIn),
+      estimatedPrice:
+        side.toUpperCase() === 'BUY'
+          ? String(amountIn / expectedAmount)
+          : String(expectedAmount / amountIn),
       expectedAmount: String(expectedAmount),
     };
   }
@@ -192,6 +200,7 @@ export class Ref implements RefAMMish {
     logger.info(`Fetching pair data for ${baseToken.id}-${quoteToken.id}.`);
 
     const { simplePools } = await fetchAllPools();
+    this._cachedPools = simplePools;
 
     const options: SwapOptions = {
       enableSmartRouting: true,
@@ -208,7 +217,7 @@ export class Ref implements RefAMMish {
         `priceSwapIn: no trade pair found for ${baseToken} to ${quoteToken}.`
       );
     }
-    const { estimatedPrice, expectedAmount } = this.parseTrade(trades);
+    const { estimatedPrice, expectedAmount } = this.parseTrade(trades, 'SELL');
     logger.info(
       `Best trade for ${baseToken.id}-${quoteToken.id}: ` +
         `${estimatedPrice}` +
@@ -233,19 +242,21 @@ export class Ref implements RefAMMish {
     amount: string,
     _allowedSlippage?: string
   ): Promise<ExpectedTrade> {
-    logger.info(`Fetching pair data for ${quoteToken.id}-${baseToken.id}.`);
-
-    const { simplePools } = await fetchAllPools();
+    const buyEstimate: ExpectedTrade = await this.estimateSellTrade(
+      baseToken,
+      quoteToken,
+      amount
+    );
 
     const options: SwapOptions = {
       enableSmartRouting: true,
     };
 
     const trades: EstimateSwapView[] = await estimateSwap({
-      tokenIn: baseToken,
-      tokenOut: quoteToken,
-      amountIn: amount.toString(),
-      simplePools,
+      tokenIn: quoteToken,
+      tokenOut: baseToken,
+      amountIn: buyEstimate.expectedAmount,
+      simplePools: this._cachedPools,
       options,
     });
     if (!trades || trades.length === 0) {
@@ -254,7 +265,7 @@ export class Ref implements RefAMMish {
       );
     }
 
-    const { estimatedPrice, expectedAmount } = this.parseTrade(trades);
+    const { estimatedPrice, expectedAmount } = this.parseTrade(trades, 'BUY');
     logger.info(
       `Best trade for ${quoteToken.id}-${baseToken.id}: ` +
         `${estimatedPrice} ` +
