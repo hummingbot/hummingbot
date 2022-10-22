@@ -4,11 +4,7 @@ import { Nearish } from '../../services/common-interfaces';
 import { asyncHandler } from '../../services/error-handler';
 
 import { getChain } from '../../services/connection-manager';
-import {
-  BalanceResponse,
-  PollRequest,
-  PollResponse,
-} from './near.requests';
+import { BalanceResponse, PollRequest, PollResponse } from './near.requests';
 import { validateBalanceRequest } from './near.validators';
 import * as nearControllers from './near.controllers';
 import { getTokens } from '../../network/network.controllers';
@@ -74,7 +70,7 @@ export namespace NearRoutes {
     )
   );*/
 
-  router.get(
+  router.post(
     '/balances',
     asyncHandler(
       async (
