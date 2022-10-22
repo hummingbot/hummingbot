@@ -250,7 +250,10 @@ export interface RefAMMish {
    * Calculated expected execution price and expected amount in after a swap/trade
    * @param trades The trade path object
    */
-  parseTrade(trades: EstimateSwapView[]): {
+  parseTrade(
+    trades: EstimateSwapView[],
+    side: string
+  ): {
     estimatedPrice: string;
     expectedAmount: string;
   };
