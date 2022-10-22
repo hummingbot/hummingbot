@@ -407,7 +407,7 @@ class GatewayCommand(GatewayChainApiManager):
                     wallets = matching_wallets[0]['walletAddresses']
 
                 # if the user has no wallet, ask them to select one
-                if len(wallets) < 1:
+                if len(wallets) < 1 or chain == "near":
                     self.app.clear_input()
                     self.placeholder_mode = True
                     wallet_private_key = await self.app.prompt(
@@ -417,8 +417,18 @@ class GatewayCommand(GatewayChainApiManager):
                     self.app.clear_input()
                     if self.app.to_stop_config:
                         return
+
+                    wallet_account_id: Optional[str]
+                    if chain == "near":
+                        wallet_account_id: str = await self.app.prompt(
+                            prompt=f"Enter your {chain}-{network} account Id >>> ",
+                        )
+                        self.app.clear_input()
+                        if self.app.to_stop_config:
+                            return
+
                     response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
-                        chain, network, wallet_private_key
+                        chain, network, wallet_private_key, id=wallet_account_id
                     )
                     wallet_address: str = response["address"]
 
@@ -472,8 +482,16 @@ class GatewayCommand(GatewayChainApiManager):
                                 if self.app.to_stop_config:
                                     return
 
+                                if chain == "near":
+                                    wallet_account_id: str = await self.app.prompt(
+                                        prompt=f"Enter your {chain}-{network} account Id >>> ",
+                                    )
+                                    self.app.clear_input()
+                                    if self.app.to_stop_config:
+                                        return
+
                                 response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
-                                    chain, network, wallet_private_key
+                                    chain, network, wallet_private_key, id=wallet_account_id
                                 )
                                 wallet_address = response["address"]
 

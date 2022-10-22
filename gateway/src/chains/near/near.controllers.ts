@@ -1,4 +1,5 @@
 import { Account, providers, utils } from 'near-api-js';
+import { BigNumber, utils as ethersUtils } from 'ethers';
 import { latency } from '../../services/base';
 import {
   HttpException,
@@ -70,7 +71,9 @@ export async function balances(
         // instantiate a contract and pass in provider for read-only access
         const contract = nearish.getContract(address, account);
         const balance: string = await nearish.getFungibleTokenBalance(contract);
-        balances[symbol] = utils.format.formatNearAmount(balance, decimals);
+        balances[symbol] = ethersUtils
+          .formatUnits(BigNumber.from(balance), decimals)
+          .toString();
       }
     })
   );

@@ -124,7 +124,7 @@ export const sendTransactions = async ({
   const results: Array<providers.FinalExecutionOutcome> = [];
 
   for (let i = 0; i < signedTransactions.length; i += 1) {
-    results.push(await provider.sendTransaction(signedTransactions[i]));
+    results.push(await provider.sendTransactionAsync(signedTransactions[i]));
   }
 
   return results;

@@ -306,7 +306,7 @@ export interface RefAMMish {
     tokenIn: TokenMetadata,
     tokenOut: TokenMetadata,
     allowedSlippage?: string
-  ): Promise<FinalExecutionOutcome[]>;
+  ): Promise<FinalExecutionOutcome>;
 }
 
 export interface UniswapLPish {

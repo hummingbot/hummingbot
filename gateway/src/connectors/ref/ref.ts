@@ -281,7 +281,7 @@ export class Ref implements RefAMMish {
     tokenIn: TokenMetadata,
     tokenOut: TokenMetadata,
     allowedSlippage?: string
-  ): Promise<FinalExecutionOutcome[]> {
+  ): Promise<FinalExecutionOutcome> {
     const transactionsRef: Transaction[] = await instantSwap({
       tokenIn,
       tokenOut,
@@ -294,12 +294,12 @@ export class Ref implements RefAMMish {
     const signedTransactions: SignedTransaction[] = await getSignedTransactions(
       { transactionsRef, account }
     );
-    const transaction = await sendTransactions({
+    const transaction: FinalExecutionOutcome[] = await sendTransactions({
       signedTransactions,
       provider: account.connection.provider,
     });
 
     logger.info(JSON.stringify(transaction));
-    return transaction;
+    return transaction[0];
   }
 }
