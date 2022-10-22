@@ -198,12 +198,16 @@ export async function trade(
       );
     }
 
+    const amountIn = new Decimal(req.amount)
+      .mul(new Decimal(estimatedPrice))
+      .toString();
+
     const tx = await refAMMish.executeTrade(
       account,
       tradeInfo.expectedTrade,
-      req.amount,
-      tradeInfo.baseToken,
+      amountIn,
       tradeInfo.quoteToken,
+      tradeInfo.baseToken,
       req.allowedSlippage
     );
 
