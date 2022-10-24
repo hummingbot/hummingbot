@@ -284,8 +284,8 @@ class PerformanceMetrics:
         self.num_sells = len(sells)
         self.num_trades = self.num_buys + self.num_sells
 
-        self.cur_base_bal = current_balances.get(base, 0)
-        self.cur_quote_bal = current_balances.get(quote, 0)
+        self.cur_base_bal = current_balances.get(base, s_decimal_0)
+        self.cur_quote_bal = current_balances.get(quote, s_decimal_0)
         self.start_base_bal = self.cur_base_bal - self.tot_vol_base
         self.start_quote_bal = self.cur_quote_bal - self.tot_vol_quote
 
