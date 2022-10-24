@@ -1,20 +1,15 @@
-from abc import ABC, abstractmethod
-from decimal import Decimal
-from typing import Dict, Tuple, Union
 
-from pydantic import BaseModel, Field, root_validator, validator
+from decimal import Decimal
+from typing import Dict
+
+from pydantic import Field, root_validator, validator
 
 import hummingbot.client.settings as settings
 from hummingbot.client.config.config_data_types import (
-    BaseClientModel,
     BaseTradingStrategyMakerTakerConfigMap,
     ClientFieldData,
 )
 from hummingbot.client.config.config_validators import validate_bool
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-
-from .cross_exchange_mining_pair import CrossExchangeMiningPair
-
 
 class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):
     strategy: str = Field(default="cross_exchange_mining", client_data=None)
@@ -151,8 +146,7 @@ class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):
         ),
     )
     # === prompts ===
-
-
+    
     @classmethod
     def order_amount_prompt(cls, model_instance: 'CrossExchangeMiningConfigMap') -> str:
         trading_pair = model_instance.maker_market_trading_pair

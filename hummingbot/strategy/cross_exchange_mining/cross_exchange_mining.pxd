@@ -28,6 +28,7 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
         object _volatility_pct
         object _balance_timer
         object _volatility_timer
+        object _balance_flag
         object _min_prof_adj
         object _min_prof_adj_t
         object _td_bias_min
@@ -40,7 +41,6 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
     cdef check_order(self, object market_pair, object active_order, object is_buy)
     cdef check_balance(self, object market_pair)
     cdef set_order(self, object market_pair,object is_buy)
-    cdef price_buffer_level(self, object market_pair,object is_buy)
     cdef str c_place_order(self,
                            object market_pair,
                            bint is_buy,
