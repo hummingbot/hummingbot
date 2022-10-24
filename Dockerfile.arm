@@ -102,12 +102,12 @@ RUN ln -s /conf /home/hummingbot/conf && \
 
 # Create mount points
 RUN mkdir -p /conf /logs /data /pmm_scripts /scripts \
-    /home/hummingbot/.hummingbot-gateway/conf \
+    /gateway-conf \
     /home/hummingbot/.hummingbot-gateway/certs && \
-  chown -R hummingbot:hummingbot /conf /logs /data /pmm_scripts /scripts \
+  chown -R hummingbot:hummingbot /conf /logs /data /pmm_scripts /scripts /gateway-conf \
     /home/hummingbot/.hummingbot-gateway
 VOLUME /conf /logs /data /pmm_scripts /scripts \
-  /home/hummingbot/.hummingbot-gateway/conf \
+  /gateway-conf \
   /home/hummingbot/.hummingbot-gateway/certs
 
 # Pre-populate pmm_scripts/ volume with default pmm_scripts
