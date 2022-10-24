@@ -35,6 +35,11 @@ from hummingbot.strategy.strategy_base cimport StrategyBase
 from hummingbot.strategy.strategy_base import StrategyBase
 from .cross_exchange_mining_pair import CrossExchangeMiningPair
 from .order_id_market_pair_tracker import OrderIDMarketPairTracker
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+)
 
 from hummingbot.strategy.cross_exchange_mining.cross_exchange_mining_config_map_pydantic import (
     CrossExchangeMiningConfigMap
@@ -96,6 +101,7 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
         self._volatility_timer = 0
         self._balance_timer = 0
         self._maker_side = True
+        self._balance_flag = True
         self._tol_o = 0.1/100
         self._min_prof_adj = 0
         self._min_prof_adj_t = 0
@@ -153,9 +159,6 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
     def trade_fee(self):
         return self._config_map.trade_fee
 
-    @property
-    def maker_buffer_qty(self):
-        return self._config_map.maker_buffer_qty
     @property
     def status_report_interval(self):
         return self._status_report_interval
@@ -228,8 +231,12 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
 
             # See if there're any open orders.
             if active_orders_status:
-                lines.extend(["", "  Active orders:"] +
-                             ["    " + line for line in str(active_orders_status).split("\n")])
+                lines.extend(["", "  Active orders:"])
+                for order in active_orders_status:
+                    if order.is_buy:
+                        lines.extend(["Current buy order of : " + str(order.trading_pair) + " with quantity: " + str(order.quantity) + " of " + str(order.base_currency)+ " at price: " + str(order.price)])
+                    else:
+                        lines.extend(["Current sell order of : " + str(order.trading_pair) + " with quantity: " + str(order.quantity) + " of " + str(order.base_currency)+ " at price: " + str(order.price)])
             else:
                 lines.extend(["", "  No active maker orders."])
 
@@ -262,31 +269,18 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
             taker_price_sell = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, False, active_order.quantity).result_price
             current_buy_price = active_order.price
             current_prof = 1-(current_buy_price/taker_price_sell)
-
+            #self.notify_hb_app("Check buy order, Current  price: " + str(round(active_order.price,5)) + " Current  qty: " + str(round(active_order.quantity,3)) + " can sell on taker for: " + str(round(taker_price_sell,5)) + " profitability is: " + str(round(current_prof,5)))
         # Check current profitability for existing sell limit order    
         if not is_buy:
             taker_price_buy = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, active_order.quantity).result_price
             current_sell_price = active_order.price
             current_prof = 1-(taker_price_buy/current_sell_price)
-
+            #self.notify_hb_app("Check sell order, Current  price: " + str(round(active_order.price,5)) + " Current  qty: " + str(round(active_order.quantity,3)) + " can buy on taker for: " + str(round(taker_price_buy,5)) + " profitability is: " + str(round(current_prof,5)))
         # Check profitability is within tolerance around (Min profitability + volatility modifier + long term trade performance modifier)
         # If not cancel limit order
         prof_set = (self.min_profitability+self._volatility_pct+self._min_prof_adj)
         if current_prof < (prof_set - self.min_prof_tol_low) or current_prof > (prof_set + self.min_prof_tol_high):
-            if self.maker_buffer_qty > 0: # If maker buffer is active check that buy price can be as low as this price without cancelling
-                if is_buy:
-                    buffer_price = self.price_buffer_level(market_pair,is_buy)
-                    #self.notify_hb_app("Maker Buffer Price Buy Check : " + str(buffer_price) + "Current Price: " + str(current_buy_price))
-                    if current_buy_price < buffer_price * (1 + self.min_prof_tol_low):
-                        #self.notify_hb_app("Should be less than: " + str(buffer_price * (1 - self.min_prof_tol_low)) + " actual price at: " + str(buffer_price))
-                        #self.notify_hb_app("OK")
-                        return
-                if not is_buy: # If maker buffer is active check that sell price can be as high as this price without cancelling
-                    buffer_price = self.price_buffer_level(market_pair,is_buy)
-                    #self.notify_hb_app("Maker Buffer Price Sell Check: " + str(buffer_price) + "Current Price: " + str(current_sell_price))
-                    if current_sell_price > buffer_price * (1 - self.min_prof_tol_low):
-                        #self.notify_hb_app("Should be above: " + str(buffer_price * (1 - self.min_prof_tol_low))+ " actual price at: " + str(buffer_price))
-                        return
+            #self.notify_hb_app("Cancelling: " + str(current_prof) + " < " + str(prof_set - self.min_prof_tol_low) + " or > "+ str(prof_set + self.min_prof_tol_high))
             #market_trading_pair_tuple = self._sb_order_tracker.c_get_market_pair_from_order_id(active_order.client_order_id)
             market_trading_pair_tuple = self._sb_order_tracker.c_get_market_pair_from_order_id(active_order.client_order_id)
             if market_trading_pair_tuple:
@@ -301,15 +295,18 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
         maker_base_side_balance = maker_market.c_get_balance(market_pair.maker.base_asset)
         taker_base_side_balance = taker_market.c_get_balance(market_pair.taker.base_asset)
         try:
+            # Average Price for buying order amount on maker market
             maker_price_buy = maker_market.c_get_vwap_for_volume(market_pair.maker.trading_pair, True, self.order_amount).result_price #True = buy
         except:
            maker_price_buy =  taker_market.c_get_vwap_for_volume(market_pair.maker.trading_pair, True, self.order_amount).result_price #True = buy
         try:
+            # Average Price for buying order amount on taker market
             taker_price_buy = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, self.order_amount).result_price #True = buy
         except:
             taker_price_buy = maker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, self.order_amount).result_price #True = buy
-            
+        # quantity of maker quote amount in base if sold on maker market
         maker_quote_side_balance_in_base = maker_market.c_get_available_balance(market_pair.maker.quote_asset) / maker_price_buy
+        # quantity of taker quote amount in base if sold on taker market
         taker_quote_side_balance_in_base = taker_market.c_get_available_balance(market_pair.taker.quote_asset) / taker_price_buy
 
         var_list = [maker_base_side_balance,taker_base_side_balance,maker_price_buy,taker_price_buy,maker_quote_side_balance_in_base,taker_quote_side_balance_in_base]
@@ -319,29 +316,28 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
                 return s_decimal_nan, s_decimal_nan
         try:
             if not is_buy: # Sell base on Maker side
-                # Sell base on Maker side
+                # Sell base on Maker side, take minimum of order amount in base, base amount on maker side and quote amount in base on taker side
                 order_amount_maker_sell = min(float(taker_quote_side_balance_in_base),float(maker_base_side_balance),float(self.order_amount))
-                taker_price_buy = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, Decimal(order_amount_maker_sell)).result_price
-                maker_set_price_sell = taker_price_buy * (1+(self.min_profitability+self._volatility_pct+self._min_prof_adj))
                 if Decimal(order_amount_maker_sell) < self.min_order_amount:
                     return s_decimal_nan, s_decimal_nan
-                if self.maker_buffer_qty > 0:
-                    buffer_price = self.price_buffer_level(market_pair,is_buy)
-                    #self.notify_hb_app("Maker Buffer Price Sell Set: " + str(buffer_price) + "Min Prof Price: " + str(maker_set_price_sell))
-                    maker_set_price_sell = Decimal.min(maker_set_price_sell,buffer_price) 
+                # you are selling base asset on maker, using the actual order amount calculate the average price you would get if you bought that amount back on the taker side.
+                taker_price_buy = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, Decimal(order_amount_maker_sell)).result_price
+                # Therefore you can sell the amount for the price you would get if you bought on the taker market + min profitabilty
+                maker_set_price_sell = taker_price_buy * (1+(self.min_profitability+self._volatility_pct+self._min_prof_adj))
+                #self.notify_hb_app("Looking to sell on maker, Can buy " + str(round(order_amount_maker_sell,2)) + " on taker for: " + str(round(taker_price_buy,5)) + " so sell on maker for: " + str(round(maker_set_price_sell,5)))
                 return Decimal(maker_set_price_sell), Decimal(order_amount_maker_sell)
             
             if is_buy: # buy base on Maker side
                 # Buy base on Maker side
+                # Buy base on Maker side, take minimum of order amount in base, quote amount on maker side in base and base amount on taker side
                 order_amount_maker_buy = min(float(taker_base_side_balance),float(maker_quote_side_balance_in_base),float(self.order_amount))
-                taker_price_sell = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, False, Decimal(order_amount_maker_buy)).result_price
-                maker_set_price_buy = taker_price_sell * (1-(self.min_profitability+self._volatility_pct+self._min_prof_adj))    
                 if Decimal(order_amount_maker_buy) < self.min_order_amount:
                     return s_decimal_nan, s_decimal_nan
-                if self.maker_buffer_qty > 0:
-                    buffer_price = self.price_buffer_level(market_pair,is_buy)
-                    #self.notify_hb_app("Maker Buffer Buy Price Set: " + str(buffer_price) + "Min Prof Price: " + str(maker_set_price_buy))
-                    maker_set_price_buy = Decimal.max(maker_set_price_buy,buffer_price)
+                # you are buying base asset on maker, using the actual order amount calculate the average price you would get if you sold that amount back on the taker side.
+                taker_price_sell = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, False, Decimal(order_amount_maker_buy)).result_price
+                # Therefore you can sell the amount for the price you would get if you sold on the taker market - min profitabilty
+                maker_set_price_buy = taker_price_sell * (1-(self.min_profitability+self._volatility_pct+self._min_prof_adj))    
+                #self.notify_hb_app("Looking to buy on maker, Can sell " + str(round(order_amount_maker_buy,2)) + " on taker for: " + str(round(taker_price_sell,5)) + " so buy on maker for: " + str(round(maker_set_price_buy,5)))
                 return Decimal(maker_set_price_buy), Decimal(order_amount_maker_buy)
         except:
             return s_decimal_nan, s_decimal_nan
@@ -354,6 +350,7 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
         # Script aims to continuosely check and reblance base assets on each exchange to maintain order amount across exchanges. This is also used to complete the XEMM trade after a limit order has been completed.
         maker_base_side_balance = maker_market.c_get_balance(market_pair.maker.base_asset)
         taker_base_side_balance = taker_market.c_get_balance(market_pair.taker.base_asset)
+        self._balance_flag = False
         #self.notify_hb_app(str(taker_base_side_balance) +" " + str (maker_base_side_balance) + " " + str(self.order_amount))
         if (self.order_amount - self.min_order_amount) <= (taker_base_side_balance + maker_base_side_balance) <= (self.order_amount + self.min_order_amount):
             return
@@ -382,36 +379,41 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
         
         if taker_base_side_balance + maker_base_side_balance  < (self.order_amount - self.min_order_amount): # Need to Buy taker base balance as maker side does not balance
             taker_qty = Decimal.min((self.order_amount -(taker_base_side_balance + maker_base_side_balance)), taker_quote_side_balance_in_base)
-            taker_price = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, Decimal(taker_qty)).result_price
-            #self.notify_hb_app(str(taker_qty) + " t " + str(taker_price))
-            if taker_qty > self.min_order_amount:
-                buytaker = True
-                check_mat = [False,market_pair,True,taker_qty,taker_price]
+            if taker_qty:
+                taker_price = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, Decimal(taker_qty)).result_price
+                #self.notify_hb_app(str(taker_qty) + " t " + str(taker_price))
+                if taker_qty > self.min_order_amount:
+                    buytaker = True
+                    check_mat = [False,market_pair,True,taker_qty,taker_price]
                 
         if taker_base_side_balance + maker_base_side_balance  > (self.order_amount + self.min_order_amount): # Need to Sell taker base balance as maker side does not balance
             taker_qty = Decimal.min(((taker_base_side_balance + maker_base_side_balance)-self.order_amount), taker_base_side_balance)
-            taker_price = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, False, Decimal(taker_qty)).result_price
-            if taker_qty > self.min_order_amount:
-                selltaker = True
-                check_mat = [False,market_pair,False,taker_qty,taker_price]
+            if taker_qty:
+                taker_price = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, False, Decimal(taker_qty)).result_price
+                if taker_qty > self.min_order_amount:
+                    selltaker = True
+                    check_mat = [False,market_pair,False,taker_qty,taker_price]
 
         if maker_base_side_balance + taker_base_side_balance  < (self.order_amount - self.min_order_amount): # Need to Buy maker base balance as taker side does not balance
             maker_qty = Decimal.min((self.order_amount -(maker_base_side_balance + taker_base_side_balance)), maker_quote_side_balance_in_base)
-            maker_price = maker_market.c_get_vwap_for_volume(market_pair.maker.trading_pair, True, Decimal(maker_qty)).result_price
-            #self.notify_hb_app(str(maker_qty) + " m " + str(maker_price))
-            if maker_qty > self.min_order_amount:
-                if ((maker_price < taker_price and buytaker) or not buytaker):
-                    check_mat = [True,market_pair,True,maker_qty,maker_price] 
+            if maker_qty:
+                maker_price = maker_market.c_get_vwap_for_volume(market_pair.maker.trading_pair, True, Decimal(maker_qty)).result_price
+                #self.notify_hb_app(str(maker_qty) + " m " + str(maker_price))
+                if maker_qty > self.min_order_amount:
+                    if ((maker_price < taker_price and buytaker) or not buytaker):
+                        check_mat = [True,market_pair,True,maker_qty,maker_price] 
                 
         if maker_base_side_balance + taker_base_side_balance  > (self.order_amount + self.min_order_amount):# Need to Sell maker base balance as taker side does not balance
             maker_qty = Decimal.min(((maker_base_side_balance + taker_base_side_balance)-self.order_amount), maker_base_side_balance)
-            maker_price = maker_market.c_get_vwap_for_volume(market_pair.maker.trading_pair, False, Decimal(maker_qty)).result_price
-            if maker_qty > self.min_order_amount:
-                if ((maker_price > taker_price and selltaker) or not selltaker):
-                    check_mat = [True,market_pair,False,maker_qty,maker_price]
+            if maker_qty:
+                maker_price = maker_market.c_get_vwap_for_volume(market_pair.maker.trading_pair, False, Decimal(maker_qty)).result_price
+                if maker_qty > self.min_order_amount:
+                    if ((maker_price > taker_price and selltaker) or not selltaker):
+                        check_mat = [True,market_pair,False,maker_qty,maker_price]
         #self.notify_hb_app(str(check_mat))
         if check_mat:
             self._balance_timer = self._current_timestamp +  self.balance_adjustment_duration
+            self._balance_flag = True
             return check_mat
         else:
             return
@@ -425,7 +427,6 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
         StrategyBase.c_tick(self, timestamp)
         # Perform clock tick with the market pair tracker.
         self._market_pair_tracker.c_tick(timestamp)
-        
         
         cdef:
             list active_limit_orders = self.active_limit_orders
@@ -475,18 +476,22 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
             if not buy_orders:
                 buyprice, buysize = self.set_order(market_pair, True)
                 if not Decimal.is_nan(buyprice):
-                    self.c_place_order(market_pair, True, True, buysize, buyprice, True)
+                    if not self._balance_flag:
+                        self.c_place_order(market_pair, True, True, buysize, buyprice, True)
             
             # If there are no sell orders set them
             if not sell_orders:
                 sellprice, sellsize = self.set_order(market_pair, False)
                 if not Decimal.is_nan(sellprice):
-                    self.c_place_order(market_pair, False, True, sellsize, sellprice, True)
+                    if not self._balance_flag:
+                        self.c_place_order(market_pair, False, True, sellsize, sellprice, True)
                     
             # Balance base across exchanges
             if self._current_timestamp > self._balance_timer:
                 bal_check = self.check_balance(market_pair)
                 if bal_check:
+                    # clear any existing trades to prioritise balance
+                    self.cancel_all_trades(active_orders)
                     if bal_check[2]:# buy order
                         self.c_place_order(bal_check[1], True, bal_check[0], bal_check[3], bal_check[4] * (1+self.slippage_buffer), False)
                         return
@@ -497,22 +502,8 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
             if self._current_timestamp > self._min_prof_adj_t:
                 self._min_prof_adj = Decimal(self.adjust_profitability_lag(market_pair))
                 self._min_prof_adj_t = self._current_timestamp + self.min_prof_adj_timer
-                for active_order in active_orders:
-                    self.c_cancel_order(market_pair, active_order.client_order_id)
-                    self.c_stop_tracking_limit_order(market_pair, active_order.client_order_id)
+                self.cancel_all_trades(active_orders)
                 self.logger().info(f"Adjusted Min Profitability from previous trades")
-                
-    cdef price_buffer_level(self, object market_pair,object is_buy):
-        cdef:
-            ExchangeBase maker_market = market_pair.maker.market
-
-        if is_buy:
-            buffer_price = maker_market.c_get_price_for_volume(market_pair.maker.trading_pair,False,self.maker_buffer_qty).result_price
-
-        else:
-            buffer_price = maker_market.c_get_price_for_volume(market_pair.maker.trading_pair,True,self.maker_buffer_qty).result_price
-        
-        return buffer_price
         
     cdef adjust_profitability_lag(self, object market_pair):
         cdef:
@@ -521,7 +512,6 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
         feea1 = float(self.trade_fee)
         min_prof = 0
         rate_curve = float(self.rate_curve)
-        pd.set_option('display.max_columns', 1000)
         try:
             fileloc = max(glob.glob('data/trades_*.csv'),key=os.path.getmtime)
         except:
@@ -533,8 +523,8 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
         an_1 = []
         while (len(df) > 0):
             try:
-                start = df['timestamp'][0] - pd.Timedelta(minutes=3)
-                stop = df['timestamp'][0] + pd.Timedelta(minutes=3)
+                start = df['timestamp'][0] - pd.Timedelta(seconds=1)
+                stop = df['timestamp'][0] + pd.Timedelta(minutes=1)
                 mattime = df.loc[(df['timestamp'] > start) & (df['timestamp'] < stop)].reindex(columns = ['order_id','symbol', 'price','amount','timestamp','trade_type']).reset_index(drop=True)
                 mattime = mattime.loc[(mattime['price'] < mattime['price'][0]*1.1) & (mattime['price'] > mattime['price'][0]*0.9)]
                 mattime = mattime.loc[(mattime['trade_type'] == mattime['trade_type'][0])].reset_index(drop=True)
@@ -571,18 +561,18 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
                 base = ((s_ptak + s_pmak)/2) * ((s_msum+s_tsum)/2) * ((s_per-feea1)/100)
                 per_am = (s_per-feea1)*((s_msum+s_tsum)/2)
                 per_am_sum = ((s_msum+s_tsum)/2)
-                an_1.append([s_id,mattime['timestamp'][0],mattime['symbol'][0],s_msum,s_tsum,s_mside,s_tside,s_pmak,s_ptak,s_per,s_per-feea1,base,per_am,per_am_sum]) 
+                an_1.append([s_id,(tattime['timestamp'][0]-mattime['timestamp'][0])/np.timedelta64(1,'s'),mattime['symbol'][0],s_msum,s_tsum,s_mside,s_tside,s_pmak,s_ptak,s_per,s_per-feea1,base,per_am,per_am_sum]) 
             except:
                 pass
         an_final = pd.DataFrame(an_1,columns = ['id','time','symbol','Total_Maker','Total_Taker','Maker_Side','Taker_Side','Price_Maker','Price_Taker','Percentage','Percentage_+_Fee','cost (quote)','per_am','per_am_sum'])
         if len(an_final)==0:
-            self.notify_hb_app("No trade records")
+            self.logger().info(f"No trade records within the past 24 hours found within datafile")
             return 0
         per_am = an_final['per_am'].sum()/an_final['per_am_sum'].sum()
         sum_base = an_final['cost (quote)'].sum()
+        time_av = an_final['time'].mean()
         prof_adj = (-(per_am*rate_curve)**3+min_prof)/100
-        
-        self.notify_hb_app("%ge for trades: " + str(per_am) + " No trades: " + str(len(an_final)) + " Min Profitability: " + str(self.min_profitability + Decimal(prof_adj))+ " Profit: " + str(sum_base) + " " + str(sym_q))
+        self.logger().info(f"Percentage for trades over the last 24 Hours: {round(per_am,3)}, No trades: {round(len(an_final))}, Min Profitability: {round(self.min_profitability + Decimal(prof_adj),5)}, Profit: {round(sum_base,2)} {sym_q}, Mean time to balance after fill: {round(time_av,2)} s")
         return prof_adj
 
     cdef str c_place_order(self,
@@ -620,3 +610,33 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
     def notify_hb_app(self, msg: str):
         if self._hb_app_notification:
             super().notify_hb_app(msg)
+            
+    def cancel_all_trades(self, active_orders):
+            for active_order in active_orders:
+                market_trading_pair_tuple = self._sb_order_tracker.c_get_market_pair_from_order_id(active_order.client_order_id)
+                if market_trading_pair_tuple:
+                    StrategyBase.c_cancel_order(self,market_trading_pair_tuple, active_order.client_order_id)
+                    StrategyBase.stop_tracking_limit_order(self,market_trading_pair_tuple, active_order.client_order_id)
+    def did_complete_buy_order(self, order_completed_event: BuyOrderCompletedEvent):
+        """
+        Output log message when a bid order (on maker side or taker side) is completely taken.
+        :param order_completed_event: event object
+        """
+        order_id = order_completed_event.order_id
+        market_pair = self._market_pair_tracker.get_market_pair_from_order_id(order_id)
+        if market_pair is not None:
+            limit_order_record = self._sb_order_tracker.get_limit_order(market_pair.maker, order_id)
+            self.notify_hb_app("Buy Order Completed: " + str(market_pair.maker.trading_pair) + " Quantity: " + str(limit_order_record.quantity) + " of " + str(limit_order_record.base_currency) + " Price: " + str(limit_order_record.price))
+        
+    def did_complete_sell_order(self, order_completed_event: SellOrderCompletedEvent):
+        """
+        Output log message when a ask order (on maker side or taker side) is completely taken.
+        :param order_completed_event: event object
+        """
+        order_id = order_completed_event.order_id
+        market_pair = self._market_pair_tracker.get_market_pair_from_order_id(order_id)
+
+        if market_pair is not None:
+            limit_order_record = self._sb_order_tracker.get_limit_order(market_pair.maker, order_id)
+            self.notify_hb_app("Sell Order Completed: " + str(market_pair.maker.trading_pair) + " Quantity: " + str(limit_order_record.quantity) + " of " + str(limit_order_record.base_currency) + " Price: " + str(limit_order_record.price))
+        
