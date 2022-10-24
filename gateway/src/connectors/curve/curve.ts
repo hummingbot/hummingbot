@@ -72,19 +72,13 @@ export class Curve {
       await this._ethereum.init();
     }
 
-    const urlSplit = getEthereumConfig(
-      this._chain,
-      this._network
-    ).network.nodeURL.split('/');
-    const last = urlSplit.pop();
-    const apiKey = last ? last : '';
-    const network = urlSplit.join('/');
+    const urlWithApiKey = getEthereumConfig(this._chain, this._network).network
+      .nodeURL;
 
     await curve.init(
       'Infura',
       {
-        network,
-        apiKey,
+        urlWithApiKey,
       },
       { chainId: this._chainId }
     );
@@ -114,20 +108,15 @@ export class Curve {
       if (maxPriorityFeePerGas !== null)
         options['maxPriorityFeePerGas'] = maxPriorityFeePerGas;
 
-      const urlSplit = getEthereumConfig(
-        this._chain,
-        this._network
-      ).network.nodeURL.split('/');
-      const last = urlSplit.pop();
-      const apiKey = last ? last : '';
-      const network = urlSplit.join('/');
+      const urlWithApiKey = getEthereumConfig(this._chain, this._network)
+        .network.nodeURL;
 
       // OBS: this behavior is from our forked version of curve-js.
+
       await curve.init(
         'Infura',
         {
-          network,
-          apiKey,
+          urlWithApiKey,
           privateKey_: wallet.privateKey,
         },
         { ...options, chainId: this._chainId }
@@ -170,31 +159,23 @@ export class Curve {
     let expectedAmount;
 
     if (side === 'BUY') {
-      const best = await curve.getBestRouteAndOutput(
-        quoteToken.address,
-        baseToken.address,
+      const best = await curve.router.getBestRouteAndOutput(
+        quoteToken.symbol,
+        baseToken.symbol,
         tokenAmount
       );
       route = best.route;
       outputAmount = best.output;
-      expectedAmount = await curve.routerExchangeExpected(
-        quoteToken.address,
-        baseToken.address,
-        tokenAmount
-      );
+      expectedAmount = best.output;
     } else {
-      const best = await curve.getBestRouteAndOutput(
-        baseToken.address,
-        quoteToken.address,
+      const best = await curve.router.getBestRouteAndOutput(
+        baseToken.symbol,
+        quoteToken.symbol,
         tokenAmount
       );
       route = best.route;
       outputAmount = best.output;
-      expectedAmount = await curve.routerExchangeExpected(
-        baseToken.address,
-        quoteToken.address,
-        tokenAmount
-      );
+      expectedAmount = best.output;
     }
 
     return {
@@ -258,18 +239,18 @@ export class Curve {
     }
 
     if (side === 'BUY') {
-      return await curve.routerExchange(
-        quoteToken.address,
-        baseToken.address,
+      return await curve.router.swap(
+        quoteToken.symbol,
+        baseToken.symbol,
         tokenAmount,
         nonce,
         gasLimit,
         this.getAllowedSlippage(allowedSlippage)
       );
     } else {
-      return await curve.routerExchange(
-        baseToken.address,
-        quoteToken.address,
+      return await curve.router.swap(
+        baseToken.symbol,
+        quoteToken.symbol,
         tokenAmount,
         nonce,
         gasLimit,
