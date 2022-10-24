@@ -1,20 +1,19 @@
-import os
 import math
-
+import os
 from decimal import Decimal
-import pandas as pd
 from typing import Optional
+
+import pandas as pd
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
-from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent
-from hummingbot.core.data_type.common import TradeType, OrderType
-from hummingbot.core.data_type.order_candidate import OrderCandidate
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.order_candidate import OrderCandidate
+from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
+from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, OrderFilledEvent
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class SimpleRSIScript(ScriptStrategyBase):
