@@ -98,7 +98,7 @@ create_instance () {
  --mount "type=bind,source=$PMM_SCRIPTS_FOLDER,destination=/pmm_scripts/" \
  --mount "type=bind,source=$SCRIPTS_FOLDER,destination=/scripts/" \
  --mount "type=bind,source=$CERTS_FOLDER,destination=/home/hummingbot/.hummingbot-gateway/certs/" \
- --mount "type=bind,source=$GATEWAY_CONF_FOLDER,destination=/home/hummingbot/.hummingbot-gateway/conf/" \
+ --mount "type=bind,source=$GATEWAY_CONF_FOLDER,destination=/gateway-conf/" \
  --mount "type=bind,source=/var/run/docker.sock,destination=/var/run/docker.sock" \
  -e CONF_FOLDER="$CONF_FOLDER" \
  -e DATA_FOLDER="$DATA_FOLDER" \
