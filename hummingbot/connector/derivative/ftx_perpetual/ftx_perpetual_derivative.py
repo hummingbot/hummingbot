@@ -164,6 +164,14 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
     def set_position_mode(self, mode: PositionMode):
         if mode in self.supported_position_modes():
             self._perpetual_trading.set_position_mode(PositionMode.ONEWAY)
+            self.trigger_event(
+                AccountEvent.PositionModeChangeSucceeded,
+                PositionModeChangeEvent(
+                    self.current_timestamp,
+                    "ALL",
+                    mode,
+                )
+            )
             self.logger().debug(f"Only {PositionMode.ONEWAY} is supported")
         else:
             msg = "FTX Perpetual don't allow position mode change"
@@ -329,18 +337,19 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
             raise Exception(account_response['msg'])
 
         for position in positions:
+            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=position["future"])
             if Decimal(str(position["size"])) != s_decimal_0:
                 position = Position(
-                    trading_pair=position["future"],
+                    trading_pair=trading_pair,
                     position_side=PositionSide.LONG if position["side"] == "buy" else PositionSide.SHORT,
                     unrealized_pnl=position["unrealizedPnl"],
                     entry_price=position["entryPrice"],
                     amount=position["size"] * (Decimal("-1.0") if position["side"] == "sell" else Decimal("1.0")),
                     leverage=leverage,
                 )
-                self._perpetual_trading.set_position(position["future"], position)
+                self._perpetual_trading.set_position(trading_pair, position)
             else:
-                self._perpetual_trading.remove_position(position["future"])
+                self._perpetual_trading.remove_position(trading_pair)
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
@@ -625,7 +634,7 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
         for symbol_data in filter(ftx_perpetual_utils.is_exchange_information_valid, exchange_info["result"]):
-            mapping[symbol_data["name"]] = symbol_data["name"]
+            mapping[symbol_data["name"]] = combine_to_hb_trading_pair(symbol_data["underlying"], "USD")
         self._set_trading_pair_symbol_map(mapping)
 
     def _resolve_trading_pair_symbols_duplicate(self, mapping: bidict, new_exchange_symbol: str, base: str, quote: str):

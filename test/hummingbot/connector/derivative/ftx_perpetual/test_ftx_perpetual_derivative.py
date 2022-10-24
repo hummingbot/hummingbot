@@ -36,7 +36,8 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         cls.subaccount_name = "someSubaccountName"
         cls.base_asset = "HBOT"
         cls.quote_asset = "USD"
-        cls.trading_pair = f"{cls.base_asset}-PERP"
+        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.ex_trading_pair = f"{cls.base_asset}-PERP"
 
     @property
     def all_symbols_url(self):
@@ -74,7 +75,7 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "success": True,
             "result": [
                 {
-                    "name": self.trading_pair,
+                    "name": self.ex_trading_pair,
                     "baseCurrency": None,
                     "quoteCurrency": None,
                     "quoteVolume24h": 28914.76,
@@ -84,7 +85,7 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "highLeverageFeeExempt": False,
                     "minProvideSize": 0.001,
                     "type": "future",
-                    "underlying": None,
+                    "underlying": self.base_asset,
                     "enabled": True,
                     "ask": 3949.25,
                     "bid": 3949,
@@ -207,7 +208,7 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "success": True,
             "result": [
                 {
-                    "name": self.trading_pair,
+                    "name": self.ex_trading_pair,
                     "baseCurrency": None,
                     "quoteCurrency": None,
                     "quoteVolume24h": 28914.76,
@@ -217,7 +218,7 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "highLeverageFeeExempt": False,
                     "minProvideSize": 0.001,
                     "type": "future",
-                    "underlying": None,
+                    "underlying": self.base_asset,
                     "enabled": True,
                     "ask": 3949.25,
                     "bid": 3949,
@@ -240,7 +241,7 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "success": True,
             "result": [
                 {
-                    "name": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "name": self.ex_trading_pair,
                     "baseCurrency": None,
                     "quoteCurrency": None,
                     "quoteVolume24h": 28914.76,
@@ -249,6 +250,7 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "changeBod": 0.0156,
                     "type": "future",
                     "enabled": True,
+                    "underlying": self.base_asset
                 }
             ]
         }
@@ -444,13 +446,13 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def funding_info_url(self):
-        url = web_utils.public_rest_url(CONSTANTS.FTX_FUTURE_STATS.format(self.trading_pair))
+        url = web_utils.public_rest_url(CONSTANTS.FTX_FUTURE_STATS.format(self.ex_trading_pair))
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
     @property
     def future_info_url(self):
-        url = web_utils.public_rest_url(CONSTANTS.FTX_SINGLE_FUTURE_PATH.format(self.trading_pair))
+        url = web_utils.public_rest_url(CONSTANTS.FTX_SINGLE_FUTURE_PATH.format(self.ex_trading_pair))
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
