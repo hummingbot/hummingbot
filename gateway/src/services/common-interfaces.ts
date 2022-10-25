@@ -56,7 +56,7 @@ import { Trade as DefiraTrade } from '@zuzu-cat/defira-sdk';
 import { PerpPosition } from '../connectors/perp/perp';
 import { NearBase } from '../chains/near/near.base';
 import { Account, Contract as NearContract } from 'near-api-js';
-import { EstimateSwapView, TokenMetadata } from '@coinalpha/ref-sdk';
+import { EstimateSwapView, TokenMetadata } from 'coinalpha-ref-sdk';
 import { FinalExecutionOutcome } from 'near-api-js/lib/providers';
 
 // TODO Check the possibility to have clob/solana/serum equivalents here

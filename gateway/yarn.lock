@@ -376,18 +376,6 @@
   resolved "https://registry.yarnpkg.com/@chainlink/contracts/-/contracts-0.4.1.tgz#1c4f824920b89fbe5ff2294c35a86bca83c8253d"
   integrity sha512-eC8biY6Ks8k9kZKVt5305veCP3z57yyiy6Os5aR6auta6Bp34xWQ/s4qvrifcW4FNgWw1HJPwMPXDGfiehcLjg==
 
-"@coinalpha/ref-sdk@git+https://github.com/CoinAlpha/ref-sdk#e81ee8a":
-  version "1.0.2"
-  resolved "git+https://github.com/CoinAlpha/ref-sdk#e81ee8ac08d3408696a1419e484ae5deab99d36c"
-  dependencies:
-    "@types/big.js" "^6.1.5"
-    "@types/bn.js" "^5.1.1"
-    "@types/lodash" "^4.14.182"
-    big.js "^6.2.1"
-    lodash-es "^4.17.21"
-    mathjs "^9.3.0"
-    near-api-js "0.44.2"
-
 "@colors/colors@1.5.0":
   version "1.5.0"
   resolved "https://registry.yarnpkg.com/@colors/colors/-/colors-1.5.0.tgz#bb504579c1cae923e6576a4f5da43d25f97bdbd9"
@@ -4651,6 +4639,20 @@ code-point-at@^1.0.0:
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/code-point-at/-/code-point-at-1.1.0.tgz#0d070b4d043a5bea33a2f1a40e2edb3d9a4ccf77"
   integrity sha512-RpAVKQA5T63xEj6/giIbUEtZwJ4UFIc3ZtvEkiaUERylqe8xb5IvqcgOurZLahv93CLKfxcw5YI+DZcUBRyLXA==
+
+coinalpha-ref-sdk@1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/coinalpha-ref-sdk/-/coinalpha-ref-sdk-1.1.0.tgz#f8d2d08e2de5ddafa7ee948553b6780d206770ec"
+  integrity sha512-C3rtns2RWyi1DmfJCVmW2MOLqXOvVVIVqjXZPQkThexsimzdqNQ6DgU2CWLRlIujlqHgRNT6LYaqfc25wCC0Kg==
+  dependencies:
+    "@types/big.js" "^6.1.5"
+    "@types/bn.js" "^5.1.1"
+    "@types/lodash" "^4.14.182"
+    big.js "^6.2.1"
+    lodash-es "^4.17.21"
+    mathjs "^9.3.0"
+    near-api-js "0.44.2"
+    ref-sdk "^0.1.5"
 
 collect-v8-coverage@^1.0.0:
   version "1.0.1"
@@ -10720,6 +10722,19 @@ redis@^3.1.2:
     redis-commands "^1.7.0"
     redis-errors "^1.2.0"
     redis-parser "^3.0.0"
+
+ref-sdk@^0.1.4, ref-sdk@^0.1.5:
+  version "0.1.5"
+  resolved "https://registry.yarnpkg.com/ref-sdk/-/ref-sdk-0.1.5.tgz#d6e4cfca38a6f2a2433d97a930ed4eebb81de8c4"
+  integrity sha512-Gr40hYT+xY+rsj47s+HHejFENWkcBNELMbi67HZ8DmTyOq8VHUhXUY7gP5bMicw03jFAVU3+6jZ90iGM82IoXw==
+  dependencies:
+    "@types/big.js" "^6.1.5"
+    "@types/bn.js" "^5.1.1"
+    "@types/lodash" "^4.14.182"
+    big.js "^6.2.1"
+    mathjs "^9.3.0"
+    near-api-js "0.44.2"
+    ref-sdk "^0.1.4"
 
 regenerate-unicode-properties@^10.0.1:
   version "10.0.1"

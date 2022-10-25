@@ -11,7 +11,7 @@ import {
   Transaction,
   toReadableNumber,
   Pool,
-} from '@coinalpha/ref-sdk';
+} from 'coinalpha-ref-sdk';
 import { logger } from '../../services/logger';
 import { percentRegexp } from '../../services/config-manager-v2';
 import { RefAMMish } from '../../services/common-interfaces';
