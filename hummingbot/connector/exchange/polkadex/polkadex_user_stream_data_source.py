@@ -28,17 +28,6 @@ class PolkadexUserStreamDataSource(UserStreamTrackerDataSource):
         self._connector = connector
         self._trading_pairs = trading_pairs
 
-    async def _connected_websocket_assistant(self) -> WSAssistant:
-        ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        print("Connecting to websocket user for user streams: ", self._connector.wss_url)
-        await ws.connect(ws_url=self._connector.wss_url, ping_timeout=CONSTANTS.WS_PING_INTERVAL)
-        return ws
-
-    async def _get_ws_assistant(self) -> WSAssistant:
-        if self._ws_assistant is None:
-            self._ws_assistant = await self._api_factory.get_ws_assistant()
-        return self._ws_assistant
-
     async def listen_for_user_stream(self, output: asyncio.Queue):
         #  Polkadex doesn't need this.
         pass

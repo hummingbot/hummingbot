@@ -55,7 +55,7 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
         message_queue.put_nowait(diff_message)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        result: List[Dict[str, Any]] = await get_orderbook(trading_pair, None, None, self._connector.host,
+        result: List[Dict[str, Any]] = await get_orderbook(trading_pair, None, None,
                                                            self._connector.user_proxy_address)
         snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = PolkadexOrderbook.snapshot_message_from_exchange(
@@ -103,17 +103,23 @@ class PolkadexOrderbookDataSource(OrderBookTrackerDataSource):
     async def listen_for_subscriptions(self):
         transport = AppSyncWebsocketsTransport(url=self._connector.wss_url, auth=self._connector.auth)
         tasks = []
-        async with Client(transport=transport, fetch_schema_from_transport=False) as session:
-            for trading_pair in self._trading_pairs:
-                tasks.append(
-                    asyncio.create_task(
-                        websocket_streams_session_provided(trading_pair + "-recent-trades", session, self.on_recent_trade_callback, trading_pair)))
-                tasks.append(
-                    asyncio.create_task(
-                        websocket_streams_session_provided(trading_pair + "-ob-inc", session, self.on_ob_increment, trading_pair)))
+        try:
+            async with Client(transport=transport, fetch_schema_from_transport=False) as session:
+                for trading_pair in self._trading_pairs:
+                    tasks.append(
+                        asyncio.create_task(
+                            websocket_streams_session_provided(trading_pair + "-recent-trades", session, self.on_recent_trade_callback, trading_pair)))
+                    tasks.append(
+                        asyncio.create_task(
+                            websocket_streams_session_provided(trading_pair + "-ob-inc", session, self.on_ob_increment, trading_pair)))
 
-            if tasks:
-                done, pending = await asyncio.wait(tasks)
+                if tasks:
+                    done, pending = await asyncio.wait(tasks)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                "Unexpected error in user stream listener loop.", exc_info=True)
 
     async def _subscribe_channels(self, ws: WSAssistant):
         pass

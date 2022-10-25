@@ -31,7 +31,7 @@ from hummingbot.connector.exchange.polkadex.polkadex_constants import (
 from hummingbot.connector.exchange.polkadex.polkadex_order_book_data_source import PolkadexOrderbookDataSource
 from hummingbot.connector.exchange.polkadex.polkadex_payload import create_cancel_order_req, create_order
 from hummingbot.connector.exchange.polkadex.polkadex_user_stream_data_source import PolkadexUserStreamDataSource
-from hummingbot.connector.exchange.polkadex.polkadex_utils import convert_asset_to_ticker, convert_pair_to_market
+from hummingbot.connector.exchange.polkadex.polkadex_utils import convert_asset_to_ticker
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
@@ -253,7 +253,7 @@ class PolkadexExchange(ExchangePyBase):
             except Exception:
                 return False
             try:
-                await cancel_order(params, self.host, self.user_proxy_address)
+                await cancel_order(params, self.user_proxy_address)
             except Exception:
                 return False
             return True
@@ -266,7 +266,7 @@ class PolkadexExchange(ExchangePyBase):
             try:
                 if self.user_main_address is None:
                     self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address,
-                                                                               self.host, self.user_proxy_address)
+                                                                               self.user_proxy_address)
             except Exception:
                 raise Exception("Main account not found")
 
@@ -286,7 +286,7 @@ class PolkadexExchange(ExchangePyBase):
             except Exception:
                 raise Exception("Unable to create signature")
             try:
-                result = await place_order(params, self.host, self.user_proxy_address)
+                result = await place_order(params, self.user_proxy_address)
                 if result is not None:
                     return result, ts
                 else:
@@ -344,7 +344,9 @@ class PolkadexExchange(ExchangePyBase):
                 "timestamp": 11
         }
         """
-        market, base_asset, quote_asset = convert_pair_to_market(message["pair"])
+        base_asset = str(message["pair"]["base_asset"])
+        quote_asset = str(message["pair"]["quote_asset"])
+
         ts = time.time()
         tracked_order = self.in_flight_orders.get(message["client_order_id"])
         if tracked_order is not None:
@@ -404,25 +406,31 @@ class PolkadexExchange(ExchangePyBase):
 
     async def _user_stream_event_listener(self):
         if self.user_main_address is None:
-            self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.host,
+            self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address,
                                                                        self.user_proxy_address)
         transport = AppSyncWebsocketsTransport(url=self.endpoint, auth=self.auth)
         tasks = []
-        async with Client(transport=transport, fetch_schema_from_transport=False) as session:
-            tasks.append(
-                asyncio.create_task(
-                    websocket_streams_session_provided(self.user_main_address, session,
-                                                       self.handle_websocket_message
-                                                       )
-                ))
-            tasks.append(
-                asyncio.create_task(
-                    websocket_streams_session_provided(self.user_proxy_address, session,
-                                                       self.handle_websocket_message
-                                                       )
-                ))
+        try:
+            async with Client(transport=transport, fetch_schema_from_transport=False) as session:
+                tasks.append(
+                    asyncio.create_task(
+                        websocket_streams_session_provided(self.user_main_address, session,
+                                                           self.handle_websocket_message
+                                                           )
+                    ))
+                tasks.append(
+                    asyncio.create_task(
+                        websocket_streams_session_provided(self.user_proxy_address, session,
+                                                        self.handle_websocket_message
+                                                           )
+                    ))
 
-            await asyncio.wait(tasks)
+                await asyncio.wait(tasks)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                "Unexpected error in user stream listener loop.", exc_info=True)
 
     # ToDo: Trading rules parsing also needs to be change
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
@@ -457,7 +465,7 @@ class PolkadexExchange(ExchangePyBase):
         }
         }
         """
-        markets_data = await get_all_markets(self.host, "RandomString")
+        markets_data = await get_all_markets("RandomString")
         rules = []
         for market in markets_data:
             # TODO: Update this with a real endpoint and config
@@ -474,7 +482,7 @@ class PolkadexExchange(ExchangePyBase):
 
     async def _update_order_status(self):
         if self.user_main_address is None:
-            self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.host,
+            self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address,
                                                                        self.user_proxy_address)
         last_tick = self._last_poll_timestamp / UPDATE_ORDER_STATUS_MIN_INTERVAL
         current_tick = self.current_timestamp / UPDATE_ORDER_STATUS_MIN_INTERVAL
@@ -485,7 +493,7 @@ class PolkadexExchange(ExchangePyBase):
             for tracked_order in tracked_orders:
                 if tracked_order.exchange_order_id is not None:
                     result = await find_order_by_main_account(self.user_proxy_address, tracked_order.exchange_order_id,
-                                                              tracked_order.trading_pair, self.host,
+                                                              tracked_order.trading_pair,
                                                               self.user_proxy_address)
                     # TODO: Fix order update
                     if result is None:
@@ -523,9 +531,9 @@ class PolkadexExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
         if self.user_main_address is None:
-            self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address, self.host,
+            self.user_main_address = await get_main_acc_from_proxy_acc(self.user_proxy_address,
                                                                        self.user_proxy_address)
-        balances = await get_all_balances_by_main_account(self.user_main_address, self.host, self.user_proxy_address)
+        balances = await get_all_balances_by_main_account(self.user_main_address, self.user_proxy_address)
 
         """
       [
@@ -569,7 +577,7 @@ class PolkadexExchange(ExchangePyBase):
 
     async def _initialize_trading_pair_symbol_map(self):
         # We are using Random Token for general GQL queries such as get_all_markets
-        markets = await get_all_markets(self.host, "Random Token")
+        markets = await get_all_markets("Random Token")
         mapping = bidict()
         for market in markets:
             base = market["market"].split("-")[0]
@@ -581,5 +589,5 @@ class PolkadexExchange(ExchangePyBase):
         raise NotImplementedError
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        recent_trade = await get_recent_trades(trading_pair, 1, None, self.host, self.user_proxy_address)
+        recent_trade = await get_recent_trades(trading_pair, 1, None, self.user_proxy_address)
         return p_utils.parse_price_or_qty(recent_trade[0]["p"])

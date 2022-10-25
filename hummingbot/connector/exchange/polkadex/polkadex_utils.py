@@ -52,12 +52,6 @@ def convert_asset_to_ticker(asset):
         return "PDEX"
 
 
-def convert_pair_to_market(pair):
-    base = str(pair["base_asset"])
-    quote = str(pair["quote_asset"])
-    return base + "-" + quote, base, quote
-
-
 def convert_ticker_to_enclave_trading_pair(market):
     pair = {
         "base_asset": create_asset(market.split("-")[0]),
