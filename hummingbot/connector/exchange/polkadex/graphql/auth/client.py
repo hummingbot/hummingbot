@@ -9,7 +9,7 @@ from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTAN
 
 # Returns a result after running graphql queries
 # Doesn't take subscription commands
-async def execute_query_command(query, variable_values, url, proxy_addr):
+async def execute_query_command(query, variable_values, proxy_addr):
     # Extract host from url
     host = str(urlparse(CONSTANTS.GRAPHQL_ENDPOINT).netloc)
     url = CONSTANTS.GRAPHQL_ENDPOINT
