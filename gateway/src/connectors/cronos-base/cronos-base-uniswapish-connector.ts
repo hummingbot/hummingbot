@@ -1,4 +1,12 @@
 import {
+  BigNumber,
+  Contract,
+  ContractInterface,
+  Transaction,
+  Wallet,
+} from 'ethers';
+import { Cronos } from '../../chains/cronos/cronos';
+import {
   ExpectedTrade,
   Pairish,
   Percentish,
@@ -10,23 +18,15 @@ import {
   UniswapishSwapParameters,
   UniswapishTrade,
 } from '../../services/common-interfaces';
-import {
-  BigNumber,
-  Contract,
-  ContractInterface,
-  Transaction,
-  Wallet,
-} from 'ethers';
-import { CronosBaseConnectorConfig } from './cronos-base-connector.config';
-import { Cronos } from '../../chains/cronos/cronos';
-import { logger } from '../../services/logger';
-import { UniswapishPriceError } from '../../services/error-handler';
-import { isFractionString } from '../../services/validators';
 import { percentRegexp } from '../../services/config-manager-v2';
+import { UniswapishPriceError } from '../../services/error-handler';
+import { logger } from '../../services/logger';
+import { isFractionString } from '../../services/validators';
+import { CronosBaseUniswapishConnectorConfig } from './cronos-base-uniswapish-connector.config';
 
-export abstract class CronosBaseConnector implements Uniswapish {
-  private static _instances: { [name: string]: CronosBaseConnector };
-  private _config: CronosBaseConnectorConfig.NetworkConfig;
+export abstract class CronosBaseUniswapishConnector implements Uniswapish {
+  private static _instances: { [name: string]: CronosBaseUniswapishConnector };
+  private _config: CronosBaseUniswapishConnectorConfig.NetworkConfig;
   private _cronos: Cronos;
   private _chainId: number;
   private _chain: string;
@@ -70,7 +70,7 @@ export abstract class CronosBaseConnector implements Uniswapish {
     return this._ready;
   }
 
-  protected abstract buildConfig(): CronosBaseConnectorConfig.NetworkConfig;
+  protected abstract buildConfig(): CronosBaseUniswapishConnectorConfig.NetworkConfig;
 
   /**
    * Router address.
@@ -288,22 +288,25 @@ export abstract class CronosBaseConnector implements Uniswapish {
     );
   }
 
-  public static getInstance<T extends CronosBaseConnector>(
+  public static getInstance<T extends CronosBaseUniswapishConnector>(
     this: { new (chain: string, network: string): T }, // see https://stackoverflow.com/questions/45123761/instantiating-child-class-from-a-static-method-in-base-class-using-typescript
     chain: string,
     network: string
-  ): CronosBaseConnector {
-    if (CronosBaseConnector._instances == undefined) {
-      CronosBaseConnector._instances = {};
+  ): CronosBaseUniswapishConnector {
+    if (CronosBaseUniswapishConnector._instances == undefined) {
+      CronosBaseUniswapishConnector._instances = {};
     }
 
     const chainName = chain + network;
 
-    if (!(chainName in CronosBaseConnector._instances)) {
-      CronosBaseConnector._instances[chainName] = new this(chain, network);
+    if (!(chainName in CronosBaseUniswapishConnector._instances)) {
+      CronosBaseUniswapishConnector._instances[chainName] = new this(
+        chain,
+        network
+      );
     }
 
-    return CronosBaseConnector._instances[chainName];
+    return CronosBaseUniswapishConnector._instances[chainName];
   }
 }
 

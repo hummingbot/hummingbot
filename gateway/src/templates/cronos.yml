@@ -5,13 +5,15 @@ networks:
     nodeURL: 'https://evm.cronos.org/'
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/cronos/mainnet_beta.json'
-    nativeCurrencySymbol: 'CRO'    
+    nativeCurrencySymbol: 'CRO'
+    gasPriceRefreshInterval: 60
   testnet: 
     chainID: 338
     nodeURL: 'https://evm-t3.cronos.org/'
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/cronos/testnet.json'
     nativeCurrencySymbol: 'CRO'
+    gasPriceRefreshInterval: 60
 
 manualGasPrice: 100
 gasLimitTransaction: 3000000

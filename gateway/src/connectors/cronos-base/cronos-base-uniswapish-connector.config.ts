@@ -1,7 +1,7 @@
 import { AvailableNetworks } from '../../services/config-manager-types';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
-export namespace CronosBaseConnectorConfig {
+export namespace CronosBaseUniswapishConnectorConfig {
   export interface NetworkConfig {
     allowedSlippage: string;
     gasLimitEstimate: number;

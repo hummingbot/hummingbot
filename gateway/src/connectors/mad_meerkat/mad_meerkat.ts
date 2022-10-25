@@ -1,34 +1,34 @@
 import {
-  CronosBaseConnector,
-  CronosBaseSDKProvider,
-} from '../cronos-base/cronos-base-connector';
-import { CronosBaseConnectorConfig } from '../cronos-base/cronos-base-connector.config';
-import { BigNumber } from 'ethers';
-import routerAbi from './abi.json';
-import {
-  CurrencyAmount,
   Currency,
+  CurrencyAmount,
   Fetcher,
   Pair,
   Percent,
+  Router,
   Token,
   TokenAmount,
   Trade,
-  Router,
 } from '@crocswap/sdk';
+import { BigNumber } from 'ethers';
 import {
   Pairish,
   Percentish,
   UniswapishSwapParameters,
 } from '../../services/common-interfaces';
+import {
+  CronosBaseSDKProvider,
+  CronosBaseUniswapishConnector,
+} from '../cronos-base/cronos-base-uniswapish-connector';
+import { CronosBaseUniswapishConnectorConfig } from '../cronos-base/cronos-base-uniswapish-connector.config';
+import routerAbi from './abi.json';
 import { MadMeerkatConfig } from './mad_meerkat.config';
 
-export class MadMeerkat extends CronosBaseConnector {
+export class MadMeerkat extends CronosBaseUniswapishConnector {
   constructor(chain: string, network: string) {
     const sdkProvider = new MadMeerkatSDKProvider();
     super(sdkProvider, routerAbi, chain, network);
   }
-  protected buildConfig(): CronosBaseConnectorConfig.NetworkConfig {
+  protected buildConfig(): CronosBaseUniswapishConnectorConfig.NetworkConfig {
     return MadMeerkatConfig.config;
   }
 }
