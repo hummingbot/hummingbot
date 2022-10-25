@@ -25,7 +25,7 @@ import {
   TradeRequest,
   TradeResponse,
 } from '../../amm/amm.requests';
-import { EstimateSwapView, TokenMetadata } from '@coinalpha/ref-sdk';
+import { EstimateSwapView, TokenMetadata } from 'coinalpha-ref-sdk';
 import { Account } from 'near-api-js';
 import { ExpectedTrade } from './ref';
 

@@ -10,7 +10,7 @@ import {
   Transaction,
   transformTransactions,
   TransformedTransaction,
-} from '@coinalpha/ref-sdk';
+} from 'coinalpha-ref-sdk';
 
 const validateAccessKey = (
   transaction: TransformedTransaction,

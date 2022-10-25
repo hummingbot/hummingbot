@@ -25,7 +25,6 @@
   },
   "dependencies": {
     "@blockworks-foundation/mango-client": "^3.2.14",
-    "@coinalpha/ref-sdk": "git+https://github.com/CoinAlpha/ref-sdk#e81ee8a",
     "@ethersproject/experimental": "^5.3.0",
     "@harmony-js/core": "^0.1.57",
     "@harmony-js/utils": "^0.1.56",
@@ -60,6 +59,7 @@
     "body-parser": "^1.19.0",
     "bs58": "^5.0.0",
     "chalk": "^4.1.0",
+    "coinalpha-ref-sdk": "1.1.0",
     "copyfiles": "^2.4.1",
     "cycle": "^1.0.3",
     "dayjs": "^1.10.6",
