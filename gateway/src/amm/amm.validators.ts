@@ -223,13 +223,6 @@ export const validatePerpPositionRequest: RequestValidator = mkRequestValidator(
   ]
 );
 
-export const validatePerpBalanceRequest: RequestValidator = mkRequestValidator([
-  validateConnector,
-  validateChain,
-  validateNetwork,
-  validateAddress,
-]);
-
 export const validatePerpMarketStatusRequest: RequestValidator =
   mkRequestValidator([
     validateConnector,
@@ -256,7 +249,6 @@ export const validatePerpOpenTradeRequest: RequestValidator =
     validateAddress,
     validatePerpSide,
     validateNonce,
-    validateAllowedSlippage,
   ]);
 
 export const validatePerpCloseTradeRequest: RequestValidator =
@@ -268,7 +260,6 @@ export const validatePerpCloseTradeRequest: RequestValidator =
     validateBase,
     validateAddress,
     validateNonce,
-    validateAllowedSlippage,
   ]);
 
 export const validateEstimateGasRequest: RequestValidator = mkRequestValidator([

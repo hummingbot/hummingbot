@@ -51,9 +51,6 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory)
 
-        self._original_full_order_book_reset_time = self.ob_data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
-        self.ob_data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
-
         self.ob_data_source.logger().setLevel(1)
         self.ob_data_source.logger().addHandler(self)
 
@@ -61,7 +58,6 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.async_task and self.async_task.cancel()
-        self.ob_data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = self._original_full_order_book_reset_time
         super().tearDown()
 
     def handle(self, record):

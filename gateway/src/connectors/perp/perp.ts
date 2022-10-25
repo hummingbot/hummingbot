@@ -27,11 +27,10 @@ import { Perpish } from '../../services/common-interfaces';
 export interface PerpPosition {
   positionAmt: string;
   positionSide: string;
-  unrealizedProfit: string;
+  unRealizedProfit: string;
   leverage: string;
   entryPrice: string;
   tickerSymbol: string;
-  pendingFundingPayment: string;
 }
 
 export class Perp implements Perpish {
@@ -166,7 +165,7 @@ export class Perp implements Perpish {
     indexTwapPrice: Big;
   }> {
     const market = this._perp.markets.getMarket({ tickerSymbol });
-    return await market.getPrices({ cache: false });
+    return await market.getPrices();
   }
 
   /**
@@ -186,29 +185,19 @@ export class Perp implements Perpish {
    */
   async getPositions(tickerSymbol: string): Promise<PerpPosition | undefined> {
     const positions = this._perp.positions;
-    let positionAmt: string = '0',
+    let positionAmt: string = '',
       positionSide: string = '',
-      unrealizedProfit: string = '0',
-      leverage: string = '1',
-      entryPrice: string = '0',
-      pendingFundingPayment: string = '0';
+      unRealizedProfit: string = '',
+      leverage: string = '',
+      entryPrice: string = '';
+    positionAmt = '0';
     if (positions && tickerSymbol) {
-      const fp = await positions.getTotalPendingFundingPayments({
-        cache: false,
-      });
-      for (const [key, value] of Object.entries(fp)) {
-        if (key === tickerSymbol) pendingFundingPayment = value.toString();
-      }
-
       const position = await positions.getTakerPositionByTickerSymbol(
-        tickerSymbol,
-        { cache: false }
+        tickerSymbol
       );
       if (position) {
         positionSide = PositionSide[position.side];
-        unrealizedProfit = (
-          await position.getUnrealizedPnl({ cache: false })
-        ).toString();
+        unRealizedProfit = (await position.getUnrealizedPnl()).toString();
         leverage = '1';
         entryPrice = position.entryPrice.toString();
         positionAmt = position.sizeAbs.toString();
@@ -217,11 +206,10 @@ export class Perp implements Perpish {
     return {
       positionAmt,
       positionSide,
-      unrealizedProfit,
+      unRealizedProfit,
       leverage,
       entryPrice,
       tickerSymbol,
-      pendingFundingPayment,
     };
   }
 
@@ -235,13 +223,9 @@ export class Perp implements Perpish {
   async openPosition(
     isLong: boolean,
     tickerSymbol: string,
-    minBaseAmount: string,
-    allowedSlippage?: string
+    minBaseAmount: string
   ): Promise<Transaction> {
-    let slippage: Big;
-    if (allowedSlippage)
-      slippage = new Big(this.getAllowedSlippage(allowedSlippage).toString());
-    else slippage = new Big(this.getAllowedSlippage().toString());
+    const slippage = new Big(this.getAllowedSlippage().toString());
     const amountInput = new Big(minBaseAmount);
     const side = isLong ? PositionSide.LONG : PositionSide.SHORT;
     const isAmountInputBase = false; // we are not using base token to open position.
@@ -262,14 +246,8 @@ export class Perp implements Perpish {
    * @param tickerSymbol The market on which we want to close position.
    * @returns An ethers transaction object.
    */
-  async closePosition(
-    tickerSymbol: string,
-    allowedSlippage?: string
-  ): Promise<Transaction> {
-    let slippage: Big;
-    if (allowedSlippage)
-      slippage = new Big(this.getAllowedSlippage(allowedSlippage).toString());
-    else slippage = new Big(this.getAllowedSlippage().toString());
+  async closePosition(tickerSymbol: string): Promise<Transaction> {
+    const slippage = new Big(this.getAllowedSlippage().toString());
     const clearingHouse = this._perp.clearingHouse as ClearingHouse;
     const positions = this._perp.positions as Positions;
     const position = await positions.getTakerPositionByTickerSymbol(
@@ -280,14 +258,5 @@ export class Perp implements Perpish {
     }
     return (await clearingHouse.closePosition(position as Position, slippage))
       .transaction;
-  }
-
-  /**
-   * Function for getting account value
-   * @returns account value
-   */
-  async getAccountValue(): Promise<Big> {
-    const clearingHouse = this._perp.clearingHouse as ClearingHouse;
-    return await clearingHouse.getAccountValue();
   }
 }

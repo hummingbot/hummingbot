@@ -1,15 +1,4 @@
-import { Keypair, PublicKey, TransactionResponse } from '@solana/web3.js';
-import { getNotNullOrThrowError } from '../../connectors/serum/serum.helpers';
 import { latency, TokenValue, tokenValueToString } from '../../services/base';
-import { CustomTransactionResponse } from '../../services/common-interfaces';
-import {
-  HttpException,
-  LOAD_WALLET_ERROR_CODE,
-  LOAD_WALLET_ERROR_MESSAGE,
-  TOKEN_NOT_SUPPORTED_ERROR_CODE,
-  TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
-} from '../../services/error-handler';
-import { Solanaish } from './solana';
 
 import {
   SolanaBalanceRequest,
@@ -19,27 +8,32 @@ import {
   SolanaTokenRequest,
   SolanaTokenResponse,
 } from './solana.requests';
+import { Solanaish } from './solana';
+import { PublicKey } from '@solana/web3.js';
+import {
+  HttpException,
+  TOKEN_NOT_SUPPORTED_ERROR_CODE,
+  TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
+} from '../../services/error-handler';
 
 export async function balances(
   solanaish: Solanaish,
   req: SolanaBalanceRequest
 ): Promise<SolanaBalanceResponse | string> {
   const initTime = Date.now();
-  let wallet: Keypair;
-  try {
-    wallet = await solanaish.getKeypair(req.address);
-  } catch (err) {
-    throw new HttpException(
-      500,
-      LOAD_WALLET_ERROR_MESSAGE + err,
-      LOAD_WALLET_ERROR_CODE
-    );
-  }
+  const wallet = await solanaish.getKeypair(req.address);
   const balances = await solanaish.getBalances(wallet);
   const filteredBalances = toSolanaBalances(balances, req.tokenSymbols);
+  if (Object.keys(filteredBalances).length === 0) {
+    throw new HttpException(
+      500,
+      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.tokenSymbols,
+      TOKEN_NOT_SUPPORTED_ERROR_CODE
+    );
+  }
 
   return {
-    network: solanaish.network,
+    network: solanaish.cluster,
     timestamp: initTime,
     latency: latency(initTime, Date.now()),
     balances: filteredBalances,
@@ -50,20 +44,14 @@ const toSolanaBalances = (
   balances: Record<string, TokenValue>,
   tokenSymbols: string[]
 ): Record<string, string> => {
-  let filteredBalancesKeys = Object.keys(balances);
-  if (tokenSymbols.length) {
-    filteredBalancesKeys = filteredBalancesKeys.filter((symbol) =>
-      tokenSymbols.includes(symbol)
-    );
-  }
-
+  const filteredBalancesKeys = Object.keys(balances).filter((symbol) =>
+    tokenSymbols.includes(symbol)
+  );
   const solanaBalances: Record<string, string> = {};
 
-  filteredBalancesKeys.forEach((symbol) => {
-    if (balances[symbol] !== undefined)
-      solanaBalances[symbol] = tokenValueToString(balances[symbol]);
-    else solanaBalances[symbol] = '-1';
-  });
+  filteredBalancesKeys.forEach(
+    (symbol) => (solanaBalances[symbol] = tokenValueToString(balances[symbol]))
+  );
 
   return solanaBalances;
 };
@@ -74,20 +62,16 @@ export async function poll(
 ): Promise<SolanaPollResponse> {
   const initTime = Date.now();
   const currentBlock = await solanaish.getCurrentBlockNumber();
-  const txData = getNotNullOrThrowError<TransactionResponse>(
-    await solanaish.getTransaction(req.txHash)
-  );
+  const txData = await solanaish.getTransaction(req.txHash);
   const txStatus = await solanaish.getTransactionStatusCode(txData);
 
   return {
-    network: solanaish.network,
+    network: solanaish.cluster,
+    currentBlock,
     timestamp: initTime,
-    currentBlock: currentBlock,
     txHash: req.txHash,
-    txStatus: txStatus,
-    txBlock: txData.slot,
-    txData: getNotNullOrThrowError<CustomTransactionResponse>(txData),
-    txReceipt: null, // TODO check if we get a receipt here
+    txStatus,
+    txData,
   };
 }
 
@@ -115,11 +99,11 @@ export async function token(
       await solanaish.getSplBalance(walletAddress, mintAddress)
     );
   } catch (err) {
-    amount = null;
+    amount = undefined;
   }
 
   return {
-    network: solanaish.network,
+    network: solanaish.cluster,
     timestamp: initTime,
     token: req.token,
     mintAddress: mintAddress.toBase58(),
@@ -153,11 +137,11 @@ export async function getOrCreateTokenAccount(
     const a = await solanaish.getSplBalance(wallet.publicKey, mintAddress);
     amount = tokenValueToString(a);
   } catch (err) {
-    amount = null;
+    amount = undefined;
   }
 
   return {
-    network: solanaish.network,
+    network: solanaish.cluster,
     timestamp: initTime,
     token: req.token,
     mintAddress: mintAddress.toBase58(),

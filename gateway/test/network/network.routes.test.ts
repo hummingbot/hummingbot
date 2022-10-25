@@ -7,7 +7,6 @@ import { Avalanche } from '../../src/chains/avalanche/avalanche';
 import { Polygon } from '../../src/chains/polygon/polygon';
 import { patchEVMNonceManager } from '../evm.nonce.mock';
 let eth: Ethereum;
-let goerli: Ethereum;
 let avalanche: Avalanche;
 let harmony: Harmony;
 let polygon: Polygon;
@@ -16,10 +15,6 @@ beforeAll(async () => {
   eth = Ethereum.getInstance('kovan');
   patchEVMNonceManager(eth.nonceManager);
   await eth.init();
-
-  goerli = Ethereum.getInstance('goerli');
-  patchEVMNonceManager(goerli.nonceManager);
-  await goerli.init();
 
   avalanche = Avalanche.getInstance('fuji');
   patchEVMNonceManager(avalanche.nonceManager);
@@ -34,7 +29,6 @@ beforeAll(async () => {
 
 beforeEach(() => {
   patchEVMNonceManager(eth.nonceManager);
-  patchEVMNonceManager(goerli.nonceManager);
   patchEVMNonceManager(avalanche.nonceManager);
   patchEVMNonceManager(polygon.nonceManager);
 });
@@ -45,7 +39,6 @@ afterEach(async () => {
 
 afterAll(async () => {
   await eth.close();
-  await goerli.close();
   await avalanche.close();
   await harmony.close();
   await polygon.close();
@@ -95,30 +88,6 @@ describe('GET /network/status', () => {
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.chain).toBe('kovan'))
-      .expect((res) => expect(res.body.chainId).toBeDefined())
-      .expect((res) => expect(res.body.rpcUrl).toBeDefined())
-      .expect((res) => expect(res.body.currentBlockNumber).toBeDefined());
-  });
-
-  it('should return 200 when asking for goerli network status', async () => {
-    patch(goerli, 'chain', () => {
-      return 'goerli';
-    });
-    patch(goerli, 'rpcUrl', 'http://...');
-    patch(goerli, 'chainId', 5);
-    patch(goerli, 'getCurrentBlockNumber', () => {
-      return 1;
-    });
-
-    await request(gatewayApp)
-      .get(`/network/status`)
-      .query({
-        chain: 'ethereum',
-        network: 'goerli',
-      })
-      .expect('Content-Type', /json/)
-      .expect(200)
-      .expect((res) => expect(res.body.chain).toBe('goerli'))
       .expect((res) => expect(res.body.chainId).toBeDefined())
       .expect((res) => expect(res.body.rpcUrl).toBeDefined())
       .expect((res) => expect(res.body.currentBlockNumber).toBeDefined());
@@ -232,29 +201,6 @@ describe('GET /network/tokens', () => {
       .expect('Content-Type', /json/)
       .expect(200);
   });
-
-  it('should return 200 when retrieving tokens', async () => {
-    await request(gatewayApp)
-      .get(`/network/tokens`)
-      .query({
-        chain: 'ethereum',
-        network: 'goerli',
-      })
-      .expect('Content-Type', /json/)
-      .expect(200);
-  });
-  it('should return 200 when retrieving specific tokens', async () => {
-    await request(gatewayApp)
-      .get(`/network/tokens`)
-      .query({
-        chain: 'ethereum',
-        network: 'goerli',
-        tokenSymbols: ['WETH', 'DAI'],
-      })
-      .expect('Content-Type', /json/)
-      .expect(200);
-  });
-
   it('should return 200 when retrieving specific tokens', async () => {
     await request(gatewayApp)
       .get(`/network/tokens`)

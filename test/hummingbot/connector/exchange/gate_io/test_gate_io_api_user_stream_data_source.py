@@ -108,6 +108,15 @@ class TestGateIoAPIUserStreamDataSource(unittest.TestCase):
                 "status": "success"
             }
         }
+        result_subscribe_balance = {
+            "time": 1611541000,
+            "channel": CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
+            "event": "subscribe",
+            "error": None,
+            "result": {
+                "status": "success"
+            }
+        }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
@@ -115,6 +124,9 @@ class TestGateIoAPIUserStreamDataSource(unittest.TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(result_subscribe_trades))
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_balance))
 
         output_queue = asyncio.Queue()
 
@@ -125,7 +137,7 @@ class TestGateIoAPIUserStreamDataSource(unittest.TestCase):
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
 
-        self.assertEqual(2, len(sent_subscription_messages))
+        self.assertEqual(3, len(sent_subscription_messages))
         expected_orders_subscription = {
             "time": int(self.mock_time_provider.time()),
             "channel": CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
@@ -150,10 +162,21 @@ class TestGateIoAPIUserStreamDataSource(unittest.TestCase):
                 "method": "api_key"}
         }
         self.assertEqual(expected_trades_subscription, sent_subscription_messages[1])
+        expected_balances_subscription = {
+            "time": int(self.mock_time_provider.time()),
+            "channel": CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
+            "event": "subscribe",
+            "auth": {
+                "KEY": self.api_key,
+                "SIGN": '90f5e732fc586d09c4a1b7de13f65b668c7ce90678b30da87aa137364bac0b97' # noqa: mock
+                        '16b34219b689fb754e821872933a0e12b1d415867b9fbb8ec441bc86e77fb79c', # noqa: mock
+                "method": "api_key"}
+        }
+        self.assertEqual(expected_balances_subscription, sent_subscription_messages[2])
 
         self.assertTrue(self._is_logged(
             "INFO",
-            "Subscribed to private order changes channels..."
+            "Subscribed to private order changes and balance updates channels..."
         ))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)

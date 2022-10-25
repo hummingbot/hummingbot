@@ -2,7 +2,13 @@ import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Type
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Type
+)
 
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.data_type.common import PositionAction, PriceType, TradeType
@@ -10,7 +16,6 @@ from hummingbot.core.data_type.common import PositionAction, PriceType, TradeTyp
 if typing.TYPE_CHECKING:  # avoid circular import problems
     from hummingbot.connector.exchange_base import ExchangeBase
     from hummingbot.core.data_type.order_candidate import OrderCandidate
-    from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 S_DECIMAL_0 = Decimal(0)
 
@@ -156,7 +161,7 @@ class TradeFeeBase(ABC):
 
     @abstractmethod
     def get_fee_impact_on_order_cost(
-            self, order_candidate: "OrderCandidate", exchange: "ExchangeBase"
+            self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
     ) -> Optional[TokenAmount]:
         """
         WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.
@@ -167,7 +172,7 @@ class TradeFeeBase(ABC):
 
     @abstractmethod
     def get_fee_impact_on_order_returns(
-            self, order_candidate: "OrderCandidate", exchange: "ExchangeBase"
+            self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
     ) -> Optional[Decimal]:
         """
         WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.
@@ -180,7 +185,7 @@ class TradeFeeBase(ABC):
     def _get_exchange_rate(
             trading_pair: str,
             exchange: Optional["ExchangeBase"] = None,
-            rate_source: Optional["RateOracle"] = None      # noqa: F821
+            rate_source: Optional["hummingbot.core.rate_oracle.rate_oracle.RateOracle"] = None      # noqa: F821
     ) -> Decimal:
         from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
@@ -188,7 +193,7 @@ class TradeFeeBase(ABC):
             rate = exchange.get_price_by_type(trading_pair, PriceType.MidPrice)
         else:
             local_rate_source: RateOracle = rate_source or RateOracle.get_instance()
-            rate: Decimal = local_rate_source.get_pair_rate(trading_pair)
+            rate: Decimal = local_rate_source.rate(trading_pair)
             if rate is None:
                 raise ValueError(f"Could not find the exchange rate for {trading_pair} using the rate source "
                                  f"{local_rate_source} (please verify it has been correctly configured)")
@@ -200,8 +205,8 @@ class TradeFeeBase(ABC):
             price: Decimal,
             order_amount: Decimal,
             token: str,
-            exchange: Optional["ExchangeBase"] = None,
-            rate_source: Optional["RateOracle"] = None      # noqa: F821
+            exchange: Optional['ExchangeBase'] = None,
+            rate_source: Optional["hummingbot.core.rate_oracle.rate_oracle.RateOracle"] = None      # noqa: F821
     ) -> Decimal:
         base, quote = split_hb_trading_pair(trading_pair)
         fee_amount: Decimal = S_DECIMAL_0
@@ -244,7 +249,7 @@ class AddedToCostTradeFee(TradeFeeBase):
         return "AddedToCost"
 
     def get_fee_impact_on_order_cost(
-            self, order_candidate: "OrderCandidate", exchange: "ExchangeBase"
+            self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
     ) -> Optional[TokenAmount]:
         """
         WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.
@@ -268,7 +273,7 @@ class AddedToCostTradeFee(TradeFeeBase):
         return ret
 
     def get_fee_impact_on_order_returns(
-            self, order_candidate: "OrderCandidate", exchange: "ExchangeBase"
+            self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
     ) -> Optional[Decimal]:
         """
         WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.
@@ -285,7 +290,7 @@ class DeductedFromReturnsTradeFee(TradeFeeBase):
         return "DeductedFromReturns"
 
     def get_fee_impact_on_order_cost(
-            self, order_candidate: "OrderCandidate", exchange: "ExchangeBase"
+            self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
     ) -> Optional[TokenAmount]:
         """
         WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.
@@ -295,7 +300,7 @@ class DeductedFromReturnsTradeFee(TradeFeeBase):
         return None
 
     def get_fee_impact_on_order_returns(
-            self, order_candidate: "OrderCandidate", exchange: "ExchangeBase"
+            self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
     ) -> Optional[Decimal]:
         """
         WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.

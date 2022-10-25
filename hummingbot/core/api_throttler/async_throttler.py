@@ -1,9 +1,8 @@
 import time
-from decimal import Decimal
 
 from hummingbot.core.api_throttler.async_request_context_base import (
-    MAX_CAPACITY_REACHED_WARNING_INTERVAL,
     AsyncRequestContextBase,
+    MAX_CAPACITY_REACHED_WARNING_INTERVAL,
 )
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 
@@ -21,12 +20,12 @@ class AsyncRequestContext(AsyncRequestContextBase):
         :return: True if it is within capacity to add a new task
         """
         if len(self._related_limits) > 0:
-            now: float = self._time()
+            now: float = time.time()
             for rate_limit, weight in self._related_limits:
                 capacity_used: int = sum([task.weight
                                           for task in self._task_logs
                                           if rate_limit.limit_id == task.rate_limit.limit_id and
-                                          Decimal(str(now)) - Decimal(str(task.timestamp)) - Decimal(str(task.rate_limit.time_interval * self._safety_margin_pct)) <= task.rate_limit.time_interval])
+                                          now - task.timestamp - (task.rate_limit.time_interval * self._safety_margin_pct) <= task.rate_limit.time_interval])
 
                 if capacity_used + weight > rate_limit.limit:
                     if self._last_max_cap_warning_ts < now - MAX_CAPACITY_REACHED_WARNING_INTERVAL:
@@ -38,9 +37,6 @@ class AsyncRequestContext(AsyncRequestContextBase):
                         AsyncRequestContextBase._last_max_cap_warning_ts = now
                     return False
         return True
-
-    def _time(self):
-        return time.time()
 
 
 class AsyncThrottler(AsyncThrottlerBase):

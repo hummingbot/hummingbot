@@ -20,7 +20,7 @@ We primarily use `yarn` for development, but `npm` should work as well.
 First install dependencies:
 
 ```
-yarn install --frozen-lockfile
+yarn
 ```
 
 Then build the gateway package:

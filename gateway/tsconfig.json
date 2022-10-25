@@ -23,14 +23,8 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "resolveJsonModule": true,
-    "typeRoots": ["node_modules/@types", "src/@types"],
-    "downlevelIteration": true
+    "typeRoots": ["node_modules/@types", "src/@types"]
   },
   "exclude": ["node_modules"],
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.js",
-    "test/**/*.ts",
-    "integration-test/**/*.ts"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.js", "test/**/*.ts"]
 }

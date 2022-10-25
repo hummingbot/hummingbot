@@ -1,13 +1,9 @@
-from typing import List, Tuple, cast
+from typing import List, Tuple
 
-from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
-from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import (
     CrossExchangeMarketMakingStrategy,
-    LogOption,
 )
-from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
+from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
@@ -18,7 +14,6 @@ def start(self):
     raw_maker_trading_pair = c_map.maker_market_trading_pair
     raw_taker_trading_pair = c_map.taker_market_trading_pair
     status_report_interval = self.client_config_map.strategy_report_interval
-    debug_price_shim = c_map.debug_price_shim
 
     try:
         maker_trading_pair: str = raw_maker_trading_pair
@@ -40,27 +35,15 @@ def start(self):
     maker_market_trading_pair_tuple = MarketTradingPairTuple(*maker_data)
     taker_market_trading_pair_tuple = MarketTradingPairTuple(*taker_data)
     self.market_trading_pair_tuples = [maker_market_trading_pair_tuple, taker_market_trading_pair_tuple]
-    self.market_pair = MakerTakerMarketPair(maker=maker_market_trading_pair_tuple, taker=taker_market_trading_pair_tuple)
-
-    if taker_market in AllConnectorSettings.get_gateway_evm_amm_connector_names():
-        if debug_price_shim:
-            amm_connector: GatewayEVMAMM = cast(GatewayEVMAMM, self.market_pair.taker.market)
-            GatewayPriceShim.get_instance().patch_prices(
-                maker_market,
-                maker_trading_pair,
-                amm_connector.connector_name,
-                amm_connector.chain,
-                amm_connector.network,
-                taker_trading_pair
-            )
+    self.market_pair = CrossExchangeMarketPair(maker=maker_market_trading_pair_tuple, taker=taker_market_trading_pair_tuple)
 
     strategy_logging_options = (
-        LogOption.CREATE_ORDER,
-        LogOption.ADJUST_ORDER,
-        LogOption.MAKER_ORDER_FILLED,
-        LogOption.REMOVING_ORDER,
-        LogOption.STATUS_REPORT,
-        LogOption.MAKER_ORDER_HEDGED
+        CrossExchangeMarketMakingStrategy.OPTION_LOG_CREATE_ORDER
+        | CrossExchangeMarketMakingStrategy.OPTION_LOG_ADJUST_ORDER
+        | CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_FILLED
+        | CrossExchangeMarketMakingStrategy.OPTION_LOG_REMOVING_ORDER
+        | CrossExchangeMarketMakingStrategy.OPTION_LOG_STATUS_REPORT
+        | CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_HEDGED
     )
     self.strategy = CrossExchangeMarketMakingStrategy()
     self.strategy.init_params(

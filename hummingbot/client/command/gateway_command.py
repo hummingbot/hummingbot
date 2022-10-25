@@ -9,7 +9,12 @@ import pandas as pd
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager, begin_placeholder_mode
 from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, GatewayConnectionSetting
+from hummingbot.client.settings import (
+    CLIENT_CONFIG_PATH,
+    GATEWAY_CONNECTORS,
+    AllConnectorSettings,
+    GatewayConnectionSetting,
+)
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.gateway import (
     GATEWAY_DOCKER_REPO,
@@ -24,7 +29,7 @@ from hummingbot.core.gateway import (
     stop_gateway,
 )
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
+from hummingbot.core.gateway.status_monitor import Status
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display,
@@ -183,7 +188,7 @@ class GatewayCommand(GatewayChainApiManager):
         self.notify("Creating new Gateway docker container...")
         host_config: Dict[str, Any] = await docker_ipc(
             "create_host_config",
-            port_bindings={15888: gateway_port},
+            port_bindings={5000: gateway_port},
             binds={
                 gateway_conf_mount_path: {
                     "bind": "/usr/src/app/conf/",
@@ -203,7 +208,7 @@ class GatewayCommand(GatewayChainApiManager):
             "create_container",
             image=f"{GATEWAY_DOCKER_REPO}:{GATEWAY_DOCKER_TAG}",
             name=gateway_container_name,
-            ports=[15888],
+            ports=[5000],
             volumes=[
                 gateway_conf_mount_path,
                 certificate_mount_path,
@@ -291,7 +296,7 @@ class GatewayCommand(GatewayChainApiManager):
                         "work without it. Please install or start Docker and restart Hummingbot.")
             return
 
-        if self._gateway_monitor.gateway_status is GatewayStatus.ONLINE:
+        if self._gateway_monitor.current_status == Status.ONLINE:
             try:
                 status = await self._get_gateway_instance().get_gateway_status()
                 if status is None or status == []:
@@ -307,6 +312,7 @@ class GatewayCommand(GatewayChainApiManager):
         try:
             response = await self._get_gateway_instance().update_config(key, value)
             self.notify(response["message"])
+            await self._gateway_monitor.update_gateway_config_key_list()
         except Exception:
             self.notify("\nError: Gateway configuration update failed. See log file for more details.")
 
@@ -359,43 +365,54 @@ class GatewayCommand(GatewayChainApiManager):
                 # ask user to select a chain. Automatically select if there is only one.
                 chains: List[str] = [d['chain'] for d in available_networks]
                 chain: str
+                if len(chains) == 1:
+                    chain = chains[0]
+                else:
+                    # chains as options
+                    while True:
+                        chain = await self.app.prompt(
+                            prompt=f"Which chain do you want {connector} to connect to?({', '.join(chains)}) >>> "
+                        )
+                        if self.app.to_stop_config:
+                            self.app.to_stop_config = False
+                            return
 
-                # chains as options
-                while True:
-                    self.app.input_field.completer.set_gateway_chains(chains)
-                    chain = await self.app.prompt(
-                        prompt=f"Which chain do you want {connector} to connect to? ({', '.join(chains)}) >>> "
-                    )
-                    if self.app.to_stop_config:
-                        self.app.to_stop_config = False
-                        return
-
-                    if chain in chains:
-                        break
-                    self.notify(f"{chain} chain not supported.\n")
+                        if chain in GATEWAY_CONNECTORS:
+                            break
+                        self.notify(f"{chain} chain not supported.\n")
 
                 # ask user to select a network. Automatically select if there is only one.
                 networks: List[str] = list(
                     itertools.chain.from_iterable([d['networks'] for d in available_networks if d['chain'] == chain])
                 )
-
                 network: str
-                while True:
-                    self.app.input_field.completer.set_gateway_networks(networks)
-                    network = await self.app.prompt(
-                        prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> "
-                    )
-                    if self.app.to_stop_config:
-                        return
-                    if network in networks:
-                        break
-                    self.notify("Error: Invalid network")
+
+                if len(networks) == 1:
+                    network = networks[0]
+                else:
+                    while True:
+                        self.app.input_field.completer.set_gateway_networks(networks)
+                        network = await self.app.prompt(
+                            prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> "
+                        )
+                        if self.app.to_stop_config:
+                            return
+                        if network in networks:
+                            break
+                        self.notify("Error: Invalid network")
 
                 # test you can connect to the uri, otherwise request the url
-                await self._test_node_url_from_gateway_config(chain, network, attempt_connection=False)
+                can_connect_to_node_url: bool = await self._test_node_url_from_gateway_config(chain, network)
+                if not can_connect_to_node_url:
+                    node_url: str = await self._get_node_url(chain, network)
+                    await self._update_gateway_chain_network_node_url(chain, network, node_url)
 
-                if self.app.to_stop_config:
-                    return
+                    self.notify("Restarting gateway.")
+                    # wait about 30 seconds for the gateway to restart
+                    gateway_live = await self.ping_gateway_api(30)
+                    if not gateway_live:
+                        self.notify("Error: unable to restart gateway. Try 'gateway connect' again after gateway is running.")
+                        return
 
                 # get wallets for the selected chain
                 wallets_response: List[Dict[str, Any]] = await self._get_gateway_instance().get_wallets()

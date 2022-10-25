@@ -1,25 +1,23 @@
-import asyncio
 import hashlib
 import hmac
 import time
-from typing import Awaitable
-from unittest import TestCase
-from unittest.mock import MagicMock, patch
 
+from unittest import TestCase
+from unittest.mock import patch
+
+from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
 
 
 class BybitPerpetualAuthTests(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.api_key = "testApiKey"
-        self.secret_key = "testSecretKey"
-        self.auth = BybitPerpetualAuth(api_key=self.api_key, secret_key=self.secret_key)
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
+    @property
+    def api_key(self):
+        return 'test_api_key'
+
+    @property
+    def secret_key(self):
+        return 'test_secret_key'
 
     def _get_timestamp(self):
         return str(int(time.time() * 1e3))
@@ -27,44 +25,45 @@ class BybitPerpetualAuthTests(TestCase):
     def _get_expiration_timestamp(self):
         return str(int(time.time() + 1 * 1e3))
 
-    @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth.BybitPerpetualAuth._get_timestamp")
-    def test_add_auth_to_rest_request(self, ts_mock: MagicMock):
-        params = {"one": "1"}
-        request = RESTRequest(
-            method=RESTMethod.GET,
-            url="https://test.url/api/endpoint",
-            params=params,
-            is_auth_required=True,
-        )
+    def test_no_authentication_headers(self):
+        auth = BybitPerpetualAuth(api_key=self.api_key, secret_key=self.secret_key)
+        headers = auth.get_headers()
+
+        self.assertEqual(1, len(headers))
+        self.assertEqual('application/json', headers.get('Content-Type'))
+
+    def test_authentication_headers(self):
+        auth = BybitPerpetualAuth(api_key=self.api_key, secret_key=self.secret_key)
+
         timestamp = self._get_timestamp()
-        ts_mock.return_value = timestamp
+        headers = {}
 
-        self.async_run_with_timeout(self.auth.rest_authenticate(request))
+        with patch.object(auth, 'get_timestamp') as get_timestamp_mock:
+            get_timestamp_mock.return_value = timestamp
+            headers = auth.extend_params_with_authentication_info(headers)
 
-        raw_signature = "api_key=" + self.api_key + "&one=1" + "&timestamp=" + timestamp
-        expected_signature = hmac.new(self.secret_key.encode("utf-8"),
-                                      raw_signature.encode("utf-8"),
+        raw_signature = "api_key=" + self.api_key + "&timestamp=" + timestamp
+        expected_signature = hmac.new(self.secret_key.encode('utf-8'),
+                                      raw_signature.encode('utf-8'),
                                       hashlib.sha256).hexdigest()
-        params = request.params
 
-        self.assertEqual(4, len(params))
-        self.assertEqual("1", params.get("one"))
-        self.assertEqual(timestamp, params.get("timestamp"))
-        self.assertEqual(self.api_key, params.get("api_key"))
-        self.assertEqual(expected_signature, params.get("sign"))
+        self.assertEqual(3, len(headers))
+        self.assertEqual(timestamp, headers.get('timestamp'))
+        self.assertEqual(self.api_key, headers.get('api_key'))
+        self.assertEqual(expected_signature, headers.get('sign'))
 
-    @patch(
-        "hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth"
-        ".BybitPerpetualAuth._get_expiration_timestamp"
-    )
-    def test_ws_auth_payload(self, ts_mock: MagicMock):
+    def test_ws_auth_payload(self):
+        auth = BybitPerpetualAuth(api_key=self.api_key, secret_key=self.secret_key)
+
         expires = self._get_expiration_timestamp()
-        ts_mock.return_value = expires
-        payload = self.auth.get_ws_auth_payload()
 
-        raw_signature = "GET/realtime" + expires
-        expected_signature = hmac.new(self.secret_key.encode("utf-8"),
-                                      raw_signature.encode("utf-8"),
+        with patch.object(auth, 'get_expiration_timestamp') as get_expires_ts_mock:
+            get_expires_ts_mock.return_value = expires
+            payload = auth.get_ws_auth_payload()
+
+        raw_signature = 'GET/realtime' + expires
+        expected_signature = hmac.new(self.secret_key.encode('utf-8'),
+                                      raw_signature.encode('utf-8'),
                                       hashlib.sha256).hexdigest()
 
         self.assertEqual(3, len(payload))
@@ -72,10 +71,21 @@ class BybitPerpetualAuthTests(TestCase):
         self.assertEqual(expires, payload[1])
         self.assertEqual(expected_signature, payload[2])
 
-    def test_no_auth_added_to_ws_request(self):
-        payload = {"one": "1"}
-        request = WSJSONRequest(payload=payload, is_auth_required=True)
+    def test_get_header_without_referer(self):
+        auth = BybitPerpetualAuth(api_key=self.api_key, secret_key=self.secret_key)
+        expected_header = {
+            "Content-Type": "application/json"
+        }
 
-        self.async_run_with_timeout(self.auth.ws_authenticate(request))
+        header = auth.get_headers()
+        self.assertTrue(header, expected_header)
 
-        self.assertEqual(payload, request.payload)
+    def test_get_header_with_referer(self):
+        auth = BybitPerpetualAuth(api_key=self.api_key, secret_key=self.secret_key)
+        expected_header = {
+            "Content-Type": "application/json",
+            "Referer": CONSTANTS.HBOT_BROKER_ID
+        }
+
+        header = auth.get_headers(referer_header_required=True)
+        self.assertTrue(header, expected_header)

@@ -17,7 +17,6 @@ import {
   collectFees,
   poolPrice,
   estimateGas,
-  perpBalance,
 } from './amm.controllers';
 import {
   EstimateGasResponse,
@@ -42,8 +41,6 @@ import {
   PositionResponse,
   PoolPriceRequest,
   PoolPriceResponse,
-  PerpBalanceRequest,
-  PerpBalanceResponse,
 } from './amm.requests';
 import {
   validateEstimateGasRequest,
@@ -59,7 +56,6 @@ import {
   validateCollectFeeRequest,
   validatePositionRequest,
   validatePoolPriceRequest,
-  validatePerpBalanceRequest,
 } from './amm.validators';
 import { NetworkSelectionRequest } from '../services/common-interfaces';
 
@@ -226,19 +222,6 @@ export namespace PerpAmmRoutes {
       ) => {
         validatePerpPositionRequest(req.body);
         res.status(200).json(await perpPosition(req.body));
-      }
-    )
-  );
-
-  router.post(
-    '/balance',
-    asyncHandler(
-      async (
-        req: Request<{}, {}, PerpBalanceRequest>,
-        res: Response<PerpBalanceResponse | string, {}>
-      ) => {
-        validatePerpBalanceRequest(req.body);
-        res.status(200).json(await perpBalance(req.body));
       }
     )
   );

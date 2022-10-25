@@ -1,50 +1,46 @@
-import { NextFunction, Request, Response, Router } from 'express';
-import { ParamsDictionary } from 'express-serve-static-core';
+/* eslint-disable @typescript-eslint/ban-types */
+import { NextFunction, Router, Request, Response } from 'express';
 import { Solana } from './solana';
+import { SolanaConfig } from './solana.config';
 import { verifySolanaIsAvailable } from './solana-middlewares';
 import { asyncHandler } from '../../services/error-handler';
 import {
-  balances,
-  getOrCreateTokenAccount,
-  poll,
   token,
+  balances,
+  poll,
+  getOrCreateTokenAccount,
 } from './solana.controllers';
 import {
   SolanaBalanceRequest,
   SolanaBalanceResponse,
   SolanaPollRequest,
   SolanaPollResponse,
-  SolanaTokenRequest,
   SolanaTokenResponse,
+  SolanaTokenRequest,
 } from './solana.requests';
 import {
-  validateSolanaBalanceRequest,
   validateSolanaGetTokenRequest,
-  validateSolanaPollRequest,
+  validateSolanaBalanceRequest,
   validateSolanaPostTokenRequest,
+  validateSolanaPollRequest,
 } from './solana.validators';
 
 export namespace SolanaRoutes {
   export const router = Router();
-
-  export const getSolana = async (request: Request) => {
-    const solana = await Solana.getInstance(request.body.network);
-    await solana.init();
-
-    return solana;
+  export const solana = Solana.getInstance();
+  export const reload = (): void => {
+    // Solana = Solana.reload();
   };
 
   router.use(asyncHandler(verifySolanaIsAvailable));
 
   router.get(
     '/',
-    asyncHandler(async (request: Request, response: Response) => {
-      const solana = await getSolana(request);
-
+    asyncHandler(async (_req: Request, res: Response) => {
       const rpcUrl = solana.rpcUrl;
 
-      response.status(200).json({
-        network: solana.network,
+      res.status(200).json({
+        network: SolanaConfig.config.network.slug,
         rpcUrl: rpcUrl,
         connection: true,
         timestamp: Date.now(),
@@ -53,35 +49,31 @@ export namespace SolanaRoutes {
   );
 
   // Get all token accounts and balances + solana balance
-  router.get(
+  router.post(
     '/balances',
     asyncHandler(
       async (
-        request: Request<ParamsDictionary, unknown, SolanaBalanceRequest>,
-        response: Response<SolanaBalanceResponse | string>,
+        req: Request<{}, {}, SolanaBalanceRequest>,
+        res: Response<SolanaBalanceResponse | string, {}>,
         _next: NextFunction
       ) => {
-        const solana = await getSolana(request);
-
-        validateSolanaBalanceRequest(request.body);
-        response.status(200).json(await balances(solana, request.body));
+        validateSolanaBalanceRequest(req.body);
+        res.status(200).json(await balances(solana, req.body));
       }
     )
   );
 
-  // Checks whether this specific token account exists and returns its balance, if it does.
+  // Checks whether this specific token account exists and returns it balance, if it does.
   router.get(
     '/token',
     asyncHandler(
       async (
-        request: Request<ParamsDictionary, unknown, SolanaTokenRequest>,
-        response: Response<SolanaTokenResponse | string>,
+        req: Request<{}, {}, SolanaTokenRequest>,
+        res: Response<SolanaTokenResponse | string, {}>,
         _next: NextFunction
       ) => {
-        const solana = await getSolana(request);
-
-        validateSolanaGetTokenRequest(request.body);
-        response.status(200).json(await token(solana, request.body));
+        validateSolanaGetTokenRequest(req.body);
+        res.status(200).json(await token(solana, req.body));
       }
     )
   );
@@ -91,33 +83,26 @@ export namespace SolanaRoutes {
     '/token',
     asyncHandler(
       async (
-        request: Request<ParamsDictionary, unknown, SolanaTokenRequest>,
-        response: Response<SolanaTokenResponse | string>,
+        req: Request<{}, {}, SolanaTokenRequest>,
+        res: Response<SolanaTokenResponse | string, {}>,
         _next: NextFunction
       ) => {
-        const solana = await getSolana(request);
-
-        validateSolanaPostTokenRequest(request.body);
-        response
-          .status(200)
-          .json(await getOrCreateTokenAccount(solana, request.body));
+        validateSolanaPostTokenRequest(req.body);
+        res.status(200).json(await getOrCreateTokenAccount(solana, req.body));
       }
     )
   );
 
-  // TODO Check the possibility to change to a GET method (consider the Ethereum implementation)
   // Gets status information about given transaction hash
   router.post(
     '/poll',
     asyncHandler(
       async (
-        request: Request<ParamsDictionary, unknown, SolanaPollRequest>,
-        response: Response<SolanaPollResponse>
+        req: Request<{}, {}, SolanaPollRequest>,
+        res: Response<SolanaPollResponse, {}>
       ) => {
-        const solana = await getSolana(request);
-
-        validateSolanaPollRequest(request.body);
-        response.status(200).json(await poll(solana, request.body));
+        validateSolanaPollRequest(req.body);
+        res.status(200).json(await poll(solana, req.body));
       }
     )
   );

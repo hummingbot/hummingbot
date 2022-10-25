@@ -4,7 +4,7 @@ import asyncio
 import math
 import random
 from collections import defaultdict, deque
-from decimal import Decimal, ROUND_DOWN
+from decimal import Decimal
 from typing import Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from cpython cimport PyObject
@@ -203,10 +203,6 @@ cdef class PaperTradeExchange(ExchangeBase):
     @property
     def trading_pair(self) -> Dict[str, TradingPair]:
         return self._trading_pairs
-
-    @property
-    def trading_pairs(self) -> List[str]:
-        return [trading_pair for trading_pair in self._trading_pairs]
 
     @property
     def name(self) -> str:
@@ -1075,7 +1071,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                                         str trading_pair,
                                         object amount,
                                         object price=s_decimal_0):
-        amount = amount.quantize(Decimal('1e-7'), rounding=ROUND_DOWN)
+        amount = Decimal('%.7g' % amount)  # hard code to round to 8 significant digits
         if amount <= 1e-7:
             amount = Decimal("0")
         order_size_quantum = self.c_get_order_size_quantum(trading_pair, amount)

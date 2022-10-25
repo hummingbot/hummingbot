@@ -1,4 +1,3 @@
-import { Solana, Solanaish } from '../chains/solana/solana';
 import {
   StatusRequest,
   StatusResponse,
@@ -37,8 +36,6 @@ export async function getStatus(
       connections.push(Ethereum.getInstance(req.network as string));
     } else if (req.chain === 'polygon') {
       connections.push(Polygon.getInstance(req.network as string));
-    } else if (req.chain === 'solana') {
-      connections.push(await Solana.getInstance(req.network as string));
     } else {
       throw new HttpException(
         500,
@@ -51,25 +48,17 @@ export async function getStatus(
     connections = connections.concat(
       avalancheConnections ? Object.values(avalancheConnections) : []
     );
-
     const harmonyConnections = Harmony.getConnectedInstances();
     connections = connections.concat(
       harmonyConnections ? Object.values(harmonyConnections) : []
     );
-
     const ethereumConnections = Ethereum.getConnectedInstances();
     connections = connections.concat(
       ethereumConnections ? Object.values(ethereumConnections) : []
     );
-
     const polygonConnections = Polygon.getConnectedInstances();
     connections = connections.concat(
       polygonConnections ? Object.values(polygonConnections) : []
-    );
-
-    const solanaConnections = Solana.getConnectedInstances();
-    connections = connections.concat(
-      solanaConnections ? Object.values(solanaConnections) : []
     );
   }
 
@@ -86,7 +75,7 @@ export async function getStatus(
     try {
       currentBlockNumber = await connection.getCurrentBlockNumber();
     } catch (_e) {
-      if (await connection.provider.getNetwork()) currentBlockNumber = 1; // necessary for connectors like hedera that do not have concept of blocknumber
+      // do nothing, this means we are not able to connect to the network
     }
     statuses.push({
       chain,
@@ -101,7 +90,7 @@ export async function getStatus(
 }
 
 export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
-  let connection: EthereumBase | Solanaish;
+  let connection: EthereumBase;
   let tokens: TokenInfo[] = [];
 
   if (req.chain && req.network) {
@@ -113,8 +102,6 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
       connection = Ethereum.getInstance(req.network);
     } else if (req.chain === 'polygon') {
       connection = Polygon.getInstance(req.network);
-    } else if (req.chain === 'solana') {
-      connection = await Solana.getInstance(req.network);
     } else {
       throw new HttpException(
         500,

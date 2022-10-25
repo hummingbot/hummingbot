@@ -1,7 +1,7 @@
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 
 EXCHANGE_NAME = "bitmex"
-BROKER_ID = "hummingbot"
+BROKER_ID = "bitmex"
 MAX_ORDER_ID_LEN = 36
 
 DOMAIN = EXCHANGE_NAME

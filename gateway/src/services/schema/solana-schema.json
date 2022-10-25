@@ -2,72 +2,32 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
-    "network": { "type": "string" },
     "networks": {
       "type": "object",
       "patternProperties": {
         "^..+$": {
           "type": "object",
           "properties": {
-            "nodeURL": { "type": "string" },
+            "rpcURL": { "type": "string" },
             "nativeCurrencySymbol": { "type": "string" }
           },
-          "required": ["nodeURL", "nativeCurrencySymbol"],
+          "required": ["rpcURL", "nativeCurrencySymbol"],
           "additionalProperties": false
         }
       },
       "additionalProperties": false
     },
-    "retry": {
-      "type": "object",
-      "required": ["all"],
-      "properties": {
-        "all": {
-          "type": "object",
-          "required": ["maxNumberOfRetries", "delayBetweenRetries"],
-          "properties": {
-            "maxNumberOfRetries": { "type": "integer" },
-            "delayBetweenRetries": {
-              "type": "integer"
-            }
-          }
-        }
-      }
-    },
-    "timeout": {
-      "type": "object",
-      "required": ["all"],
-      "properties": {
-        "all": { "type": "integer" }
-      }
-    },
-    "parallel": {
-      "type": "object",
-      "required": ["all"],
-      "properties": {
-        "all": {
-          "type": "object",
-          "required": ["batchSize", "delayBetweenBatches"],
-          "properties": {
-            "batchSize": { "type": "integer" },
-            "delayBetweenBatches": {
-              "type": "integer"
-            }
-          }
-        }
-      }
-    },
+    "network": { "type": "string" },
     "tokenProgram": { "type": "string" },
     "transactionLamports": { "type": "integer" },
     "lamportsToSol": { "type": "number" },
-    "timeToLive": { "type": "number" }
+    "timeToLive": { "type": "number" },
+    "customRpcUrl": { "type": ["string", "null"] },
+    "rpcAPIKey": { "type": ["string", "null"] }
   },
   "required": [
-    "network",
     "networks",
-    "retry",
-    "timeout",
-    "parallel",
+    "network",
     "tokenProgram",
     "transactionLamports",
     "lamportsToSol",

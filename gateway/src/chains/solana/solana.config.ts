@@ -1,8 +1,8 @@
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
 export interface NetworkConfig {
-  name: string;
-  nodeUrl: string;
+  slug: string;
+  rpcUrl: string;
 }
 
 export interface Config {
@@ -12,28 +12,30 @@ export interface Config {
   transactionLamports: number;
   lamportsToSol: number;
   timeToLive: number;
-  customNodeUrl: string | undefined;
+  customRpcUrl: string | undefined;
+  rpcAPIKey: string | undefined;
 }
 
-export function getSolanaConfig(
-  chainName: string,
-  networkName: string
-): Config {
+export namespace SolanaConfig {
+  export const config: Config = getSolanaConfig('solana');
+}
+
+export function getSolanaConfig(chainName: string): Config {
   const configManager = ConfigManagerV2.getInstance();
+  const network = ConfigManagerV2.getInstance().get(chainName + '.network');
   return {
     network: {
-      name: networkName,
-      nodeUrl: configManager.get(
-        chainName + '.networks.' + networkName + '.nodeURL'
-      ),
+      slug: network,
+      rpcUrl: configManager.get(chainName + '.networks.' + network + '.rpcURL'),
     },
     nativeCurrencySymbol: configManager.get(
-      chainName + '.networks.' + networkName + '.nativeCurrencySymbol'
+      chainName + '.networks.' + network + '.nativeCurrencySymbol'
     ),
     tokenProgram: configManager.get(chainName + '.tokenProgram'),
     transactionLamports: configManager.get(chainName + '.transactionLamports'),
     lamportsToSol: configManager.get(chainName + '.lamportsToSol'),
     timeToLive: configManager.get(chainName + '.timeToLive'),
-    customNodeUrl: configManager.get(chainName + '.customNodeUrl'),
+    customRpcUrl: configManager.get(chainName + '.customRpcUrl'),
+    rpcAPIKey: configManager.get(chainName + '.rpcAPIKey'),
   };
 }

@@ -21,10 +21,5 @@
     }
   },
   "additionalProperties": false,
-  "required": [
-    "allowedSlippage",
-    "gasLimitEstimate",
-    "ttl",
-    "contractAddresses"
-  ]
+  "required": ["allowedSlippage", "gasLimitEstimate", "ttl", "contractAddresses"]
 }

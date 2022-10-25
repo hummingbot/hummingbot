@@ -50,8 +50,6 @@ class ExportCommand:
         if input is None or input == "":
             self.notify("Value is required.")
             return await self.prompt_new_export_file_name(path)
-        if input == " ":
-            return None
         if "." not in input:
             input = input + ".csv"
         file_path = os.path.join(path, input)
@@ -76,8 +74,6 @@ class ExportCommand:
             if path is None:
                 path = str(DEFAULT_LOG_FILE_PATH)
             file_name = await self.prompt_new_export_file_name(path)
-            if file_name is None:
-                return
             file_path = os.path.join(path, file_name)
             try:
                 df: pd.DataFrame = TradeFill.to_pandas(trades)
