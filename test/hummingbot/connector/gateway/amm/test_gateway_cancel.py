@@ -35,7 +35,7 @@ TRADING_PAIR = "WETH-DAI"
 MAX_FEE_PER_GAS = 2000
 MAX_PRIORITY_FEE_PER_GAS = 200
 
-ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+ev_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
 
 
 class GatewayCancelUnitTest(unittest.TestCase):
@@ -78,6 +78,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls._patch_stack.close()
+        ev_loop.close()
 
     def tearDown(self) -> None:
         self._connector._order_tracker.all_orders.clear()

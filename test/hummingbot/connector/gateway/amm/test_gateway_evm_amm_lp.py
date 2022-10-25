@@ -31,7 +31,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
-ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+ev_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
 s_decimal_0: Decimal = Decimal(0)
 
 
@@ -74,6 +74,7 @@ class GatewayEVMAMMLPConnectorUnitTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls._patch_stack.close()
+        ev_loop.close()
 
     def setUp(self) -> None:
         self._http_player.replay_timestamp_ms = None

@@ -32,7 +32,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
-ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+ev_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
 s_decimal_0: Decimal = Decimal(0)
 
 
@@ -79,6 +79,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         cls._patch_stack.close()
         GatewayHttpClient.__instance = None
         super().tearDownClass()
+        ev_loop.close()
 
     def setUp(self) -> None:
         super().setUp()
