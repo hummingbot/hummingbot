@@ -91,8 +91,8 @@ jobs:
           dependencies-cache-hit: ${{steps.conda-dependencies.outputs.cache-hit}}
 
       # Install gateway so eslint can be installed for pre-commit check
-       - name: Install Gateway Dependencies
-         run: yarn --cwd ./gateway install
+      - name: Install Gateway Dependencies
+        run: yarn --cwd ./gateway install
 
       # Compile and run tests if code has changed
       - name: Run pre-commit hooks on diff
