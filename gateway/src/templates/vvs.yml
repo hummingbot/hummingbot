@@ -13,4 +13,4 @@ tradingTypes: ['EVM_AMM']
 
 contractAddresses:
   mainnet:
-    routerAddress: '0x145677FC4d9b8F19B5D56d1820c48e0443049a30'
+    routerAddress: '0x145863Eb42Cf62847A6Ca784e6416C1682b1b2Ae'

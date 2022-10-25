@@ -1,34 +1,34 @@
-import {
-  CronosBaseConnector,
-  CronosBaseSDKProvider,
-} from '../cronos-base/cronos-base-connector';
-import { CronosBaseConnectorConfig } from '../cronos-base/cronos-base-connector.config';
 import { BigNumber } from 'ethers';
-import { VVSConfig } from './vvs.config';
-import routerAbi from './abi.json';
 import {
-  CurrencyAmount,
   Currency,
+  CurrencyAmount,
   Fetcher,
   Pair,
   Percent,
+  Router,
   Token,
   TokenAmount,
   Trade,
-  Router,
 } from 'vvs-sdk';
 import {
   Pairish,
   Percentish,
   UniswapishSwapParameters,
 } from '../../services/common-interfaces';
+import {
+  CronosBaseSDKProvider,
+  CronosBaseUniswapishConnector,
+} from '../cronos-base/cronos-base-uniswapish-connector';
+import { CronosBaseUniswapishConnectorConfig } from '../cronos-base/cronos-base-uniswapish-connector.config';
+import routerAbi from './abi.json';
+import { VVSConfig } from './vvs.config';
 
-export class VVSConnector extends CronosBaseConnector {
+export class VVSConnector extends CronosBaseUniswapishConnector {
   constructor(chain: string, network: string) {
     const sdkProvider = new VVSSDKProvider();
     super(sdkProvider, routerAbi, chain, network);
   }
-  protected buildConfig(): CronosBaseConnectorConfig.NetworkConfig {
+  protected buildConfig(): CronosBaseUniswapishConnectorConfig.NetworkConfig {
     return VVSConfig.config;
   }
 }
