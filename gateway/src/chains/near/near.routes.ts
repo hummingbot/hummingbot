@@ -21,55 +21,6 @@ import {
 export namespace NearRoutes {
   export const router = Router();
 
-  /** To-do: Commenting out cancel, allowance and approve endpoints for now.
-  router.post(
-    '/allowances',
-    asyncHandler(
-      async (
-        req: Request<{}, {}, AllowancesRequest>,
-        res: Response<AllowancesResponse | string, {}>
-      ) => {
-        validateAllowancesRequest(req.body);
-        const chain = await getChain<Nearish>(
-          req.body.chain,
-          req.body.network
-        );
-        res.status(200).json(await allowances(chain, req.body));
-      }
-    )
-  );
-
-  router.post(
-    '/approve',
-    asyncHandler(
-      async (
-        req: Request<{}, {}, ApproveRequest>,
-        res: Response<ApproveResponse | string, {}>
-      ) => {
-        validateApproveRequest(req.body);
-        const chain = await getChain<Nearish>(
-          req.body.chain,
-          req.body.network
-        );
-        res.status(200).json(await approve(chain, req.body));
-      }
-    )
-  );
-
-  router.post(
-    '/cancel',
-    asyncHandler(
-      async (
-        req: Request<{}, {}, CancelRequest>,
-        res: Response<CancelResponse, {}>
-      ) => {
-        validateCancelRequest(req.body);
-        const chain = await getChain<Nearish>('near', req.body.network);
-        res.status(200).json(await cancel(chain, req.body));
-      }
-    )
-  );*/
-
   router.post(
     '/balances',
     asyncHandler(
