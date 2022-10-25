@@ -645,8 +645,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         ask_order: LimitOrder = self.strategy.active_maker_asks[0][1]
         self.assertAlmostEqual(Decimal("1.0417"), round(bid_order.price, 4))
         self.assertAlmostEqual(Decimal("1.0636"), round(ask_order.price, 4))
-        self.assertAlmostEqual(Decimal("2.7821"), round(bid_order.quantity, 4))
-        self.assertAlmostEqual(Decimal("2.7821"), round(ask_order.quantity, 4))
+        self.assertAlmostEqual(Decimal("2.9286"), round(bid_order.quantity, 4))
+        self.assertAlmostEqual(Decimal("2.9286"), round(ask_order.quantity, 4))
 
     def test_maker_price(self):
         task = self.ev_loop.create_task(self.strategy.calculate_effective_hedging_price(self.market_pair, False, 3))
