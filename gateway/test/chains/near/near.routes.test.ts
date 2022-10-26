@@ -68,7 +68,7 @@ const patchGetTokenBySymbol = () => {
   });
 };
 
-describe('GET /near/balances', () => {
+describe('POST /near/balances', () => {
   it('should return 500 for unsupported tokens', async () => {
     patchGetWallet();
     patchGetTokenBySymbol();
@@ -79,7 +79,7 @@ describe('GET /near/balances', () => {
     });
 
     await request(gatewayApp)
-      .get(`/near/balances`)
+      .post(`/near/balances`)
       .send({
         chain: 'near',
         network: 'testnet',
@@ -93,7 +93,7 @@ describe('GET /near/balances', () => {
 
   it('should return 404 when parameters are invalid', async () => {
     await request(gatewayApp)
-      .get(`/near/balances`)
+      .post(`/near/balances`)
       .send({
         chain: 'near',
         network: 'testnet',
