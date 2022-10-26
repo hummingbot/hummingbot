@@ -434,7 +434,7 @@ class AllConnectorSettings:
 
     @classmethod
     def get_gateway_evm_amm_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type in [ConnectorType.EVM_AMM, ConnectorType.NEAR_AMM]}
+        return {cs.name for cs in cls.get_connector_settings().values() if cs.type in [ConnectorType.EVM_AMM, ConnectorType.NEAR_AMM]}
 
     @classmethod
     def get_gateway_evm_amm_lp_connector_names(cls) -> Set[str]:
