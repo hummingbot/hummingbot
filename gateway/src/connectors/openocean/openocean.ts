@@ -16,6 +16,7 @@ import { logger } from '../../services/logger';
 import { Avalanche } from '../../chains/avalanche/avalanche';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import { Polygon } from '../../chains/polygon/polygon';
+import { Harmony } from '../../chains/harmony/harmony';
 import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 import {
   HttpException,
@@ -87,6 +88,8 @@ export class Openocean implements Uniswapish {
       return Avalanche.getInstance(network);
     } else if (this._chain === 'polygon') {
       return Polygon.getInstance(network);
+    } else if (this._chain === 'harmony') {
+      return Harmony.getInstance(network);
     }
     return Avalanche.getInstance(network);
   }
@@ -156,6 +159,8 @@ export class Openocean implements Uniswapish {
       return 'avax';
     } else if (this._chain === 'polygon') {
       return 'polygon';
+    } else if (this._chain === 'harmony') {
+      return 'harmony';
     }
     return this._chain;
   }

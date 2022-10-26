@@ -32,6 +32,7 @@ export namespace OpenoceanConfig {
       { chain: 'avalanche', networks: ['avalanche'] },
       { chain: 'ethereum', networks: ['mainnet'] },
       { chain: 'polygon', networks: ['mainnet'] },
+      { chain: 'harmony', networks: ['mainnet'] },
     ],
   };
 }
