@@ -11,7 +11,7 @@ let curve: Curve;
 
 const WETH: TokenInfo = {
   chainId: 1,
-  address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+  address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
   name: 'WETH',
   symbol: 'WETH',
   decimals: 18,
@@ -19,7 +19,7 @@ const WETH: TokenInfo = {
 
 const DAI: TokenInfo = {
   chainId: 1,
-  address: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
+  address: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
   name: 'DAI',
   symbol: 'DAI',
   decimals: 18,
@@ -54,13 +54,13 @@ afterAll(async () => {
 });
 
 const patchGetBestRouteAndOutput = () => {
-  patch(curve_, 'getBestRouteAndOutput', () => {
+  patch(curve_.router, 'getBestRouteAndOutput', () => {
     return { route: null, output: '10000000' };
   });
 };
 
 const patchRouterExchangeExpected = () => {
-  patch(curve_, 'routerExchangeExpected', () => {
+  patch(curve_.router, 'routerExchangeExpected', () => {
     return '10000000';
   });
 };
