@@ -81,7 +81,7 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     if (reqSpender === 'pangolin') {
       spender = PangolinConfig.config.routerAddress(this._chain);
     } else if (reqSpender === 'openocean') {
-      spender = OpenoceanConfig.config.routerAddress(this._chain);
+      spender = OpenoceanConfig.config.routerAddress('avalanche', this._chain);
     } else if (reqSpender === 'traderjoe') {
       spender = TraderjoeConfig.config.routerAddress(this._chain);
     } else {
