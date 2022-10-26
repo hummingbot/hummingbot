@@ -15,7 +15,7 @@ import {
   UNKNOWN_ERROR_MESSAGE,
 } from '../../services/error-handler';
 import { TokenInfo } from '../../services/ethereum-base';
-import { latency, gasCostInEthString } from '../../services/base';
+import { latency } from '../../services/base';
 import { Nearish, RefAMMish } from '../../services/common-interfaces';
 import { logger } from '../../services/logger';
 import {
@@ -135,7 +135,7 @@ export async function price(
     gasPrice: gasPrice,
     gasPriceToken: nearish.nativeTokenSymbol,
     gasLimit: gasLimitTransaction,
-    gasCost: gasCostInEthString(gasPrice, gasLimitEstimate),
+    gasCost: String((gasPrice * gasLimitEstimate) / 1e24),
   };
 }
 
@@ -226,7 +226,7 @@ export async function trade(
       gasPrice: gasPrice,
       gasPriceToken: nearish.nativeTokenSymbol,
       gasLimit: gasLimitTransaction,
-      gasCost: gasCostInEthString(gasPrice, gasLimitEstimate),
+      gasCost: String((gasPrice * gasLimitEstimate) / 1e24),
       txHash: tx,
     };
   } else {
@@ -270,7 +270,7 @@ export async function trade(
       gasPrice: gasPrice,
       gasPriceToken: nearish.nativeTokenSymbol,
       gasLimit: gasLimitTransaction,
-      gasCost: gasCostInEthString(gasPrice, gasLimitEstimate),
+      gasCost: String((gasPrice * gasLimitEstimate) / 1e24),
       txHash: tx,
     };
   }
@@ -309,6 +309,6 @@ export async function estimateGas(
     gasPrice,
     gasPriceToken: nearish.nativeTokenSymbol,
     gasLimit: gasLimitTransaction,
-    gasCost: gasCostInEthString(gasPrice, gasLimitEstimate),
+    gasCost: String((gasPrice * gasLimitEstimate) / 1e24),
   };
 }
