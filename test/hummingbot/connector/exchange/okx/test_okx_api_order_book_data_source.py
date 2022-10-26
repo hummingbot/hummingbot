@@ -127,11 +127,11 @@ class OkxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         asks = list(order_book.ask_entries())
         self.assertEqual(1, len(bids))
         self.assertEqual(41006.3, bids[0].price)
-        self.assertEqual(0.60038921, bids[0].amount)
+        self.assertEqual(0.30178218, bids[0].amount)
         self.assertEqual(expected_update_id, bids[0].update_id)
         self.assertEqual(1, len(asks))
         self.assertEqual(41006.8, asks[0].price)
-        self.assertEqual(0.30178218, asks[0].amount)
+        self.assertEqual(0.60038921, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
     @aioresponses()
@@ -436,9 +436,10 @@ class OkxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(415, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
-    def test_listen_for_order_book_snapshot_message(self):
+    def test_listen_for_order_book_snapshots_websocket_successful(self):
+        self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = 1
         mock_queue = AsyncMock()
-        diff_event = {
+        snapshot_event = {
             "arg": {
                 "channel": "books",
                 "instId": self.trading_pair
@@ -460,20 +461,20 @@ class OkxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 }
             ]
         }
-        mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
-        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
+        mock_queue.get.side_effect = [snapshot_event, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
+            self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue))
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
         self.assertEqual(OrderBookMessageType.SNAPSHOT, msg.type)
         self.assertEqual(-1, msg.trade_id)
-        self.assertEqual(int(diff_event["data"][0]["ts"]) * 1e-3, msg.timestamp)
-        expected_update_id = int(int(diff_event["data"][0]["ts"]) * 1e-3)
+        self.assertEqual(int(snapshot_event["data"][0]["ts"]) * 1e-3, msg.timestamp)
+        expected_update_id = int(int(snapshot_event["data"][0]["ts"]) * 1e-3)
         self.assertEqual(expected_update_id, msg.update_id)
 
         bids = msg.bids
@@ -520,7 +521,7 @@ class OkxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}."))
 
     @aioresponses()
-    def test_listen_for_order_book_snapshots_successful(self, mock_api, ):
+    def test_listen_for_order_book_snapshots_api_successful(self, mock_api, ):
         msg_queue: asyncio.Queue = asyncio.Queue()
         url = web_utils.public_rest_url(path_url=CONSTANTS.OKX_ORDER_BOOK_PATH)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -573,5 +574,5 @@ class OkxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(expected_update_id, bids[0].update_id)
         self.assertEqual(1, len(asks))
         self.assertEqual(41006.8, asks[0].price)
-        self.assertEqual(0.060038921, asks[0].amount)
+        self.assertEqual(0.60038921, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
