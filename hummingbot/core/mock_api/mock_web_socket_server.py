@@ -1,11 +1,10 @@
 import asyncio
+import errno
+import socket
 from threading import Event, Thread
 from typing import Optional
-import socket
-import errno
 from urllib.parse import urlparse
 
-import aiohttp
 from aiohttp import web
 
 
@@ -29,7 +28,6 @@ class MockWebSocketServerFactory:
     '''
     Attributes
     ----------
-    _ws_session : The aiohttp client session.
     _orig_ws_connect : web servers connection
     _ws_servers : web servers dictionary
     host : host
@@ -45,8 +43,7 @@ class MockWebSocketServerFactory:
     send_json(url, data, delay=0)
     send_json_threadsafe(url, data, delay=0)
     """
-    _ws_session = aiohttp.ClientSession()
-    _orig_ws_connect = _ws_session.ws_connect
+    _orig_ws_connect = None
     _ws_servers = {}
     host = "localhost"
     # url_host_only is used for creating one HummingWSServer to handle all websockets requests and responses for
@@ -248,13 +245,22 @@ class MockWebSocketServer:
     async def _on_shutdown(self, _: web.Application):
         await self.websocket.close()
 
+    async def async_stop(self):
+        """
+         Stop the Humming Web Server in thread-safe way
+        """
+        self.port = None
+        self._started = False
+        await self._runner.shutdown()
+        await self._runner.cleanup()
+        self.ev_loop.stop()
+
     def stop(self):
         """
          Stop the Humming Web Server in thread-safe way
         """
         self.port = None
         self._started = False
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self._runner.shutdown())
-        loop.run_until_complete(self._runner.cleanup())
+        asyncio.ensure_future(self._runner.shutdown(), loop=self.ev_loop)
+        asyncio.ensure_future(self._runner.cleanup(), loop=self.ev_loop)
         self.ev_loop.stop()
