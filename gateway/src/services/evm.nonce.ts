@@ -1,6 +1,4 @@
 import ethers from 'ethers';
-import { logger } from './logger';
-import { LocalStorage } from './local-storage';
 import {
   InitializationError,
   InvalidNonceError,
@@ -9,6 +7,8 @@ import {
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from './error-handler';
+import { LocalStorage } from './local-storage';
+import { logger } from './logger';
 import { ReferenceCountingCloseable } from './refcounting-closeable';
 
 export class NonceInfo {
@@ -31,7 +31,7 @@ export class NonceLocalStorage extends ReferenceCountingCloseable {
     await this._localStorage.init();
   }
 
-  public async saveCurrentNonce(
+  public async saveLeadingNonce(
     chain: string,
     chainId: number,
     address: string,
@@ -46,7 +46,7 @@ export class NonceLocalStorage extends ReferenceCountingCloseable {
     );
   }
 
-  public async getCurrentNonces(
+  public async getLeadingNonces(
     chain: string,
     chainId: number
   ): Promise<Record<string, NonceInfo>> {
@@ -161,7 +161,9 @@ export class NonceLocalStorage extends ReferenceCountingCloseable {
  *    cached nonce back to the specified position.
  */
 export class EVMNonceManager extends ReferenceCountingCloseable {
-  #addressToNonce: Record<string, NonceInfo> = {};
+  // leading nonce means the latest nonce we have passed to the blockchain.
+  // It may or may not already be included in the blockchain.
+  #addressToLeadingNonce: Record<string, NonceInfo> = {};
   #addressToPendingNonces: Record<string, NonceInfo[]> = {};
 
   #initialized: boolean = false;
@@ -218,24 +220,25 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
 
     if (!this.#initialized) {
       await this.#db.init();
-      const addressToNonce: Record<string, NonceInfo> =
-        await this.#db.getCurrentNonces(this.#chainName, this.#chainId);
+      const addressToLeadingNonce: Record<string, NonceInfo> =
+        await this.#db.getLeadingNonces(this.#chainName, this.#chainId);
 
       const addressToPendingNonces: Record<string, NonceInfo[]> =
         await this.#db.getPendingNonces(this.#chainName, this.#chainId);
 
-      for (const [address, nonce] of Object.entries(addressToNonce)) {
-        this.#addressToNonce[address] = nonce;
+      for (const [address, nonce] of Object.entries(addressToLeadingNonce)) {
+        logger.info(`Loading leading nonce ${nonce} for address ${address}.`);
+        this.#addressToLeadingNonce[address] = nonce;
       }
 
-      for (const [address, nonceInfoList] of Object.entries(
+      for (const [address, pendingNonceInfoList] of Object.entries(
         addressToPendingNonces
       )) {
-        this.#addressToPendingNonces[address] = nonceInfoList;
+        this.#addressToPendingNonces[address] = pendingNonceInfoList;
       }
 
       await Promise.all(
-        Object.keys(this.#addressToNonce).map(async (address) => {
+        Object.keys(this.#addressToLeadingNonce).map(async (address) => {
           await this.mergeNonceFromEVMNode(address, true);
         })
       );
@@ -253,44 +256,35 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
     call.
     */
     if (this._provider != null && (intializationPhase || this.#initialized)) {
-      const mergeExpiryTimestamp: number = this.#addressToNonce[ethAddress]
-        ? this.#addressToNonce[ethAddress].expiry
+      // only run the logic below if the leading nonce does not exist or it has expired
+      const leadingNonceExpiryTimestamp: number = this.#addressToLeadingNonce[
+        ethAddress
+      ]
+        ? this.#addressToLeadingNonce[ethAddress].expiry
         : -1;
       const now: number = new Date().getTime();
-      if (mergeExpiryTimestamp > now) {
+      if (leadingNonceExpiryTimestamp > now) {
         return;
       }
 
       const externalNonce: number =
-        (await this._provider.getTransactionCount(ethAddress)) - 1;
+        (await this._provider.getTransactionCount(ethAddress, 'latest')) - 1;
 
-      this.#addressToNonce[ethAddress] = new NonceInfo(
+      // update the address's leading nonce to the latest nonce from the block chain
+      this.#addressToLeadingNonce[ethAddress] = new NonceInfo(
         externalNonce,
         now + this._localNonceTTL
       );
 
-      await this.#db.saveCurrentNonce(
+      await this.#db.saveLeadingNonce(
         this.#chainName,
         this.#chainId,
         ethAddress,
-        this.#addressToNonce[ethAddress]
+        this.#addressToLeadingNonce[ethAddress]
       );
 
-      if (
-        this.#addressToPendingNonces[ethAddress] &&
-        this.#addressToPendingNonces[ethAddress].length > 0
-      ) {
-        this.#addressToPendingNonces[ethAddress] = this.#addressToPendingNonces[
-          ethAddress
-        ].filter((nonceInfo) => nonceInfo.nonce > externalNonce);
-
-        await this.#db.savePendingNonces(
-          this.#chainName,
-          this.#chainId,
-          ethAddress,
-          this.#addressToPendingNonces[ethAddress]
-        );
-      }
+      // only keep pending nonces that are greater than externalNonce and have not expired
+      await this.dropExpiredPendingNonces(ethAddress);
     } else {
       logger.error(
         'EVMNonceManager.mergeNonceFromEVMNode called before initiated'
@@ -306,9 +300,9 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
 
   async getNonceFromMemory(ethAddress: string): Promise<number | null> {
     if (this.#initialized) {
-      if (this.#addressToNonce[ethAddress]) {
+      if (this.#addressToLeadingNonce[ethAddress]) {
         await this.mergeNonceFromEVMNode(ethAddress);
-        return this.#addressToNonce[ethAddress].nonce;
+        return this.#addressToLeadingNonce[ethAddress].nonce;
       } else {
         return null;
       }
@@ -329,17 +323,17 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
         (await this._provider.getTransactionCount(ethAddress)) - 1;
 
       const now: number = new Date().getTime();
-      this.#addressToNonce[ethAddress] = new NonceInfo(
+      this.#addressToLeadingNonce[ethAddress] = new NonceInfo(
         externalNonce,
         now + this._pendingNonceTTL
       );
-      await this.#db.saveCurrentNonce(
+      await this.#db.saveLeadingNonce(
         this.#chainName,
         this.#chainId,
         ethAddress,
-        this.#addressToNonce[ethAddress]
+        this.#addressToLeadingNonce[ethAddress]
       );
-      return this.#addressToNonce[ethAddress].nonce;
+      return this.#addressToLeadingNonce[ethAddress].nonce;
     } else {
       logger.error('EVMNonceManager.getNonceFromNode called before initiated');
       throw new InitializationError(
@@ -365,6 +359,7 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
 
     if (this.#initialized) {
       await this.mergeNonceFromEVMNode(ethAddress);
+      await this.dropExpiredPendingNonces(ethAddress);
 
       let newNonce = null;
       let numberOfPendingNonce = 0;
@@ -416,6 +411,74 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
     }
   }
 
+  private async dropExpiredPendingNonces(ethAddress: string): Promise<void> {
+    if (this.#addressToPendingNonces[ethAddress] instanceof Array) {
+      const now: number = new Date().getTime();
+      const leadingNonce: NonceInfo | undefined =
+        this.#addressToLeadingNonce[ethAddress];
+      const unexpiredPendingNonces: Array<NonceInfo> = [];
+      for (const pendingNonceInfo of this.#addressToPendingNonces[ethAddress]) {
+        // keep only the nonces that have not expired. If there is a leading nonce, they must also be greater than the leading nonce
+        if (
+          pendingNonceInfo.expiry > now &&
+          (leadingNonce === undefined ||
+            pendingNonceInfo.nonce > leadingNonce.nonce)
+        ) {
+          unexpiredPendingNonces.push(pendingNonceInfo);
+        }
+      }
+      this.#addressToPendingNonces[ethAddress] = unexpiredPendingNonces;
+
+      await this.#db.savePendingNonces(
+        this.#chainName,
+        this.#chainId,
+        ethAddress,
+        this.#addressToPendingNonces[ethAddress]
+      );
+    }
+  }
+
+  public async provideNonce(
+    nonce: number | undefined, // when cancelling a transaction, the client specifies the nonce, in most other cases, they late gateway decide the nonce
+    ethAddress: string,
+    f: (_nextNonce: number) => Promise<any> // should perform a blockchain transaction that uses the nonce
+  ): Promise<any> {
+    let nextNonce: number;
+    if (nonce === undefined) {
+      nextNonce = await this.getNextNonce(ethAddress);
+    } else {
+      nextNonce = nonce;
+    }
+
+    // try to perform the transaction function f
+    try {
+      logger.info(
+        `Providing the next nonce ${nextNonce} for address ${ethAddress}.`
+      );
+      const result = await f(nextNonce); // OBS: may say the nonce is too high, or the nonce is too low, can we capture that?, should we try to adjust the nonce automatically?
+      // OBS: what happens if there is another wallet also emitting transactions?
+      await this.commitNonce(ethAddress, nextNonce);
+      return result;
+    } catch (err) {
+      logger.error(
+        `Transaction with nonce ${nextNonce} for address ${ethAddress} failed : ${err}`
+      );
+      // the transaction failed, remove nonces geq nextNonce
+      this.#addressToPendingNonces[ethAddress] = this.#addressToPendingNonces[
+        ethAddress
+      ].filter((pendingNonceInfo) => pendingNonceInfo.nonce < nextNonce);
+
+      await this.#db.savePendingNonces(
+        this.#chainName,
+        this.#chainId,
+        ethAddress,
+        this.#addressToPendingNonces[ethAddress]
+      );
+
+      throw err;
+    }
+  }
+
   async commitNonce(ethAddress: string, txNonce: number): Promise<void> {
     /*
     Stores the nonce of the last successful transaction.
@@ -423,14 +486,14 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
     if (this.#initialized) {
       const now: number = new Date().getTime();
 
-      if (this.#addressToNonce[ethAddress]) {
-        if (txNonce > this.#addressToNonce[ethAddress].nonce) {
+      if (this.#addressToLeadingNonce[ethAddress]) {
+        if (txNonce > this.#addressToLeadingNonce[ethAddress].nonce) {
           const nonce: NonceInfo = new NonceInfo(
             txNonce,
             now + this._localNonceTTL
           );
-          this.#addressToNonce[ethAddress] = nonce;
-          await this.#db.saveCurrentNonce(
+          this.#addressToLeadingNonce[ethAddress] = nonce;
+          await this.#db.saveLeadingNonce(
             this.#chainName,
             this.#chainId,
             ethAddress,
@@ -442,7 +505,7 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
           throw new InvalidNonceError(
             INVALID_NONCE_ERROR_MESSAGE +
               `txNonce(${txNonce}) < currentNonce(${
-                this.#addressToNonce[ethAddress].nonce
+                this.#addressToLeadingNonce[ethAddress].nonce
               })`,
             INVALID_NONCE_ERROR_CODE
           );
@@ -452,8 +515,8 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
         txNonce,
         now + this._localNonceTTL
       );
-      this.#addressToNonce[ethAddress] = nonce;
-      await this.#db.saveCurrentNonce(
+      this.#addressToLeadingNonce[ethAddress] = nonce;
+      await this.#db.saveLeadingNonce(
         this.#chainName,
         this.#chainId,
         ethAddress,

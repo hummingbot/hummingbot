@@ -265,23 +265,24 @@ export class Defikingdoms implements Uniswapish {
     });
 
     const contract: Contract = new Contract(defikingdomsRouter, abi, wallet);
-    if (nonce === undefined) {
-      nonce = await this.harmony.nonceManager.getNextNonce(wallet.address);
-    }
+    return this.harmony.nonceManager.provideNonce(
+      nonce,
+      wallet.address,
+      async (nextNonce) => {
+        const tx: ContractTransaction = await contract[result.methodName](
+          ...result.args,
+          {
+            gasPrice: (gasPrice * 1e9).toFixed(0),
+            gasLimit: gasLimit.toFixed(0),
+            value: result.value,
+            nonce: nextNonce,
+          }
+        );
 
-    const tx: ContractTransaction = await contract[result.methodName](
-      ...result.args,
-      {
-        gasPrice: (gasPrice * 1e9).toFixed(0),
-        gasLimit: gasLimit.toFixed(0),
-        value: result.value,
-        nonce: nonce,
+        logger.info(JSON.stringify(tx));
+        return tx;
       }
     );
-
-    logger.info(JSON.stringify(tx));
-    await this.harmony.nonceManager.commitNonce(wallet.address, nonce);
-    return tx;
   }
 
   async fetchPairData(tokenA: Token, tokenB: Token): Promise<Pair> {
