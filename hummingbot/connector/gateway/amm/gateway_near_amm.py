@@ -93,42 +93,45 @@ class GatewayNearAMM(GatewayEVMAMM):
                 continue
             tx_status: int = tx_details["txStatus"]
             tx_receipt: Optional[Dict[str, Any]] = tx_details["txReceipt"]
-            if tx_status == 1 and (tx_receipt is not None):
-                gas_used: int = tx_receipt["transaction_outcome"]["outcome"]["gas_burnt"]
-                gas_price: Decimal = tracked_order.gas_price
-                fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e24))
+            if tx_receipt is not None:
+                if tx_status == 1:
+                    gas_used: int = tx_receipt["transaction_outcome"]["outcome"]["gas_burnt"]
+                    gas_price: Decimal = tracked_order.gas_price
+                    fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e24))
 
-                trade_fee: TradeFeeBase = AddedToCostTradeFee(
-                    flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
-                )
-                trade_update: TradeUpdate = TradeUpdate(
-                    trade_id=tracked_order.exchange_order_id,
-                    client_order_id=tracked_order.client_order_id,
-                    exchange_order_id=tracked_order.exchange_order_id,
-                    trading_pair=tracked_order.trading_pair,
-                    fill_timestamp=self.current_timestamp,
-                    fill_price=tracked_order.price,
-                    fill_base_amount=tracked_order.amount,
-                    fill_quote_amount=tracked_order.amount * tracked_order.price,
-                    fee=trade_fee
-                )
+                    trade_fee: TradeFeeBase = AddedToCostTradeFee(
+                        flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
+                    )
+                    trade_update: TradeUpdate = TradeUpdate(
+                        trade_id=tracked_order.exchange_order_id,
+                        client_order_id=tracked_order.client_order_id,
+                        exchange_order_id=tracked_order.exchange_order_id,
+                        trading_pair=tracked_order.trading_pair,
+                        fill_timestamp=self.current_timestamp,
+                        fill_price=tracked_order.price,
+                        fill_base_amount=tracked_order.amount,
+                        fill_quote_amount=tracked_order.amount * tracked_order.price,
+                        fee=trade_fee
+                    )
 
-                self._order_tracker.process_trade_update(trade_update)
+                    self._order_tracker.process_trade_update(trade_update)
 
-                order_update: OrderUpdate = OrderUpdate(
-                    client_order_id=tracked_order.client_order_id,
-                    trading_pair=tracked_order.trading_pair,
-                    update_timestamp=self.current_timestamp,
-                    new_state=OrderState.FILLED,
-                )
+                    order_update: OrderUpdate = OrderUpdate(
+                        client_order_id=tracked_order.client_order_id,
+                        trading_pair=tracked_order.trading_pair,
+                        update_timestamp=self.current_timestamp,
+                        new_state=OrderState.FILLED,
+                    )
+
+                else:  # transactio failed
+                    order_update: OrderUpdate = OrderUpdate(
+                        client_order_id=tracked_order.client_order_id,
+                        trading_pair=tracked_order.trading_pair,
+                        update_timestamp=self.current_timestamp,
+                        new_state=OrderState.FAILED,
+                    )
+
                 self._order_tracker.process_order_update(order_update)
-
-            elif tx_status == -1 or (tx_receipt is not None and tx_receipt.get("status") == 0):
-                self.logger().network(
-                    f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
-                    app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
-                )
-                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
 
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
         return Decimal("1e-15")
@@ -182,6 +185,20 @@ class GatewayNearAMM(GatewayEVMAMM):
         """
         return []
 
+    async def update_canceling_transactions(self, canceled_tracked_orders: List[EVMInFlightOrder]):
+        """
+        Update tracked orders that have a cancel_tx_hash.
+        :param canceled_tracked_orders: Canceled tracked_orders (cancel_tx_has is not None).
+        """
+        pass
+
+    async def update_token_approval_status(self, tracked_approvals: List[EVMInFlightOrder]):
+        """
+        Calls REST API to get status update for each in-flight token approval transaction.
+        :param tracked_approvals: tracked approval orders.
+        """
+        pass
+
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_quote_price(
             self,
@@ -233,21 +250,7 @@ class GatewayNearAMM(GatewayEVMAMM):
             resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
                 self.chain, self.network, self.connector_name, base, quote, amount, side
             )
-            required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
-            if any(item not in resp.keys() for item in required_items):
-                if "info" in resp.keys():
-                    self.logger().info(f"Unable to get price. {resp['info']}")
-                else:
-                    self.logger().info(f"Missing data from price result. Incomplete return result for ({resp.keys()})")
-            else:
-                gas_price_token: str = resp["gasPriceToken"]
-                gas_cost: Decimal = Decimal(resp["gasCost"])
-                price: Decimal = Decimal(resp["price"])
-                self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-                return price
-
-            # Didn't pass all the checks - no price available.
-            return None
+            return self.parse_price_response(base, quote, amount, side, price_response=resp, process_exception=False)
         except asyncio.CancelledError:
             raise
         except Exception as e:

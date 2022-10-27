@@ -185,6 +185,11 @@ export async function trade(
     req.side
   );
 
+  logger.info(
+    `Expected execution price is ${estimatedPrice}, ` +
+      `limit price is ${limitPrice}.`
+  );
+
   if (req.side === 'BUY') {
     if (limitPrice && new Decimal(estimatedPrice).gt(new Decimal(limitPrice))) {
       logger.error('Swap price exceeded limit price.');
@@ -230,10 +235,6 @@ export async function trade(
       txHash: tx,
     };
   } else {
-    logger.info(
-      `Expected execution price is ${estimatedPrice}, ` +
-        `limit price is ${limitPrice}.`
-    );
     if (limitPrice && new Decimal(estimatedPrice).lt(new Decimal(limitPrice))) {
       logger.error('Swap price lower than limit price.');
       throw new HttpException(
