@@ -382,7 +382,7 @@ export class Openocean implements Uniswapish {
     }
     if (swapRes.status == 200 && swapRes.data.code == 200) {
       const swapData = swapRes.data.data;
-      return await this.avalanche.nonceManager.provideNonce(
+      return this.avalanche.nonceManager.provideNonce(
         nonce,
         wallet.address,
         async (nextNonce) => {

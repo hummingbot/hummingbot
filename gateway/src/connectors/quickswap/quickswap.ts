@@ -264,7 +264,7 @@ export class Quickswap implements Uniswapish {
     });
 
     const contract = new Contract(quickswapRouter, abi, wallet);
-    return await this.polygon.nonceManager.provideNonce(
+    return this.polygon.nonceManager.provideNonce(
       nonce,
       wallet.address,
       async (nextNonce) => {

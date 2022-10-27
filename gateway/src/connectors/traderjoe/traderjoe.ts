@@ -265,7 +265,7 @@ export class Traderjoe implements Uniswapish {
     });
 
     const contract = new Contract(traderjoeRouter, abi, wallet);
-    return await this.avalanche.nonceManager.provideNonce(
+    return this.avalanche.nonceManager.provideNonce(
       nonce,
       wallet.address,
       async (nextNonce) => {
