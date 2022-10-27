@@ -148,6 +148,12 @@ describe('EVMNodeService', () => {
     }
   };
 
+  const patchDropExpiredPendingNonces = () => {
+    patch(nonceManager, 'dropExpiredPendingNonces', (_: any) => {
+      return null;
+    });
+  };
+
   it('commitNonce with a provided txNonce will only update current nonce if txNonce > currentNonce', async () => {
     patchGetTransactionCount();
     await nonceManager.commitNonce(exampleAddress, 10);
@@ -180,6 +186,7 @@ describe('EVMNodeService', () => {
   it('getNextNonce should return nonces that are sequentially increasing', async () => {
     // Prevents nonce from expiring.
     patchGetTransactionCount();
+    patchDropExpiredPendingNonces();
     patch(nonceManager, '_pendingNonceTTL', () => 300 * 1000);
     nonceManager.commitNonce(exampleAddress, 1);
     jest.advanceTimersByTime(300000);
