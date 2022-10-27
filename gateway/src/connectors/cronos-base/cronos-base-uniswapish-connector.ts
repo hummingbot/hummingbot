@@ -243,7 +243,7 @@ export abstract class CronosBaseUniswapishConnector implements Uniswapish {
     });
 
     const contract = new Contract(CronosBaseConnectorRoute, abi, wallet);
-    return await this._cronos.nonceManager.provideNonce(
+    return this._cronos.nonceManager.provideNonce(
       nonce,
       wallet.address,
       async (nextNonce) => {

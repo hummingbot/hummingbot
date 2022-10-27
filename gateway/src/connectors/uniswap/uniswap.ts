@@ -290,7 +290,7 @@ export class Uniswap implements Uniswapish {
       }
     );
 
-    return await this.chain.nonceManager.provideNonce(
+    return this.chain.nonceManager.provideNonce(
       nonce,
       wallet.address,
       async (nextNonce) => {

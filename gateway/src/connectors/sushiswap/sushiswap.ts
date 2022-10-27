@@ -263,7 +263,7 @@ export class Sushiswap implements Uniswapish {
       allowedSlippage: this.getSlippagePercentage(),
     });
     const contract: Contract = new Contract(sushswapRouter, abi, wallet);
-    return await this.ethereum.nonceManager.provideNonce(
+    return this.ethereum.nonceManager.provideNonce(
       nonce,
       wallet.address,
       async (nextNonce) => {
