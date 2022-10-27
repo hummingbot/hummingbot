@@ -123,7 +123,7 @@ export const sendTransactions = async ({
 }) => {
   const results: Array<providers.FinalExecutionOutcome> = [];
 
-  for (let signedTransaction of signedTransactions) {
+  for (const signedTransaction of signedTransactions) {
     results.push(await provider.sendTransactionAsync(signedTransaction));
   }
 
