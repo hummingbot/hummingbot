@@ -93,9 +93,9 @@ class GatewayNearAMM(GatewayEVMAMM):
             tx_status: int = tx_details["txStatus"]
             tx_receipt: Optional[Dict[str, Any]] = tx_details["txReceipt"]
             if tx_status == 1 and (tx_receipt is not None):
-                gas_used: int = tx_receipt["transaction_outcome"]["gas_burnt"]
+                gas_used: int = tx_receipt["transaction_outcome"]["outcome"]["gas_burnt"]
                 gas_price: Decimal = tracked_order.gas_price
-                fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
+                fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e24))
 
                 trade_fee: TradeFeeBase = AddedToCostTradeFee(
                     flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
