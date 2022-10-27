@@ -1,17 +1,17 @@
+import { providers } from 'ethers';
 import fs from 'fs';
-import fsp from 'fs/promises';
 import fse from 'fs-extra';
+import fsp from 'fs/promises';
+import 'jest-extended';
 import os from 'os';
 import path from 'path';
 import {
+  EVMNonceManager,
   NonceInfo,
   NonceLocalStorage,
-  EVMNonceManager,
 } from '../../src/services/evm.nonce';
-import 'jest-extended';
-import { providers } from 'ethers';
-import { patch } from './patch';
 import { ReferenceCountingCloseable } from '../../src/services/refcounting-closeable';
+import { patch } from './patch';
 
 describe('Test NonceLocalStorage', () => {
   let dbPath: string = '';
@@ -46,20 +46,20 @@ describe('Test NonceLocalStorage', () => {
     const now: number = new Date().getTime();
 
     // saves a key with a NonceInfo value
-    db.saveCurrentNonce(
+    db.saveLeadingNonce(
       testChain1,
       testChain1Id,
       address1,
       new NonceInfo(15, now + 1000)
     );
-    db.saveCurrentNonce(
+    db.saveLeadingNonce(
       testChain1,
       testChain1Id,
       address2,
       new NonceInfo(23, now + 1000)
     );
 
-    const results = await db.getCurrentNonces(testChain1, testChain1Id);
+    const results = await db.getLeadingNonces(testChain1, testChain1Id);
 
     // returns with an address as key with the corresponding NonceInfo value
     expect(results).toStrictEqual({
