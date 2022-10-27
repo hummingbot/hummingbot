@@ -576,3 +576,49 @@ class OkxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(41006.8, asks[0].price)
         self.assertEqual(0.60038921, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
+
+    def test_channel_originating_message_snapshot_queue(self):
+        event_message = {
+            "arg": {
+                "channel": "books",
+                "instId": self.trading_pair
+            },
+            "action": "snapshot",
+            "data": [
+                {
+                    "asks": [
+                        ["8476.98", "415", "0", "13"],
+                    ],
+                    "bids": [
+                        ["8476.97", "256", "0", "12"],
+                    ],
+                    "ts": "1597026383085",
+                    "checksum": -855196043
+                }
+            ]
+        }
+        channel_result = self.data_source._channel_originating_message(event_message)
+        self.assertEqual(channel_result, self.data_source._snapshot_messages_queue_key)
+
+    def test_channel_originating_message_diff_queue(self):
+        event_message = {
+            "arg": {
+                "channel": "books",
+                "instId": self.trading_pair
+            },
+            "action": "update",
+            "data": [
+                {
+                    "asks": [
+                        ["8476.98", "415", "0", "13"],
+                    ],
+                    "bids": [
+                        ["8476.97", "256", "0", "12"],
+                    ],
+                    "ts": "1597026383085",
+                    "checksum": -855196043
+                }
+            ]
+        }
+        channel_result = self.data_source._channel_originating_message(event_message)
+        self.assertEqual(channel_result, self.data_source._diff_messages_queue_key)
