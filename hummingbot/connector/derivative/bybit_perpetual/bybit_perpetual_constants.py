@@ -64,6 +64,10 @@ SET_LEVERAGE_PATH_URL = {
 GET_LAST_FUNDING_RATE_PATH_URL = {
     LINEAR_MARKET: "private/linear/funding/prev-funding",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/funding/prev-funding"}
+GET_PREDICTED_FUNDING_RATE_PATH_URL = {
+    LINEAR_MARKET: "/private/linear/funding/predicted-funding",
+    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/funding/predicted-funding"
+}
 GET_POSITIONS_PATH_URL = {
     LINEAR_MARKET: "private/linear/position/list",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/position/list"}
