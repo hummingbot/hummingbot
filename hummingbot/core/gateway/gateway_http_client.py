@@ -404,7 +404,7 @@ class GatewayHttpClient:
         if connector:
             request["connector"] = connector
         if address:
-            request["address"] = connector
+            request["address"] = address
         network_path = "near" if chain == "near" else "network"
         return await self.api_request("post", f"{network_path}/poll", request, fail_silently=fail_silently)
 
