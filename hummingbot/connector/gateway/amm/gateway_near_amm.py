@@ -86,6 +86,7 @@ class GatewayNearAMM(GatewayEVMAMM):
             if isinstance(tx_details, Exception):
                 self.logger().error(f"An error occurred fetching transaction status of {tracked_order.client_order_id}")
                 await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
+                continue
             if "txHash" not in tx_details:
                 self.logger().error(f"No txHash field for transaction status of {tracked_order.client_order_id}: "
                                     f"{tx_details}.")
