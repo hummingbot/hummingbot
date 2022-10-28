@@ -11,6 +11,7 @@ from hummingbot.client.config.config_data_types import (
 )
 from hummingbot.client.config.config_validators import validate_bool
 
+
 class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):
     strategy: str = Field(default="cross_exchange_mining", client_data=None)
 
@@ -112,17 +113,6 @@ class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):
             prompt_on_new=True,
         ),
     )
-    maker_buffer_qty: Decimal = Field(
-        default=Decimal("0.0"),
-        description="Place order behind this amount in order book if closer than calculated with min_proftability (If 0 not active), essentially means that you will remain close to maker mid market price even if maker and taker prices are largely offset ",
-        ge=0.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                    "<<Still untested reccomended to set to 0>>. Place order behind this amount in order book if closer to mid maker market price than calculated with min_proftability (If 0 not active): >>> "
-            ),
-            prompt_on_new=True,
-        ),
-    )
     rate_curve: Decimal = Field(
         default=Decimal("1.0"),
         description="Multiplier for rate curve for the adjustment of min profitability: ",
@@ -146,7 +136,7 @@ class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):
         ),
     )
     # === prompts ===
-    
+
     @classmethod
     def order_amount_prompt(cls, model_instance: 'CrossExchangeMiningConfigMap') -> str:
         trading_pair = model_instance.maker_market_trading_pair

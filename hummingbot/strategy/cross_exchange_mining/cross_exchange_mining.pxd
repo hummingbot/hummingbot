@@ -37,10 +37,10 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
         object _adjcount
         object _limit_order_timer
         bint _maker_side
-    
+
     cdef check_order(self, object market_pair, object active_order, object is_buy)
     cdef check_balance(self, object market_pair)
-    cdef set_order(self, object market_pair,object is_buy)
+    cdef set_order(self, object market_pair, object is_buy)
     cdef str c_place_order(self,
                            object market_pair,
                            bint is_buy,
@@ -48,8 +48,6 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
                            object amount,
                            object price,
                            bint is_limit)
-    cdef volatility_rate(self,
-                               object market_pair)
+    cdef volatility_rate(self, object market_pair)
 
     cdef object adjust_profitability_lag(self, object market_pair)
-
