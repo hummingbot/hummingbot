@@ -421,7 +421,7 @@ class PolkadexExchange(ExchangePyBase):
                 tasks.append(
                     asyncio.create_task(
                         websocket_streams_session_provided(self.user_proxy_address, session,
-                                                        self.handle_websocket_message
+                                                           self.handle_websocket_message
                                                            )
                     ))
 
