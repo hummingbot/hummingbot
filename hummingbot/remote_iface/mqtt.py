@@ -48,6 +48,13 @@ class MQTTCommands(Node):
     IMPORT_URI = 'hbot/$UID/import'
     STATUS_URI = 'hbot/$UID/status'
 
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        global mqtts_logger
+        if mqtts_logger is None:
+            mqtts_logger = HummingbotLogger(__name__)
+        return mqtts_logger
+
     def __init__(self,
                  hb_app: "HummingbotApplication",
                  mqtt_node: Node):
@@ -149,6 +156,13 @@ class MQTTCommands(Node):
 class MQTTEventForwarder:
     EVENT_URI = 'hbot/$UID/events'
 
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        global mqtts_logger
+        if mqtts_logger is None:
+            mqtts_logger = HummingbotLogger(__name__)
+        return mqtts_logger
+
     def __init__(self,
                  hb_app: "HummingbotApplication",
                  mqtt_node: Node):
@@ -178,10 +192,6 @@ class MQTTEventForwarder:
             (events.MarketEvent.OrderExpired, self._mqtt_fowarder),
         ]
         self._app_event_pairs: List[Tuple[int, EventListener]] = []
-        # self._app_event_pairs: List[Tuple[int, EventListener]] = [
-        #     (events.CustomEvent.KillSwitchTriggered, self._mqtt_fowarder),
-        #     (events.CustomEvent.MarketInitialized, self._mqtt_fowarder),
-        # ]
 
         self.event_fw_pub = self._node.create_publisher(
             topic=self._topic, msg_type=EventMessage
@@ -236,7 +246,13 @@ class MQTTEventForwarder:
     def start_event_listener(self):
         for market in self._markets:
             for event_pair in self._market_event_pairs:
+                self.logger().info(
+                    f'Creating MQTT listener: {event_pair[0]}, {event_pair[1]}'
+                )
                 market.add_listener(event_pair[0], event_pair[1])
+                self.logger().info(
+                    f'Creating MQTT listener: {event_pair[0]}, {event_pair[1]}'
+                )
         for event_pair in self._app_event_pairs:
             self._hb_app.app.add_listener(event_pair[0], event_pair[1])
 
@@ -301,12 +317,16 @@ class MQTTGateway(Node):
             **kwargs
         )
 
-    def _init_features(self):
-        if self.hb_app.client_config_map.mqtt_broker.mqtt_commands:
-            self._commands = MQTTCommands(self.hb_app, self)
+    def start_notifier(self):
         if self.hb_app.client_config_map.mqtt_broker.mqtt_notifier:
             self._notifier = MQTTNotifier(self.hb_app, self)
             self.hb_app.notifiers.append(self._notifier)
+
+    def start_commands(self):
+        if self.hb_app.client_config_map.mqtt_broker.mqtt_commands:
+            self._commands = MQTTCommands(self.hb_app, self)
+
+    def start_event_fw(self):
         if self.hb_app.client_config_map.mqtt_broker.mqtt_events:
             self.mqtt_event_forwarder = MQTTEventForwarder(self.hb_app, self)
 
@@ -315,17 +335,15 @@ class MQTTGateway(Node):
         port = self.hb_app.client_config_map.mqtt_broker.mqtt_port
         username = self.hb_app.client_config_map.mqtt_broker.mqtt_username
         password = self.hb_app.client_config_map.mqtt_broker.mqtt_password
+        ssl = self.hb_app.client_config_map.mqtt_broker.mqtt_ssl
         conn_params = MQTTConnectionParameters(
             host=host,
             port=int(port),
             username=username,
-            password=password
+            password=password,
+            ssl=ssl
         )
         return conn_params
-
-    def run(self):
-        self._init_features()
-        super().run()
 
 
 class LogMessage(PubSubMessage):
