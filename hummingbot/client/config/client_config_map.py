@@ -59,6 +59,7 @@ class MQTTConfigMap(BaseClientModel):
     mqtt_notifier: bool = Field(default=True)
     mqtt_commands: bool = Field(default=True)
     mqtt_events: bool = Field(default=True)
+    mqtt_autostart: bool = Field(default=False)
 
     class Config:
         title = "mqtt_broker"

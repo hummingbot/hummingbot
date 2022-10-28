@@ -194,6 +194,9 @@ def _migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: D
         client_config_map.mqtt_broker, data, "mqtt_password"
     )
     _migrate_global_config_field(
+        client_config_map.mqtt_broker, data, "mqtt_ssl"
+    )
+    _migrate_global_config_field(
         client_config_map.mqtt_broker, data, "mqtt_logger"
     )
     _migrate_global_config_field(
@@ -204,6 +207,9 @@ def _migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: D
     )
     _migrate_global_config_field(
         client_config_map.mqtt_broker, data, "mqtt_events"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_broker, data, "mqtt_autostart"
     )
 
     anonymized_metrics_enabled = data.pop("anonymized_metrics_enabled")
