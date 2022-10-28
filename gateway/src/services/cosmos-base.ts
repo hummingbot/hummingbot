@@ -14,7 +14,6 @@ const { DirectSecp256k1Wallet } = require('@cosmjs/proto-signing');
 const { StargateClient } = require('@cosmjs/stargate');
 const { toBase64, fromBase64, fromHex } = require('@cosmjs/encoding');
 const crypto = require('crypto').webcrypto;
-const { assets: assetsRegistry } = require('chain-registry');
 export interface Token {
   base: string;
   address: string;
@@ -285,12 +284,6 @@ export class CosmosBase {
     dec.decode(decrypted);
 
     return await this.getWalletFromPrivateKey(dec.decode(decrypted), prefix);
-  }
-
-  getChainAssetsData(chain: string) {
-    return assetsRegistry.find(
-      ({ chain_name }: { chain_name: string }) => chain_name === chain
-    );
   }
 
   async getDenomMetadata(provider: any, denom: string): Promise<any> {
