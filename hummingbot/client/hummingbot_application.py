@@ -122,13 +122,14 @@ class HummingbotApplication(*commands):
         self._pmm_script_iterator = None
         self._binance_connector = None
         self._shared_client = None
+        self._mqtt: MQTTGateway = None
 
         # gateway variables and monitor
         self._gateway_monitor = GatewayStatusMonitor(self)
 
-        if self.client_config_map.mqtt_broker.mqtt_logger or \
-                self.client_config_map.mqtt_broker.mqtt_notifier or \
-                self.client_config_map.mqtt_broker.mqtt_commands:
+        if self.client_config_map.mqtt_broker.mqtt_autostart and \
+                (self.client_config_map.mqtt_broker.mqtt_notifier or
+                 self.client_config_map.mqtt_broker.mqtt_commands):
             try:
                 self._mqtt = MQTTGateway(self)
                 self.logger().info('Starting MQTT Notifier')
@@ -338,7 +339,9 @@ class HummingbotApplication(*commands):
             self.strategy_name,
         )
         self.markets_recorder.start()
-        self._mqtt.start_event_fw()
+        if self.client_config_map.mqtt_broker.mqtt_autostart and \
+                self.client_config_map.mqtt.mqtt_events:
+            self._mqtt.start_event_fw()
 
     def _initialize_notifiers(self):
         self.notifiers.extend(
