@@ -163,7 +163,7 @@ class AmmArbStrategy(StrategyPyBase):
     @lru_cache(maxsize=10)
     def is_gateway_market(market_info: MarketTradingPairTuple) -> bool:
         return market_info.market.name in sorted(
-            AllConnectorSettings.get_gateway_evm_amm_connector_names().union(
+            AllConnectorSettings.get_gateway_amm_connector_names().union(
                 AllConnectorSettings.get_gateway_clob_connector_names()
             )
         )

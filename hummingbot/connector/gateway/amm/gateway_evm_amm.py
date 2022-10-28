@@ -753,6 +753,25 @@ class GatewayEVMAMM(ConnectorBase):
                                                f"{self.connector_name} has been canceled.")
                             self.stop_tracking_order(tracked_order.client_order_id)
 
+    def processs_trade_fill_update(self, tracked_order: EVMInFlightOrder, fee: Decimal):
+        trade_fee: TradeFeeBase = AddedToCostTradeFee(
+            flat_fees=[TokenAmount(tracked_order.fee_asset, fee)]
+        )
+
+        trade_update: TradeUpdate = TradeUpdate(
+            trade_id=tracked_order.exchange_order_id,
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=tracked_order.exchange_order_id,
+            trading_pair=tracked_order.trading_pair,
+            fill_timestamp=self.current_timestamp,
+            fill_price=tracked_order.price,
+            fill_base_amount=tracked_order.amount,
+            fill_quote_amount=tracked_order.amount * tracked_order.price,
+            fee=trade_fee
+        )
+
+        self._order_tracker.process_trade_update(trade_update)
+
     async def update_order_status(self, tracked_orders: List[EVMInFlightOrder]):
         """
         Calls REST API to get status update for each in-flight amm orders.
@@ -791,22 +810,7 @@ class GatewayEVMAMM(ConnectorBase):
                 gas_price: Decimal = tracked_order.gas_price
                 fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
 
-                trade_fee: TradeFeeBase = AddedToCostTradeFee(
-                    flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
-                )
-                trade_update: TradeUpdate = TradeUpdate(
-                    trade_id=tracked_order.exchange_order_id,
-                    client_order_id=tracked_order.client_order_id,
-                    exchange_order_id=tracked_order.exchange_order_id,
-                    trading_pair=tracked_order.trading_pair,
-                    fill_timestamp=self.current_timestamp,
-                    fill_price=tracked_order.price,
-                    fill_base_amount=tracked_order.amount,
-                    fill_quote_amount=tracked_order.amount * tracked_order.price,
-                    fee=trade_fee
-                )
-
-                self._order_tracker.process_trade_update(trade_update)
+                self.processs_trade_fill_update(tracked_order=tracked_order, fee=fee)
 
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=tracked_order.client_order_id,

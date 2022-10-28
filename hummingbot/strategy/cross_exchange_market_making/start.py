@@ -42,7 +42,7 @@ def start(self):
     self.market_trading_pair_tuples = [maker_market_trading_pair_tuple, taker_market_trading_pair_tuple]
     self.market_pair = MakerTakerMarketPair(maker=maker_market_trading_pair_tuple, taker=taker_market_trading_pair_tuple)
 
-    if taker_market in AllConnectorSettings.get_gateway_evm_amm_connector_names():
+    if taker_market in AllConnectorSettings.get_gateway_amm_connector_names():
         if debug_price_shim:
             amm_connector: GatewayEVMAMM = cast(GatewayEVMAMM, self.market_pair.taker.market)
             GatewayPriceShim.get_instance().patch_prices(

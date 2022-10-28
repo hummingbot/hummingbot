@@ -9,8 +9,8 @@ gasLimitEstimate: 2000000
 # perform the trade, but the gas will still be spent.
 ttl: 300
 
-# contractAddresses:
-  # mainnet:
-    # routerAddress: 'v2.ref-finance.near'
-  # testnet:
-    # routerAddress: 'ref-finance-101.testnet'
+contractAddresses:
+  mainnet:
+    routerAddress: 'v2.ref-finance.near'
+  testnet:
+    routerAddress: 'ref-finance-101.testnet'

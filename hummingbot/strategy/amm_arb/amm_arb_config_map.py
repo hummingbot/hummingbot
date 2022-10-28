@@ -101,7 +101,7 @@ amm_arb_config_map = {
                "(Enter 1 for 1%)? >>> ",
         prompt_on_new=True,
         default=lambda: Decimal(1) if amm_arb_config_map["connector_1"].value in sorted(
-            AllConnectorSettings.get_gateway_evm_amm_connector_names().union(
+            AllConnectorSettings.get_gateway_amm_connector_names().union(
                 AllConnectorSettings.get_gateway_clob_connector_names()
             )
         ) else Decimal(0),
@@ -113,7 +113,7 @@ amm_arb_config_map = {
                " (Enter 1 for 1%)? >>> ",
         prompt_on_new=True,
         default=lambda: Decimal(1) if amm_arb_config_map["connector_2"].value in sorted(
-            AllConnectorSettings.get_gateway_evm_amm_connector_names().union(
+            AllConnectorSettings.get_gateway_amm_connector_names().union(
                 AllConnectorSettings.get_gateway_clob_connector_names()
             )
         ) else Decimal(0),

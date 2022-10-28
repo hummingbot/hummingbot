@@ -59,23 +59,23 @@ export const getSignedTransactions = async ({
 
   const signedTransactions: Array<nearTransactions.SignedTransaction> = [];
 
+  const publicKey = await account.connection.signer.getPublicKey(
+    account.accountId,
+    account.connection.networkId
+  );
+  if (!publicKey) {
+    throw 'Wallet not properly initialized.';
+  }
+
+  const accessKey = await account.connection.provider.query<AccessKeyView>({
+    request_type: 'view_access_key',
+    finality: 'final',
+    account_id: AccountId,
+    public_key: publicKey.toString(),
+  });
+
   for (let i = 0; i < transactions.length; i += 1) {
     const transaction = transactions[i];
-
-    const publicKey = await account.connection.signer.getPublicKey(
-      account.accountId,
-      account.connection.networkId
-    );
-    if (!publicKey) {
-      throw 'Wallet not properly initialized.';
-    }
-
-    const accessKey = await account.connection.provider.query<AccessKeyView>({
-      request_type: 'view_access_key',
-      finality: 'final',
-      account_id: AccountId,
-      public_key: publicKey.toString(),
-    });
 
     if (!validateAccessKey(transaction, accessKey)) {
       throw 'Account does not have access.';
