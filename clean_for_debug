@@ -10,11 +10,11 @@ AUGMENTED_PYTHON_MODULES=$(find ./hummingbot -name '*.py' -exec sh -c 'for f do 
 for f in $INLINE_CYTHON_MODULES $AUGMENTED_PYTHON_MODULES; do
   echo "   $f"
   b=$(basename $f .py)
-  find . -name "${b}\.${o,cpp,cython}.*" -exec rm {} \;
+  find . \( -name "${b}.o" -o -name "${b}.cpp" -o  -name "${b}.cpython*" \) -exec rm {} \;
 done
 
 for f in $INLINE_CYTHON_MODULES $AUGMENTED_PYTHON_MODULES; do
-  find . -name "${b}\.${o,cpp,cython}.*" -print
+  find . \( -name "${b}.o" -o -name "${b}.cpp" -o  -name "${b}.cpython*" \)
 done
 
 echo "Done!"
