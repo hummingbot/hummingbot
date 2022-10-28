@@ -1,13 +1,4 @@
 import {
-  BigNumber,
-  Contract,
-  ContractInterface,
-  ContractTransaction,
-  Transaction,
-  Wallet,
-} from 'ethers';
-import { Cronos } from '../../chains/cronos/cronos';
-import {
   ExpectedTrade,
   Pairish,
   Percentish,
@@ -19,11 +10,20 @@ import {
   UniswapishSwapParameters,
   UniswapishTrade,
 } from '../../services/common-interfaces';
-import { percentRegexp } from '../../services/config-manager-v2';
-import { UniswapishPriceError } from '../../services/error-handler';
-import { logger } from '../../services/logger';
-import { isFractionString } from '../../services/validators';
+import {
+  BigNumber,
+  Contract,
+  ContractInterface,
+  ContractTransaction,
+  Transaction,
+  Wallet,
+} from 'ethers';
 import { CronosBaseUniswapishConnectorConfig } from './cronos-base-uniswapish-connector.config';
+import { Cronos } from '../../chains/cronos/cronos';
+import { logger } from '../../services/logger';
+import { UniswapishPriceError } from '../../services/error-handler';
+import { isFractionString } from '../../services/validators';
+import { percentRegexp } from '../../services/config-manager-v2';
 
 export abstract class CronosBaseUniswapishConnector implements Uniswapish {
   private static _instances: { [name: string]: CronosBaseUniswapishConnector };
@@ -38,7 +38,7 @@ export abstract class CronosBaseUniswapishConnector implements Uniswapish {
   private _ready: boolean = false;
 
   protected constructor(
-    private _sdkProvider: CronosBaseSDKProvider,
+    private _sdkProvider: CronosBaseUniswapishSDKProvider,
     private readonly _routerAbi: ContractInterface,
     chain: string,
     network: string
@@ -214,7 +214,7 @@ export abstract class CronosBaseUniswapishConnector implements Uniswapish {
    * @param wallet Wallet
    * @param trade Expected trade
    * @param gasPrice Base gas price, for pre-EIP1559 transactions
-   * @param CronosBaseConnectorRoute Router smart contract address
+   * @param CronosBaseUniswapishConnectorRoute Router smart contract address
    * @param ttl How long the swap is valid before expiry, in seconds
    * @param abi Router contract ABI
    * @param gasLimit Gas limit
@@ -227,7 +227,7 @@ export abstract class CronosBaseUniswapishConnector implements Uniswapish {
     wallet: Wallet,
     trade: UniswapishTrade,
     gasPrice: number,
-    CronosBaseConnectorRoute: string,
+    CronosBaseUniswapishConnectorRoute: string,
     ttl: number,
     abi: ContractInterface,
     gasLimit: number,
@@ -242,7 +242,11 @@ export abstract class CronosBaseUniswapishConnector implements Uniswapish {
       allowedSlippage: this.getAllowedSlippage(allowedSlippage),
     });
 
-    const contract = new Contract(CronosBaseConnectorRoute, abi, wallet);
+    const contract = new Contract(
+      CronosBaseUniswapishConnectorRoute,
+      abi,
+      wallet
+    );
     return this._cronos.nonceManager.provideNonce(
       nonce,
       wallet.address,
@@ -300,20 +304,20 @@ export abstract class CronosBaseUniswapishConnector implements Uniswapish {
       CronosBaseUniswapishConnector._instances = {};
     }
 
-    const chainName = chain + network;
+    const instanceName = chain + network + this.name;
 
-    if (!(chainName in CronosBaseUniswapishConnector._instances)) {
-      CronosBaseUniswapishConnector._instances[chainName] = new this(
+    if (!(instanceName in CronosBaseUniswapishConnector._instances)) {
+      CronosBaseUniswapishConnector._instances[instanceName] = new this(
         chain,
         network
       );
     }
 
-    return CronosBaseUniswapishConnector._instances[chainName];
+    return CronosBaseUniswapishConnector._instances[instanceName];
   }
 }
 
-export interface CronosBaseSDKProvider {
+export interface CronosBaseUniswapishSDKProvider {
   buildToken(
     chainId: number,
     address: string,
