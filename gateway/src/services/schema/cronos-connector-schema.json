@@ -5,7 +5,6 @@
     "allowedSlippage": { "type": "string" },
     "gasLimitEstimate": { "type": "integer" },
     "ttl": { "type": "integer" },
-    "tradingTypes": { "type":  "array", "items": { "type":  "string" } },
     "contractAddresses": {
       "type": "object",
       "patternProperties": {
