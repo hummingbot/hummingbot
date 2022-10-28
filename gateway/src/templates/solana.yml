@@ -1,7 +1,7 @@
 network: mainnet-beta
 networks:
   mainnet-beta:
-    nodeURL: https://api.mainnet-beta.solana.com
+    nodeURL: https://rpc.ankr.com/solana
 #    nodeURL: https://solana-api.projectserum.com
 #    nodeURL: https://solana-api.syndica.io/access-token/<access token>/rpc
     nativeCurrencySymbol: SOL
@@ -9,7 +9,7 @@ networks:
     nodeURL: https://api.testnet.solana.com
     nativeCurrencySymbol: SOL
   devnet:
-    nodeURL: https://api.devnet.solana.com
+    nodeURL: https://rpc.ankr.com/solana_devnet
     nativeCurrencySymbol: SOL
 retry:
   all:
