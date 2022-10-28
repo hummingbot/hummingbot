@@ -139,7 +139,7 @@ def main():
     ]
 
     cython_kwargs = {
-        "language_level": '3str',
+        "language_level": '3',
         "gdb_debug": False,
         "force": False,
         "annotate": False,
