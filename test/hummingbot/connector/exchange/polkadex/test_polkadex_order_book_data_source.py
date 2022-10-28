@@ -74,7 +74,7 @@ class PolkadexOrderBookDataSourceUnitTests(unittest.TestCase):
     # Test getting new orderbook succesfully
     @aioresponses()
     def test_get_new_order_book_succesful(self, mock_api):
-        raw_url = "https://szzsvapgkjdurfl7ijvc3vtbba.appsync-api.eu-central-1.amazonaws.com/graphql"
+        raw_url = "https://kckpespz5bb2rmdnuxycz6e7he.appsync-api.eu-central-1.amazonaws.com/graphql"
         # resp = {"Error": 400}
         resp = {
             "data": {
@@ -171,7 +171,7 @@ class PolkadexOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_order_book_snapshot(self, mock_api):
-        raw_url = "https://szzsvapgkjdurfl7ijvc3vtbba.appsync-api.eu-central-1.amazonaws.com/graphql"
+        raw_url = "https://kckpespz5bb2rmdnuxycz6e7he.appsync-api.eu-central-1.amazonaws.com/graphql"
         resp = {
             "data": {
                 "getOrderbook": {
@@ -270,7 +270,7 @@ class PolkadexOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_last_traded_prices(self, mock_api):
-        raw_url = "https://szzsvapgkjdurfl7ijvc3vtbba.appsync-api.eu-central-1.amazonaws.com/graphql"
+        raw_url = "https://kckpespz5bb2rmdnuxycz6e7he.appsync-api.eu-central-1.amazonaws.com/graphql"
         resp = {
             "data": {
                 "getRecentTrades": {
@@ -287,7 +287,7 @@ class PolkadexOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_parse_trade_message(self, mock_api):
-        # raw_url = "https://szzsvapgkjdurfl7ijvc3vtbba.appsync-api.eu-central-1.amazonaws.com/graphql"
+        # raw_url = "https://kckpespz5bb2rmdnuxycz6e7he.appsync-api.eu-central-1.amazonaws.com/graphql"
         resp = {
             "data": [{"m": "PDEX-1", "p": 1000000000000, "q": 1000000000000, "tid": 20, "t": 1661927828000}],
         }
