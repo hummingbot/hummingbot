@@ -54,6 +54,7 @@ class MQTTConfigMap(BaseClientModel):
     mqtt_port: int = Field(default=1883)
     mqtt_username: str = Field(default="")
     mqtt_password: str = Field(default="")
+    mqtt_ssl: bool = Field(default=False)
     mqtt_logger: bool = Field(default=True)
     mqtt_notifier: bool = Field(default=True)
     mqtt_commands: bool = Field(default=True)
