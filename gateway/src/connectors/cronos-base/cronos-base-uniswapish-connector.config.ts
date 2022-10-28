@@ -11,7 +11,10 @@ export namespace CronosBaseUniswapishConnectorConfig {
     availableNetworks: Array<AvailableNetworks>;
   }
 
-  export function buildConfig(connector: string): NetworkConfig {
+  export function buildConfig(
+    connector: string,
+    tradingTypes: Array<string>
+  ): NetworkConfig {
     const contractAddresses: any = ConfigManagerV2.getInstance().get(
       `${connector}.contractAddresses` // todo: test
     );
@@ -28,9 +31,7 @@ export namespace CronosBaseUniswapishConnectorConfig {
         ConfigManagerV2.getInstance().get(
           `${connector}.contractAddresses.` + network + '.routerAddress'
         ),
-      tradingTypes: ConfigManagerV2.getInstance().get(
-        `${connector}.tradingTypes`
-      ),
+      tradingTypes: tradingTypes,
       availableNetworks: [{ chain: 'cronos', networks: networks }],
     };
   }
