@@ -113,7 +113,7 @@ class GatewayConnectionSetting:
             if chain in market_name:
                 connector, network = market_name.split(chain)
                 connector = connector[:-1]
-                network = network[:1]
+                network = network[1:]
                 return GatewayConnectionSetting.get_connector_spec(connector, chain, network)
         return None
 
