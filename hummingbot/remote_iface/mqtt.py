@@ -52,7 +52,7 @@ class MQTTCommands(Node):
     def logger(cls) -> HummingbotLogger:
         global mqtts_logger
         if mqtts_logger is None:
-            mqtts_logger = HummingbotLogger(__name__)
+            mqtts_logger = HummingbotLogger("MQTT_Gateway")
         return mqtts_logger
 
     def __init__(self,
@@ -160,7 +160,7 @@ class MQTTEventForwarder:
     def logger(cls) -> HummingbotLogger:
         global mqtts_logger
         if mqtts_logger is None:
-            mqtts_logger = HummingbotLogger(__name__)
+            mqtts_logger = HummingbotLogger("MQTT_Gateway")
         return mqtts_logger
 
     def __init__(self,
@@ -312,7 +312,7 @@ class MQTTGateway(Node):
     def logger(cls) -> HummingbotLogger:
         global mqtts_logger
         if mqtts_logger is None:
-            mqtts_logger = HummingbotLogger(__name__)
+            mqtts_logger = HummingbotLogger("MQTT_Gateway")
         return mqtts_logger
 
     def __init__(self,
@@ -327,6 +327,7 @@ class MQTTGateway(Node):
             node_name=self.NODE_NAME.replace('$UID', hb_app.uid()),
             connection_params=self._params,
             heartbeat_uri=self.HEARTBEAT_URI,
+            debug=False,
             *args,
             **kwargs
         )
