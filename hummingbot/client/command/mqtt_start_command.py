@@ -18,8 +18,11 @@ class MQTTStartCommand:
 
     async def start_mqtt_async(self,  # type: HummingbotApplication
                                ):
-        self.logger().info("MQTT.Start command initiated.")
-        self._mqtt = MQTTGateway(self)
-        self._mqtt.start_notifier()
-        self._mqtt.start_commands()
-        self._mqtt.run()
+        if self._mqtt is None:
+            self.logger().info("MQTT.Start command initiated.")
+            self._mqtt = MQTTGateway(self)
+            self._mqtt.start_notifier()
+            self._mqtt.start_commands()
+            self._mqtt.run()
+        else:
+            self.logger().info("MQTT is already initiated!")
