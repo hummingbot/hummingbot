@@ -4,7 +4,23 @@
     "properties": {
       "allowedSlippage": { "type": "string" },
       "gasLimitEstimate": { "type": "integer" },
-      "ttl": { "type": "integer" }
+      "ttl": { "type": "integer" },
+      "contractAddresses": {
+        "type": "object",
+        "patternProperties": {
+          "^\\w+$": {
+            "type": "object",
+            "properties": {
+              "routerAddress": { "type": "string" }
+            },
+            "required": [
+              "routerAddress"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
     },
     "additionalProperties": false,
     "required": [

@@ -22,7 +22,13 @@ export namespace RefConfig {
     availableNetworks: [
       {
         chain: 'near',
-        networks: ['mainnet', 'testnet'],
+        networks: Object.keys(
+          ConfigManagerV2.getInstance().get('ref.contractAddresses')
+        ).filter((network) =>
+          Object.keys(
+            ConfigManagerV2.getInstance().get('near.networks')
+          ).includes(network)
+        ),
       },
     ],
   };

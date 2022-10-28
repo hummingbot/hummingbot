@@ -8,8 +8,8 @@ from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -78,43 +78,23 @@ class GatewayNearAMM(GatewayEVMAMM):
                 chain=self.chain,
                 network=self.network,
                 transaction_hash=tx_hash,
-                address=self.address
+                address=self.address,
+                fail_silently=True
             )
             for tx_hash in tx_hash_list
         ], return_exceptions=True)
         for tracked_order, tx_details in zip(tracked_orders, update_results):
-            if isinstance(tx_details, Exception):
-                self.logger().error(f"An error occurred fetching transaction status of {tracked_order.client_order_id}")
-                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
-                continue
             if "txHash" not in tx_details:
-                self.logger().error(f"No txHash field for transaction status of {tracked_order.client_order_id}: "
-                                    f"{tx_details}.")
                 continue
-            tx_status: int = tx_details["txStatus"]
-            tx_receipt: Optional[Dict[str, Any]] = tx_details["txReceipt"]
+            tx_status: int = tx_details.get("txStatus", -1)
+            tx_receipt: Optional[Dict[str, Any]] = tx_details.get("txReceipt", None)
             if tx_receipt is not None:
                 if tx_status == 1:
                     gas_used: int = tx_receipt["transaction_outcome"]["outcome"]["gas_burnt"]
                     gas_price: Decimal = tracked_order.gas_price
                     fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e24))
 
-                    trade_fee: TradeFeeBase = AddedToCostTradeFee(
-                        flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
-                    )
-                    trade_update: TradeUpdate = TradeUpdate(
-                        trade_id=tracked_order.exchange_order_id,
-                        client_order_id=tracked_order.client_order_id,
-                        exchange_order_id=tracked_order.exchange_order_id,
-                        trading_pair=tracked_order.trading_pair,
-                        fill_timestamp=self.current_timestamp,
-                        fill_price=tracked_order.price,
-                        fill_base_amount=tracked_order.amount,
-                        fill_quote_amount=tracked_order.amount * tracked_order.price,
-                        fee=trade_fee
-                    )
-
-                    self._order_tracker.process_trade_update(trade_update)
+                    self.processs_trade_fill_update(tracked_order=tracked_order, fee=fee)
 
                     order_update: OrderUpdate = OrderUpdate(
                         client_order_id=tracked_order.client_order_id,
@@ -123,7 +103,7 @@ class GatewayNearAMM(GatewayEVMAMM):
                         new_state=OrderState.FILLED,
                     )
 
-                else:  # transactio failed
+                else:  # transaction failed
                     order_update: OrderUpdate = OrderUpdate(
                         client_order_id=tracked_order.client_order_id,
                         trading_pair=tracked_order.trading_pair,
@@ -132,6 +112,8 @@ class GatewayNearAMM(GatewayEVMAMM):
                     )
 
                 self._order_tracker.process_order_update(order_update)
+            else:
+                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
 
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
         return Decimal("1e-15")
