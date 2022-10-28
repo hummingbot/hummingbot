@@ -1,5 +1,5 @@
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import WSRequest, RESTRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
 
 class PolkadexAuth(AuthBase):
