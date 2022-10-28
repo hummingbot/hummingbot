@@ -1,0 +1,58 @@
+version: "3.2"
+services:
+  # rabbitmq:
+  #   image: rabbitmq:3-management-alpine
+  #   container_name: 'rabbitmq'
+  #   ports:
+  #     - 5672:5672    # AMQP
+  #     - 15672:15672  # Management
+  #     - 1884:1883    # MQTT
+  #     - 61613:61613  # STOMP
+  #     - 15675:15675  # Web MQTT
+  #     - 15674:15674  # Web STOMP
+  #   volumes:
+  #     - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+  #     - ./rabbitmq/20-main.conf:/etc/rabbitmq/conf.d/20-main.conf:ro
+  #     - ./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+  #     - ./rabbitmq/data:/var/lib/rabbitmq/mnesia/rabbit@my-rabbit
+  #     - ./rabbitmq/logs:/var/log/rabbitmq/log
+  #   environment:
+  #     - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:-admin}
+  #     - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:-admin}
+  #   networks:
+  #     - se2net
+
+  nginx:
+    container_name: nginx
+    image: nginx:latest
+    restart: unless-stopped
+    environment:
+      - DOMAIN=${DOMAIN}
+    ports:
+      - 80:80
+      - 443:443 # mapping port 443 to the container's port 443 for https
+    volumes:
+      - ./etc/nginx/templates:/etc/nginx/templates:ro
+      - ./etc/letsencrypt:/etc/letsencrypt:ro # mounting the folder to the nginx container 
+      - ./certbot/data:/var/www/certbot
+    networks:
+      - se2net
+
+  certbot:
+    container_name: certbot
+    image: certbot/certbot:latest
+    depends_on:
+      - nginx
+    command: >-
+             certonly --reinstall --webroot --webroot-path=/var/www/certbot
+             --email ${EMAIL} --agree-tos --no-eff-email
+             -d ${DOMAIN}
+    volumes:
+      - ./etc/letsencrypt:/etc/letsencrypt
+      - ./certbot/data:/var/www/certbot
+    networks:
+      - se2net
+
+networks:
+  se2net:
+    driver: bridge
