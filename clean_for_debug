@@ -13,4 +13,8 @@ for f in $INLINE_CYTHON_MODULES $AUGMENTED_PYTHON_MODULES; do
   find . -name "${b}.cp${p,ython}*" -exec rm {} \;
 done
 
+for f in $INLINE_CYTHON_MODULES $AUGMENTED_PYTHON_MODULES; do
+  find . -name "${b}.cp${p,ython}*" -print
+done
+
 echo "Done!"
