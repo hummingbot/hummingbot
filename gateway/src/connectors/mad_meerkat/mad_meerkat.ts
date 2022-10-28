@@ -16,7 +16,7 @@ import {
   UniswapishSwapParameters,
 } from '../../services/common-interfaces';
 import {
-  CronosBaseSDKProvider,
+  CronosBaseUniswapishSDKProvider,
   CronosBaseUniswapishConnector,
 } from '../cronos-base/cronos-base-uniswapish-connector';
 import { CronosBaseUniswapishConnectorConfig } from '../cronos-base/cronos-base-uniswapish-connector.config';
@@ -33,7 +33,7 @@ export class MadMeerkat extends CronosBaseUniswapishConnector {
   }
 }
 
-class MadMeerkatSDKProvider implements CronosBaseSDKProvider {
+class MadMeerkatSDKProvider implements CronosBaseUniswapishSDKProvider {
   public buildToken(
     chainId: number,
     address: string,
