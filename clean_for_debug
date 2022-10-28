@@ -1,0 +1,16 @@
+#!/bin/bash
+
+cd $(dirname "$0") || exit
+
+echo "Cleaning up all compiled Augmented Pure Python files related to"
+
+INLINE_CYTHON_MODULES=$(find ./hummingbot -name "*.py" -exec grep -l "\(import\|from\) cython" {} \;)
+AUGMENTED_PYTHON_MODULES=$(find ./hummingbot -name '*.py' -exec sh -c 'for f do [ -e "${f%.*}.pxd" ] && echo $f; done' sh {} +)
+
+for f in $INLINE_CYTHON_MODULES $AUGMENTED_PYTHON_MODULES; do
+  echo "   $f"
+  b=$(basename $f .py)
+  find . -name "${b}.cp${p,ython}*" -exec rm {} \;
+done
+
+echo "Done!"

@@ -48,6 +48,30 @@ class BuildExt(build_ext):
         super().build_extensions()
 
 
+def find_py_with_cython_inline() -> List[Extension]:
+    extensions: List[Extension] = []
+    # Static typing case (importing cython for @cython decorators)
+    py_files = pathlib.Path().glob(pattern="hummingbot/**/*.py")
+    for py_file in py_files:
+        parent = str(py_file.parent).replace("/", ".")
+        obj = py_file.stem
+
+        with open(py_file, "r") as f:
+            for i, line in enumerate(f):
+                if " cython " in line:
+                    extensions.append(Extension(parent + "." + obj,
+                                                sources=[str(py_file)],
+                                                include_dirs=["hummingbot/core",
+                                                              "hummingbot/core/data_type",
+                                                              "hummingbot/core/cpp"],
+                                                define_macros=[("NPY_NO_DEPRECATED_API",
+                                                                "NPY_1_7_API_VERSION")] + coverage_macros,
+                                                language="c++"))
+                    print(extensions)
+                    break
+    return extensions
+
+
 def find_py_with_pxd() -> List[Extension]:
     extensions: List[Extension] = []
     pxd_files = pathlib.Path().glob(pattern="hummingbot/**/*.pxd")
@@ -168,7 +192,7 @@ def main():
 
     cythonized_py = []
     if not IS_PY_DEBUG:
-        python_sources = find_py_with_pxd()
+        python_sources = find_py_with_pxd() + find_py_with_cython_inline()
         cythonized_py = cythonize(python_sources, compiler_directives=coverage_compiler_directives, **cython_kwargs)
 
     cythonized_pyx = cythonize(Extension("*",
