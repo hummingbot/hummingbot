@@ -319,15 +319,18 @@ class MQTTGateway(Node):
 
     def start_notifier(self):
         if self.hb_app.client_config_map.mqtt_broker.mqtt_notifier:
+            self.logger().info('Starting MQTT Notifier')
             self._notifier = MQTTNotifier(self.hb_app, self)
             self.hb_app.notifiers.append(self._notifier)
 
     def start_commands(self):
         if self.hb_app.client_config_map.mqtt_broker.mqtt_commands:
+            self.logger().info('Starting MQTT Remote Commands')
             self._commands = MQTTCommands(self.hb_app, self)
 
     def start_event_fw(self):
         if self.hb_app.client_config_map.mqtt_broker.mqtt_events:
+            self.logger().info('Starting MQTT Remote Events')
             self.mqtt_event_forwarder = MQTTEventForwarder(self.hb_app, self)
 
     def _create_mqtt_params_from_conf(self):
