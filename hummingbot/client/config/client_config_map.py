@@ -50,16 +50,81 @@ def using_exchange(exchange: str) -> Callable:
 
 
 class MQTTConfigMap(BaseClientModel):
-    mqtt_host: str = Field(default="localhost")
-    mqtt_port: int = Field(default=1883)
-    mqtt_username: str = Field(default="")
-    mqtt_password: str = Field(default="")
-    mqtt_ssl: bool = Field(default=False)
-    mqtt_logger: bool = Field(default=True)
-    mqtt_notifier: bool = Field(default=True)
-    mqtt_commands: bool = Field(default=True)
-    mqtt_events: bool = Field(default=True)
-    mqtt_autostart: bool = Field(default=False)
+    mqtt_host: str = Field(
+        default="localhost",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the MQTT hostname to connect to (e.g. localhost)"
+            ),
+        ),
+    )
+    mqtt_port: int = Field(
+        default=1883,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the MQTT port to connect to (e.g. 1883)"
+            ),
+        ),
+    )
+    mqtt_username: str = Field(
+        default="",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the username for connecting to the MQTT broker"
+            ),
+        ),
+    )
+    mqtt_password: str = Field(
+        default="",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the password for connecting to the MQTT broker"
+            ),
+        ),
+    )
+    mqtt_ssl: bool = Field(
+        default=False,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable SSL for MQTT connections"
+            ),
+        ),
+    )
+    mqtt_logger: bool = Field(
+        default=True
+    )
+    mqtt_notifier: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable MQTT Notifier"
+            ),
+        ),
+    )
+    mqtt_commands: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable MQTT Commands"
+            ),
+        ),
+    )
+    mqtt_events: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable Events forwarding to MQTT broker"
+            ),
+        ),
+    )
+    mqtt_autostart: bool = Field(
+        default=False,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable autostart"
+            ),
+        ),
+    )
 
     class Config:
         title = "mqtt_broker"

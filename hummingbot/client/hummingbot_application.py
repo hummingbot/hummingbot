@@ -340,7 +340,7 @@ class HummingbotApplication(*commands):
         )
         self.markets_recorder.start()
         if self.client_config_map.mqtt_broker.mqtt_autostart and \
-                self.client_config_map.mqtt.mqtt_events:
+                self.client_config_map.mqtt_broker.mqtt_events:
             self._mqtt.start_event_fw()
 
     def _initialize_notifiers(self):
