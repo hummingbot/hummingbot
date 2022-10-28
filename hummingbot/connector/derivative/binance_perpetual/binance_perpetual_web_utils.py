@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Optional, List
+from typing import Any, Callable, Dict, Optional
 
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -131,22 +131,3 @@ async def get_current_server_time(
     server_time = response["serverTime"]
 
     return server_time
-
-
-def endpoint_from_message(message: Dict[str, Any]) -> Optional[str]:
-    endpoint = None
-    if "request" in message:
-        message = message["request"]
-    if isinstance(message, dict):
-        if "op" in message.keys():
-            endpoint = message["op"]
-        elif endpoint is None and "topic" in message.keys():
-            endpoint = message["topic"]
-    return endpoint
-
-
-def payload_from_message(message: Dict[str, Any]) -> List[Dict[str, Any]]:
-    payload = message
-    if "data" in message:
-        payload = message["data"]
-    return payload
