@@ -12,6 +12,8 @@ native_tokens = {
     "cronos": "CRO"
 }
 
+SUPPORTED_CHAINS = set(native_tokens.keys())
+
 
 def flatten(items):
     """

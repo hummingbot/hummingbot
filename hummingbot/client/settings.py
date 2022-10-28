@@ -10,6 +10,7 @@ from pydantic import SecretStr
 
 from hummingbot import get_strategy_list, root_path
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+from hummingbot.core.utils.gateway_config_utils import SUPPORTED_CHAINS
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
@@ -108,11 +109,13 @@ class GatewayConnectionSetting:
 
     @staticmethod
     def get_connector_spec_from_market_name(market_name: str) -> Optional[Dict[str, str]]:
-        vals = market_name.rsplit("_", 2)
-        if len(vals) == 3:
-            return GatewayConnectionSetting.get_connector_spec(vals[0], vals[1], vals[2])
-        else:
-            return None
+        for chain in SUPPORTED_CHAINS:
+            if chain in market_name:
+                connector, network = market_name.split(chain)
+                connector = connector[:-1]
+                network = network[:1]
+                return GatewayConnectionSetting.get_connector_spec(connector, chain, network)
+        return None
 
     @staticmethod
     def upsert_connector_spec(connector_name: str, chain: str, network: str, trading_type: str, wallet_address: str, additional_spenders: List[str]):
