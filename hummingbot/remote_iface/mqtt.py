@@ -190,6 +190,13 @@ class MQTTEventForwarder:
             (events.MarketEvent.OrderFailure, self._mqtt_fowarder),
             (events.MarketEvent.OrderCancelled, self._mqtt_fowarder),
             (events.MarketEvent.OrderExpired, self._mqtt_fowarder),
+            (events.MarketEvent.FundingPaymentCompleted, self._mqtt_fowarder),
+            (events.MarketEvent.RangePositionLiquidityAdded, self._mqtt_fowarder),
+            (events.MarketEvent.RangePositionLiquidityRemoved, self._mqtt_fowarder),
+            (events.MarketEvent.RangePositionUpdate, self._mqtt_fowarder),
+            (events.MarketEvent.RangePositionUpdateFailure, self._mqtt_fowarder),
+            (events.MarketEvent.RangePositionFeeCollected, self._mqtt_fowarder),
+            (events.MarketEvent.RangePositionClosed, self._mqtt_fowarder),
         ]
         self._app_event_pairs: List[Tuple[int, EventListener]] = []
 
@@ -213,6 +220,13 @@ class MQTTEventForwarder:
                 events.MarketEvent.OrderCancelled.value: "OrderCancelled",
                 events.MarketEvent.OrderExpired.value: "OrderExpired",
                 events.MarketEvent.OrderFailure.value: "OrderFailure",
+                events.MarketEvent.FundingPaymentCompleted.value: "FundingPaymentCompleted",
+                events.MarketEvent.RangePositionLiquidityAdded.value: "RangePositionLiquidityAdded",
+                events.MarketEvent.RangePositionLiquidityRemoved.value: "RangePositionLiquidityRemoved",
+                events.MarketEvent.RangePositionUpdate.value: "RangePositionUpdate",
+                events.MarketEvent.RangePositionUpdateFailure.value: "RangePositionUpdateFailure",
+                events.MarketEvent.RangePositionFeeCollected.value: "RangePositionFeeCollected",
+                events.MarketEvent.RangePositionClosed.value: "RangePositionClosed",
                 # events.CustomEvent.KillSwitchTriggered.value: "KillSwitchTriggered",
                 # events.CustomEvent.MarketInitialized.value: "MarketInitialized",
             }
