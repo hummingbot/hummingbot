@@ -179,4 +179,90 @@ describe('Test EVMNonceManager', () => {
     expect(ethereumNonce2).toEqual(15);
     expect(avalancheNonce2).toEqual(53);
   });
+
+  it('provideNonce should return function results and commit nonce on successful execution of transaction', async () => {
+    const ethereumNonceManager = new EVMNonceManager(
+      testChain1,
+      testChain1Id,
+      dbPath,
+      300
+    );
+
+    patch(
+      ethereumNonceManager,
+      'mergeNonceFromEVMNode',
+      (_ethAddress: string) => {
+        return;
+      }
+    );
+
+    patch(ethereumNonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+      return Promise.resolve(30);
+    });
+
+    await ethereumNonceManager.init(new providers.StaticJsonRpcProvider(''));
+
+    const testFunction = async (_nonce: number) => {
+      return {
+        nonce: _nonce,
+      };
+    };
+    const transactionResult = await ethereumNonceManager.provideNonce(
+      undefined,
+      address1,
+      testFunction
+    );
+    const currentNonceFromMemory =
+      await ethereumNonceManager.getNonceFromMemory(address1);
+
+    expect(transactionResult.nonce).toEqual(31);
+    expect(currentNonceFromMemory).toEqual(31);
+  });
+
+  it('provideNonce should remove all pendingNonces greater or equal should function fail', async () => {
+    const ethereumNonceManager = new EVMNonceManager(
+      testChain1,
+      testChain1Id,
+      dbPath,
+      300
+    );
+
+    patch(
+      ethereumNonceManager,
+      'mergeNonceFromEVMNode',
+      (_ethAddress: string) => {
+        return;
+      }
+    );
+
+    patch(ethereumNonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+      return Promise.resolve(30);
+    });
+
+    await ethereumNonceManager.init(new providers.StaticJsonRpcProvider(''));
+    const pendingNonce1 = await ethereumNonceManager.getNextNonce(address1);
+    expect(pendingNonce1).toEqual(31);
+
+    const testFunction = async (_nonce: number) => {
+      throw new Error('testFunction has failed.');
+    };
+
+    try {
+      await ethereumNonceManager.provideNonce(
+        pendingNonce1, // This pendingNonce should be deleted
+        address1,
+        testFunction
+      );
+    } catch (error) {
+      expect(error).toEqual(new Error('testFunction has failed.'));
+    }
+
+    const currentNonceFromMemory =
+      await ethereumNonceManager.getNonceFromMemory(address1);
+
+    expect(currentNonceFromMemory).toBeNull();
+
+    const pendingNonce2 = await ethereumNonceManager.getNextNonce(address1);
+    expect(pendingNonce2).toEqual(31);
+  });
 });
