@@ -2,6 +2,7 @@ import asyncio
 import json
 import unittest
 from typing import Awaitable
+
 from aioresponses.core import aioresponses
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
