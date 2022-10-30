@@ -165,25 +165,9 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
         return self._hanging_order_ids
 
     @property
-    def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
-        return self._sb_order_tracker.market_pair_to_active_orders
-
-    @property
     def active_limit_orders(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return [(ex, order) for ex, order in self._sb_order_tracker.active_limit_orders
                 if order.client_order_id in self._maker_order_ids]
-
-    @property
-    def cached_limit_orders(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
-        return self._sb_order_tracker.shadow_limit_orders
-
-    @property
-    def active_bids(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
-        return [(market, limit_order) for market, limit_order in self.active_limit_orders if limit_order.is_buy]
-
-    @property
-    def active_asks(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
-        return [(market, limit_order) for market, limit_order in self.active_limit_orders if not limit_order.is_buy]
 
     def format_status(self) -> str:
         cdef:
@@ -246,16 +230,16 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
 
         # Check current profitability for existing buy limit order
         if is_buy:
-            taker_price_sell = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, False, active_order.quantity).result_price
+            taker_sell_price = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, False, active_order.quantity).result_price
             current_buy_price = active_order.price
-            current_prof = 1 - (current_buy_price / taker_price_sell)
-            # self.notify_hb_app("Check buy order, Current  price: " + str(round(active_order.price,5)) + " Current  qty: " + str(round(active_order.quantity,3)) + " can sell on taker for: " + str(round(taker_price_sell,5)) + " profitability is: " + str(round(current_prof,5)))
+            current_prof = 1 - (current_buy_price / taker_sell_price)
+            # self.notify_hb_app("Check buy order, Current  price: " + str(round(active_order.price,5)) + " Current  qty: " + str(round(active_order.quantity,3)) + " can sell on taker for: " + str(round(taker_sell_price,5)) + " profitability is: " + str(round(current_prof,5)))
         # Check current profitability for existing sell limit order
         if not is_buy:
-            taker_price_buy = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, active_order.quantity).result_price
+            taker_buy_price = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, active_order.quantity).result_price
             current_sell_price = active_order.price
-            current_prof = 1 - (taker_price_buy / current_sell_price)
-            # self.notify_hb_app("Check sell order, Current  price: " + str(round(active_order.price,5)) + " Current  qty: " + str(round(active_order.quantity,3)) + " can buy on taker for: " + str(round(taker_price_buy,5)) + " profitability is: " + str(round(current_prof,5)))
+            current_prof = 1 - (taker_buy_price / current_sell_price)
+            # self.notify_hb_app("Check sell order, Current  price: " + str(round(active_order.price,5)) + " Current  qty: " + str(round(active_order.quantity,3)) + " can buy on taker for: " + str(round(taker_buy_price,5)) + " profitability is: " + str(round(current_prof,5)))
         # Check profitability is within tolerance around (Min profitability + volatility modifier + long term trade performance modifier)
         # If not cancel limit order
         prof_set = (self.min_profitability + self._volatility_pct + self._min_prof_adj)
@@ -276,20 +260,20 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
         taker_base_side_balance = taker_market.c_get_balance(market_pair.taker.base_asset)
         try:
             # Average Price for buying order amount on maker market
-            maker_price_buy = maker_market.c_get_vwap_for_volume(market_pair.maker.trading_pair, True, self.order_amount).result_price  # True = buy
+            maker_buy_price = maker_market.c_get_vwap_for_volume(market_pair.maker.trading_pair, True, self.order_amount).result_price  # True = buy
         except ZeroDivisionError:
-            maker_price_buy = taker_market.c_get_vwap_for_volume(market_pair.maker.trading_pair, True, self.order_amount).result_price  # True = buy
+            maker_buy_price = taker_market.c_get_vwap_for_volume(market_pair.maker.trading_pair, True, self.order_amount).result_price  # True = buy
         try:
             # Average Price for buying order amount on taker market
-            taker_price_buy = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, self.order_amount).result_price  # True = buy
+            taker_buy_price = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, self.order_amount).result_price  # True = buy
         except ZeroDivisionError:
-            taker_price_buy = maker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, self.order_amount).result_price  # True = buy
+            taker_buy_price = maker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, self.order_amount).result_price  # True = buy
         # quantity of maker quote amount in base if sold on maker market
-        maker_quote_side_balance_in_base = maker_market.c_get_available_balance(market_pair.maker.quote_asset) / maker_price_buy
+        maker_quote_side_balance_in_base = maker_market.c_get_available_balance(market_pair.maker.quote_asset) / maker_buy_price
         # quantity of taker quote amount in base if sold on taker market
-        taker_quote_side_balance_in_base = taker_market.c_get_available_balance(market_pair.taker.quote_asset) / taker_price_buy
+        taker_quote_side_balance_in_base = taker_market.c_get_available_balance(market_pair.taker.quote_asset) / taker_buy_price
 
-        var_list = [maker_base_side_balance, taker_base_side_balance, maker_price_buy, taker_price_buy, maker_quote_side_balance_in_base, taker_quote_side_balance_in_base]
+        var_list = [maker_base_side_balance, taker_base_side_balance, maker_buy_price, taker_buy_price, maker_quote_side_balance_in_base, taker_quote_side_balance_in_base]
         # self.notify_hb_app("Maker Buffer Price Sell Set: " + str(var_list))
         for item in var_list:
             if Decimal.is_nan(item):
@@ -301,10 +285,10 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
                 if Decimal(order_amount_maker_sell) < self.min_order_amount:
                     return s_decimal_nan, s_decimal_nan
                 # you are selling base asset on maker, using the actual order amount calculate the average price you would get if you bought that amount back on the taker side.
-                taker_price_buy = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, Decimal(order_amount_maker_sell)).result_price
+                taker_buy_price = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, Decimal(order_amount_maker_sell)).result_price
                 # Therefore you can sell the amount for the price you would get if you bought on the taker market + min profitabilty
-                maker_set_price_sell = taker_price_buy * (1 + (self.min_profitability + self._volatility_pct + self._min_prof_adj))
-                # self.notify_hb_app("Looking to sell on maker, Can buy " + str(round(order_amount_maker_sell,2)) + " on taker for: " + str(round(taker_price_buy,5)) + " so sell on maker for: " + str(round(maker_set_price_sell,5)))
+                maker_set_price_sell = taker_buy_price * (1 + (self.min_profitability + self._volatility_pct + self._min_prof_adj))
+                # self.notify_hb_app("Looking to sell on maker, Can buy " + str(round(order_amount_maker_sell,2)) + " on taker for: " + str(round(taker_buy_price,5)) + " so sell on maker for: " + str(round(maker_set_price_sell,5)))
                 return Decimal(maker_set_price_sell), Decimal(order_amount_maker_sell)
 
             if is_buy:  # buy base on Maker side
@@ -314,10 +298,10 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
                 if Decimal(order_amount_maker_buy) < self.min_order_amount:
                     return s_decimal_nan, s_decimal_nan
                 # you are buying base asset on maker, using the actual order amount calculate the average price you would get if you sold that amount back on the taker side.
-                taker_price_sell = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, False, Decimal(order_amount_maker_buy)).result_price
+                taker_sell_price = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, False, Decimal(order_amount_maker_buy)).result_price
                 # Therefore you can sell the amount for the price you would get if you sold on the taker market - min profitabilty
-                maker_set_price_buy = taker_price_sell * (1 - (self.min_profitability + self._volatility_pct + self._min_prof_adj))
-                # self.notify_hb_app("Looking to buy on maker, Can sell " + str(round(order_amount_maker_buy,2)) + " on taker for: " + str(round(taker_price_sell,5)) + " so buy on maker for: " + str(round(maker_set_price_buy,5)))
+                maker_set_price_buy = taker_sell_price * (1 - (self.min_profitability + self._volatility_pct + self._min_prof_adj))
+                # self.notify_hb_app("Looking to buy on maker, Can sell " + str(round(order_amount_maker_buy,2)) + " on taker for: " + str(round(taker_sell_price,5)) + " so buy on maker for: " + str(round(maker_set_price_buy,5)))
                 return Decimal(maker_set_price_buy), Decimal(order_amount_maker_buy)
         except Exception:
             return s_decimal_nan, s_decimal_nan
@@ -336,18 +320,18 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
             return
 
         try:
-            maker_price_buy = maker_market.c_get_vwap_for_volume(market_pair.maker.trading_pair, True, self.order_amount).result_price  # True = buy
+            maker_buy_price = maker_market.c_get_vwap_for_volume(market_pair.maker.trading_pair, True, self.order_amount).result_price  # True = buy
         except ZeroDivisionError:
-            maker_price_buy = taker_market.c_get_vwap_for_volume(market_pair.maker.trading_pair, True, self.order_amount).result_price  # True = buy
+            maker_buy_price = taker_market.c_get_vwap_for_volume(market_pair.maker.trading_pair, True, self.order_amount).result_price  # True = buy
         try:
-            taker_price_buy = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, self.order_amount).result_price  # True = buy
+            taker_buy_price = taker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, self.order_amount).result_price  # True = buy
         except ZeroDivisionError:
-            taker_price_buy = maker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, self.order_amount).result_price  # True = buy
+            taker_buy_price = maker_market.c_get_vwap_for_volume(market_pair.taker.trading_pair, True, self.order_amount).result_price  # True = buy
 
-        maker_quote_side_balance_in_base = maker_market.c_get_available_balance(market_pair.maker.quote_asset) / maker_price_buy
-        taker_quote_side_balance_in_base = taker_market.c_get_available_balance(market_pair.taker.quote_asset) / taker_price_buy
+        maker_quote_side_balance_in_base = maker_market.c_get_available_balance(market_pair.maker.quote_asset) / maker_buy_price
+        taker_quote_side_balance_in_base = taker_market.c_get_available_balance(market_pair.taker.quote_asset) / taker_buy_price
 
-        var_list = [maker_base_side_balance, taker_base_side_balance, maker_price_buy, taker_price_buy, maker_quote_side_balance_in_base, taker_quote_side_balance_in_base]
+        var_list = [maker_base_side_balance, taker_base_side_balance, maker_buy_price, taker_buy_price, maker_quote_side_balance_in_base, taker_quote_side_balance_in_base]
 
         for item in var_list:
             if Decimal.is_nan(item):
