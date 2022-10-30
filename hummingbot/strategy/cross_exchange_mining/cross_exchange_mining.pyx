@@ -24,9 +24,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
 )
 
-from hummingbot.strategy.cross_exchange_mining.cross_exchange_mining_config_map_pydantic import (
-    CrossExchangeMiningConfigMap
-)
+from hummingbot.strategy.cross_exchange_mining.cross_exchange_mining_config_map_pydantic import CrossExchangeMiningConfigMap
 # Cross exchange Mining script by bensmeaton@gmail.com
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -217,9 +215,9 @@ cdef class CrossExchangeMiningStrategy(StrategyBase):
                 lines.extend(["", "  Active orders:"])
                 for order in active_orders_status:
                     if order.is_buy:
-                        lines.extend(["Current buy order of : " + str(order.trading_pair) + " with quantity: " + str(round(order.quantity,5)) + " of " + str(order.base_currency) + " at price: " + str(round(order.price,5))])
+                        lines.extend(["Current buy order of : " + str(order.trading_pair) + " with quantity: " + str(round(order.quantity, 5)) + " of " + str(order.base_currency) + " at price: " + str(round(order.price, 5))])
                     else:
-                        lines.extend(["Current sell order of : " + str(order.trading_pair) + " with quantity: " + str(round(order.quantity,5)) + " of " + str(order.base_currency) + " at price: " + str(round(order.price,5))])
+                        lines.extend(["Current sell order of : " + str(order.trading_pair) + " with quantity: " + str(round(order.quantity, 5)) + " of " + str(order.base_currency) + " at price: " + str(round(order.price, 5))])
             else:
                 lines.extend(["", "  No active maker orders."])
 
