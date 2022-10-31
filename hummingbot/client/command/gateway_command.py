@@ -25,6 +25,7 @@ from hummingbot.core.gateway import (
     get_default_gateway_port,
     get_gateway_container_name,
     get_gateway_paths,
+    is_inside_docker,
     start_gateway,
     stop_gateway,
 )
@@ -99,8 +100,27 @@ class GatewayCommand(GatewayChainApiManager):
 
     async def _generate_certs(
             self,       # type: HummingbotApplication
-            from_client_password: bool = False
+            from_client_password: bool = False,
+            bypass_source_check: bool = False
     ):
+
+        if is_inside_docker and not bypass_source_check:
+            with begin_placeholder_mode(self):
+                while True:
+                    docker_check = await self.app.prompt(
+                        prompt="This command is designed to generate Gateway certificates."
+                        "when you have installed Hummingbot from source, "
+                        "but it looks like you have installed Hummingbot using Docker. "
+                        "Do you want to continue? (Yes/No) >>> ",
+                    )
+                    if self.app.to_stop_config:
+                        return
+                    if docker_check in ["Y", "y", "Yes", "yes"]:
+                        break
+                    if docker_check in ["N", "n", "No", "no"]:
+                        return
+                    self.notify("Invalid input. Please try again or exit config [CTRL + x].\n")
+
         cert_path: str = get_gateway_paths(self.client_config_map).local_certs_path.as_posix()
         current_path: str = self.client_config_map.certs.path
         if not GATEWAY_SSL_CONF_FILE.exists():
@@ -159,6 +179,21 @@ class GatewayCommand(GatewayChainApiManager):
     async def _create_gateway(
         self  # type: HummingbotApplication
     ):
+        if not is_inside_docker:
+            with begin_placeholder_mode(self):
+                while True:
+                    docker_check = await self.app.prompt(
+                        prompt="This command is designed to automate Gateway setup when you have installed Hummingbot using Docker,"
+                        "but it looks like you have installed Hummingbot from source. Do you want to continue?” (Yes/No) >>>"
+                    )
+                    if self.app.to_stop_config:
+                        return
+                    if docker_check in ["Y", "y", "Yes", "yes"]:
+                        break
+                    if docker_check in ["N", "n", "No", "no"]:
+                        return
+                    self.notify("Invalid input. Please try again or exit config [CTRL + x].\n")
+
         gateway_paths: GatewayPaths = get_gateway_paths(self.client_config_map)
         gateway_container_name: str = get_gateway_container_name(self.client_config_map)
         gateway_conf_mount_path: str = gateway_paths.mount_conf_path.as_posix()
@@ -183,7 +218,7 @@ class GatewayCommand(GatewayChainApiManager):
         except Exception:
             pass  # silently ignore exception
 
-        await self._generate_certs(from_client_password=True)  # create cert
+        await self._generate_certs(from_client_password = True, bypass_source_check = True)  # create cert
 
         if await self.check_gateway_image(GATEWAY_DOCKER_REPO, GATEWAY_DOCKER_TAG):
             self.notify("Found Gateway docker image. No image pull needed.")
