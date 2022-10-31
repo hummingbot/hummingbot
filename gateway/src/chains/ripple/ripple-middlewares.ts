@@ -11,9 +11,9 @@ export const verifySolanaIsAvailable = async (
     throw new HttpException(404, 'No Ripple network informed.');
   }
 
-  const solana = await Ripple.getInstance(req.body.network);
-  if (!solana.ready) {
-    await solana.init();
+  const ripple = await Ripple.getInstance(req.body.network);
+  if (!ripple.ready) {
+    await ripple.init();
   }
 
   return next();

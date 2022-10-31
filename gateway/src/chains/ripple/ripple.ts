@@ -2,78 +2,73 @@ import {
   Client,
   Wallet,
   LedgerStream,
-  ValidationStream
+  ValidationStream,
+  TransactionStream,
+  PeerStatusStream,
+  ConsensusStream,
+  PathFindStream,
 } from 'xrpl';
-import bs58 from 'bs58';
-import { BigNumber } from 'ethers';
-import fse from 'fs-extra';
-import NodeCache from 'node-cache';
-import { Cache, CacheContainer } from 'node-ts-cache';
-import { MemoryStorage } from 'node-ts-cache-storage-memory';
-import { runWithRetryAndTimeout } from '../../connectors/serum/serum.helpers';
-import { countDecimals, TokenValue, walletPath } from '../../services/base';
-import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
+import axios from 'axios';
+import { promises as fs } from 'fs';
+import { TokenListType } from '../../services/base';
 import { logger } from '../../services/logger';
-import { getRippleConfig } from './ripple.config';
-import { TransactionResponseStatusCode } from './ripple.requests';
 
 type TrustlineInfo = {
+  id: number;
   code: string;
-  display_decimals: number;
   issuer: string;
-  network: string;
-  symbol: string;
-}
-
-const crypto = require('crypto').webcrypto;
-
-const caches = {
-  instances: new CacheContainer(new MemoryStorage()),
+  title: string;
+  trustlines: number;
+  placeInTop: null;
 };
 
-export class Ripple implements Ripplish {
+export class Ripple {
+  private static _instances: { [name: string]: Ripple };
   public rpcUrl;
-  // @note: Smallest unit of XRP is called a "drop"
-  public transactionDrops;
-  public cache: NodeCache;
 
   protected tokenList: TrustlineInfo[] = [];
-  private _tokenMap: Record<string, TrustlineInfo> = {};
-  private _tokenAddressMap: Record<string, TrustlineInfo> = {};
+  private _tokenMap: Record<string, TrustlineInfo[]> = {};
 
-  private _wallets: Record<string, Wallet> = {};
-
-  private static _instances: { [name: string]: Ripple };
-
+  private _client: Client;
+  private _wallets: Record<string, Wallet> = {}; // TODO: Add method to add wallets
+  private _nativeTokenSymbol: string;
+  private _chain: string;
+  private _network: string;
   private _requestCount: number;
-  private readonly _client: Client;
-  private readonly _dropCost: number;
-  private readonly _dropDecimals: number;
-  private readonly _nativeTokenSymbol: string;
-  private readonly _network: string;
-  private readonly _metricsLogInterval: number;
-  // there are async values set in the constructor
+  private _metricsLogInterval: number;
+  private _tokenListSource: string;
+  private _tokenListType: TokenListType;
+
   private _ready: boolean = false;
   private initializing: boolean = false;
 
-  constructor(network: string) {
+  private constructor(network: string) {
+    const config = {
+      network: {
+        nodeUrl: 'wss://s1.ripple.com/',
+        tokenListSource: 'src/chains/ripple/ripple_tokens.json',
+        tokenListType: 'FILE',
+      },
+      nativeCurrencySymbol: 'XRP',
+      requestTimeout: 20,
+      connectionTimeout: 5,
+      feeCushion: 1.2,
+      maxFeeXRP: '2',
+    };
+
+    this._chain = 'ripple';
     this._network = network;
-
-    const config = getRippleConfig('xrpl', network);
-
     this.rpcUrl = config.network.nodeUrl;
+    this._nativeTokenSymbol = config.nativeCurrencySymbol;
+    this._tokenListSource = config.network.tokenListSource;
+    this._tokenListType = <TokenListType>config.network.tokenListType;
 
     this._client = new Client(this.rpcUrl, {
-      timeout: config.timeToLive,
-      // @todo: Add configs
+      timeout: config.requestTimeout,
+      connectionTimeout: config.connectionTimeout,
+      feeCushion: config.feeCushion,
+      maxFeeXRP: config.maxFeeXRP,
     });
-    this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
-
-    this._nativeTokenSymbol = 'XRP';
-
-    this.transactionDrops = config.minimumFee;
-    this._dropCost = config.dropsToXRP;
-    this._dropDecimals = countDecimals(this._dropCost);
 
     this._requestCount = 0;
     this._metricsLogInterval = 300000; // 5 minutes
@@ -82,11 +77,6 @@ export class Ripple implements Ripplish {
     setInterval(this.metricLogger.bind(this), this.metricsLogInterval);
   }
 
-  public get gasPrice(): number {
-    return this._dropCost;
-  }
-
-  @Cache(caches.instances, { isCachedForever: true })
   public static getInstance(network: string): Ripple {
     if (Ripple._instances === undefined) {
       Ripple._instances = {};
@@ -99,446 +89,113 @@ export class Ripple implements Ripplish {
   }
 
   public static getConnectedInstances(): { [name: string]: Ripple } {
-    return this._instances;
+    return Ripple._instances;
   }
 
   public get client() {
     return this._client;
   }
 
+  public onConnected(callback: () => void) {
+    this._client.on('connected', callback);
+  }
+
+  public onDisconnected(callback: (code: number) => void) {
+    this._client.on('disconnected', callback);
+  }
+
   public onLedgerClosed(callback: (ledger: LedgerStream) => void) {
     this._client.on('ledgerClosed', callback);
+  }
+
+  public onValidationReceived(
+    callback: (validation: ValidationStream) => void
+  ) {
+    this._client.on('validationReceived', callback);
+  }
+
+  public onTransaction(callback: (tx: TransactionStream) => void) {
+    this._client.on('transaction', callback);
+  }
+
+  public onPeerStatusChange(callback: (status: PeerStatusStream) => void) {
+    this._client.on('peerStatusChange', callback);
+  }
+
+  public onConsensusPhase(callback: (phase: ConsensusStream) => void) {
+    this._client.on('consensusPhase', callback);
+  }
+
+  public onPathFind(callback: (path: PathFindStream) => void) {
+    this._client.on('path_find', callback);
   }
 
   public onError(callback: (...err: any[]) => void): void {
     this._client.on('error', callback);
   }
 
-  public onValidationReceived(callback: (validation: ValidationStream) => void): void {
-    this._client.on('validationReceived', callback);
-  }
-
   async init(): Promise<void> {
     if (!this.ready() && !this.initializing) {
       this.initializing = true;
-      await this.loadTokens();
+      await this.loadTokens(this._tokenListSource, this._tokenListType);
       this._ready = true;
       this.initializing = false;
     }
+  }
+
+  async loadTokens(
+    tokenListSource: string,
+    tokenListType: TokenListType
+  ): Promise<void> {
+    this.tokenList = await this.getTokenList(tokenListSource, tokenListType);
+    if (this.tokenList) {
+      this.tokenList.forEach((token: TrustlineInfo) =>
+        this._tokenMap[token.code].push(token)
+      );
+    }
+  }
+
+  async getTokenList(
+    tokenListSource: string,
+    tokenListType: TokenListType
+  ): Promise<TrustlineInfo[]> {
+    let tokens;
+    if (tokenListType === 'URL') {
+      ({
+        data: { tokens },
+      } = await axios.get(tokenListSource));
+    } else {
+      ({ tokens } = JSON.parse(await fs.readFile(tokenListSource, 'utf8')));
+    }
+    return tokens;
+  }
+
+  public get storedTokenList(): TrustlineInfo[] {
+    return this.tokenList;
+  }
+
+  public getTokenForSymbol(code: string): TrustlineInfo[] | null {
+    return this._tokenMap[code] ? this._tokenMap[code] : null;
   }
 
   ready(): boolean {
     return this._ready;
   }
 
-  async loadTokens(): Promise<void> {
-    this.tokenList = await this.getTrustlineList();
-    this.tokenList.forEach((token: TrustlineInfo) => {
-      this._tokenMap[token.symbol] = token;
-      this._tokenAddressMap[token.address] = token;
-    });
+  public get chain(): string {
+    return this._chain;
   }
 
-  // returns a Tokens for a given list source and list type
-  async getTrustlineList(): Promise<[]> {
-    const tokenListProvider = new TokenListProvider();
-    const tokens = await runWithRetryAndTimeout(
-      tokenListProvider,
-      tokenListProvider.resolve,
-      []
-    );
-
-    return tokens.filterByClusterSlug(this._network).getList();
+  public get network(): string {
+    return this._network;
   }
 
-  async loadXrpLedgerToml() {
-    this._client.connection.getUrl()
+  public get nativeTokenSymbol(): string {
+    return this._nativeTokenSymbol;
   }
 
-  // returns the price of 1 lamport in SOL
-  public get dropCost(): number {
-    return this._dropCost;
-  }
-
-  // solana token lists are large. instead of reloading each time with
-  // getTokenList, we can read the stored tokenList value from when the
-  // object was initiated.
-  public get storedTokenList(): TrustlineInfo[] {
-    return this.tokenList;
-  }
-
-  // return the TokenInfo object for a symbol
-  getTokenForSymbol(symbol: string): TrustlineInfo | null {
-    return this._tokenMap[symbol] ?? null;
-  }
-
-  // return the TokenInfo object for a symbol
-  getTokenForMintAddress(mintAddress: PublicKey): TrustlineInfo | null {
-    return this._tokenAddressMap[mintAddress.toString()]
-      ? this._tokenAddressMap[mintAddress.toString()]
-      : null;
-  }
-
-  // returns Keypair for a private key, which should be encoded in Base58
-  getKeypairFromPrivateKey(privateKey: string): Keypair {
-    const decoded = bs58.decode(privateKey);
-
-    return Keypair.fromSecretKey(decoded);
-  }
-
-  async getAccount(address: string): Promise<Account> {
-    const keypair = await this.getKeypair(address);
-
-    return new Account(keypair.secretKey);
-  }
-
-  /**
-   *
-   * @param walletAddress
-   * @param tokenMintAddress
-   */
-  async findAssociatedTokenAddress(
-    walletAddress: PublicKey,
-    tokenMintAddress: PublicKey
-  ): Promise<PublicKey> {
-    const tokenProgramId = this._tokenProgramAddress;
-    const splAssociatedTokenAccountProgramId = (
-      await runWithRetryAndTimeout(
-        this.client,
-        this.client.getParsedTokenAccountsByOwner,
-        [
-          walletAddress,
-          {
-            programId: this._tokenProgramAddress,
-          },
-        ]
-      )
-    ).value.map((item) => item.pubkey)[0];
-
-    const programAddress = (
-      await runWithRetryAndTimeout(PublicKey, PublicKey.findProgramAddress, [
-        [
-          walletAddress.toBuffer(),
-          tokenProgramId.toBuffer(),
-          tokenMintAddress.toBuffer(),
-        ],
-        splAssociatedTokenAccountProgramId,
-      ])
-    )[0];
-
-    return programAddress;
-  }
-
-  async getKeypair(address: string): Promise<Keypair> {
-    if (!this._wallets[address]) {
-      const path = `${walletPath}/solana`;
-
-      const encryptedPrivateKey: any = JSON.parse(
-        await fse.readFile(`${path}/${address}.json`, 'utf8'),
-        (key, value) => {
-          switch (key) {
-            case 'ciphertext':
-            case 'salt':
-            case 'iv':
-              return bs58.decode(value);
-            default:
-              return value;
-          }
-        }
-      );
-
-      const passphrase = ConfigManagerCertPassphrase.readPassphrase();
-      if (!passphrase) {
-        throw new Error('missing passphrase');
-      }
-      this._wallets[address] = await this.decrypt(
-        encryptedPrivateKey,
-        passphrase
-      );
-    }
-
-    return this._wallets[address];
-  }
-
-  private static async getKeyMaterial(password: string) {
-    const enc = new TextEncoder();
-    return await crypto.subtle.importKey(
-      'raw',
-      enc.encode(password),
-      'PBKDF2',
-      false,
-      ['deriveBits', 'deriveKey']
-    );
-  }
-
-  private static async getKey(
-    keyAlgorithm: {
-      salt: Uint8Array;
-      name: string;
-      iterations: number;
-      hash: string;
-    },
-    keyMaterial: CryptoKey
-  ) {
-    return await crypto.subtle.deriveKey(
-      keyAlgorithm,
-      keyMaterial,
-      { name: 'AES-GCM', length: 256 },
-      true,
-      ['encrypt', 'decrypt']
-    );
-  }
-
-  // Takes a base58 encoded privateKey and saves it to a json
-  async encrypt(privateKey: string, password: string): Promise<string> {
-    const iv = crypto.getRandomValues(new Uint8Array(16));
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    const keyMaterial = await Ripple.getKeyMaterial(password);
-    const keyAlgorithm = {
-      name: 'PBKDF2',
-      salt: salt,
-      iterations: 500000,
-      hash: 'SHA-256',
-    };
-    const key = await Ripple.getKey(keyAlgorithm, keyMaterial);
-    const cipherAlgorithm = {
-      name: 'AES-GCM',
-      iv: iv,
-    };
-    const enc = new TextEncoder();
-    const ciphertext: Uint8Array = (await crypto.subtle.encrypt(
-      cipherAlgorithm,
-      key,
-      enc.encode(privateKey)
-    )) as Uint8Array;
-    return JSON.stringify(
-      {
-        keyAlgorithm,
-        cipherAlgorithm,
-        ciphertext: new Uint8Array(ciphertext),
-      },
-      (key, value) => {
-        switch (key) {
-          case 'ciphertext':
-          case 'salt':
-          case 'iv':
-            return bs58.encode(Uint8Array.from(Object.values(value)));
-          default:
-            return value;
-        }
-      }
-    );
-  }
-
-  async decrypt(encryptedPrivateKey: any, password: string): Promise<Keypair> {
-    const keyMaterial = await Ripple.getKeyMaterial(password);
-    const key = await Ripple.getKey(
-      encryptedPrivateKey.keyAlgorithm,
-      keyMaterial
-    );
-    const decrypted = await crypto.subtle.decrypt(
-      encryptedPrivateKey.cipherAlgorithm,
-      key,
-      encryptedPrivateKey.ciphertext
-    );
-
-    const dec = new TextDecoder();
-    dec.decode(decrypted);
-    return Keypair.fromSecretKey(bs58.decode(dec.decode(decrypted)));
-  }
-
-  async getBalances(wallet: Keypair): Promise<Record<string, TokenValue>> {
-    const balances: Record<string, TokenValue> = {};
-
-    balances['SOL'] = await runWithRetryAndTimeout(this, this.getSolBalance, [
-      wallet,
-    ]);
-
-    const allSplTokens = await runWithRetryAndTimeout(
-      this.client,
-      this.client.getParsedTokenAccountsByOwner,
-      [wallet.publicKey, { programId: this._tokenProgramAddress }]
-    );
-
-    allSplTokens.value.forEach(
-      (tokenAccount: {
-        pubkey: PublicKey;
-        account: AccountInfo<ParsedAccountData>;
-      }) => {
-        const tokenInfo = tokenAccount.account.data.parsed['info'];
-        const symbol = this.getTokenForMintAddress(tokenInfo['mint'])?.symbol;
-        if (symbol != null && symbol.toUpperCase() !== 'SOL')
-          balances[symbol.toUpperCase()] = this.tokenResponseToTokenValue(
-            tokenInfo['tokenAmount']
-          );
-      }
-    );
-
-    return balances;
-  }
-
-  // returns the SOL balance, convert BigNumber to string
-  async getSolBalance(wallet: Keypair): Promise<TokenValue> {
-    const lamports = await runWithRetryAndTimeout(
-      this.client,
-      this.client.getBalance,
-      [wallet.publicKey]
-    );
-    return { value: BigNumber.from(lamports), decimals: this._dropDecimals };
-  }
-
-  tokenResponseToTokenValue(account: TokenAmount): TokenValue {
-    return {
-      value: BigNumber.from(account.amount),
-      decimals: account.decimals,
-    };
-  }
-
-  // returns the balance for an SPL token
-  public async getSplBalance(
-    walletAddress: PublicKey,
-    mintAddress: PublicKey
-  ): Promise<TokenValue> {
-    const response = await runWithRetryAndTimeout(
-      this.client,
-      this.client.getParsedTokenAccountsByOwner,
-      [walletAddress, { mint: mintAddress }]
-    );
-    if (response['value'].length == 0) {
-      throw new Error(`Token account not initialized`);
-    }
-    return this.tokenResponseToTokenValue(
-      response.value[0].account.data.parsed['info']['tokenAmount']
-    );
-  }
-
-  // returns whether the token account is initialized, given its mint address
-  async isTokenAccountInitialized(
-    walletAddress: PublicKey,
-    mintAddress: PublicKey
-  ): Promise<boolean> {
-    const response = await runWithRetryAndTimeout(
-      this.client,
-      this.client.getParsedTokenAccountsByOwner,
-      [walletAddress, { programId: this._tokenProgramAddress }]
-    );
-    for (const accountInfo of response.value) {
-      if (
-        accountInfo.account.data.parsed['info']['mint'] ==
-        mintAddress.toBase58()
-      )
-        return true;
-    }
-    return false;
-  }
-
-  // returns token account if is initialized, given its mint address
-  public async getTokenAccount(
-    walletAddress: PublicKey,
-    mintAddress: PublicKey
-  ): Promise<{
-    pubkey: PublicKey;
-    account: AccountInfo<ParsedAccountData>;
-  } | null> {
-    const response = await runWithRetryAndTimeout(
-      this.client,
-      this.client.getParsedTokenAccountsByOwner,
-      [walletAddress, { programId: this._tokenProgramAddress }]
-    );
-    for (const accountInfo of response.value) {
-      if (
-        accountInfo.account.data.parsed['info']['mint'] ==
-        mintAddress.toBase58()
-      )
-        return accountInfo;
-    }
-    return null;
-  }
-
-  // Gets token account information, or creates a new token account for given token mint address
-  // if needed, which costs 0.035 SOL
-  async getOrCreateAssociatedTokenAccount(
-    wallet: Keypair,
-    tokenAddress: PublicKey
-  ): Promise<TokenAccount | null> {
-    return getOrCreateAssociatedTokenAccount(
-      this._client,
-      wallet,
-      tokenAddress,
-      wallet.publicKey
-    );
-  }
-
-  // returns an ethereum TransactionResponse for a txHash.
-  async getTransaction(
-    payerSignature: string
-  ): Promise<TransactionResponse | null> {
-    if (this.cache.keys().includes(payerSignature)) {
-      // If it's in the cache, return the value in cache, whether it's null or not
-      return this.cache.get(payerSignature) as TransactionResponse;
-    } else {
-      // If it's not in the cache,
-      const fetchedTx = runWithRetryAndTimeout(
-        this._client,
-        this._client.getTransaction,
-        [
-          payerSignature,
-          {
-            commitment: 'confirmed',
-          },
-        ]
-      );
-
-      this.cache.set(payerSignature, fetchedTx); // Cache the fetched receipt, whether it's null or not
-
-      return fetchedTx;
-    }
-  }
-
-  // returns an ethereum TransactionResponseStatusCode for a txData.
-  public async getTransactionStatusCode(
-    txData: TransactionResponse | null
-  ): Promise<TransactionResponseStatusCode> {
-    let txStatus;
-    if (!txData) {
-      // tx not found, didn't reach the mempool or it never existed
-      txStatus = TransactionResponseStatusCode.FAILED;
-    } else {
-      txStatus =
-        txData.meta?.err == null
-          ? TransactionResponseStatusCode.CONFIRMED
-          : TransactionResponseStatusCode.FAILED;
-
-      // TODO implement TransactionResponseStatusCode PROCESSED, FINALISED,
-      //  based on how many blocks ago the Transaction was
-    }
-    return txStatus;
-  }
-
-  // caches transaction receipt once they arrive
-  cacheTransactionReceipt(tx: ) {
-    // first (payer) signature is used as cache key since it is unique enough
-    this.cache.set(tx.transaction.signatures[0], tx);
-  }
-
-  public getTokenBySymbol(tokenSymbol: string): TrustlineInfo | undefined {
-    return this.tokenList.find(
-      (token: TrustlineInfo) =>
-        token.symbol.toUpperCase() === tokenSymbol.toUpperCase()
-    );
-  }
-
-  // returns the current ledger number (block/slot number)
-  async getCurrentLedgerIndex(): Promise<number> {
-    return await runWithRetryAndTimeout(
-      this._client,
-      this._client.getLedgerIndex,
-      []
-    );
-  }
-
-  public requestCounter(msg: any): void {
-    if (msg.action === 'request') this._requestCount += 1;
+  public requestCounter(): void {
+    this._requestCount += 1;
   }
 
   public metricLogger(): void {
@@ -551,14 +208,6 @@ export class Ripple implements Ripplish {
     this._requestCount = 0; // reset
   }
 
-  public get network(): string {
-    return this._network;
-  }
-
-  public get nativeTokenSymbol(): string {
-    return this._nativeTokenSymbol;
-  }
-
   public get requestCount(): number {
     return this._requestCount;
   }
@@ -566,22 +215,4 @@ export class Ripple implements Ripplish {
   public get metricsLogInterval(): number {
     return this._metricsLogInterval;
   }
-
-  // returns the current block number
-  async getCurrentBlockNumber(): Promise<number> {
-    return await runWithRetryAndTimeout(
-      this.client,
-      this.client.getSlot,
-      ['processed']
-    );
-  }
-
-  async close() {
-    if (this._network in Ripple._instances) {
-      delete Ripple._instances[this._network];
-    }
-  }
 }
-
-export type Ripplish = Ripple;
-export const Ripplish = Ripple;

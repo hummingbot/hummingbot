@@ -1,25 +1,20 @@
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
-import { xrpToDrops } from 'xrpl'
-import { BigNumber } from "bignumber.js";
 
 export interface NetworkConfig {
   name: string;
-  nodeUrl: string;
-  // "XRP"
-  nativeCurrencySymbol: string;
-  // custom list of tokens to trade
-  trustlines: string[] | undefined;
+  nodeUrl: string; // example: wss://s1.ripple.com/
+  tokenListSource: string; // default: src/chains/ripple/ripple_tokens.json
+  tokenListType: string; // default: FILE
 }
 
 export interface Config {
   // "mainnet" | "testnet" | "devnet"
   network: NetworkConfig;
-  // 10
-  minimumFee: number;
-  // 1e-6
-  dropsToXRP: number;
-  timeToLive: number;
-  customNodeUrl: string | undefined;
+  nativeCurrencySymbol: string;
+  requestTimeout: number; // default: 20
+  connectionTimeout: number; // default: 5
+  feeCushion: number; // default: 1.2
+  maxFeeXRP: string; // default: 2
 }
 
 // @todo: find out which configs are required
@@ -34,16 +29,23 @@ export function getRippleConfig(
       nodeUrl: configManager.get(
         chainName + '.networks.' + networkName + '.nodeURL'
       ),
-      nativeCurrencySymbol: configManager.get(
-        chainName + '.networks.' + networkName + '.nativeCurrencySymbol'
+      tokenListType: ConfigManagerV2.getInstance().get(
+        chainName + '.networks.' + networkName + '.tokenListType'
       ),
-      trustlines: configManager.get(
-        chainName + '.networks.' + networkName + '.trustlines'
+      tokenListSource: ConfigManagerV2.getInstance().get(
+        chainName + '.networks.' + networkName + '.tokenListSource'
       ),
     },
-    minimumFee: configManager.get(chainName + '.minimumFee'),
-    dropsToXRP: 1 / Number.parseFloat(xrpToDrops(new BigNumber(1))),
-    timeToLive: configManager.get(chainName + '.timeToLive'),
-    customNodeUrl: configManager.get(chainName + '.customNodeUrl'),
+    nativeCurrencySymbol: ConfigManagerV2.getInstance().get(
+      chainName + '.networks.' + networkName + '.nativeCurrencySymbol'
+    ),
+    requestTimeout: ConfigManagerV2.getInstance().get(
+      chainName + '.requestTimeout'
+    ),
+    connectionTimeout: ConfigManagerV2.getInstance().get(
+      chainName + '.connectionTimeout'
+    ),
+    feeCushion: ConfigManagerV2.getInstance().get(chainName + '.feeCushion'),
+    maxFeeXRP: ConfigManagerV2.getInstance().get(chainName + '.maxFeeXRP'),
   };
 }
