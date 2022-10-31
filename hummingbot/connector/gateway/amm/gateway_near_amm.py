@@ -143,24 +143,6 @@ class GatewayNearAMM(GatewayEVMAMM):
             self._get_gas_estimate_task.cancel()
             self._get_chain_info_task = None
 
-    async def _status_polling_loop(self):
-        await self.update_balances(on_interval=False)
-        while True:
-            try:
-                self._poll_notifier = asyncio.Event()
-                await self._poll_notifier.wait()
-                await safe_gather(
-                    self.update_balances(on_interval=True),
-                    # self.update_canceling_transactions(self.canceling_orders),
-                    # self.update_token_approval_status(self.approval_orders),
-                    self.update_order_status(self.amm_orders)
-                )
-                self._last_poll_timestamp = self.current_timestamp
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(str(e), exc_info=True)
-
     async def cancel_outdated_orders(self, cancel_age: int) -> List[CancellationResult]:
         """
         We do not cancel transactions on Near network.
