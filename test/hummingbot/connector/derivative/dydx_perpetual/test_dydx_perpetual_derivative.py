@@ -682,14 +682,6 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
-    def configure_partial_cancelled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> List[str]:
-        """
-        :return: the URL configured
-        """
-        return self.configure_canceled_order_status_response(order=order, mock_api=mock_api, callback=callback)
-
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {
             "cancelOrders": [
@@ -859,39 +851,6 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
             },
         }
 
-    def order_event_for_partially_filled_websocket_update(self, order: InFlightOrder):
-        return {
-            "type": CONSTANTS.WS_TYPE_CHANNEL_DATA,
-            "channel": CONSTANTS.WS_CHANNEL_ACCOUNTS,
-            "connection_id": "someConnectionId",
-            "id": self.account_number,
-            "message_id": 2,
-            "contents": {
-                "fills": [
-                    {
-                        "id": self.expected_fill_trade_id,
-                        "accountId": self.account_number,
-                        "side": order.trade_type.name,
-                        "liquidity": "MAKER"
-                        if order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]
-                        else "TAKER",
-                        "market": self.trading_pair,
-                        "orderId": order.exchange_order_id,
-                        "size": str(order.amount),
-                        "price": str(order.price),
-                        "fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                        "transactionId": "1",
-                        "orderClientId": order.client_order_id,
-                        "createdAt": "2020-09-22T20:25:26.399Z",
-                    }
-                ]
-            },
-        }
-
-    def order_event_for_partially_canceled_websocket_update(self, order: InFlightOrder):
-        # Dydx has no partial fill status
-        raise NotImplementedError
-
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
         return {
             "type": CONSTANTS.WS_TYPE_CHANNEL_DATA,
@@ -974,35 +933,6 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
                         "orderId": order.exchange_order_id,
                         "size": str(order.amount),
                         "price": str(order.price),
-                        "fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                        "transactionId": "1",
-                        "orderClientId": order.client_order_id,
-                        "createdAt": "2020-09-22T20:25:26.399Z",
-                    }
-                ]
-            },
-        }
-
-    def trade_event_for_partial_fill_websocket_update(self, order: InFlightOrder):
-        return {
-            "type": CONSTANTS.WS_TYPE_CHANNEL_DATA,
-            "channel": CONSTANTS.WS_CHANNEL_ACCOUNTS,
-            "connection_id": "someConnectionId",
-            "id": self.account_number,
-            "message_id": 2,
-            "contents": {
-                "fills": [
-                    {
-                        "id": self.expected_fill_trade_id,
-                        "accountId": self.account_number,
-                        "side": order.trade_type.name,
-                        "liquidity": "MAKER"
-                        if order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]
-                        else "TAKER",
-                        "market": self.trading_pair,
-                        "orderId": order.exchange_order_id,
-                        "size": self.expected_partial_fill_amount,
-                        "price": self.expected_partial_fill_price,
                         "fee": str(self.expected_fill_fee.flat_fees[0].amount),
                         "transactionId": "1",
                         "orderClientId": order.client_order_id,
