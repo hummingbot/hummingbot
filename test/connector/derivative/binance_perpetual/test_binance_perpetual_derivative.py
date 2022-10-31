@@ -1542,12 +1542,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.async_run_with_timeout(
             self.exchange._place_order(trade_type=TradeType.BUY,
-                    order_id="OID1",
-                    trading_pair=self.trading_pair,
-                    amount=Decimal("10000"),
-                    order_type=OrderType.LIMIT,
-                    position_action=PositionAction.OPEN,
-                    price=Decimal("10000")
+                        order_id="OID1",
+                        trading_pair=self.trading_pair,
+                        amount=Decimal("10000"),
+                        order_type=OrderType.LIMIT,
+                        position_action=PositionAction.OPEN,
+                        price=Decimal("10000")
             )
         )
 
@@ -1569,12 +1569,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.async_run_with_timeout(
             self.exchange._place_order(trade_type=TradeType.BUY,
-                    order_id="OID1",
-                    trading_pair=self.trading_pair,
-                    amount=Decimal("10000"),
-                    order_type=OrderType.LIMIT,
-                    position_action=PositionAction.OPEN,
-                    price=Decimal("1010")
+                        order_id="OID1",
+                        trading_pair=self.trading_pair,
+                        amount=Decimal("10000"),
+                        order_type=OrderType.LIMIT,
+                        position_action=PositionAction.OPEN,
+                        price=Decimal("1010")
             )
         )
 
@@ -1594,12 +1594,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.exchange._trading_rules[self.trading_pair] = trading_rules[0]
         self.async_run_with_timeout(
             self.exchange._place_order(trade_type=TradeType.BUY,
-                    order_id="OID1",
-                    trading_pair=self.trading_pair,
-                    amount=Decimal("10000"),
-                    order_type=OrderType.LIMIT,
-                    position_action="BAD POSITION ACTION",
-                    price=Decimal("1010")
+                        order_id="OID1",
+                        trading_pair=self.trading_pair,
+                        amount=Decimal("10000"),
+                        order_type=OrderType.LIMIT,
+                        position_action="BAD POSITION ACTION",
+                        price=Decimal("1010")
             )
         )
 
@@ -1617,12 +1617,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.exchange._trading_rules[self.trading_pair] = trading_rules[0]
         self.async_run_with_timeout(
             self.exchange._place_order(trade_type=TradeType.BUY,
-                    order_id="OID1",
-                    trading_pair=self.trading_pair,
-                    amount=Decimal("10000"),
-                    order_type="STOP LIMIT",
-                    position_action=PositionAction.OPEN,
-                    price=Decimal("1010")
+                        order_id="OID1",
+                        trading_pair=self.trading_pair,
+                        amount=Decimal("10000"),
+                        order_type="STOP LIMIT",
+                        position_action=PositionAction.OPEN,
+                        price=Decimal("1010")
             )
         )
 
@@ -1644,12 +1644,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.async_run_with_timeout(
             self.exchange._place_order(trade_type=trade_type,
-                    order_id="OID1",
-                    trading_pair=self.trading_pair,
-                    amount=amount,
-                    order_type=OrderType.LIMIT,
-                    position_action=PositionAction.OPEN,
-                    price=Decimal("1010")
+                        order_id="OID1",
+                        trading_pair=self.trading_pair,
+                        amount=amount,
+                        order_type=OrderType.LIMIT,
+                        position_action=PositionAction.OPEN,
+                        price=Decimal("1010")
             )
         )
 
@@ -1675,12 +1675,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.async_run_with_timeout(
             self.exchange._place_order(trade_type=trade_type,
-                    order_id="OID1",
-                    trading_pair=self.trading_pair,
-                    amount=amount,
-                    order_type=OrderType.LIMIT,
-                    position_action=PositionAction.OPEN,
-                    price=price
+                        order_id="OID1",
+                        trading_pair=self.trading_pair,
+                        amount=amount,
+                        order_type=OrderType.LIMIT,
+                        position_action=PositionAction.OPEN,
+                        price=price
             )
         )
 
