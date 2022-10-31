@@ -346,12 +346,12 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         )
         safe_ensure_future(
             self._place_order(TradeType.BUY,
-                    order_id,
-                    trading_pair,
-                    amount,
-                    order_type,
-                    kwargs["position_action"],
-                    price
+                        order_id,
+                        trading_pair,
+                        amount,
+                        order_type,
+                        kwargs["position_action"],
+                        price
             )
         )
         return order_id
@@ -390,12 +390,12 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         )
         safe_ensure_future(
             self._place_order(TradeType.SELL,
-                    order_id,
-                    trading_pair,
-                    amount,
-                    order_type,
-                    kwargs["position_action"],
-                    price
+                        order_id,
+                        trading_pair,
+                        amount,
+                        order_type,
+                        kwargs["position_action"],
+                        price
             )
         )
         return order_id
@@ -682,9 +682,8 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         """
         now = time.time()
         poll_interval = (self.SHORT_POLL_INTERVAL
-                if now - self._user_stream_tracker.last_recv_time > 60.0
-                else self.LONG_POLL_INTERVAL
-        )
+                    if now - self._user_stream_tracker.last_recv_time > 60.0
+                    else self.LONG_POLL_INTERVAL)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
@@ -696,8 +695,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         self._last_timestamp = timestamp
 
     # MARKET AND ACCOUNT INFO ---
-    def get_fee(self, base_currency: str, quote_currency: str, order_type: object, order_side: object,
-        amount: object, price: object, is_maker: Optional[bool] = None):
+    def get_fee(self, base_currency: str, quote_currency: str, order_type: object, order_side: object, amount: object, price: object, is_maker: Optional[bool] = None):
         """
         To get trading fee, this function is simplified by using a fee override configuration.
         Most parameters to this function are ignored except order_type. Use OrderType.LIMIT_MAKER to specify
@@ -1671,34 +1669,34 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         fee_amount = Decimal(trade_msg["exec_fee"])
         position_side = trade_msg["side"]
         position_action = (PositionAction.OPEN
-                if (
-                    tracked_order.trade_type is TradeType.BUY and position_side == "Buy"
-                    or tracked_order.trade_type is TradeType.SELL and position_side == "Sell")
-                    else PositionAction.CLOSE
-                )
+                    if (
+                        tracked_order.trade_type is TradeType.BUY and position_side == "Buy"
+                        or tracked_order.trade_type is TradeType.SELL and position_side == "Sell")
+                        else PositionAction.CLOSE
+                    )
         flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
         fee = TradeFeeBase.new_perpetual_fee(
-                fee_schema=self.trade_fee_schema(),
-                position_action=position_action,
-                percent_token=fee_asset,
-                flat_fees=flat_fees,
+            fee_schema=self.trade_fee_schema(),
+            position_action=position_action,
+            percent_token=fee_asset,
+            flat_fees=flat_fees,
         )
         exec_price = Decimal(trade_msg["exec_price"]) if "exec_price" in trade_msg else Decimal(trade_msg["price"])
         exec_time = (
-                trade_msg["exec_time"]
-                if "exec_time" in trade_msg
-                else pd.Timestamp(trade_msg["trade_time"]).timestamp()
+            trade_msg["exec_time"]
+            if "exec_time" in trade_msg
+            else pd.Timestamp(trade_msg["trade_time"]).timestamp()
         )
         trade_update: TradeUpdate = TradeUpdate(
-                trade_id=trade_id,
-                client_order_id=tracked_order.client_order_id,
-                exchange_order_id=str(trade_msg["order_id"]),
-                trading_pair=tracked_order.trading_pair,
-                fill_timestamp=exec_time,
-                fill_price=exec_price,
-                fill_base_amount=Decimal(trade_msg["exec_qty"]),
-                fill_quote_amount=exec_price * Decimal(trade_msg["exec_qty"]),
-                fee=fee,
+            trade_id=trade_id,
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=str(trade_msg["order_id"]),
+            trading_pair=tracked_order.trading_pair,
+            fill_timestamp=exec_time,
+            fill_price=exec_price,
+            fill_base_amount=Decimal(trade_msg["exec_qty"]),
+            fill_quote_amount=exec_price * Decimal(trade_msg["exec_qty"]),
+            fee=fee,
         )
 
         return trade_update
@@ -1713,31 +1711,31 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
         is_maker = is_maker or False
         fee = build_trade_fee(
-                self.name,
-                is_maker,
-                base_currency=base_currency,
-                quote_currency=quote_currency,
-                order_type=order_type,
-                order_side=order_side,
-                amount=amount,
-                price=price,
+            self.name,
+            is_maker,
+            base_currency=base_currency,
+            quote_currency=quote_currency,
+            order_type=order_type,
+            order_side=order_side,
+            amount=amount,
+            price=price,
         )
         return fee
 
     async def _request_order_status_data(self, tracked_order: InFlightOrder) -> Dict:
         exchange_symbol = await self._exchange_symbol_associated_to_pair(hb_trading_pair=tracked_order.trading_pair)
         query_params = {
-                "symbol": exchange_symbol,
-                "order_link_id": tracked_order.client_order_id
+            "symbol": exchange_symbol,
+            "order_link_id": tracked_order.client_order_id
         }
         if tracked_order.exchange_order_id is not None:
             query_params["order_id"] = tracked_order.exchange_order_id
 
         resp = await self._api_get(
-                path_url=CONSTANTS.ORDER_URL,
-                params=query_params,
-                is_auth_required=True,
-                trading_pair=tracked_order.trading_pair,
+            path_url=CONSTANTS.ORDER_URL,
+            params=query_params,
+            is_auth_required=True,
+            trading_pair=tracked_order.trading_pair,
         )
 
         return resp
