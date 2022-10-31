@@ -191,16 +191,19 @@ class FtxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         rest_assistant = await self._api_factory.get_rest_assistant()
         future_stats_url = web_utils.public_rest_url(CONSTANTS.FTX_FUTURE_STATS.format(trading_pair))
         future_info_url = web_utils.public_rest_url(CONSTANTS.FTX_SINGLE_FUTURE_PATH.format(trading_pair))
-        future_stats_data = await rest_assistant.execute_request(
-            url=future_stats_url,
-            throttler_limit_id=CONSTANTS.FTX_FUTURE_STATS,
-            method=RESTMethod.GET,
-        )
-        future_info_data = await rest_assistant.execute_request(
+
+        future_info_task = asyncio.create_task(rest_assistant.execute_request(
             url=future_info_url,
             throttler_limit_id=CONSTANTS.FTX_SINGLE_FUTURE_PATH,
             method=RESTMethod.GET,
-        )
+        ))
+        future_stats_task = asyncio.create_task(rest_assistant.execute_request(
+            url=future_stats_url,
+            throttler_limit_id=CONSTANTS.FTX_FUTURE_STATS,
+            method=RESTMethod.GET,
+        ))
+        future_info_data = await future_info_task
+        future_stats_data = await future_stats_task
         return future_info_data, future_stats_data
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
