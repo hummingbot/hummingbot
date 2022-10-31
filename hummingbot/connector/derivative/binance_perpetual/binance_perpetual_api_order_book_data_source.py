@@ -472,6 +472,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     exc_info=True,
                 )
                 await self._sleep(5.0)
+
     async def _connected_websocket_assistant(self) -> WSAssistant:
         pass  # unused
 
