@@ -342,9 +342,9 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
                 position = Position(
                     trading_pair=trading_pair,
                     position_side=PositionSide.LONG if position["side"] == "buy" else PositionSide.SHORT,
-                    unrealized_pnl=position["unrealizedPnl"],
-                    entry_price=position["entryPrice"],
-                    amount=position["size"] * (Decimal("-1.0") if position["side"] == "sell" else Decimal("1.0")),
+                    unrealized_pnl=Decimal(str(position["unrealizedPnl"])),
+                    entry_price=Decimal(str(position["entryPrice"])),
+                    amount=Decimal(str(position["size"])) * (Decimal("-1.0") if position["side"] == "sell" else Decimal("1.0")),
                     leverage=leverage,
                 )
                 self._perpetual_trading.set_position(trading_pair, position)
