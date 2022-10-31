@@ -221,13 +221,16 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
             channel: str = self._channel_originating_message(event_message=data)
-            possible_channels = [
-                self._snapshot_messages_queue_key,
-                self._diff_messages_queue_key,
-                self._trade_messages_queue_key
-            ]
+            possible_channels = self._get_messages_queue_keys()
             if channel in possible_channels:
                 self._message_queue[channel].put_nowait(data)
+
+    def _get_messages_queue_keys(self) -> List[str]:
+        return [
+            self._snapshot_messages_queue_key,
+            self._diff_messages_queue_key,
+            self._trade_messages_queue_key
+        ]
 
     async def _sleep(self, delay):
         """
