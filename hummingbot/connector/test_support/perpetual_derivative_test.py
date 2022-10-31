@@ -169,12 +169,17 @@ class AbstractPerpetualDerivativeTests:
             )
             return order_id
 
-        def place_sell_order(self, position_action: PositionAction = PositionAction.OPEN):
+        def place_sell_order(
+            self,
+            amount: Decimal = Decimal("100"),
+            price: Decimal = Decimal("10_000"),
+            position_action: PositionAction = PositionAction.OPEN,
+        ):
             order_id = self.exchange.sell(
                 trading_pair=self.trading_pair,
-                amount=Decimal("100"),
+                amount=amount,
                 order_type=OrderType.LIMIT,
-                price=Decimal("10000"),
+                price=price,
                 position_action=position_action,
             )
             return order_id
@@ -390,8 +395,8 @@ class AbstractPerpetualDerivativeTests:
             leverage = 2
             self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
             self.exchange.start_tracking_order(
-                order_id="OID1",
-                exchange_order_id="EOID1",
+                order_id=self.client_order_id_prefix + "1",
+                exchange_order_id=self.exchange_order_id_prefix + "1",
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -399,9 +404,9 @@ class AbstractPerpetualDerivativeTests:
                 amount=Decimal("1"),
                 position_action=PositionAction.OPEN,
             )
-            order: InFlightOrder = self.exchange.in_flight_orders["OID1"]
+            order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-            url = self.configure_completely_filled_order_status_response(
+            urls = self.configure_completely_filled_order_status_response(
                 order=order,
                 mock_api=mock_api,
                 callback=lambda *args, **kwargs: request_sent_event.set())
@@ -418,11 +423,10 @@ class AbstractPerpetualDerivativeTests:
             # Execute one more synchronization to ensure the async task that processes the update is finished
             self.async_run_with_timeout(request_sent_event.wait())
 
-            order_status_request = self._all_executed_requests(mock_api, url)[0]
-            self.validate_auth_credentials_present(order_status_request)
-            self.validate_order_status_request(
-                order=order,
-                request_call=order_status_request)
+            for url in (urls if isinstance(urls, list) else [urls]):
+                order_status_request = self._all_executed_requests(mock_api, url)[0]
+                self.validate_auth_credentials_present(order_status_request)
+                self.validate_order_status_request(order=order, request_call=order_status_request)
 
             self.async_run_with_timeout(order.wait_until_completely_filled())
             self.assertTrue(order.is_done)
@@ -446,7 +450,7 @@ class AbstractPerpetualDerivativeTests:
                 self.assertEqual(order.amount, fill_event.amount)
                 self.assertEqual(self.expected_fill_fee, fill_event.trade_fee)
                 self.assertEqual(leverage, fill_event.leverage)
-                self.assertEqual(PositionAction.OPEN, fill_event.position)
+                self.assertEqual(PositionAction.OPEN.value, fill_event.position)
 
             buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
             self.assertEqual(self.exchange.current_timestamp, buy_event.timestamp)
@@ -477,8 +481,8 @@ class AbstractPerpetualDerivativeTests:
             leverage = 2
             self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
             self.exchange.start_tracking_order(
-                order_id="OID1",
-                exchange_order_id="EOID1",
+                order_id=self.client_order_id_prefix + "1",
+                exchange_order_id=self.exchange_order_id_prefix + "1",
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
@@ -486,7 +490,7 @@ class AbstractPerpetualDerivativeTests:
                 amount=Decimal("1"),
                 position_action=PositionAction.OPEN,
             )
-            order = self.exchange.in_flight_orders["OID1"]
+            order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
             order_event = self.order_event_for_full_fill_websocket_update(order=order)
             trade_event = self.trade_event_for_full_fill_websocket_update(order=order)
