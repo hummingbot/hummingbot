@@ -15,7 +15,9 @@ import {
 } from '../../../src/services/error-handler';
 
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
+import { Cronos } from '../../../src/chains/cronos/cronos';
 let avalanche: Avalanche;
+let cronos: Cronos;
 let eth: Ethereum;
 let harmony: Harmony;
 
@@ -25,6 +27,7 @@ beforeAll(async () => {
   avalanche = Avalanche.getInstance('fuji');
   eth = Ethereum.getInstance('kovan');
   harmony = Harmony.getInstance('testnet');
+  cronos = Cronos.getInstance('testnet');
 });
 
 beforeEach(() =>
@@ -35,6 +38,7 @@ afterAll(async () => {
   await avalanche.close();
   await eth.close();
   await harmony.close();
+  await cronos.close();
 });
 
 afterEach(() => unpatch());
@@ -140,6 +144,32 @@ describe('addWallet and getWallets', () => {
 
     const addresses: string[][] = wallets
       .filter((wallet) => wallet.chain === 'harmony')
+      .map((wallet) => wallet.walletAddresses);
+
+    expect(addresses[0]).toContain(oneAddress);
+  });
+
+  it('add a Cronos wallet', async () => {
+    patch(cronos, 'getWallet', () => {
+      return {
+        address: oneAddress,
+      };
+    });
+
+    patch(cronos, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await addWallet({
+      privateKey: onePrivateKey,
+      chain: 'cronos',
+      network: 'testnet',
+    });
+
+    const wallets = await getWallets();
+
+    const addresses: string[][] = wallets
+      .filter((wallet) => wallet.chain === 'cronos')
       .map((wallet) => wallet.walletAddresses);
 
     expect(addresses[0]).toContain(oneAddress);
