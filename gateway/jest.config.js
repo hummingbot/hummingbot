@@ -18,6 +18,7 @@ module.exports = {
     'src/chains/near/near-base.ts',
     'src/connectors/uniswap/uniswap.config.ts',
     'src/connectors/uniswap/uniswap.lp.helper.ts',
+    'src/connectors/ref/ref.helper.ts',
     'src/network/network.controllers.ts',
     'src/connectors/serum/serum.config.ts',
     'src/connectors/serum/extensions/*',

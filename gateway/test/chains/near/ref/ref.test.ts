@@ -45,6 +45,24 @@ afterAll(async () => {
   await near.close();
 });
 
+const patchInstantSwap = () => {
+  patch(RefSDK, 'instantSwap', () => {
+    return [];
+  });
+};
+
+const patchSignHelper = () => {
+  patch(Ref, 'getSignedTransactions', () => {
+    return [];
+  });
+};
+
+const patchSendHelper = (result: string[]) => {
+  patch(Ref, 'sendTransactions', () => {
+    return result;
+  });
+};
+
 const patchFetcher = () => {
   patch(RefSDK, 'fetchAllPools', () => {
     return {
@@ -296,5 +314,26 @@ describe('getAllowedSlippage', () => {
   it('return value from config when string is malformed', () => {
     const allowedSlippage = ref.getAllowedSlippage('yo');
     expect(allowedSlippage).toEqual(0.02);
+  });
+});
+
+describe('verify Ref executeTrade', () => {
+  it('Should return an error if no pair is available', async () => {
+    patchInstantSwap();
+    patchSignHelper();
+    patchSendHelper([]);
+
+    await expect(async () => {
+      await ref.executeTrade(
+        await near.getWalletFromPrivateKey(
+          'ed25519:2wyRcSwSuHtRVmkMCGjPwnzZmQLeXLzLLyED1NDMt4BjnKgQL6tF85yBx6Jr26D2dUNeC716RBoTxntVHsegogYw',
+          'test'
+        ),
+        [],
+        '0.1',
+        ETH,
+        DAI
+      );
+    }).rejects.toThrow();
   });
 });
