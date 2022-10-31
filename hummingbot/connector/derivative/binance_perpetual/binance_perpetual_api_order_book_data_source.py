@@ -4,7 +4,7 @@ import logging
 import time
 from collections import defaultdict
 from decimal import Decimal
-from typing import Any, Dict, List, Mapping, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Mapping, Optional
 import pandas as pd
 from bidict import ValueDuplicationError, bidict
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
@@ -15,7 +15,6 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_b
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -473,7 +472,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     exc_info=True,
                 )
                 await self._sleep(5.0)
-    
     async def _connected_websocket_assistant(self) -> WSAssistant:
         pass  # unused
 
