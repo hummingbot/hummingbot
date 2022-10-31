@@ -5,13 +5,9 @@ from typing import Dict, Tuple, Union
 from pydantic import BaseModel, Field, root_validator, validator
 
 import hummingbot.client.settings as settings
-from hummingbot.client.config.config_data_types import (
-    BaseClientModel,
-    BaseTradingStrategyMakerTakerConfigMap,
-    ClientConfigEnum,
-    ClientFieldData,
-)
-from hummingbot.client.config.config_validators import validate_bool, validate_connector, validate_exchange
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
+from hummingbot.client.config.config_validators import validate_bool, validate_connector
+from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyMakerTakerConfigMap
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
@@ -259,7 +255,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             prompt=lambda mi: "Do you want to enable adjust order? (Yes/No)"
         ),
     )
-    order_refresh_mode: Union[PassiveOrderRefreshMode, ActiveOrderRefreshMode] = Field(
+    order_refresh_mode: Union[ActiveOrderRefreshMode, PassiveOrderRefreshMode] = Field(
         default=ActiveOrderRefreshMode.construct(),
         description="Refresh orders by cancellation or by letting them expire.",
         client_data=ClientFieldData(
@@ -269,7 +265,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     )
     top_depth_tolerance: Decimal = Field(
         default=Decimal("0.0"),
-        description="Volume requirement for determning a possible top bid or ask price from the order book.",
+        description="Volume requirement for determining a possible top bid or ask price from the order book.",
         ge=0.0,
         client_data=ClientFieldData(
             prompt=lambda mi: CrossExchangeMarketMakingConfigMap.top_depth_tolerance_prompt(mi),
@@ -363,19 +359,18 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             prompt_on_new=True,
         ),
     )
-    maker_market: str = Field(
-        default=...,
-        description="The name of the maker exchange connector.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter your maker spot connector (Exchange)",
-            prompt_on_new=True,
-        ),
-    )
-    taker_market: str = Field(
+    taker_market: ClientConfigEnum(
+        value="TakerMarkets",  # noqa: F821
+        names={e: e for e in
+               sorted(AllConnectorSettings.get_exchange_names().union(
+                   AllConnectorSettings.get_gateway_evm_amm_connector_names()
+               ))},
+        type=str,
+    ) = Field(
         default=...,
         description="The name of the taker exchange connector.",
         client_data=ClientFieldData(
-            prompt=lambda mi: "Enter your taker connector (Exchange/AMM)",
+            prompt=lambda mi: "Enter your taker connector (Exchange/AMM/CLOB)",
             prompt_on_new=True,
         ),
     )
@@ -491,21 +486,18 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     def validate_exchange(cls, v: str, field: Field):
         """Used for client-friendly error output."""
         if field.name == "maker_market":
-            ret = validate_exchange(v)
-            if ret is not None:
-                raise ValueError(ret)
-            cls.__fields__["maker_market"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
-                value="Exchanges",  # noqa: F821
-                names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
-                type=str,
-            )
+            super().validate_exchange(v=v, field=field)
         if field.name == "taker_market":
             ret = validate_connector(v)
             if ret is not None:
                 raise ValueError(ret)
             cls.__fields__["taker_market"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
-                value="Exchanges",  # noqa: F821
-                names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
+                value="TakerMarkets",  # noqa: F821
+                names={e: e for e in sorted(
+                    AllConnectorSettings.get_exchange_names().union(
+                        AllConnectorSettings.get_gateway_evm_amm_connector_names()
+                    ))},
                 type=str,
             )
+            cls._clear_schema_cache()
         return v

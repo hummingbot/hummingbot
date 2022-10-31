@@ -311,7 +311,7 @@ prompt_password
 GMT_OFFSET=$(date +%z)
 
 # Check available open port for Gateway
-PORT=5000
+PORT=15888
 LIMIT=$((PORT+1000))
 while [[ $PORT -le LIMIT ]]
   do
