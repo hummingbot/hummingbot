@@ -422,23 +422,28 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
             )
             fetch_success = False
         if fetch_success:
-            prev_timestamp = self._last_funding_fee_payment_ts.get(trading_pair, 0)
-            if timestamp > prev_timestamp and payment_amount > s_decimal_0 and fire_event_on_new:
-                action: str = "paid" if payment_amount < s_decimal_0 else "received"
-                self.logger().info(f"Funding payment of {abs(payment_amount)} {action} on {trading_pair} market.")
-                self.trigger_event(
-                    MarketEvent.FundingPaymentCompleted,
-                    FundingPaymentCompletedEvent(
-                        timestamp=timestamp,
-                        market=self.name,
-                        funding_rate=funding_rate,
-                        trading_pair=trading_pair,
-                        amount=payment_amount,
-                    ),
-                )
-                self._last_funding_fee_payment_ts[trading_pair] = timestamp
-
-            if trading_pair not in self._last_funding_fee_payment_ts:
-                self._last_funding_fee_payment_ts[trading_pair] = timestamp
-
+            self._emit_funding_payment_event(trading_pair, timestamp, funding_rate, payment_amount, fire_event_on_new)
         return fetch_success
+
+    def _emit_funding_payment_event(
+        self, trading_pair: str, timestamp: int, funding_rate: Decimal, payment_amount: Decimal, fire_event_on_new: bool
+    ):
+        prev_timestamp = self._last_funding_fee_payment_ts.get(trading_pair, 0)
+
+        if timestamp > prev_timestamp and fire_event_on_new:
+            action: str = "paid" if payment_amount < s_decimal_0 else "received"
+            self.logger().info(f"Funding payment of {abs(payment_amount)} {action} on {trading_pair} market.")
+            self.trigger_event(
+                MarketEvent.FundingPaymentCompleted,
+                FundingPaymentCompletedEvent(
+                    timestamp=timestamp,
+                    market=self.name,
+                    funding_rate=funding_rate,
+                    trading_pair=trading_pair,
+                    amount=payment_amount,
+                ),
+            )
+            self._last_funding_fee_payment_ts[trading_pair] = timestamp
+
+        if trading_pair not in self._last_funding_fee_payment_ts:
+            self._last_funding_fee_payment_ts[trading_pair] = timestamp
