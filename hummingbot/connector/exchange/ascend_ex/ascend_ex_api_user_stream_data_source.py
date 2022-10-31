@@ -3,6 +3,8 @@ import logging
 import time
 from typing import List, Optional
 
+import aiohttp
+
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import build_api_factory, get_ws_url_private
@@ -17,9 +19,10 @@ from hummingbot.logger import HummingbotLogger
 
 class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
     MAX_RETRIES = 20
-    MESSAGE_TIMEOUT = 10.0
-    PING_TIMEOUT = 5.0
+    MESSAGE_TIMEOUT = 30.0
+    PING_TIMEOUT = 15.0
     HEARTBEAT_PING_INTERVAL = 15.0
+    PING_TOPIC_ID = "ping"
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -30,10 +33,10 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return cls._logger
 
     def __init__(
-        self, ascend_ex_auth: AscendExAuth,
-        api_factory: Optional[WebAssistantsFactory] = None,
-        throttler: Optional[AsyncThrottler] = None,
-        trading_pairs: Optional[List[str]] = None
+            self, ascend_ex_auth: AscendExAuth,
+            api_factory: Optional[WebAssistantsFactory] = None,
+            throttler: Optional[AsyncThrottler] = None,
+            trading_pairs: Optional[List[str]] = None
     ):
         super().__init__()
         self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
@@ -96,6 +99,9 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     msg = raw_msg.data
                     if msg is None:
                         continue
+                    event_type = msg.get("m")
+                    if event_type in [self.PING_TOPIC_ID]:
+                        await self._handle_ping_message(ws)
                     self._last_recv_time = time.time()
                     output.put_nowait(msg)
             except asyncio.CancelledError:
@@ -118,3 +124,14 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
         if self._ws_assistant is None:
             self._ws_assistant = await self._api_factory.get_ws_assistant()
         return self._ws_assistant
+
+    async def _handle_ping_message(self, ws: aiohttp.ClientWebSocketResponse):
+        """
+        Responds with pong to a ping message send by a server to keep a websocket connection alive
+        """
+        async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
+            payload = {
+                "op": "pong"
+            }
+            pong_request: WSJSONRequest = WSJSONRequest(payload)
+            await ws.send(pong_request)
