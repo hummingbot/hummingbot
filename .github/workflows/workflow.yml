@@ -194,7 +194,7 @@ jobs:
           sed -i 's/https:\/\/rpc.ankr.com\/polygon_mumbai/http:\/\/127.0.0.1:8545\//g' ./conf/polygon.yml
           sed -i 's/https:\/\/api.s0.b.hmny.io/http:\/\/127.0.0.1:8545\//g' ./conf/harmony.yml
           sed -i 's/https:\/\/api.s0.t.hmny.io/http:\/\/127.0.0.1:8545\//g' ./conf/harmony.yml
-          yarn test:unit 
+          yarn test:branch-unit 
 
       - name: Run unit test coverage
         if: github.event_name == 'pull_request'
@@ -202,5 +202,5 @@ jobs:
         run: |
           git fetch --all -q
           git checkout -b $GITHUB_SHA
-          yarn --cwd ./gateway test:cov 
+          yarn --cwd ./gateway test:branch-cov 
           git diff origin/$GITHUB_BASE_REF | $(yarn --cwd ./gateway bin)/diff-test-coverage -c ./gateway/coverage/lcov.info -t lcov -b 65 -l 67
