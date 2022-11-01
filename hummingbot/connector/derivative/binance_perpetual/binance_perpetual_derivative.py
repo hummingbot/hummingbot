@@ -346,13 +346,12 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         )
         safe_ensure_future(
             self._place_order(TradeType.BUY,
-                        order_id,
-                        trading_pair,
-                        amount,
-                        order_type,
-                        kwargs["position_action"],
-                        price
-            )
+                            order_id,
+                            trading_pair,
+                            amount,
+                            order_type,
+                            kwargs["position_action"],
+                            price)
         )
         return order_id
 
@@ -390,13 +389,12 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         )
         safe_ensure_future(
             self._place_order(TradeType.SELL,
-                        order_id,
-                        trading_pair,
-                        amount,
-                        order_type,
-                        kwargs["position_action"],
-                        price
-            )
+                            order_id,
+                            trading_pair,
+                            amount,
+                            order_type,
+                            kwargs["position_action"],
+                            price)
         )
         return order_id
 
@@ -682,8 +680,8 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         """
         now = time.time()
         poll_interval = (self.SHORT_POLL_INTERVAL
-                    if now - self._user_stream_tracker.last_recv_time > 60.0
-                    else self.LONG_POLL_INTERVAL)
+                        if now - self._user_stream_tracker.last_recv_time > 60.0
+                        else self.LONG_POLL_INTERVAL)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
@@ -1669,11 +1667,12 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         fee_amount = Decimal(trade_msg["exec_fee"])
         position_side = trade_msg["side"]
         position_action = (PositionAction.OPEN
-                    if (
-                        tracked_order.trade_type is TradeType.BUY and position_side == "Buy"
-                        or tracked_order.trade_type is TradeType.SELL and position_side == "Sell")
+                        if (
+                            tracked_order.trade_type is TradeType.BUY and position_side == "Buy"
+                            or tracked_order.trade_type is TradeType.SELL and position_side == "Sell"
+                        )
                         else PositionAction.CLOSE
-                    )
+        )
         flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
         fee = TradeFeeBase.new_perpetual_fee(
             fee_schema=self.trade_fee_schema(),
