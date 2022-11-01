@@ -31,8 +31,7 @@ export const isSolPrivateKey = (str: string): boolean => {
 export const isNearPrivateKey = (str: string): boolean => {
   const parts = str.split(':');
   return parts.length === 2;
-
-}
+};
 
 // given a request, look for a key called privateKey that is an Ethereum private key
 export const validatePrivateKey: Validator = mkSelectingValidator(

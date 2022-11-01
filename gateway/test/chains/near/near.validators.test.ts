@@ -94,4 +94,4 @@ describe('validateNonce', () => {
       })
     ).toEqual([invalidNonceError]);
   });
-})
+});
