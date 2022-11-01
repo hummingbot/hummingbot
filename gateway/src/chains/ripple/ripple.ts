@@ -10,7 +10,10 @@ import {
 } from 'xrpl';
 import axios from 'axios';
 import { promises as fs } from 'fs';
-import { TokenListType } from '../../services/base';
+import crypto from 'crypto';
+import fse from 'fs-extra';
+import { TokenListType, TokenValue, walletPath } from '../../services/base';
+import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { logger } from '../../services/logger';
 
 type TrustlineInfo = {
@@ -21,6 +24,12 @@ type TrustlineInfo = {
   trustlines: number;
   placeInTop: null;
 };
+
+export type TokenBalance = {
+  currency: string;
+  issuer?: string;
+  value: string;
+}
 
 export class Ripple {
   private static _instances: { [name: string]: Ripple };
@@ -176,6 +185,67 @@ export class Ripple {
 
   public getTokenForSymbol(code: string): TrustlineInfo[] | null {
     return this._tokenMap[code] ? this._tokenMap[code] : null;
+  }
+
+  async getWalletFromSeed(address: string): Promise<Wallet> {
+    const path = `${walletPath}/${this.chain}`;
+
+    const encryptedSeed: string = await fse.readFile(
+      `${path}/${address}.json`,
+      'utf8'
+    );
+
+    const passphrase = ConfigManagerCertPassphrase.readPassphrase();
+    if (!passphrase) {
+      throw new Error('missing passphrase');
+    }
+    const decrypted = await this.decrypt(encryptedSeed, passphrase);
+
+    return Wallet.fromSeed(decrypted);
+  }
+
+  async encrypt(secret: string, password: string): Promise<string> {
+    const algorithm = 'aes-256-ctr';
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(algorithm, password, iv);
+    const encrypted = Buffer.concat([cipher.update(secret), cipher.final()]);
+
+    return JSON.stringify({
+      algorithm,
+      iv,
+      encrypted,
+    });
+  }
+
+  async decrypt(encryptedSecret: string, password: string): Promise<string> {
+    const hash = JSON.parse(encryptedSecret);
+
+    const decipher = crypto.createDecipheriv(
+      hash.algorithm,
+      password,
+      Buffer.from(hash.iv, 'hex')
+    );
+
+    const decrpyted = Buffer.concat([
+      decipher.update(Buffer.from(hash.content, 'hex')),
+      decipher.final(),
+    ]);
+
+    return decrpyted.toString();
+  }
+
+  async getNativeBalance(wallet: Wallet): Promise<string> {
+    await this._client.connect();
+    const balance = await this._client.getXrpBalance(wallet.address);
+    await this._client.disconnect();
+    return balance;
+  }
+
+  async getAllBalance(wallet: Wallet): Promise<TokenBalance[]> {
+    await this._client.connect();
+    const balances = await this._client.getBalances(wallet.address);
+    await this._client.disconnect();
+    return balances;
   }
 
   ready(): boolean {
