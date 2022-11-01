@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 from hummingbot.connector.derivative.ftx_perpetual import ftx_perpetual_constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -22,14 +22,6 @@ def build_api_factory(
 def create_throttler() -> AsyncThrottler:
     throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
     return throttler
-
-
-def endpoint_from_message(message: Dict[str, Any]) -> Optional[str]:
-    ...
-
-
-def payload_from_message(message: Dict[str, Any]) -> List[Dict[str, Any]]:
-    ...
 
 
 def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
