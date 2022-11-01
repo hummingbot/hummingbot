@@ -1,8 +1,6 @@
 from typing import List, Tuple
 
-from hummingbot.strategy.cross_exchange_mining.cross_exchange_mining import (
-    CrossExchangeMiningStrategy,
-)
+from hummingbot.strategy.cross_exchange_mining.cross_exchange_mining import CrossExchangeMiningStrategy
 from hummingbot.strategy.cross_exchange_mining.cross_exchange_mining_pair import CrossExchangeMiningPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
