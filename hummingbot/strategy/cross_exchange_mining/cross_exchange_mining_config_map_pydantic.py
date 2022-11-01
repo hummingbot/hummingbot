@@ -6,8 +6,8 @@ from pydantic import Field, root_validator, validator
 
 import hummingbot.client.settings as settings
 from hummingbot.client.config.config_data_types import ClientFieldData
-from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyMakerTakerConfigMap
 from hummingbot.client.config.config_validators import validate_bool
+from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyMakerTakerConfigMap
 
 
 class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):

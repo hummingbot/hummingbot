@@ -1,30 +1,31 @@
-import logging
-from decimal import Decimal
-from typing import (
-    List,
-    Tuple,
-)
-
-import pandas as pd
-import numpy as np
 import datetime as dt
 import glob
+import logging
 import os
+from decimal import Decimal
+from typing import List, Tuple
+
+import numpy as np
+import pandas as pd
 
 from hummingbot.connector.exchange_base import ExchangeBase
+
 from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
+
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
+
 from hummingbot.core.data_type.limit_order cimport LimitOrder
+
+from hummingbot.core.event.events import BuyOrderCompletedEvent, SellOrderCompletedEvent
+from hummingbot.strategy.cross_exchange_mining.cross_exchange_mining_config_map_pydantic import (
+    CrossExchangeMiningConfigMap,
+)
 from hummingbot.strategy.strategy_base import StrategyBase
+
 from .cross_exchange_mining_pair import CrossExchangeMiningPair
 from .order_id_market_pair_tracker import OrderIDMarketPairTracker
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-)
 
-from hummingbot.strategy.cross_exchange_mining.cross_exchange_mining_config_map_pydantic import CrossExchangeMiningConfigMap
 # Cross exchange Mining script by bensmeaton@gmail.com
 NaN = float("nan")
 s_decimal_zero = Decimal(0)

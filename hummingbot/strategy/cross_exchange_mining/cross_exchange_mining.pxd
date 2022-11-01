@@ -1,10 +1,13 @@
 # distutils: language=c++
 
 from libc.stdint cimport int64_t
+
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.strategy.strategy_base cimport StrategyBase
+
 from .order_id_market_pair_tracker cimport OrderIDMarketPairTracker
+
 
 cdef class CrossExchangeMiningStrategy(StrategyBase):
     cdef:
