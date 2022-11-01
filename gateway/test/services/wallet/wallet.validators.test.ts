@@ -103,7 +103,7 @@ describe('validatePrivateKey', () => {
       validatePrivateKey({
         chain: 'harmony',
         privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4', // noqa: mock
       })
     ).toEqual([]);
   });
@@ -113,7 +113,7 @@ describe('validatePrivateKey', () => {
       validatePrivateKey({
         chain: 'avalanche',
         privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4', // noqa: mock
       })
     ).toEqual([]);
   });
