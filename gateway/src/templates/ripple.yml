@@ -1,27 +1,21 @@
-network: mainnet-beta
 networks:
   mainnet:
     nodeURL: https://xrplcluster.com/
-    nativeCurrencySymbol: XRP
-    trustlines: # can contain custom token symbols ("<symbol.issuer>")
+    tokenListType: 'FILE'
+    tokenListSource: 'src/chains/ripple/ripple_tokens.json'
+    nativeCurrencySymbol: 'XRP'
   testnet:
     nodeURL: https://s.altnet.rippletest.net:51234/
-    nativeCurrencySymbol: XRP
-    trustlines: # can contain custom token symbols ("<symbol.issuer>")
+    tokenListType: 'FILE'
+    tokenListSource: 'src/chains/ripple/ripple_tokens_testnet.json'
+    nativeCurrencySymbol: 'XRP'
   devnet:
     nodeURL: https://s.devnet.rippletest.net:51234/
-    nativeCurrencySymbol: XRP
-    trustlines: # can contain custom token symbols ("<symbol.issuer>")
-retry:
-  all:
-    maxNumberOfRetries: 3 # 0 means no retries
-    delayBetweenRetries: 200 # in milliseconds, 0 means no delay
-timeout:
-  all: 0 # in milliseconds, 0 means no timeout.
-parallel:
-  all:
-    batchSize: 100 # 0 means no batching, group all
-    delayBetweenBatches: 200 # in milliseconds, 0 means no delay
-minimumFee: 10 # in drops
-maximumFee: 1000 # in drops
-timeToLive: 75
+    tokenListType: 'FILE'
+    tokenListSource: 'src/chains/ripple/ripple_tokens_devnet.json'
+    nativeCurrencySymbol: 'XRP'
+network: 'ripple'
+requestTimeout: 20
+connectionTimeout: 5
+feeCushion: 1.2
+maxFeeXRP: '2'

@@ -3,14 +3,14 @@ import { ConfigManagerV2 } from '../../services/config-manager-v2';
 export interface NetworkConfig {
   name: string;
   nodeUrl: string; // example: wss://s1.ripple.com/
-  tokenListSource: string; // default: src/chains/ripple/ripple_tokens.json
   tokenListType: string; // default: FILE
+  tokenListSource: string; // default: src/chains/ripple/ripple_tokens.json
+  nativeCurrencySymbol: string; // XRP
 }
 
 export interface Config {
   // "mainnet" | "testnet" | "devnet"
   network: NetworkConfig;
-  nativeCurrencySymbol: string;
   requestTimeout: number; // default: 20
   connectionTimeout: number; // default: 5
   feeCushion: number; // default: 1.2
@@ -35,10 +35,10 @@ export function getRippleConfig(
       tokenListSource: ConfigManagerV2.getInstance().get(
         chainName + '.networks.' + networkName + '.tokenListSource'
       ),
+      nativeCurrencySymbol: ConfigManagerV2.getInstance().get(
+        chainName + '.networks.' + networkName + '.nativeCurrencySymbol'
+      ),
     },
-    nativeCurrencySymbol: ConfigManagerV2.getInstance().get(
-      chainName + '.networks.' + networkName + '.nativeCurrencySymbol'
-    ),
     requestTimeout: ConfigManagerV2.getInstance().get(
       chainName + '.requestTimeout'
     ),

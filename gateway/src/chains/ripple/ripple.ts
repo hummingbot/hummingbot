@@ -12,8 +12,9 @@ import axios from 'axios';
 import { promises as fs } from 'fs';
 import crypto from 'crypto';
 import fse from 'fs-extra';
-import { TokenListType, TokenValue, walletPath } from '../../services/base';
+import { TokenListType, walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
+import { getRippleConfig } from './ripple.config';
 import { logger } from '../../services/logger';
 
 type TrustlineInfo = {
@@ -29,7 +30,7 @@ export type TokenBalance = {
   currency: string;
   issuer?: string;
   value: string;
-}
+};
 
 export class Ripple {
   private static _instances: { [name: string]: Ripple };
@@ -52,23 +53,12 @@ export class Ripple {
   private initializing: boolean = false;
 
   private constructor(network: string) {
-    const config = {
-      network: {
-        nodeUrl: 'wss://s1.ripple.com/',
-        tokenListSource: 'src/chains/ripple/ripple_tokens.json',
-        tokenListType: 'FILE',
-      },
-      nativeCurrencySymbol: 'XRP',
-      requestTimeout: 20,
-      connectionTimeout: 5,
-      feeCushion: 1.2,
-      maxFeeXRP: '2',
-    };
+    const config = getRippleConfig('ripple', network);
 
     this._chain = 'ripple';
     this._network = network;
     this.rpcUrl = config.network.nodeUrl;
-    this._nativeTokenSymbol = config.nativeCurrencySymbol;
+    this._nativeTokenSymbol = config.network.nativeCurrencySymbol;
     this._tokenListSource = config.network.tokenListSource;
     this._tokenListType = <TokenListType>config.network.tokenListType;
 
