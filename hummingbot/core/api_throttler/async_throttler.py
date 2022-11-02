@@ -1,11 +1,13 @@
 import time
 from decimal import Decimal
+from typing import List, Tuple
 
 from hummingbot.core.api_throttler.async_request_context_base import (
     MAX_CAPACITY_REACHED_WARNING_INTERVAL,
     AsyncRequestContextBase,
 )
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
+from hummingbot.core.api_throttler.data_types import RateLimit
 
 
 class AsyncRequestContext(AsyncRequestContextBase):
@@ -20,9 +22,11 @@ class AsyncRequestContext(AsyncRequestContextBase):
         Note: A task can be associated to one or more RateLimit.
         :return: True if it is within capacity to add a new task
         """
-        if len(self._related_limits) > 0:
+        if self._rate_limit is not None:
+            list_of_limits: List[Tuple[RateLimit, int]] = [(self._rate_limit,
+                                                            self._rate_limit.weight)] + self._related_limits
             now: float = self._time()
-            for rate_limit, weight in self._related_limits:
+            for rate_limit, weight in list_of_limits:
                 capacity_used: int = sum([task.weight
                                           for task in self._task_logs
                                           if rate_limit.limit_id == task.rate_limit.limit_id and
