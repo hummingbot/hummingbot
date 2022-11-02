@@ -1,9 +1,14 @@
 import 'jest-extended';
 import {
   invalidAddressError,
+  invalidChainError,
+  invalidNetworkError,
   invalidNonceError,
   invalidSpenderError,
   validateAddress,
+  validateBalanceRequest,
+  validateChain,
+  validateNetwork,
   validateNonce,
   validateSpender,
 } from '../../../src/chains/near/near.validators';
@@ -93,5 +98,62 @@ describe('validateNonce', () => {
         nonce: '123',
       })
     ).toEqual([invalidNonceError]);
+  });
+});
+
+describe('validateChain', () => {
+  it('invalid when req.chain is a number', () => {
+    expect(
+      validateChain({
+        chain: 2,
+      })
+    ).toEqual([invalidChainError]);
+    expect(
+      validateChain({
+        chain: 999,
+      })
+    ).toEqual([invalidChainError]);
+  });
+
+  it('valid when req.chain is a string', () => {
+    expect(
+      validateChain({
+        chain: 'world',
+      })
+    ).toEqual([]);
+  });
+});
+
+describe('validateNetwork', () => {
+  it('invalid when req.network is a number', () => {
+    expect(
+      validateNetwork({
+        network: 2,
+      })
+    ).toEqual([invalidNetworkError]);
+    expect(
+      validateNetwork({
+        network: 999,
+      })
+    ).toEqual([invalidNetworkError]);
+  });
+
+  it('valid when req.network is a string', () => {
+    expect(
+      validateNetwork({
+        network: 'world',
+      })
+    ).toEqual([]);
+  });
+});
+
+describe('validateBalanceRequest', () => {
+  it('valid when requests are correct', () => {
+    expect(
+      validateBalanceRequest({
+        address: 'world',
+        tokenSymbols: ['token'],
+      })
+    ).toEqual(undefined);
   });
 });

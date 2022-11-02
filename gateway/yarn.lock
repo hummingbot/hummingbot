@@ -2183,19 +2183,6 @@
   resolved "https://registry.yarnpkg.com/@protobufjs/utf8/-/utf8-1.1.0.tgz#a777360b5b39a1a2e5106f8e858f2fd2d060c570"
   integrity sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==
 
-"@ref_finance/ref-sdk@^1.0.2":
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/@ref_finance/ref-sdk/-/ref-sdk-1.0.2.tgz#2e1c5d836ee039645adc43f9a6af11b07b1880c6"
-  integrity sha512-6K0LMNJTQ1iFig7TcmbV3DL4R9CTKkzn3szloId7OVEKil6V52jNi6Ct+rSmnuosF5mRVCtGIUNvR/+bkTukgA==
-  dependencies:
-    "@types/big.js" "^6.1.5"
-    "@types/bn.js" "^5.1.1"
-    "@types/lodash" "^4.14.182"
-    big.js "^6.2.1"
-    lodash-es "^4.17.21"
-    mathjs "^9.3.0"
-    near-api-js "0.44.2"
-
 "@resolver-engine/core@^0.2.1":
   version "0.2.1"
   resolved "https://registry.yarnpkg.com/@resolver-engine/core/-/core-0.2.1.tgz#0d71803f6d3b8cb2e9ed481a1bf0ca5f5256d0c0"
