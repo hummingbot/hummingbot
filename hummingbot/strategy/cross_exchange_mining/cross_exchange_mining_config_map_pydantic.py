@@ -1,12 +1,9 @@
 
 from decimal import Decimal
-from typing import Dict
 
-from pydantic import Field, root_validator, validator
+from pydantic import Field
 
-import hummingbot.client.settings as settings
 from hummingbot.client.config.config_data_types import ClientFieldData
-from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyMakerTakerConfigMap
 
 
@@ -140,66 +137,3 @@ class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):
         trading_pair = model_instance.maker_market_trading_pair
         base_asset, quote_asset = trading_pair.split("-")
         return f"The amount of {base_asset} for the strategy to maintain in wallet over exchanges (Will autobalance by buying or selling to maintain amount).?"
-
-    # === generic validations ===
-
-    def validate_bool(cls, v: str):
-        """Used for client-friendly error output."""
-        if isinstance(v, str):
-            ret = validate_bool(v)
-            if ret is not None:
-                raise ValueError(ret)
-        return v
-
-    @validator(
-        "min_profitability",
-        "order_amount",
-        "balance_adjustment_duration",
-        "slippage_buffer",
-        "min_prof_tol_high",
-        "min_prof_tol_low",
-        "volatility_buffer_size",
-        "min_prof_adj_timer",
-        "min_order_amount",
-        "rate_curve",
-        "trade_fee",
-        pre=True,
-    )
-    def validate_decimal(cls, v: str, field: Field):
-        """Used for client-friendly error output."""
-        return super().validate_decimal(v, field)
-
-    # === post-validations ===
-
-    @root_validator()
-    def post_validations(cls, values: Dict):
-        cls.exchange_post_validation(values)
-        cls.update_oracle_settings(values)
-        return values
-
-    @classmethod
-    def exchange_post_validation(cls, values: Dict):
-        if "maker_market" in values.keys():
-            settings.required_exchanges.add(values["maker_market"])
-        if "taker_market" in values.keys():
-            settings.required_exchanges.add(values["taker_market"])
-
-    @classmethod
-    def update_oracle_settings(cls, values: str):
-        if not ("use_oracle_conversion_rate" in values.keys() and
-                "maker_market_trading_pair" in values.keys() and
-                "taker_market_trading_pair" in values.keys()):
-            return
-        use_oracle = values["use_oracle_conversion_rate"]
-        first_base, first_quote = values["maker_market_trading_pair"].split("-")
-        second_base, second_quote = values["taker_market_trading_pair"].split("-")
-        if use_oracle and (first_base != second_base or first_quote != second_quote):
-            settings.required_rate_oracle = True
-            settings.rate_oracle_pairs = []
-            if first_base != second_base:
-                settings.rate_oracle_pairs.append(f"{second_base}-{first_base}")
-            if first_quote != second_quote:
-                settings.rate_oracle_pairs.append(f"{second_quote}-{first_quote}")
-        else:
-            settings.required_rate_oracle = False
-            settings.rate_oracle_pairs = []
