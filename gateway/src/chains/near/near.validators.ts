@@ -4,8 +4,6 @@ import {
   mkRequestValidator,
   RequestValidator,
   Validator,
-  validateToken,
-  validateAmount,
 } from '../../services/validators';
 
 // invalid parameter errors
@@ -63,22 +61,4 @@ export const validateNetwork: Validator = mkValidator(
 export const validateBalanceRequest: RequestValidator = mkRequestValidator([
   validateAddress,
   validateTokenSymbols,
-]);
-
-export const validateAllowancesRequest: RequestValidator = mkRequestValidator([
-  validateAddress,
-  validateSpender,
-  validateTokenSymbols,
-]);
-
-export const validateApproveRequest: RequestValidator = mkRequestValidator([
-  validateAddress,
-  validateSpender,
-  validateToken,
-  validateAmount,
-]);
-
-export const validateCancelRequest: RequestValidator = mkRequestValidator([
-  validateNonce,
-  validateAddress,
 ]);

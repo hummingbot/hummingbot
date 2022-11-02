@@ -9,15 +9,20 @@ import {
   removeWallet,
 } from '../../../src/services/wallet/wallet.controllers';
 import {
+  ACCOUNT_NOT_SPECIFIED_CODE,
+  ACCOUNT_NOT_SPECIFIED_ERROR_MESSAGE,
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../../../src/services/error-handler';
 
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
+import { Near } from '../../../src/chains/near/near';
+
 let avalanche: Avalanche;
 let eth: Ethereum;
 let harmony: Harmony;
+let near: Near;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
@@ -25,6 +30,7 @@ beforeAll(async () => {
   avalanche = Avalanche.getInstance('fuji');
   eth = Ethereum.getInstance('kovan');
   harmony = Harmony.getInstance('testnet');
+  near = Near.getInstance('testnet');
 });
 
 beforeEach(() =>
@@ -35,6 +41,7 @@ afterAll(async () => {
   await avalanche.close();
   await eth.close();
   await harmony.close();
+  await near.close();
 });
 
 afterEach(() => unpatch());
@@ -156,8 +163,23 @@ describe('addWallet and getWallets', () => {
       new HttpException(
         500,
         UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE('shibainu'),
-
         UNKNOWN_CHAIN_ERROR_CODE
+      )
+    );
+  });
+
+  it('fail to add a wallet if account is not specified when adding near wallet', async () => {
+    await expect(
+      addWallet({
+        privateKey: onePrivateKey,
+        chain: 'near',
+        network: 'testnet',
+      })
+    ).rejects.toThrow(
+      new HttpException(
+        500,
+        ACCOUNT_NOT_SPECIFIED_ERROR_MESSAGE(),
+        ACCOUNT_NOT_SPECIFIED_CODE
       )
     );
   });
