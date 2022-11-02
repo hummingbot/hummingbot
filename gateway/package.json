@@ -21,8 +21,8 @@
     "test:debug": "node --inspect node_modules/.bin/jest --watch --runInBand",
     "test:unit": "NODE_OPTIONS=--max_old_space_size=8192 jest -w 1 --verbose --forceExit ./test/",
     "test:cov": "NODE_OPTIONS=--max_old_space_size=8192 jest -w 1 --coverage --forceExit ./test/",
-    "test:branch-unit": "NODE_OPTIONS=--max_old_space_size=8192 jest -w 1 --verbose --forceExit --changedSince ${origin/$GITHUB_BASE_REF | sed -e \"s/...HEAD$//\"}",
-    "test:branch-cov": "NODE_OPTIONS=--max_old_space_size=8192 jest -w 1 --coverage --forceExit --changedSince ${origin/$GITHUB_BASE_REF | sed -e \"s/...HEAD$//\"}",
+    "test:branch-unit": "NODE_OPTIONS=--max_old_space_size=8192 jest -w 1 --verbose --forceExit --changedSince origin/development",
+    "test:branch-cov": "NODE_OPTIONS=--max_old_space_size=8192 jest -w 1 --coverage --forceExit --changedSince origin/development",
     "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts"
   },
   "dependencies": {
