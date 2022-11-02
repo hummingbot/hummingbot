@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Any, Dict
 
 from pydantic import Field, SecretStr
 
@@ -14,6 +15,16 @@ DEFAULT_FEES = TradeFeeSchema(
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USDT"
+
+
+def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its exchange information
+    :param exchange_info: the exchange information for a trading pair
+    :return: True if the trading pair is enabled, False otherwise
+    """
+    symbol = exchange_info.get("symbol")
+    return symbol is not None and symbol.count("_") <= 1
 
 
 class BitgetPerpetualConfigMap(BaseConnectorConfigMap):
