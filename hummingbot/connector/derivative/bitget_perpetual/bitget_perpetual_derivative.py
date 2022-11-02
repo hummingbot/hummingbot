@@ -5,7 +5,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 from bidict import bidict
 
 import hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_constants as CONSTANTS
-from hummingbot.connector.derivative.bitget_perpetual import bitget_perpetual_web_utils as web_utils
+from hummingbot.connector.derivative.bitget_perpetual import (
+    bitget_perpetual_utils,
+    bitget_perpetual_web_utils as web_utils,
+)
 from hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_api_order_book_data_source import (
     BitgetPerpetualAPIOrderBookDataSource,
 )
@@ -316,11 +319,12 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             symbol_data.extend(exchange_info["data"])
 
         for symbol_details in symbol_data:
-            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=symbol_details["symbol"])
-            self._trading_fees[trading_pair] = TradeFeeSchema(
-                maker_percent_fee_decimal=Decimal(symbol_details["makerFeeRate"]),
-                taker_percent_fee_decimal=Decimal(symbol_details["takerFeeRate"])
-            )
+            if bitget_perpetual_utils.is_exchange_information_valid(exchange_info=symbol_details):
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=symbol_details["symbol"])
+                self._trading_fees[trading_pair] = TradeFeeSchema(
+                    maker_percent_fee_decimal=Decimal(symbol_details["makerFeeRate"]),
+                    taker_percent_fee_decimal=Decimal(symbol_details["takerFeeRate"])
+                )
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -838,14 +842,15 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: List[Dict[str, Any]]):
         mapping = bidict()
         for symbol_data in exchange_info:
-            try:
-                exchange_symbol = symbol_data["symbol"]
-                base = symbol_data["baseCoin"]
-                quote = symbol_data["quoteCoin"]
-                trading_pair = combine_to_hb_trading_pair(base, quote)
-                mapping[exchange_symbol] = trading_pair
-            except Exception as exception:
-                self.logger().error(f"There was an error parsing a trading pair information ({exception})")
+            if bitget_perpetual_utils.is_exchange_information_valid(exchange_info=symbol_data):
+                try:
+                    exchange_symbol = symbol_data["symbol"]
+                    base = symbol_data["baseCoin"]
+                    quote = symbol_data["quoteCoin"]
+                    trading_pair = combine_to_hb_trading_pair(base, quote)
+                    mapping[exchange_symbol] = trading_pair
+                except Exception as exception:
+                    self.logger().error(f"There was an error parsing a trading pair information ({exception})")
         self._set_trading_pair_symbol_map(mapping)
 
     async def _update_trading_rules(self):
@@ -868,19 +873,20 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         """
         trading_rules = {}
         for instrument in instruments_info:
-            try:
-                exchange_symbol = instrument["symbol"]
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=exchange_symbol)
-                collateral_token = instrument["supportMarginCoins"][0]
-                trading_rules[trading_pair] = TradingRule(
-                    trading_pair=trading_pair,
-                    min_order_size=Decimal(str(instrument["minTradeNum"])),
-                    min_price_increment=(Decimal(str(instrument["priceEndStep"]))
-                                         * Decimal(f"1e-{instrument['pricePlace']}")),
-                    min_base_amount_increment=Decimal(str(instrument["sizeMultiplier"])),
-                    buy_order_collateral_token=collateral_token,
-                    sell_order_collateral_token=collateral_token,
-                )
-            except Exception:
-                self.logger().exception(f"Error parsing the trading pair rule: {instrument}. Skipping.")
+            if bitget_perpetual_utils.is_exchange_information_valid(exchange_info=instrument):
+                try:
+                    exchange_symbol = instrument["symbol"]
+                    trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=exchange_symbol)
+                    collateral_token = instrument["supportMarginCoins"][0]
+                    trading_rules[trading_pair] = TradingRule(
+                        trading_pair=trading_pair,
+                        min_order_size=Decimal(str(instrument["minTradeNum"])),
+                        min_price_increment=(Decimal(str(instrument["priceEndStep"]))
+                                             * Decimal(f"1e-{instrument['pricePlace']}")),
+                        min_base_amount_increment=Decimal(str(instrument["sizeMultiplier"])),
+                        buy_order_collateral_token=collateral_token,
+                        sell_order_collateral_token=collateral_token,
+                    )
+                except Exception:
+                    self.logger().exception(f"Error parsing the trading pair rule: {instrument}. Skipping.")
         return list(trading_rules.values())

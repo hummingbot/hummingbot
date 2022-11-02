@@ -152,7 +152,16 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def trading_rules_request_erroneous_mock_response(self):
-        mock_response = {"code": "40000", "data": [{}]}
+        mock_response = {
+            "code": "00000",
+            "data": [{
+                "baseCoin": self.base_asset,
+                "quoteCoin": self.quote_asset,
+                "symbol": self.exchange_trading_pair,
+            }],
+            "msg": "success",
+            "requestTime": 1627114525850
+        }
         return mock_response
 
     @property
