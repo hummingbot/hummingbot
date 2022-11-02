@@ -15,7 +15,7 @@ module.exports = {
     'conf/migration/migrations.js',
     'src/chains/solana/solana.ts',
     'src/chains/near/near.ts',
-    'src/chains/near/near-base.ts',
+    'src/chains/near/near.base.ts',
     'src/connectors/uniswap/uniswap.config.ts',
     'src/connectors/uniswap/uniswap.lp.helper.ts',
     'src/connectors/ref/ref.helper.ts',
