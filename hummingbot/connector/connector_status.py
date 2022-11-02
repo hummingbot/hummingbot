@@ -18,6 +18,7 @@ connector_status = {
     'bitmex_testnet': 'yellow',
     'bitmex_perpetual_testnet': 'yellow',
     'blocktane': 'yellow',
+    'btc_markets': 'yellow',
     'bybit_perpetual': 'green',
     'bybit_perpetual_testnet': 'yellow',
     'bybit_testnet': 'yellow',
