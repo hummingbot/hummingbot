@@ -202,5 +202,5 @@ jobs:
         run: |
           git fetch --all -q
           git checkout -b $GITHUB_SHA
-          yarn --cwd ./gateway test:branch-cov 
+          yarn --cwd ./gateway test:cov 
           git diff origin/$GITHUB_BASE_REF | $(yarn --cwd ./gateway bin)/diff-test-coverage -c ./gateway/coverage/lcov.info -t lcov -b 65 -l 67
