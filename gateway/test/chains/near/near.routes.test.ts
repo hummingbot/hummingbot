@@ -103,50 +103,6 @@ describe('POST /near/balances', () => {
   });
 });
 
-/**
-describe('POST /near/cancel', () => {
-  it('should return 200', async () => {
-    // override getWallet (network call)
-    near.getWallet = jest.fn().mockReturnValue({
-      address: 'test.near',
-    });
-
-    near.cancelTx = jest.fn().mockReturnValue({
-      hash: 'f6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77', // noqa: mock
-    });
-
-    await request(gatewayApp)
-      .post(`/near/cancel`)
-      .send({
-        chain: 'near',
-        network: 'testnet',
-        address: 'test.near',
-        nonce: 23,
-      })
-      .set('Accept', 'application/json')
-      .expect('Content-Type', /json/)
-      .expect(200)
-      .then((res: any) => {
-        expect(res.body.txHash.hash).toEqual(
-          'f6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77' // noqa: mock
-        );
-      });
-  });
-
-  it('should return 404 when parameters are invalid', async () => {
-    await request(gatewayApp)
-      .post(`/near/cancel`)
-      .send({
-        chain: 'near',
-        network: 'testnet',
-        address: '',
-        nonce: '23',
-      })
-      .expect(404);
-  });
-});
-*/
-
 describe('POST /near/poll', () => {
   it('should get a NETWORK_ERROR_CODE when the network is unavailable', async () => {
     patch(near, 'getCurrentBlockNumber', () => {
@@ -155,8 +111,8 @@ describe('POST /near/poll', () => {
       throw error;
     });
 
-    const res = await request(gatewayApp).post('/network/poll').send({
-      chain: 'near',
+    const res = await request(gatewayApp).post('/near/poll').send({
+      address: 'test.near',
       network: 'testnet',
       txHash:
         '2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362', // noqa: mock
@@ -173,6 +129,8 @@ describe('POST /near/poll', () => {
     });
 
     const res = await request(gatewayApp).post('/near/poll').send({
+      address: 'test.near',
+      network: 'testnet',
       txHash:
         '2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362', // noqa: mock
     });
@@ -185,7 +143,7 @@ describe('POST /near/poll', () => {
     patch(near, 'getCurrentBlockNumber', () => 1);
     patch(near, 'getTransaction', () => transactionSuccesful);
     const res = await request(gatewayApp).post('/near/poll').send({
-      chain: 'near',
+      address: 'test.near',
       network: 'testnet',
       txHash:
         '0x6d068067a5e5a0f08c6395b31938893d1cdad81f54a54456221ecd8c1941294d', // noqa: mock
@@ -209,7 +167,7 @@ describe('POST /near/poll', () => {
       throw error;
     });
     const res = await request(gatewayApp).post('/near/poll').send({
-      chain: 'near',
+      address: 'test.near',
       network: 'testnet',
       txHash:
         '2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362', // noqa: mock
@@ -226,7 +184,7 @@ describe('POST /near/poll', () => {
       throw error;
     });
     const res = await request(gatewayApp).post('/near/poll').send({
-      chain: 'near',
+      address: 'test.near',
       network: 'testnet',
       txHash:
         '2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362', // noqa: mock
