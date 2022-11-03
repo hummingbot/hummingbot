@@ -576,7 +576,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         msg = {
             "type": "SetOrder",
             "event_id": 10,
-            "client_order_id": "0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e", # noqa: mock
+            "client_order_id": "0x48424f5453505831313565633865396530323434303839626438323139666439 ", # noqa: mock
             "avg_filled_price": 10,
             "fee": 100,
             "filled_quantity": 100,
@@ -600,7 +600,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
         #    }
         # }
         order = InFlightOrder(
-            client_order_id="0xb7be03c528a2eb771b2b076cf869c69b0d9f1f508b199ba601d6f043c40d994e", # noqa: mock
+            client_order_id="HBOTSPX115ec8e9e0244089bd8219fd9", # noqa: mock
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
@@ -609,9 +609,7 @@ class PolkadexExchangeUnitTests(unittest.TestCase):
             price=Decimal("1.0"),
         )
         self.connector.in_flight_orders[order.client_order_id] = order
-        # self.in_flight_orders.get(message["client_order_id"])
         self.connector.order_update_callback(msg)
-        # assert(1==2)
 
     def test_balance_update_callback(self):
         msg = {

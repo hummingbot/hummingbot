@@ -38,7 +38,7 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TradeFeeBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -344,30 +344,29 @@ class PolkadexExchange(ExchangePyBase):
                 "timestamp": 11
         }
         """
-        base_asset = str(message["pair"]["base_asset"])
-        quote_asset = str(message["pair"]["quote_asset"])
+        encoded_client_order_id = message["client_order_id"]
+        encoded_client_order_id = encoded_client_order_id[2:]
+        encoded_client_order_id = bytes.fromhex(encoded_client_order_id)
+        encoded_client_order_id = encoded_client_order_id.decode()
 
         ts = time.time()
-        tracked_order = self.in_flight_orders.get(message["client_order_id"])
+        tracked_order = self.in_flight_orders.get(encoded_client_order_id)
         if tracked_order is not None:
             order_update = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
                 update_timestamp=ts,
                 new_state=CONSTANTS.ORDER_STATE[message["status"]],
-                client_order_id=message["client_order_id"],
+                client_order_id=encoded_client_order_id,
                 exchange_order_id=str(message["id"]),
             )
             self._order_tracker.process_order_update(order_update=order_update)
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
-                trade_type=tracked_order.trade_type,
-                percent_token=Decimal(message["fee"]),
-                flat_fees=[TokenAmount(amount=Decimal(message["fee"]),
-                                       token=fee_levied_asset(message["side"], base_asset, quote_asset))]
+                trade_type=TradeType.SELL,
             )
             trade_update = TradeUpdate(
                 trade_id=str(ts),  # TODO: Add trade id to event
-                client_order_id=message["client_order_id"],
+                client_order_id=encoded_client_order_id,
                 exchange_order_id=str(message["id"]),
                 trading_pair=tracked_order.trading_pair,
                 fee=fee,
