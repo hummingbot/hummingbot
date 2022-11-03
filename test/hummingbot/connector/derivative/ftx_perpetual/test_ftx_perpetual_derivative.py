@@ -319,6 +319,66 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         }
 
     @property
+    def account_request_mock_response_succeed(self):
+        return {
+            "success": True,
+            "result": {
+                "accountIdentifier": 83191086,
+                "username": "testingqueue@pm.me/test1",
+                "collateral": 27.88090758,
+                "freeCollateral": 15.25651918408,
+                "totalAccountValue": 27.85840758,
+                "totalAccountNav": 27.85840758,
+                "totalPositionSize": 57.716,
+                "initialMarginRequirement": 0.1,
+                "maintenanceMarginRequirement": 0.03,
+                "marginFraction": 0.4826808437868182,
+                "openMarginFraction": 0.22148506120692607,
+                "liquidating": False,
+                "backstopProvider": False,
+                "positions": [
+                    {
+                        "future": self.ex_trading_pair,
+                        "size": 1,
+                        "side": "buy",
+                        "netSize": 1,
+                        "longOrderSize": 1,
+                        "shortOrderSize": 0,
+                        "cost": 31.36,
+                        "entryPrice": 31.36,
+                        "unrealizedPnl": 0,
+                        "realizedPnl": -6.12386381,
+                        "initialMarginRequirement": 0.1,
+                        "maintenanceMarginRequirement": 0.03,
+                        "openSize": 2,
+                        "collateralUsed": 6.272,
+                        "estimatedLiquidationPrice": 5.23307242
+                    }
+                ],
+                "takerFee": 0.0007,
+                "makerFee": 0.0002,
+                "leverage": 10,
+                "futuresLeverage": 10,
+                "positionLimit": "None",
+                "positionLimitUsed": "None",
+                "useFttCollateral": True,
+                "chargeInterestOnNegativeUsd": False,
+                "spotMarginEnabled": False,
+                "spotMarginWithdrawalsEnabled": False,
+                "spotLendingEnabled": False,
+                "accountType": "None"
+            }
+        }
+
+    @property
+    def error_message_response(self):
+        return {
+            "success": False,
+            "error": "<<error message>>",
+            "errorCode": "<<error_type>>"
+        }
+
+    @property
     def balance_event_websocket_update(self):
         raise NotImplementedError
 
@@ -944,160 +1004,6 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         self.assertTrue(order.is_open)
         self.assertFalse(order.is_filled)
 
-    def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
-        return {
-            "success": True,
-            "result": "Order queued for cancellation"
-        }
-
-    def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
-        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
-        return {
-            "success": True,
-            "result": {
-                "createdAt": "2019-03-05T09:56:55.728933+00:00",
-                "filledSize": 0,
-                "future": None,
-                "id": int(exchange_order_id),
-                "market": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                "price": float(order.price),
-                "avgFillPrice": 0,
-                "remainingSize": 0,
-                "side": order.trade_type.name.lower(),
-                "size": float(order.amount),
-                "status": "open",
-                "type": "limit",
-                "reduceOnly": False,
-                "ioc": False,
-                "postOnly": False,
-                "clientId": order.client_order_id
-            }
-        }
-
-    def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
-        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
-        return {
-            "success": True,
-            "result": {
-                "createdAt": "2019-03-05T09:56:55.728933+00:00",
-                "filledSize": float(self.expected_partial_fill_amount),
-                "future": None,
-                "id": int(exchange_order_id),
-                "market": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                "price": float(order.price),
-                "avgFillPrice": float(self.expected_partial_fill_price),
-                "remainingSize": float(order.amount - self.expected_partial_fill_amount),
-                "side": order.trade_type.name.lower(),
-                "size": float(order.amount),
-                "status": "open",
-                "type": "limit",
-                "reduceOnly": False,
-                "ioc": False,
-                "postOnly": False,
-                "clientId": order.client_order_id
-            }
-        }
-
-    def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
-        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
-        return {
-            "success": True,
-            "result": {
-                "createdAt": "2019-03-05T09:56:55.728933+00:00",
-                "filledSize": float(order.amount),
-                "future": None,
-                "id": int(exchange_order_id),
-                "market": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                "price": float(order.price),
-                "avgFillPrice": float(order.price + Decimal(2)),
-                "remainingSize": 0,
-                "side": order.trade_type.name.lower(),
-                "size": float(order.amount),
-                "status": "closed",
-                "type": "limit",
-                "reduceOnly": False,
-                "ioc": False,
-                "postOnly": False,
-                "clientId": order.client_order_id
-            }
-        }
-
-    def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
-        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
-        return {
-            "success": True,
-            "result": {
-                "createdAt": "2019-03-05T09:56:55.728933+00:00",
-                "filledSize": 0,
-                "future": None,
-                "id": int(exchange_order_id),
-                "market": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                "price": float(order.price),
-                "avgFillPrice": 0,
-                "remainingSize": float(order.amount),
-                "side": order.trade_type.name.lower(),
-                "size": float(order.amount),
-                "status": "closed",
-                "type": "limit",
-                "reduceOnly": False,
-                "ioc": False,
-                "postOnly": False,
-                "clientId": order.client_order_id
-            }
-        }
-
-    def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
-        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
-        return {
-            "success": True,
-            "result": [
-                {
-                    "fee": float(self.expected_fill_fee.flat_fees[0].amount),
-                    "feeCurrency": self.expected_fill_fee.flat_fees[0].token,
-                    "feeRate": 0.0005,
-                    "future": None,
-                    "id": 11215,
-                    "liquidity": "taker",
-                    "market": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
-                    "baseCurrency": order.base_asset,
-                    "quoteCurrency": order.quote_asset,
-                    "orderId": int(exchange_order_id),
-                    "tradeId": int(self.expected_fill_trade_id),
-                    "price": float(order.price),
-                    "side": order.trade_type.name.lower(),
-                    "size": float(order.amount),
-                    "time": "2019-03-27T19:15:10.204619+00:00",
-                    "type": "order"
-                }
-            ]
-        }
-
-    def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
-        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
-        return {
-            "success": True,
-            "result": [
-                {
-                    "fee": float(self.expected_fill_fee.flat_fees[0].amount),
-                    "feeCurrency": self.expected_fill_fee.flat_fees[0].token,
-                    "feeRate": 0.0005,
-                    "future": None,
-                    "id": 11215,
-                    "liquidity": "taker",
-                    "market": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
-                    "baseCurrency": order.base_asset,
-                    "quoteCurrency": order.quote_asset,
-                    "orderId": int(exchange_order_id),
-                    "tradeId": int(self.expected_fill_trade_id),
-                    "price": float(self.expected_partial_fill_price),
-                    "side": order.trade_type.name.lower(),
-                    "size": float(self.expected_partial_fill_amount),
-                    "time": "2019-03-27T19:15:10.204619+00:00",
-                    "type": "order"
-                }
-            ]
-        }
-
     def configure_failed_set_leverage(
             self,
             leverage: PositionMode,
@@ -1233,6 +1139,48 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp
         )
         self.assertEqual(self.target_funding_info_rate, funding_info.rate)
+
+    @aioresponses()
+    def test_update_funding_info_polling_loop_success(self, mock_api):
+        url = self.funding_info_url
+        response = self.funding_info_mock_response
+        mock_api.get(url, body=json.dumps(response))
+
+        called_event = asyncio.Event()
+        url = self.future_info_url
+        response = self.future_info_mock_response
+        mock_api.get(url, body=json.dumps(response),
+                     callback=lambda *args, **kwargs: self._raise_exception_and_set_event(called_event,
+                                                                                          Exception("Error")))
+
+        asyncio.get_event_loop().create_task(self.exchange._funding_info_polling_loop())
+        self.async_run_with_timeout(called_event.wait())
+
+        self.is_logged(
+            "ERROR", "Unexpected error while fetching funding info."
+        )
+
+    def _raise_exception_and_set_event(self, event: asyncio.Event, exception):
+        event.set()
+        raise exception
+
+    @aioresponses()
+    def test_update_funding_info_polling_loop_raise_exception(self, mock_api):
+        url = self.funding_info_url
+        response = self.funding_info_mock_response
+        mock_api.get(url, body=json.dumps(response))
+
+        called_event = asyncio.Event()
+        url = self.future_info_url
+        response = self.future_info_mock_response
+        mock_api.get(url, body=json.dumps(response), callback=lambda *args, **kwargs: called_event.set())
+
+        asyncio.get_event_loop().create_task(self.exchange._funding_info_polling_loop())
+        self.async_run_with_timeout(called_event.wait())
+
+        funding_info: FundingInfo = self.exchange.get_funding_info(self.trading_pair)
+
+        self.assertEqual(self.trading_pair, funding_info.trading_pair)
 
     @aioresponses()
     def test_update_order_status_when_order_has_not_changed_and_one_partial_fill(self, mock_api):
@@ -1502,3 +1450,245 @@ class FtxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                 f"BUY order {order.client_order_id} completely filled."
             )
         )
+
+    @aioresponses()
+    def test_update_balances(self, mock_api):
+        response = self.account_request_mock_response_succeed
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, body=json.dumps(response))
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        free_collateral = response["result"]["freeCollateral"]
+        total_collateral = response["result"]["collateral"]
+        self.assertEqual(Decimal(str(free_collateral)), available_balances[CONSTANTS.TOKEN_COLATERAL])
+        self.assertEqual(Decimal(str(total_collateral)), total_balances[CONSTANTS.TOKEN_COLATERAL])
+
+    @aioresponses()
+    def test_update_positions(self, mock_api):
+        response = self.account_request_mock_response_succeed
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, body=json.dumps(response))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        positions = self.exchange.account_positions
+
+        self.assertIn(self.trading_pair, positions.keys())
+        self.assertEqual(Decimal("1.0"), positions[self.trading_pair].amount)
+        self.assertEqual(Decimal("31.36"), positions[self.trading_pair].entry_price)
+        self.assertEqual(Decimal("0"), positions[self.trading_pair].unrealized_pnl)
+        self.assertEqual(10, positions[self.trading_pair].leverage)
+
+    @aioresponses()
+    def test_update_balances_and_positions(self, mock_api):
+        response = self.account_request_mock_response_succeed
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, body=json.dumps(response))
+
+        self.async_run_with_timeout(self.exchange._update_balances_and_positions())
+
+        positions = self.exchange.account_positions
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        free_collateral = response["result"]["freeCollateral"]
+        total_collateral = response["result"]["collateral"]
+        self.assertEqual(Decimal(str(free_collateral)), available_balances[CONSTANTS.TOKEN_COLATERAL])
+        self.assertEqual(Decimal(str(total_collateral)), total_balances[CONSTANTS.TOKEN_COLATERAL])
+        self.assertIn(self.trading_pair, positions.keys())
+        self.assertEqual(Decimal("1.0"), positions[self.trading_pair].amount)
+        self.assertEqual(Decimal("31.36"), positions[self.trading_pair].entry_price)
+        self.assertEqual(Decimal("0"), positions[self.trading_pair].unrealized_pnl)
+        self.assertEqual(10, positions[self.trading_pair].leverage)
+
+    @aioresponses()
+    def test_update_balances_raises_exception(self, mock_api):
+        response = self.error_message_response
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, body=json.dumps(response))
+
+        with self.assertRaises(Exception):
+            self.async_run_with_timeout(self.exchange._update_balances())
+
+    @aioresponses()
+    def test_update_positions_raises_exception(self, mock_api):
+        response = self.error_message_response
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, body=json.dumps(response))
+
+        with self.assertRaises(Exception):
+            self.async_run_with_timeout(self.exchange._update_positions())
+
+    @aioresponses()
+    def test_update_balances_and_positions_raises_exception(self, mock_api):
+        response = self.error_message_response
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, body=json.dumps(response))
+
+        with self.assertRaises(Exception):
+            self.async_run_with_timeout(self.exchange._update_balances_and_positions())
+
+    def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
+        return {
+            "success": True,
+            "result": "Order queued for cancellation"
+        }
+
+    def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
+        return {
+            "success": True,
+            "result": {
+                "createdAt": "2019-03-05T09:56:55.728933+00:00",
+                "filledSize": 0,
+                "future": None,
+                "id": int(exchange_order_id),
+                "market": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "price": float(order.price),
+                "avgFillPrice": 0,
+                "remainingSize": 0,
+                "side": order.trade_type.name.lower(),
+                "size": float(order.amount),
+                "status": "open",
+                "type": "limit",
+                "reduceOnly": False,
+                "ioc": False,
+                "postOnly": False,
+                "clientId": order.client_order_id
+            }
+        }
+
+    def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
+        return {
+            "success": True,
+            "result": {
+                "createdAt": "2019-03-05T09:56:55.728933+00:00",
+                "filledSize": float(self.expected_partial_fill_amount),
+                "future": None,
+                "id": int(exchange_order_id),
+                "market": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "price": float(order.price),
+                "avgFillPrice": float(self.expected_partial_fill_price),
+                "remainingSize": float(order.amount - self.expected_partial_fill_amount),
+                "side": order.trade_type.name.lower(),
+                "size": float(order.amount),
+                "status": "open",
+                "type": "limit",
+                "reduceOnly": False,
+                "ioc": False,
+                "postOnly": False,
+                "clientId": order.client_order_id
+            }
+        }
+
+    def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
+        return {
+            "success": True,
+            "result": {
+                "createdAt": "2019-03-05T09:56:55.728933+00:00",
+                "filledSize": float(order.amount),
+                "future": None,
+                "id": int(exchange_order_id),
+                "market": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "price": float(order.price),
+                "avgFillPrice": float(order.price + Decimal(2)),
+                "remainingSize": 0,
+                "side": order.trade_type.name.lower(),
+                "size": float(order.amount),
+                "status": "closed",
+                "type": "limit",
+                "reduceOnly": False,
+                "ioc": False,
+                "postOnly": False,
+                "clientId": order.client_order_id
+            }
+        }
+
+    def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
+        return {
+            "success": True,
+            "result": {
+                "createdAt": "2019-03-05T09:56:55.728933+00:00",
+                "filledSize": 0,
+                "future": None,
+                "id": int(exchange_order_id),
+                "market": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "price": float(order.price),
+                "avgFillPrice": 0,
+                "remainingSize": float(order.amount),
+                "side": order.trade_type.name.lower(),
+                "size": float(order.amount),
+                "status": "closed",
+                "type": "limit",
+                "reduceOnly": False,
+                "ioc": False,
+                "postOnly": False,
+                "clientId": order.client_order_id
+            }
+        }
+
+    def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
+        return {
+            "success": True,
+            "result": [
+                {
+                    "fee": float(self.expected_fill_fee.flat_fees[0].amount),
+                    "feeCurrency": self.expected_fill_fee.flat_fees[0].token,
+                    "feeRate": 0.0005,
+                    "future": None,
+                    "id": 11215,
+                    "liquidity": "taker",
+                    "market": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                    "baseCurrency": order.base_asset,
+                    "quoteCurrency": order.quote_asset,
+                    "orderId": int(exchange_order_id),
+                    "tradeId": int(self.expected_fill_trade_id),
+                    "price": float(order.price),
+                    "side": order.trade_type.name.lower(),
+                    "size": float(order.amount),
+                    "time": "2019-03-27T19:15:10.204619+00:00",
+                    "type": "order"
+                }
+            ]
+        }
+
+    def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
+        return {
+            "success": True,
+            "result": [
+                {
+                    "fee": float(self.expected_fill_fee.flat_fees[0].amount),
+                    "feeCurrency": self.expected_fill_fee.flat_fees[0].token,
+                    "feeRate": 0.0005,
+                    "future": None,
+                    "id": 11215,
+                    "liquidity": "taker",
+                    "market": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                    "baseCurrency": order.base_asset,
+                    "quoteCurrency": order.quote_asset,
+                    "orderId": int(exchange_order_id),
+                    "tradeId": int(self.expected_fill_trade_id),
+                    "price": float(self.expected_partial_fill_price),
+                    "side": order.trade_type.name.lower(),
+                    "size": float(self.expected_partial_fill_amount),
+                    "time": "2019-03-27T19:15:10.204619+00:00",
+                    "type": "order"
+                }
+            ]
+        }

@@ -42,6 +42,8 @@ s_decimal_0 = Decimal(0)
 
 class FtxPerpetualDerivative(PerpetualDerivativePyBase):
     web_utils = web_utils
+    FUNDING_INFO_INTERVAL = 60.0
+    LONG_POLL_INTERVAL = 15.0
 
     def __init__(
             self,
@@ -52,8 +54,6 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
     ):
-
-        self.FUNDING_INFO_INTERVAL = 60.0
         self.ftx_perpetual_api_key = ftx_perpetual_api_key
         self.ftx_perpetual_secret_key = ftx_perpetual_secret_key
         self._subaccount_name = ftx_subaccount_name
@@ -141,25 +141,8 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
         self.set_position_mode(PositionMode.ONEWAY)
 
     async def start_network(self):
-        """
-        Start all required tasks to update the status of the connector. Those tasks include:
-        - The order book tracker
-        - The polling loops to update the trading rules and trading fees
-        - The polling loop to update order status and balance status using REST API (backup for main update process)
-        - The background task to process the events received through the user stream tracker (websocket connection)
-        """
-        self._stop_network()
-        self.order_book_tracker.start()
-        self._perpetual_trading.start()
-        self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
-        self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
+        await super().start_network()
         self._funding_info_polling_task = safe_ensure_future(self._funding_info_polling_loop())
-        if self.is_trading_required:
-            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
-            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
-            self._lost_orders_update_task = safe_ensure_future(self._lost_orders_update_polling_loop())
-            self._funding_fee_polling_task = safe_ensure_future(self._funding_payment_polling_loop())
 
     def set_position_mode(self, mode: PositionMode):
         if mode in self.supported_position_modes():
@@ -282,8 +265,8 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
     async def _status_polling_loop_fetch_updates(self):
         await safe_gather(
             self._update_order_status(),
-            self._update_balances(),
-            self._update_positions(),
+            # This method instead of _update_balances and _update_positions since they share the same endpoint
+            self._update_balances_and_positions(),
         )
 
     async def _funding_info_polling_loop(self):
@@ -306,21 +289,21 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
                 await self._sleep(0.5)
 
     async def _update_balances(self):
+        # FTX Perpetual uses as collateral the value of USD of all the tokens available.
         msg = await self._api_request(
-            path_url=CONSTANTS.FTX_BALANCES_PATH,
+            path_url=CONSTANTS.ACCOUNT,
             is_auth_required=True)
 
         if msg.get("success", False):
-            balances = msg["result"]
+            account_info = msg["result"]
         else:
-            raise Exception(msg['msg'])
+            raise Exception(msg["error"])
 
         self._account_available_balances.clear()
         self._account_balances.clear()
 
-        for balance in balances:
-            self._account_balances[balance["coin"]] = Decimal(str(balance["total"]))
-            self._account_available_balances[balance["coin"]] = Decimal(str(balance["free"]))
+        self._account_balances[CONSTANTS.TOKEN_COLATERAL] = Decimal(str(account_info["collateral"]))
+        self._account_available_balances[CONSTANTS.TOKEN_COLATERAL] = Decimal(str(account_info["freeCollateral"]))
 
     async def _update_positions(self):
         """
@@ -334,7 +317,7 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
             positions = account_response["result"]["positions"]
             leverage = account_response["result"]["leverage"]
         else:
-            raise Exception(account_response['msg'])
+            raise Exception(account_response["msg"])
 
         for position in positions:
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=position["future"])
@@ -345,6 +328,42 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
                     unrealized_pnl=Decimal(str(position["unrealizedPnl"])),
                     entry_price=Decimal(str(position["entryPrice"])),
                     amount=Decimal(str(position["size"])) * (Decimal("-1.0") if position["side"] == "sell" else Decimal("1.0")),
+                    leverage=leverage,
+                )
+                self._perpetual_trading.set_position(trading_pair, position)
+            else:
+                self._perpetual_trading.remove_position(trading_pair)
+
+    async def _update_balances_and_positions(self):
+        """
+        Retrieves all positions and collateral using the REST API.
+        As the endpoint is the same, this method is used in the status polling loop.
+        """
+        account_response = await self._api_get(
+            path_url=CONSTANTS.ACCOUNT,
+            is_auth_required=True,
+        )
+        if account_response.get("success", False):
+            positions = account_response["result"]["positions"]
+            leverage = account_response["result"]["leverage"]
+            self._account_available_balances.clear()
+            self._account_balances.clear()
+            self._account_balances[CONSTANTS.TOKEN_COLATERAL] = Decimal(str(account_response["result"]["collateral"]))
+            self._account_available_balances[CONSTANTS.TOKEN_COLATERAL] = Decimal(
+                str(account_response["result"]["freeCollateral"]))
+        else:
+            raise Exception(account_response["msg"])
+
+        for position in positions:
+            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=position["future"])
+            if Decimal(str(position["size"])) != s_decimal_0:
+                position = Position(
+                    trading_pair=trading_pair,
+                    position_side=PositionSide.LONG if position["side"] == "buy" else PositionSide.SHORT,
+                    unrealized_pnl=Decimal(str(position["unrealizedPnl"])),
+                    entry_price=Decimal(str(position["entryPrice"])),
+                    amount=Decimal(str(position["size"])) * (
+                        Decimal("-1.0") if position["side"] == "sell" else Decimal("1.0")),
                     leverage=leverage,
                 )
                 self._perpetual_trading.set_position(trading_pair, position)
@@ -443,6 +462,9 @@ class FtxPerpetualDerivative(PerpetualDerivativePyBase):
                             order_fill_msg=data,
                             order=order)
                         self._order_tracker.process_trade_update(trade_update=trade_update)
+                        # Since the positions and balances are not updated via websockets, this method is
+                        # triggered to provide more updated information
+                        await self._update_balances_and_positions()
                 elif channel == CONSTANTS.WS_PRIVATE_ORDERS_CHANNEL:
                     client_order_id = data["clientId"]
                     order = self._order_tracker.all_updatable_orders.get(client_order_id)
