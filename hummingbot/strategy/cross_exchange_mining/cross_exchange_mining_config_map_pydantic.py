@@ -54,7 +54,7 @@ class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):
     )
 
     min_prof_tol_low: Decimal = Field(
-        default=Decimal("0.1"),
+        default=Decimal("0.05"),
         description="Tolerance below min prof to cancel order.",
         ge=0.0,
         le=100.0,
@@ -68,7 +68,7 @@ class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):
     )
 
     min_prof_tol_high: Decimal = Field(
-        default=Decimal("0.1"),
+        default=Decimal("0.05"),
         description="Tolerance above min prof to cancel order.",
         ge=0.0,
         le=100.0,
@@ -81,7 +81,7 @@ class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):
         ),
     )
     volatility_buffer_size: int = Field(
-        default=...,
+        default=Decimal("120"),
         description="The period in seconds to calulate volatility over: ",
         client_data=ClientFieldData(
             prompt=lambda mi: "The period in seconds to calulate volatility over: ",
@@ -103,29 +103,29 @@ class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):
         ge=0.0,
         client_data=ClientFieldData(
             prompt=lambda mi: (
-                    "What is the minimum order amount required for bid or ask orders?: >>> "
+                    "What is the minimum order amount required for bid or ask orders?: "
             ),
             prompt_on_new=True,
         ),
     )
     rate_curve: Decimal = Field(
         default=Decimal("1.0"),
-        description="Multiplier for rate curve for the adjustment of min profitability: ",
+        description="Multiplier for rate curve for the adjustment of min profitability based on previous trades over last 24 hrs: ",
         ge=0.0,
         client_data=ClientFieldData(
             prompt=lambda mi: (
-                    "Multiplier for rate curve for the adjustment of min profitability: >>> "
+                    "Multiplier for rate curve for the adjustment of min profitability based on previous trades over last 24 hrs: "
             ),
             prompt_on_new=True,
         ),
     )
     trade_fee: Decimal = Field(
-        default=Decimal("1.0"),
+        default=Decimal("0.25"),
         description="Complete trade fee covering both taker and maker trades: ",
         ge=0.0,
         client_data=ClientFieldData(
             prompt=lambda mi: (
-                    "Complete trade fee covering both taker and maker trades: >>> "
+                    "Complete trade fee covering both taker and maker trades: "
             ),
             prompt_on_new=True,
         ),
