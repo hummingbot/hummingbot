@@ -482,14 +482,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
             amount_orig = self._config_map.order_amount
             if is_hanging_order:
-                amount_orig = float(order.quantity)
+                amount_orig = order.quantity
                 level = "hang"
             data.append([
                 level,
                 "buy" if order.is_buy else "sell",
                 float(order.price),
                 f"{spread:.2%}",
-                amount_orig,
+                float(amount_orig),
                 float(order.quantity),
                 age
             ])
