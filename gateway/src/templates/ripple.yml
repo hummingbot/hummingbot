@@ -1,16 +1,16 @@
 networks:
   mainnet:
-    nodeURL: https://xrplcluster.com/
+    nodeURL: wss://xrplcluster.com/
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/ripple/ripple_tokens.json'
     nativeCurrencySymbol: 'XRP'
   testnet:
-    nodeURL: https://s.altnet.rippletest.net:51234/
+    nodeURL: wss://s.altnet.rippletest.net:51234/
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/ripple/ripple_tokens_testnet.json'
     nativeCurrencySymbol: 'XRP'
   devnet:
-    nodeURL: https://s.devnet.rippletest.net:51234/
+    nodeURL: wss://s.devnet.rippletest.net:51234/
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/ripple/ripple_tokens_devnet.json'
     nativeCurrencySymbol: 'XRP'

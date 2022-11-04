@@ -117,7 +117,6 @@ export class ConfigurationNamespace {
         `The JSON schema for namespace ${id} (${schemaPath}) does not exist.`
       );
     }
-
     this.#validator = ajv.compile(
       JSON.parse(fs.readFileSync(schemaPath).toString())
     );

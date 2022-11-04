@@ -9,6 +9,7 @@ import { Avalanche } from '../chains/avalanche/avalanche';
 import { Ethereum } from '../chains/ethereum/ethereum';
 import { Harmony } from '../chains/harmony/harmony';
 import { Polygon } from '../chains/polygon/polygon';
+import { Ripple, TrustlineInfo } from '../chains/ripple/ripple';
 import { TokenInfo } from '../services/ethereum-base';
 import {
   HttpException,
@@ -39,6 +40,8 @@ export async function getStatus(
       connections.push(Polygon.getInstance(req.network as string));
     } else if (req.chain === 'solana') {
       connections.push(await Solana.getInstance(req.network as string));
+    } else if (req.chain === 'ripple') {
+      connections.push(Ripple.getInstance(req.network as string));
     } else {
       throw new HttpException(
         500,
@@ -71,6 +74,11 @@ export async function getStatus(
     connections = connections.concat(
       solanaConnections ? Object.values(solanaConnections) : []
     );
+
+    const rippleConnections = Ripple.getConnectedInstances();
+    connections = connections.concat(
+      rippleConnections ? Object.values(rippleConnections) : []
+    );
   }
 
   for (const connection of connections) {
@@ -101,8 +109,8 @@ export async function getStatus(
 }
 
 export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
-  let connection: EthereumBase | Solanaish;
-  let tokens: TokenInfo[] = [];
+  let connection: EthereumBase | Solanaish | Ripple;
+  let tokens: (TokenInfo | TrustlineInfo)[] = [];
 
   if (req.chain && req.network) {
     if (req.chain === 'avalanche') {
@@ -115,6 +123,8 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
       connection = Polygon.getInstance(req.network);
     } else if (req.chain === 'solana') {
       connection = await Solana.getInstance(req.network);
+    } else if (req.chain === 'ripple') {
+      connection = await Ripple.getInstance(req.network);
     } else {
       throw new HttpException(
         500,
@@ -136,10 +146,21 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
 
   if (!req.tokenSymbols) {
     tokens = connection.storedTokenList;
-  } else {
+    return { tokens };
+  }
+
+  if (req.chain === `ripple`) {
     for (const t of req.tokenSymbols as []) {
-      tokens.push(connection.getTokenForSymbol(t) as TokenInfo);
+      const trustlines = connection.getTokenForSymbol(t) as TrustlineInfo[];
+      for (const tl of trustlines) {
+        tokens.push(tl);
+      }
     }
+    return { tokens };
+  }
+
+  for (const t of req.tokenSymbols as []) {
+    tokens.push(connection.getTokenForSymbol(t) as TokenInfo);
   }
 
   return { tokens };

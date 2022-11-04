@@ -3,6 +3,7 @@ import { Avalanche } from '../chains/avalanche/avalanche';
 import { Harmony } from '../chains/harmony/harmony';
 import { Solana, Solanaish } from '../chains/solana/solana';
 import { Polygon } from '../chains/polygon/polygon';
+import { Ripple, Rippleish } from '../chains/ripple/ripple';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { Pangolin } from '../connectors/pangolin/pangolin';
@@ -22,12 +23,14 @@ import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
 import { Defira } from '../connectors/defira/defira';
 import { Serumish } from '../connectors/serum/serum';
 
-export type ChainUnion = Ethereumish | Solanaish;
+export type ChainUnion = Ethereumish | Solanaish | Rippleish;
 
 export type Chain<T> = T extends Ethereumish
   ? Ethereumish
   : T extends Solanaish
   ? Solanaish
+  : T extends Rippleish
+  ? Rippleish
   : never;
 
 export async function getChain<T>(
@@ -43,6 +46,7 @@ export async function getChain<T>(
   else if (chain === 'harmony') chainInstance = Harmony.getInstance(network);
   else if (chain === 'solana')
     chainInstance = await Solana.getInstance(network);
+  else if (chain === 'ripple') chainInstance = Ripple.getInstance(network);
   else throw new Error('unsupported chain');
 
   if (!chainInstance.ready()) {
@@ -102,7 +106,7 @@ export async function getConnector<T>(
     connectorInstance = await Serum.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
-  }
+  } // TODO: Add Ripple DEX connector
 
   if (!connectorInstance.ready()) {
     await connectorInstance.init();

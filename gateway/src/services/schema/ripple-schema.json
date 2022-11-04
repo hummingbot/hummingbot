@@ -27,8 +27,8 @@
     "network": { "type": "string" },
     "requestTimeout": { "type": "integer" },
     "connectionTimeout": { "type": "integer" },
-    "feeCushion": { "type": "integer" },
-    "maxFeeXRP": { "type": "string" },
+    "feeCushion": { "type": "number" },
+    "maxFeeXRP": { "type": "string" }
   },
   "additionalProperties": false
 }

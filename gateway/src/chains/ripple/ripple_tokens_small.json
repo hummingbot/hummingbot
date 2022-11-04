@@ -1,0 +1,162 @@
+[
+  {
+    "id": 31,
+    "code": "SOLO",
+    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+    "title": "Sologenic",
+    "trustlines": 288976,
+    "placeInTop": 1
+  },
+  {
+    "id": 16602,
+    "code": "CSC",
+    "issuer": "rCSCManTZ8ME9EoLrSHHYKW8PPwWMgkwr",
+    "title": "CasinoCoin",
+    "trustlines": 54154,
+    "placeInTop": 2
+  },
+  {
+    "id": 18190,
+    "code": "CORE",
+    "issuer": "rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D",
+    "title": "Coreum",
+    "trustlines": 65817,
+    "placeInTop": 3
+  },
+  {
+    "id": 248,
+    "code": "ELS",
+    "issuer": "rHXuEaRYnnJHbDeuBH5w8yPh5uwNVh5zAg",
+    "title": "Elysian",
+    "trustlines": 109452,
+    "placeInTop": 4
+  },
+  {
+    "id": 16605,
+    "code": "Equilibrium",
+    "issuer": "rpakCr61Q92abPXJnVboKENmpKssWyHpwu",
+    "title": "Equilibrium",
+    "trustlines": 34827,
+    "placeInTop": 5
+  },
+  {
+    "id": 17073,
+    "code": "BTC",
+    "issuer": "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B",
+    "title": "Bitstamp",
+    "trustlines": 18187,
+    "placeInTop": 6
+  },
+  {
+    "id": 16603,
+    "code": "USD",
+    "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
+    "title": "Gatehub",
+    "trustlines": 110980,
+    "placeInTop": 7
+  },
+  {
+    "id": 17074,
+    "code": "USD",
+    "issuer": "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B",
+    "title": "Bitstamp",
+    "trustlines": 26696,
+    "placeInTop": 8
+  },
+  {
+    "id": 16818,
+    "code": "XPUNK",
+    "issuer": "rHEL3bM4RFsvF8kbQj3cya8YiDvjoEmxLq",
+    "title": "XRPL PUNKS",
+    "trustlines": 12074,
+    "placeInTop": 9
+  },
+  {
+    "id": 103,
+    "code": "VGB",
+    "issuer": "rhcyBrowwApgNonehKBj8Po5z4gTyRknaU",
+    "title": "Vagabond VGB",
+    "trustlines": 56661,
+    "placeInTop": 10
+  },
+  {
+    "id": 182,
+    "code": "RPR",
+    "issuer": "r3qWgpz2ry3BhcRJ8JE6rxM8esrfhuKp4R",
+    "title": "The Reaper",
+    "trustlines": 24140,
+    "placeInTop": 11
+  },
+  {
+    "id": 18542,
+    "code": "xSPECTAR",
+    "issuer": "rh5jzTCdMRCVjQ7LT6zucjezC47KATkuvv",
+    "title": "xSPECTAR NFT",
+    "trustlines": 9868,
+    "placeInTop": 12
+  },
+  {
+    "id": 16826,
+    "code": "BAY",
+    "issuer": "r4uq8urnYrT6LnZaadPyusyKCS68HVJtRn",
+    "title": "Bored Apes XRP Club",
+    "trustlines": 8247,
+    "placeInTop": 13
+  },
+  {
+    "id": 17296,
+    "code": "OXP",
+    "issuer": "rrno7Nj4RkFJLzC4nRaZiLF5aHwcTVon3d",
+    "title": "onXRP",
+    "trustlines": 9851,
+    "placeInTop": 14
+  },
+  {
+    "id": 16726,
+    "code": "ADV",
+    "issuer": "rPneN8WPHZJaMT9pF4Ynyyq4pZZZSeTuHu",
+    "title": "AdvisorBid",
+    "trustlines": 10454,
+    "placeInTop": 15
+  },
+  {
+    "id": 17363,
+    "code": "xBIBLx",
+    "issuer": "rnH9o6qdym34K293Pq3FZp5Ko7SpZxEbeG",
+    "title": "Bibliomp",
+    "trustlines": 4441,
+    "placeInTop": 16
+  },
+  {
+    "id": 16600,
+    "code": "EUR",
+    "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
+    "title": "Gatehub",
+    "trustlines": 85461,
+    "placeInTop": 17
+  },
+  {
+    "id": 225,
+    "code": "XRdoge",
+    "issuer": "rLqUC2eCPohYvJCEBJ77eCCqVL2uEiczjA",
+    "title": "XRdoge Labs",
+    "trustlines": 26611,
+    "placeInTop": 18
+  },
+  {
+    "id": 99,
+    "code": "XDX",
+    "issuer": "rMJAXYsbNzhwp7FfYnAsYP5ty3R9XnurPo",
+    "title": "D.P.MonksFinance LTD",
+    "trustlines": 28866,
+    "placeInTop": 19
+  },
+  {
+    "id": 18469,
+    "code": "STX",
+    "issuer": "rSTAYKxF2K77ZLZ8GoAwTqPGaphAqMyXV",
+    "title": "StaykX",
+    "trustlines": 12098,
+    "placeInTop": 20
+  }
+]

@@ -78,6 +78,22 @@ export const mkBranchingValidator = (
   };
 };
 
+export const mkMultiValidators = (
+  branchingKey: string,
+  validators: Record<string, Validator>
+): Validator => {
+  return (req: any) => {
+    let errors: Array<string> = [];
+    if (req[branchingKey]) {
+      const validator = validators[req[branchingKey]];
+      errors = errors.concat(validator(req));
+    } else {
+      errors.push(missingParameter(branchingKey));
+    }
+    return errors;
+  };
+};
+
 export const mkValidator = (
   key: string,
   errorMsg: string,

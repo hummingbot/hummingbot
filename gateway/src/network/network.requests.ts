@@ -1,3 +1,4 @@
+import { TrustlineInfo } from '../chains/ripple/ripple';
 import {
   CustomTransactionReceipt,
   CustomTransactionResponse,
@@ -53,5 +54,5 @@ export interface TokensRequest {
 }
 
 export interface TokensResponse {
-  tokens: TokenInfo[];
+  tokens: (TokenInfo | TrustlineInfo)[];
 }

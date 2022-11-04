@@ -5,6 +5,7 @@ import {
   Validator,
   isBase58,
   mkBranchingValidator,
+  mkMultiValidators,
 } from '../validators';
 import bs58 from 'bs58';
 
@@ -13,6 +14,9 @@ export const invalidEthPrivateKeyError: string =
 
 export const invalidSolPrivateKeyError: string =
   'The privateKey param is not a valid Solana private key (64 bytes, base 58 encoded).';
+
+export const invalidRipplePrivateKeyError: string =
+  'The privateKey param is not a valid Ripple private key (64 bytes, base 58 encoded).';
 
 // test if a string matches the shape of an Ethereum private key
 export const isEthPrivateKey = (str: string): boolean => {
@@ -24,8 +28,13 @@ export const isSolPrivateKey = (str: string): boolean => {
   return isBase58(str) && bs58.decode(str).length == 64;
 };
 
+// test if a string matches the shape of an Ripple seed key
+export const isRippleSeedKey = (str: string): boolean => {
+  return isBase58(str) && bs58.decode(str).length == 23;
+};
+
 // given a request, look for a key called privateKey that is an Ethereum private key
-export const validatePrivateKey: Validator = mkBranchingValidator(
+export const validatePrivateKeyTemp: Validator = mkBranchingValidator(
   'chain',
   (req, key) => req[key] === 'solana',
   mkValidator(
@@ -39,6 +48,39 @@ export const validatePrivateKey: Validator = mkBranchingValidator(
     (val) => typeof val === 'string' && isEthPrivateKey(val)
   )
 );
+
+export const validatePrivateKey: Validator = mkMultiValidators('chain', {
+  solana: mkValidator(
+    'privateKey',
+    invalidSolPrivateKeyError,
+    (val) => typeof val === 'string' && isSolPrivateKey(val)
+  ),
+  ethereum: mkValidator(
+    'privateKey',
+    invalidEthPrivateKeyError,
+    (val) => typeof val === 'string' && isEthPrivateKey(val)
+  ),
+  harmony: mkValidator(
+    'privateKey',
+    invalidEthPrivateKeyError,
+    (val) => typeof val === 'string' && isEthPrivateKey(val)
+  ),
+  avalanche: mkValidator(
+    'privateKey',
+    invalidEthPrivateKeyError,
+    (val) => typeof val === 'string' && isEthPrivateKey(val)
+  ),
+  polygon: mkValidator(
+    'privateKey',
+    invalidEthPrivateKeyError,
+    (val) => typeof val === 'string' && isEthPrivateKey(val)
+  ),
+  ripple: mkValidator(
+    'privateKey',
+    invalidRipplePrivateKeyError,
+    (val) => typeof val === 'string' && isRippleSeedKey(val)
+  ),
+});
 
 export const invalidChainError: string =
   'chain must be "ethereum", "solana", "avalanche" or "harmony"';
@@ -57,7 +99,8 @@ export const validateChain: Validator = mkValidator(
       val === 'avalanche' ||
       val === 'polygon' ||
       val === 'solana' ||
-      val === 'harmony')
+      val === 'harmony' ||
+      val === 'ripple')
 );
 
 export const validateNetwork: Validator = mkValidator(

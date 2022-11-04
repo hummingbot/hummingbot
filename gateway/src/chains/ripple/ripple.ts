@@ -17,7 +17,7 @@ import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-
 import { getRippleConfig } from './ripple.config';
 import { logger } from '../../services/logger';
 
-type TrustlineInfo = {
+export type TrustlineInfo = {
   id: number;
   code: string;
   issuer: string;
@@ -32,7 +32,7 @@ export type TokenBalance = {
   value: string;
 };
 
-export class Ripple {
+export class Ripple implements Rippleish {
   private static _instances: { [name: string]: Ripple };
   public rpcUrl;
 
@@ -40,7 +40,6 @@ export class Ripple {
   private _tokenMap: Record<string, TrustlineInfo[]> = {};
 
   private _client: Client;
-  private _wallets: Record<string, Wallet> = {}; // TODO: Add method to add wallets
   private _nativeTokenSymbol: string;
   private _chain: string;
   private _network: string;
@@ -177,7 +176,13 @@ export class Ripple {
     return this._tokenMap[code] ? this._tokenMap[code] : null;
   }
 
-  async getWalletFromSeed(address: string): Promise<Wallet> {
+  public getWalletFromSeed(seed: string): Wallet {
+    const wallet = Wallet.fromSeed(seed);
+
+    return wallet;
+  }
+
+  async getWallet(address: string): Promise<Wallet> {
     const path = `${walletPath}/${this.chain}`;
 
     const encryptedSeed: string = await fse.readFile(
@@ -197,7 +202,7 @@ export class Ripple {
   async encrypt(secret: string, password: string): Promise<string> {
     const algorithm = 'aes-256-ctr';
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(algorithm, password, iv);
+    const cipher = crypto.createCipheriv(algorithm, password, iv); // TODO: createCipheriv not working, got invalid key length, need FIX
     const encrypted = Buffer.concat([cipher.update(secret), cipher.final()]);
 
     return JSON.stringify({
@@ -231,7 +236,7 @@ export class Ripple {
     return balance;
   }
 
-  async getAllBalance(wallet: Wallet): Promise<TokenBalance[]> {
+  async getAllBalance(wallet: Wallet): Promise<Array<TokenBalance>> {
     await this._client.connect();
     const balances = await this._client.getBalances(wallet.address);
     await this._client.disconnect();
@@ -275,4 +280,21 @@ export class Ripple {
   public get metricsLogInterval(): number {
     return this._metricsLogInterval;
   }
+
+  // returns the current block number
+  async getCurrentBlockNumber(): Promise<number> {
+    await this.client.connect();
+    const currentIndex = this.client.getLedgerIndex();
+    await this.client.disconnect();
+    return currentIndex;
+  }
+
+  async close() {
+    if (this._network in Ripple._instances) {
+      delete Ripple._instances[this._network];
+    }
+  }
 }
+
+export type Rippleish = Ripple;
+export const Rippleish = Ripple;

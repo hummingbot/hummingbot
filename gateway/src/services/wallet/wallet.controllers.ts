@@ -4,6 +4,7 @@ import { Ethereum } from '../../chains/ethereum/ethereum';
 import { Polygon } from '../../chains/polygon/polygon';
 import { Solana } from '../../chains/solana/solana';
 import { Harmony } from '../../chains/harmony/harmony';
+import { Ripple } from '../../chains/ripple/ripple';
 
 import {
   AddWalletRequest,
@@ -60,6 +61,10 @@ export async function addWallet(
     const harmony = Harmony.getInstance(req.network);
     address = harmony.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await harmony.encrypt(req.privateKey, passphrase);
+  } else if (req.chain === 'ripple') {
+    const ripple = Ripple.getInstance(req.network);
+    address = ripple.getWalletFromSeed(req.privateKey).classicAddress;
+    encryptedPrivateKey = await ripple.encrypt(req.privateKey, passphrase);
   } else {
     throw new HttpException(
       500,

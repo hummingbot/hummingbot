@@ -83,3 +83,7 @@ configurations:
   $namespace serum:
     configurationPath: serum.yml
     schemaPath: serum-schema.json
+
+  $namespace ripple:
+    configurationPath: ripple.yml
+    schemaPath: ripple-schema.json
