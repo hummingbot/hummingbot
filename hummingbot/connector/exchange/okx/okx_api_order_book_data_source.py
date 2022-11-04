@@ -40,8 +40,8 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         order_book_message_content = {
             "trading_pair": trading_pair,
             "update_id": update_id,
-            "bids": [(bid[0], bid[3]) for bid in snapshot_data["bids"]],
-            "asks": [(ask[0], ask[3]) for ask in snapshot_data["asks"]],
+            "bids": [(bid[0], bid[1]) for bid in snapshot_data["bids"]],
+            "asks": [(ask[0], ask[1]) for ask in snapshot_data["asks"]],
         }
         snapshot_msg: OrderBookMessage = OrderBookMessage(
             OrderBookMessageType.SNAPSHOT,
@@ -72,6 +72,25 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         )
 
         return data
+
+    async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["arg"]["instId"])
+        snapshot_data = raw_message["data"][0]
+        snapshot_timestamp: float = int(snapshot_data["ts"]) * 1e-3
+        update_id: int = int(snapshot_timestamp)
+
+        order_book_message_content = {
+            "trading_pair": trading_pair,
+            "update_id": update_id,
+            "bids": [(bid[0], bid[1]) for bid in snapshot_data["bids"]],
+            "asks": [(ask[0], ask[1]) for ask in snapshot_data["asks"]],
+        }
+        snapshot_msg: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            order_book_message_content,
+            snapshot_timestamp)
+
+        message_queue.put_nowait(snapshot_msg)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trade_updates = raw_message["data"]
@@ -105,8 +124,8 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             order_book_message_content = {
                 "trading_pair": trading_pair,
                 "update_id": update_id,
-                "bids": [(bid[0], bid[3]) for bid in diff_data["bids"]],
-                "asks": [(ask[0], ask[3]) for ask in diff_data["asks"]],
+                "bids": [(bid[0], bid[1]) for bid in diff_data["bids"]],
+                "asks": [(ask[0], ask[1]) for ask in diff_data["asks"]],
             }
             diff_message: OrderBookMessage = OrderBookMessage(
                 OrderBookMessageType.DIFF,
@@ -159,8 +178,10 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             event_channel = event_message["arg"]["channel"]
             if event_channel == CONSTANTS.OKX_WS_PUBLIC_TRADES_CHANNEL:
                 channel = self._trade_messages_queue_key
-            if event_channel == CONSTANTS.OKX_WS_PUBLIC_BOOKS_CHANNEL and event_message["action"] == "update":
+            elif event_channel == CONSTANTS.OKX_WS_PUBLIC_BOOKS_CHANNEL and event_message["action"] == "update":
                 channel = self._diff_messages_queue_key
+            elif event_channel == CONSTANTS.OKX_WS_PUBLIC_BOOKS_CHANNEL and event_message["action"] == "snapshot":
+                channel = self._snapshot_messages_queue_key
 
         return channel
 
