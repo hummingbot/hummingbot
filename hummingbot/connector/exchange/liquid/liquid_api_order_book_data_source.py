@@ -1,20 +1,21 @@
 import asyncio
-import aiohttp
 import logging
-import pandas as pd
 import time
 from typing import Any, AsyncIterable, Dict, List, Optional
+
+import aiohttp
+import pandas as pd
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from hummingbot.connector.exchange.liquid.constants import Constants
+from hummingbot.connector.exchange.liquid.liquid_order_book import LiquidOrderBook
+from hummingbot.connector.exchange.liquid.liquid_order_book_tracker_entry import LiquidOrderBookTrackerEntry
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.liquid.liquid_order_book import LiquidOrderBook
-from hummingbot.connector.exchange.liquid.liquid_order_book_tracker_entry import LiquidOrderBookTrackerEntry
-from hummingbot.connector.exchange.liquid.constants import Constants
 
 
 class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -384,3 +385,11 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
+
+    async def listen_for_subscriptions(self):
+        """
+        Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
+        exchange. Each message is stored in its own queue.
+        """
+        # This connector does not use this base class method and needs a refactoring
+        pass
