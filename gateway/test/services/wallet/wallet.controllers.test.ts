@@ -18,8 +18,6 @@ import {
 
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 import { BinanceSmartChain } from '../../../src/chains/binance-smart-chain/binance-smart-chain';
-import { Solana } from '../../../src/chains/solana/solana';
-
 let avalanche: Avalanche;
 let eth: Ethereum;
 let harmony: Harmony;
