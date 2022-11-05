@@ -22,7 +22,6 @@ let avalanche: Avalanche;
 let eth: Ethereum;
 let harmony: Harmony;
 let bsc: BinanceSmartChain;
-let solana: Solana;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
