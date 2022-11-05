@@ -56,8 +56,8 @@ export async function addWallet(
   } else {
     throw new HttpException(
       500,
-      ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE(req.privateKey),
-      ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE
+      UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE(req.chain),
+      UNKNOWN_CHAIN_ERROR_CODE
     );
   }
 
