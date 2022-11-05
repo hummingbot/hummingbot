@@ -192,47 +192,6 @@ describe('addWallet and getWallets', () => {
       )
     );
   });
-
-  it('fail to retrieve eth wallet address', async () => {
-    patch(eth, 'getWalletFromPrivateKey', () => {
-      return {
-        address: undefined,
-      };
-    });
-    await expect(
-      addWallet({
-        privateKey: onePrivateKey,
-        chain: 'ethereum',
-        network: 'kovan',
-      })
-    ).rejects.toThrow(
-      new HttpException(
-        500,
-        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE(onePrivateKey),
-        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE
-      )
-    );
-  });
-
-  it('fail to retrieve solana wallet address', async () => {
-    patch(solana, 'getKeypairFromPrivateKey', () => {
-      return {};
-    });
-    await expect(
-      addWallet({
-        privateKey: onePrivateKey,
-        chain: 'solana',
-        network: 'testnet',
-      })
-    ).rejects.toThrow(
-      new HttpException(
-        500,
-        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE(onePrivateKey),
-        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE
-      )
-    );
-  });
-
 });
 
 describe('addWallet and removeWallets', () => {
