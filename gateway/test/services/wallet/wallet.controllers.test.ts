@@ -30,7 +30,6 @@ beforeAll(async () => {
   eth = Ethereum.getInstance('kovan');
   harmony = Harmony.getInstance('testnet');
   bsc = BinanceSmartChain.getInstance('testnet');
-  solana = Solana.getInstance('testnet');
 });
 
 beforeEach(() =>
