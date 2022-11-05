@@ -10,8 +10,6 @@ import {
 } from '../../../src/services/wallet/wallet.controllers';
 import {
   HttpException,
-  ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE,
-  ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE,
   UNKNOWN_CHAIN_ERROR_CODE,
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../../../src/services/error-handler';

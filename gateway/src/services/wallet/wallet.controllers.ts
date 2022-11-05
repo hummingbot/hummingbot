@@ -1,7 +1,6 @@
 import fse from 'fs-extra';
 import { Avalanche } from '../../chains/avalanche/avalanche';
 import { BinanceSmartChain } from '../../chains/binance-smart-chain/binance-smart-chain';
-import { Cronos } from '../../chains/cronos/cronos';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import { Polygon } from '../../chains/polygon/polygon';
 import { Solana } from '../../chains/solana/solana';
@@ -38,7 +37,7 @@ export async function addWallet(
   if (!passphrase) {
     throw new Error('There is no passphrase');
   }
-  let connection: EthereumBase | HederaBase | Solana;
+  let connection: EthereumBase | Solana;
   let address: string | undefined;
   let encryptedPrivateKey: string | undefined;
 
@@ -54,8 +53,6 @@ export async function addWallet(
     connection = Harmony.getInstance(req.network);
   } else if (req.chain === 'binance-smart-chain') {
     connection = BinanceSmartChain.getInstance(req.network);
-  } else if (req.chain === 'cronos') {
-    connection = Cronos.getInstance(req.network);
   } else {
     throw new HttpException(
       500,

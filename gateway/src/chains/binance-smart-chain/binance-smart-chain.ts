@@ -6,6 +6,7 @@ import { getEthereumConfig as getBinanceSmartChainConfig } from '../ethereum/eth
 import { Provider } from '@ethersproject/abstract-provider';
 import { Ethereumish } from '../../services/common-interfaces';
 import { PancakeSwapConfig } from '../../connectors/pancakeswap/pancakeswap.config';
+import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
 export class BinanceSmartChain extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: BinanceSmartChain };
@@ -23,7 +24,9 @@ export class BinanceSmartChain extends EthereumBase implements Ethereumish {
       config.network.tokenListSource,
       config.network.tokenListType,
       config.manualGasPrice,
-      config.gasLimit
+      config.gasLimitTransaction,
+      ConfigManagerV2.getInstance().get('database.nonceDbPath'),
+      ConfigManagerV2.getInstance().get('database.transactionDbPath')
     );
     this._chain = config.network.name;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
