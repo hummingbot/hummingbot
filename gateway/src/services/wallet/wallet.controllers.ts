@@ -18,7 +18,8 @@ import { ConfigManagerCertPassphrase } from '../config-manager-cert-passphrase';
 import {
   ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE,
   HttpException,
-  ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE,
+  UNKNOWN_CHAIN_ERROR_CODE,
+  UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../error-handler';
 import { EthereumBase } from '../ethereum-base';
 
