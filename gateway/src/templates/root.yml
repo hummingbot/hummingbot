@@ -91,11 +91,3 @@ configurations:
   $namespace pancakeswap:
     configurationPath: pancakeswap.yml
     schemaPath: pangolin-schema.json
-
-  $namespace cronos:
-      configurationPath: cronos.yml
-      schemaPath: ethereum-schema.json
-
-  $namespace defikingdoms:
-    configurationPath: defikingdoms.yml
-    schemaPath: defikingdoms-schema.json
