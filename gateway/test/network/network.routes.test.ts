@@ -36,6 +36,7 @@ beforeEach(() => {
   patchEVMNonceManager(eth.nonceManager);
   patchEVMNonceManager(goerli.nonceManager);
   patchEVMNonceManager(avalanche.nonceManager);
+  patchEVMNonceManager(harmony.nonceManager);
   patchEVMNonceManager(polygon.nonceManager);
 });
 
@@ -148,7 +149,7 @@ describe('GET /network/status', () => {
       .expect((res) => expect(res.body.currentBlockNumber).toBeDefined());
   });
 
-  it('should return 200 when asking for avalance network status', async () => {
+  it('should return 200 when asking for polygon network status', async () => {
     patch(polygon, 'chain', () => {
       return 'mumbai';
     });
