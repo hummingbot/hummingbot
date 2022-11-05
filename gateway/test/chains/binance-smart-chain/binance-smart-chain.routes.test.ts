@@ -14,9 +14,29 @@ import * as transactionSuccesfulReceipt from '../ethereum//fixtures/transaction-
 import * as transactionOutOfGas from '../ethereum//fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from '../ethereum/fixtures/transaction-out-of-gas-receipt.json';
 import { BinanceSmartChain } from '../../../src/chains/binance-smart-chain/binance-smart-chain';
+import { patchEVMNonceManager } from '../../evm.nonce.mock';
 
-const bsc = BinanceSmartChain.getInstance('testnet');
-afterEach(unpatch);
+let bsc: BinanceSmartChain;
+
+beforeAll(async () => {
+  bsc = BinanceSmartChain.getInstance('testnet');
+
+  patchEVMNonceManager(bsc.nonceManager);
+
+  await bsc.init();
+});
+
+beforeEach(() => {
+  patchEVMNonceManager(bsc.nonceManager);
+});
+
+afterEach(() => {
+  unpatch();
+});
+
+afterAll(async () => {
+  await bsc.close();
+});
 
 const address: string = '0x242532ebDfcc760f2Ddfe8378eB51f5F847CE5bD';
 
@@ -60,10 +80,10 @@ const patchApproveERC20 = () => {
       value: { toString: () => '0' },
       data: '0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', // noqa: mock
       accessList: [],
-      hash: '0xffdb7b393b46d3795b82c94b8d836ad6b3087a914244634fa89c3abbbf00ed72',
+      hash: '0xffdb7b393b46d3795b82c94b8d836ad6b3087a914244634fa89c3abbbf00ed72', // noqa: mock
       v: 229,
-      r: '0x8800b16cbc6d468acad057dd5f724944d6aa48543cd90472e28dd5c6e90268b1',
-      s: '0x662ed86bb86fb40911738ab67785f6e6c76f1c989d977ca23c504ef7a4796d08',
+      r: '0x8800b16cbc6d468acad057dd5f724944d6aa48543cd90472e28dd5c6e90268b1', // noqa: mock
+      s: '0x662ed86bb86fb40911738ab67785f6e6c76f1c989d977ca23c504ef7a4796d08', // noqa: mock
       from: '0x242532ebdfcc760f2ddfe8378eb51f5f847ce5bd',
       confirmations: 98,
     };
