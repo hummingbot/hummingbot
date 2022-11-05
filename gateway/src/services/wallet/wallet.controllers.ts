@@ -37,7 +37,7 @@ export async function addWallet(
   if (!passphrase) {
     throw new Error('There is no passphrase');
   }
-  let connection: EthereumBase | HederaBase | Solana;
+  let connection: EthereumBase | Solana;
   let address: string | undefined;
   let encryptedPrivateKey: string | undefined;
 
