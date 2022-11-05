@@ -53,8 +53,6 @@ export async function addWallet(
     connection = Harmony.getInstance(req.network);
   } else if (req.chain === 'binance-smart-chain') {
     connection = BinanceSmartChain.getInstance(req.network);
-  } else if (req.chain === 'cronos') {
-    connection = Cronos.getInstance(req.network);
   } else {
     throw new HttpException(
       500,
