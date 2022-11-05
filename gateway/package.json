@@ -28,7 +28,6 @@
     "@ethersproject/experimental": "^5.3.0",
     "@harmony-js/core": "^0.1.57",
     "@harmony-js/utils": "^0.1.56",
-    "@hashgraph/hethers": "^1.1.3",
     "@pancakeswap/sdk": "^2.4.5",
     "@pangolindex/sdk": "^1.1.0",
     "@perp/sdk-curie": "^1.6.1",
