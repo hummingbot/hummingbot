@@ -17,7 +17,7 @@ repos:
     hooks:
     -   id: detect-wallet-private-key
         types: [file]
-        exclude: "\\.(json|test.ts)$"
+        exclude: .json
 -   repo: https://github.com/pycqa/isort
     rev: 5.10.1
     hooks:
