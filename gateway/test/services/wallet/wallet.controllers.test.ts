@@ -19,13 +19,12 @@ import {
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 import { BinanceSmartChain } from '../../../src/chains/binance-smart-chain/binance-smart-chain';
 import { Solana } from '../../../src/chains/solana/solana';
-import { Hedera } from '../../../src/chains/hedera/hedera';
+
 let avalanche: Avalanche;
 let eth: Ethereum;
 let harmony: Harmony;
 let bsc: BinanceSmartChain;
 let solana: Solana;
-let hedera: Hedera;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
@@ -34,8 +33,7 @@ beforeAll(async () => {
   eth = Ethereum.getInstance('kovan');
   harmony = Harmony.getInstance('testnet');
   bsc = BinanceSmartChain.getInstance('testnet');
-  solana = Solana.getInstance();
-  hedera = Hedera.getInstance('testnet');
+  solana = Solana.getInstance('testnet');
 });
 
 beforeEach(() =>
