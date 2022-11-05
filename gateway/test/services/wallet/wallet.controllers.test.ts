@@ -237,24 +237,6 @@ describe('addWallet and getWallets', () => {
     );
   });
 
-  it('fail to retrieve hedera wallet address', async () => {
-    patch(hedera, 'encrypt', () => {
-      return {};
-    });
-    await expect(
-      addWallet({
-        privateKey: `${onePrivateKey}-testId`,
-        chain: 'hedera',
-        network: 'testnet',
-      })
-    ).rejects.toThrow(
-      new HttpException(
-        500,
-        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE(onePrivateKey),
-        ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE
-      )
-    );
-  });
 });
 
 describe('addWallet and removeWallets', () => {
