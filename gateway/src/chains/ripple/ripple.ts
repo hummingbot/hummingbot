@@ -202,22 +202,27 @@ export class Ripple implements Rippleish {
   async encrypt(secret: string, password: string): Promise<string> {
     const algorithm = 'aes-256-ctr';
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(algorithm, password, iv); // TODO: createCipheriv not working, got invalid key length, need FIX
+    const salt = crypto.randomBytes(32);
+    const key = crypto.pbkdf2Sync(password, salt, 5000, 32, 'sha512');
+    const cipher = crypto.createCipheriv(algorithm, key, iv);
     const encrypted = Buffer.concat([cipher.update(secret), cipher.final()]);
 
     return JSON.stringify({
       algorithm,
       iv,
+      salt,
       encrypted,
     });
   }
 
   async decrypt(encryptedSecret: string, password: string): Promise<string> {
     const hash = JSON.parse(encryptedSecret);
+    const salt = hash.salt;
+    const key = crypto.pbkdf2Sync(password, salt, 5000, 32, 'sha512');
 
     const decipher = crypto.createDecipheriv(
       hash.algorithm,
-      password,
+      key,
       Buffer.from(hash.iv, 'hex')
     );
 
