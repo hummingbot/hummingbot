@@ -71,6 +71,8 @@ Help us **democratize high-frequency trading** and make powerful trading algorit
 | <img src="assets/probit-logo.jpg" alt="Probit Global" width="90" /> | [Probit Global](https://www.probit.com/) | [spot](https://hummingbot.org/exchanges/probit/)
 | <img src="assets/probit_kr-logo.jpg" alt="Probit Korea" width="90" /> | [Probit Korea](https://www.probit.kr/en-us/) | [spot](https://hummingbot.org/exchanges/probit-korea/) |
 | <img src="assets/wazirX-logo.jpg" alt="Wazirx" width="90" /> | [WazirX](https://wazirx.com/) | [spot](https://hummingbot.org/exchanges/wazirx/) |
+| <img src="assets/btcmarkets-logo.jpg" alt="BTC Markets" width="90" />| [BTC Markets](https://www.btcmarkets.net/) | [spot](https://docs.btcmarkets.net/v3/) |
+
 
 ## Decentralized Exchange Connectors
 

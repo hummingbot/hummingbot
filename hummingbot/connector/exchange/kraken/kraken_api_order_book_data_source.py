@@ -280,3 +280,11 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "subscription": {"name": subscription_type, "depth": 1000}})
 
         return ws_message
+
+    async def listen_for_subscriptions(self):
+        """
+        Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
+        exchange. Each message is stored in its own queue.
+        """
+        # This connector does not use this base class method and needs a refactoring
+        pass
