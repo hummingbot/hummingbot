@@ -5,7 +5,7 @@ from copy import deepcopy
 from decimal import Decimal
 from itertools import chain, product
 from typing import Any, Callable, List, Optional, Tuple
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pandas as pd
 from aioresponses import aioresponses
@@ -21,6 +21,7 @@ from hummingbot.connector.test_support.perpetual_derivative_test import Abstract
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
@@ -471,6 +472,23 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         funding_info["next_funding_time"] = self.target_funding_info_next_funding_utc_str
         funding_info["predicted_funding_rate"] = self.target_funding_info_rate
         return mock_response
+
+    @property
+    def get_predicted_funding_info(self):
+        return {
+            "ret_code": 0,
+            "ret_msg": "ok",
+            "ext_code": "",
+            "result": {
+                "predicted_funding_rate": 3,
+                "predicted_funding_fee": 0
+            },
+            "ext_info": None,
+            "time_now": "1577447415.583259",
+            "rate_limit_status": 118,
+            "rate_limit_reset_ms": 1577447415590,
+            "rate_limit": 120
+        }
 
     @property
     def expected_supported_order_types(self):
@@ -1273,6 +1291,65 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_ORDER_NOT_EXISTS)
         exception = IOError(f"{error_code_str} - Failed to cancel order because it was not found.")
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+    @aioresponses()
+    @patch("asyncio.Queue.get")
+    def test_listen_for_funding_info_update_initializes_funding_info(self, mock_api, mock_queue_get):
+        url = self.funding_info_url
+
+        response = self.funding_info_mock_response
+        mock_api.get(url, body=json.dumps(response))
+
+        endpoint = CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL
+        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        funding_resp = self.get_predicted_funding_info
+        mock_api.get(regex_url, body=json.dumps(funding_resp))
+
+        event_messages = [asyncio.CancelledError]
+        mock_queue_get.side_effect = event_messages
+
+        try:
+            self.async_run_with_timeout(self.exchange._listen_for_funding_info())
+        except asyncio.CancelledError:
+            pass
+
+        funding_info: FundingInfo = self.exchange.get_funding_info(self.trading_pair)
+
+        self.assertEqual(self.trading_pair, funding_info.trading_pair)
+        self.assertEqual(self.target_funding_info_index_price, funding_info.index_price)
+        self.assertEqual(self.target_funding_info_mark_price, funding_info.mark_price)
+        self.assertEqual(
+            self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp
+        )
+        self.assertEqual(self.target_funding_info_rate, funding_info.rate)
+
+    @aioresponses()
+    @patch("asyncio.Queue.get")
+    def test_listen_for_funding_info_update_updates_funding_info(self, mock_api, mock_queue_get):
+        url = self.funding_info_url
+
+        response = self.funding_info_mock_response
+        mock_api.get(url, body=json.dumps(response))
+
+        endpoint = CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL
+        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        funding_resp = self.get_predicted_funding_info
+        mock_api.get(regex_url, body=json.dumps(funding_resp))
+
+        funding_info_event = self.funding_info_event_for_websocket_update()
+
+        event_messages = [funding_info_event, asyncio.CancelledError]
+        mock_queue_get.side_effect = event_messages
+
+        try:
+            self.async_run_with_timeout(
+                self.exchange._listen_for_funding_info())
+        except asyncio.CancelledError:
+            pass
+
+        self.assertEqual(1, self.exchange._perpetual_trading.funding_info_stream.qsize())  # rest in OB DS tests
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {
