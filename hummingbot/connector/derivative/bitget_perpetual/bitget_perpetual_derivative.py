@@ -354,8 +354,10 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         """
         Calls REST API to update total and available balances
         """
-        balances = []
-        product_types = CONSTANTS.ALL_PRODUCT_TYPES
+        balances = {}
+        trading_pairs_product_types = set([await self.product_type_for_trading_pair(trading_pair=trading_pair)
+                                           for trading_pair in self.trading_pairs])
+        product_types = trading_pairs_product_types or CONSTANTS.ALL_PRODUCT_TYPES
 
         for product_type in product_types:
             body_params = {"productType": product_type.lower()}
@@ -369,16 +371,21 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
                 formatted_ret_code = self._format_ret_code_for_print(wallet_balance["code"])
                 raise IOError(f"{formatted_ret_code} - {wallet_balance['msg']}")
 
-            balances.extend(wallet_balance["data"])
+            balances[product_type] = wallet_balance["data"]
 
         self._account_available_balances.clear()
         self._account_balances.clear()
-        for balance_data in balances:
-            asset_name = balance_data["marginCoin"]
-            self._account_available_balances[asset_name] = (Decimal(str(balance_data["fixedMaxAvailable"]))
-                                                            if self.position_mode is PositionMode.ONEWAY
-                                                            else Decimal(str(balance_data["crossMaxAvailable"])))
-            self._account_balances[asset_name] = Decimal(str(balance_data["equity"]))
+        for product_type_balances in balances.values():
+            for balance_data in product_type_balances:
+                asset_name = balance_data["marginCoin"]
+                current_available = self._account_available_balances.get(asset_name, Decimal(0))
+                queried_available = (Decimal(str(balance_data["fixedMaxAvailable"]))
+                                     if self.position_mode is PositionMode.ONEWAY
+                                     else Decimal(str(balance_data["crossMaxAvailable"])))
+                self._account_available_balances[asset_name] = current_available + queried_available
+                current_total = self._account_balances.get(asset_name, Decimal(0))
+                queried_total = Decimal(str(balance_data["equity"]))
+                self._account_balances[asset_name] = current_total + queried_total
 
     async def _update_positions(self):
         """

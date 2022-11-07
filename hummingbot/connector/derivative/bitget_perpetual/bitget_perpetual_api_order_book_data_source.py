@@ -38,7 +38,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._diff_messages_queue_key = "books"
         self._trade_messages_queue_key = "trade"
         self._funding_info_messages_queue_key = "ticker"
-        self._pong_response_event = None
+        self._pong_response_event = asyncio.Event()
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)

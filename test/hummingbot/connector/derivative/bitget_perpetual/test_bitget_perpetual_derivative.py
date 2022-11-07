@@ -390,10 +390,10 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = BitgetPerpetualDerivative(
-            client_config_map,
-            self.api_key,
-            self.api_secret,
-            self.passphrase,
+            client_config_map=client_config_map,
+            bitget_perpetual_api_key=self.api_key,
+            bitget_perpetual_secret_key=self.api_secret,
+            bitget_perpetual_passphrase=self.passphrase,
             trading_pairs=[self.trading_pair],
         )
         exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -1455,6 +1455,66 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         self.assertEqual(Decimal(10_000), self.exchange.available_balances[self.quote_asset])
         self.assertEqual(Decimal(10_000), self.exchange.get_balance(self.quote_asset))
+
+    @aioresponses()
+    def test_update_balances_for_tokens_in_several_product_type_markets(self, mock_api):
+        self.exchange._trading_pairs = []
+        url = self.balance_url + f"?productType={CONSTANTS.USDT_PRODUCT_TYPE.lower()}"
+        response = self.balance_request_mock_response_for_base_and_quote
+        mock_api.get(url, body=json.dumps(response))
+
+        url = self.balance_url + f"?productType={CONSTANTS.USD_PRODUCT_TYPE.lower()}"
+        response = {
+            "code": "00000",
+            "data": [
+                {
+                    "marginCoin": self.base_asset,
+                    "locked": "5",
+                    "available": "50",
+                    "crossMaxAvailable": "50",
+                    "fixedMaxAvailable": "50",
+                    "maxTransferOut": "10572.92904289",
+                    "equity": "70",
+                    "usdtEquity": "10582.902657719473",
+                    "btcEquity": "0.204885807029"
+                }
+            ],
+            "msg": "success",
+            "requestTime": 1630901215622
+        }
+        mock_api.get(url, body=json.dumps(response))
+
+        url = self.balance_url + f"?productType={CONSTANTS.USDC_PRODUCT_TYPE.lower()}"
+        response = {
+            "code": "00000",
+            "data": [],
+            "msg": "success",
+            "requestTime": 1630901215622
+        }
+        mock_api.get(url, body=json.dumps(response))
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertEqual(Decimal("60"), available_balances[self.base_asset])
+        self.assertEqual(Decimal("2000"), available_balances[self.quote_asset])
+        self.assertEqual(Decimal("85"), total_balances[self.base_asset])
+        self.assertEqual(Decimal("2000"), total_balances[self.quote_asset])
+
+        response = self.balance_request_mock_response_only_base
+
+        self._configure_balance_response(response=response, mock_api=mock_api)
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertNotIn(self.quote_asset, available_balances)
+        self.assertNotIn(self.quote_asset, total_balances)
+        self.assertEqual(Decimal("10"), available_balances[self.base_asset])
+        self.assertEqual(Decimal("15"), total_balances[self.base_asset])
 
     def _expected_valid_trading_pairs(self):
         return [self.trading_pair, "BTC-USD", "BTC-USDC"]
