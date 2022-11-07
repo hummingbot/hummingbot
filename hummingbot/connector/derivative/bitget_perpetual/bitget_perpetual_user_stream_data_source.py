@@ -30,7 +30,7 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         self._auth = auth
         self._trading_pairs = trading_pairs
         self._connector = connector
-        self._pong_response_event = None
+        self._pong_response_event = asyncio.Event()
 
     async def _authenticate(self, ws: WSAssistant):
         """
