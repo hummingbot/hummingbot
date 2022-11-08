@@ -3,7 +3,6 @@ module.exports = {
   testEnvironment: 'node',
   forceExit: true,
   coveragePathIgnorePatterns: [
-    'conf/migration/migrations.js',
     'src/app.ts',
     'src/https.ts',
     'src/paths.ts',
