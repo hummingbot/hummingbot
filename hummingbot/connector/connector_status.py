@@ -44,6 +44,7 @@ connector_status = {
     'k2': 'red',
     'latoken': 'green',
     'liquid': 'green',
+    'litebit': 'yellow',
     'loopring': 'yellow',
     'mexc': 'yellow',
     'ndax': 'yellow',

@@ -85,6 +85,10 @@ latoken_secret_key = os.getenv("LATOKEN_SECRET_KEY")
 liquid_api_key = os.getenv("LIQUID_API_KEY")
 liquid_secret_key = os.getenv("LIQUID_SECRET_KEY")
 
+# LiteBit Exchange Test
+litebit_api_key = os.getenv("LITEBIT_API_KEY")
+litebit_secret_key = os.getenv("LITEBIT_SECRET_KEY")
+
 # Kraken Tests
 kraken_api_key = os.getenv("KRAKEN_API_KEY")
 kraken_secret_key = os.getenv("KRAKEN_SECRET_KEY")

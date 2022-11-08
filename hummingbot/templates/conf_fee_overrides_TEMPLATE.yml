@@ -198,6 +198,12 @@ liquid_maker_percent_fee:
 liquid_percent_fee_token:
 liquid_taker_fixed_fees:
 liquid_taker_percent_fee:
+litebit_buy_percent_fee_deducted_from_returns:
+litebit_maker_fixed_fees:
+litebit_maker_percent_fee:
+litebit_percent_fee_token:
+litebit_taker_fixed_fees:
+litebit_taker_percent_fee:
 loopring_buy_percent_fee_deducted_from_returns:
 loopring_maker_fixed_fees:
 loopring_maker_percent_fee:
