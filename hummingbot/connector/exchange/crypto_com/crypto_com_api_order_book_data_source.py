@@ -1,14 +1,13 @@
 #!/usr/bin/env python
-import aiohttp
 import asyncio
 import logging
-
-import hummingbot.connector.exchange.crypto_com.crypto_com_constants as CONSTANTS
-import hummingbot.connector.exchange.crypto_com.crypto_com_utils as crypto_com_utils
-
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
+import aiohttp
+
+import hummingbot.connector.exchange.crypto_com.crypto_com_constants as CONSTANTS
+import hummingbot.connector.exchange.crypto_com.crypto_com_utils as crypto_com_utils
 from hummingbot.connector.exchange.crypto_com.crypto_com_active_order_tracker import CryptoComActiveOrderTracker
 from hummingbot.connector.exchange.crypto_com.crypto_com_order_book import CryptoComOrderBook
 from hummingbot.connector.exchange.crypto_com.crypto_com_websocket import CryptoComWebsocket
@@ -35,10 +34,10 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return cls._logger
 
     def __init__(
-        self,
-        trading_pairs: List[str] = None,
-        throttler: Optional[AsyncThrottler] = None,
-        shared_client: Optional[aiohttp.ClientSession] = None,
+            self,
+            trading_pairs: List[str] = None,
+            throttler: Optional[AsyncThrottler] = None,
+            shared_client: Optional[aiohttp.ClientSession] = None,
     ):
         super().__init__(trading_pairs)
         self._trading_pairs: List[str] = trading_pairs
@@ -54,7 +53,7 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_last_traded_prices(
-        cls, trading_pairs: List[str], throttler: Optional[AsyncThrottler] = None
+            cls, trading_pairs: List[str], throttler: Optional[AsyncThrottler] = None
     ) -> Dict[str, float]:
         result = {}
         throttler = throttler or cls._get_throttler_instance()
@@ -119,7 +118,17 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     )
 
                 orderbook_data: List[Dict[str, Any]] = await safe_gather(orderbook_response.json())
-                orderbook_data = orderbook_data[0]["result"]["data"][0]
+                if "code" in orderbook_data[0] and orderbook_data[0]["code"] == 0:
+                    orderbook_data = orderbook_data[0]["result"]["data"][0]
+                else:
+                    CryptoComAPIOrderBookDataSource.logger().error(
+                        "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
+                        exc_info=True,
+                    )
+                    raise IOError(
+                        f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
+                        f"{CONSTANTS.EXCHANGE_NAME} response was {orderbook_data[0]['message']}."
+                    )
 
             return orderbook_data
 
