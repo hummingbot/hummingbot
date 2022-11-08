@@ -21,7 +21,7 @@ afterEach(() => unpatch());
 
 describe('GET /cosmos', () => {
   it('should return 200', async () => {
-    request(gatewayApp)
+    await request(gatewayApp)
       .get(`/cosmos`)
       .expect('Content-Type', /json/)
       .expect(200)
