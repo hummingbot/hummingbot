@@ -25,7 +25,10 @@ export namespace SushiswapConfig {
       ),
     tradingTypes: ['EVM_AMM'],
     availableNetworks: [
-      { chain: 'ethereum', networks: ['mainnet', 'kovan','goerli', 'ropsten'] },
+      {
+        chain: 'ethereum',
+        networks: ['mainnet', 'kovan', 'goerli', 'ropsten'],
+      },
     ],
   };
 }
