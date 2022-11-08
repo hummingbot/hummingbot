@@ -59,6 +59,11 @@ COPY --chown=hummingbot:hummingbot DATA_COLLECTION.md .
 # activate hummingbot env when entering the CT
 RUN echo "source /home/hummingbot/miniconda3/etc/profile.d/conda.sh && conda activate $(head -1 setup/environment-linux-aarch64.yml | cut -d' ' -f2)" >> ~/.bashrc
 
+# install gql and substrate-interface
+RUN conda activate hummingbot
+RUN pip install gql
+RUN pip install substrate-interface
+
 # ./compile + cleanup build folder
 RUN /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux-aarch64.yml | cut -d' ' -f2)/bin/python3 setup.py build_ext --inplace -j 8 && \
     rm -rf build/ && \
