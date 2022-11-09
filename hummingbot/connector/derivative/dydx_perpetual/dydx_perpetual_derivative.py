@@ -419,7 +419,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                                 del self._allocated_collateral[order["id"]]
 
                 if "fills" in data.keys() and len(data["fills"]) > 0:
-                    trade_updates = self._process_fills(data["fills"])
+                    trade_updates = self._process_ws_fills(data["fills"])
                     for trade_update in trade_updates:
                         self._order_tracker.process_trade_update(trade_update)
 
@@ -440,8 +440,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                                 position_side=position_side,
                                 unrealized_pnl=Decimal(position.get("unrealizedPnl", 0)),
                                 entry_price=Decimal(position.get("entryPrice")),
-                                amount=amount
-                                * (Decimal("-1.0") if position_side == PositionSide.SHORT else Decimal("1.0")),
+                                amount=amount,
                                 leverage=self.get_leverage(trading_pair),
                             )
                             self._perpetual_trading.set_position(pos_key, position)
@@ -498,46 +497,15 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         # freeCollateral is sent only on start
         self._account_available_balances[quote] = Decimal(account["quoteBalance"]) - self._allocated_collateral_sum
 
-    def _process_fills(self, fills_data: List):
+    def _process_ws_fills(self, fills_data: List) -> List[TradeUpdate]:
         trade_updates = []
+        all_fillable_orders = self._order_tracker.all_fillable_orders
         for fill_data in fills_data:
             client_order_id: str = fill_data["orderClientId"]
-            order = self._order_tracker.all_fillable_orders.get(client_order_id)
-            if order is not None:
-                fee_asset = order.quote_asset
-                fee_amount = Decimal(fill_data["fee"])
-                flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
-                position_side = fill_data["side"]
-                position_action = (
-                    PositionAction.OPEN
-                    if (
-                        order.trade_type is TradeType.BUY
-                        and position_side == "BUY"
-                        or order.trade_type is TradeType.SELL
-                        and position_side == "SELL"
-                    )
-                    else PositionAction.CLOSE
-                )
-
-                fee = TradeFeeBase.new_perpetual_fee(
-                    fee_schema=self.trade_fee_schema(),
-                    position_action=position_action,
-                    percent_token=fee_asset,
-                    flat_fees=flat_fees,
-                )
-
-                trade_update: TradeUpdate = TradeUpdate(
-                    trade_id=fill_data["createdAt"],
-                    client_order_id=order.client_order_id,
-                    exchange_order_id=order.exchange_order_id,
-                    trading_pair=order.trading_pair,
-                    fill_timestamp=fill_data["createdAt"],
-                    fill_price=Decimal(fill_data["price"]),
-                    fill_base_amount=Decimal(fill_data["size"]),
-                    fill_quote_amount=Decimal(fill_data["price"]) * Decimal(fill_data["size"]),
-                    fee=fee,
-                )
-                trade_updates += [trade_update]
+            order = all_fillable_orders.get(client_order_id)
+            trade_update = self._process_order_fills(fill_data=fill_data, order=order)
+            if trade_update is not None:
+                trade_updates.append(trade_update)
         return trade_updates
 
     async def _process_funding_payments(self, funding_payments: List):
@@ -592,7 +560,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                     position_side=position_side,
                     unrealized_pnl=unrealized_pnl,
                     entry_price=entry_price,
-                    amount=amount * (Decimal("-1.0") if position_side == PositionSide.SHORT else Decimal("1.0")),
+                    amount=amount,
                     leverage=self.get_leverage(trading_pair),
                 )
                 self._perpetual_trading.set_position(pos_key, position)
@@ -606,13 +574,64 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
             try:
                 all_fills_response = await self._request_order_fills(order=order)
                 fills_data = all_fills_response["fills"]
-                trade_updates_tmp = self._process_fills(fills_data)
+                trade_updates_tmp = self._process_rest_fills(fills_data)
                 trade_updates += trade_updates_tmp
 
             except IOError as ex:
                 if not self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
                     raise
         return trade_updates
+
+    def _process_rest_fills(self, fills_data: List) -> List[TradeUpdate]:
+        trade_updates = []
+        all_fillable_orders_by_exchange_order_id = {
+            order.exchange_order_id: order for order in self._order_tracker.all_fillable_orders.values()
+        }
+        for fill_data in fills_data:
+            exchange_order_id: str = fill_data["orderId"]
+            order = all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
+            trade_update = self._process_order_fills(fill_data=fill_data, order=order)
+            if trade_update is not None:
+                trade_updates.append(trade_update)
+        return trade_updates
+
+    def _process_order_fills(self, fill_data: Dict, order: InFlightOrder) -> Optional[TradeUpdate]:
+        trade_update = None
+        if order is not None:
+            fee_asset = order.quote_asset
+            fee_amount = Decimal(fill_data["fee"])
+            flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
+            position_side = fill_data["side"]
+            position_action = (
+                PositionAction.OPEN
+                if (
+                    order.trade_type is TradeType.BUY
+                    and position_side == "BUY"
+                    or order.trade_type is TradeType.SELL
+                    and position_side == "SELL"
+                )
+                else PositionAction.CLOSE
+            )
+
+            fee = TradeFeeBase.new_perpetual_fee(
+                fee_schema=self.trade_fee_schema(),
+                position_action=position_action,
+                percent_token=fee_asset,
+                flat_fees=flat_fees,
+            )
+
+            trade_update = TradeUpdate(
+                trade_id=fill_data["createdAt"],
+                client_order_id=order.client_order_id,
+                exchange_order_id=order.exchange_order_id,
+                trading_pair=order.trading_pair,
+                fill_timestamp=fill_data["createdAt"],
+                fill_price=Decimal(fill_data["price"]),
+                fill_base_amount=Decimal(fill_data["size"]),
+                fill_quote_amount=Decimal(fill_data["price"]) * Decimal(fill_data["size"]),
+                fee=fee,
+            )
+        return trade_update
 
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
 

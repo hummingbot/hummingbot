@@ -1035,7 +1035,7 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
                         "market": self.trading_pair,
                         "side": "LONG" if order.trade_type == TradeType.BUY else "SHORT",
                         "status": "CLOSED",
-                        "size": str(order.amount),
+                        "size": str(order.amount) if order.order_type == TradeType.BUY else str(-order.amount),
                         "maxSize": "300",
                         "entryPrice": "10000",
                         "exitPrice": "38",
