@@ -40,20 +40,14 @@ class EventMessage(PubSubMessage):
     data: dict = {}
 
 
-class MQTTCommands(Node):
+class MQTTCommands:
     START_URI = 'hbot/$UID/start'
     STOP_URI = 'hbot/$UID/stop'
     RESTART_URI = 'hbot/$UID/restart'
     CONFIG_URI = 'hbot/$UID/config'
     IMPORT_URI = 'hbot/$UID/import'
     STATUS_URI = 'hbot/$UID/status'
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        global mqtts_logger
-        if mqtts_logger is None:
-            mqtts_logger = HummingbotLogger("MQTT_Gateway")
-        return mqtts_logger
+    BALANCE_LIMIT_URI = 'hbot/$UID/balance_limit'
 
     def __init__(self,
                  hb_app: "HummingbotApplication",
@@ -68,6 +62,7 @@ class MQTTCommands(Node):
         self.CONFIG_URI = self.CONFIG_URI.replace('$UID', hb_app.uid())
         self.IMPORT_URI = self.IMPORT_URI.replace('$UID', hb_app.uid())
         self.STATUS_URI = self.STATUS_URI.replace('$UID', hb_app.uid())
+        self.BALANCE_LIMIT_URI = self.BALANCE_LIMIT_URI.replace('$UID', hb_app.uid())
 
         self._init_commands()
 
@@ -96,24 +91,24 @@ class MQTTCommands(Node):
             rpc_name=self.STATUS_URI,
             on_request=self._on_cmd_status
         )
+        self.node.create_rpc(
+            rpc_name=self.BALANCE_LIMIT_URI,
+            on_request=self._on_cmd_balancelimit
+        )
 
     def _on_cmd_start(self, msg):
-        # self.node.logger().info(f"MQTT <Start> Command Received! msg = {msg}")
         self._hb_app.start()
         return {}
 
     def _on_cmd_stop(self, msg):
-        # self.node.logger().info(f"MQTT <Stop> Command Received! msg = {msg}")
         self._hb_app.stop()
         return {}
 
     def _on_cmd_restart(self, msg):
-        # self.node.logger().info(f"MQTT <Start> Command Received! msg = {msg}")
         self._hb_app.restart()
         return {}
 
     def _on_cmd_config(self, msg):
-        # self.node.logger().info(f"MQTT <Config> Command Received! msg = {msg}")
         if len(msg) == 0:
             self._hb_app.config()
         else:
@@ -125,7 +120,7 @@ class MQTTCommands(Node):
 
     def _on_cmd_import(self, msg):
         strategy_name = msg.get("strategy")
-        response = {
+        _response = {
             'status': 200,
             'msg': ''
         }
@@ -135,22 +130,51 @@ class MQTTCommands(Node):
                 self._hb_app.import_command(strategy_file_name)
             except Exception as e:
                 self._hb_app.notify(str(e))
-                response['status'] = 400
-                response['msg'] = str(e)
-        return response
+                _response['status'] = 400
+                _response['msg'] = str(e)
+        return _response
 
     def _on_cmd_status(self, msg):
         self._hb_app.status()
-        _response = {}
+        _response = {
+            'status': 200,
+            'msg': ''
+        }
         try:
             _response['msg'] = asyncio.run(self._hb_app.strategy_status()).strip()
         except AttributeError:
             _response['msg'] = "The strategy is not running."
         return _response
 
+    def _on_cmd_balancelimit(self, msg):
+        exchange = msg.get("exchange")
+        asset = msg.get("asset")
+        amount = msg.get("amount")
+        _response = {
+            'status': 200,
+            'msg': ''
+        }
+        try:
+            _response['msg'] = self._hb_app.balance('limit', [exchange, asset,
+                                                              amount])
+        except Exception as e:
+            _response['msg'] = str(e)
+            _response['status'] = 400
+        return _response
+
     def _on_get_market_data(self, msg):
-        stat_data = self._hb_app.strategy.market_status_df()
-        print(stat_data)
+        _response = {
+            'status': 200,
+            'msg': '',
+            'market_data': {}
+        }
+        try:
+            market_data = self._hb_app.strategy.market_status_df()
+            _response['market_data'] = market_data
+        except Exception as e:
+            _response['msg'] = str(e)
+            _response['status'] = 400
+        return _response
 
 
 class MQTTEventForwarder:
@@ -227,8 +251,6 @@ class MQTTEventForwarder:
                 events.MarketEvent.RangePositionUpdateFailure.value: "RangePositionUpdateFailure",
                 events.MarketEvent.RangePositionFeeCollected.value: "RangePositionFeeCollected",
                 events.MarketEvent.RangePositionClosed.value: "RangePositionClosed",
-                # events.CustomEvent.KillSwitchTriggered.value: "KillSwitchTriggered",
-                # events.CustomEvent.MarketInitialized.value: "MarketInitialized",
             }
             event_type = event_types[event_tag]
         except KeyError:
@@ -308,17 +330,10 @@ class MQTTGateway(Node):
     NODE_NAME = 'hbot.$UID'
     HEARTBEAT_URI = 'hbot/$UID/hb'
 
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        global mqtts_logger
-        if mqtts_logger is None:
-            mqtts_logger = HummingbotLogger("MQTT_Gateway")
-        return mqtts_logger
-
     def __init__(self,
                  hb_app: "HummingbotApplication",
                  *args, **kwargs):
-        self.hb_app = hb_app
+        self._hb_app = hb_app
         self.HEARTBEAT_URI = self.HEARTBEAT_URI.replace('$UID', hb_app.uid())
 
         self._params = self._create_mqtt_params_from_conf()
@@ -327,33 +342,37 @@ class MQTTGateway(Node):
             node_name=self.NODE_NAME.replace('$UID', hb_app.uid()),
             connection_params=self._params,
             heartbeat_uri=self.HEARTBEAT_URI,
-            debug=False,
+            debug=True,
             *args,
             **kwargs
         )
 
+    @property
+    def logger(self) -> HummingbotLogger:
+        return self._hb_app.logger
+
     def start_notifier(self):
-        if self.hb_app.client_config_map.mqtt_broker.mqtt_notifier:
+        if self._hb_app.client_config_map.mqtt_broker.mqtt_notifier:
             self.logger().info('Starting MQTT Notifier')
-            self._notifier = MQTTNotifier(self.hb_app, self)
-            self.hb_app.notifiers.append(self._notifier)
+            self._notifier = MQTTNotifier(self._hb_app, self)
+            self._hb_app.notifiers.append(self._notifier)
 
     def start_commands(self):
-        if self.hb_app.client_config_map.mqtt_broker.mqtt_commands:
+        if self._hb_app.client_config_map.mqtt_broker.mqtt_commands:
             self.logger().info('Starting MQTT Remote Commands')
-            self._commands = MQTTCommands(self.hb_app, self)
+            self._commands = MQTTCommands(self._hb_app, self)
 
     def start_event_fw(self):
-        if self.hb_app.client_config_map.mqtt_broker.mqtt_events:
+        if self._hb_app.client_config_map.mqtt_broker.mqtt_events:
             self.logger().info('Starting MQTT Remote Events')
-            self.mqtt_event_forwarder = MQTTEventForwarder(self.hb_app, self)
+            self.mqtt_event_forwarder = MQTTEventForwarder(self._hb_app, self)
 
     def _create_mqtt_params_from_conf(self):
-        host = self.hb_app.client_config_map.mqtt_broker.mqtt_host
-        port = self.hb_app.client_config_map.mqtt_broker.mqtt_port
-        username = self.hb_app.client_config_map.mqtt_broker.mqtt_username
-        password = self.hb_app.client_config_map.mqtt_broker.mqtt_password
-        ssl = self.hb_app.client_config_map.mqtt_broker.mqtt_ssl
+        host = self._hb_app.client_config_map.mqtt_broker.mqtt_host
+        port = self._hb_app.client_config_map.mqtt_broker.mqtt_port
+        username = self._hb_app.client_config_map.mqtt_broker.mqtt_username
+        password = self._hb_app.client_config_map.mqtt_broker.mqtt_password
+        ssl = self._hb_app.client_config_map.mqtt_broker.mqtt_ssl
         conn_params = MQTTConnectionParameters(
             host=host,
             port=int(port),
