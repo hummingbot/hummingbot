@@ -83,8 +83,6 @@ export async function getConnector<T>(
     connectorInstance = Uniswap.getInstance(chain, network);
   } else if (chain === 'polygon' && connector === 'quickswap') {
     connectorInstance = Quickswap.getInstance(chain, network);
-  } else if (chain === 'ethereum' && connector === 'sushiswap') {
-    connectorInstance = Sushiswap.getInstance(chain, network);
   } else if (
     (chain === 'ethereum' || chain === 'polygon') &&
     connector === 'uniswapLP'
@@ -106,6 +104,8 @@ export async function getConnector<T>(
     connectorInstance = await Serum.getInstance(chain, network);
   } else if (chain === 'binance-smart-chain' && connector === 'pancakeswap') {
     connectorInstance = PancakeSwap.getInstance(chain, network);
+  } else if (connector === 'sushiswap') {
+    connectorInstance = Sushiswap.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
   }
