@@ -327,7 +327,7 @@ class ConfigCommand:
             exchange = config_map.exchange
             market = config_map.market
             base, quote = split_hb_trading_pair(market)
-            balances = await UserBalances.instance().balances(exchange, base, quote)
+            balances = await UserBalances.instance().balances(exchange, config_map, base, quote)
             if balances is None:
                 return
             base_ratio = await UserBalances.base_amount_ratio(exchange, market, balances)
@@ -364,7 +364,7 @@ class ConfigCommand:
             exchange = config_map['exchange'].value
             market = config_map["market"].value
             base, quote = market.split("-")
-            balances = await UserBalances.instance().balances(exchange, base, quote)
+            balances = await UserBalances.instance().balances(exchange, config_map, base, quote)
             if balances is None:
                 return
             base_ratio = await UserBalances.base_amount_ratio(exchange, market, balances)
