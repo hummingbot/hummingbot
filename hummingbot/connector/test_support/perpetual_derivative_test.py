@@ -19,6 +19,7 @@ from hummingbot.core.event.events import (
     FundingPaymentCompletedEvent,
     MarketEvent,
     OrderFilledEvent,
+    SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
 
@@ -485,7 +486,7 @@ class AbstractPerpetualDerivativeTests:
                 exchange_order_id=self.exchange_order_id_prefix + "1",
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
-                trade_type=TradeType.BUY,
+                trade_type=TradeType.SELL,
                 price=Decimal("10000"),
                 amount=Decimal("1"),
                 position_action=PositionAction.OPEN,
@@ -536,15 +537,15 @@ class AbstractPerpetualDerivativeTests:
             self.assertEqual(leverage, fill_event.leverage)
             self.assertEqual(PositionAction.OPEN.value, fill_event.position)
 
-            buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
-            self.assertEqual(self.exchange.current_timestamp, buy_event.timestamp)
-            self.assertEqual(order.client_order_id, buy_event.order_id)
-            self.assertEqual(order.base_asset, buy_event.base_asset)
-            self.assertEqual(order.quote_asset, buy_event.quote_asset)
-            self.assertEqual(order.amount, buy_event.base_asset_amount)
-            self.assertEqual(order.amount * fill_event.price, buy_event.quote_asset_amount)
-            self.assertEqual(order.order_type, buy_event.order_type)
-            self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
+            sell_event: SellOrderCompletedEvent = self.sell_order_completed_logger.event_log[0]
+            self.assertEqual(self.exchange.current_timestamp, sell_event.timestamp)
+            self.assertEqual(order.client_order_id, sell_event.order_id)
+            self.assertEqual(order.base_asset, sell_event.base_asset)
+            self.assertEqual(order.quote_asset, sell_event.quote_asset)
+            self.assertEqual(order.amount, sell_event.base_asset_amount)
+            self.assertEqual(order.amount * fill_event.price, sell_event.quote_asset_amount)
+            self.assertEqual(order.order_type, sell_event.order_type)
+            self.assertEqual(order.exchange_order_id, sell_event.exchange_order_id)
             self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
             self.assertTrue(order.is_filled)
             self.assertTrue(order.is_done)
@@ -552,7 +553,7 @@ class AbstractPerpetualDerivativeTests:
             self.assertTrue(
                 self.is_logged(
                     "INFO",
-                    f"BUY order {order.client_order_id} completely filled."
+                    f"SELL order {order.client_order_id} completely filled."
                 )
             )
 
@@ -560,10 +561,10 @@ class AbstractPerpetualDerivativeTests:
 
             position: Position = self.exchange.account_positions[self.trading_pair]
             self.assertEqual(self.trading_pair, position.trading_pair)
-            self.assertEqual(PositionSide.LONG, position.position_side)
+            self.assertEqual(PositionSide.SHORT, position.position_side)
             self.assertEqual(expected_unrealized_pnl, position.unrealized_pnl)
             self.assertEqual(fill_event.price, position.entry_price)
-            self.assertEqual(fill_event.amount, position.amount)
+            self.assertEqual(-fill_event.amount, position.amount)
             self.assertEqual(leverage, position.leverage)
 
         def test_supported_position_modes(self):
