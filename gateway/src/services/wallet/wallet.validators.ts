@@ -8,15 +8,16 @@ import {
   mkMultiValidators,
 } from '../validators';
 import bs58 from 'bs58';
+import {
+  invalidRipplePrivateKeyError,
+  isRippleSeedKey,
+} from '../../chains/ripple/ripple.validators';
 
 export const invalidEthPrivateKeyError: string =
   'The privateKey param is not a valid Ethereum private key (64 hexadecimal characters).';
 
 export const invalidSolPrivateKeyError: string =
   'The privateKey param is not a valid Solana private key (64 bytes, base 58 encoded).';
-
-export const invalidRipplePrivateKeyError: string =
-  'The privateKey param is not a valid Ripple private key (64 bytes, base 58 encoded).';
 
 // test if a string matches the shape of an Ethereum private key
 export const isEthPrivateKey = (str: string): boolean => {
@@ -26,11 +27,6 @@ export const isEthPrivateKey = (str: string): boolean => {
 // test if a string matches the shape of an Solana private key
 export const isSolPrivateKey = (str: string): boolean => {
   return isBase58(str) && bs58.decode(str).length == 64;
-};
-
-// test if a string matches the shape of an Ripple seed key
-export const isRippleSeedKey = (str: string): boolean => {
-  return isBase58(str) && bs58.decode(str).length == 23;
 };
 
 // given a request, look for a key called privateKey that is an Ethereum private key

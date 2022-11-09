@@ -13,7 +13,7 @@ import { RippleBalanceRequest, RippleBalanceResponse } from './ripple.requests';
 export async function balances(
   ripple: Ripple,
   req: RippleBalanceRequest
-): Promise<RippleBalanceResponse | string> {
+): Promise<RippleBalanceResponse> {
   const initTime = Date.now();
   let wallet: Wallet;
 

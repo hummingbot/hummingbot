@@ -3,6 +3,7 @@ import { NextFunction, Request, Response, Router } from 'express';
 import * as ethereumControllers from '../chains/ethereum/ethereum.controllers';
 import { Solanaish } from '../chains/solana/solana';
 import * as solanaControllers from '../chains/solana/solana.controllers';
+import * as rippleControllers from '../chains/ripple/ripple.controllers';
 import { Ethereumish } from '../services/common-interfaces';
 import { ConfigManagerV2 } from '../services/config-manager-v2';
 import { getChain } from '../services/connection-manager';
@@ -32,6 +33,9 @@ import {
   validateSolanaBalanceRequest,
   validateSolanaPollRequest,
 } from '../chains/solana/solana.validators';
+import { Rippleish } from '../chains/ripple/ripple';
+import { validateRippleBalanceRequest } from '../chains/ripple/ripple.validators';
+import { RippleBalanceResponse } from '../chains/ripple/ripple.requests';
 
 export const validatePollRequest: RequestValidator = mkRequestValidator([
   validateTxHash,
@@ -66,36 +70,53 @@ export namespace NetworkRoutes {
     asyncHandler(
       async (
         req: Request<{}, {}, BalanceRequest>,
-        res: Response<BalanceResponse | string, {}>,
+        res: Response<BalanceResponse | RippleBalanceResponse | string, {}>,
         _next: NextFunction
       ) => {
-        if (req.body.chain == 'solana') {
-          validateSolanaBalanceRequest(req.body);
+        let chain: Ethereumish | Solanaish | Rippleish;
+        switch (req.body.chain) {
+          case 'solana':
+            validateSolanaBalanceRequest(req.body);
 
-          const chain = await getChain<Solanaish>(
-            req.body.chain,
-            req.body.network
-          );
+            chain = await getChain<Solanaish>(req.body.chain, req.body.network);
 
-          res
-            .status(200)
-            .json(
-              (await solanaControllers.balances(
-                chain,
-                req.body
-              )) as BalanceResponse
+            res
+              .status(200)
+              .json(
+                (await solanaControllers.balances(
+                  chain,
+                  req.body
+                )) as BalanceResponse
+              );
+            break;
+
+          case 'ripple':
+            validateRippleBalanceRequest(req.body);
+
+            chain = await getChain<Rippleish>(req.body.chain, req.body.network);
+            res
+              .status(200)
+              .json(
+                (await rippleControllers.balances(
+                  chain,
+                  req.body
+                )) as RippleBalanceResponse
+              );
+
+            break;
+
+          default:
+            validateEthereumBalanceRequest(req.body);
+
+            chain = await getChain<Ethereumish>(
+              req.body.chain,
+              req.body.network
             );
-        } else {
-          validateEthereumBalanceRequest(req.body);
 
-          const chain = await getChain<Ethereumish>(
-            req.body.chain,
-            req.body.network
-          );
-
-          res
-            .status(200)
-            .json(await ethereumControllers.balances(chain, req.body));
+            res
+              .status(200)
+              .json(await ethereumControllers.balances(chain, req.body));
+            break;
         }
       }
     )
