@@ -28,6 +28,10 @@ from hummingbot.notifier.notifier_base import NotifierBase
 mqtts_logger: HummingbotLogger = None
 
 
+def get_timestamp(days_ago: float = 0.) -> float:
+    return time.time() - (60. * 60. * 24. * days_ago)
+
+
 class NotifyMessage(PubSubMessage):
     seq: int = 0
     timestamp: int = -1
@@ -47,6 +51,7 @@ class MQTTCommands:
     CONFIG_URI = 'hbot/$UID/config'
     IMPORT_URI = 'hbot/$UID/import'
     STATUS_URI = 'hbot/$UID/status'
+    HISTORY_URI = 'hbot/$UID/history'
     BALANCE_LIMIT_URI = 'hbot/$UID/balance_limit'
 
     def __init__(self,
@@ -62,6 +67,7 @@ class MQTTCommands:
         self.CONFIG_URI = self.CONFIG_URI.replace('$UID', hb_app.uid())
         self.IMPORT_URI = self.IMPORT_URI.replace('$UID', hb_app.uid())
         self.STATUS_URI = self.STATUS_URI.replace('$UID', hb_app.uid())
+        self.HISTORY_URI = self.HISTORY_URI.replace('$UID', hb_app.uid())
         self.BALANCE_LIMIT_URI = self.BALANCE_LIMIT_URI.replace('$UID', hb_app.uid())
 
         self._init_commands()
@@ -92,6 +98,10 @@ class MQTTCommands:
             on_request=self._on_cmd_status
         )
         self.node.create_rpc(
+            rpc_name=self.HISTORY_URI,
+            on_request=self._on_cmd_history
+        )
+        self.node.create_rpc(
             rpc_name=self.BALANCE_LIMIT_URI,
             on_request=self._on_cmd_balancelimit
         )
@@ -119,11 +129,11 @@ class MQTTCommands:
         return response
 
     def _on_cmd_import(self, msg):
-        strategy_name = msg.get("strategy")
         _response = {
             'status': 200,
             'msg': ''
         }
+        strategy_name = msg.get("strategy")
         if strategy_name is not None:
             strategy_file_name = f'{strategy_name}.yml'
             try:
@@ -142,24 +152,41 @@ class MQTTCommands:
         }
         try:
             _status = asyncio.run(self._hb_app.strategy_status()).strip()
-            self.logger().info(_status)
             _response['data'] = _status
         except Exception as e:
             _response['status'] = 400
             _response['msg'] = str(e)
         return _response
 
+    def _on_cmd_history(self, msg):
+        _response = {
+            'status': 200,
+            'msg': '',
+            'trades': []
+        }
+        try:
+            _days = msg.get('days', 0)
+            _verbose = msg.get('verbose')
+            _precision = msg.get('precision')
+            self._hb_app.history(_days, _verbose, _precision)
+            _trades = self._hb_app.get_history_trades(_days)
+            _response['trades'] = _trades.to_dict()
+        except Exception as e:
+            _response['status'] = 400
+            _response['msg'] = str(e)
+        return _response
+
     def _on_cmd_balancelimit(self, msg):
-        exchange = msg.get("exchange")
-        asset = msg.get("asset")
-        amount = msg.get("amount")
         _response = {
             'status': 200,
             'msg': ''
         }
         try:
-            _response['msg'] = self._hb_app.balance('limit', [exchange, asset,
-                                                              amount])
+            _exchange = msg.get("exchange")
+            _asset = msg.get("asset")
+            _amount = msg.get("amount")
+            _response['msg'] = self._hb_app.balance('limit', [_exchange, _asset,
+                                                              _amount])
         except Exception as e:
             _response['msg'] = str(e)
             _response['status'] = 400
