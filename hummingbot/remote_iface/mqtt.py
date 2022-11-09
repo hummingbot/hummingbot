@@ -135,15 +135,18 @@ class MQTTCommands:
         return _response
 
     def _on_cmd_status(self, msg):
-        self._hb_app.status()
         _response = {
             'status': 200,
-            'msg': ''
+            'msg': '',
+            'data': {}
         }
         try:
-            _response['msg'] = asyncio.run(self._hb_app.strategy_status()).strip()
-        except AttributeError:
-            _response['msg'] = "The strategy is not running."
+            _status = asyncio.run(self._hb_app.strategy_status()).strip()
+            self.logger().info(_status)
+            _response['data'] = _status
+        except Exception as e:
+            _response['status'] = 400
+            _response['msg'] = str(e)
         return _response
 
     def _on_cmd_balancelimit(self, msg):
