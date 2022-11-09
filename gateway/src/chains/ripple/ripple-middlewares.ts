@@ -2,7 +2,7 @@ import { HttpException } from '../../services/error-handler';
 import { Ripple } from './ripple';
 import { NextFunction, Request, Response } from 'express';
 
-export const verifySolanaIsAvailable = async (
+export const verifyRippleIsAvailable = async (
   req: Request,
   _res: Response,
   next: NextFunction
