@@ -1,28 +1,32 @@
 #!/usr/bin/env python
 
 import asyncio
-import aiohttp
 import logging
-from typing import AsyncIterable, Dict, List, Optional, Any
 import time
+from typing import Any, AsyncIterable, Dict, List, Optional
+
+import aiohttp
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
+
+# from hummingbot.connector.exchange.loopring.loopring_order_book_tracker_entry import LoopringOrderBookTrackerEntry
+from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import (
+    LoopringAPITokenConfigurationDataSource,
+)
 
 # from hummingbot.core.utils import async_ttl_cache
 # from hummingbot.core.utils.async_utils import safe_gather
 # from hummingbot.connector.exchange.loopring.loopring_active_order_tracker import LoopringActiveOrderTracker
 from hummingbot.connector.exchange.loopring.loopring_order_book import LoopringOrderBook
-# from hummingbot.connector.exchange.loopring.loopring_order_book_tracker_entry import LoopringOrderBookTrackerEntry
-from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
 from hummingbot.connector.exchange.loopring.loopring_utils import convert_from_exchange_trading_pair, get_ws_api_key
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.logger import HummingbotLogger
+
 # from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 # from hummingbot.connector.exchange.loopring.loopring_order_book_message import LoopringOrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.logger import HummingbotLogger
 
 MARKETS_URL = "/api/v3/exchange/markets"
 TICKER_URL = "/api/v3/ticker?market=:markets"
@@ -33,7 +37,6 @@ LOOPRING_PRICE_URL = "https://api3.loopring.io/api/v3/ticker"
 
 
 class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
-
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
@@ -56,7 +59,8 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         async with aiohttp.ClientSession() as client:
-            resp = await client.get(f"https://api3.loopring.io{TICKER_URL}".replace(":markets", ",".join(trading_pairs)))
+            resp = await client.get(
+                f"https://api3.loopring.io{TICKER_URL}".replace(":markets", ",".join(trading_pairs)))
             resp_json = await resp.json()
             return {x[0]: float(x[7]) for x in resp_json.get("tickers", [])}
 
@@ -69,7 +73,8 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._trading_pairs
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str, level: int = 0) -> Dict[str, any]:
-        async with client.get(f"https://api3.loopring.io{SNAPSHOT_URL}&level={level}".replace(":trading_pair", trading_pair)) as response:
+        async with client.get(f"https://api3.loopring.io{SNAPSHOT_URL}&level={level}".replace(":trading_pair",
+                                                                                              trading_pair)) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(
@@ -151,7 +156,8 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             msg = ujson.loads(raw_msg)
                             if "topic" in msg:
                                 for datum in msg["data"]:
-                                    trade_msg: OrderBookMessage = LoopringOrderBook.trade_message_from_exchange(datum, msg)
+                                    trade_msg: OrderBookMessage = LoopringOrderBook.trade_message_from_exchange(datum,
+                                                                                                                msg)
                                     output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
@@ -193,7 +199,8 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 async with websockets.connect(f"{WS_URL}?wsApiKey={ws_key}") as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     for pair in self._trading_pairs:
-                        topics: List[dict] = [{"topic": "orderbook", "market": pair, "level": 0, "count": 50, "snapshot": True}]
+                        topics: List[dict] = [
+                            {"topic": "orderbook", "market": pair, "level": 0, "count": 50, "snapshot": True}]
                         subscribe_request: Dict[str, Any] = {
                             "op": "sub",
                             "topics": topics,
@@ -205,7 +212,8 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         if len(raw_msg) > 4:
                             msg = ujson.loads(raw_msg)
                             if ("topic" in msg.keys()):
-                                order_msg: OrderBookMessage = LoopringOrderBook.snapshot_message_from_exchange(msg, msg["ts"])
+                                order_msg: OrderBookMessage = LoopringOrderBook.snapshot_message_from_exchange(msg, msg[
+                                    "ts"])
                                 output.put_nowait(order_msg)
             except asyncio.CancelledError:
                 raise
@@ -213,3 +221,9 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
                 await asyncio.sleep(30.0)
+
+    async def listen_for_subscriptions(self):
+        """
+        This connector does not use this method from the v2.1 base class
+        """
+        pass
