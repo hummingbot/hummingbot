@@ -25,7 +25,7 @@ class ImportCommand:
             file_name = format_config_file_name(file_name)
 
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.start_mqtt,)
+            self.ev_loop.call_soon_threadsafe(self.import_command, file_name)
             return
         safe_ensure_future(self.import_config_file(file_name))
 
