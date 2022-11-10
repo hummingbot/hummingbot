@@ -30,7 +30,7 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         self._auth = auth
         self._trading_pairs = trading_pairs
         self._connector = connector
-        self._pong_response_event = asyncio.Event()
+        self._pong_response_event = None
 
     async def _authenticate(self, ws: WSAssistant):
         """
@@ -64,7 +64,7 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 await self._send_ping(websocket_assistant=websocket_assistant)
 
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
-        if event_message == CONSTANTS.WS_PONG_RESPONSE:
+        if event_message == CONSTANTS.WS_PONG_RESPONSE and self._pong_response_event:
             self._pong_response_event.set()
         elif "event" in event_message:
             if event_message["event"] == "error":
