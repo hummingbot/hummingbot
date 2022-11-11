@@ -128,8 +128,8 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
                     await self._parse_order_book_snapshot_message(raw_message=snapshot_event, message_queue=output)
                 except asyncio.TimeoutError:
                     await self._request_order_book_snapshots(output=output)
-            except asyncio.CancelledError as cancelled_ex:
-                raise cancelled_ex
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 self.logger().exception("Unexpected error when processing public order book snapshots from exchange")
                 await self._sleep(1.0)
