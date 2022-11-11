@@ -394,26 +394,38 @@ class AbstractExchangeConnectorTests:
             ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
             return ret
 
-        def _initialize_event_loggers(self):
-            self.buy_order_completed_logger = EventLogger()
-            self.buy_order_created_logger = EventLogger()
-            self.order_cancelled_logger = EventLogger()
-            self.order_failure_logger = EventLogger()
-            self.order_filled_logger = EventLogger()
-            self.sell_order_completed_logger = EventLogger()
-            self.sell_order_created_logger = EventLogger()
+        def configure_all_symbols_response(
+            self,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        ) -> List[str]:
 
-            events_and_loggers = [
-                (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
-                (MarketEvent.BuyOrderCreated, self.buy_order_created_logger),
-                (MarketEvent.OrderCancelled, self.order_cancelled_logger),
-                (MarketEvent.OrderFailure, self.order_failure_logger),
-                (MarketEvent.OrderFilled, self.order_filled_logger),
-                (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
-                (MarketEvent.SellOrderCreated, self.sell_order_created_logger)]
+            url = self.all_symbols_url
+            response = self.all_symbols_request_mock_response
+            mock_api.get(url, body=json.dumps(response), callback=callback)
+            return [url]
 
-            for event, logger in events_and_loggers:
-                self.exchange.add_listener(event, logger)
+        def configure_trading_rules_response(
+                self,
+                mock_api: aioresponses,
+                callback: Optional[Callable] = lambda *args, **kwargs: None,
+        ) -> List[str]:
+
+            url = self.trading_rules_url
+            response = self.trading_rules_request_mock_response
+            mock_api.get(url, body=json.dumps(response), callback=callback)
+            return [url]
+
+        def configure_erroneous_trading_rules_response(
+                self,
+                mock_api: aioresponses,
+                callback: Optional[Callable] = lambda *args, **kwargs: None,
+        ) -> List[str]:
+
+            url = self.trading_rules_url
+            response = self.trading_rules_request_erroneous_mock_response
+            mock_api.get(url, body=json.dumps(response), callback=callback)
+            return [url]
 
         def place_buy_order(self, amount: Decimal = Decimal("100"), price: Decimal = Decimal("10_000")):
             order_id = self.exchange.buy(
@@ -495,15 +507,16 @@ class AbstractExchangeConnectorTests:
         @aioresponses()
         def test_all_trading_pairs(self, mock_api):
             self.exchange._set_trading_pair_symbol_map(None)
-            url = self.all_symbols_url
 
-            response = self.all_symbols_request_mock_response
-            mock_api.get(url, body=json.dumps(response))
+            self.configure_all_symbols_response(mock_api=mock_api)
 
             all_trading_pairs = self.async_run_with_timeout(coroutine=self.exchange.all_trading_pairs())
 
-            self.assertEqual(1, len(all_trading_pairs))
-            self.assertIn(self.trading_pair, all_trading_pairs)
+            expected_valid_trading_pairs = self._expected_valid_trading_pairs()
+
+            self.assertEqual(len(expected_valid_trading_pairs), len(all_trading_pairs))
+            for trading_pair in expected_valid_trading_pairs:
+                self.assertIn(trading_pair, all_trading_pairs)
 
         @aioresponses()
         def test_invalid_trading_pair_not_in_all_trading_pairs(self, mock_api):
@@ -590,9 +603,7 @@ class AbstractExchangeConnectorTests:
         def test_update_trading_rules(self, mock_api):
             self.exchange._set_current_timestamp(1000)
 
-            url = self.trading_rules_url
-            response = self.trading_rules_request_mock_response
-            mock_api.get(url, body=json.dumps(response))
+            self.configure_trading_rules_response(mock_api=mock_api)
 
             self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
 
@@ -614,9 +625,7 @@ class AbstractExchangeConnectorTests:
         def test_update_trading_rules_ignores_rule_with_error(self, mock_api):
             self.exchange._set_current_timestamp(1000)
 
-            url = self.trading_rules_url
-            response = self.trading_rules_request_erroneous_mock_response
-            mock_api.get(url, body=json.dumps(response))
+            self.configure_erroneous_trading_rules_response(mock_api=mock_api)
 
             self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
 
@@ -1748,6 +1757,30 @@ class AbstractExchangeConnectorTests:
             self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
             self.assertTrue(order.is_filled)
             self.assertTrue(order.is_failure)
+
+        def _initialize_event_loggers(self):
+            self.buy_order_completed_logger = EventLogger()
+            self.buy_order_created_logger = EventLogger()
+            self.order_cancelled_logger = EventLogger()
+            self.order_failure_logger = EventLogger()
+            self.order_filled_logger = EventLogger()
+            self.sell_order_completed_logger = EventLogger()
+            self.sell_order_created_logger = EventLogger()
+
+            events_and_loggers = [
+                (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
+                (MarketEvent.BuyOrderCreated, self.buy_order_created_logger),
+                (MarketEvent.OrderCancelled, self.order_cancelled_logger),
+                (MarketEvent.OrderFailure, self.order_failure_logger),
+                (MarketEvent.OrderFilled, self.order_filled_logger),
+                (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
+                (MarketEvent.SellOrderCreated, self.sell_order_created_logger)]
+
+            for event, logger in events_and_loggers:
+                self.exchange.add_listener(event, logger)
+
+        def _expected_valid_trading_pairs(self):
+            return [self.trading_pair]
 
         def _simulate_trading_rules_initialized(self):
             self.exchange._trading_rules = {

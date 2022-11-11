@@ -192,6 +192,7 @@ class AbstractPerpetualDerivativeTests:
 
         def test_initial_status_dict(self):
             self.exchange._set_trading_pair_symbol_map(None)
+            self.exchange._perpetual_trading._funding_info = {}
 
             status_dict = self.exchange.status_dict
 
@@ -709,8 +710,8 @@ class AbstractPerpetualDerivativeTests:
             self.assertEqual(1, self.exchange._perpetual_trading.funding_info_stream.qsize())  # rest in OB DS tests
 
         @aioresponses()
-        @patch("asyncio.Event.wait")
-        def test_funding_payment_polling_loop_sends_update_event(self, mock_api, _):
+        def test_funding_payment_polling_loop_sends_update_event(self, mock_api):
+            self._simulate_trading_rules_initialized()
             request_sent_event = asyncio.Event()
             url = self.funding_payment_url
 
@@ -718,16 +719,19 @@ class AbstractPerpetualDerivativeTests:
 
             response = self.empty_funding_payment_mock_response
             mock_api.get(url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
+            self.exchange._funding_fee_poll_notifier.set()
             self.async_run_with_timeout(request_sent_event.wait())
 
             request_sent_event.clear()
             response = self.funding_payment_mock_response
             mock_api.get(url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
+            self.exchange._funding_fee_poll_notifier.set()
             self.async_run_with_timeout(request_sent_event.wait())
 
             request_sent_event.clear()
             response = self.funding_payment_mock_response
             mock_api.get(url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
+            self.exchange._funding_fee_poll_notifier.set()
             self.async_run_with_timeout(request_sent_event.wait())
 
             self.assertEqual(1, len(self.funding_payment_logger.event_log))
