@@ -614,6 +614,37 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("1.0104"), taker_fill2.price)
         self.assertAlmostEqual(Decimal("3.0"), taker_fill2.amount)
 
+    def test_with_conversion_rate_mode_not_set(self):
+        self.clock.remove_iterator(self.strategy)
+        self.market_pair: MakerTakerMarketPair = MakerTakerMarketPair(
+            MarketTradingPairTuple(self.maker_market, *["COINALPHA-QETH", "COINALPHA", "QETH"]),
+            MarketTradingPairTuple(self.taker_market, *self.trading_pairs_taker),
+        )
+        self.maker_market.set_balanced_order_book("COINALPHA-QETH", 1.05, 0.55, 1.55, 0.01, 10)
+
+        config_map_with_conversion_rate_mode_not_set = ClientConfigAdapter(
+            CrossExchangeMarketMakingConfigMap(
+                maker_market=self.exchange_name_maker,
+                taker_market=self.exchange_name_taker,
+                maker_market_trading_pair=self.trading_pairs_maker[0],
+                taker_market_trading_pair=self.trading_pairs_taker[0],
+                min_profitability=Decimal("1"),
+                order_amount = Decimal("1"),
+            )
+        )
+
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
+        self.strategy.init_params(
+            config_map=config_map_with_conversion_rate_mode_not_set,
+            market_pairs=[self.market_pair],
+            logging_options=self.logging_options,
+        )
+        self.clock.add_iterator(self.strategy)
+        self.clock.backtest_til(self.start_timestamp + 5)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+        self.assertEqual(0, len(self.strategy.active_maker_bids))
+        self.assertEqual(0, len(self.strategy.active_maker_asks))
+
     def test_with_conversion(self):
         self.clock.remove_iterator(self.strategy)
         self.market_pair: MakerTakerMarketPair = MakerTakerMarketPair(
@@ -645,8 +676,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         ask_order: LimitOrder = self.strategy.active_maker_asks[0][1]
         self.assertAlmostEqual(Decimal("1.0417"), round(bid_order.price, 4))
         self.assertAlmostEqual(Decimal("1.0636"), round(ask_order.price, 4))
-        self.assertAlmostEqual(Decimal("2.7821"), round(bid_order.quantity, 4))
-        self.assertAlmostEqual(Decimal("2.7821"), round(ask_order.quantity, 4))
+        self.assertAlmostEqual(Decimal("2.9286"), round(bid_order.quantity, 4))
+        self.assertAlmostEqual(Decimal("2.9286"), round(ask_order.quantity, 4))
 
     def test_maker_price(self):
         task = self.ev_loop.create_task(self.strategy.calculate_effective_hedging_price(self.market_pair, False, 3))
