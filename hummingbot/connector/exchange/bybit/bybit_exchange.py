@@ -304,7 +304,7 @@ class BybitExchange(ExchangePyBase):
                                 flat_fees=[TokenAmount(amount=Decimal(event_message["n"]), token=event_message["N"])]
                             )
                             trade_update = TradeUpdate(
-                                trade_id=str(event_message["E"]),
+                                trade_id=str(event_message["t"]),
                                 client_order_id=client_order_id,
                                 exchange_order_id=str(event_message["i"]),
                                 trading_pair=tracked_order.trading_pair,
@@ -365,7 +365,7 @@ class BybitExchange(ExchangePyBase):
                         flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
                     )
                     trade_update = TradeUpdate(
-                        trade_id=str(trade["id"]),
+                        trade_id=str(trade["ticketId"]),
                         client_order_id=order.client_order_id,
                         exchange_order_id=exchange_order_id,
                         trading_pair=trading_pair,
