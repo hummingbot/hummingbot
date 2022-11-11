@@ -29,7 +29,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
 
     def __init__(self, client_config_map: "ClientConfigAdapter"):
         super().__init__(client_config_map)
-        self._last_funding_fee_payment_ts: Dict[str, int] = {}
+        self._last_funding_fee_payment_ts: Dict[str, float] = {}
 
         self._perpetual_trading = PerpetualTrading(self.trading_pairs)
         self._funding_info_listener_task: Optional[asyncio.Task] = None
@@ -194,7 +194,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
+    async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[float, Decimal, Decimal]:
         """
         Returns a tuple of the latest funding payment timestamp, funding rate, and payment amount.
         If no payment exists, return (0, -1, -1)
@@ -251,9 +251,9 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
 
     async def _status_polling_loop_fetch_updates(self):
         await safe_gather(
-            self._update_order_status(),
-            self._update_balances(),
             self._update_positions(),
+            self._update_balances(),
+            self._update_order_status(),
         )
 
     async def _execute_set_position_mode(self, mode: PositionMode):
@@ -376,7 +376,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
             fetch_success = False
         else:
             prev_timestamp = self._last_funding_fee_payment_ts.get(trading_pair, 0)
-            if timestamp > prev_timestamp and payment_amount > s_decimal_0 and fire_event_on_new:
+            if timestamp > prev_timestamp and payment_amount != s_decimal_0 and fire_event_on_new:
                 action: str = "paid" if payment_amount < s_decimal_0 else "received"
                 self.logger().info(f"Funding payment of {abs(payment_amount)} {action} on {trading_pair} market.")
                 self.trigger_event(
@@ -389,5 +389,5 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
                         amount=payment_amount,
                     ),
                 )
-            self._last_funding_fee_payment_ts[trading_pair] = timestamp
+                self._last_funding_fee_payment_ts[trading_pair] = timestamp
         return fetch_success
