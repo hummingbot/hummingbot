@@ -1374,6 +1374,7 @@ class TestBybitExchange(unittest.TestCase):
         event_message = {
             "e": "executionReport",
             "t": "1499405658658",
+            "E": "1499405658658",
             "s": order.trading_pair,
             "c": order.client_order_id,
             "S": order.trade_type.name,
@@ -1446,6 +1447,7 @@ class TestBybitExchange(unittest.TestCase):
         event_message = {
             "e": "executionReport",
             "t": "1499405658658",
+            "E": "1499405658658",
             "s": order.trading_pair,
             "c": order.client_order_id,
             "S": order.trade_type.name,
