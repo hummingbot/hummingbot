@@ -56,6 +56,9 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
     def _simulate_order_cancelled(self, order: InFlightOrder):
         order.current_state = OrderState.CANCELED
 
+    def _simulate_order_expired(self, order: InFlightOrder):
+        order.current_state = OrderState.EXPIRED
+
     def _simulate_order_failed(self, order: InFlightOrder):
         order.current_state = OrderState.FAILED
 
@@ -101,6 +104,11 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self._simulate_order_cancelled(order)
 
         self.assertTrue(order.is_done and order.is_cancelled)
+
+        # Simulate Order Expired
+        self._simulate_order_expired(order)
+
+        self.assertTrue(order.is_done and order.is_expired)
 
         failed_order: InFlightOrder = InFlightOrder(
             client_order_id=self.client_order_id,

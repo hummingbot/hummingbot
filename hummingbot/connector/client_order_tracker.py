@@ -16,6 +16,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
+    OrderExpiredEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -258,6 +259,15 @@ class ClientOrderTracker:
             ),
         )
 
+    def _trigger_expired_event(self, order: InFlightOrder):
+        self._connector.trigger_event(
+            MarketEvent.OrderExpired,
+            OrderExpiredEvent(
+                timestamp=self.current_timestamp,
+                order_id=order.client_order_id
+            )
+        )
+
     def _trigger_filled_event(
             self,
             order: InFlightOrder,
@@ -343,6 +353,10 @@ class ClientOrderTracker:
         if tracked_order.is_cancelled:
             self._trigger_cancelled_event(tracked_order)
             self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
+
+        elif tracked_order.is_expired:
+            self._trigger_expired_event(tracked_order)
+            self.logger().info(f"{tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} has expired.")
 
         elif tracked_order.is_filled:
             self._trigger_completed_event(tracked_order)

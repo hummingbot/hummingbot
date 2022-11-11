@@ -19,6 +19,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
+    OrderExpiredEvent,
     OrderFilledEvent,
 )
 
@@ -61,6 +62,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.buy_order_completed_logger = EventLogger()
         self.buy_order_created_logger = EventLogger()
         self.order_cancelled_logger = EventLogger()
+        self.order_expired_logger = EventLogger()
         self.order_failure_logger = EventLogger()
         self.order_filled_logger = EventLogger()
         self.sell_order_completed_logger = EventLogger()
@@ -70,6 +72,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
             (MarketEvent.BuyOrderCreated, self.buy_order_created_logger),
             (MarketEvent.OrderCancelled, self.order_cancelled_logger),
+            (MarketEvent.OrderExpired, self.order_expired_logger),
             (MarketEvent.OrderFailure, self.order_failure_logger),
             (MarketEvent.OrderFilled, self.order_filled_logger),
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
@@ -445,6 +448,41 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(event_triggered.exchange_order_id, order.exchange_order_id)
         self.assertEqual(event_triggered.order_id, order.client_order_id)
 
+    def test_process_order_update_trigger_order_expired_event(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id="someClientOrderId",
+            exchange_order_id="someExchangeOrderId",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
+            price=Decimal("1.0"),
+            initial_state=OrderState.OPEN,
+        )
+
+        self.tracker.start_tracking_order(order)
+
+        order_expired_update: OrderUpdate = OrderUpdate(
+            client_order_id=order.client_order_id,
+            exchange_order_id=order.exchange_order_id,
+            trading_pair=self.trading_pair,
+            update_timestamp=1,
+            new_state=OrderState.EXPIRED,
+        )
+
+        update_future = self.tracker.process_order_update(order_expired_update)
+        self.async_run_with_timeout(update_future)
+
+        self.assertTrue(self._is_logged("INFO", f"{order.trade_type.name.upper()} order {order.client_order_id} has expired."))
+        self.assertEqual(0, len(self.tracker.active_orders))
+        self.assertEqual(1, len(self.tracker.cached_orders))
+        self.assertEqual(1, len(self.order_expired_logger.event_log))
+
+        event_triggered = self.order_expired_logger.event_log[0]
+        self.assertIsInstance(event_triggered, OrderExpiredEvent)
+        self.assertEqual(event_triggered.order_id, order.client_order_id)
+
     def test_process_order_update_trigger_order_failure_event(self):
         order: InFlightOrder = InFlightOrder(
             client_order_id="someClientOrderId",
@@ -811,6 +849,17 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             creation_timestamp=1640001112.223,
             initial_state=OrderState.FAILED
         ))
+        orders.append(InFlightOrder(
+            client_order_id="OID5",
+            exchange_order_id="EOID5",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.EXPIRED
+        ))
 
         tracking_states = {order.client_order_id: order.to_json() for order in orders}
 
@@ -820,6 +869,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertNotIn("OID2", self.tracker.all_orders)
         self.assertNotIn("OID3", self.tracker.all_orders)
         self.assertNotIn("OID4", self.tracker.all_orders)
+        self.assertNotIn("OID5", self.tracker.all_orders)
 
     def test_update_to_close_order_is_not_processed_until_order_completelly_filled(self):
         order: InFlightOrder = InFlightOrder(

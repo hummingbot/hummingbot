@@ -32,6 +32,7 @@ class OrderState(Enum):
     APPROVED = 8
     CREATED = 9
     COMPLETED = 10
+    EXPIRED = 11
 
 
 class OrderUpdate(NamedTuple):
@@ -175,7 +176,7 @@ class InFlightOrder:
     @property
     def is_done(self) -> bool:
         return (
-            self.current_state in {OrderState.CANCELED, OrderState.FILLED, OrderState.FAILED}
+            self.current_state in {OrderState.CANCELED, OrderState.EXPIRED, OrderState.FILLED, OrderState.FAILED}
             or math.isclose(self.executed_amount_base, self.amount)
             or self.executed_amount_base >= self.amount
         )
@@ -197,6 +198,10 @@ class InFlightOrder:
     @property
     def is_cancelled(self) -> bool:
         return self.current_state == OrderState.CANCELED
+
+    @property
+    def is_expired(self) -> bool:
+        return self.current_state == OrderState.EXPIRED
 
     @property
     def average_executed_price(self) -> Optional[Decimal]:
