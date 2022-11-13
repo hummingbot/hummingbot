@@ -111,9 +111,9 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "Unexpected error with AscendEx WebSocket connection. " "Retrying after 30 seconds...",
                     exc_info=True
                 )
-                await self._sleep(30.0)
             finally:
                 ws and await ws.disconnect()
+                await self._sleep(30.0)
 
     @classmethod
     def _get_throttler_instance(cls) -> AsyncThrottler:
