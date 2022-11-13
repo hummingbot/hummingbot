@@ -258,7 +258,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         ws = None
         while True:
             try:
-                ws = await self._subscribe_to_order_book_streams()
+                ws = await self._subscribe_to_order_book_streams(self)
                 async for ws_response in ws.iter_messages():
                     data = ws_response.data
                     if "result" in data:

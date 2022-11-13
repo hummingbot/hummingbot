@@ -132,7 +132,7 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
                 raise
             except Exception:
                 self.logger().exception("Unexpected error when processing public order book snapshots from exchange")
-                await self._sleep(1.0)
+                await self._sleep(5.0)
 
     async def listen_for_trades(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
