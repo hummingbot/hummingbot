@@ -216,14 +216,17 @@ export class Ripple implements Rippleish {
   }
 
   async decrypt(encryptedSecret: string, password: string): Promise<string> {
+    const enc = new TextEncoder();
     const hash = JSON.parse(encryptedSecret);
-    const salt = hash.salt;
+    const salt = enc.encode(hash.salt);
     const key = crypto.pbkdf2Sync(password, salt, 5000, 32, 'sha512');
+
+    console.log(hash);
 
     const decipher = crypto.createDecipheriv(
       hash.algorithm,
       key,
-      Buffer.from(hash.iv, 'hex')
+      enc.encode(hash.iv) // TOFIX: invalid iv
     );
 
     const decrpyted = Buffer.concat([

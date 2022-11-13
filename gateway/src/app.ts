@@ -30,6 +30,8 @@ import { SerumRoutes } from './connectors/serum/serum.routes';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
 import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.config';
 import { SerumConfig } from './connectors/serum/serum.config';
+import { RippleDEXConfig } from './connectors/ripple/rippledex.config';
+import { RippleDEXRoutes } from './connectors/ripple/rippledex.routes';
 
 import swaggerUi from 'swagger-ui-express';
 
@@ -66,6 +68,7 @@ gatewayApp.use('/clob', ClobRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
 gatewayApp.use('/serum', SerumRoutes.router);
+gatewayApp.use('/ripple', RippleDEXRoutes.router);
 
 // a simple route to test that the server is running
 gatewayApp.get('/', (_req: Request, res: Response) => {
@@ -81,6 +84,7 @@ interface ConnectorsResponse {
   traderjoe: Array<AvailableNetworks>;
   defikingdoms: Array<AvailableNetworks>;
   serum: Array<AvailableNetworks>;
+  ripple: Array<AvailableNetworks>;
 }
 
 gatewayApp.get(
@@ -95,6 +99,7 @@ gatewayApp.get(
       traderjoe: TraderjoeConfig.config.availableNetworks,
       defikingdoms: DefikingdomsConfig.config.availableNetworks,
       serum: SerumConfig.config.availableNetworks,
+      ripple: RippleDEXConfig.config.availableNetworks,
     });
   })
 );
