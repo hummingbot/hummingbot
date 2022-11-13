@@ -2,10 +2,10 @@ networks:
   mainnet:
     nodeURL: wss://xrplcluster.com/
     tokenListType: 'FILE'
-    tokenListSource: 'src/chains/ripple/ripple_tokens.json'
+    tokenListSource: 'src/chains/ripple/ripple_tokens_small.json'
     nativeCurrencySymbol: 'XRP'
   testnet:
-    nodeURL: wss://s.altnet.rippletest.net:51234/
+    nodeURL: wss://s.altnet.rippletest.net:51233/
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/ripple/ripple_tokens_testnet.json'
     nativeCurrencySymbol: 'XRP'
@@ -15,7 +15,7 @@ networks:
     tokenListSource: 'src/chains/ripple/ripple_tokens_devnet.json'
     nativeCurrencySymbol: 'XRP'
 network: 'ripple'
-requestTimeout: 20
-connectionTimeout: 5
+requestTimeout: 2000
+connectionTimeout: 2000
 feeCushion: 1.2
 maxFeeXRP: '2'
