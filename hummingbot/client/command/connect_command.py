@@ -7,7 +7,7 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.client.ui.interface_utils import format_df_for_printout
-from hummingbot.connector.connector_status import get_connector_status
+from hummingbot.connector.connector_certified import get_connector_certified  # ralph was here
 from hummingbot.connector.other.celo.celo_cli import CeloCLI
 from hummingbot.connector.other.celo.celo_data_types import KEYS as CELO_KEYS
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -89,7 +89,7 @@ class ConnectCommand:
     async def connection_df(self  # type: HummingbotApplication
                             ):
         await Security.wait_til_decryption_done()
-        columns = ["Exchange", "  Keys Added", "  Keys Confirmed", "  Status"]
+        columns = ["Exchange", "  Keys Added", "  Keys Confirmed"]
         data = []
         failed_msgs = {}
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
@@ -103,7 +103,7 @@ class ConnectCommand:
         for option in sorted(OPTIONS):
             keys_added = "No"
             keys_confirmed = "No"
-            status = get_connector_status(option)
+            option = get_connector_certified(option)
             if option == "celo":
                 celo_config = Security.decrypted_value(option)
                 if celo_config is not None:
@@ -126,7 +126,7 @@ class ConnectCommand:
                         failed_msgs[option] = err_msg
                     else:
                         keys_confirmed = "Yes"
-            data.append([option, keys_added, keys_confirmed, status])
+            data.append([option, keys_added, keys_confirmed])
         return pd.DataFrame(data=data, columns=columns), failed_msgs
 
     async def connect_ethereum(self,  # type: HummingbotApplication
