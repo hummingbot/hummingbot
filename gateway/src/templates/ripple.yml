@@ -5,12 +5,12 @@ networks:
     tokenListSource: 'src/chains/ripple/ripple_tokens_small.json'
     nativeCurrencySymbol: 'XRP'
   testnet:
-    nodeURL: wss://s.altnet.rippletest.net:51233/
+    nodeURL: wss://s.altnet.rippletest.net/
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/ripple/ripple_tokens_testnet.json'
     nativeCurrencySymbol: 'XRP'
   devnet:
-    nodeURL: wss://s.devnet.rippletest.net:51234/
+    nodeURL: wss://s.devnet.rippletest.net/
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/ripple/ripple_tokens_devnet.json'
     nativeCurrencySymbol: 'XRP'
