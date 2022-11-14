@@ -4,7 +4,6 @@ import asyncio
 import logging
 import os
 import time
-import uuid
 from collections import deque
 from typing import Deque, Dict, List, Optional, Tuple, Union
 
@@ -50,12 +49,6 @@ from hummingbot.strategy.strategy_base import StrategyBase
 
 s_logger = None
 
-UID = os.getenv('HBOT_ID')
-
-if UID is None:
-    UID = uuid.uuid4()
-    os.environ['HBOT_ID'] = str(UID)
-
 
 class HummingbotApplication(*commands):
     KILL_TIMEOUT = 10.0
@@ -69,7 +62,7 @@ class HummingbotApplication(*commands):
         global s_logger
         if s_logger is None:
             s_logger = logging.getLogger(__name__)
-            s_logger = logging.getLogger(str(cls.uid()))
+            s_logger = logging.getLogger(str(cls.uid))
         return s_logger
 
     @classmethod
@@ -77,11 +70,6 @@ class HummingbotApplication(*commands):
         if cls._main_app is None:
             cls._main_app = HummingbotApplication(client_config_map)
         return cls._main_app
-
-    @classmethod
-    def uid(cls) -> str:
-        global UID
-        return str(UID)
 
     def __init__(self, client_config_map: Optional[ClientConfigAdapter] = None):
         self.client_config_map: Union[ClientConfigMap, ClientConfigAdapter] = (  # type-hint enables IDE auto-complete
@@ -150,6 +138,10 @@ class HummingbotApplication(*commands):
             self.app = HeadlessExecutor(self)
 
         self._init_gateway_monitor()
+
+    @property
+    def uid(self) -> str:
+        return self.client_config_map.instance_id
 
     @property
     def gateway_config_keys(self) -> List[str]:
