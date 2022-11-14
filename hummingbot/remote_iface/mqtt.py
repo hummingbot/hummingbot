@@ -61,14 +61,14 @@ class MQTTCommands:
         self.node = mqtt_node
         self.logger = self._hb_app.logger
 
-        self.START_URI = self.START_URI.replace('$UID', hb_app.uid())
-        self.STOP_URI = self.STOP_URI.replace('$UID', hb_app.uid())
-        self.RESTART_URI = self.RESTART_URI.replace('$UID', hb_app.uid())
-        self.CONFIG_URI = self.CONFIG_URI.replace('$UID', hb_app.uid())
-        self.IMPORT_URI = self.IMPORT_URI.replace('$UID', hb_app.uid())
-        self.STATUS_URI = self.STATUS_URI.replace('$UID', hb_app.uid())
-        self.HISTORY_URI = self.HISTORY_URI.replace('$UID', hb_app.uid())
-        self.BALANCE_LIMIT_URI = self.BALANCE_LIMIT_URI.replace('$UID', hb_app.uid())
+        self.START_URI = self.START_URI.replace('$UID', hb_app.uid)
+        self.STOP_URI = self.STOP_URI.replace('$UID', hb_app.uid)
+        self.RESTART_URI = self.RESTART_URI.replace('$UID', hb_app.uid)
+        self.CONFIG_URI = self.CONFIG_URI.replace('$UID', hb_app.uid)
+        self.IMPORT_URI = self.IMPORT_URI.replace('$UID', hb_app.uid)
+        self.STATUS_URI = self.STATUS_URI.replace('$UID', hb_app.uid)
+        self.HISTORY_URI = self.HISTORY_URI.replace('$UID', hb_app.uid)
+        self.BALANCE_LIMIT_URI = self.BALANCE_LIMIT_URI.replace('$UID', hb_app.uid)
 
         self._init_commands()
 
@@ -231,7 +231,7 @@ class MQTTEventForwarder:
         self._node = mqtt_node
         self._markets: List[ConnectorBase] = list(self._hb_app.markets.values())
 
-        self._topic = self.EVENT_URI.replace('$UID', self._hb_app.uid())
+        self._topic = self.EVENT_URI.replace('$UID', self._hb_app.uid)
 
         self._mqtt_fowarder: SourceInfoEventForwarder = \
             SourceInfoEventForwarder(self._send_mqtt_event)
@@ -339,7 +339,7 @@ class MQTTNotifier(NotifierBase):
                  topic: str = '') -> None:
         super().__init__()
         if topic in (None, ''):
-            topic = self.NOTIFY_URI.replace('$UID', hb_app.uid())
+            topic = self.NOTIFY_URI.replace('$UID', hb_app.uid)
         self._topic = topic
         self._node = mqtt_node
         self._hb_app = hb_app
@@ -364,12 +364,12 @@ class MQTTGateway(Node):
                  hb_app: "HummingbotApplication",
                  *args, **kwargs):
         self._hb_app = hb_app
-        self.HEARTBEAT_URI = self.HEARTBEAT_URI.replace('$UID', hb_app.uid())
+        self.HEARTBEAT_URI = self.HEARTBEAT_URI.replace('$UID', hb_app.uid)
 
         self._params = self._create_mqtt_params_from_conf()
 
         super().__init__(
-            node_name=self.NODE_NAME.replace('$UID', hb_app.uid()),
+            node_name=self.NODE_NAME.replace('$UID', hb_app.uid),
             connection_params=self._params,
             heartbeat_uri=self.HEARTBEAT_URI,
             debug=True,
