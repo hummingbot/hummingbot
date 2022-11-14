@@ -382,23 +382,26 @@ export class Openocean implements Uniswapish {
     }
     if (swapRes.status == 200 && swapRes.data.code == 200) {
       const swapData = swapRes.data.data;
-      if (!nonce) {
-        nonce = await this.avalanche.nonceManager.getNextNonce(wallet.address);
-      }
-      const gas = Math.ceil(Number(swapData.estimatedGas) * 1.15);
-      const trans = {
-        nonce: nonce,
-        from: swapData.from,
-        to: swapData.to,
-        gasLimit: BigNumber.from(gas.toString()),
-        data: swapData.data,
-        value: BigNumber.from(swapData.value),
-        chainId: this.chainId,
-      };
-      const tx = await wallet.sendTransaction(trans);
-      logger.info(tx);
-      await this.avalanche.nonceManager.commitNonce(wallet.address, nonce);
-      return tx;
+      return this.avalanche.nonceManager.provideNonce(
+        nonce,
+        wallet.address,
+        async (nextNonce) => {
+          const gas = Math.ceil(Number(swapData.estimatedGas) * 1.15);
+          const trans = {
+            nonce: nextNonce,
+            from: swapData.from,
+            to: swapData.to,
+            gasLimit: BigNumber.from(gas.toString()),
+            data: swapData.data,
+            value: BigNumber.from(swapData.value),
+            chainId: this.chainId,
+          };
+          const tx = await wallet.sendTransaction(trans);
+          logger.info(JSON.stringify(tx));
+
+          return tx;
+        }
+      );
     }
     throw new HttpException(
       swapRes.status,
