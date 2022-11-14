@@ -59,6 +59,8 @@ export const validateSpender: Validator = mkValidator(
       val === 'quickswap' ||
       val === 'defikingdoms' ||
       val === 'defira' ||
+      val === 'mad_meerkat' ||
+      val === 'vvs' ||
       isAddress(val))
 );
 
