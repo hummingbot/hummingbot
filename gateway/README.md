@@ -20,6 +20,8 @@ This is a list of DEX connections currently supported by Gateway.
 | Quickswap   | Polygon    | AMM               |
 | Perp        | Ethereum   | EVM_Perpetual     |
 | Serum       | Solana     | CLOB              |
+| Mad Meerkat | Cronos     | AMM               |
+| VVS         | Cronos     | AMM               |
 
 
 ## Contributing
