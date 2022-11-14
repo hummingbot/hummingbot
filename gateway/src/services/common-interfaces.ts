@@ -52,6 +52,32 @@ import {
   Trade as TradeTraderjoe,
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
+import {
+  Token as MMFToken,
+  TokenAmount as MMFTokenAmount,
+  Pair as MMFPair,
+  CurrencyAmount as CurrencyAmountMMF,
+  Trade as MMFTrade,
+  Fraction as FractionMMF,
+  Percent as MMFPercent,
+  Currency as MMFCurrency,
+  TradeOptions as MMFTradeOptions,
+  TradeOptionsDeadline as MMFTradeOptionsDeadline,
+  SwapParameters as MMFSwapParameters,
+} from '@crocswap/sdk';
+import {
+  Token as VVSToken,
+  TokenAmount as VVSTokenAmount,
+  Pair as VVSPair,
+  CurrencyAmount as CurrencyAmountVVS,
+  Trade as VVSTrade,
+  Fraction as FractionVVS,
+  Percent as VVSPercent,
+  Currency as VVSCurrency,
+  TradeOptions as VVSTradeOptions,
+  TradeOptionsDeadline as VVSTradeOptionsDeadline,
+  SwapParameters as VVSSwapParameters,
+} from 'vvs-sdk';
 import { Trade as DefiraTrade } from '@zuzu-cat/defira-sdk';
 import { PerpPosition } from '../connectors/perp/perp';
 
@@ -65,7 +91,17 @@ export type Tokenish =
   | TokenTraderjoe
   | UniswapCoreToken
   | SushiToken
-  | TokenDefikingdoms;
+  | TokenDefikingdoms
+  | MMFToken
+  | VVSToken;
+
+export type TokenAmountish = MMFTokenAmount | VVSTokenAmount;
+
+export type Pairish = MMFPair | VVSPair;
+
+export type Percentish = MMFPercent | VVSPercent;
+
+export type UniswapishCurrency = MMFCurrency | VVSCurrency;
 
 export type UniswapishTrade =
   | Trade<Currency, Currency, TradeType>
@@ -77,7 +113,17 @@ export type UniswapishTrade =
   | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
   | TradeUniswap
   | TradeDefikingdoms
-  | DefiraTrade<UniswapCoreToken, UniswapCoreToken, TradeType>;
+  | DefiraTrade<UniswapCoreToken, UniswapCoreToken, TradeType>
+  | MMFTrade
+  | VVSTrade;
+
+export type UniswapishTradeOptions =
+  | MMFTradeOptions
+  | MMFTradeOptionsDeadline
+  | VVSTradeOptions
+  | VVSTradeOptionsDeadline;
+
+export type UniswapishSwapParameters = MMFSwapParameters | VVSSwapParameters;
 
 export type UniswapishAmount =
   | CurrencyAmount
@@ -86,7 +132,9 @@ export type UniswapishAmount =
   | UniswapCoreCurrencyAmount<Currency>
   | CurrencyAmountTraderjoe
   | SushiCurrencyAmount<SushiCurrency | SushiToken>
-  | CurrencyAmountDefikingdoms;
+  | CurrencyAmountDefikingdoms
+  | CurrencyAmountMMF
+  | CurrencyAmountVVS;
 
 export type Fractionish =
   | UniswapFraction
@@ -94,7 +142,9 @@ export type Fractionish =
   | QuickswapFraction
   | TraderjoeFraction
   | SushiFraction
-  | DefikingdomsFraction;
+  | DefikingdomsFraction
+  | FractionMMF
+  | FractionVVS;
 
 export interface ExpectedTrade {
   trade: UniswapishTrade;
