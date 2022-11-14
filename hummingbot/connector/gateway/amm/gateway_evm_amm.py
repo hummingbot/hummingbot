@@ -911,7 +911,7 @@ class GatewayEVMAMM(ConnectorBase):
             except Exception as e:
                 self.logger().error(str(e), exc_info=True)
 
-    async def update_balances(self, on_interval=False):
+    async def update_balances(self, on_interval: bool = False):
         """
         Calls Eth API to update total and available balances.
         """
@@ -924,19 +924,21 @@ class GatewayEVMAMM(ConnectorBase):
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
+            token_list = list(self._tokens) + [self._native_currency] + connector_tokens
             resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                self.chain, self.network, self.address, list(self._tokens) + [self._native_currency] + connector_tokens
+                chain=self.chain,
+                network=self.network,
+                address=self.address,
+                token_symbols=token_list
             )
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))
                 remote_asset_names.add(token)
-
             asset_names_to_remove = local_asset_names.difference(remote_asset_names)
             for asset_name in asset_names_to_remove:
                 del self._account_available_balances[asset_name]
                 del self._account_balances[asset_name]
-
             self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._order_tracker.all_orders.items()}
             self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
