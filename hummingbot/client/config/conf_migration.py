@@ -182,34 +182,34 @@ def _migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: D
     )
 
     _migrate_global_config_field(
-        client_config_map.mqtt_broker, data, "mqtt_host"
+        client_config_map.mqtt_bridge, data, "mqtt_host"
     )
     _migrate_global_config_field(
-        client_config_map.mqtt_broker, data, "mqtt_port"
+        client_config_map.mqtt_bridge, data, "mqtt_port"
     )
     _migrate_global_config_field(
-        client_config_map.mqtt_broker, data, "mqtt_username"
+        client_config_map.mqtt_bridge, data, "mqtt_username"
     )
     _migrate_global_config_field(
-        client_config_map.mqtt_broker, data, "mqtt_password"
+        client_config_map.mqtt_bridge, data, "mqtt_password"
     )
     _migrate_global_config_field(
-        client_config_map.mqtt_broker, data, "mqtt_ssl"
+        client_config_map.mqtt_bridge, data, "mqtt_ssl"
     )
     _migrate_global_config_field(
-        client_config_map.mqtt_broker, data, "mqtt_logger"
+        client_config_map.mqtt_bridge, data, "mqtt_logger"
     )
     _migrate_global_config_field(
-        client_config_map.mqtt_broker, data, "mqtt_notifier"
+        client_config_map.mqtt_bridge, data, "mqtt_notifier"
     )
     _migrate_global_config_field(
-        client_config_map.mqtt_broker, data, "mqtt_commands"
+        client_config_map.mqtt_bridge, data, "mqtt_commands"
     )
     _migrate_global_config_field(
-        client_config_map.mqtt_broker, data, "mqtt_events"
+        client_config_map.mqtt_bridge, data, "mqtt_events"
     )
     _migrate_global_config_field(
-        client_config_map.mqtt_broker, data, "mqtt_autostart"
+        client_config_map.mqtt_bridge, data, "mqtt_autostart"
     )
 
     anonymized_metrics_enabled = data.pop("anonymized_metrics_enabled")

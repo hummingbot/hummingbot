@@ -49,7 +49,7 @@ def using_exchange(exchange: str) -> Callable:
     return using_exchange_pointer(exchange)
 
 
-class MQTTConfigMap(BaseClientModel):
+class MQTTBridgeConfigMap(BaseClientModel):
     mqtt_host: str = Field(
         default="localhost",
         client_data=ClientFieldData(
@@ -127,7 +127,7 @@ class MQTTConfigMap(BaseClientModel):
     )
 
     class Config:
-        title = "mqtt_broker"
+        title = "mqtt_bridge"
 
 
 class ColorConfigMap(BaseClientModel):
@@ -811,9 +811,9 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: f"Select the desired telegram mode ({'/'.join(list(TELEGRAM_MODES.keys()))})"
         )
     )
-    mqtt_broker: MQTTConfigMap = Field(
-        default=MQTTConfigMap(),
-        description=('MQTT Broker configuration.'),
+    mqtt_bridge: MQTTBridgeConfigMap = Field(
+        default=MQTTBridgeConfigMap(),
+        description=('MQTT Bridge configuration.'),
     )
     send_error_logs: bool = Field(
         default=True,
