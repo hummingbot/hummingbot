@@ -1,3 +1,4 @@
+import { Solana, Solanaish } from '../chains/solana/solana';
 import {
   StatusRequest,
   StatusResponse,
@@ -15,6 +16,7 @@ import {
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../services/error-handler';
 import { EthereumBase } from '../services/ethereum-base';
+import { Cronos } from '../chains/cronos/cronos';
 
 export async function getStatus(
   req: StatusRequest
@@ -36,6 +38,10 @@ export async function getStatus(
       connections.push(Ethereum.getInstance(req.network as string));
     } else if (req.chain === 'polygon') {
       connections.push(Polygon.getInstance(req.network as string));
+    } else if (req.chain === 'solana') {
+      connections.push(await Solana.getInstance(req.network as string));
+    } else if (req.chain === 'cronos') {
+      connections.push(await Cronos.getInstance(req.network as string));
     } else {
       throw new HttpException(
         500,
@@ -48,17 +54,30 @@ export async function getStatus(
     connections = connections.concat(
       avalancheConnections ? Object.values(avalancheConnections) : []
     );
+
     const harmonyConnections = Harmony.getConnectedInstances();
     connections = connections.concat(
       harmonyConnections ? Object.values(harmonyConnections) : []
     );
+
     const ethereumConnections = Ethereum.getConnectedInstances();
     connections = connections.concat(
       ethereumConnections ? Object.values(ethereumConnections) : []
     );
+
     const polygonConnections = Polygon.getConnectedInstances();
     connections = connections.concat(
       polygonConnections ? Object.values(polygonConnections) : []
+    );
+
+    const solanaConnections = Solana.getConnectedInstances();
+    connections = connections.concat(
+      solanaConnections ? Object.values(solanaConnections) : []
+    );
+
+    const cronosConnections = Cronos.getConnectedInstances();
+    connections = connections.concat(
+      cronosConnections ? Object.values(cronosConnections) : []
     );
   }
 
@@ -75,7 +94,7 @@ export async function getStatus(
     try {
       currentBlockNumber = await connection.getCurrentBlockNumber();
     } catch (_e) {
-      // do nothing, this means we are not able to connect to the network
+      if (await connection.provider.getNetwork()) currentBlockNumber = 1; // necessary for connectors like hedera that do not have concept of blocknumber
     }
     statuses.push({
       chain,
@@ -90,7 +109,7 @@ export async function getStatus(
 }
 
 export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
-  let connection: EthereumBase;
+  let connection: EthereumBase | Solanaish;
   let tokens: TokenInfo[] = [];
 
   if (req.chain && req.network) {
@@ -102,6 +121,10 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
       connection = Ethereum.getInstance(req.network);
     } else if (req.chain === 'polygon') {
       connection = Polygon.getInstance(req.network);
+    } else if (req.chain === 'solana') {
+      connection = await Solana.getInstance(req.network);
+    } else if (req.chain === 'cronos') {
+      connection = await Cronos.getInstance(req.network);
     } else {
       throw new HttpException(
         500,
