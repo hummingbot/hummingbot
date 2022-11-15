@@ -207,11 +207,14 @@ class OkxExchange(ExchangePyBase):
         )
         if cancel_result["data"][0]["sCode"] == "0":
             final_result = True
-        elif cancel_result["data"][0]["sCode"] == "5140":
-            # Cancelation failed because the order does not exist anymore
+        elif cancel_result["data"][0]["sCode"] == "51400":
+            # Cancelation failed because the order does not exist
+            final_result = True
+        elif cancel_result["data"][0]["sCode"] == "51401":
+            # Cancelation failed because order has been cancelled
             final_result = True
         else:
-            raise IOError(cancel_result["msg"])
+            raise IOError(f"Error cancelling order {order_id}: {cancel_result}")
 
         return final_result
 

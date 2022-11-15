@@ -1014,10 +1014,8 @@ class ExchangePyBase(ExchangeBase, ABC):
         raise NotImplementedError
 
     async def _initialize_trading_pair_symbol_map(self):
-        exchange_info = None
         try:
             exchange_info = await self._api_get(path_url=self.trading_pairs_request_path)
             self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
         except Exception:
             self.logger().exception("There was an error requesting exchange info.")
-        return exchange_info

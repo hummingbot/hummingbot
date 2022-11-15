@@ -3,7 +3,16 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import pandas as pd
 
-native_tokens = {"ethereum": "ETH", "avalanche": "AVAX", "solana": "SOL", "polygon": "MATIC", "harmony": "ONE"}
+native_tokens = {
+    "ethereum": "ETH",
+    "avalanche": "AVAX",
+    "solana": "SOL",
+    "polygon": "MATIC",
+    "harmony": "ONE",
+    "cronos": "CRO"
+}
+
+SUPPORTED_CHAINS = set(native_tokens.keys())
 
 
 def flatten(items):
