@@ -23,6 +23,8 @@ class MQTTStartCommand:
             self._mqtt = MQTTGateway(self)
             self._mqtt.start_notifier()
             self._mqtt.start_commands()
+            self._mqtt.start_event_fw()
+            self._mqtt.patch_logger_class()
             self._mqtt.run()
         else:
             self.logger().info("MQTT is already initiated!")
