@@ -1,15 +1,18 @@
-import { Ethereum } from '../chains/ethereum/ethereum';
 import { Avalanche } from '../chains/avalanche/avalanche';
+import { Cronos } from '../chains/cronos/cronos';
+import { Ethereum } from '../chains/ethereum/ethereum';
 import { Harmony } from '../chains/harmony/harmony';
 import { Solana, Solanaish } from '../chains/solana/solana';
 import { Polygon } from '../chains/polygon/polygon';
+import { MadMeerkat } from '../connectors/mad_meerkat/mad_meerkat';
+import { Openocean } from '../connectors/openocean/openocean';
+import { Pangolin } from '../connectors/pangolin/pangolin';
+import { Perp } from '../connectors/perp/perp';
+import { Quickswap } from '../connectors/quickswap/quickswap';
+import { Serum } from '../connectors/serum/serum';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
-import { Pangolin } from '../connectors/pangolin/pangolin';
-import { Openocean } from '../connectors/openocean/openocean';
-import { Serum } from '../connectors/serum/serum';
-import { Quickswap } from '../connectors/quickswap/quickswap';
-import { Perp } from '../connectors/perp/perp';
+import { VVSConnector } from '../connectors/vvs/vvs';
 import {
   Ethereumish,
   Nearish,
@@ -50,6 +53,7 @@ export async function getChain<T>(
   else if (chain === 'near') chainInstance = Near.getInstance(network);
   else if (chain === 'solana')
     chainInstance = await Solana.getInstance(network);
+  else if (chain === 'cronos') chainInstance = Cronos.getInstance(network);
   else throw new Error('unsupported chain');
 
   if (!chainInstance.ready()) {
@@ -114,6 +118,10 @@ export async function getConnector<T>(
     connectorInstance = Defira.getInstance(chain, network);
   } else if (chain === 'solana' && connector === 'serum') {
     connectorInstance = await Serum.getInstance(chain, network);
+  } else if (chain === 'cronos' && connector === 'mad_meerkat') {
+    connectorInstance = MadMeerkat.getInstance(chain, network);
+  } else if (chain === 'cronos' && connector === 'vvs') {
+    connectorInstance = VVSConnector.getInstance(chain, network);
   } else if (chain === 'near' && connector === 'ref') {
     connectorInstance = Ref.getInstance(chain, network);
   } else {
