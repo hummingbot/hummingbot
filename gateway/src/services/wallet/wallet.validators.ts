@@ -58,7 +58,8 @@ export const validateChain: Validator = mkValidator(
       val === 'polygon' ||
       val === 'solana' ||
       val === 'harmony' ||
-      val === 'cosmos')
+      val === 'cosmos' ||
+      val === 'cronos')
 );
 
 export const validateNetwork: Validator = mkValidator(

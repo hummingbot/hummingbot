@@ -9,21 +9,14 @@ import pandas as pd
 
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.derivative_base import DerivativeBase
-from hummingbot.core.clock import Clock
-from hummingbot.core.data_type.common import (
-    OrderType,
-    PositionAction,
-    PositionMode,
-    PriceType,
-    TradeType,
-)
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PriceType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_candidate import PerpetualOrderCandidate
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     OrderFilledEvent,
-    SellOrderCompletedEvent,
     PositionModeChangeEvent,
+    SellOrderCompletedEvent,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import map_df_to_str
@@ -32,7 +25,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.strategy.perpetual_market_making.data_types import PriceSize, Proposal
 from hummingbot.strategy.perpetual_market_making.perpetual_market_making_order_tracker import (
-    PerpetualMarketMakingOrderTracker
+    PerpetualMarketMakingOrderTracker,
 )
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.strategy.utils import order_age
@@ -451,23 +444,15 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
 
         return "\n".join(lines)
 
-    def start(self, clock: Clock, timestamp: float):
-        super().start(clock, timestamp)
-        self._last_timestamp = timestamp
-        self.apply_initial_settings(self.trading_pair, self._position_mode, self._leverage)
-
-    def apply_initial_settings(self, trading_pair: str, position: Position, leverage: int):
-        market: DerivativeBase = self._market_info.market
-        market.set_leverage(trading_pair, leverage)
-        market.set_position_mode(position)
-
     def tick(self, timestamp: float):
         if not self._position_mode_ready:
             self._position_mode_not_ready_counter += 1
-            # Attempt to switch position mode every 10 ticks only to not to spam and DDOS
+            # Attempt to switch position mode every 10 ticks only to not spam and DDOS
             if self._position_mode_not_ready_counter == 10:
                 market: DerivativeBase = self._market_info.market
-                market.set_position_mode(self._position_mode)
+                if market.ready:
+                    market.set_leverage(self.trading_pair, self._leverage)
+                    market.set_position_mode(self._position_mode)
                 self._position_mode_not_ready_counter = 0
             return
         self._position_mode_not_ready_counter = 0

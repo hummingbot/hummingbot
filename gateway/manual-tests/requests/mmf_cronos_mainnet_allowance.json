@@ -1,0 +1,7 @@
+{
+  "chain": "cronos",
+  "network": "mainnet",
+  "address": "0xd2A5b86d9083Db7a39DA178261254925ad28033D",
+  "spender": "mad_meerkat",
+  "tokenSymbols": ["WCRO", "USDC"]
+}
