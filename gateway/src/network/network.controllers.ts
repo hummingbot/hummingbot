@@ -16,6 +16,7 @@ import {
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../services/error-handler';
 import { EthereumBase } from '../services/ethereum-base';
+import { Cronos } from '../chains/cronos/cronos';
 import { Near } from '../chains/near/near';
 import { Nearish } from '../services/common-interfaces';
 
@@ -43,6 +44,8 @@ export async function getStatus(
       connections.push(Solana.getInstance(req.network as string));
     } else if (req.chain === 'near') {
       connections.push(Near.getInstance(req.network as string));
+    } else if (req.chain === 'cronos') {
+      connections.push(await Cronos.getInstance(req.network as string));
     } else {
       throw new HttpException(
         500,
@@ -74,6 +77,11 @@ export async function getStatus(
     const solanaConnections = Solana.getConnectedInstances();
     connections = connections.concat(
       solanaConnections ? Object.values(solanaConnections) : []
+    );
+
+    const cronosConnections = Cronos.getConnectedInstances();
+    connections = connections.concat(
+      cronosConnections ? Object.values(cronosConnections) : []
     );
 
     const nearConnections = Near.getConnectedInstances();
@@ -126,6 +134,8 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
       connection = Solana.getInstance(req.network);
     } else if (req.chain === 'near') {
       connection = Near.getInstance(req.network);
+    } else if (req.chain === 'cronos') {
+      connection = await Cronos.getInstance(req.network);
     } else {
       throw new HttpException(
         500,

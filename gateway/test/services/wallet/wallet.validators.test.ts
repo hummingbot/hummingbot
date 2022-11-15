@@ -198,6 +198,14 @@ describe('validateChain', () => {
     ).toEqual([]);
   });
 
+  it('valid when chain is cronos', () => {
+    expect(
+      validateChain({
+        chain: 'cronos',
+      })
+    ).toEqual([]);
+  });
+
   it('return error when req.chain does not exist', () => {
     expect(
       validateChain({
