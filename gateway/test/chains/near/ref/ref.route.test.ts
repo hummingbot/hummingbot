@@ -683,3 +683,26 @@ describe('POST /amm/trade', () => {
       .expect(500);
   });
 });
+
+describe('POST /amm/estimateGas', () => {
+  it('should return 200 for valid connector', async () => {
+    patchGasPrice();
+
+    await request(gatewayApp)
+      .post('/amm/estimateGas')
+      .send({
+        chain: 'near',
+        network: 'testnet',
+        connector: 'ref',
+      })
+      .set('Accept', 'application/json')
+      .expect(200)
+      .then((res: any) => {
+        expect(res.body.network).toEqual('testnet');
+        expect(res.body.gasPrice).toEqual(100);
+        expect(res.body.gasCost).toEqual(
+          String((100 * ref.gasLimitEstimate) / 1e24)
+        );
+      });
+  });
+});
