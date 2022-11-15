@@ -385,27 +385,27 @@ class MQTTGateway(Node):
         HummingbotLogger._mqtt_handler = MQTTLogHandler(self._hb_app, self)
 
     def start_notifier(self):
-        if self._hb_app.client_config_map.mqtt_broker.mqtt_notifier:
+        if self._hb_app.client_config_map.mqtt_bridge.mqtt_notifier:
             self.logger().info('Starting MQTT Notifier')
             self._notifier = MQTTNotifier(self._hb_app, self)
             self._hb_app.notifiers.append(self._notifier)
 
     def start_commands(self):
-        if self._hb_app.client_config_map.mqtt_broker.mqtt_commands:
+        if self._hb_app.client_config_map.mqtt_bridge.mqtt_commands:
             self.logger().info('Starting MQTT Remote Commands')
             self._commands = MQTTCommands(self._hb_app, self)
 
     def start_event_fw(self):
-        if self._hb_app.client_config_map.mqtt_broker.mqtt_events:
+        if self._hb_app.client_config_map.mqtt_bridge.mqtt_events:
             self.logger().info('Starting MQTT Remote Events')
             self.mqtt_event_forwarder = MQTTEventForwarder(self._hb_app, self)
 
     def _create_mqtt_params_from_conf(self):
-        host = self._hb_app.client_config_map.mqtt_broker.mqtt_host
-        port = self._hb_app.client_config_map.mqtt_broker.mqtt_port
-        username = self._hb_app.client_config_map.mqtt_broker.mqtt_username
-        password = self._hb_app.client_config_map.mqtt_broker.mqtt_password
-        ssl = self._hb_app.client_config_map.mqtt_broker.mqtt_ssl
+        host = self._hb_app.client_config_map.mqtt_bridge.mqtt_host
+        port = self._hb_app.client_config_map.mqtt_bridge.mqtt_port
+        username = self._hb_app.client_config_map.mqtt_bridge.mqtt_username
+        password = self._hb_app.client_config_map.mqtt_bridge.mqtt_password
+        ssl = self._hb_app.client_config_map.mqtt_bridge.mqtt_ssl
         conn_params = MQTTConnectionParameters(
             host=host,
             port=int(port),

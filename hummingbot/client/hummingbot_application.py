@@ -115,7 +115,7 @@ class HummingbotApplication(*commands):
         # gateway variables and monitor
         self._gateway_monitor = GatewayStatusMonitor(self)
 
-        if self.client_config_map.mqtt_broker.mqtt_autostart:
+        if self.client_config_map.mqtt_bridge.mqtt_autostart:
             try:
                 self._mqtt = MQTTGateway(self)
                 self._mqtt.start_notifier()
