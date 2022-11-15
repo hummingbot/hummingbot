@@ -214,7 +214,7 @@ class MQTTEventForwarder:
     def logger(cls) -> HummingbotLogger:
         global mqtts_logger
         if mqtts_logger is None:
-            mqtts_logger = HummingbotLogger("MQTT_Gateway")
+            mqtts_logger = HummingbotLogger("MQTTGateway")
         return mqtts_logger
 
     def __init__(self,
@@ -312,12 +312,9 @@ class MQTTEventForwarder:
     def start_event_listener(self):
         for market in self._markets:
             for event_pair in self._market_event_pairs:
-                self.logger().info(
-                    f'Creating MQTT listener: {event_pair[0]}, {event_pair[1]}'
-                )
                 market.add_listener(event_pair[0], event_pair[1])
                 self.logger().info(
-                    f'Creating MQTT listener: {event_pair[0]}, {event_pair[1]}'
+                    f'Created MQTT bridge for event: {event_pair[0]}, {event_pair[1]}'
                 )
         for event_pair in self._app_event_pairs:
             self._hb_app.app.add_listener(event_pair[0], event_pair[1])
@@ -360,6 +357,13 @@ class MQTTGateway(Node):
     NODE_NAME = 'hbot.$UID'
     HEARTBEAT_URI = 'hbot/$UID/hb'
 
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        global mqtts_logger
+        if mqtts_logger is None:
+            mqtts_logger = HummingbotLogger("MQTTGateway")
+        return mqtts_logger
+
     def __init__(self,
                  hb_app: "HummingbotApplication",
                  *args, **kwargs):
@@ -377,9 +381,8 @@ class MQTTGateway(Node):
             **kwargs
         )
 
-    @property
-    def logger(self) -> HummingbotLogger:
-        return self._hb_app.logger
+    def patch_logger_class(self):
+        HummingbotLogger._mqtt_handler = MQTTLogHandler(self._hb_app, self)
 
     def start_notifier(self):
         if self._hb_app.client_config_map.mqtt_broker.mqtt_notifier:
@@ -421,13 +424,21 @@ class LogMessage(PubSubMessage):
     logger_name: str = ''
 
 
-class MQTTHandler(Handler):
+class MQTTLogHandler(Handler):
     MQTT_URI = 'hbot/$UID/log'
 
     def __init__(self,
-                 mqtt_params: MQTTConnectionParameters = None,
+                 hb_app: "HummingbotApplication",
+                 mqtt_node: Node,
                  mqtt_topic: str = ''):
+        self._hb_app = hb_app
+        self._node = mqtt_node
+        if mqtt_topic in ('', None):
+            mqtt_topic = self.MQTT_URI.replace('$UID', self._hb_app.uid)
+        self._topic = mqtt_topic
         super().__init__()
+        self.log_pub = self._node.create_publisher(topic=self._topic,
+                                                   msg_type=LogMessage)
 
     def emit(self, record: LogRecord):
         msg_str = self.format(record)
@@ -439,4 +450,5 @@ class MQTTHandler(Handler):
             logger_name=record.name
 
         )
+        self.log_pub.publish(msg)
         return msg

@@ -29,8 +29,12 @@ else:   # pragma: no cover
 
 
 class HummingbotLogger(PythonLogger):
+    _mqtt_handler = None
+
     def __init__(self, name: str):
         super().__init__(name)
+        if HummingbotLogger._mqtt_handler is not None:
+            self.addHandler(self._mqtt_handler)
 
     @staticmethod
     def logger_name_for_class(model_class: Type):
@@ -41,6 +45,9 @@ class HummingbotLogger(PythonLogger):
         return any(tools in arg
                    for tools in TESTING_TOOLS
                    for arg in sys.argv)
+
+    def start_mqtt(self):
+        return None
 
     def notify(self, msg: str):
         from . import INFO

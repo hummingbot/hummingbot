@@ -120,6 +120,8 @@ class HummingbotApplication(*commands):
                 self._mqtt = MQTTGateway(self)
                 self._mqtt.start_notifier()
                 self._mqtt.start_commands()
+                self._mqtt.start_event_fw()
+                self._mqtt.patch_logger_class()
                 self._mqtt.run()
             except Exception as e:
                 self.logger().error(e)
