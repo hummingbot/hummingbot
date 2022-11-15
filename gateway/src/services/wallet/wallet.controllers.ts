@@ -60,6 +60,12 @@ export async function addWallet(
   } else if (req.chain === 'polygon') {
     connection = Polygon.getInstance(req.network);
   } else if (req.chain === 'near') {
+    if (!('address' in req))
+      throw new HttpException(
+        500,
+        ACCOUNT_NOT_SPECIFIED_ERROR_MESSAGE(),
+        ACCOUNT_NOT_SPECIFIED_CODE
+      );
     connection = Near.getInstance(req.network);
   } else {
     throw new HttpException(
@@ -89,12 +95,6 @@ export async function addWallet(
         passphrase
       );
     } else if (connection instanceof Near) {
-      if (!('address' in req))
-        throw new HttpException(
-          500,
-          ACCOUNT_NOT_SPECIFIED_ERROR_MESSAGE(),
-          ACCOUNT_NOT_SPECIFIED_CODE
-        );
       address = (
         await connection.getWalletFromPrivateKey(
           req.privateKey,
