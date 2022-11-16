@@ -1,5 +1,6 @@
 import fse from 'fs-extra';
 import { Avalanche } from '../../chains/avalanche/avalanche';
+import { Cronos } from '../../chains/cronos/cronos';
 import { BinanceSmartChain } from '../../chains/binance-smart-chain/binance-smart-chain';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import { Polygon } from '../../chains/polygon/polygon';
@@ -18,11 +19,14 @@ import { ConfigManagerCertPassphrase } from '../config-manager-cert-passphrase';
 import {
   ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE,
   ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE,
+  ACCOUNT_NOT_SPECIFIED_CODE,
+  ACCOUNT_NOT_SPECIFIED_ERROR_MESSAGE,
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../error-handler';
 import { EthereumBase } from '../ethereum-base';
+import { Near } from '../../chains/near/near';
 
 const walletPath = './conf/wallets';
 export async function mkdirIfDoesNotExist(path: string): Promise<void> {
@@ -39,7 +43,7 @@ export async function addWallet(
   if (!passphrase) {
     throw new Error('There is no passphrase');
   }
-  let connection: EthereumBase | Solana;
+  let connection: EthereumBase | Solana | Near;
   let address: string | undefined;
   let encryptedPrivateKey: string | undefined;
 
@@ -47,14 +51,24 @@ export async function addWallet(
     connection = Ethereum.getInstance(req.network);
   } else if (req.chain === 'avalanche') {
     connection = Avalanche.getInstance(req.network);
-  } else if (req.chain === 'polygon') {
-    connection = Polygon.getInstance(req.network);
-  } else if (req.chain === 'solana') {
-    connection = await Solana.getInstance(req.network);
   } else if (req.chain === 'harmony') {
     connection = Harmony.getInstance(req.network);
+  } else if (req.chain === 'cronos') {
+    connection = Cronos.getInstance(req.network);
+  } else if (req.chain === 'solana') {
+    connection = Solana.getInstance(req.network);
+  } else if (req.chain === 'polygon') {
+    connection = Polygon.getInstance(req.network);
   } else if (req.chain === 'binance-smart-chain') {
     connection = BinanceSmartChain.getInstance(req.network);
+  } else if (req.chain === 'near') {
+    if (!('address' in req))
+      throw new HttpException(
+        500,
+        ACCOUNT_NOT_SPECIFIED_ERROR_MESSAGE(),
+        ACCOUNT_NOT_SPECIFIED_CODE
+      );
+    connection = Near.getInstance(req.network);
   } else {
     throw new HttpException(
       500,
@@ -82,6 +96,14 @@ export async function addWallet(
         req.privateKey,
         passphrase
       );
+    } else if (connection instanceof Near) {
+      address = (
+        await connection.getWalletFromPrivateKey(
+          req.privateKey,
+          <string>req.address
+        )
+      ).accountId;
+      encryptedPrivateKey = connection.encrypt(req.privateKey, passphrase);
     }
     if (address === undefined || encryptedPrivateKey === undefined) {
       throw new Error('ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE');

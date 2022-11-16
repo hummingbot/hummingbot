@@ -270,29 +270,31 @@ export class Sushiswap implements Uniswapish {
       allowedSlippage: this.getSlippagePercentage(),
     });
     const contract: Contract = new Contract(sushswapRouter, abi, wallet);
-    if (nonce === undefined) {
-      nonce = await this.chain.nonceManager.getNextNonce(wallet.address);
-    }
-    let tx: ContractTransaction;
-    if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
-      tx = await contract[result.methodName](...result.args, {
-        gasLimit: gasLimit.toFixed(0),
-        value: result.value,
-        nonce: nonce,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      });
-    } else {
-      tx = await contract[result.methodName](...result.args, {
-        gasPrice: (gasPrice * 1e9).toFixed(0),
-        gasLimit: gasLimit.toFixed(0),
-        value: result.value,
-        nonce: nonce,
-      });
-    }
+    return this.ethereum.nonceManager.provideNonce(
+      nonce,
+      wallet.address,
+      async (nextNonce) => {
+        let tx: ContractTransaction;
+        if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
+          tx = await contract[result.methodName](...result.args, {
+            gasLimit: gasLimit.toFixed(0),
+            value: result.value,
+            nonce: nextNonce,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
+          });
+        } else {
+          tx = await contract[result.methodName](...result.args, {
+            gasPrice: (gasPrice * 1e9).toFixed(0),
+            gasLimit: gasLimit.toFixed(0),
+            value: result.value,
+            nonce: nextNonce,
+          });
+        }
 
-    logger.info(tx);
-    await this.chain.nonceManager.commitNonce(wallet.address, nonce);
-    return tx;
+        logger.info(JSON.stringify(tx));
+        return tx;
+      }
+    );
   }
 }
