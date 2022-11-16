@@ -1,7 +1,6 @@
 from decimal import Decimal
 from typing import TYPE_CHECKING, Dict, Optional
 
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.utils import async_ttl_cache
 
@@ -25,7 +24,7 @@ class AscendExRateSource(RateSourceBase):
         try:
             records = await self._exchange.get_all_pairs_prices()
             for record in records["data"]:
-                pair = await AscendExAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(record["symbol"])
+                pair = await self._exchange.trading_pair_associated_to_exchange_symbol(record["symbol"])
                 if Decimal(record["ask"][0]) > 0 and Decimal(record["bid"][0]) > 0:
                     results[pair] = (Decimal(str(record["ask"][0])) + Decimal(str(record["bid"][0]))) / Decimal("2")
         except Exception:
@@ -50,6 +49,7 @@ class AscendExRateSource(RateSourceBase):
             client_config_map=client_config_map,
             ascend_ex_api_key="",
             ascend_ex_secret_key="",
+            ascend_ex_group_id="",
             trading_pairs=[],
             trading_required=False,
         )
