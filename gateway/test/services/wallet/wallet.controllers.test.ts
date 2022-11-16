@@ -9,6 +9,8 @@ import {
   removeWallet,
 } from '../../../src/services/wallet/wallet.controllers';
 import {
+  ACCOUNT_NOT_SPECIFIED_CODE,
+  ACCOUNT_NOT_SPECIFIED_ERROR_MESSAGE,
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
@@ -16,10 +18,15 @@ import {
 
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 import { BinanceSmartChain } from '../../../src/chains/binance-smart-chain/binance-smart-chain';
+import { Cronos } from '../../../src/chains/cronos/cronos';
+import { Near } from '../../../src/chains/near/near';
+
 let avalanche: Avalanche;
+let cronos: Cronos;
 let eth: Ethereum;
 let harmony: Harmony;
 let bsc: BinanceSmartChain;
+let near: Near;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
@@ -28,6 +35,8 @@ beforeAll(async () => {
   eth = Ethereum.getInstance('kovan');
   harmony = Harmony.getInstance('testnet');
   bsc = BinanceSmartChain.getInstance('testnet');
+  cronos = Cronos.getInstance('testnet');
+  near = Near.getInstance('testnet');
 });
 
 beforeEach(() =>
@@ -39,6 +48,8 @@ afterAll(async () => {
   await eth.close();
   await harmony.close();
   await bsc.close();
+  await cronos.close();
+  await near.close();
 });
 
 afterEach(() => unpatch());
@@ -175,6 +186,32 @@ describe('addWallet and getWallets', () => {
     expect(addresses[0]).toContain(oneAddress);
   });
 
+  it('add a Cronos wallet', async () => {
+    patch(cronos, 'getWallet', () => {
+      return {
+        address: oneAddress,
+      };
+    });
+
+    patch(cronos, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await addWallet({
+      privateKey: onePrivateKey,
+      chain: 'cronos',
+      network: 'testnet',
+    });
+
+    const wallets = await getWallets();
+
+    const addresses: string[][] = wallets
+      .filter((wallet) => wallet.chain === 'cronos')
+      .map((wallet) => wallet.walletAddresses);
+
+    expect(addresses[0]).toContain(oneAddress);
+  });
+
   it('fail to add a wallet to unknown chain', async () => {
     await expect(
       addWallet({
@@ -187,6 +224,22 @@ describe('addWallet and getWallets', () => {
         500,
         UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE('shibainu'),
         UNKNOWN_CHAIN_ERROR_CODE
+      )
+    );
+  });
+
+  it('fail to add a wallet if account is not specified when adding near wallet', async () => {
+    await expect(
+      addWallet({
+        privateKey: onePrivateKey,
+        chain: 'near',
+        network: 'testnet',
+      })
+    ).rejects.toThrow(
+      new HttpException(
+        500,
+        ACCOUNT_NOT_SPECIFIED_ERROR_MESSAGE(),
+        ACCOUNT_NOT_SPECIFIED_CODE
       )
     );
   });

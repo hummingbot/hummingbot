@@ -18,6 +18,18 @@ class Position:
         self._amount = amount
         self._leverage = leverage
 
+    def __repr__(self) -> str:
+        return (
+            f"Position("
+            f"trading_pair={self._trading_pair},"
+            f" position_side={self._position_side},"
+            f" unrealized_pnl={self._unrealized_pnl},"
+            f" entry_price={self._entry_price},"
+            f" amount={self._amount},"
+            f" leverage={self._leverage}"
+            f")"
+        )
+
     @property
     def trading_pair(self) -> str:
         return self._trading_pair
