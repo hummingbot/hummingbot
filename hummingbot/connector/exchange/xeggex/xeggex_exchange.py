@@ -710,7 +710,7 @@ class XeggexExchange(ExchangeBase):
                 AddedToCostTradeFee(
                     flat_fees=[TokenAmount(tracked_order.quote_asset, Decimal(str(trade_msg.get("tradeFee", "0"))))]
                 ),
-                exchange_trade_id=trade_msg["id"]
+                exchange_trade_id=trade_msg["tradeId"]
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
