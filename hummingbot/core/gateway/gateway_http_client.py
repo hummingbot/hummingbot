@@ -257,11 +257,14 @@ class GatewayHttpClient:
     async def get_wallets(self, fail_silently: bool = False) -> List[Dict[str, Any]]:
         return await self.api_request("get", "wallet", fail_silently=fail_silently)
 
-    async def add_wallet(self, chain: str, network: str, private_key: str) -> Dict[str, Any]:
+    async def add_wallet(self, chain: str, network: str, private_key: str, id: Optional[str] = None) -> Dict[str, Any]:
+        request = {"chain": chain, "network": network, "privateKey": private_key}
+        if id:
+            request["address"] = id
         return await self.api_request(
             "post",
             "wallet/add",
-            {"chain": chain, "network": network, "privateKey": private_key}
+            request
         )
 
     async def get_configuration(self, fail_silently: bool = False) -> Dict[str, Any]:
@@ -277,7 +280,8 @@ class GatewayHttpClient:
     ) -> Dict[str, Any]:
         if isinstance(token_symbols, list):
             token_symbols = [x for x in token_symbols if isinstance(x, str) and x.strip() != '']
-            return await self.api_request("post", "network/balances", {
+            network_path = "near" if chain == "near" else "network"
+            return await self.api_request("post", f"{network_path}/balances", {
                 "chain": chain,
                 "network": network,
                 "address": address,
@@ -292,7 +296,8 @@ class GatewayHttpClient:
             network: str,
             fail_silently: bool = True
     ) -> Dict[str, Any]:
-        return await self.api_request("get", "network/tokens", {
+        network_path = "near" if chain == "near" else "network"
+        return await self.api_request("get", f"{network_path}/tokens", {
             "chain": chain,
             "network": network
         }, fail_silently=fail_silently)
@@ -388,6 +393,7 @@ class GatewayHttpClient:
             network: str,
             transaction_hash: str,
             connector: Optional[str] = None,
+            address: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         request = {
@@ -397,7 +403,10 @@ class GatewayHttpClient:
         }
         if connector:
             request["connector"] = connector
-        return await self.api_request("post", "network/poll", request, fail_silently=fail_silently)
+        if address:
+            request["address"] = address
+        network_path = "near" if chain == "near" else "network"
+        return await self.api_request("post", f"{network_path}/poll", request, fail_silently=fail_silently)
 
     async def get_evm_nonce(
             self,

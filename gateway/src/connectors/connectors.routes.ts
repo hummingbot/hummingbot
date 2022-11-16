@@ -12,6 +12,7 @@ import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
 import { VVSConfig } from './vvs/vvs.config';
+import { RefConfig } from './ref/ref.config';
 
 export namespace ConnectorsRoutes {
   export const router = Router();
@@ -88,6 +89,11 @@ export namespace ConnectorsRoutes {
             name: 'vvs',
             trading_type: VVSConfig.config.tradingTypes,
             available_networks: VVSConfig.config.availableNetworks,
+          },
+          {
+            name: 'ref',
+            trading_type: RefConfig.config.tradingTypes,
+            available_networks: RefConfig.config.availableNetworks,
           },
         ],
       });
