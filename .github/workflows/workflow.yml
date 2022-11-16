@@ -128,7 +128,7 @@ jobs:
           git fetch --all -q
           git checkout -b $GITHUB_SHA
           coverage xml
-          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=80 coverage.xml
+          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=70 coverage.xml
 
       # Notify results to discord
       - uses: actions/setup-ruby@v1
@@ -203,4 +203,4 @@ jobs:
           git fetch --all -q
           git checkout -b $GITHUB_SHA
           yarn --cwd ./gateway test:cov 
-          git diff origin/$GITHUB_BASE_REF | $(yarn --cwd ./gateway bin)/diff-test-coverage -c ./gateway/coverage/lcov.info -t lcov -b 65 -l 67
+          git diff origin/$GITHUB_BASE_REF | $(yarn --cwd ./gateway bin)/diff-test-coverage -c ./gateway/coverage/lcov.info -t lcov -b 55 -l 57
