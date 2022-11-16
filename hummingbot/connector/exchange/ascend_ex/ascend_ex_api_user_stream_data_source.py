@@ -2,7 +2,6 @@ import asyncio
 import logging
 import time
 from typing import List, Optional
-
 import aiohttp
 
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
@@ -19,8 +18,8 @@ from hummingbot.logger import HummingbotLogger
 
 class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
     MAX_RETRIES = 20
-    MESSAGE_TIMEOUT = 30.0
-    PING_TIMEOUT = 15.0
+    MESSAGE_TIMEOUT = 10.0
+    PING_TIMEOUT = 5.0
     HEARTBEAT_PING_INTERVAL = 15.0
     PING_TOPIC_ID = "ping"
 
@@ -33,10 +32,10 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return cls._logger
 
     def __init__(
-            self, ascend_ex_auth: AscendExAuth,
-            api_factory: Optional[WebAssistantsFactory] = None,
-            throttler: Optional[AsyncThrottler] = None,
-            trading_pairs: Optional[List[str]] = None
+        self, ascend_ex_auth: AscendExAuth,
+        api_factory: Optional[WebAssistantsFactory] = None,
+        throttler: Optional[AsyncThrottler] = None,
+        trading_pairs: Optional[List[str]] = None
     ):
         super().__init__()
         self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
@@ -90,19 +89,19 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 ws: WSAssistant = await self._get_ws_assistant()
                 url = f"{get_ws_url_private(accountGroup)}/{CONSTANTS.STREAM_PATH_URL}"
                 await ws.connect(ws_url=url, ws_headers=headers, ping_timeout=self.HEARTBEAT_PING_INTERVAL)
-
+                await ws.ping()  # to update last_recv_timestamp
                 subscribe_request: WSJSONRequest = WSJSONRequest(payload)
                 async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
                     await ws.send(subscribe_request)
 
                 async for raw_msg in ws.iter_messages():
                     msg = raw_msg.data
+                    self._last_recv_time = time.time()
                     if msg is None:
                         continue
                     event_type = msg.get("m")
                     if event_type in [self.PING_TOPIC_ID]:
                         await self._handle_ping_message(ws)
-                    self._last_recv_time = time.time()
                     output.put_nowait(msg)
             except asyncio.CancelledError:
                 raise
@@ -111,9 +110,9 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "Unexpected error with AscendEx WebSocket connection. " "Retrying after 30 seconds...",
                     exc_info=True
                 )
+                await self._sleep(30.0)
             finally:
                 ws and await ws.disconnect()
-                await self._sleep(30.0)
 
     @classmethod
     def _get_throttler_instance(cls) -> AsyncThrottler:

@@ -258,7 +258,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         ws = None
         while True:
             try:
-                ws = await self._subscribe_to_order_book_streams(self)
+                ws = await self._subscribe_to_order_book_streams()
                 async for ws_response in ws.iter_messages():
                     data = ws_response.data
                     if "result" in data:
@@ -274,9 +274,10 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error occurred when listening to order book streams. "
                                     "Retrying in 5 seconds...",
                                     exc_info=True)
+                await self._sleep(5.0)
             finally:
                 ws and await ws.disconnect()
-                await self._sleep(5.0)
+
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -416,7 +417,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         cls._trading_pair_symbol_map = mapping
 
-    async def _subscribe_to_order_book_streams(self, ws: aiohttp.ClientWebSocketResponse):
+    async def _subscribe_to_order_book_streams(self) -> aiohttp.ClientWebSocketResponse:
         """
         Subscribes to the order book diff orders events through the provided websocket connection.
         """
@@ -453,8 +454,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "Unexpected error occurred subscribing to order book trading and delta streams...",
                 exc_info=True
             )
-        finally:
-            await ws.disconnect()
+        raise
 
 
     async def _handle_ping_message(self, ws: aiohttp.ClientWebSocketResponse):

@@ -52,10 +52,10 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
                 self.logger().warning(f"The websocket connection was closed ({connection_exception})")
             except Exception:
                 self.logger().exception("Unexpected error while listening to user stream. Retrying after 5 seconds...")
+                await self._sleep(5.0)
             finally:
                 await self._on_user_stream_interruption(websocket_assistant=self._ws_assistant)
                 self._ws_assistant = None
-                await self._sleep(5.0)
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
