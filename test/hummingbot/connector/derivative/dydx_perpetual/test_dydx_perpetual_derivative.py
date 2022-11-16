@@ -1,637 +1,1192 @@
 import asyncio
-import time
-import unittest
-from collections import Awaitable
-from datetime import datetime
+import json
+import re
 from decimal import Decimal
-from typing import Dict, Optional
-from unittest.mock import AsyncMock, PropertyMock, patch
+from typing import Any, Callable, List, Optional, Tuple
+from unittest.mock import AsyncMock
 
-import pandas as pd
-from dydx3 import DydxApiError
-from requests import Response
+from aioresponses import aioresponses
+from aioresponses.core import RequestCall
 
+import hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_constants as CONSTANTS
+import hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_web_utils as web_utils
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative import DydxPerpetualDerivative
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
-from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import PositionSide, TradeType
-from hummingbot.core.data_type.funding_info import FundingInfo
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    BuyOrderCreatedEvent,
-    MarketEvent,
-    OrderType,
-    PositionAction,
-    SellOrderCreatedEvent,
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative import (
+    DydxPerpetualAuth,
+    DydxPerpetualDerivative,
 )
+from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
+from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest
 
 
-class DydxPerpetualDerivativeTest(unittest.TestCase):
-    # the level is required to receive logs from the data source logger
-    level = 0
+class DydxPerpetualAuthMock(DydxPerpetualAuth):
+    def get_order_signature(
+        self,
+        position_id: str,
+        client_id: str,
+        market: str,
+        side: str,
+        size: str,
+        price: str,
+        limit_fee: str,
+        expiration_epoch_seconds: int,
+    ) -> str:
+        return "0123456789"
 
-    start_timestamp: float = pd.Timestamp("2021-01-01", tz="UTC").timestamp()
+    async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
+        headers = {
+            "DYDX-SIGNATURE": "0123456789",
+            "DYDX-API-KEY": "someKey",
+            "DYDX-TIMESTAMP": "1640780000",
+            "DYDX-PASSPHRASE": "somePassphrase",
+        }
 
+        if request.headers is not None:
+            headers.update(request.headers)
+
+        request.headers = headers
+        return request
+
+    def get_account_id(self):
+        return "someAccountNumber"
+
+
+class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.base_asset = "COINALPHA"
-        cls.quote_asset = "USD"
-        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.api_key = "someKey"
+        cls.api_secret = "someSecret"
+        cls.passphrase = "somePassphrase"
+        cls.account_number = "someAccountNumber"
+        cls.ethereum_address = "someEthAddress"
+        cls.stark_private_key = "0123456789"
+        cls.base_asset = "HBOT"
+        cls.quote_asset = "USD"  # linear
+        cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
 
-    def setUp(self) -> None:
-        super().setUp()
+    @property
+    def all_symbols_url(self):
+        url = web_utils.private_rest_url(CONSTANTS.PATH_MARKETS)
+        return url
 
-        self.exchange_task = None
-        self.return_values_queue = asyncio.Queue()
-        self.resume_test_event = asyncio.Event()
-        self.log_records = []
-        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+    @property
+    def latest_prices_url(self):
+        url = web_utils.private_rest_url(CONSTANTS.PATH_MARKETS + r"\?.*")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        return regex_url
 
-        self.exchange = DydxPerpetualDerivative(
-            client_config_map=self.client_config_map,
-            dydx_perpetual_api_key="someAPIKey",
-            dydx_perpetual_api_secret="someAPISecret",
-            dydx_perpetual_passphrase="somePassPhrase",
-            dydx_perpetual_account_number=1234,
-            dydx_perpetual_ethereum_address="someETHAddress",
-            dydx_perpetual_stark_private_key="1234",
+    @property
+    def network_status_url(self):
+        url = web_utils.public_rest_url(CONSTANTS.PATH_TIME)
+        return url
+
+    @property
+    def trading_rules_url(self):
+        url = web_utils.private_rest_url(CONSTANTS.PATH_MARKETS)
+        return url
+
+    @property
+    def order_creation_url(self):
+        url = web_utils.private_rest_url(CONSTANTS.PATH_ORDERS)
+        return url
+
+    @property
+    def balance_url(self):
+        url = web_utils.private_rest_url(CONSTANTS.PATH_ACCOUNTS + "/" + str(self.account_number))
+        return url
+
+    @property
+    def expected_supported_position_modes(self) -> List[PositionMode]:
+        return [PositionMode.ONEWAY]
+
+    @property
+    def all_symbols_request_mock_response(self):
+        mock_response = {
+            "markets": {
+                self.trading_pair: {
+                    "market": self.trading_pair,
+                    "status": "ONLINE",
+                    "baseAsset": self.base_asset,
+                    "quoteAsset": self.quote_asset,
+                    "stepSize": "0.1",
+                    "tickSize": "0.01",
+                    "indexPrice": "12",
+                    "oraclePrice": "101",
+                    "priceChange24H": "0",
+                    "nextFundingRate": "0.0000125000",
+                    "nextFundingAt": "2022-07-06T12:20:53.000Z",
+                    "minOrderSize": "1",
+                    "type": "PERPETUAL",
+                    "initialMarginFraction": "0.10",
+                    "maintenanceMarginFraction": "0.05",
+                    "baselinePositionSize": "1000",
+                    "incrementalPositionSize": "1000",
+                    "incrementalInitialMarginFraction": "0.2",
+                    "volume24H": "0",
+                    "trades24H": "0",
+                    "openInterest": "0",
+                    "maxPositionSize": "10000",
+                    "assetResolution": "10000000",
+                    "syntheticAssetId": "0x4c494e4b2d37000000000000000000",
+                }
+            }
+        }
+        return mock_response
+
+    @property
+    def latest_prices_request_mock_response(self):
+        mock_response = {
+            "markets": {
+                self.trading_pair: {
+                    "market": self.trading_pair,
+                    "status": "ONLINE",
+                    "baseAsset": self.base_asset,
+                    "quoteAsset": self.quote_asset,
+                    "stepSize": "0.1",
+                    "tickSize": "0.01",
+                    "indexPrice": "12",
+                    "oraclePrice": "101",
+                    "priceChange24H": "0",
+                    "nextFundingRate": "0.0000125000",
+                    "nextFundingAt": "2022-07-06T12:20:53.000Z",
+                    "minOrderSize": "1",
+                    "type": "PERPETUAL",
+                    "initialMarginFraction": "0.10",
+                    "maintenanceMarginFraction": "0.05",
+                    "baselinePositionSize": "1000",
+                    "incrementalPositionSize": "1000",
+                    "incrementalInitialMarginFraction": "0.2",
+                    "volume24H": "0",
+                    "trades24H": "0",
+                    "openInterest": "0",
+                    "maxPositionSize": "10000",
+                    "assetResolution": "10000000",
+                    "syntheticAssetId": "0x4c494e4b2d37000000000000000000",
+                }
+            }
+        }
+        return mock_response
+
+    @property
+    def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
+        mock_response = {
+            "markets": {
+                self.trading_pair: {
+                    "market": self.trading_pair,
+                    "status": "ONLINE",
+                    "baseAsset": self.base_asset,
+                    "quoteAsset": self.quote_asset,
+                    "stepSize": "0.1",
+                    "tickSize": "0.01",
+                    "indexPrice": "12",
+                    "oraclePrice": "101",
+                    "priceChange24H": "0",
+                    "nextFundingRate": "0.0000125000",
+                    "nextFundingAt": "2022-07-06T12:20:53.000Z",
+                    "minOrderSize": "1",
+                    "type": "PERPETUAL",
+                    "initialMarginFraction": "0.10",
+                    "maintenanceMarginFraction": "0.05",
+                    "baselinePositionSize": "1000",
+                    "incrementalPositionSize": "1000",
+                    "incrementalInitialMarginFraction": "0.2",
+                    "volume24H": "0",
+                    "trades24H": "0",
+                    "openInterest": "0",
+                    "maxPositionSize": "10000",
+                    "assetResolution": "10000000",
+                    "syntheticAssetId": "0x4c494e4b2d37000000000000000000",
+                },
+                "INVALID-PAIR": {
+                    "market": "INVALID-PAIR",
+                    "status": "OFFLINE",
+                    "baseAsset": "INVALID",
+                    "quoteAsset": "PAIR",
+                    "stepSize": "0.1",
+                    "tickSize": "0.01",
+                    "indexPrice": "12",
+                    "oraclePrice": "101",
+                    "priceChange24H": "0",
+                    "nextFundingRate": "0.0000125000",
+                    "nextFundingAt": "2022-07-06T12:20:53.000Z",
+                    "minOrderSize": "1",
+                    "type": "PERPETUAL",
+                    "initialMarginFraction": "0.10",
+                    "maintenanceMarginFraction": "0.05",
+                    "baselinePositionSize": "1000",
+                    "incrementalPositionSize": "1000",
+                    "incrementalInitialMarginFraction": "0.2",
+                    "volume24H": "0",
+                    "trades24H": "0",
+                    "openInterest": "0",
+                    "maxPositionSize": "10000",
+                    "assetResolution": "10000000",
+                    "syntheticAssetId": "0x4c494e4b2d37000000000000000000",
+                },
+            }
+        }
+        return "INVALID-PAIR", mock_response
+
+    @property
+    def network_status_request_successful_mock_response(self):
+        mock_response = {
+            "iso": "2021-02-02T18:35:45Z",
+            "epoch": "1611965998.515",
+        }
+        return mock_response
+
+    @property
+    def trading_rules_request_mock_response(self):
+        mock_response = {
+            "markets": {
+                self.trading_pair: {
+                    "market": self.trading_pair,
+                    "status": "ONLINE",
+                    "baseAsset": self.base_asset,
+                    "quoteAsset": self.quote_asset,
+                    "stepSize": "0.1",
+                    "tickSize": "0.01",
+                    "indexPrice": "12",
+                    "oraclePrice": "101",
+                    "priceChange24H": "0",
+                    "nextFundingRate": "0.0000125000",
+                    "nextFundingAt": "2022-07-06T12:20:53.000Z",
+                    "minOrderSize": "1",
+                    "type": "PERPETUAL",
+                    "initialMarginFraction": "0.10",
+                    "maintenanceMarginFraction": "0.05",
+                    "baselinePositionSize": "1000",
+                    "incrementalPositionSize": "1000",
+                    "incrementalInitialMarginFraction": "0.2",
+                    "volume24H": "0",
+                    "trades24H": "0",
+                    "openInterest": "0",
+                    "maxPositionSize": "10000",
+                    "assetResolution": "10000000",
+                    "syntheticAssetId": "0x4c494e4b2d37000000000000000000",
+                }
+            }
+        }
+        return mock_response
+
+    @property
+    def trading_rules_request_erroneous_mock_response(self):
+        mock_response = {
+            "markets": {
+                self.trading_pair: {
+                    "market": self.trading_pair,
+                    "status": "ONLINE",
+                    "baseAsset": self.base_asset,
+                    "quoteAsset": self.quote_asset,
+                }
+            }
+        }
+        return mock_response
+
+    @property
+    def order_creation_request_successful_mock_response(self):
+        mock_response = {
+            "order": {
+                "id": self.exchange_order_id_prefix + "1",
+                "clientId": self.client_order_id_prefix + "1",
+                "accountId": "someAccountId",
+                "market": self.trading_pair,
+                "side": "SELL",
+                "price": "18000",
+                "triggerPrice": None,
+                "trailingPercent": None,
+                "size": "100",
+                "remainingSize": "100",
+                "type": "LIMIT",
+                "createdAt": "2021-01-04T23:44:59.690Z",
+                "unfillableAt": None,
+                "expiresAt": "2022-12-21T21:30:20.200Z",
+                "status": "PENDING",
+                "timeInForce": "GTT",
+                "postOnly": False,
+                "reduceOnly": False,
+                "cancelReason": None,
+            }
+        }
+        return mock_response
+
+    @property
+    def balance_request_mock_response_for_base_and_quote(self):
+        return {}
+
+    @property
+    def balance_request_mock_response_only_base(self):
+        return {}
+
+    @property
+    def balance_request_mock_response_only_quote(self):
+        mock_response = {
+            "account": {
+                "starkKey": "180913017c740260fea4b2c62828a4008ca8b0d6e4",
+                "positionId": "1812",
+                "equity": "10000",
+                "freeCollateral": "10000",
+                "quoteBalance": "10000",
+                "pendingDeposits": "0",
+                "pendingWithdrawals": "0",
+                "createdAt": "2021-04-09T21:08:34.984Z",
+                "openPositions": {
+                    self.trading_pair: {
+                        "market": self.trading_pair,
+                        "status": "OPEN",
+                        "side": "LONG",
+                        "size": "1000",
+                        "maxSize": "1050",
+                        "entryPrice": "100",
+                        "exitPrice": None,
+                        "unrealizedPnl": "50",
+                        "realizedPnl": "100",
+                        "createdAt": "2021-01-04T23:44:59.690Z",
+                        "closedAt": None,
+                        "netFunding": "500",
+                        "sumOpen": "1050",
+                        "sumClose": "50",
+                    }
+                },
+                "accountNumber": "5",
+                "id": "id",
+            }
+        }
+        return mock_response
+
+    @property
+    def balance_event_websocket_update(self):
+        mock_response = {
+            "type": CONSTANTS.WS_TYPE_CHANNEL_DATA,
+            "channel": CONSTANTS.WS_CHANNEL_ACCOUNTS,
+            "connection_id": "someConnectionId",
+            "id": self.account_number,
+            "message_id": 2,
+            "contents": {
+                "accounts": [
+                    {
+                        "id": self.account_number,
+                        "positionId": "somePositionId",
+                        "userId": "someUserId",
+                        "accountNumber": "0",
+                        "starkKey": "0x456...",
+                        "quoteBalance": "700",
+                        "pendingDeposits": "400",
+                        "pendingWithdrawals": "0",
+                        "lastTransactionId": "14",
+                    }
+                ]
+            },
+        }
+        return mock_response
+
+    @property
+    def expected_latest_price(self):
+        return 12
+
+    @property
+    def expected_supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
+    @property
+    def expected_trading_rule(self):
+        trading_rules_resp = self.trading_rules_request_mock_response["markets"][self.trading_pair]
+        return TradingRule(
+            trading_pair=self.trading_pair,
+            min_order_size=Decimal(trading_rules_resp["minOrderSize"]),
+            min_price_increment=Decimal(trading_rules_resp["tickSize"]),
+            min_base_amount_increment=Decimal(trading_rules_resp["stepSize"]),
+            min_notional_size=Decimal(trading_rules_resp["minOrderSize"]) * Decimal(trading_rules_resp["tickSize"]),
+            supports_limit_orders=True,
+            supports_market_orders=True,
+            buy_order_collateral_token=trading_rules_resp["quoteAsset"],
+            sell_order_collateral_token=trading_rules_resp["quoteAsset"],
+        )
+
+    @property
+    def expected_logged_error_for_erroneous_trading_rule(self):
+        return "Error updating trading rules"
+
+    @property
+    def expected_exchange_order_id(self):
+        return self.exchange_order_id_prefix + "1"
+
+    @property
+    def is_cancel_request_executed_synchronously_by_server(self) -> bool:
+        return False
+
+    @property
+    def is_order_fill_http_update_included_in_status_update(self) -> bool:
+        return True
+
+    @property
+    def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
+        return False
+
+    @property
+    def expected_partial_fill_price(self) -> Decimal:
+        return Decimal("100")
+
+    @property
+    def expected_partial_fill_amount(self) -> Decimal:
+        return Decimal("10")
+
+    @property
+    def expected_partial_fill_fee(self) -> TradeFeeBase:
+        return AddedToCostTradeFee(
+            percent_token=self.quote_asset,
+            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("0.1"))],
+        )
+
+    @property
+    def expected_fill_fee(self) -> TradeFeeBase:
+        return AddedToCostTradeFee(
+            percent_token=self.quote_asset,
+            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("10"))],
+        )
+
+    @property
+    def expected_fill_trade_id(self) -> str:
+        return "someFillId"
+
+    def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
+        return f"{base_token}-{quote_token}"
+
+    def create_exchange_instance(self):
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        exchange = DydxPerpetualDerivative(
+            client_config_map,
+            self.api_key,
+            self.api_secret,
+            self.passphrase,
+            self.ethereum_address,
+            self.stark_private_key,
             trading_pairs=[self.trading_pair],
         )
-        self.exchange.logger().setLevel(1)
-        self.exchange.logger().addHandler(self)
+        exchange._position_id = 1234
 
-        self._initialize_event_loggers()
-
-        self.ev_loop = asyncio.get_event_loop()
-
-    def tearDown(self) -> None:
-        self.exchange_task and self.exchange_task.cancel()
-        super().tearDown()
-
-    def _initialize_event_loggers(self):
-        self.buy_order_completed_logger = EventLogger()
-        self.buy_order_created_logger = EventLogger()
-        self.order_cancelled_logger = EventLogger()
-        self.order_failure_logger = EventLogger()
-        self.order_filled_logger = EventLogger()
-        self.sell_order_completed_logger = EventLogger()
-        self.sell_order_created_logger = EventLogger()
-
-        events_and_loggers = [
-            (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
-            (MarketEvent.BuyOrderCreated, self.buy_order_created_logger),
-            (MarketEvent.OrderCancelled, self.order_cancelled_logger),
-            (MarketEvent.OrderFailure, self.order_failure_logger),
-            (MarketEvent.OrderFilled, self.order_filled_logger),
-            (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
-            (MarketEvent.SellOrderCreated, self.sell_order_created_logger)]
-
-        for event, logger in events_and_loggers:
-            self.exchange.add_listener(event, logger)
-
-    def handle(self, record):
-        self.log_records.append(record)
-
-    def check_is_logged(self, log_level: str, message: str) -> bool:
-        is_logged = any(
-            record.levelname == log_level and record.getMessage() == message
-            for record in self.log_records
+        authenticator = DydxPerpetualAuthMock(
+            self.api_key, self.api_secret, self.passphrase, self.ethereum_address, self.stark_private_key
         )
-        return is_logged
 
-    def simulate_balances_initialized(self, account_balances: Optional[Dict] = None):
-        if account_balances is None:
-            account_balances = {
-                self.quote_asset: Decimal("10"),
-                self.base_asset: Decimal("20"),
+        exchange._auth = authenticator
+        exchange._web_assistants_factory._auth = authenticator
+
+        exchange._rate_limits_config["placeOrderRateLimiting"] = {}
+        exchange._rate_limits_config["placeOrderRateLimiting"]["targetNotional"] = 40000
+        exchange._rate_limits_config["placeOrderRateLimiting"]["minLimitConsumption"] = 4
+        exchange._rate_limits_config["placeOrderRateLimiting"]["minMarketConsumption"] = 20
+        exchange._rate_limits_config["placeOrderRateLimiting"]["maxOrderConsumption"] = 100
+        exchange._rate_limits_config["placeOrderRateLimiting"]["minTriggerableConsumption"] = 100
+        exchange._rate_limits_config["placeOrderRateLimiting"]["maxPoints"] = 1750
+        exchange._rate_limits_config["placeOrderRateLimiting"]["windowSec"] = 10
+
+        return exchange
+
+    def place_buy_order(
+        self,
+        amount: Decimal = Decimal("100"),
+        price: Decimal = Decimal("10_000"),
+        position_action: PositionAction = PositionAction.OPEN,
+    ):
+        notional_amount = amount * price
+        self.exchange._order_notional_amounts[notional_amount] = len(self.exchange._order_notional_amounts.keys())
+        self.exchange._current_place_order_requests = 1
+        self.exchange._throttler.set_rate_limits(self.exchange.rate_limits_rules)
+        return super().place_buy_order(amount, price, position_action)
+
+    def place_sell_order(
+        self,
+        amount: Decimal = Decimal("100"),
+        price: Decimal = Decimal("10_000"),
+        position_action: PositionAction = PositionAction.OPEN,
+    ):
+        notional_amount = amount * price
+        self.exchange._order_notional_amounts[notional_amount] = len(self.exchange._order_notional_amounts.keys())
+        self.exchange._current_place_order_requests = 1
+        self.exchange._throttler.set_rate_limits(self.exchange.rate_limits_rules)
+        return super().place_sell_order(amount, price, position_action)
+
+    def validate_auth_credentials_present(self, request_call: RequestCall):
+        request_headers = request_call.kwargs["headers"]
+        self.assertIn(request_headers["Content-Type"], ["application/json", "application/x-www-form-urlencoded"])
+
+        self.assertIn("DYDX-SIGNATURE", request_headers)
+        self.assertIn("DYDX-API-KEY", request_headers)
+        self.assertIn("DYDX-TIMESTAMP", request_headers)
+        self.assertIn("DYDX-PASSPHRASE", request_headers)
+
+    def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
+        request_data = json.loads(request_call.kwargs["data"])
+        self.assertEqual(self.exchange_trading_pair, request_data["market"])
+        self.assertEqual(order.trade_type.name.upper(), request_data["side"])
+        self.assertEqual(order.price, Decimal(request_data["price"]))
+        self.assertEqual(order.amount, Decimal(request_data["size"]))
+        self.assertEqual(order.order_type.name.upper(), request_data["type"])
+        self.assertEqual(CONSTANTS.TIF_GOOD_TIL_TIME, request_data["timeInForce"])
+        self.assertFalse(request_data["reduceOnly"])
+
+    def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
+        request_params = request_call.kwargs["params"]
+        self.assertEqual(order.exchange_order_id, request_params["id"])
+        self.assertEqual(self.trading_pair, request_params["market"])
+        self.assertEqual("BUY" if order.trade_type == TradeType.BUY else "SELL", request_params["side"])
+
+    def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
+        request_params = request_call.kwargs["params"]
+        if request_params is not None:
+            self.assertEqual(order.exchange_order_id, request_params["orderId"])
+            self.assertEqual(CONSTANTS.LAST_FILLS_MAX, request_params["limit"])
+
+    def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
+        request_params = request_call.kwargs["params"]
+        if request_params is not None:
+            self.assertEqual(order.exchange_order_id, request_params["orderId"])
+            self.assertEqual(CONSTANTS.LAST_FILLS_MAX, request_params["limit"])
+
+    def configure_successful_cancelation_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        """
+        :return: the URL configured for the cancelation
+        """
+        url = web_utils.private_rest_url(CONSTANTS.PATH_ACTIVE_ORDERS)
+
+        regex_url = re.compile(f"^{url}".replace(".", r"\.") + r"\?.*")
+        response = self._order_cancelation_request_successful_mock_response(order=order)
+        mock_api.delete(regex_url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_erroneous_cancelation_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        """
+        :return: the URL configured for the cancelation
+        """
+        url = web_utils.private_rest_url(CONSTANTS.PATH_ACTIVE_ORDERS)
+
+        regex_url = re.compile(f"^{url}".replace(".", r"\.") + r"\?.*")
+        response = {}
+        mock_api.delete(regex_url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_one_successful_one_erroneous_cancel_all_response(
+        self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
+    ) -> List[str]:
+        """
+        :return: a list of all configured URLs for the cancelations
+        """
+        all_urls = []
+        url = self.configure_successful_cancelation_response(order=successful_order, mock_api=mock_api)
+        all_urls.append(url)
+        url = self.configure_erroneous_cancelation_response(order=erroneous_order, mock_api=mock_api)
+        all_urls.append(url)
+        return all_urls
+
+    def configure_completely_filled_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        """
+        :return: the URL configured
+        """
+        url_order_status = web_utils.private_rest_url(CONSTANTS.PATH_ORDERS + "/" + str(order.exchange_order_id))
+
+        response_order_status = self._order_status_request_completely_filled_mock_response(order=order)
+        mock_api.get(url_order_status, body=json.dumps(response_order_status), callback=callback)
+
+        return [url_order_status]
+
+    def configure_canceled_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        """
+        :return: the URL configured
+        """
+        url_fills = web_utils.private_rest_url(CONSTANTS.PATH_FILLS)
+
+        response_fills = self._order_fills_request_canceled_mock_response(order=order)
+        mock_api.get(url_fills, body=json.dumps(response_fills), callback=callback)
+
+        url_order_status = web_utils.private_rest_url(CONSTANTS.PATH_ORDERS + "/" + str(order.exchange_order_id))
+
+        response_order_status = self._order_status_request_canceled_mock_response(order=order)
+        mock_api.get(url_order_status, body=json.dumps(response_order_status), callback=callback)
+
+        return [url_fills, url_order_status]
+
+    def configure_open_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        """
+        :return: the URL configured
+        """
+        url = web_utils.private_rest_url(CONSTANTS.PATH_ORDERS + "/" + str(order.exchange_order_id))
+
+        regex_url = re.compile(url + r"\?.*")
+        response = self._order_status_request_open_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return [url]
+
+    def configure_http_error_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        """
+        :return: the URL configured
+        """
+        url = web_utils.private_rest_url(CONSTANTS.PATH_ORDERS + "/" + str(order.exchange_order_id))
+
+        regex_url = re.compile(url + r"\?.*")
+        mock_api.get(regex_url, status=404, callback=callback)
+        return url
+
+    def configure_partially_filled_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        # Dydx has no partial fill status
+        raise NotImplementedError
+
+    def configure_partial_fill_trade_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        # Dydx has no partial fill status
+        raise NotImplementedError
+
+    def configure_erroneous_http_fill_trade_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        """
+        :return: the URL configured
+        """
+        url = web_utils.private_rest_url(CONSTANTS.PATH_ORDERS + "/" + str(order.exchange_order_id))
+        regex_url = re.compile(url + r"\?.*")
+        mock_api.get(regex_url, status=400, callback=callback)
+        return url
+
+    def configure_full_fill_trade_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        """
+        :return: the URL configured
+        """
+        url = web_utils.private_rest_url(CONSTANTS.PATH_FILLS)
+
+        regex_url = re.compile(url + r"\?.*")
+        response = self._order_fills_request_full_fill_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return url
+
+    def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
+        return {
+            "cancelOrders": [
+                {
+                    "id": order.exchange_order_id,
+                    "clientId": order.client_order_id,
+                    "accountId": "someAccountId",
+                    "market": self.trading_pair,
+                    "side": order.trade_type.name,
+                    "price": str(order.price),
+                    "triggerPrice": None,
+                    "trailingPercent": None,
+                    "size": str(order.amount),
+                    "remainingSize": str(order.amount),
+                    "type": "LIMIT",
+                    "createdAt": "2021-01-04T23:44:59.690Z",
+                    "unfillableAt": None,
+                    "expiresAt": "2022-12-21T21:30:20.200Z",
+                    "status": "PENDING",
+                    "timeInForce": "GTT",
+                    "postOnly": False,
+                    "reduceOnly": False,
+                    "cancelReason": None,
+                }
+            ]
+        }
+
+    def _order_fills_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
+        return {
+            "fills": [
+                {
+                    "id": self.expected_fill_trade_id,
+                    "accountId": self.account_number,
+                    "side": order.trade_type.name,
+                    "liquidity": "MAKER" if order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER] else "TAKER",
+                    "market": self.trading_pair,
+                    "orderId": self.exchange_order_id_prefix + "1",
+                    "size": str(order.amount),
+                    "price": str(order.price),
+                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "transactionId": "1",
+                    "orderClientId": order.client_order_id,
+                    "createdAt": "2020-09-22T20:25:26.399Z",
+                }
+            ]
+        }
+
+    def _order_fills_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
+        return {"fills": []}
+
+    def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
+        mock_response = {
+            "order": {
+                "id": self.exchange_order_id_prefix + "1",
+                "clientId": order.client_order_id,
+                "accountId": "someAccountId",
+                "market": self.trading_pair,
+                "side": order.trade_type.name,
+                "price": str(order.price),
+                "triggerPrice": None,
+                "trailingPercent": None,
+                "size": str(order.amount),
+                "remainingSize": "0",
+                "type": "LIMIT",
+                "createdAt": "2021-01-04T23:44:59.690Z",
+                "unfillableAt": None,
+                "expiresAt": "2022-12-21T21:30:20.200Z",
+                "status": "FILLED",
+                "timeInForce": "GTT",
+                "postOnly": False,
+                "reduceOnly": False,
+                "cancelReason": None,
             }
-        self.exchange._account_balances = account_balances
+        }
+        return mock_response
+
+    def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
+        resp = self._order_status_request_completely_filled_mock_response(order)
+        resp["order"]["status"] = "CANCELED"
+        resp["order"]["remainingSize"] = resp["order"]["size"]
+        return resp
+
+    def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
+        resp = self._order_status_request_completely_filled_mock_response(order)
+        resp["order"]["status"] = "OPEN"
+        resp["order"]["remainingSize"] = resp["order"]["size"]
+        return resp
+
+    def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
+        return {
+            "fills": [
+                {
+                    "id": self.expected_fill_trade_id,
+                    "accountId": self.account_number,
+                    "side": order.trade_type.name,
+                    "liquidity": "MAKER" if order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER] else "TAKER",
+                    "market": self.trading_pair,
+                    "orderId": order.exchange_order_id,
+                    "size": str(order.amount),
+                    "price": str(order.price),
+                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "transactionId": "1",
+                    "orderClientId": order.client_order_id,
+                    "createdAt": "2020-09-22T20:25:26.399Z",
+                }
+            ]
+        }
+
+    def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
+        return {
+            "fills": [
+                {
+                    "id": self.expected_fill_trade_id,
+                    "accountId": self.account_number,
+                    "side": order.trade_type.name,
+                    "liquidity": "MAKER" if order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER] else "TAKER",
+                    "market": self.trading_pair,
+                    "orderId": order.exchange_order_id,
+                    "size": str(order.amount),
+                    "price": str(order.price),
+                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "transactionId": "1",
+                    "orderClientId": order.client_order_id,
+                    "createdAt": "2020-09-22T20:25:26.399Z",
+                }
+            ]
+        }
 
     def _simulate_trading_rules_initialized(self):
         self.exchange._trading_rules = {
             self.trading_pair: TradingRule(
                 trading_pair=self.trading_pair,
-                min_order_size=Decimal("0.01"),
-                min_price_increment=Decimal("0.0001"),
-                min_base_amount_increment=Decimal("0.000001"),
+                min_order_size=Decimal(str(0.01)),
+                min_price_increment=Decimal(str(0.0001)),
+                min_base_amount_increment=Decimal(str(0.000001)),
             )
         }
 
-    def _simulate_reset_poll_notifier(self):
-        self.exchange._poll_notifier.clear()
-
-    def _simulate_ws_message_received(self, timestamp: float):
-        self.exchange._user_stream_tracker._data_source._ws_assistant._connection._last_recv_time = timestamp
-
-    async def return_queued_values_and_unlock_with_event(self):
-        val = await self.return_values_queue.get()
-        self.resume_test_event.set()
-        return val
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
-    def get_user_stream_account_ws_message_mock(self, size: float, status: str = "OPEN") -> Dict:
-        account_message_mock = {
-            "contents": self.get_account_rest_message_mock(size, status)
-        }
-        return account_message_mock
-
-    def get_account_rest_message_mock(self, size: float, status: str = "OPEN") -> Dict:
-        account_message_mock = {
-            "account": {
-                "equity": "1000",
-                "freeCollateral": "10",
-                "openPositions": {
-                    self.trading_pair: {
+    def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
+        return {
+            "type": CONSTANTS.WS_TYPE_CHANNEL_DATA,
+            "channel": CONSTANTS.WS_CHANNEL_ACCOUNTS,
+            "connection_id": "someConnectionId",
+            "id": self.account_number,
+            "message_id": 2,
+            "contents": {
+                "orders": [
+                    {
+                        "id": order.exchange_order_id,
+                        "clientId": self.client_order_id_prefix + "1",
                         "market": self.trading_pair,
-                        "entryPrice": "10",
-                        "size": str(size),
-                        "side": "LONG",
-                        "unrealizedPnl": "2",
-                        "status": status,
+                        "accountId": self.account_number,
+                        "side": order.trade_type.name,
+                        "size": str(order.amount),
+                        "remainingSize": "0",
+                        "price": str(order.price),
+                        "limitFee": str(self.expected_fill_fee.flat_fees[0].amount),
+                        "type": "LIMIT",
+                        "status": "OPEN",
+                        "signature": "0x456...",
+                        "timeInForce": "FOK",
+                        "postOnly": "False",
+                        "expiresAt": "2021-09-22T20:22:26.399Z",
+                        "createdAt": "2020-09-22T20:22:26.399Z",
                     }
-                }
-            }
+                ]
+            },
         }
-        return account_message_mock
 
-    def get_markets_message_mock(
-        self,
-        index_price: float = 1,
-        min_order_size: float = 2,
-        min_price_increment: float = 3,
-        min_base_amount_increment: float = 4,
-    ) -> Dict:
-        markets_message_mock = {  # irrelevant fields removed
+    def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
+        return {
+            "type": CONSTANTS.WS_TYPE_CHANNEL_DATA,
+            "channel": CONSTANTS.WS_CHANNEL_ACCOUNTS,
+            "connection_id": "someConnectionId",
+            "id": self.account_number,
+            "message_id": 2,
+            "contents": {
+                "orders": [
+                    {
+                        "id": order.exchange_order_id,
+                        "clientId": order.client_order_id,
+                        "market": self.trading_pair,
+                        "accountId": self.account_number,
+                        "side": order.trade_type.name,
+                        "size": str(order.amount),
+                        "remainingSize": "0",
+                        "price": str(order.price),
+                        "limitFee": str(self.expected_fill_fee.flat_fees[0].amount),
+                        "type": "LIMIT",
+                        "status": "CANCELED",
+                        "signature": "0x456...",
+                        "timeInForce": "FOK",
+                        "postOnly": "False",
+                        "expiresAt": "2021-09-22T20:22:26.399Z",
+                        "createdAt": "2020-09-22T20:22:26.399Z",
+                    }
+                ]
+            },
+        }
+
+    def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
+        return {
+            "type": CONSTANTS.WS_TYPE_CHANNEL_DATA,
+            "channel": CONSTANTS.WS_CHANNEL_ACCOUNTS,
+            "connection_id": "someConnectionId",
+            "id": self.account_number,
+            "message_id": 2,
+            "contents": {
+                "orders": [
+                    {
+                        "id": order.exchange_order_id,
+                        "clientId": order.client_order_id,
+                        "market": self.trading_pair,
+                        "accountId": self.account_number,
+                        "side": order.trade_type.name,
+                        "size": str(order.amount),
+                        "remainingSize": "0",
+                        "price": str(order.price),
+                        "limitFee": str(self.expected_fill_fee.flat_fees[0].amount),
+                        "type": "LIMIT",
+                        "status": "FILLED",
+                        "signature": "0x456...",
+                        "timeInForce": "FOK",
+                        "postOnly": "False",
+                        "expiresAt": "2021-09-22T20:22:26.399Z",
+                        "createdAt": "2020-09-22T20:22:26.399Z",
+                    }
+                ]
+            },
+        }
+
+    def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
+        return {
+            "type": CONSTANTS.WS_TYPE_CHANNEL_DATA,
+            "channel": CONSTANTS.WS_CHANNEL_ACCOUNTS,
+            "connection_id": "someConnectionId",
+            "id": self.account_number,
+            "message_id": 2,
+            "contents": {
+                "fills": [
+                    {
+                        "id": self.expected_fill_trade_id,
+                        "accountId": self.account_number,
+                        "side": order.trade_type.name,
+                        "liquidity": "MAKER"
+                        if order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+                        else "TAKER",
+                        "market": self.trading_pair,
+                        "orderId": order.exchange_order_id,
+                        "size": str(order.amount),
+                        "price": str(order.price),
+                        "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                        "transactionId": "1",
+                        "orderClientId": order.client_order_id,
+                        "createdAt": "2020-09-22T20:25:26.399Z",
+                    }
+                ]
+            },
+        }
+
+    @property
+    def funding_info_url(self):
+        url = web_utils.public_rest_url(CONSTANTS.PATH_MARKETS)
+        url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        return url
+
+    @property
+    def funding_payment_url(self):
+        url = web_utils.private_rest_url(CONSTANTS.PATH_FUNDING)
+        url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        return url
+
+    @property
+    def funding_info_mock_response(self):
+        mock_response = {
             "markets": {
                 self.trading_pair: {
+                    "market": self.trading_pair,
+                    "status": "ONLINE",
+                    "baseAsset": self.base_asset,
                     "quoteAsset": self.quote_asset,
-                    "minOrderSize": str(min_order_size),
-                    "tickSize": str(min_price_increment),
-                    "stepSize": str(min_base_amount_increment),
-                    "indexPrice": str(index_price),
-                    "oraclePrice": "10.1",
-                    "nextFundingAt": str(datetime.now()),
-                    "nextFundingRate": "0.1",
-                    "initialMarginFraction": "0.1",
-                    "maintenanceMarginFraction": "0.2",
+                    "stepSize": "0.1",
+                    "tickSize": "0.01",
+                    "indexPrice": "1",
+                    "oraclePrice": "2",
+                    "priceChange24H": "0",
+                    "nextFundingRate": "3",
+                    "nextFundingAt": "2022-07-06T09:17:33.000Z",
+                    "minOrderSize": "1",
+                    "type": "PERPETUAL",
+                    "initialMarginFraction": "0.10",
+                    "maintenanceMarginFraction": "0.05",
+                    "baselinePositionSize": "1000",
+                    "incrementalPositionSize": "1000",
+                    "incrementalInitialMarginFraction": "0.2",
+                    "volume24H": "0",
+                    "trades24H": "0",
+                    "openInterest": "0",
+                    "maxPositionSize": "10000",
+                    "assetResolution": "10000000",
+                    "syntheticAssetId": "0x4c494e4b2d37000000000000000000",
                 }
             }
         }
-        return markets_message_mock
+        return mock_response
 
-    def get_user_stream_positions_ws_message_mock(self, size: float, status: str = "OPEN") -> Dict:
-        positions_message_mock = {
-            "contents": self.get_positions_rest_message_mock(size, status)
-        }
-        return positions_message_mock
-
-    def get_positions_rest_message_mock(self, size: float, status: str = "OPEN") -> Dict:
-        positions_message_mock = {
-            "positions": [
+    @property
+    def empty_funding_payment_mock_response(self):
+        mock_response = {
+            "fundingPayments": [
                 {
                     "market": self.trading_pair,
-                    "side": "LONG",
-                    "unrealizedPnl": "2",
-                    "size": str(size),
-                    "status": status,
+                    "payment": "200",
+                    "rate": "100",
+                    "positionSize": "500",
+                    "price": "90",
+                    "effectiveAt": "2022-07-05T12:20:53.000Z",
                 }
             ]
         }
-        return positions_message_mock
-
-    def test_user_stream_event_listener_creates_position_from_account_update(self):
-        self.exchange_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-
-        dummy_user_stream = AsyncMock()
-        dummy_user_stream.get.side_effect = self.return_queued_values_and_unlock_with_event
-        position_size = 1
-        account_message_mock = self.get_user_stream_account_ws_message_mock(position_size)
-        self.return_values_queue.put_nowait(account_message_mock)
-        self.exchange._user_stream_tracker._user_stream = dummy_user_stream
-
-        self.async_run_with_timeout(self.resume_test_event.wait())
-        self.resume_test_event.clear()
-
-        self.assertEqual(1, len(self.exchange.account_positions))
-
-        position = self.exchange.get_position(self.trading_pair)
-
-        self.assertEqual(position_size, position.amount)
-
-    def test_user_stream_event_listener_updates_position_from_positions_update(self):
-        self.exchange_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-
-        dummy_user_stream = AsyncMock()
-        dummy_user_stream.get.side_effect = self.return_queued_values_and_unlock_with_event
-        position_size = 1
-        account_message_mock = self.get_user_stream_positions_ws_message_mock(position_size, status="CLOSED")
-        self.return_values_queue.put_nowait(account_message_mock)
-        self.exchange._user_stream_tracker._user_stream = dummy_user_stream
-
-        position = DydxPerpetualPosition(
-            self.trading_pair,
-            PositionSide.LONG,
-            unrealized_pnl=Decimal("2"),
-            entry_price=Decimal("1"),
-            amount=Decimal(position_size) / 2,
-            leverage=Decimal("10"),
-        )
-        self.exchange._account_positions[self.trading_pair] = position
-
-        self.async_run_with_timeout(self.resume_test_event.wait())
-        self.resume_test_event.clear()
-
-        self.assertEqual(position_size, position.amount)  # position was updated with message
-        self.assertEqual(0, len(self.exchange.account_positions))  # closed position removed
-
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
-           ".DydxPerpetualClientWrapper.get_account")
-    def test_update_account_positions_creates_position_from_account_update(self, get_account_mock: AsyncMock):
-        self.simulate_balances_initialized()
-        position_size = 1
-        account_message_mock = self.get_account_rest_message_mock(position_size)
-        get_account_mock.return_value = account_message_mock
-
-        self.async_run_with_timeout(self.exchange._update_account_positions())
-
-        self.assertEqual(1, len(self.exchange.account_positions))
-
-        position = self.exchange.get_position(self.trading_pair)
-
-        self.assertEqual(position_size, position.amount)
-
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
-           ".DydxPerpetualClientWrapper.get_account")
-    def test_update_account_positions_updates_position_from_account_update(self, get_account_mock: AsyncMock):
-        self.simulate_balances_initialized()
-        position_size = 1
-        account_message_mock = self.get_account_rest_message_mock(position_size, status="CLOSED")
-        get_account_mock.return_value = account_message_mock
-
-        position = DydxPerpetualPosition(
-            self.trading_pair,
-            PositionSide.LONG,
-            unrealized_pnl=Decimal("2"),
-            entry_price=Decimal("1"),
-            amount=Decimal(position_size) / 2,
-            leverage=Decimal("10"),
-        )
-        self.exchange._account_positions[self.trading_pair] = position
-
-        self.async_run_with_timeout(self.exchange._update_account_positions())
-
-        self.assertEqual(position_size, position.amount)  # position was updated with message
-        self.assertEqual(0, len(self.exchange.account_positions))  # closed position removed
-
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
-           ".DydxPerpetualClientWrapper.get_markets")
-    def test_update_funding_rates_succeeds(self, get_markets_mock: AsyncMock):
-        index_price = 10.0
-        markets_message_mock = self.get_markets_message_mock(index_price)
-        get_markets_mock.return_value = markets_message_mock
-
-        self.async_run_with_timeout(self.exchange._update_funding_rates())
-
-        funding_info = self.exchange.get_funding_info(self.trading_pair)
-
-        self.assertIsInstance(funding_info, FundingInfo)
-        self.assertEqual(Decimal(index_price), funding_info.index_price)
-
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
-           ".DydxPerpetualClientWrapper.get_markets")
-    def test_update_funding_fails_on_rate_limit(self, get_markets_mock: AsyncMock):
-        resp = Response()
-        resp.status_code = 429
-        resp._content = b'{"errors": [{"msg": "Too many requests"}]}'
-        get_markets_mock.return_value = DydxApiError(resp)
-
-        self.async_run_with_timeout(self.exchange._update_funding_rates())
-
-        self.check_is_logged(log_level="NETWORK", message="Rate-limit error.")
-
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
-           ".DydxPerpetualClientWrapper.get_markets")
-    def test_update_funding_fails_on_other_dydx_api_error(self, get_markets_mock: AsyncMock):
-        resp = Response()
-        resp.status_code = 430
-        resp._content = b'{"errors": [{"msg": "Some other dydx API error."}]}'
-        get_markets_mock.return_value = DydxApiError(resp)
-
-        self.async_run_with_timeout(self.exchange._update_funding_rates())
-
-        self.check_is_logged(log_level="NETWORK", message="dYdX API error.")
-
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
-           ".DydxPerpetualClientWrapper.get_markets")
-    def test_update_funding_fails_on_general_exception(self, get_markets_mock: AsyncMock):
-        get_markets_mock.return_value = Exception("Dummy exception")
-
-        self.async_run_with_timeout(self.exchange._update_funding_rates())
-
-        self.check_is_logged(log_level="NETWORK", message="Unknown error.")
-
-    def test_tick_initial_tick_successful(self):
-        start_ts: float = time.time() * 1e3
-
-        self.exchange.tick(start_ts)
-        self.assertEqual(start_ts, self.exchange._last_poll_timestamp)
-        self.assertTrue(self.exchange._poll_notifier.is_set())
-
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.DydxPerpetualDerivative.time_now_s")
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source.DydxPerpetualUserStreamDataSource.last_recv_time", new_callable=PropertyMock)
-    def test_tick_subsequent_tick_within_short_poll_interval(self, mock_last_recv_time, mock_ts):
-        # Assumes user stream tracker has NOT been receiving messages, Hence SHORT_POLL_INTERVAL in use
-        start_ts: float = self.start_timestamp
-        next_tick: float = start_ts + (self.exchange.SHORT_POLL_INTERVAL - 1)
-
-        mock_ts.return_value = start_ts
-        mock_last_recv_time.return_value = -1
-
-        self.exchange.tick(start_ts)
-        self.assertEqual(start_ts, self.exchange._last_poll_timestamp)
-        self.assertTrue(self.exchange._poll_notifier.is_set())
-
-        self._simulate_reset_poll_notifier()
-
-        # Simulate last message received 1 sec ago
-        mock_last_recv_time.return_value = next_tick - 1
-
-        mock_ts.return_value = next_tick
-        self.exchange.tick(next_tick)
-        self.assertEqual(next_tick, self.exchange._last_poll_timestamp)
-        self.assertFalse(self.exchange._poll_notifier.is_set())
-
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.DydxPerpetualDerivative.time_now_s")
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source.DydxPerpetualUserStreamDataSource.last_recv_time", new_callable=PropertyMock)
-    def test_tick_subsequent_tick_exceed_short_poll_interval(self, mock_last_recv_time, mock_ts):
-        # Assumes user stream tracker has NOT been receiving messages, Hence SHORT_POLL_INTERVAL in use
-        start_ts: float = self.start_timestamp
-        next_tick: float = start_ts + (self.exchange.SHORT_POLL_INTERVAL + 1)
-
-        mock_ts.return_value = start_ts
-        mock_last_recv_time.return_value = -1
-
-        self.exchange.tick(start_ts)
-        self.assertEqual(start_ts, self.exchange._last_poll_timestamp)
-        self.assertTrue(self.exchange._poll_notifier.is_set())
-
-        self._simulate_reset_poll_notifier()
-
-        mock_ts.return_value = next_tick
-        self.exchange.tick(next_tick)
-        self.assertEqual(next_tick, self.exchange._last_poll_timestamp)
-        self.assertTrue(self.exchange._poll_notifier.is_set())
-
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.DydxPerpetualDerivative.time_now_s")
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source.DydxPerpetualUserStreamDataSource.last_recv_time", new_callable=PropertyMock)
-    def test_tick_subsequent_tick_within_long_poll_interval(self, mock_last_recv_time, mock_time):
-
-        start_ts: float = self.start_timestamp
-        next_tick: float = start_ts + (self.exchange.LONG_POLL_INTERVAL - 1)
-
-        mock_time.return_value = start_ts
-        mock_last_recv_time.return_value = -1
-
-        self.exchange.tick(start_ts)
-        self.assertEqual(start_ts, self.exchange._last_poll_timestamp)
-        self.assertTrue(self.exchange._poll_notifier.is_set())
-
-        # Simulate last message received 1 sec ago
-        mock_last_recv_time.return_value = next_tick - 1
-        self._simulate_reset_poll_notifier()
-
-        mock_time.return_value = next_tick
-        self.exchange.tick(next_tick)
-        self.assertEqual(next_tick, self.exchange._last_poll_timestamp)
-        self.assertFalse(self.exchange._poll_notifier.is_set())
-
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.DydxPerpetualDerivative.time_now_s")
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source.DydxPerpetualUserStreamDataSource.last_recv_time", new_callable=PropertyMock)
-    def test_tick_subsequent_tick_exceed_long_poll_interval(self, mock_last_recv_time, mock_time):
-        # Assumes user stream tracker has been receiving messages, Hence LONG_POLL_INTERVAL in use
-        start_ts: float = self.start_timestamp
-        next_tick: float = start_ts + (self.exchange.LONG_POLL_INTERVAL - 1)
-
-        mock_last_recv_time.return_value = -1
-        mock_time.return_value = start_ts
-        self.exchange.tick(start_ts)
-        self.assertEqual(start_ts, self.exchange._last_poll_timestamp)
-        self.assertTrue(self.exchange._poll_notifier.is_set())
-
-        mock_last_recv_time.return_value = start_ts
-        self._simulate_reset_poll_notifier()
-
-        mock_time.return_value = next_tick
-        self.exchange.tick(next_tick)
-        self.assertEqual(next_tick, self.exchange._last_poll_timestamp)
-        self.assertTrue(self.exchange._poll_notifier.is_set())
-
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
-           ".DydxPerpetualClientWrapper.get_markets")
-    def test_update_trading_rules(self, get_markets_mock: AsyncMock):
-        min_order_size = 1
-        min_price_increment = 2
-        min_base_amount_increment = 3
-        min_notional_size = min_order_size * min_price_increment
-        markets_message_mock = self.get_markets_message_mock(
-            min_order_size=min_order_size,
-            min_price_increment=min_price_increment,
-            min_base_amount_increment=min_base_amount_increment,
-        )
-        get_markets_mock.return_value = markets_message_mock
-
-        self.async_run_with_timeout(self.exchange._update_trading_rules())
-
-        trading_rule: TradingRule = self.exchange._trading_rules[self.trading_pair]
-
-        self.assertEqual(min_order_size, trading_rule.min_order_size)
-        self.assertEqual(min_price_increment, trading_rule.min_price_increment)
-        self.assertEqual(min_base_amount_increment, trading_rule.min_base_amount_increment)
-        self.assertEqual(min_notional_size, trading_rule.min_notional_size)
-        self.assertEqual(self.quote_asset, trading_rule.buy_order_collateral_token)
-        self.assertEqual(self.quote_asset, trading_rule.sell_order_collateral_token)
-
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
-           ".DydxPerpetualClientWrapper.get_markets")
-    def test_get_buy_and_sell_collateral_token(self, get_markets_mock: AsyncMock):
-        markets_message_mock = self.get_markets_message_mock()
-        get_markets_mock.return_value = markets_message_mock
-
-        self.async_run_with_timeout(self.exchange._update_trading_rules())
-        buy_collateral_token = self.exchange.get_buy_collateral_token(self.trading_pair)
-        sell_collateral_token = self.exchange.get_sell_collateral_token(self.trading_pair)
-
-        self.assertEqual(self.quote_asset, buy_collateral_token)
-        self.assertEqual(self.quote_asset, sell_collateral_token)
-
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.DydxPerpetualDerivative"
-           ".time_now_s")
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
-           ".DydxPerpetualClientWrapper.place_order")
-    def test_create_buy_order(self, place_order_mock, time_mock):
-        self._simulate_trading_rules_initialized()
-        time_mock.return_value = 1640001112.223
-        place_order_mock.return_value = {  # irrelevant fields removed
-            "order": {
-                "id": "EOID1",
-                "status": "OPEN",
-            }
+        return mock_response
+
+    @property
+    def funding_payment_mock_response(self):
+        mock_response = {
+            "fundingPayments": [
+                {
+                    "market": self.trading_pair,
+                    "payment": "200",
+                    "rate": "100",
+                    "positionSize": "500",
+                    "price": "90",
+                    "effectiveAt": "2022-07-06T12:20:53.000Z",
+                }
+            ]
+        }
+        return mock_response
+
+    def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
+        return {
+            "type": CONSTANTS.WS_TYPE_CHANNEL_DATA,
+            "channel": CONSTANTS.WS_CHANNEL_ACCOUNTS,
+            "connection_id": "someConnectionId",
+            "id": self.account_number,
+            "message_id": 2,
+            "contents": {
+                "positions": [
+                    {
+                        "id": self.expected_fill_trade_id,
+                        "accountId": self.account_number,
+                        "market": self.trading_pair,
+                        "side": "LONG" if order.trade_type == TradeType.BUY else "SHORT",
+                        "status": "CLOSED",
+                        "size": str(order.amount) if order.order_type == TradeType.BUY else str(-order.amount),
+                        "maxSize": "300",
+                        "entryPrice": "10000",
+                        "exitPrice": "38",
+                        "realizedPnl": "50",
+                        "unrealizedPnl": str(unrealized_pnl),
+                        "createdAt": "2020-09-22T20:25:26.399Z",
+                        "openTransactionId": "2",
+                        "closeTransactionId": "23",
+                        "lastTransactionId": "23",
+                        "closedAt": "2020-14-22T20:25:26.399Z",
+                        "sumOpen": "300",
+                        "sumClose": "100",
+                    }
+                ]
+            },
         }
 
-        self.async_run_with_timeout(self.exchange.execute_buy(
-            order_id="OID1",
-            trading_pair=self.trading_pair,
-            amount=Decimal(1),
-            order_type=OrderType.LIMIT,
-            position_action=PositionAction.OPEN,
-            price=Decimal(1000)
-        ))
+    def configure_successful_set_position_mode(
+        self,
+        position_mode: PositionMode,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ):
+        # There's only one way position mode
+        pass
 
-        self.assertIn("OID1", self.exchange.in_flight_orders)
-        self.assertTrue(self.check_is_logged(
-            "INFO",
-            f"Created LIMIT BUY order OID1 for 1.000000 {self.trading_pair}."
-        ))
-        order = self.exchange.in_flight_orders["OID1"]
-        self.assertEqual(time_mock.return_value, order.creation_timestamp)
+    def configure_failed_set_position_mode(
+        self,
+        position_mode: PositionMode,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ) -> Tuple[str, str]:
+        # There's only one way position mode, this should never be called
+        pass
 
-        self.assertTrue(1, len(self.buy_order_created_logger.event_log))
-        buy_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
-        self.assertEqual("OID1", buy_event.order_id)
-        self.assertEqual(1640001112.223, buy_event.creation_timestamp)
+    def configure_failed_set_leverage(
+        self,
+        leverage: int,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ) -> Tuple[str, str]:
+        url = web_utils.public_rest_url(CONSTANTS.PATH_MARKETS)
+        regex_url = re.compile(f"^{url}")
 
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.DydxPerpetualDerivative"
-           ".time_now_s")
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
-           ".DydxPerpetualClientWrapper.place_order")
-    def test_create_sell_order(self, place_order_mock, time_mock):
-        self._simulate_trading_rules_initialized()
-        time_mock.return_value = 1640001112.223
-        place_order_mock.return_value = {  # irrelevant fields removed
-            "order": {
-                "id": "EOID1",
-                "status": "OPEN",
+        # No "markets" in response
+        mock_response = {}
+        mock_api.get(regex_url, body=json.dumps(mock_response), callback=callback)
+
+        return url, "Failed to obtain markets information."
+
+    def configure_successful_set_leverage(
+        self,
+        leverage: int,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ):
+        url = web_utils.public_rest_url(CONSTANTS.PATH_MARKETS)
+        regex_url = re.compile(f"^{url}")
+
+        # No "markets" in response
+        mock_response = {
+            "markets": {
+                self.trading_pair: {
+                    "initialMarginFraction": "0.10",
+                    "maintenanceMarginFraction": "0.05",
+                }
             }
         }
+        mock_api.get(regex_url, body=json.dumps(mock_response), callback=callback)
 
-        self.async_run_with_timeout(self.exchange.execute_sell(
-            order_id="OID1",
-            trading_pair=self.trading_pair,
-            amount=Decimal(1),
-            order_type=OrderType.LIMIT,
-            position_action=PositionAction.OPEN,
-            price=Decimal(1000)
-        ))
+        return url
 
-        self.assertIn("OID1", self.exchange.in_flight_orders)
-        self.assertTrue(self.check_is_logged(
-            "INFO",
-            f"Created LIMIT SELL order OID1 for 1.000000 {self.trading_pair}."
-        ))
-        order = self.exchange.in_flight_orders["OID1"]
-        self.assertEqual(time_mock.return_value, order.creation_timestamp)
+    def funding_info_event_for_websocket_update(self):
+        return {
+            "type": CONSTANTS.WS_TYPE_CHANNEL_DATA,
+            "connection_id": "someConnectionId",
+            "channel": CONSTANTS.WS_CHANNEL_MARKETS,
+            "message_id": 2,
+            "contents": {
+                self.trading_pair: {
+                    "indexPrice": "100.23",
+                    "oraclePrice": "100.23",
+                    "priceChange24H": "0.12",
+                    "initialMarginFraction": "1.23",
+                }
+            },
+        }
 
-        self.assertTrue(1, len(self.sell_order_created_logger.event_log))
-        sell_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
-        self.assertEqual("OID1", sell_event.order_id)
-        self.assertEqual(1640001112.223, sell_event.creation_timestamp)
-
-    def test_cancel_order_no_in_flight_order(self):
+    def test_get_buy_and_sell_collateral_tokens(self):
         self._simulate_trading_rules_initialized()
 
-        self.async_run_with_timeout(self.exchange.cancel_order(
-            client_order_id="OID1"
-        ))
+        linear_buy_collateral_token = self.exchange.get_buy_collateral_token(self.trading_pair)
+        linear_sell_collateral_token = self.exchange.get_sell_collateral_token(self.trading_pair)
 
-        self.check_is_logged(log_level="WARNING", message="Canceled an untracked order OID1")
+        self.assertEqual(self.quote_asset, linear_buy_collateral_token)
+        self.assertEqual(self.quote_asset, linear_sell_collateral_token)
 
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.DydxPerpetualDerivative"
-           ".time_now_s")
-    def test_cancel_order_no_exchange_order_id(self, time_mock):
-        self._simulate_trading_rules_initialized()
+    @aioresponses()
+    def test_update_balances(self, mock_api):
+        response = self.balance_request_mock_response_only_quote
 
-        time_mock.return_value = 1640001112.223
+        self._configure_balance_response(response=response, mock_api=mock_api)
+        self.async_run_with_timeout(self.exchange._update_balances())
 
-        self.exchange.start_tracking_order(
-            order_side=TradeType.BUY,
-            client_order_id="OID1",
-            order_type=OrderType.LIMIT,
-            created_at=1630001112.223,
-            hash="hashcode",
-            trading_pair=self.trading_pair,
-            price=Decimal(1000),
-            amount=Decimal(1),
-            leverage=Decimal(1),
-            position="position",
-        )
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
 
-        self.assertTrue("OID1" in self.exchange.in_flight_orders)
+        self.assertNotIn(self.base_asset, available_balances)
+        self.assertNotIn(self.base_asset, total_balances)
+        self.assertEqual(Decimal("10000"), available_balances["USD"])
+        self.assertEqual(Decimal("10000"), total_balances["USD"])
 
-        self.async_run_with_timeout(self.exchange.cancel_order(
-            client_order_id="OID1"
-        ))
+    def test_user_stream_balance_update(self):
+        if self.exchange.real_time_balance_update:
+            self.exchange._set_current_timestamp(1640780000)
 
-        self.assertFalse("OID1" in self.exchange.in_flight_orders)
+            balance_event = self.balance_event_websocket_update
 
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.DydxPerpetualDerivative"
-           ".time_now_s")
-    def test_cancel_order_already_canceled(self, time_mock):
-        self._simulate_trading_rules_initialized()
+            mock_queue = AsyncMock()
+            mock_queue.get.side_effect = [balance_event, asyncio.CancelledError]
+            self.exchange._user_stream_tracker._user_stream = mock_queue
 
-        resp = Response()
-        resp.status_code = 429
-        resp._content = b'{"errors": [{"msg": "Order with specified id: EOID1 is already canceled"}]}'
+            try:
+                self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+            except asyncio.CancelledError:
+                pass
 
-        time_mock.return_value = 1640001112.223
+            self.assertEqual(Decimal("700"), self.exchange.available_balances["USD"])
+            self.assertEqual(Decimal("0"), self.exchange.get_balance("USD"))
 
-        time_mock.side_effect = DydxApiError(resp)
+    @aioresponses()
+    def test_update_order_status_when_order_has_not_changed_and_one_partial_fill(self, mock_api):
+        # Dydx has no partial fill status
+        pass
 
-        self.exchange.start_tracking_order(
-            order_side=TradeType.BUY,
-            client_order_id="OID1",
-            order_type=OrderType.LIMIT,
-            created_at=1640001112.223,
-            hash="hashcode",
-            trading_pair=self.trading_pair,
-            price=Decimal(1000),
-            amount=Decimal(1),
-            leverage=Decimal(1),
-            position="position",
-        )
+    @aioresponses()
+    def test_update_order_status_when_order_partially_filled_and_cancelled(self, mock_api):
+        # Dydx has no partial fill status
+        pass
 
-        self.assertTrue("OID1" in self.exchange.in_flight_orders)
+    @aioresponses()
+    def test_user_stream_update_for_partially_cancelled_order(self, mock_api):
+        # Dydx has no partial fill status
+        pass
 
-        self.async_run_with_timeout(self.exchange.cancel_order(
-            client_order_id="OID1"
-        ))
+    @aioresponses()
+    def test_set_position_mode_success(self, mock_api):
+        # There's only ONEWAY position mode
+        pass
 
-        self.assertFalse("OID1" in self.exchange.in_flight_orders)
-
-    def test_cancel_all(self):
-        self._simulate_trading_rules_initialized()
-
-        self.exchange.start_tracking_order(
-            order_side=TradeType.BUY,
-            client_order_id="OID1",
-            order_type=OrderType.LIMIT,
-            created_at=1640001112.223,
-            hash="hashcode",
-            trading_pair=self.trading_pair,
-            price=Decimal(1000),
-            amount=Decimal(1),
-            leverage=Decimal(1),
-            position="position",
-        )
-
-        result = self.async_run_with_timeout(self.exchange.cancel_all(
-            timeout_seconds=1
-        ))
-
-        self.assertEqual(result, [CancellationResult(order_id='OID1', success=True)])
+    @aioresponses()
+    def test_set_position_mode_failure(self, mock_api):
+        # There's only ONEWAY position mode
+        pass
