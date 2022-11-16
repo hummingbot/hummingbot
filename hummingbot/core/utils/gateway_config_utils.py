@@ -9,7 +9,8 @@ native_tokens = {
     "solana": "SOL",
     "polygon": "MATIC",
     "harmony": "ONE",
-    "cronos": "CRO"
+    "cronos": "CRO",
+    "near": "NEAR"
 }
 
 SUPPORTED_CHAINS = set(native_tokens.keys())
