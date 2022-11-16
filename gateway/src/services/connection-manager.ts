@@ -15,7 +15,9 @@ import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { VVSConnector } from '../connectors/vvs/vvs';
 import {
   Ethereumish,
+  Nearish,
   Perpish,
+  RefAMMish,
   Uniswapish,
   UniswapLPish,
 } from './common-interfaces';
@@ -24,13 +26,17 @@ import { Sushiswap } from '../connectors/sushiswap/sushiswap';
 import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
 import { Defira } from '../connectors/defira/defira';
 import { Serumish } from '../connectors/serum/serum';
+import { Near } from '../chains/near/near';
+import { Ref } from '../connectors/ref/ref';
 
-export type ChainUnion = Ethereumish | Solanaish;
+export type ChainUnion = Ethereumish | Solanaish | Nearish;
 
 export type Chain<T> = T extends Ethereumish
   ? Ethereumish
   : T extends Solanaish
   ? Solanaish
+  : T extends Nearish
+  ? Nearish
   : never;
 
 export async function getChain<T>(
@@ -44,6 +50,7 @@ export async function getChain<T>(
     chainInstance = Avalanche.getInstance(network);
   else if (chain === 'polygon') chainInstance = Polygon.getInstance(network);
   else if (chain === 'harmony') chainInstance = Harmony.getInstance(network);
+  else if (chain === 'near') chainInstance = Near.getInstance(network);
   else if (chain === 'solana')
     chainInstance = await Solana.getInstance(network);
   else if (chain === 'cronos') chainInstance = Cronos.getInstance(network);
@@ -56,7 +63,12 @@ export async function getChain<T>(
   return chainInstance as Chain<T>;
 }
 
-type ConnectorUnion = Uniswapish | UniswapLPish | Perpish | Serumish;
+type ConnectorUnion =
+  | Uniswapish
+  | UniswapLPish
+  | Perpish
+  | Serumish
+  | RefAMMish;
 
 export type Connector<T> = T extends Uniswapish
   ? Uniswapish
@@ -66,6 +78,8 @@ export type Connector<T> = T extends Uniswapish
   ? Perpish
   : T extends Serumish
   ? Serumish
+  : T extends RefAMMish
+  ? RefAMMish
   : never;
 
 export async function getConnector<T>(
@@ -108,6 +122,8 @@ export async function getConnector<T>(
     connectorInstance = MadMeerkat.getInstance(chain, network);
   } else if (chain === 'cronos' && connector === 'vvs') {
     connectorInstance = VVSConnector.getInstance(chain, network);
+  } else if (chain === 'near' && connector === 'ref') {
+    connectorInstance = Ref.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
   }
