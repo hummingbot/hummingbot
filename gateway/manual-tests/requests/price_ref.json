@@ -1,0 +1,9 @@
+{
+  "connector": "ref",
+  "chain": "near",
+  "network": "mainnet",
+  "quote": "DAI",
+  "base": "ETH",
+  "amount": "1",
+  "side": "SELL"
+}
