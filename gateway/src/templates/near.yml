@@ -1,0 +1,20 @@
+networks:
+  mainnet:
+    chainID: 0
+    nodeURL: https://rpc.mainnet.near.org
+    tokenListType: URL
+    nativeCurrencySymbol: NEAR
+    tokenListSource: >-
+      https://indexer.ref.finance/list-token
+    gasPriceRefreshInterval: 60
+  testnet:
+    chainID: 0
+    nodeURL: https://rpc.testnet.near.org
+    tokenListType: URL
+    tokenListSource: https://testnet-indexer.ref-finance.com/list-token
+    nativeCurrencySymbol: NEAR
+    gasPriceRefreshInterval: 60
+
+gasLimitTransaction: 3000000000000
+manualGasPrice: 0
+ 
