@@ -19,8 +19,8 @@
     "copy-files": "copyfiles -a 'src/**/schema/*.json' 'src/templates/*.yml' 'test/services/data/**/*.*' dist",
     "test": "jest --verbose",
     "test:debug": "node --inspect node_modules/.bin/jest --watch --runInBand",
-    "test:unit": "NODE_OPTIONS=--max_old_space_size=8192 jest -w 1 --verbose --forceExit ./test/chains/cosmos",
-    "test:cov": "NODE_OPTIONS=--max_old_space_size=8192 jest -w 1 --coverage --forceExit ./test/chains/cosmos",
+    "test:unit": "NODE_OPTIONS=--max_old_space_size=8192 jest -w 1 --verbose --forceExit ./test",
+    "test:cov": "NODE_OPTIONS=--max_old_space_size=8192 jest -w 1 --coverage --forceExit ./test",
     "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts"
   },
   "dependencies": {
@@ -63,6 +63,7 @@
     "chain-registry": "^0.0.26",
     "bs58": "^5.0.0",
     "chalk": "^4.1.0",
+    "coinalpha-ref-sdk": "1.1.0",
     "copyfiles": "^2.4.1",
     "cycle": "^1.0.3",
     "dayjs": "^1.10.6",
@@ -80,6 +81,8 @@
     "mathjs": "^10.5.0",
     "minimist": "^1.2.5",
     "morgan": "^1.10.0",
+    "quickswap-sdk": "^3.0.8",
+    "near-api-js": "1.0.0",
     "node-ts-cache": "4.4.0",
     "node-ts-cache-storage-memory": "4.4.0",
     "quickswap-sdk": "^3.0.8",

@@ -38,7 +38,7 @@ class HummingbotCompleter(Completer):
         self._exchange_amm_completer = WordCompleter(
             sorted(
                 AllConnectorSettings.get_exchange_names().union(
-                    AllConnectorSettings.get_gateway_evm_amm_connector_names()
+                    AllConnectorSettings.get_gateway_amm_connector_names()
                 ).union(
                     AllConnectorSettings.get_gateway_clob_connector_names()
                 )
@@ -58,7 +58,7 @@ class HummingbotCompleter(Completer):
         self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
         self._gateway_connector_tokens_completer = WordCompleter(
             sorted(
-                AllConnectorSettings.get_gateway_evm_amm_connector_names().union(
+                AllConnectorSettings.get_gateway_amm_connector_names().union(
                     AllConnectorSettings.get_gateway_clob_connector_names()
                 )
             ), ignore_case=True
