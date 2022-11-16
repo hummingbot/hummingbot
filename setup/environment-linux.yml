@@ -42,7 +42,7 @@ dependencies:
     - base58==2.1.1
     - cachetools==4.0.0
     - cryptography==2.8
-    - cython==3.0a7
+    - cython==3.0.0a8
     - cytoolz==0.11.0
     - diff-cover==5.1.2
     - docker==5.0.3
