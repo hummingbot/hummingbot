@@ -18,11 +18,14 @@ import { ConfigManagerCertPassphrase } from '../config-manager-cert-passphrase';
 import {
   ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE,
   ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE,
+  ACCOUNT_NOT_SPECIFIED_CODE,
+  ACCOUNT_NOT_SPECIFIED_ERROR_MESSAGE,
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../error-handler';
 import { EthereumBase } from '../ethereum-base';
+import { Near } from '../../chains/near/near';
 
 const walletPath = './conf/wallets';
 
@@ -40,7 +43,7 @@ export async function addWallet(
   if (!passphrase) {
     throw new Error('There is no passphrase');
   }
-  let connection: EthereumBase | Solana;
+  let connection: EthereumBase | Solana | Near;
   let address: string | undefined;
   let encryptedPrivateKey: string | undefined;
 
@@ -56,6 +59,14 @@ export async function addWallet(
     connection = Solana.getInstance(req.network);
   } else if (req.chain === 'polygon') {
     connection = Polygon.getInstance(req.network);
+  } else if (req.chain === 'near') {
+    if (!('address' in req))
+      throw new HttpException(
+        500,
+        ACCOUNT_NOT_SPECIFIED_ERROR_MESSAGE(),
+        ACCOUNT_NOT_SPECIFIED_CODE
+      );
+    connection = Near.getInstance(req.network);
   } else {
     throw new HttpException(
       500,
@@ -83,6 +94,14 @@ export async function addWallet(
         req.privateKey,
         passphrase
       );
+    } else if (connection instanceof Near) {
+      address = (
+        await connection.getWalletFromPrivateKey(
+          req.privateKey,
+          <string>req.address
+        )
+      ).accountId;
+      encryptedPrivateKey = connection.encrypt(req.privateKey, passphrase);
     }
     if (address === undefined || encryptedPrivateKey === undefined) {
       throw new Error('ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE');
