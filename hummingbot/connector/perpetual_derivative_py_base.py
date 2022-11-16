@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
-from hummingbot.connector.constants import s_decimal_0
+from hummingbot.connector.constants import s_decimal_0, s_decimal_NaN
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_py_base import ExchangePyBase
@@ -12,6 +12,7 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import PerpetualDerivativeInFlightOrder
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
+from hummingbot.core.data_type.trade_fee import TradeFeeBase
 from hummingbot.core.event.events import (
     AccountEvent,
     FundingPaymentCompletedEvent,
@@ -29,7 +30,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
 
     def __init__(self, client_config_map: "ClientConfigAdapter"):
         super().__init__(client_config_map)
-        self._last_funding_fee_payment_ts: Dict[str, int] = {}
+        self._last_funding_fee_payment_ts: Dict[str, float] = {}
 
         self._perpetual_trading = PerpetualTrading(self.trading_pairs)
         self._funding_info_listener_task: Optional[asyncio.Task] = None
@@ -194,7 +195,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
+    async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[float, Decimal, Decimal]:
         """
         Returns a tuple of the latest funding payment timestamp, funding rate, and payment amount.
         If no payment exists, return (0, -1, -1)
@@ -249,11 +250,56 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
             **kwargs,
         )
 
+    def get_fee(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        position_action: PositionAction,
+        amount: Decimal,
+        price: Decimal = s_decimal_NaN,
+        is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
+        """
+        Calculates the fee to pay based on the fee information provided by the exchange for
+        the account and the token pair. If exchange info is not available it calculates the estimated
+        fee an order would pay based on the connector configuration.
+
+        :param base_currency: the order base currency
+        :param quote_currency: the order quote currency
+        :param order_type: the type of order (MARKET, LIMIT, LIMIT_MAKER)
+        :param order_side: if the order is for buying or selling
+        :param position_action: the position action associated with the order
+        :param amount: the order amount
+        :param price: the order price
+        :param is_maker: True if the order is a maker order, False if it is a taker order
+
+        :return: the calculated or estimated fee
+        """
+        return self._get_fee(
+            base_currency, quote_currency, order_type, order_side, position_action, amount, price, is_maker
+        )
+
+    @abstractmethod
+    def _get_fee(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        position_action: PositionAction,
+        amount: Decimal,
+        price: Decimal = s_decimal_NaN,
+        is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
+        raise NotImplementedError
+
     async def _status_polling_loop_fetch_updates(self):
         await safe_gather(
-            self._update_order_status(),
-            self._update_balances(),
             self._update_positions(),
+            self._update_balances(),
+            self._update_order_status(),
         )
 
     async def _execute_set_position_mode(self, mode: PositionMode):
@@ -363,6 +409,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
 
     async def _update_funding_payment(self, trading_pair: str, fire_event_on_new: bool) -> bool:
         fetch_success = True
+        timestamp = funding_rate = payment_amount = 0
         try:
             timestamp, funding_rate, payment_amount = await self._fetch_last_fee_payment(trading_pair=trading_pair)
         except asyncio.CancelledError:
@@ -374,20 +421,29 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
                 app_warning_msg=f"Could not fetch last fee payment for {trading_pair}. Check network connection."
             )
             fetch_success = False
-        else:
-            prev_timestamp = self._last_funding_fee_payment_ts.get(trading_pair, 0)
-            if timestamp > prev_timestamp and payment_amount > s_decimal_0 and fire_event_on_new:
-                action: str = "paid" if payment_amount < s_decimal_0 else "received"
-                self.logger().info(f"Funding payment of {abs(payment_amount)} {action} on {trading_pair} market.")
-                self.trigger_event(
-                    MarketEvent.FundingPaymentCompleted,
-                    FundingPaymentCompletedEvent(
-                        timestamp=timestamp,
-                        market=self.name,
-                        funding_rate=funding_rate,
-                        trading_pair=trading_pair,
-                        amount=payment_amount,
-                    ),
-                )
-            self._last_funding_fee_payment_ts[trading_pair] = timestamp
+        if fetch_success:
+            self._emit_funding_payment_event(trading_pair, timestamp, funding_rate, payment_amount, fire_event_on_new)
         return fetch_success
+
+    def _emit_funding_payment_event(
+        self, trading_pair: str, timestamp: int, funding_rate: Decimal, payment_amount: Decimal, fire_event_on_new: bool
+    ):
+        prev_timestamp = self._last_funding_fee_payment_ts.get(trading_pair, 0)
+
+        if timestamp > prev_timestamp and fire_event_on_new:
+            action: str = "paid" if payment_amount < s_decimal_0 else "received"
+            self.logger().info(f"Funding payment of {abs(payment_amount)} {action} on {trading_pair} market.")
+            self.trigger_event(
+                MarketEvent.FundingPaymentCompleted,
+                FundingPaymentCompletedEvent(
+                    timestamp=timestamp,
+                    market=self.name,
+                    funding_rate=funding_rate,
+                    trading_pair=trading_pair,
+                    amount=payment_amount,
+                ),
+            )
+            self._last_funding_fee_payment_ts[trading_pair] = timestamp
+
+        if trading_pair not in self._last_funding_fee_payment_ts:
+            self._last_funding_fee_payment_ts[trading_pair] = timestamp
