@@ -67,6 +67,7 @@ class ConnectorType(Enum):
     EVM_Perpetual = "EVM_Perpetual"
     EVM_AMM_LP = "EVM_AMM_LP"
     SOL_CLOB = "SOL_CLOB"
+    NEAR_AMM = "NEAR_AMM"
     Connector = "connector"
     Exchange = "exchange"
     Derivative = "derivative"
@@ -178,7 +179,7 @@ class ConnectorSetting(NamedTuple):
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
         if self.uses_gateway_generic_connector():
-            if ConnectorType.EVM_AMM == self.type or ConnectorType.EVM_Perpetual == self.type or ConnectorType.EVM_AMM_LP == self.type:
+            if self.type in [ConnectorType.EVM_AMM, ConnectorType.EVM_Perpetual, ConnectorType.NEAR_AMM, ConnectorType.EVM_AMM_LP]:
                 return f"gateway.amm.gateway_{self.type.name.lower()}"
             elif ConnectorType.SOL_CLOB == self.type:
                 return f"gateway.clob.gateway_{self.type.name.lower()}"
@@ -434,8 +435,8 @@ class AllConnectorSettings:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.use_ethereum_wallet}
 
     @classmethod
-    def get_gateway_evm_amm_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.get_connector_settings().values() if cs.type == ConnectorType.EVM_AMM}
+    def get_gateway_amm_connector_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.get_connector_settings().values() if cs.type in [ConnectorType.EVM_AMM, ConnectorType.NEAR_AMM]}
 
     @classmethod
     def get_gateway_evm_amm_lp_connector_names(cls) -> Set[str]:
