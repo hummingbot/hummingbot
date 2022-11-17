@@ -34,6 +34,9 @@ beforeAll(async () => {
   avalanche = Avalanche.getInstance('fuji');
   eth = Ethereum.getInstance('kovan');
   harmony = Harmony.getInstance('testnet');
+  bsc = BinanceSmartChain.getInstance('testnet');
+  cronos = Cronos.getInstance('testnet');
+  near = Near.getInstance('testnet');
 });
 
 beforeEach(() =>
