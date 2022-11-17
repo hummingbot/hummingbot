@@ -35,6 +35,7 @@ connector_status = {
     'dydx_perpetual': 'yellow',
     'ethereum': 'red',
     'eve': 'yellow',
+    'gate_io': 'yellow',
     'hitbtc': 'green',
     'huobi': 'green',
     'kraken': 'green',
