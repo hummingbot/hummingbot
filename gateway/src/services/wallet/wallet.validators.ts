@@ -48,6 +48,11 @@ export const validatePrivateKey: Validator = mkSelectingValidator(
       invalidEthPrivateKeyError,
       (val) => typeof val === 'string' && isEthPrivateKey(val)
     ),
+    cronos: mkValidator(
+      'privateKey',
+      invalidEthPrivateKeyError,
+      (val) => typeof val === 'string' && isEthPrivateKey(val)
+    ),
     avalanche: mkValidator(
       'privateKey',
       invalidEthPrivateKeyError,
@@ -62,6 +67,11 @@ export const validatePrivateKey: Validator = mkSelectingValidator(
       'privateKey',
       invalidNearPrivateKeyError,
       (val) => typeof val === 'string' && isNearPrivateKey(val)
+    ),
+    polygon: mkValidator(
+      'privateKey',
+      invalidEthPrivateKeyError,
+      (val) => typeof val === 'string' && isEthPrivateKey(val)
     ),
     'binance-smart-chain': mkValidator(
       'privateKey',
