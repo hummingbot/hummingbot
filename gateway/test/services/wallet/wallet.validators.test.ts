@@ -108,6 +108,26 @@ describe('validatePrivateKey', () => {
     ).toEqual([]);
   });
 
+  it('valid when req.privateKey is a cronos key', () => {
+    expect(
+      validatePrivateKey({
+        chain: 'cronos',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4', // noqa: mock
+      })
+    ).toEqual([]);
+  });
+
+  it('valid when req.privateKey is a polygon key', () => {
+    expect(
+      validatePrivateKey({
+        chain: 'polygon',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4', // noqa: mock
+      })
+    ).toEqual([]);
+  });
+
   it('valid when req.privateKey is a avalanche key', () => {
     expect(
       validatePrivateKey({
