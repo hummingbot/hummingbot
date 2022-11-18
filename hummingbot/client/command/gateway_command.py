@@ -335,6 +335,8 @@ class GatewayCommand(GatewayChainApiManager):
             self,           # type: HummingbotApplication
             connector: str = None
     ):
+        wallet_account_id: Optional[str] = None
+
         with begin_placeholder_mode(self):
             gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
             if connector is None:
@@ -418,7 +420,6 @@ class GatewayCommand(GatewayChainApiManager):
                     if self.app.to_stop_config:
                         return
 
-                    wallet_account_id: Optional[str]
                     if chain == "near":
                         wallet_account_id: str = await self.app.prompt(
                             prompt=f"Enter your {chain}-{network} account Id >>> ",
