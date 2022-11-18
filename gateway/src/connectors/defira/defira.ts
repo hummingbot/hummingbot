@@ -300,21 +300,23 @@ export class Defira implements Uniswapish {
     });
 
     const contract: Contract = new Contract(defiraRouter, abi, wallet);
-    if (nonce === undefined) {
-      nonce = await this.harmony.nonceManager.getNextNonce(wallet.address);
-    }
-    const tx: ContractTransaction = await contract[result.methodName](
-      ...result.args,
-      {
-        gasPrice: (gasPrice * 1e9).toFixed(0),
-        gasLimit: gasLimit.toFixed(0),
-        value: result.value,
-        nonce: nonce,
+    return this.harmony.nonceManager.provideNonce(
+      nonce,
+      wallet.address,
+      async (nextNonce) => {
+        const tx: ContractTransaction = await contract[result.methodName](
+          ...result.args,
+          {
+            gasPrice: (gasPrice * 1e9).toFixed(0),
+            gasLimit: gasLimit.toFixed(0),
+            value: result.value,
+            nonce: nextNonce,
+          }
+        );
+
+        logger.info(JSON.stringify(tx));
+        return tx;
       }
     );
-
-    logger.info(tx);
-    await this.harmony.nonceManager.commitNonce(wallet.address, nonce);
-    return tx;
   }
 }
