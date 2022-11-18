@@ -75,6 +75,8 @@ Useful Commands:
 - import      Import an existing bot by loading the configuration file
 - help        List available commands
 
+Shortcuts:
+- Copy/Paste: Shift + Insert or CTRL + SHIFT + Right Click or  CTRL + SHIFT + V
 """
 
 with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
