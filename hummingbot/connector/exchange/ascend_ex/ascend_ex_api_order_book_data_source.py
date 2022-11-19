@@ -278,7 +278,6 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             finally:
                 ws and await ws.disconnect()
 
-
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         Reads the trade events queue. For each event creates a trade message instance and adds it to the output queue
@@ -455,7 +454,6 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 exc_info=True
             )
         raise
-
 
     async def _handle_ping_message(self, ws: aiohttp.ClientWebSocketResponse):
         """
