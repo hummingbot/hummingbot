@@ -32,8 +32,10 @@ import { SerumRoutes } from './connectors/serum/serum.routes';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
 import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.config';
 import { SerumConfig } from './connectors/serum/serum.config';
+import { PancakeSwapConfig } from './connectors/pancakeswap/pancakeswap.config';
 
 import swaggerUi from 'swagger-ui-express';
+import { NearRoutes } from './chains/near/near.routes';
 
 export const gatewayApp = express();
 
@@ -68,6 +70,7 @@ gatewayApp.use('/clob', ClobRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
 gatewayApp.use('/serum', SerumRoutes.router);
+gatewayApp.use('/near', NearRoutes.router);
 
 // a simple route to test that the server is running
 gatewayApp.get('/', (_req: Request, res: Response) => {
@@ -92,6 +95,7 @@ gatewayApp.get(
       serum: SerumConfig.config.availableNetworks,
       mad_meerkat: MadMeerkatConfig.config.availableNetworks,
       vvs: VVSConfig.config.availableNetworks,
+      pancakeswap: PancakeSwapConfig.config.availableNetworks,
     });
   })
 );
@@ -132,6 +136,7 @@ export const swaggerDocument = SwaggerManager.generateSwaggerJson(
     './docs/swagger/evm-routes.yml',
     './docs/swagger/network-routes.yml',
     './docs/swagger/solana-routes.yml',
+    './docs/swagger/near-routes.yml',
     './docs/swagger/clob-routes.yml',
     './docs/swagger/serum-routes.yml',
   ]
