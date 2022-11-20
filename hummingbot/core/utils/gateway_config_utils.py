@@ -9,6 +9,7 @@ native_tokens = {
     "solana": "SOL",
     "polygon": "MATIC",
     "harmony": "ONE",
+    "binance-smart-chain": "BNB",
     "cronos": "CRO",
     "near": "NEAR"
 }

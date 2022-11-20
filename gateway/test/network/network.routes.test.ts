@@ -41,6 +41,7 @@ beforeEach(() => {
   patchEVMNonceManager(eth.nonceManager);
   patchEVMNonceManager(goerli.nonceManager);
   patchEVMNonceManager(avalanche.nonceManager);
+  patchEVMNonceManager(harmony.nonceManager);
   patchEVMNonceManager(polygon.nonceManager);
   patchEVMNonceManager(cronos.nonceManager);
 });
