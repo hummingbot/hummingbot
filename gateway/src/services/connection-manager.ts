@@ -1,6 +1,7 @@
 import { Avalanche } from '../chains/avalanche/avalanche';
 import { Cronos } from '../chains/cronos/cronos';
 import { Ethereum } from '../chains/ethereum/ethereum';
+import { BinanceSmartChain } from '../chains/binance-smart-chain/binance-smart-chain';
 import { Harmony } from '../chains/harmony/harmony';
 import { Solana, Solanaish } from '../chains/solana/solana';
 import { Polygon } from '../chains/polygon/polygon';
@@ -9,6 +10,7 @@ import { Openocean } from '../connectors/openocean/openocean';
 import { Pangolin } from '../connectors/pangolin/pangolin';
 import { Perp } from '../connectors/perp/perp';
 import { Quickswap } from '../connectors/quickswap/quickswap';
+import { PancakeSwap } from '../connectors/pancakeswap/pancakeswap';
 import { Serum } from '../connectors/serum/serum';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
@@ -54,6 +56,8 @@ export async function getChain<T>(
   else if (chain === 'solana')
     chainInstance = await Solana.getInstance(network);
   else if (chain === 'cronos') chainInstance = Cronos.getInstance(network);
+  else if (chain === 'binance-smart-chain')
+    chainInstance = BinanceSmartChain.getInstance(network);
   else throw new Error('unsupported chain');
 
   if (!chainInstance.ready()) {
@@ -124,6 +128,8 @@ export async function getConnector<T>(
     connectorInstance = VVSConnector.getInstance(chain, network);
   } else if (chain === 'near' && connector === 'ref') {
     connectorInstance = Ref.getInstance(chain, network);
+  } else if (chain === 'binance-smart-chain' && connector === 'pancakeswap') {
+    connectorInstance = PancakeSwap.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
   }
