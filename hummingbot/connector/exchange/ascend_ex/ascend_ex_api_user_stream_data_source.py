@@ -1,8 +1,8 @@
+import aiohttp
 import asyncio
 import logging
 import time
 from typing import List, Optional
-import aiohttp
 
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
