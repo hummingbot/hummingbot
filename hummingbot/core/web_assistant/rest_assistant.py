@@ -47,8 +47,7 @@ class RESTAssistant:
         headers = headers or {}
 
         local_headers = {
-            "Content-Type": ("application/json" if method in [RESTMethod.POST, RESTMethod.PUT]
-                             else "application/x-www-form-urlencoded")}
+            "Content-Type": ("application/json" if method != RESTMethod.GET else "application/x-www-form-urlencoded")}
         local_headers.update(headers)
 
         data = json.dumps(data) if data is not None else data

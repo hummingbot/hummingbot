@@ -19,7 +19,7 @@ class AscendExRESTPreProcessor(RESTPreProcessorBase):
         headers_generic["Content-Type"] = "application/json"
         # Headers signature to identify user as an HB liquidity provider.
         request.headers = dict(
-            list(headers_generic.items()) + list(request.headers.items()) + list(get_hb_id_headers().items())
+            list(request.headers.items()) + list(headers_generic.items()) + list(get_hb_id_headers().items())
         )
         return request
 
