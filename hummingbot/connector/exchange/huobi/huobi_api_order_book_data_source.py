@@ -160,13 +160,6 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             )
             message_queue.put_nowait(trade_message)
 
-    async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
-        async for ws_response in websocket_assistant.iter_messages():
-            data: Dict[str, Any] = ws_response.data
-            channel: str = self._channel_originating_message(event_message=data)
-            if channel in [self._diff_messages_queue_key, self._trade_messages_queue_key]:
-                self._message_queue[channel].put_nowait(data)
-
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         msg_channel = raw_message["ch"]
         order_book_symbol = msg_channel.split(".")[1]
