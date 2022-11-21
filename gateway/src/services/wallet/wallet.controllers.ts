@@ -2,7 +2,6 @@ import fse from 'fs-extra';
 import { Avalanche } from '../../chains/avalanche/avalanche';
 import { BinanceSmartChain } from '../../chains/binance-smart-chain/binance-smart-chain';
 import { Cronos } from '../../chains/cronos/cronos';
-import { BinanceSmartChain } from '../../chains/binance-smart-chain/binance-smart-chain';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import { Polygon } from '../../chains/polygon/polygon';
 import { Solana } from '../../chains/solana/solana';
