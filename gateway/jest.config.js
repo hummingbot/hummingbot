@@ -7,6 +7,7 @@ module.exports = {
     'src/https.ts',
     'src/paths.ts',
     'src/chains/cronos/cronos.ts',
+    'src/chains/binance-smart-chain/binance-smart-chain.ts',
     'src/chains/ethereum/ethereum.ts',
     'src/chains/avalanche/avalanche.ts',
     'src/chains/avalanche/pangolin/pangolin.ts',
