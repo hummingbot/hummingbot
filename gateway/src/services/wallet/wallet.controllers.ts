@@ -1,5 +1,6 @@
 import fse from 'fs-extra';
 import { Avalanche } from '../../chains/avalanche/avalanche';
+import { BinanceSmartChain } from '../../chains/binance-smart-chain/binance-smart-chain';
 import { Cronos } from '../../chains/cronos/cronos';
 import { BinanceSmartChain } from '../../chains/binance-smart-chain/binance-smart-chain';
 import { Ethereum } from '../../chains/ethereum/ethereum';
@@ -69,6 +70,8 @@ export async function addWallet(
         ACCOUNT_NOT_SPECIFIED_CODE
       );
     connection = Near.getInstance(req.network);
+  } else if (req.chain === 'binance-smart-chain') {
+    connection = BinanceSmartChain.getInstance(req.network);
   } else {
     throw new HttpException(
       500,

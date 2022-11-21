@@ -17,6 +17,7 @@ import {
 } from '../../../src/services/error-handler';
 
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
+import { BinanceSmartChain } from '../../../src/chains/binance-smart-chain/binance-smart-chain';
 import { Cronos } from '../../../src/chains/cronos/cronos';
 import { Near } from '../../../src/chains/near/near';
 import { BinanceSmartChain } from '../../../src/chains/binance-smart-chain/binance-smart-chain';
@@ -25,6 +26,7 @@ let avalanche: Avalanche;
 let cronos: Cronos;
 let eth: Ethereum;
 let harmony: Harmony;
+let bsc: BinanceSmartChain;
 let near: Near;
 let bsc: BinanceSmartChain;
 
@@ -47,6 +49,7 @@ afterAll(async () => {
   await avalanche.close();
   await eth.close();
   await harmony.close();
+  await bsc.close();
   await cronos.close();
   await near.close();
   await bsc.close();
@@ -155,6 +158,32 @@ describe('addWallet and getWallets', () => {
 
     const addresses: string[][] = wallets
       .filter((wallet) => wallet.chain === 'harmony')
+      .map((wallet) => wallet.walletAddresses);
+
+    expect(addresses[0]).toContain(oneAddress);
+  });
+
+  it('add a Binance Smart Chain wallet', async () => {
+    patch(bsc, 'getWallet', () => {
+      return {
+        address: oneAddress,
+      };
+    });
+
+    patch(bsc, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await addWallet({
+      privateKey: onePrivateKey,
+      chain: 'binance-smart-chain',
+      network: 'testnet',
+    });
+
+    const wallets = await getWallets();
+
+    const addresses: string[][] = wallets
+      .filter((wallet) => wallet.chain === 'binance-smart-chain')
       .map((wallet) => wallet.walletAddresses);
 
     expect(addresses[0]).toContain(oneAddress);
