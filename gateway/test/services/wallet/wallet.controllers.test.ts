@@ -214,32 +214,6 @@ describe('addWallet and getWallets', () => {
     expect(addresses[0]).toContain(oneAddress);
   });
 
-  it('add a Binance Smart Chain wallet', async () => {
-    patch(bsc, 'getWallet', () => {
-      return {
-        address: oneAddress,
-      };
-    });
-
-    patch(bsc, 'encrypt', () => {
-      return JSON.stringify(encodedPrivateKey);
-    });
-
-    await addWallet({
-      privateKey: onePrivateKey,
-      chain: 'binance-smart-chain',
-      network: 'testnet',
-    });
-
-    const wallets = await getWallets();
-
-    const addresses: string[][] = wallets
-      .filter((wallet) => wallet.chain === 'binance-smart-chain')
-      .map((wallet) => wallet.walletAddresses);
-
-    expect(addresses[0]).toContain(oneAddress);
-  });
-
   it('fail to add a wallet to unknown chain', async () => {
     await expect(
       addWallet({
