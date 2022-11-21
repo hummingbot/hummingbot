@@ -6,6 +6,7 @@ import { getEthereumConfig as getBinanceSmartChainConfig } from '../ethereum/eth
 import { Provider } from '@ethersproject/abstract-provider';
 import { Ethereumish } from '../../services/common-interfaces';
 import { PancakeSwapConfig } from '../../connectors/pancakeswap/pancakeswap.config';
+import { SushiswapConfig } from '../../connectors/sushiswap/sushiswap.config';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
 export class BinanceSmartChain extends EthereumBase implements Ethereumish {
@@ -94,6 +95,11 @@ export class BinanceSmartChain extends EthereumBase implements Ethereumish {
     let spender: string;
     if (reqSpender === 'pancakeswap') {
       spender = PancakeSwapConfig.config.routerAddress(this._chain);
+    } else if (reqSpender === 'sushiswap') {
+      spender = SushiswapConfig.config.sushiswapRouterAddress(
+        this.chainName,
+        this._chain
+      );
     } else {
       spender = reqSpender;
     }

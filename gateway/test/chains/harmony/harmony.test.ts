@@ -37,7 +37,9 @@ describe('getSpender', () => {
     it('returns sushiswap kovan address', () => {
       const sushiswapAddress = harmony.getSpender('sushiswap');
       expect(sushiswapAddress.toLowerCase()).toEqual(
-        SushiswapConfig.config.sushiswapRouterAddress('kovan').toLowerCase()
+        SushiswapConfig.config
+          .sushiswapRouterAddress('ethereum', 'kovan')
+          .toLowerCase()
       );
     });
   });

@@ -1,0 +1,9 @@
+{
+    "connector": "sushiswap",
+    "chain": "binance-smart-chain",
+    "network": "mainnet",
+    "quote": "SUSHI",
+    "base": "USDT",
+    "amount": "10000000000000000",
+    "side": "SELL"
+  }

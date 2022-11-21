@@ -253,6 +253,14 @@ describe('validateChain', () => {
     ).toEqual([]);
   });
 
+  it('valid when chain is binance-smart-chain', () => {
+    expect(
+      validateChain({
+        chain: 'binance-smart-chain',
+      })
+    ).toEqual([]);
+  });
+
   it('return error when req.chain does not exist', () => {
     expect(
       validateChain({
