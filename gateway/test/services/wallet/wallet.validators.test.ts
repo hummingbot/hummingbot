@@ -237,6 +237,14 @@ describe('validateChain', () => {
     ).toEqual([]);
   });
 
+  it('valid when chain is binance-smart-chain', () => {
+    expect(
+      validateChain({
+        chain: 'binance-smart-chain',
+      })
+    ).toEqual([]);
+  });
+
   it('valid when chain is cronos', () => {
     expect(
       validateChain({
