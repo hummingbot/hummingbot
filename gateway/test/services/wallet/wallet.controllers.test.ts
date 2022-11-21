@@ -51,7 +51,6 @@ afterAll(async () => {
   await bsc.close();
   await cronos.close();
   await near.close();
-  await bsc.close();
 });
 
 afterEach(() => unpatch());
