@@ -1,38 +1,30 @@
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
 import { AvailableNetworks } from '../../services/config-manager-types';
 
-export namespace SushiswapConfig {
-  export interface NetworkConfig {
+export namespace PancakeSwapConfig {
+  export interface ExchangeConfig {
     allowedSlippage: string;
     gasLimitEstimate: number;
     ttl: number;
-    sushiswapRouterAddress: (chain: string, network: string) => string;
+    routerAddress: (network: string) => string;
     tradingTypes: Array<string>;
     availableNetworks: Array<AvailableNetworks>;
   }
 
-  export const config: NetworkConfig = {
+  export const config: ExchangeConfig = {
     allowedSlippage: ConfigManagerV2.getInstance().get(
-      'sushiswap.allowedSlippage'
+      'pancakeswap.allowedSlippage'
     ),
     gasLimitEstimate: ConfigManagerV2.getInstance().get(
-      'sushiswap.gasLimitEstimate'
+      `pancakeswap.gasLimitEstimate`
     ),
-    ttl: ConfigManagerV2.getInstance().get('sushiswap.ttl'),
-    sushiswapRouterAddress: (chain: string, network: string) =>
+    ttl: ConfigManagerV2.getInstance().get('pancakeswap.ttl'),
+    routerAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(
-        'sushiswap.contractAddresses.' +
-          chain +
-          '.' +
-          network +
-          '.sushiswapRouterAddress'
+        'pancakeswap.contractAddresses.' + network + '.routerAddress'
       ),
     tradingTypes: ['EVM_AMM'],
     availableNetworks: [
-      {
-        chain: 'ethereum',
-        networks: ['mainnet', 'kovan', 'goerli', 'ropsten'],
-      },
       { chain: 'binance-smart-chain', networks: ['mainnet', 'testnet'] },
     ],
   };
