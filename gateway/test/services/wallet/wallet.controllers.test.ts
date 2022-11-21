@@ -20,7 +20,6 @@ import { ConfigManagerCertPassphrase } from '../../../src/services/config-manage
 import { BinanceSmartChain } from '../../../src/chains/binance-smart-chain/binance-smart-chain';
 import { Cronos } from '../../../src/chains/cronos/cronos';
 import { Near } from '../../../src/chains/near/near';
-import { BinanceSmartChain } from '../../../src/chains/binance-smart-chain/binance-smart-chain';
 
 let avalanche: Avalanche;
 let cronos: Cronos;
