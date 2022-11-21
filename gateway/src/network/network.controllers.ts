@@ -6,6 +6,7 @@ import {
   TokensResponse,
 } from './network.requests';
 import { Avalanche } from '../chains/avalanche/avalanche';
+import { BinanceSmartChain } from '../chains/binance-smart-chain/binance-smart-chain';
 import { Ethereum } from '../chains/ethereum/ethereum';
 import { Harmony } from '../chains/harmony/harmony';
 import { Polygon } from '../chains/polygon/polygon';
@@ -34,6 +35,8 @@ export async function getStatus(
   if (req.chain) {
     if (req.chain === 'avalanche') {
       connections.push(Avalanche.getInstance(req.network as string));
+    } else if (req.chain === 'binance-smart-chain') {
+      connections.push(BinanceSmartChain.getInstance(req.network as string));
     } else if (req.chain === 'harmony') {
       connections.push(Harmony.getInstance(req.network as string));
     } else if (req.chain === 'ethereum') {
@@ -88,13 +91,17 @@ export async function getStatus(
     connections = connections.concat(
       nearConnections ? Object.values(nearConnections) : []
     );
+
+    const bscConnections = BinanceSmartChain.getConnectedInstances();
+    connections = connections.concat(
+      bscConnections ? Object.values(bscConnections) : []
+    );
   }
 
   for (const connection of connections) {
     if (!connection.ready()) {
       await connection.init();
     }
-
     chain = connection.chain;
     chainId = connection.chainId;
     rpcUrl = connection.rpcUrl;
@@ -124,6 +131,8 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
   if (req.chain && req.network) {
     if (req.chain === 'avalanche') {
       connection = Avalanche.getInstance(req.network);
+    } else if (req.chain === 'binance-smart-chain') {
+      connection = BinanceSmartChain.getInstance(req.network);
     } else if (req.chain === 'harmony') {
       connection = Harmony.getInstance(req.network);
     } else if (req.chain === 'ethereum') {

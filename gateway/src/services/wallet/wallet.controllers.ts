@@ -1,5 +1,6 @@
 import fse from 'fs-extra';
 import { Avalanche } from '../../chains/avalanche/avalanche';
+import { BinanceSmartChain } from '../../chains/binance-smart-chain/binance-smart-chain';
 import { Cronos } from '../../chains/cronos/cronos';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import { Polygon } from '../../chains/polygon/polygon';
@@ -29,7 +30,6 @@ import { EthereumBase } from '../ethereum-base';
 import { Near } from '../../chains/near/near';
 
 const walletPath = './conf/wallets';
-
 export async function mkdirIfDoesNotExist(path: string): Promise<void> {
   const exists = await fse.pathExists(path);
   if (!exists) {
@@ -70,6 +70,8 @@ export async function addWallet(
         ACCOUNT_NOT_SPECIFIED_CODE
       );
     connection = Near.getInstance(req.network);
+  } else if (req.chain === 'binance-smart-chain') {
+    connection = BinanceSmartChain.getInstance(req.network);
   } else {
     throw new HttpException(
       500,

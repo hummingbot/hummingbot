@@ -144,12 +144,6 @@ dydx_perpetual_maker_percent_fee:
 dydx_perpetual_percent_fee_token:
 dydx_perpetual_taker_fixed_fees:
 dydx_perpetual_taker_percent_fee:
-ftx_buy_percent_fee_deducted_from_returns:
-ftx_maker_fixed_fees:
-ftx_maker_percent_fee:
-ftx_percent_fee_token:
-ftx_taker_fixed_fees:
-ftx_taker_percent_fee:
 gate_io_buy_percent_fee_deducted_from_returns:
 gate_io_maker_fixed_fees:
 gate_io_maker_percent_fee:
