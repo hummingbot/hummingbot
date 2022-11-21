@@ -108,6 +108,26 @@ describe('validatePrivateKey', () => {
     ).toEqual([]);
   });
 
+  it('valid when req.privateKey is a cronos key', () => {
+    expect(
+      validatePrivateKey({
+        chain: 'cronos',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4', // noqa: mock
+      })
+    ).toEqual([]);
+  });
+
+  it('valid when req.privateKey is a polygon key', () => {
+    expect(
+      validatePrivateKey({
+        chain: 'polygon',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4', // noqa: mock
+      })
+    ).toEqual([]);
+  });
+
   it('valid when req.privateKey is a avalanche key', () => {
     expect(
       validatePrivateKey({
@@ -124,6 +144,16 @@ describe('validatePrivateKey', () => {
         chain: 'solana',
         privateKey:
           '5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4uppgaLegmuPpq4ftBpcMw7NNoJHJefiTt',
+      })
+    ).toEqual([]);
+  });
+
+  it('valid when req.privateKey is an binance-smart-chain key', () => {
+    expect(
+      validatePrivateKey({
+        chain: 'binance-smart-chain',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4', // noqa: mock
       })
     ).toEqual([]);
   });
@@ -163,6 +193,15 @@ describe('validatePrivateKey', () => {
       })
     ).toEqual([invalidSolPrivateKeyError]);
   });
+
+  it('return error when req.privateKey is invalid binance-smart-chain key', () => {
+    expect(
+      validatePrivateKey({
+        chain: 'binance-smart-chain',
+        privateKey: 'someErroneousPrivateKey',
+      })
+    ).toEqual([invalidEthPrivateKeyError]);
+  });
 });
 
 describe('validateChain', () => {
@@ -198,10 +237,26 @@ describe('validateChain', () => {
     ).toEqual([]);
   });
 
+  it('valid when chain is binance-smart-chain', () => {
+    expect(
+      validateChain({
+        chain: 'binance-smart-chain',
+      })
+    ).toEqual([]);
+  });
+
   it('valid when chain is cronos', () => {
     expect(
       validateChain({
         chain: 'cronos',
+      })
+    ).toEqual([]);
+  });
+
+  it('valid when chain is binance-smart-chain', () => {
+    expect(
+      validateChain({
+        chain: 'binance-smart-chain',
       })
     ).toEqual([]);
   });

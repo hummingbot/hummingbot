@@ -107,3 +107,11 @@ configurations:
   $namespace vvs:
       configurationPath: vvs.yml
       schemaPath: cronos-connector-schema.json
+
+  $namespace binance-smart-chain:
+    configurationPath: binance-smart-chain.yml
+    schemaPath: ethereum-schema.json
+
+  $namespace pancakeswap:
+    configurationPath: pancakeswap.yml
+    schemaPath: pangolin-schema.json
