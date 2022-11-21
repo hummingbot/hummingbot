@@ -59,8 +59,6 @@ export async function addWallet(
     connection = Solana.getInstance(req.network);
   } else if (req.chain === 'polygon') {
     connection = Polygon.getInstance(req.network);
-  } else if (req.chain === 'binance-smart-chain') {
-    connection = BinanceSmartChain.getInstance(req.network);
   } else if (req.chain === 'near') {
     if (!('address' in req))
       throw new HttpException(
