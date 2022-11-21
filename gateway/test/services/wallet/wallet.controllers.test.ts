@@ -27,7 +27,6 @@ let eth: Ethereum;
 let harmony: Harmony;
 let bsc: BinanceSmartChain;
 let near: Near;
-let bsc: BinanceSmartChain;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
