@@ -83,11 +83,13 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
     def test_get_related_limits(self):
         self.assertEqual(5, len(self.throttler._rate_limits))
 
-        _, related_limits = self.throttler.get_related_limits(TEST_POOL_ID)
-        self.assertEqual(1, len(related_limits))
+        rate_limit, related_limits = self.throttler.get_related_limits(TEST_POOL_ID)
+        self.assertEqual(TEST_POOL_ID, rate_limit.limit_id)
+        self.assertEqual(0, len(related_limits))
 
-        _, related_limits = self.throttler.get_related_limits(TEST_PATH_URL)
-        self.assertEqual(2, len(related_limits))
+        rate_limit, related_limits = self.throttler.get_related_limits(TEST_PATH_URL)
+        self.assertEqual(TEST_PATH_URL, rate_limit.limit_id)
+        self.assertEqual(1, len(related_limits))
 
     def test_flush_empty_task_logs(self):
         # Test: No entries in task_logs to flush
@@ -204,11 +206,13 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         rate_limit = self.rate_limits[0]
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
                                       rate_limit=rate_limit,
-                                      related_limits=[(rate_limit, rate_limit.weight)],
+                                      related_limits=[],
                                       lock=asyncio.Lock(),
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         self.ev_loop.run_until_complete(context.acquire())
-        self.assertEqual(2, len(self.throttler._task_logs))
+
+        # We acquire()'d just one rate_limit, task log should have only one entry
+        self.assertEqual(1, len(self.throttler._task_logs))
 
     def test_acquire_awaits_when_exceed_capacity(self):
         rate_limit = self.rate_limits[0]
