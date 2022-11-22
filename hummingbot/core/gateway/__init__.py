@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 import aioprocessing
 
+from hummingbot.connector.gateway.clob import clob_constants
+from hummingbot.connector.gateway.common_types import Chain
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils import detect_available_port
 
@@ -18,7 +20,7 @@ _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "hummingbot/gateway-v2"
-GATEWAY_DOCKER_TAG: str = "gateway-v2-master-arm" if platform.machine() in {"arm64", "aarch64"} else "gateway-v2-dev"
+GATEWAY_DOCKER_TAG: str = "gateway-v2-master-arm" if platform.machine() in {"arm64", "aarch64"} else "gateway-v2-master"
 S_DECIMAL_0: Decimal = Decimal(0)
 
 
@@ -211,7 +213,8 @@ def check_transaction_exceptions(
         gas_limit: int,
         gas_cost: Decimal,
         gas_asset: str,
-        swaps_count: int
+        swaps_count: int,
+        chain: Chain = Chain.ETHEREUM
 ) -> List[str]:
     """
     Check trade data for Ethereum decentralized exchanges
@@ -229,7 +232,12 @@ def check_transaction_exceptions(
     asset_out_allowance: Decimal = allowances.get(asset_out, S_DECIMAL_0)
 
     # check for gas limit set to low
-    gas_limit_threshold: int = 21000
+    if chain == Chain.ETHEREUM:
+        gas_limit_threshold: int = 21000
+    elif chain == Chain.SOLANA:
+        gas_limit_threshold: int = clob_constants.FIVE_THOUSAND_LAMPORTS
+    else:
+        raise ValueError(f"Unsupported chain: {chain}")
     if gas_limit < gas_limit_threshold:
         exception_list.append(f"Gas limit {gas_limit} below recommended {gas_limit_threshold} threshold.")
 
