@@ -79,6 +79,7 @@ class GatewayChainApiManager:
         """
         Check if gateway node URL for a chain and network works
         """
+        # XXX: This should be removed once nodeAPIKey is deprecated from Gateway service
         config_dict: Dict[str, Any] = await GatewayHttpClient.get_instance().get_configuration()
         chain_config: Optional[Dict[str, Any]] = config_dict.get(chain)
         if chain_config is not None:

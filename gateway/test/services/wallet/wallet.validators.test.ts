@@ -148,6 +148,16 @@ describe('validatePrivateKey', () => {
     ).toEqual([]);
   });
 
+  it('valid when req.privateKey is an binance-smart-chain key', () => {
+    expect(
+      validatePrivateKey({
+        chain: 'binance-smart-chain',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4', // noqa: mock
+      })
+    ).toEqual([]);
+  });
+
   it('return error when req.privateKey does not exist', () => {
     expect(
       validatePrivateKey({
@@ -182,6 +192,15 @@ describe('validatePrivateKey', () => {
         privateKey: 'world',
       })
     ).toEqual([invalidSolPrivateKeyError]);
+  });
+
+  it('return error when req.privateKey is invalid binance-smart-chain key', () => {
+    expect(
+      validatePrivateKey({
+        chain: 'binance-smart-chain',
+        privateKey: 'someErroneousPrivateKey',
+      })
+    ).toEqual([invalidEthPrivateKeyError]);
   });
 });
 
@@ -218,10 +237,26 @@ describe('validateChain', () => {
     ).toEqual([]);
   });
 
+  it('valid when chain is binance-smart-chain', () => {
+    expect(
+      validateChain({
+        chain: 'binance-smart-chain',
+      })
+    ).toEqual([]);
+  });
+
   it('valid when chain is cronos', () => {
     expect(
       validateChain({
         chain: 'cronos',
+      })
+    ).toEqual([]);
+  });
+
+  it('valid when chain is binance-smart-chain', () => {
+    expect(
+      validateChain({
+        chain: 'binance-smart-chain',
       })
     ).toEqual([]);
   });
