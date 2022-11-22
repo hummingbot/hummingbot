@@ -892,7 +892,6 @@ class ExchangePyBase(ExchangeBase, ABC):
                     self._time_synchronizer.clear_time_offset_ms_samples()
                     await self._update_time_synchronizer()
                 else:
-                    self.logger().error(last_exception)
                     raise
 
         # Failed even after the last retry
