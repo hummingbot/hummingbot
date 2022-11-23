@@ -307,7 +307,7 @@ class GatewayEVMAMM(ConnectorBase):
         """
         approval_id: str = self.create_approval_order_id(token_symbol)
 
-        self.logger().info(f"Innitiating approval for {token_symbol}.")
+        self.logger().info(f"Initiating approval for {token_symbol}.")
 
         self.start_tracking_order(order_id=approval_id,
                                   trading_pair=token_symbol,

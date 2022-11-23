@@ -48,6 +48,11 @@ export const validatePrivateKey: Validator = mkSelectingValidator(
       invalidEthPrivateKeyError,
       (val) => typeof val === 'string' && isEthPrivateKey(val)
     ),
+    cronos: mkValidator(
+      'privateKey',
+      invalidEthPrivateKeyError,
+      (val) => typeof val === 'string' && isEthPrivateKey(val)
+    ),
     avalanche: mkValidator(
       'privateKey',
       invalidEthPrivateKeyError,
@@ -63,11 +68,21 @@ export const validatePrivateKey: Validator = mkSelectingValidator(
       invalidNearPrivateKeyError,
       (val) => typeof val === 'string' && isNearPrivateKey(val)
     ),
+    polygon: mkValidator(
+      'privateKey',
+      invalidEthPrivateKeyError,
+      (val) => typeof val === 'string' && isEthPrivateKey(val)
+    ),
+    'binance-smart-chain': mkValidator(
+      'privateKey',
+      invalidEthPrivateKeyError,
+      (val) => typeof val === 'string' && isEthPrivateKey(val)
+    ),
   }
 );
 
 export const invalidChainError: string =
-  'chain must be "ethereum", "solana", "avalanche", "near" or "harmony"';
+  'chain must be "ethereum", "solana", "avalanche", "near", "harmony" or "binance-smart-chain"';
 
 export const invalidNetworkError: string =
   'expected a string for the network key';
@@ -85,7 +100,8 @@ export const validateChain: Validator = mkValidator(
       val === 'solana' ||
       val == 'near' ||
       val === 'harmony' ||
-      val === 'cronos')
+      val === 'cronos' ||
+      val === 'binance-smart-chain')
 );
 
 export const validateNetwork: Validator = mkValidator(
