@@ -268,6 +268,13 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         self._message_queue[event_type].put_nowait(data)
                     if event_type in [self.PING_TOPIC_ID]:
                         await self._handle_ping_message(ws)
+            except asyncio.TimeoutError:
+                payload = {
+                    "op": "ping",
+                }
+                ping_request = WSJSONRequest(payload=payload)
+                self._last_recv_time = time.time()
+                await ws.send(request=ping_request)
             except asyncio.CancelledError:
                 raise
             except Exception:

@@ -1,8 +1,9 @@
-import aiohttp
 import asyncio
 import logging
 import time
 from typing import List, Optional
+
+import aiohttp
 
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
@@ -103,6 +104,13 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     if event_type in [self.PING_TOPIC_ID]:
                         await self._handle_ping_message(ws)
                     output.put_nowait(msg)
+            except asyncio.TimeoutError:
+                payload = {
+                    "op": "ping",
+                }
+                ping_request = WSJSONRequest(payload=payload)
+                self._last_recv_time = time.time()
+                await ws.send(request=ping_request)
             except asyncio.CancelledError:
                 raise
             except Exception:
