@@ -886,18 +886,19 @@ class ExchangePyBase(ExchangeBase, ABC):
                 )
                 return request_result
             except IOError as request_exception:
-                self.logger().network(f"API request failed - exception: {request_exception}, Retrying...")
                 last_exception = request_exception
                 if self._is_request_exception_related_to_time_synchronizer(request_exception=request_exception):
                     self._time_synchronizer.clear_time_offset_ms_samples()
                     await self._update_time_synchronizer()
                 else:
+                    self.logger().error(
+                        f"Failed api request {path_url} {method} ({request_exception})"
+                    )
                     raise
 
         # Failed even after the last retry
-        self.logger().network(
-            f"Failed api request {last_exception}",
-            app_warning_msg=f"Failed API request {method} {path_url}"
+        self.logger().error(
+            f"Failed api request {path_url} {method} ({last_exception})"
         )
         raise last_exception
 
@@ -926,9 +927,8 @@ class ExchangePyBase(ExchangeBase, ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as request_error:
-                self.logger().network(
-                    f"Failed to fetch trade updates for order {order.client_order_id}. Error: {request_error}",
-                    app_warning_msg=f"Failed to fetch trade updates for the order {order.client_order_id}"
+                self.logger().error(
+                    f"Failed to fetch trade updates for order {order.client_order_id}. Error: {request_error}"
                 )
 
     async def _update_orders(self):
