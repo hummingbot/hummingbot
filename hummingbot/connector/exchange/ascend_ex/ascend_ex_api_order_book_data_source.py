@@ -460,7 +460,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "Unexpected error occurred subscribing to order book trading and delta streams...",
                 exc_info=True
             )
-        raise
+            raise
 
     async def _handle_ping_message(self, ws: aiohttp.ClientWebSocketResponse):
         """
