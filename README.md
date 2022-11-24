@@ -75,49 +75,52 @@ Help us **democratize high-frequency trading** and make powerful trading algorit
 | <img src="assets/wazirX-logo.jpg" alt="Wazirx" width="90" />                             | [WazirX](https://wazirx.com/)                                             |                                  [spot](https://hummingbot.org/exchanges/wazirx/)                                  |                                                                                                                                           |                                                                                                                                                    |
 | <img src="assets/white-bit.png" alt="Whitebit" width="90" />                             | [Whitebit](https://whitebit.com//)                                             |                                  [spot](https://hummingbot.org/exchanges/whitebit/)                                  |                                                                                                                                           |                                                                                                                                                    |
 
-
 ## Decentralized Exchange Connectors
 
 | logo                                                               | name                                     |                            docs (by connector type)                             | certified | signup code |
 |--------------------------------------------------------------------|------------------------------------------|:-------------------------------------------------------------------------------:|:---------:|-------------|
 | <img src="assets/dydx-logo.jpg" alt="dYdX Perpetual" width="90" /> | [dYdX Perpetual](https://dydx.exchange/) |          [perp clob](https://hummingbot.org/exchanges/dydx-perpetual/)          |           |             |
 | <img src="assets/loopring-logo.jpg" alt="Loopring" width="90" />   | [Loopring](https://loopring.io/)         |             [spot clob](https://hummingbot.org/exchanges/loopring/)             |           |             |
+| <img src="assets/mm-finance-logo.png" alt="MM Finance" width="90" /> | [MM Finance](https://mm.finance/swap)          |           [amm](<https://hummingbot.org/gateway/exchanges/mm-finance/>            |           |             |
+| <img src="assets/pancakeswap-logo.png" alt="Pancakeswap" width="90" /> | [PancakeSwap](https://pancakeswap.finance/)        |           [amm](<https://hummingbot.org/gateway/exchanges/pancakeswap/>            |           |             |
 | <img src="assets/pangolin-logo.jpg" alt="Pangolin" width="90" />   | [Pangolin](https://pangolin.exchange/)   |            [amm](https://hummingbot.org/gateway/exchanges/pangolin/)            |           |             |
 | <img src="assets/quickswap-logo.png" alt="Quickswap" width="90" /> | [Quickswap](https://quickswap.exchange)  |           [amm](https://hummingbot.org/gateway/exchanges/quickswap/)            |           |             |
+| <img src="assets/ref-finance-logo.png" alt="Ref Finance" width="90" /> | [Ref.Finance](https://www.ref.finance/)          |           [amm](<https://hummingbot.org/gateway/exchanges/ref-finance/>            |           |             |
 | <img src="assets/sushiswap-logo.jpg" alt="Sushiswap" width="90" /> | [Sushiswap](https://sushi.com/)          |           [amm](https://hummingbot.org/gateway/exchanges/sushiswap/)            |           |             |
 | <img src="assets/traderjoe-logo.png" alt="Traderjoe" width="80" /> | [TraderJoe](https://traderjoexyz.com/)   |           [amm](https://hummingbot.org/gateway/exchanges/traderjoe/)            |           |             |
 | <img src="assets/uniswap-logo.jpg" alt="Uniswap" width="90" />     | [Uniswap](https://uniswap.org/)          | [concentrated liquidity amm](https://hummingbot.org/gateway/exchanges/uniswap/) |           |             |
+| <img src="assets/vvs-finance-logo.png" alt="VVS Finance" width="90" /> | [VVS Finance](https://vvs.finance/swap)         |           [amm](<https://hummingbot.org/gateway/exchanges/vvs-finance/>            |           |             |
 
 ## Getting Started
 
-- [Website](https://hummingbot.org)
-- [Docs](https://hummingbot.org/docs)
-- [FAQs](https://hummingbot.org/faq/)
-- [Installation](https://hummingbot.org/installation/)
-- [Developers](https://hummingbot.org/developers/)
+* [Website](https://hummingbot.org)
+* [Docs](https://hummingbot.org/docs)
+* [FAQs](https://hummingbot.org/faq/)
+* [Installation](https://hummingbot.org/installation/)
+* [Developers](https://hummingbot.org/developers/)
 
 ### Community
 
-- [Discord](https://discord.gg/hummingbot)
-- [Youtube](https://www.youtube.com/c/hummingbot)
-- [Twitter](https://twitter.com/hummingbot_io)
-- [Reddit](https://www.reddit.com/r/Hummingbot/)
-- [Forum](https://hummingbot.discourse.group/)
+* [Discord](https://discord.gg/hummingbot)
+* [Youtube](https://www.youtube.com/c/hummingbot)
+* [Twitter](https://twitter.com/hummingbot_io)
+* [Reddit](https://www.reddit.com/r/Hummingbot/)
+* [Forum](https://hummingbot.discourse.group/)
 
 ## Other Hummingbot Repos
 
-- [Hummingbot Site](https://github.com/hummingbot/hummingbot-site): Official website and documentation for Hummingbot - we welcome contributions here too!
-- [Hummingbot Project Management](https://github.com/hummingbot/pm): Agendas and recordings of regular Hummingbot developer and community calls
-- [Awesome Hummingbot](https://github.com/hummingbot/awesome-hummingbot): All the Hummingbot links
-- [Hummingbot StreamLit Apps](https://github.com/hummingbot/streamlit-apps): Hummingbot-related StreamLit data apps and dashboards
+* [Hummingbot Site](https://github.com/hummingbot/hummingbot-site): Official website and documentation for Hummingbot - we welcome contributions here too!
+* [Hummingbot Project Management](https://github.com/hummingbot/pm): Agendas and recordings of regular Hummingbot developer and community calls
+* [Awesome Hummingbot](https://github.com/hummingbot/awesome-hummingbot): All the Hummingbot links
+* [Hummingbot StreamLit Apps](https://github.com/hummingbot/streamlit-apps): Hummingbot-related StreamLit data apps and dashboards
 
 ## Contributions
 
 Hummingbot belongs to its community, so we welcome contributions! Please review these [guidelines](./CONTRIBUTING.md) first.
 
-To have your pull request reviewed by the community, submit a [Pull Request Proposal](https://snapshot.org/#/hbot-prp.eth) on our Snapshot. Note that you will need 1 HBOT in your Ethereum wallet to submit a Pull Request Proposal. See https://www.coingecko.com/coins/hummingbot for markets where HBOT trades.
+To have your pull request reviewed by the community, submit a [Pull Request Proposal](https://snapshot.org/#/hbot-prp.eth) on our Snapshot. Note that you will need 1 HBOT in your Ethereum wallet to submit a Pull Request Proposal. See <https://www.coingecko.com/coins/hummingbot> for markets where HBOT trades.
 
 ## Legal
 
-- **License**: Hummingbot is licensed under [Apache 2.0](./LICENSE).
-- **Data collection**: read important information regarding [Hummingbot Data Collection](./DATA_COLLECTION.md).
+* **License**: Hummingbot is licensed under [Apache 2.0](./LICENSE).
+* **Data collection**: read important information regarding [Hummingbot Data Collection](./DATA_COLLECTION.md).
