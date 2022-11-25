@@ -37,7 +37,7 @@ from hummingbot.core.utils.gateway_config_utils import (
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 class GatewayCommand(GatewayChainApiManager):
