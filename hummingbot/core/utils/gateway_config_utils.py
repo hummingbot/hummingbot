@@ -9,7 +9,9 @@ native_tokens = {
     "solana": "SOL",
     "polygon": "MATIC",
     "harmony": "ONE",
-    "cronos": "CRO"
+    "binance-smart-chain": "BNB",
+    "cronos": "CRO",
+    "near": "NEAR"
 }
 
 SUPPORTED_CHAINS = set(native_tokens.keys())
