@@ -156,7 +156,7 @@ export class RippleDEX {
     amount: number
   ): Promise<any> {
     const ripple = Ripple.getInstance(this.network);
-    const wallet = await ripple.getWalletFromSeed(walletAddress); // TOFIX: replace with getWallet once decrypting wallet work
+    const wallet = await ripple.getWallet(walletAddress);
     const total = price * amount;
     let we_pay = {
       currency: '',
@@ -221,7 +221,7 @@ export class RippleDEX {
     offerSequence: number
   ): Promise<any> {
     const ripple = Ripple.getInstance(this.network);
-    const wallet = await ripple.getWalletFromSeed(walletAddress); // TOFIX: replace with getWallet once decrypting wallet work
+    const wallet = await ripple.getWallet(walletAddress);
     const request: OfferCancel = {
       TransactionType: 'OfferCancel',
       Account: wallet.classicAddress,

@@ -207,30 +207,31 @@ export class Ripple implements Rippleish {
     const cipher = crypto.createCipheriv(algorithm, key, iv);
     const encrypted = Buffer.concat([cipher.update(secret), cipher.final()]);
 
+    const ivJSON = iv.toJSON();
+    const saltJSON = salt.toJSON();
+    const encryptedJSON = encrypted.toJSON();
+
     return JSON.stringify({
       algorithm,
-      iv,
-      salt,
-      encrypted,
+      iv: ivJSON,
+      salt: saltJSON,
+      encrypted: encryptedJSON,
     });
   }
 
   async decrypt(encryptedSecret: string, password: string): Promise<string> {
-    const enc = new TextEncoder();
+    console.log('encryptedSecret: ', encryptedSecret);
     const hash = JSON.parse(encryptedSecret);
-    const salt = enc.encode(hash.salt);
+    console.log('hash: ', hash);
+    const salt = Buffer.from(hash.salt, 'utf8');
+    const iv = Buffer.from(hash.iv, 'utf8');
+
     const key = crypto.pbkdf2Sync(password, salt, 5000, 32, 'sha512');
 
-    console.log(hash);
-
-    const decipher = crypto.createDecipheriv(
-      hash.algorithm,
-      key,
-      enc.encode(hash.iv) // TOFIX: invalid iv
-    );
+    const decipher = crypto.createDecipheriv(hash.algorithm, key, iv);
 
     const decrpyted = Buffer.concat([
-      decipher.update(Buffer.from(hash.content, 'hex')),
+      decipher.update(Buffer.from(hash.encrypted, 'hex')),
       decipher.final(),
     ]);
 
