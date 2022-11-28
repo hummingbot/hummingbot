@@ -71,8 +71,9 @@ class RESTAssistant:
                     return error_response
                 else:
                     error_response = await response.text()
+                    error_text = "N/A" if "<html" in error_response else error_response
                     raise IOError(f"Error executing request {method.name} {url}. HTTP status is {response.status}. "
-                                  f"Error: {error_response}")
+                                  f"Error: {error_text}")
             result = await response.json()
             return result
 
