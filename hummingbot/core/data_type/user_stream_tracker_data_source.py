@@ -44,13 +44,15 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
             try:
                 self._ws_assistant = await self._connected_websocket_assistant()
                 await self._subscribe_channels(websocket_assistant=self._ws_assistant)
-                await self._ws_assistant.ping()  # to update last_recv_timestamp
+                await self._send_ping(websocket_assistant=self._ws_assistant)  # to update last_recv_timestamp
                 await self._process_websocket_messages(websocket_assistant=self._ws_assistant, queue=output)
             except asyncio.CancelledError:
                 raise
+            except ConnectionError as connection_exception:
+                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
             except Exception:
                 self.logger().exception("Unexpected error while listening to user stream. Retrying after 5 seconds...")
-                await self._sleep(5.0)
+                await self._sleep(1.0)
             finally:
                 await self._on_user_stream_interruption(websocket_assistant=self._ws_assistant)
                 self._ws_assistant = None
@@ -82,6 +84,9 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
 
     async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
         websocket_assistant and await websocket_assistant.disconnect()
+
+    async def _send_ping(self, websocket_assistant: WSAssistant):
+        await websocket_assistant.ping()
 
     async def _sleep(self, delay: float):
         """
