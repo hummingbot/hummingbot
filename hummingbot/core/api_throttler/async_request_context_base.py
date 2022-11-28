@@ -39,7 +39,7 @@ class AsyncRequestContextBase(ABC):
         Asynchronous context associated with each API request.
         :param task_logs: Shared task logs associated with this API request
         :param rate_limit: The RateLimit associated with this API Request
-        :param rate_limits: List of linked rate limits with its corresponding weight associated with this API Request
+        :param related_limits: List of linked rate limits with its corresponding weight associated with this API Request
         :param lock: A shared asyncio.Lock used between all instances of APIRequestContextBase
         :param retry_interval: Time between each limit check
         """
@@ -77,12 +77,15 @@ class AsyncRequestContextBase(ABC):
         async with self._lock:
             now = time.time()
             # Each related limit is represented as it own individual TaskLog
+
+            # Log the acquired rate limit into the tasks log
             self._task_logs.append(TaskLog(timestamp=now,
                                            rate_limit=self._rate_limit,
                                            weight=self._rate_limit.weight))
+
+            # Log its related limits into the tasks log as individual tasks
             for limit, weight in self._related_limits:
-                task = TaskLog(timestamp=now, rate_limit=limit, weight=weight)
-                self._task_logs.append(task)
+                self._task_logs.append(TaskLog(timestamp=now, rate_limit=limit, weight=weight))
 
     async def __aenter__(self):
         await self.acquire()
