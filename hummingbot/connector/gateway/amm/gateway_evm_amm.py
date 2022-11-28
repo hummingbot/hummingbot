@@ -70,6 +70,7 @@ class GatewayEVMAMM(ConnectorBase):
     _auto_approve_task: Optional[asyncio.Task]
     _poll_notifier: Optional[asyncio.Event]
     _native_currency: str
+    _amount_quantum_dict: Dict[str, Decimal]
 
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
@@ -113,6 +114,8 @@ class GatewayEVMAMM(ConnectorBase):
         self._native_currency = None
         self._network_transaction_fee: Optional[TokenAmount] = None
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self, lost_order_count_limit=10)
+        self._amount_quantum_dict = {}
+        safe_ensure_future(self.load_token_data())
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -241,6 +244,11 @@ class GatewayEVMAMM(ConnectorBase):
             if token in order.client_order_id:
                 return order.is_pending_approval
         return False
+
+    async def load_token_data(self):
+        tokens = await GatewayHttpClient.get_instance().get_tokens(self.chain, self.network)
+        for t in tokens.get("tokens", []):
+            self._amount_quantum_dict[t["symbol"]] = Decimal(str(10 ** -t["decimals"]))
 
     async def get_chain_info(self):
         """
@@ -807,7 +815,8 @@ class GatewayEVMAMM(ConnectorBase):
         return Decimal("1e-15")
 
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
-        return Decimal("1e-15")
+        base, quote = trading_pair.split("-")
+        return max(self._amount_quantum_dict[base], self._amount_quantum_dict[quote])
 
     @property
     def ready(self):

@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 import pandas as pd
 from prompt_toolkit.utils import is_windows
 
-from hummingbot.client.config.config_data_types import BaseTradingStrategyConfigMap
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     missing_required_configs_legacy,
@@ -15,6 +14,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.security import Security
+from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyConfigMap
 from hummingbot.client.settings import CLIENT_CONFIG_PATH, STRATEGIES_CONF_DIR_PATH
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.client.ui.style import load_style

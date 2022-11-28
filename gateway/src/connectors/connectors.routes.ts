@@ -27,7 +27,9 @@ export namespace ConnectorsRoutes {
           {
             name: 'uniswapLP',
             trading_type: UniswapConfig.config.tradingTypes('LP'),
-            available_networks: UniswapConfig.config.availableNetworks,
+            available_networks: JSON.parse(
+              JSON.stringify(UniswapConfig.config.availableNetworks)
+            ),
             additional_spenders: ['uniswap'],
           },
           {
