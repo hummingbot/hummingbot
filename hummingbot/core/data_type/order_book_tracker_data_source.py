@@ -40,9 +40,7 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         self._order_book_create_function = func
 
     @abstractmethod
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         """
         Return a dictionary the trading_pair as key and the current price as value for each trading pair passed as
         parameter.
@@ -82,13 +80,15 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
                 await self._process_websocket_messages(websocket_assistant=ws)
             except asyncio.CancelledError:
                 raise
+            except ConnectionError as connection_exception:
+                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
             except Exception:
                 self.logger().exception(
                     "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
                 )
-                await self._sleep(5.0)
+                await self._sleep(1.0)
             finally:
-                ws and await ws.disconnect()
+                await self._on_order_stream_interruption(websocket_assistant=ws)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
@@ -128,8 +128,8 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
                     await self._parse_order_book_snapshot_message(raw_message=snapshot_event, message_queue=output)
                 except asyncio.TimeoutError:
                     await self._request_order_book_snapshots(output=output)
-            except asyncio.CancelledError as cancelled_ex:
-                raise cancelled_ex
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 self.logger().exception("Unexpected error when processing public order book snapshots from exchange")
                 await self._sleep(1.0)
@@ -217,17 +217,36 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         """
         raise NotImplementedError
 
+    async def _process_message_for_unknown_channel(
+        self, event_message: Dict[str, Any], websocket_assistant: WSAssistant
+    ):
+        """
+        Processes a message coming from a not identified channel.
+        Does nothing by default but allows subclasses to reimplement
+
+        :param event_message: the event received through the websocket connection
+        :param websocket_assistant: the websocket connection to use to interact with the exchange
+        """
+        pass
+
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
-            channel: str = self._channel_originating_message(event_message=data)
-            possible_channels = [
-                self._snapshot_messages_queue_key,
-                self._diff_messages_queue_key,
-                self._trade_messages_queue_key
-            ]
-            if channel in possible_channels:
-                self._message_queue[channel].put_nowait(data)
+            if data is not None:  # data will be None when the websocket is disconnected
+                channel: str = self._channel_originating_message(event_message=data)
+                valid_channels = self._get_messages_queue_keys()
+                if channel in valid_channels:
+                    self._message_queue[channel].put_nowait(data)
+                else:
+                    await self._process_message_for_unknown_channel(
+                        event_message=data, websocket_assistant=websocket_assistant
+                    )
+
+    def _get_messages_queue_keys(self) -> List[str]:
+        return [self._snapshot_messages_queue_key, self._diff_messages_queue_key, self._trade_messages_queue_key]
+
+    async def _on_order_stream_interruption(self, websocket_assistant: Optional[WSAssistant] = None):
+        websocket_assistant and await websocket_assistant.disconnect()
 
     async def _sleep(self, delay):
         """
