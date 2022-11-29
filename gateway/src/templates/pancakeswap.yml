@@ -1,0 +1,16 @@
+# how much the execution price is allowed to move unfavorably from the trade
+# execution price. It uses a rational number for precision.
+allowedSlippage: '1/100'
+
+# the maximum gas used to estimate gasCost for a uniswap trade.
+gasLimitEstimate: 150688
+
+# how long a trade is valid in seconds. After time passes pancakeswap will not
+# perform the trade, but the gas will still be spent.
+ttl: 300
+
+contractAddresses:
+  mainnet:
+      routerAddress: '0x10ED43C718714eb63d5aA57B78B54704E256024E'
+  testnet:
+      routerAddress: '0xdc4904b5f716Ff30d8495e35dC99c109bb5eCf81'
