@@ -1600,7 +1600,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     taker_trading_pair, True, quote_asset_amount
                 ).result_price
 
-            adjusted_taker_price = taker_price * taker_slippage_adjustment_factor
+            adjusted_taker_price = (taker_price / base_rate) * taker_slippage_adjustment_factor
             order_size_limit = min(base_asset_amount, quote_asset_amount / adjusted_taker_price)
 
         quantized_size_limit = maker_market.quantize_order_amount(active_order.trading_pair, order_size_limit)
