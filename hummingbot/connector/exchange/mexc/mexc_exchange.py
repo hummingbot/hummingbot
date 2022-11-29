@@ -593,7 +593,7 @@ class MexcExchange(ExchangeBase):
         }
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT]
 
     @property
     def ready(self) -> bool:
