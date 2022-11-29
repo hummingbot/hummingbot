@@ -1154,7 +1154,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             else:
                 try:
                     taker_price = taker_market.get_price_for_quote_volume(
-                        taker_trading_pair, True, size
+                        taker_trading_pair, True, taker_balance_in_quote
                     ).result_price
                 except ZeroDivisionError:
                     assert size == s_decimal_zero
