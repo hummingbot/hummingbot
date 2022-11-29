@@ -1585,7 +1585,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             taker_slippage_adjustment_factor = Decimal("1") + self.slippage_buffer
 
             base_asset_amount = maker_market.get_balance(market_pair.maker.base_asset)
-            quote_asset_amount = taker_market.get_balance(market_pair.taker.quote_asset) * quote_rate
+            quote_asset_amount = taker_market.get_balance(market_pair.taker.quote_asset)
 
             if self.is_gateway_market(market_pair.taker):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
@@ -1600,7 +1600,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     taker_trading_pair, True, quote_asset_amount
                 ).result_price
 
-            taker_price *= self.markettaker_to_maker_base_conversion_rate(market_pair)
             adjusted_taker_price = taker_price * taker_slippage_adjustment_factor
             order_size_limit = min(base_asset_amount, quote_asset_amount / adjusted_taker_price)
 
