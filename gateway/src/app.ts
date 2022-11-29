@@ -18,11 +18,13 @@ import { NetworkRoutes } from './network/network.routes';
 import { ConnectorsRoutes } from './connectors/connectors.routes';
 import { EVMRoutes } from './evm/evm.routes';
 import { AmmRoutes, AmmLiquidityRoutes, PerpAmmRoutes } from './amm/amm.routes';
+import { MadMeerkatConfig } from './connectors/mad_meerkat/mad_meerkat.config';
 import { PangolinConfig } from './connectors/pangolin/pangolin.config';
 import { QuickswapConfig } from './connectors/quickswap/quickswap.config';
 import { TraderjoeConfig } from './connectors/traderjoe/traderjoe.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
 import { OpenoceanConfig } from './connectors/openocean/openocean.config';
+import { VVSConfig } from './connectors/vvs/vvs.config';
 import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
 import { ClobRoutes } from './clob/clob.routes';
@@ -30,8 +32,10 @@ import { SerumRoutes } from './connectors/serum/serum.routes';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
 import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.config';
 import { SerumConfig } from './connectors/serum/serum.config';
+import { PancakeSwapConfig } from './connectors/pancakeswap/pancakeswap.config';
 
 import swaggerUi from 'swagger-ui-express';
+import { NearRoutes } from './chains/near/near.routes';
 
 export const gatewayApp = express();
 
@@ -66,6 +70,7 @@ gatewayApp.use('/clob', ClobRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
 gatewayApp.use('/serum', SerumRoutes.router);
+gatewayApp.use('/near', NearRoutes.router);
 
 // a simple route to test that the server is running
 gatewayApp.get('/', (_req: Request, res: Response) => {
@@ -73,14 +78,7 @@ gatewayApp.get('/', (_req: Request, res: Response) => {
 });
 
 interface ConnectorsResponse {
-  uniswap: Array<AvailableNetworks>;
-  pangolin: Array<AvailableNetworks>;
-  quickswap: Array<AvailableNetworks>;
-  sushiswap: Array<AvailableNetworks>;
-  openocean: Array<AvailableNetworks>;
-  traderjoe: Array<AvailableNetworks>;
-  defikingdoms: Array<AvailableNetworks>;
-  serum: Array<AvailableNetworks>;
+  [key: string]: Array<AvailableNetworks>;
 }
 
 gatewayApp.get(
@@ -95,6 +93,9 @@ gatewayApp.get(
       traderjoe: TraderjoeConfig.config.availableNetworks,
       defikingdoms: DefikingdomsConfig.config.availableNetworks,
       serum: SerumConfig.config.availableNetworks,
+      mad_meerkat: MadMeerkatConfig.config.availableNetworks,
+      vvs: VVSConfig.config.availableNetworks,
+      pancakeswap: PancakeSwapConfig.config.availableNetworks,
     });
   })
 );
@@ -135,6 +136,7 @@ export const swaggerDocument = SwaggerManager.generateSwaggerJson(
     './docs/swagger/evm-routes.yml',
     './docs/swagger/network-routes.yml',
     './docs/swagger/solana-routes.yml',
+    './docs/swagger/near-routes.yml',
     './docs/swagger/clob-routes.yml',
     './docs/swagger/serum-routes.yml',
   ]

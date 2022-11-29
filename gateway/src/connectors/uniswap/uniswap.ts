@@ -290,33 +290,34 @@ export class Uniswap implements Uniswapish {
       }
     );
 
-    if (nonce === undefined) {
-      nonce = await this.chain.nonceManager.getNextNonce(wallet.address);
-    }
-    let tx: ContractTransaction;
-    if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
-      tx = await wallet.sendTransaction({
-        data: methodParameters.calldata,
-        to: uniswapRouter,
-        gasLimit: BigNumber.from(String(gasLimit)),
-        value: BigNumber.from(methodParameters.value),
-        nonce: BigNumber.from(String(nonce)),
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      });
-    } else {
-      tx = await wallet.sendTransaction({
-        data: methodParameters.calldata,
-        to: this.router,
-        gasPrice: BigNumber.from(String((gasPrice * 1e9).toFixed(0))),
-        gasLimit: BigNumber.from(String(gasLimit)),
-        value: BigNumber.from(methodParameters.value),
-        nonce: BigNumber.from(String(nonce)),
-      });
-    }
-
-    logger.info(tx);
-    await this.chain.nonceManager.commitNonce(wallet.address, nonce);
-    return tx;
+    return this.chain.nonceManager.provideNonce(
+      nonce,
+      wallet.address,
+      async (nextNonce) => {
+        let tx: ContractTransaction;
+        if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
+          tx = await wallet.sendTransaction({
+            data: methodParameters.calldata,
+            to: uniswapRouter,
+            gasLimit: gasLimit.toFixed(0),
+            value: methodParameters.value,
+            nonce: nextNonce,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
+          });
+        } else {
+          tx = await wallet.sendTransaction({
+            data: methodParameters.calldata,
+            to: this.router,
+            gasPrice: (gasPrice * 1e9).toFixed(0),
+            gasLimit: gasLimit.toFixed(0),
+            value: methodParameters.value,
+            nonce: nextNonce,
+          });
+        }
+        logger.info(JSON.stringify(tx));
+        return tx;
+      }
+    );
   }
 }
