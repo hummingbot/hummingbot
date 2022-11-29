@@ -264,29 +264,31 @@ export class Quickswap implements Uniswapish {
     });
 
     const contract = new Contract(quickswapRouter, abi, wallet);
-    if (!nonce) {
-      nonce = await this.polygon.nonceManager.getNextNonce(wallet.address);
-    }
-    let tx;
-    if (maxFeePerGas || maxPriorityFeePerGas) {
-      tx = await contract[result.methodName](...result.args, {
-        gasLimit: gasLimit.toFixed(0),
-        value: result.value,
-        nonce: nonce,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      });
-    } else {
-      tx = await contract[result.methodName](...result.args, {
-        gasPrice: (gasPrice * 1e9).toFixed(0),
-        gasLimit: gasLimit.toFixed(0),
-        value: result.value,
-        nonce: nonce,
-      });
-    }
+    return this.polygon.nonceManager.provideNonce(
+      nonce,
+      wallet.address,
+      async (nextNonce) => {
+        let tx;
+        if (maxFeePerGas || maxPriorityFeePerGas) {
+          tx = await contract[result.methodName](...result.args, {
+            gasLimit: gasLimit.toFixed(0),
+            value: result.value,
+            nonce: nextNonce,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
+          });
+        } else {
+          tx = await contract[result.methodName](...result.args, {
+            gasPrice: (gasPrice * 1e9).toFixed(0),
+            gasLimit: gasLimit.toFixed(0),
+            value: result.value,
+            nonce: nextNonce,
+          });
+        }
 
-    logger.info(tx);
-    await this.polygon.nonceManager.commitNonce(wallet.address, nonce);
-    return tx;
+        logger.info(JSON.stringify(tx));
+        return tx;
+      }
+    );
   }
 }
