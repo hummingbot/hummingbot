@@ -1597,7 +1597,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     return False
             else:
                 taker_price = taker_market.get_price_for_quote_volume(
-                    taker_trading_pair, True, size
+                    taker_trading_pair, True, quote_asset_amount
                 ).result_price
 
             taker_price *= self.markettaker_to_maker_base_conversion_rate(market_pair)
