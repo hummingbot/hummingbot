@@ -137,4 +137,11 @@ class NetworkMockingAssistant:
 
     def run_until_all_aiohttp_messages_delivered(self, websocket_mock, timeout: int = 1):
         all_delivered = self._all_incoming_websocket_aiohttp_delivered_event[websocket_mock]
-        self._ev_loop.run_until_complete(asyncio.wait_for(all_delivered.wait(), timeout))
+        if self._ev_loop.is_running():
+            asyncio.ensure_future(asyncio.wait_for(all_delivered.wait(), timeout))
+        else:
+            self._ev_loop.run_until_complete(asyncio.wait_for(all_delivered.wait(), timeout))
+
+    async def async_run_until_all_aiohttp_messages_delivered(self, websocket_mock, timeout: int = 5):
+        all_delivered = self._all_incoming_websocket_aiohttp_delivered_event[websocket_mock]
+        await asyncio.wait_for(all_delivered.wait(), timeout)

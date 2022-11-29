@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
@@ -9,7 +9,7 @@ class BtcMarketsOrderBook(OrderBook):
     @classmethod
     def snapshot_message_from_exchange_websocket(cls,
                                                  msg: Dict[str, any],
-                                                 timestamp: float,
+                                                 timestamp: Union[float, int],
                                                  metadata: Optional[Dict] = None) -> OrderBookMessage:
         """
         Creates a snapshot message with the order book snapshot message
@@ -32,7 +32,7 @@ class BtcMarketsOrderBook(OrderBook):
     @classmethod
     def snapshot_message_from_exchange_rest(cls,
                                             msg: Dict[str, any],
-                                            timestamp: float,
+                                            timestamp: Union[float, int],
                                             metadata: Optional[Dict] = None) -> OrderBookMessage:
         """
         Creates a snapshot message with the order book snapshot message
@@ -55,7 +55,7 @@ class BtcMarketsOrderBook(OrderBook):
     @classmethod
     def diff_message_from_exchange(cls,
                                    msg: Dict[str, any],
-                                   timestamp: Optional[float] = None,
+                                   timestamp: Optional[Union[float, int]] = None,
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         """
         Creates a diff message with the changes in the order book received from the exchange
@@ -78,7 +78,7 @@ class BtcMarketsOrderBook(OrderBook):
     @classmethod
     def trade_message_from_exchange(cls,
                                     msg: Dict[str, any],
-                                    timestamp: Optional[float] = None,
+                                    timestamp: Optional[Union[float, int]] = None,
                                     metadata: Optional[Dict] = None):
         """
         Creates a trade message with the information from the trade event sent by the exchange

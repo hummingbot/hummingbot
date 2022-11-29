@@ -23,7 +23,7 @@ cdef class CoinbaseProOrderBook(OrderBook):
     def snapshot_message_from_exchange(cls,
                                        msg: Dict[str, any],
                                        timestamp: float,
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                       metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         """
         *required
         Convert json snapshot data into standard OrderBookMessage format
@@ -43,7 +43,7 @@ cdef class CoinbaseProOrderBook(OrderBook):
     def diff_message_from_exchange(cls,
                                    msg: Dict[str, any],
                                    timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                   metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         """
         *required
         Convert json diff data into standard OrderBookMessage format

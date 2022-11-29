@@ -24,7 +24,7 @@ class BitmexPerpetualOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": timestamp,
+            "update_id": int(timestamp),
             "bids": msg["bids"],
             "asks": msg["asks"]
         }, timestamp=timestamp)
@@ -37,7 +37,7 @@ class BitmexPerpetualOrderBook(OrderBook):
             data.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": data["symbol"],
-            "update_id": timestamp,
+            "update_id": int(timestamp),
             "bids": data["bids"],
             "asks": data["asks"]
         }, timestamp=timestamp)
@@ -51,8 +51,8 @@ class BitmexPerpetualOrderBook(OrderBook):
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": data["symbol"],
             "trade_type": float(TradeType.SELL.value) if data["side"] == "Sell" else float(TradeType.BUY.value),
-            "trade_id": timestamp,
-            "update_id": timestamp,
+            "trade_id": int(timestamp),
+            "update_id": int(timestamp),
             "price": data["price"],
             "amount": data["size"]
         }, timestamp=timestamp)

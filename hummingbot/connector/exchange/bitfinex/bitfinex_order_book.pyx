@@ -30,7 +30,7 @@ cdef class BitfinexOrderBook(OrderBook):
     def snapshot_message_from_exchange(cls,
                                        msg: Dict[str, Any],
                                        timestamp: float,
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                       metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         return BitfinexOrderBookMessage(
@@ -43,7 +43,7 @@ cdef class BitfinexOrderBook(OrderBook):
     def diff_message_from_exchange(cls,
                                    msg: Dict[str, any],
                                    timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                   metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         if "time" in msg:
@@ -55,7 +55,7 @@ cdef class BitfinexOrderBook(OrderBook):
             timestamp=timestamp or msg_time)
 
     @classmethod
-    def trade_message_from_exchange(cls, msg: Dict[str, Any], metadata: Optional[Dict] = None):
+    def trade_message_from_exchange(cls, msg: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None):
         if metadata:
             msg.update(metadata)
 

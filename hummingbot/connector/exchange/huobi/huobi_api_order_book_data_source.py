@@ -21,7 +21,6 @@ from hummingbot.logger import HummingbotLogger
 
 
 class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
-
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
     HEARTBEAT_INTERVAL = 30.0  # seconds
@@ -59,7 +58,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._ws_assistant
 
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+    async def get_last_traded_prices(cls, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         api_factory = build_api_factory()
         rest_assistant = await api_factory.get_rest_assistant()
 
@@ -71,7 +70,8 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
         results = dict()
         resp_json = await response.json()
         for trading_pair in trading_pairs:
-            resp_record = [o for o in resp_json["data"] if o["symbol"] == convert_to_exchange_trading_pair(trading_pair)][0]
+            resp_record = \
+                [o for o in resp_json["data"] if o["symbol"] == convert_to_exchange_trading_pair(trading_pair)][0]
             results[trading_pair] = float(resp_record["close"])
         return results
 
@@ -119,11 +119,11 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
         timestamp = snapshot["tick"]["ts"]
         snapshot_msg: OrderBookMessage = HuobiOrderBook.snapshot_message_from_exchange(
             msg=snapshot,
-            timestamp=timestamp,
+            timestamp=float(timestamp),
             metadata={"trading_pair": trading_pair},
         )
         order_book: OrderBook = self.order_book_create_function()
-        order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
+        order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, int(snapshot_msg.update_id))
         return order_book
 
     async def _subscribe_channels(self, ws: WSAssistant):
@@ -236,5 +236,6 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error listening for orderbook snapshots. Retrying in 5 secs...", exc_info=True)
+                self.logger().error("Unexpected error listening for orderbook snapshots. Retrying in 5 secs...",
+                                    exc_info=True)
                 await self._sleep(5.0)

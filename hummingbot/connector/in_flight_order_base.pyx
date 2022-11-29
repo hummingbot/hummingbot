@@ -175,7 +175,7 @@ cdef class InFlightOrderBase:
     async def wait_until_completely_filled(self):
         await self.completely_filled_event.wait()
 
-    def _creation_timestamp_from_order_id(self) -> int:
+    def _creation_timestamp_from_order_id(self) -> float:
         timestamp = -1
         if len(self.client_order_id) > 16:
             nonce_component = self.client_order_id[-16:]

@@ -32,7 +32,7 @@ cdef class LoopringOrderBook(OrderBook):
     def snapshot_message_from_exchange(cls,
                                        msg: Dict[str, any],
                                        timestamp: float,
-                                       metadata: Optional[Dict] = None) -> LoopringOrderBookMessage:
+                                       metadata: Optional[Dict[str, Any]] = None) -> LoopringOrderBookMessage:
         if metadata:
             msg.update(metadata)
         return LoopringOrderBookMessage(OrderBookMessageType.SNAPSHOT, msg, timestamp)
@@ -41,13 +41,13 @@ cdef class LoopringOrderBook(OrderBook):
     def diff_message_from_exchange(cls,
                                    msg: Dict[str, any],
                                    timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                   metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         return LoopringOrderBookMessage(OrderBookMessageType.DIFF, msg, timestamp)
 
     @classmethod
-    def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
+    def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict[str, Any]] = None):
         ts = metadata["ts"]
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": metadata["topic"]["market"],
@@ -59,12 +59,12 @@ cdef class LoopringOrderBook(OrderBook):
         }, timestamp=ts * 1e-3)
 
     @classmethod
-    def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         msg = ujson.loads(record.value.decode())
         return LoopringOrderBookMessage(OrderBookMessageType.SNAPSHOT, msg, timestamp=record.timestamp * 1e-3)
 
     @classmethod
-    def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict[str, Any]] = None) -> OrderBookMessage:
         msg = ujson.loads(record.value.decode())
         return LoopringOrderBookMessage(OrderBookMessageType.DIFF, msg)
 

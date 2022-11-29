@@ -269,7 +269,7 @@ class OrderBookTracker:
                     message = await message_queue.get()
 
                 if message.type is OrderBookMessageType.DIFF:
-                    order_book.apply_diffs(message.bids, message.asks, message.update_id)
+                    order_book.apply_diffs(message.bids, message.asks, int(message.update_id))
                     past_diffs_window.append(message)
                     diff_messages_accepted += 1
 

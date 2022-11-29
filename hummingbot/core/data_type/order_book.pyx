@@ -487,6 +487,6 @@ cdef class OrderBook(PubSub):
     def restore_from_snapshot_and_diffs(self, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
         replay_position = bisect.bisect_right(diffs, snapshot)
         replay_diffs = diffs[replay_position:]
-        self.apply_snapshot(snapshot.bids, snapshot.asks, snapshot.update_id)
+        self.apply_snapshot(snapshot.bids, snapshot.asks, int(snapshot.update_id))
         for diff in replay_diffs:
-            self.apply_diffs(diff.bids, diff.asks, diff.update_id)
+            self.apply_diffs(diff.bids, diff.asks, int(diff.update_id))

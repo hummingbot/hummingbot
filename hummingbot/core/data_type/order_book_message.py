@@ -1,7 +1,7 @@
 from collections import namedtuple
 from enum import Enum
 from functools import total_ordering
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
@@ -22,11 +22,11 @@ class OrderBookMessage(namedtuple("_OrderBookMessage", "type, content, timestamp
         cls,
         message_type: OrderBookMessageType,
         content: Dict[str, any],
-        timestamp: Optional[float] = None,
+        timestamp: Optional[Union[float, int]] = None,
         *args,
         **kwargs,
     ):
-        return super(OrderBookMessage, cls).__new__(cls, message_type, content, timestamp, *args, **kwargs)
+        return super(OrderBookMessage, cls).__new__(cls, message_type, content, float(timestamp) if timestamp else None, *args, **kwargs)
 
     @property
     def update_id(self) -> int:

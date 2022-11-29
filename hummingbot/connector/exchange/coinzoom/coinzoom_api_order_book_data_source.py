@@ -2,25 +2,22 @@
 import asyncio
 import logging
 import time
-import pandas as pd
 from decimal import Decimal
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+import pandas as pd
+
 import hummingbot.connector.exchange.coinzoom.coinzoom_http_utils as http_utils
-from .coinzoom_utils import (
-    convert_to_exchange_trading_pair,
-    convert_from_exchange_trading_pair,
-    CoinzoomAPIError,
-)
-
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from .coinzoom_constants import Constants
+
 from .coinzoom_active_order_tracker import CoinzoomActiveOrderTracker
+from .coinzoom_constants import Constants
 from .coinzoom_order_book import CoinzoomOrderBook
+from .coinzoom_utils import CoinzoomAPIError, convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
 from .coinzoom_websocket import CoinzoomWebsocket
 
 
@@ -113,7 +110,7 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
         order_book = self.order_book_create_function()
         active_order_tracker: CoinzoomActiveOrderTracker = CoinzoomActiveOrderTracker()
         bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
-        order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+        order_book.apply_snapshot(bids, asks, int(snapshot_msg.update_id))
         return order_book
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):

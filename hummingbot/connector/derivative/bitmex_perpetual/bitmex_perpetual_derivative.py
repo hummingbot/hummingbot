@@ -479,7 +479,7 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                             del in_flight_orders_copy[client_order_id]
                             self._update_inflight_order(tracked_order, order)
             for client_order_id, in_flight_order in in_flight_orders_copy.items():
-                if in_flight_order.creation_timestamp < (self.time_now_s() - UNRECOGNIZED_ORDER_DEBOUCE):
+                if float(in_flight_order.creation_timestamp) < (self.time_now_s() - UNRECOGNIZED_ORDER_DEBOUCE):
                     # We'll just have to assume that this order doesn't exist
                     cancellation_event = OrderCancelledEvent(now(), client_order_id)
                     self.stop_tracking_order(client_order_id)

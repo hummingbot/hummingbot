@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import hummingbot.connector.exchange.btc_markets.btc_markets_constants as CONSTANTS
@@ -118,8 +119,10 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(raw_message["marketId"])
 
+            # Date in raw message is a str in second with UTC (why not use the "snapshotId"?
+            timestamp = datetime.fromisoformat(raw_message["timestamp"][:-1] + '+00:00').timestamp() * 1000
             trade_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.trade_message_from_exchange(
-                raw_message, raw_message["timestamp"], {"marketId": trading_pair})
+                raw_message, timestamp, {"marketId": trading_pair})
 
             message_queue.put_nowait(trade_message)
 
@@ -138,8 +141,10 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(raw_message["marketId"])
 
+            # Date in raw message is a str in second with UTC (why not use the "snapshotId"?
+            timestamp = datetime.fromisoformat(raw_message["timestamp"][:-1] + '+00:00').timestamp() * 1000
             diff_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.diff_message_from_exchange(
-                raw_message, raw_message["timestamp"], {"marketId": trading_pair})
+                raw_message, timestamp, {"marketId": trading_pair})
 
             message_queue.put_nowait(diff_message)
 
@@ -154,8 +159,10 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(marketId)
 
+            # Date in raw message is a str in second with UTC (why not use the "snapshotId"?
+            timestamp = datetime.fromisoformat(raw_message["timestamp"][:-1] + '+00:00').timestamp() * 1000
             snapshot_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.snapshot_message_from_exchange_rest(
-                raw_message, raw_message["timestamp"], {"marketId": trading_pair})
+                raw_message, timestamp, {"marketId": trading_pair})
 
             message_queue.put_nowait(snapshot_message)
 

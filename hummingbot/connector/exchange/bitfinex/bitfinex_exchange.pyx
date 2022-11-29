@@ -5,7 +5,7 @@ import logging
 import time
 import uuid
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, AsyncIterable, Dict, List, Optional, Union, TYPE_CHECKING
 
 import aiohttp
 from libc.stdint cimport int64_t
@@ -475,7 +475,7 @@ cdef class BitfinexExchange(ExchangeBase):
                               http_method: str,
                               url,
                               headers,
-                              data_str: Optional[str, list] = None) -> list:
+                              data_str: Optional[Union[str, List]] = None) -> list:
         """
         A wrapper for submitting API requests to Bitfinex
         :returns: json data from the endpoints

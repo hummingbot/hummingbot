@@ -2,7 +2,7 @@ import asyncio
 import copy
 import logging
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, AsyncIterable, Dict, List, Optional, TYPE_CHECKING, Union
 
 from async_timeout import timeout
 from libc.stdint cimport int64_t
@@ -300,7 +300,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         url: Optional[str] = None,
         endpoint: Optional[str] = None,
         data: Any = None,
-    ) -> Dict[str, Any]:
+    ) -> Union[List, Dict[str, Any]]:
         """
         A wrapper for submitting API requests to Coinbase Pro
         :returns: json data from the endpoints
