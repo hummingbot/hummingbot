@@ -9,11 +9,6 @@ class buyLowSellHigh(ScriptStrategyBase):
     #: pingpong is a variable to allow alternating between buy & sell signals
     pingpong = 0
 
-    """
-    for the sake of simplicity in testing, we will define fast MA as the 5-secondly-MA, and slow MA as the
-    20-secondly-MA. User can change this as desired
-    """
-
     de_fast_ma = []
     de_slow_ma = []
 
