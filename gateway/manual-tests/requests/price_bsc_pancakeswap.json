@@ -1,0 +1,9 @@
+{
+  "connector": "pancakeswap",
+  "chain": "binance-smart-chain",
+  "network": "testnet",
+  "quote": "WBNB",
+  "base": "DAI",
+  "amount": "10000000000000000",
+  "side": "SELL"
+}

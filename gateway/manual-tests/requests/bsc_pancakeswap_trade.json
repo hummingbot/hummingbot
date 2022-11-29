@@ -1,0 +1,10 @@
+{
+  "address": "$BSC_ADDRESS",
+  "quote": "WBNB",
+  "base": "DAI",
+  "amount": "10000000000000000",
+  "side": "BUY",
+  "chain": "binance-smart-chain",
+  "network": "testnet",
+  "connector": "pancakeswap"
+}

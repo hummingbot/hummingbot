@@ -8,8 +8,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bybit import bybit_constants as CONSTANTS, bybit_web_utils as web_utils
 from hummingbot.connector.exchange.bybit.bybit_api_order_book_data_source import BybitAPIOrderBookDataSource
+from hummingbot.connector.exchange.bybit.bybit_exchange import BybitExchange
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -34,27 +37,38 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
         super().setUp()
         self.log_records = []
         self.async_task = None
-
         self.mocking_assistant = NetworkMockingAssistant()
+
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.connector = BybitExchange(
+            client_config_map=client_config_map,
+            bybit_api_key="",
+            bybit_api_secret="",
+            trading_pairs=[self.trading_pair])
+
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self.time_synchronnizer = TimeSynchronizer()
         self.time_synchronnizer.add_time_offset_ms_sample(1000)
         self.ob_data_source = BybitAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair],
             throttler=self.throttler,
+            connector=self.connector,
+            api_factory=self.connector._web_assistants_factory,
             time_synchronizer=self.time_synchronnizer)
+
+        self._original_full_order_book_reset_time = self.ob_data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
+        self.ob_data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
 
         self.ob_data_source.logger().setLevel(1)
         self.ob_data_source.logger().addHandler(self)
 
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {
-            self.domain: bidict(
-                {self.ex_trading_pair: self.trading_pair})
-        }
+        self.resume_test_event = asyncio.Event()
+
+        self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
     def tearDown(self) -> None:
         self.async_task and self.async_task.cancel()
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {}
+        self.ob_data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = self._original_full_order_book_reset_time
         super().tearDown()
 
     def handle(self, record):
@@ -64,27 +78,26 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
 
+    def _create_exception_and_unlock_test_with_event(self, exception):
+        self.resume_test_event.set()
+        raise exception
+
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    # TRADING PAIRS
-    @aioresponses()
-    def test_fetch_trading_pairs(self, mock_api):
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {}
-        url = web_utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
-
-        resp = {
+    def get_exchange_rules_mock(self) -> Dict:
+        exchange_rules = {
             "ret_code": 0,
             "ret_msg": "",
             "ext_code": None,
             "ext_info": None,
             "result": [
                 {
-                    "name": "BTCUSDT",
-                    "alias": "BTCUSDT",
-                    "baseCurrency": "BTC",
-                    "quoteCurrency": "USDT",
+                    "name": self.ex_trading_pair,
+                    "alias": self.ex_trading_pair,
+                    "baseCurrency": "COINALPHA",
+                    "quoteCurrency": "HBOT",
                     "basePrecision": "0.000001",
                     "quotePrecision": "0.01",
                     "minTradeQuantity": "0.0001",
@@ -92,96 +105,12 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
                     "minPricePrecision": "0.01",
                     "maxTradeQuantity": "2",
                     "maxTradeAmount": "200",
-                    "category": 1
+                    "category": 1,
+                    "showStatus": True
                 },
-                {
-                    "name": "ETHUSDT",
-                    "alias": "ETHUSDT",
-                    "baseCurrency": "ETH",
-                    "quoteCurrency": "USDT",
-                    "basePrecision": "0.0001",
-                    "quotePrecision": "0.01",
-                    "minTradeQuantity": "0.0001",
-                    "minTradeAmount": "10",
-                    "minPricePrecision": "0.01",
-                    "maxTradeQuantity": "2",
-                    "maxTradeAmount": "200",
-                    "category": 1
-                }
             ]
         }
-        mock_api.get(url, body=json.dumps(resp))
-
-        ret = self.async_run_with_timeout(coroutine=BybitAPIOrderBookDataSource.fetch_trading_pairs(
-            domain=self.domain,
-            throttler=self.throttler,
-            time_synchronizer=self.time_synchronnizer,
-        ))
-        self.assertEqual(2, len(ret))
-        self.assertEqual("BTC-USDT", ret[0])
-        self.assertEqual("ETH-USDT", ret[1])
-
-    @aioresponses()
-    def test_fetch_trading_pairs_exception_raised(self, mock_api):
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {}
-
-        url = web_utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.get(regex_url, exception=Exception)
-
-        result: Dict[str] = self.async_run_with_timeout(self.ob_data_source.fetch_trading_pairs())
-
-        self.assertEqual(0, len(result))
-
-    # LAST TRADED PRICES
-    @aioresponses()
-    def test_get_last_traded_prices(self, mock_api):
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map[CONSTANTS.DEFAULT_DOMAIN]["TKN1TKN2"] = "TKN1-TKN2"
-
-        url1 = web_utils.rest_url(path_url=CONSTANTS.LAST_TRADED_PRICE_PATH, domain=CONSTANTS.DEFAULT_DOMAIN)
-        url1 = f"{url1}?symbol={self.ex_trading_pair}"
-        regex_url = re.compile(f"^{url1}".replace(".", r"\.").replace("?", r"\?"))
-        resp = {
-            "ret_code": 0,
-            "ret_msg": None,
-            "result": {
-                "symbol": self.ex_trading_pair,
-                "price": "50008"
-            },
-            "ext_code": None,
-            "ext_info": None
-        }
-        mock_api.get(regex_url, body=json.dumps(resp))
-
-        url2 = web_utils.rest_url(path_url=CONSTANTS.LAST_TRADED_PRICE_PATH, domain=CONSTANTS.DEFAULT_DOMAIN)
-        url2 = f"{url2}?symbol=TKN1TKN2"
-        regex_url = re.compile(f"^{url2}".replace(".", r"\.").replace("?", r"\?"))
-        resp = {
-            "ret_code": 0,
-            "ret_msg": None,
-            "result": {
-                "symbol": "TKN1TKN2",
-                "price": "2050"
-            },
-            "ext_code": None,
-            "ext_info": None
-        }
-        mock_api.get(regex_url, body=json.dumps(resp))
-
-        ret = self.async_run_with_timeout(
-            coroutine=BybitAPIOrderBookDataSource.get_last_traded_prices([self.trading_pair, "TKN1-TKN2"])
-        )
-
-        ticker_requests = [(key, value) for key, value in mock_api.requests.items()
-                           if key[1].human_repr().startswith(url1) or key[1].human_repr().startswith(url2)]
-        request_params = ticker_requests[0][1][0].kwargs["params"]
-        self.assertEqual(self.ex_trading_pair, request_params["symbol"])
-        request_params = ticker_requests[1][1][0].kwargs["params"]
-        self.assertEqual("TKN1TKN2", request_params["symbol"])
-
-        self.assertEqual(ret[self.trading_pair], 50008)
-        self.assertEqual(ret["TKN1-TKN2"], 2050)
+        return exchange_rules
 
     # ORDER BOOK SNAPSHOT
     @staticmethod
@@ -229,14 +158,17 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
         return snapshot_processed
 
     @aioresponses()
-    def test_get_snapshot(self, mock_api):
+    def test_request_order_book_snapshot(self, mock_api):
         url = web_utils.rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         snapshot_data = self._snapshot_response()
+        tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        tradingrule_resp = self.get_exchange_rules_mock()
+        mock_api.get(tradingrule_url, body=json.dumps(tradingrule_resp))
         mock_api.get(regex_url, body=json.dumps(snapshot_data))
 
         ret = self.async_run_with_timeout(
-            coroutine=self.ob_data_source.get_snapshot(self.trading_pair)
+            coroutine=self.ob_data_source._request_order_book_snapshot(self.trading_pair)
         )
 
         self.assertEqual(ret, self._snapshot_response_processed())  # shallow comparison ok
@@ -245,11 +177,14 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
     def test_get_snapshot_raises(self, mock_api):
         url = web_utils.rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        tradingrule_resp = self.get_exchange_rules_mock()
+        mock_api.get(tradingrule_url, body=json.dumps(tradingrule_resp))
         mock_api.get(regex_url, status=500)
 
         with self.assertRaises(IOError):
             self.async_run_with_timeout(
-                coroutine=self.ob_data_source.get_snapshot(self.trading_pair)
+                coroutine=self.ob_data_source._order_book_snapshot(self.trading_pair)
             )
 
     @aioresponses()
