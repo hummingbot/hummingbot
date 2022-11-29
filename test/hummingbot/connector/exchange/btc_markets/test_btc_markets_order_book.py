@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 from unittest import TestCase
 
@@ -27,8 +28,10 @@ class TestOrderbook(TestCase):
             "messageType": CONSTANTS.DIFF_EVENT_TYPE
         }
 
+        # Date in raw message is a str in second with UTC (why not use the "tradeId"?
+        timestamp = datetime.fromisoformat(diff_event["timestamp"][:-1] + '+00:00').timestamp() * 1000
         diff_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.snapshot_message_from_exchange_websocket(
-            diff_event, diff_event["timestamp"], {"marketId": "BAT-AUD"}
+            diff_event, timestamp, {"marketId": "BAT-AUD"}
         )
 
         self.assertEqual(diff_message.type, OrderBookMessageType.SNAPSHOT)
@@ -59,8 +62,10 @@ class TestOrderbook(TestCase):
             "messageType": CONSTANTS.DIFF_EVENT_TYPE
         }
 
+        # Date in raw message is a str in second with UTC (why not use the "tradeId"?
+        timestamp = datetime.fromisoformat(diff_event["timestamp"][:-1] + '+00:00').timestamp() * 1000
         diff_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.snapshot_message_from_exchange_rest(
-            diff_event, diff_event["timestamp"], {"marketId": "BAT-AUD"}
+            diff_event, timestamp, {"marketId": "BAT-AUD"}
         )
 
         self.assertEqual(diff_message.type, OrderBookMessageType.SNAPSHOT)
@@ -91,8 +96,10 @@ class TestOrderbook(TestCase):
             "messageType": CONSTANTS.DIFF_EVENT_TYPE
         }
 
+        # Date in raw message is a str in second with UTC (why not use the "tradeId"?
+        timestamp = datetime.fromisoformat(diff_event["timestamp"][:-1] + '+00:00').timestamp() * 1000
         diff_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.diff_message_from_exchange(
-            diff_event, diff_event["timestamp"], {"marketId": "BAT-AUD"}
+            diff_event, timestamp, {"marketId": "BAT-AUD"}
         )
 
         self.assertEqual(diff_message.type, OrderBookMessageType.DIFF)
@@ -115,8 +122,10 @@ class TestOrderbook(TestCase):
             "messageType": CONSTANTS.TRADE_EVENT_TYPE
         }
 
+        # Date in raw message is a str in second with UTC
+        timestamp = datetime.fromisoformat(trade_event["timestamp"][:-1] + '+00:00').timestamp() * 1000
         trade_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.trade_message_from_exchange(
-            trade_event, trade_event["timestamp"], {"marketId": "BAT-AUD"}
+            trade_event, timestamp, {"marketId": "BAT-AUD"}
         )
 
         self.assertEqual(trade_message.type, OrderBookMessageType.TRADE)
@@ -137,8 +146,10 @@ class TestOrderbook(TestCase):
             "messageType": CONSTANTS.TRADE_EVENT_TYPE
         }
 
+        # Date in raw message is a str in second with UTC (why not use the "tradeId"?
+        timestamp = datetime.fromisoformat(trade_event["timestamp"][:-1] + '+00:00').timestamp() * 1000
         trade_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.trade_message_from_exchange(
-            trade_event, trade_event["timestamp"], {"marketId": "BAT-AUD"}
+            trade_event, timestamp, {"marketId": "BAT-AUD"}
         )
 
         self.assertEqual(trade_message.type, OrderBookMessageType.TRADE)

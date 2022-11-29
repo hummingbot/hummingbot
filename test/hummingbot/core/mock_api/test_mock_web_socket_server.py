@@ -1,8 +1,9 @@
+import asyncio
+import json
+import unittest.mock
+
 import aiohttp
 from aiounittest import async_test
-import asyncio
-import unittest.mock
-import json
 
 from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
 
@@ -19,10 +20,11 @@ class MockWebSocketServerFactoryTest(unittest.TestCase):
         # need to wait a bit for the server to be available
         ev_loop.run_until_complete(asyncio.wait_for(cls.ws_server.wait_til_started(), 1))
 
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.ws_server.stop()
-        cls._patcher.stop()
+    # TODO: Figure out why this does not work: It seems that the correction was provided with the Gateway tests
+    # @classmethod
+    # def tearDownClass(cls) -> None:
+        # cls.ws_server.stop()
+        # cls._patcher.stop()
 
     @async_test(loop=ev_loop)
     async def test_web_socket(self):
