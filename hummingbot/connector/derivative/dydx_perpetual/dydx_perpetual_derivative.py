@@ -1,136 +1,45 @@
 import asyncio
-import json
-import logging
 import time
-import warnings
-from collections import defaultdict
+from copy import deepcopy
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
+from math import ceil
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+from bidict import bidict
 from dateutil.parser import parse as dateparse
-from dydx3.errors import DydxApiError
+from dydx3.helpers.request_helpers import epoch_seconds_to_iso, generate_now_iso, iso_to_epoch_seconds
 
+import hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_constants as CONSTANTS
+from hummingbot.connector.constants import s_decimal_0, s_decimal_NaN
+from hummingbot.connector.derivative.dydx_perpetual import dydx_perpetual_web_utils as web_utils
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_api_order_book_data_source import (
     DydxPerpetualAPIOrderBookDataSource,
 )
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import DydxPerpetualAuth
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper import DydxPerpetualClientWrapper
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_in_flight_order import DydxPerpetualInFlightOrder
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tracker import (
-    DydxPerpetualOrderBookTracker,
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source import (
+    DydxPerpetualUserStreamDataSource,
 )
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import (
-    DydxPerpetualUserStreamTracker,
-)
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_utils import build_api_factory
-from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.perpetual_trading import PerpetualTrading
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_utils import clamp
+from hummingbot.connector.derivative.position import Position
+from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.clock import Clock
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.funding_info import FundingInfo
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
-from hummingbot.core.data_type.transaction_tracker import TransactionTracker
-from hummingbot.core.event.event_listener import EventListener
-from hummingbot.core.event.events import (
-    AccountEvent,
-    BuyOrderCompletedEvent,
-    BuyOrderCreatedEvent,
-    FundingPaymentCompletedEvent,
-    MarketEvent,
-    MarketOrderFailureEvent,
-    OrderCancelledEvent,
-    OrderExpiredEvent,
-    OrderFilledEvent,
-    PositionModeChangeEvent,
-    SellOrderCompletedEvent,
-    SellOrderCreatedEvent,
-)
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.logger import HummingbotLogger
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.event.events import AccountEvent, PositionModeChangeEvent
+from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
-s_logger = None
-s_decimal_0 = Decimal(0)
-s_decimal_NaN = Decimal("nan")
 
+class DydxPerpetualDerivative(PerpetualDerivativePyBase):
 
-def now():
-    return int(time.time()) * 1000
-
-
-BUY_ORDER_COMPLETED_EVENT = MarketEvent.BuyOrderCompleted
-SELL_ORDER_COMPLETED_EVENT = MarketEvent.SellOrderCompleted
-ORDER_CANCELED_EVENT = MarketEvent.OrderCancelled
-ORDER_EXPIRED_EVENT = MarketEvent.OrderExpired
-ORDER_FILLED_EVENT = MarketEvent.OrderFilled
-ORDER_FAILURE_EVENT = MarketEvent.OrderFailure
-MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG = MarketEvent.FundingPaymentCompleted
-BUY_ORDER_CREATED_EVENT = MarketEvent.BuyOrderCreated
-SELL_ORDER_CREATED_EVENT = MarketEvent.SellOrderCreated
-API_CALL_TIMEOUT = 10.0
-
-# ==========================================================
-UNRECOGNIZED_ORDER_DEBOUCE = 60  # seconds
-
-
-class LatchingEventResponder(EventListener):
-    def __init__(self, callback: any, num_expected: int):
-        super().__init__()
-        self._callback = callback
-        self._completed = asyncio.Event()
-        self._num_remaining = num_expected
-
-    def __call__(self, arg: any):
-        if self._callback(arg):
-            self._reduce()
-
-    def _reduce(self):
-        self._num_remaining -= 1
-        if self._num_remaining <= 0:
-            self._completed.set()
-
-    async def wait_for_completion(self, timeout: float):
-        try:
-            await asyncio.wait_for(self._completed.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
-            pass
-        return self._completed.is_set()
-
-    def cancel_one(self):
-        self._reduce()
-
-
-class DydxPerpetualDerivativeTransactionTracker(TransactionTracker):
-    def __init__(self, owner):
-        super().__init__()
-        self._owner = owner
-
-    def did_timeout_tx(self, tx_id: str):
-        TransactionTracker.c_did_timeout_tx(self, tx_id)
-        self._owner.did_timeout_tx(tx_id)
-
-
-class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
-    SHORT_POLL_INTERVAL = 5.0
-    LONG_POLL_INTERVAL = 120.0
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
+    web_utils = web_utils
 
     def __init__(
         self,
@@ -138,1180 +47,720 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         dydx_perpetual_api_key: str,
         dydx_perpetual_api_secret: str,
         dydx_perpetual_passphrase: str,
-        dydx_perpetual_account_number: int,
         dydx_perpetual_ethereum_address: str,
         dydx_perpetual_stark_private_key: str,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
-
-        ExchangeBase.__init__(self, client_config_map=client_config_map)
-        PerpetualTrading.__init__(self, trading_pairs)
-        self._real_time_balance_update = True
-        self._api_factory = build_api_factory()
-        self._set_order_book_tracker(DydxPerpetualOrderBookTracker(
-            trading_pairs=trading_pairs,
-            api_factory=self._api_factory,
-        ))
-        self._tx_tracker = DydxPerpetualDerivativeTransactionTracker(self)
-        self._trading_required = trading_required
-        self._ev_loop = asyncio.get_event_loop()
-        self._poll_notifier = asyncio.Event()
-        self._last_poll_timestamp = 0
-        self._polling_update_task = None
-        self._budget_checker = PerpetualBudgetChecker(self)
-
-        self.dydx_client: DydxPerpetualClientWrapper = DydxPerpetualClientWrapper(
-            api_key=dydx_perpetual_api_key,
-            api_secret=dydx_perpetual_api_secret,
-            passphrase=dydx_perpetual_passphrase,
-            account_number=dydx_perpetual_account_number,
-            stark_private_key=None if dydx_perpetual_stark_private_key == "" else dydx_perpetual_stark_private_key,
-            ethereum_address=dydx_perpetual_ethereum_address,
-        )
-        # State
-        self._dydx_auth = DydxPerpetualAuth(self.dydx_client)
-        self._user_stream_tracker = DydxPerpetualUserStreamTracker(
-            dydx_auth=self._dydx_auth, api_factory=self._api_factory
-        )
-        self._user_stream_event_listener_task = None
-        self._user_stream_tracker_task = None
-        self._lock = asyncio.Lock()
-        self._trading_rules = {}
-        self._in_flight_orders = {}
+        self._dydx_perpetual_api_key = dydx_perpetual_api_key
+        self._dydx_perpetual_api_secret = dydx_perpetual_api_secret
+        self._dydx_perpetual_passphrase = dydx_perpetual_passphrase
+        self._dydx_perpetual_ethereum_address = dydx_perpetual_ethereum_address
+        self._dydx_perpetual_stark_private_key = dydx_perpetual_stark_private_key
         self._trading_pairs = trading_pairs
-        self._fee_rules = {}
-        self._reserved_balances = {}
-        self._unclaimed_fills = defaultdict(set)
-        self._in_flight_orders_by_exchange_id = {}
-        self._orders_pending_ack = set()
-        self._position_mode = PositionMode.ONEWAY
+        self._trading_required = trading_required
+        self._domain = domain
+
+        self._order_notional_amounts = {}
+        self._current_place_order_requests = 0
+        self._rate_limits_config = {}
         self._margin_fractions = {}
-        self._trading_pair_last_funding_payment_ts: Dict[str, float] = {}
+        self._position_id = None
+
+        self._allocated_collateral = {}
+        self._allocated_collateral_sum = Decimal("0")
+
+        super().__init__(client_config_map=client_config_map)
 
     @property
     def name(self) -> str:
-        return "dydx_perpetual"
+        return CONSTANTS.EXCHANGE_NAME
 
     @property
-    def ready(self) -> bool:
-        return all(self.status_dict.values())
-
-    @property
-    def status_dict(self) -> Dict[str, bool]:
-        return {
-            "order_books_initialized": len(self.order_book_tracker.order_books) > 0,
-            "account_balances": len(self._account_balances) > 0 if self._trading_required else True,
-            "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
-            "funding_info_available": len(self._funding_info) > 0 if self._trading_required else True,
-            "user_stream_tracker_ready": self._user_stream_tracker.data_source.last_recv_time > 0
-            if self._trading_required
-            else True,
-        }
-
-    # ----------------------------------------
-    # Markets & Order Books
-
-    @property
-    def order_books(self) -> Dict[str, OrderBook]:
-        return self.order_book_tracker.order_books
-
-    def get_order_book(self, trading_pair: str):
-        order_books = self.order_book_tracker.order_books
-        if trading_pair not in order_books:
-            raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return order_books[trading_pair]
-
-    @property
-    def limit_orders(self) -> List[LimitOrder]:
-        retval = []
-
-        for in_flight_order in self._in_flight_orders.values():
-            dydx_flight_order = in_flight_order
-            if dydx_flight_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
-                retval.append(dydx_flight_order.to_limit_order())
-        return retval
-
-    @property
-    def budget_checker(self) -> PerpetualBudgetChecker:
-        return self._budget_checker
-
-    # ----------------------------------------
-    # Account Balances
-
-    def get_balance(self, currency: str):
-        return self._account_balances.get(currency, Decimal(0))
-
-    def get_available_balance(self, currency: str):
-        return self._account_available_balances.get(currency, Decimal(0))
-
-    # ==========================================================
-    # Order Submission
-    # ----------------------------------------------------------
-
-    @property
-    def in_flight_orders(self) -> Dict[str, DydxPerpetualInFlightOrder]:
-        return self._in_flight_orders
-
-    def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
-
-    def _set_exchange_id(self, in_flight_order, exchange_order_id):
-        in_flight_order.update_exchange_order_id(exchange_order_id)
-        self._in_flight_orders_by_exchange_id[exchange_order_id] = in_flight_order
-
-    def _claim_fills(self, in_flight_order, exchange_order_id):
-        updated_with_fills = False
-
-        # Claim any fill reports for this order that came in while we awaited this exchange id
-        if exchange_order_id in self._unclaimed_fills:
-            for fill in self._unclaimed_fills[exchange_order_id]:
-                in_flight_order.register_fill(fill.id, fill.amount, fill.price, fill.fee)
-                if self.position_key(in_flight_order.trading_pair) in self._account_positions:
-                    position = self._account_positions[in_flight_order.trading_pair]
-                    position.update_from_fill(in_flight_order, fill.price, fill.amount, self.get_balance("USD"))
-                    updated_with_fills = True
-                else:
-                    self._account_positions[
-                        self.position_key(in_flight_order.trading_pair)
-                    ] = DydxPerpetualPosition.from_dydx_fill(
-                        in_flight_order, fill.amount, fill.price, self.get_balance("USD")
-                    )
-
-            del self._unclaimed_fills[exchange_order_id]
-
-        self._orders_pending_ack.discard(in_flight_order.client_order_id)
-        if len(self._orders_pending_ack) == 0:
-            # We are no longer waiting on any exchange order ids, so all uncalimed fills can be discarded
-            self._unclaimed_fills.clear()
-
-        if updated_with_fills:
-            self._update_account_positions()
-
-    async def place_order(
-        self,
-        client_order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        is_buy: bool,
-        order_type: OrderType,
-        price: Decimal,
-        limit_fee: Decimal,
-        expiration: int,
-    ) -> Dict[str, Any]:
-
-        order_side = "BUY" if is_buy else "SELL"
-        post_only = False
-        if order_type is OrderType.LIMIT_MAKER:
-            post_only = True
-        dydx_order_type = "LIMIT" if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER] else "MARKET"
-
-        return await self.dydx_client.place_order(
-            market=trading_pair,
-            side=order_side,
-            amount=str(amount),
-            price=str(price),
-            order_type=dydx_order_type,
-            postOnly=post_only,
-            clientId=client_order_id,
-            limit_fee=str(limit_fee),
-            expiration=expiration,
+    def authenticator(self) -> DydxPerpetualAuth:
+        return DydxPerpetualAuth(
+            dydx_perpetual_api_key=self._dydx_perpetual_api_key,
+            dydx_perpetual_api_secret=self._dydx_perpetual_api_secret,
+            dydx_perpetual_passphrase=self._dydx_perpetual_passphrase,
+            dydx_perpetual_ethereum_address=self._dydx_perpetual_ethereum_address,
+            dydx_perpetual_stark_private_key=self._dydx_perpetual_stark_private_key,
         )
 
-    async def execute_order(
-        self, order_side, client_order_id, trading_pair, amount, order_type, position_action, price
-    ):
-        """
-        Completes the common tasks from execute_buy and execute_sell.  Quantizes the order's amount and price, and
-        validates the order against the trading rules before placing this order.
-        """
-        if position_action not in [PositionAction.OPEN, PositionAction.CLOSE]:
-            raise ValueError("Specify either OPEN_POSITION or CLOSE_POSITION position_action.")
-        # Quantize order
-        amount = self.quantize_order_amount(trading_pair, amount)
-        price = self.quantize_order_price(trading_pair, price)
-        # Check trading rules
-        if order_type.is_limit_type():
-            trading_rule = self._trading_rules[trading_pair]
-            if amount < trading_rule.min_order_size:
-                amount = s_decimal_0
-        elif order_type == OrderType.MARKET:
-            trading_rule = self._trading_rules[trading_pair]
-        if order_type.is_limit_type() and trading_rule.supports_limit_orders is False:
-            raise ValueError("LIMIT orders are not supported")
-        elif order_type == OrderType.MARKET and trading_rule.supports_market_orders is False:
-            raise ValueError("MARKET orders are not supported")
+    @property
+    def rate_limits_rules(self) -> List[RateLimit]:
+        rate_limits = deepcopy(CONSTANTS.RATE_LIMITS)
 
-        if amount < trading_rule.min_order_size:
-            raise ValueError(
-                f"Order amount({str(amount)}) is less than the minimum allowable amount({str(trading_rule.min_order_size)})"
-            )
-        if amount > trading_rule.max_order_size:
-            raise ValueError(
-                f"Order amount({str(amount)}) is greater than the maximum allowable amount({str(trading_rule.max_order_size)})"
-            )
-        if amount * price < trading_rule.min_notional_size:
-            raise ValueError(
-                f"Order notional value({str(amount * price)}) is less than the minimum allowable notional value for an order ({str(trading_rule.min_notional_size)})"
-            )
-
-        try:
-            created_at = self.time_now_s()
-            self.start_tracking_order(
-                order_side,
-                client_order_id,
-                order_type,
-                created_at,
-                None,
-                trading_pair,
-                price,
-                amount,
-                self._leverage[trading_pair],
-                position_action.name,
-            )
-            expiration = created_at + 600
-            limit_fee = 0.015
-            try:
-                creation_response = await self.place_order(
-                    client_order_id,
-                    trading_pair,
-                    amount,
-                    order_side is TradeType.BUY,
-                    order_type,
-                    price,
-                    limit_fee,
-                    expiration,
+        # Order cancelation
+        for trading_pair in self._trading_pairs:
+            rate_limits += [
+                RateLimit(
+                    limit_id=CONSTANTS.LIMIT_ID_ORDER_CANCEL + "_" + trading_pair,
+                    limit=425,
+                    time_interval=CONSTANTS.ONE_SECOND * 10,
                 )
-            except asyncio.TimeoutError:
-                # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
-                # issues that prevented the submission from taking place.
+            ]
 
-                # Note that if this order is live and we never recieved the exchange_order_id, we have no way of re-linking with this order
-                # TODO: we can use the /v2/orders endpoint to get a list of orders that match the parameters of the lost orders and that will contain
-                # the clientId that we have set. This can resync orders, but wouldn't be a garuntee of finding them in the list and would require a fair amout
-                # of work in handling this re-syncing process
-                # This would be somthing like
-                # self._lost_orders.append(client_order_id) # add this here
-                # ...
-                # some polling loop:
-                #   get_orders()
-                #   see if any lost orders are in the returned orders and set the exchange id if so
-                # ...
-
-                # TODO: ensure this is the right exception from place_order with our wrapped library call...
-                return
-
-            # Verify the response from the exchange
-            if "order" not in creation_response.keys():
-                raise Exception(creation_response["errors"][0]["msg"])
-
-            order = creation_response["order"]
-            status = order["status"]
-            if status not in ["PENDING", "OPEN"]:
-                raise Exception(status)
-
-            dydx_order_id = order["id"]
-
-            in_flight_order = self._in_flight_orders.get(client_order_id)
-            if in_flight_order is not None:
-                self._set_exchange_id(in_flight_order, dydx_order_id)
-                self._claim_fills(in_flight_order, dydx_order_id)
-
-                # Begin tracking order
-                self.logger().info(
-                    f"Created {in_flight_order.description} order {client_order_id} for {amount} {trading_pair}."
-                )
-            else:
-                self.logger().info(f"Created order {client_order_id} for {amount} {trading_pair}.")
-
-        except Exception as e:
-            self.logger().warning(
-                f"Error submitting {order_side.name} {order_type.name} order to dydx for "
-                f"{amount} {trading_pair} at {price}."
-            )
-            self.logger().info(e, exc_info=True)
-
-            # Stop tracking this order
-            self.stop_tracking_order(client_order_id)
-            self.trigger_event(ORDER_FAILURE_EVENT, MarketOrderFailureEvent(now(), client_order_id, order_type))
-
-    async def execute_buy(
-        self,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        order_type: OrderType,
-        position_action: PositionAction,
-        price: Optional[Decimal] = Decimal("NaN"),
-    ):
-        try:
-            await self.execute_order(TradeType.BUY, order_id, trading_pair, amount, order_type, position_action, price)
-            tracked_order = self.in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.trigger_event(
-                    BUY_ORDER_CREATED_EVENT,
-                    BuyOrderCreatedEvent(
-                        now(),
-                        order_type,
-                        trading_pair,
-                        Decimal(amount),
-                        Decimal(price),
-                        order_id,
-                        tracked_order.creation_timestamp),
-                )
-
-                # Issue any other events (fills) for this order that arrived while waiting for the exchange id
-                self._issue_order_events(tracked_order)
-        except ValueError as e:
-            # never tracked, so no need to stop tracking
-            self.trigger_event(ORDER_FAILURE_EVENT, MarketOrderFailureEvent(now(), order_id, order_type))
-            self.logger().warning(f"Failed to place {order_id} on dydx. {str(e)}")
-
-    async def execute_sell(
-        self,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        order_type: OrderType,
-        position_action: PositionAction,
-        price: Optional[Decimal] = Decimal("NaN"),
-    ):
-        try:
-            await self.execute_order(TradeType.SELL, order_id, trading_pair, amount, order_type, position_action, price)
-            tracked_order = self.in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.trigger_event(
-                    SELL_ORDER_CREATED_EVENT,
-                    SellOrderCreatedEvent(
-                        now(),
-                        order_type,
-                        trading_pair,
-                        Decimal(amount),
-                        Decimal(price),
-                        order_id,
-                        tracked_order.creation_timestamp,
-                    ),
-                )
-
-                # Issue any other events (fills) for this order that arrived while waiting for the exchange id
-                self._issue_order_events(tracked_order)
-        except ValueError as e:
-            # never tracked, so no need to stop tracking
-            self.trigger_event(ORDER_FAILURE_EVENT, MarketOrderFailureEvent(now(), order_id, order_type))
-            self.logger().warning(f"Failed to place {order_id} on dydx. {str(e)}")
-
-    # ----------------------------------------
-    # Cancellation
-
-    async def cancel_order(self, client_order_id: str):
-        in_flight_order = self._in_flight_orders.get(client_order_id)
-        cancellation_event = OrderCancelledEvent(now(), client_order_id)
-
-        if in_flight_order is None:
-            self.logger().warning("Canceled an untracked order {client_order_id}")
-            self.trigger_event(ORDER_CANCELED_EVENT, cancellation_event)
-            return False
-
-        exchange_order_id = in_flight_order.exchange_order_id
-
-        try:
-            if exchange_order_id is None:
-                # Note, we have no way of canceling an order or querying for information about the order
-                # without an exchange_order_id
-                if in_flight_order.creation_timestamp < (self.time_now_s() - UNRECOGNIZED_ORDER_DEBOUCE):
-                    # We'll just have to assume that this order doesn't exist
-                    self.stop_tracking_order(in_flight_order.client_order_id)
-                    self.trigger_event(ORDER_CANCELED_EVENT, cancellation_event)
-                    return False
-                else:
-                    raise Exception(f"order {client_order_id} has no exchange id")
-            await self.dydx_client.cancel_order(exchange_order_id)
-            return True
-
-        except DydxApiError as e:
-            if f"Order with specified id: {exchange_order_id} could not be found" in str(e):
-                if in_flight_order.creation_timestamp < (self.time_now_s() - UNRECOGNIZED_ORDER_DEBOUCE):
-                    # Order didn't exist on exchange, mark this as canceled
-                    self.stop_tracking_order(in_flight_order.client_order_id)
-                    self.trigger_event(ORDER_CANCELED_EVENT, cancellation_event)
-                    return False
-                else:
-                    raise Exception(
-                        f"order {client_order_id} does not yet exist on the exchange and could not be canceled."
+        # Order placement
+        if "placeOrderRateLimiting" in self._rate_limits_config:
+            for trading_pair in self._trading_pairs:
+                rate_limits += [
+                    RateLimit(
+                        limit_id=CONSTANTS.LIMIT_ID_ORDER_PLACE + "_" + trading_pair,
+                        limit=self._rate_limits_config["placeOrderRateLimiting"]["maxPoints"],
+                        time_interval=self._rate_limits_config["placeOrderRateLimiting"]["windowSec"],
                     )
-            elif "is already canceled" in str(e):
-                self.stop_tracking_order(in_flight_order.client_order_id)
-                self.trigger_event(ORDER_CANCELED_EVENT, cancellation_event)
-                return False
-            elif "is already filled" in str(e):
-                response = await self.dydx_client.get_order(exchange_order_id)
-                order_status = response["order"]
-                in_flight_order.update(order_status)
-                self._issue_order_events(in_flight_order)
-                self.stop_tracking_order(in_flight_order.client_order_id)
-                return False
-            else:
-                self.logger().warning(f"Unable to cancel order {exchange_order_id}: {str(e)}")
-                return False
-        except Exception as e:
-            self.logger().warning(f"Failed to cancel order {client_order_id}")
-            self.logger().info(e)
-            return False
+                ]
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        cancellation_queue = self._in_flight_orders.copy()
-        if len(cancellation_queue) == 0:
-            return []
+        for amount, amount_id in self._order_notional_amounts.items():
+            weight = clamp(
+                ceil(self._rate_limits_config["placeOrderRateLimiting"]["targetNotional"] / amount),
+                self._rate_limits_config["placeOrderRateLimiting"]["minLimitConsumption"],
+                self._rate_limits_config["placeOrderRateLimiting"]["maxOrderConsumption"],
+            )
 
-        order_status = {o.client_order_id: o.is_done for o in cancellation_queue.values()}
+            for trading_pair in self._trading_pairs:
+                rate_limits += [
+                    RateLimit(
+                        limit_id=CONSTANTS.LIMIT_ID_ORDER_PLACE + "_" + trading_pair + "_" + str(amount_id),
+                        limit=self._rate_limits_config["placeOrderRateLimiting"]["maxPoints"],
+                        time_interval=self._rate_limits_config["placeOrderRateLimiting"]["windowSec"],
+                        linked_limits=[
+                            LinkedLimitWeightPair(CONSTANTS.LIMIT_ID_ORDER_PLACE + "_" + trading_pair, weight)
+                        ],
+                    )
+                ]
 
-        def set_cancellation_status(oce: OrderCancelledEvent):
-            if oce.order_id in order_status:
-                order_status[oce.order_id] = True
+        return rate_limits
+
+    @property
+    def domain(self) -> str:
+        return self._domain
+
+    @property
+    def client_order_id_max_length(self) -> int:
+        return CONSTANTS.MAX_ID_LEN
+
+    @property
+    def client_order_id_prefix(self) -> str:
+        return CONSTANTS.HBOT_BROKER_ID
+
+    @property
+    def trading_rules_request_path(self) -> str:
+        return CONSTANTS.PATH_MARKETS
+
+    @property
+    def trading_pairs_request_path(self) -> str:
+        return CONSTANTS.PATH_MARKETS
+
+    @property
+    def check_network_request_path(self) -> str:
+        return CONSTANTS.PATH_TIME
+
+    @property
+    def trading_pairs(self) -> List[str]:
+        return self._trading_pairs
+
+    @property
+    def is_cancel_request_in_exchange_synchronous(self) -> bool:
+        return False
+
+    @property
+    def is_trading_required(self) -> bool:
+        return self._trading_required
+
+    @property
+    def funding_fee_poll_interval(self) -> int:
+        return 120
+
+    def supported_order_types(self) -> List[OrderType]:
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
+        return False
+
+    def _is_request_result_an_error_related_to_time_synchronizer(self, request_result: Dict[str, Any]) -> bool:
+        if "errors" in request_result and "msg" in request_result["errors"]:
+            if "Timestamp must be within" in request_result["errors"]["msg"]:
                 return True
-            return False
+        return False
 
-        cancel_verifier = LatchingEventResponder(set_cancellation_status, len(cancellation_queue))
-        self.add_listener(ORDER_CANCELED_EVENT, cancel_verifier)
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        try:
+            body_params = {
+                "market": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair),
+                "side": "BUY" if tracked_order.trade_type == TradeType.BUY else "SELL",
+                "id": tracked_order.exchange_order_id,
+            }
 
-        for order_id, in_flight in cancellation_queue.items():
-            try:
-                if order_status[order_id]:
-                    cancel_verifier.cancel_one()
-                elif not await self.cancel_order(order_id):
-                    # this order did not exist on the exchange
-                    cancel_verifier.cancel_one()
-                    order_status[order_id] = True
-            except Exception:
-                cancel_verifier.cancel_one()
-                order_status[order_id] = True
+            resp = await self._api_delete(
+                path_url=CONSTANTS.PATH_ACTIVE_ORDERS,
+                params=body_params,
+                is_auth_required=True,
+                limit_id=CONSTANTS.LIMIT_ID_ORDER_CANCEL + "_" + tracked_order.trading_pair,
+            )
+            if "cancelOrders" not in resp.keys():
+                raise IOError(f"Error canceling order {order_id}.")
+        except IOError as e:
+            if any(error in str(e) for error in [CONSTANTS.ERR_MSG_NO_ORDER_FOR_MARKET]):
+                await self._order_tracker.process_order_not_found(order_id)
+            else:
+                raise
+        return True
 
-        await cancel_verifier.wait_for_completion(timeout_seconds)
-        self.remove_listener(ORDER_CANCELED_EVENT, cancel_verifier)
+    async def _place_order(
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Decimal,
+        position_action: PositionAction = PositionAction.NIL,
+        **kwargs,
+    ) -> Tuple[str, float]:
+        if self._current_place_order_requests == 0:
+            # No requests are under way, the dictionary can be cleaned
+            self._order_notional_amounts = {}
 
-        return [CancellationResult(order_id=order_id, success=success) for order_id, success in order_status.items()]
+        # Increment number of currently undergoing requests
+        self._current_place_order_requests += 1
 
-    def get_fee(
+        notional_amount = amount * price
+        if notional_amount not in self._order_notional_amounts.keys():
+            self._order_notional_amounts[notional_amount] = len(self._order_notional_amounts.keys())
+            # Set updated rate limits
+            self._throttler.set_rate_limits(self.rate_limits_rules)
+
+        size = str(amount)
+        price = str(price)
+        side = "BUY" if trade_type == TradeType.BUY else "SELL"
+        expiration = int(time.time()) + CONSTANTS.ORDER_EXPIRATION
+        limit_fee = str(CONSTANTS.LIMIT_FEE)
+        reduce_only = False
+
+        post_only = order_type is OrderType.LIMIT_MAKER
+        time_in_force = CONSTANTS.TIF_GOOD_TIL_TIME
+        market = await self.exchange_symbol_associated_to_pair(trading_pair)
+
+        signature = self._auth.get_order_signature(
+            position_id=self._position_id,
+            client_id=order_id,
+            market=market,
+            side=side,
+            size=size,
+            price=price,
+            limit_fee=limit_fee,
+            expiration_epoch_seconds=expiration,
+        )
+
+        data = {
+            "clientId": order_id,
+            "market": market,
+            "side": side,
+            "price": str(price),
+            "size": str(amount),
+            "type": CONSTANTS.ORDER_TYPE_MAP[order_type],
+            "limitFee": limit_fee,
+            "expiration": epoch_seconds_to_iso(expiration),
+            "timeInForce": time_in_force,
+            "reduceOnly": reduce_only,
+            "postOnly": post_only,
+            "signature": signature,
+        }
+
+        try:
+            resp = await self._api_post(
+                path_url=CONSTANTS.PATH_ORDERS,
+                data=data,
+                is_auth_required=True,
+                limit_id=CONSTANTS.LIMIT_ID_ORDER_PLACE
+                + "_"
+                + trading_pair
+                + "_"
+                + str(self._order_notional_amounts[notional_amount]),
+            )
+        except Exception:
+            self._current_place_order_requests -= 1
+            raise
+
+        # Decrement number of currently undergoing requests
+        self._current_place_order_requests -= 1
+
+        if "order" not in resp:
+            raise IOError(f"Error submitting order {order_id}.")
+
+        return str(resp["order"]["id"]), iso_to_epoch_seconds(resp["order"]["createdAt"])
+
+    def _get_fee(
         self,
         base_currency: str,
         quote_currency: str,
         order_type: OrderType,
         order_side: TradeType,
+        position_action: PositionAction,
         amount: Decimal,
-        price: Decimal = s_decimal_0,
+        price: Decimal = s_decimal_NaN,
         is_maker: Optional[bool] = None,
-    ):
-        warnings.warn(
-            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        raise DeprecationWarning(
-            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead."
-        )
-
-    # ==========================================================
-    # Runtime
-    # ----------------------------------------------------------
-
-    def start(self, clock: Clock, timestamp: float):
-        super().start(clock, timestamp)
-
-    def stop(self, clock: Clock):
-        super().stop(clock)
+    ) -> TradeFeeBase:
+        is_maker = is_maker or False
+        if CONSTANTS.FEES_KEY not in self._trading_fees.keys():
+            fee = build_perpetual_trade_fee(
+                self.name,
+                is_maker,
+                position_action=position_action,
+                base_currency=base_currency,
+                quote_currency=quote_currency,
+                order_type=order_type,
+                order_side=order_side,
+                amount=amount,
+                price=price,
+            )
+        else:
+            fee_data = self._trading_fees[CONSTANTS.FEES_KEY]
+            if is_maker:
+                fee_value = Decimal(fee_data[CONSTANTS.FEE_MAKER_KEY])
+            else:
+                fee_value = Decimal(fee_data[CONSTANTS.FEE_TAKER_KEY])
+            fee = AddedToCostTradeFee(percent=fee_value)
+        return fee
 
     async def start_network(self):
-        await self.stop_network()
-        self.order_book_tracker.start()
-        if self._trading_required:
-            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
-            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+        await super().start_network()
+        await self._update_rate_limits()
+        await self._update_position_id()
 
-            self._trading_pair_last_funding_payment_ts.update(
-                {trading_pair: self.time_now_s() for trading_pair in self._trading_pairs}
-            )
+    async def _update_rate_limits(self):
+        # Initialize rate limits for statically allocatedrequests
+        self._throttler.set_rate_limits(self.rate_limits_rules)
 
-    def _stop_network(self):
-        self._last_poll_timestamp = 0
-        self._poll_notifier.clear()
-
-        self.order_book_tracker.stop()
-        if self._polling_update_task is not None:
-            self._polling_update_task.cancel()
-            self._polling_update_task = None
-        if self._user_stream_tracker_task is not None:
-            self._user_stream_tracker_task.cancel()
-        if self._user_stream_event_listener_task is not None:
-            self._user_stream_event_listener_task.cancel()
-        self._user_stream_tracker_task = None
-        self._user_stream_event_listener_task = None
-
-    async def stop_network(self):
-        self._stop_network()
-
-    async def check_network(self) -> NetworkStatus:
-        try:
-            await self.dydx_client.get_server_time()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            return NetworkStatus.NOT_CONNECTED
-        return NetworkStatus.CONNECTED
-
-    # ----------------------------------------
-    # State Management
-
-    @property
-    def tracking_states(self) -> Dict[str, any]:
-        return {key: value.to_json() for key, value in self._in_flight_orders.items()}
-
-    def restore_tracking_states(self, saved_states: Dict[str, any]):
-        for order_id, in_flight_repr in saved_states.items():
-            in_flight_json: Dict[str, Any] = json.loads(in_flight_repr)
-            order = DydxPerpetualInFlightOrder.from_json(in_flight_json)
-            if not order.is_done:
-                self._in_flight_orders[order_id] = order
-
-    def start_tracking_order(
-        self,
-        order_side: TradeType,
-        client_order_id: str,
-        order_type: OrderType,
-        created_at: float,
-        hash: str,
-        trading_pair: str,
-        price: Decimal,
-        amount: Decimal,
-        leverage: int,
-        position: str,
-    ):
-        in_flight_order = DydxPerpetualInFlightOrder.from_dydx_order(
-            order_side, client_order_id, order_type, created_at, None, trading_pair, price, amount, leverage, position
-        )
-        self._in_flight_orders[in_flight_order.client_order_id] = in_flight_order
-        self._orders_pending_ack.add(client_order_id)
-
-        old_reserved = self._reserved_balances.get(in_flight_order.reserved_asset, Decimal(0))
-        new_reserved = old_reserved + in_flight_order.reserved_balance
-        self._reserved_balances[in_flight_order.reserved_asset] = new_reserved
-        self._account_available_balances[in_flight_order.reserved_asset] = max(
-            self._account_balances.get(in_flight_order.reserved_asset, Decimal(0)) - new_reserved, Decimal(0)
+        response: Dict[str, Dict[str, Any]] = await self._api_get(
+            path_url=CONSTANTS.PATH_CONFIG,
+            is_auth_required=False,
         )
 
-    def stop_tracking_order(self, client_order_id: str):
-        in_flight_order = self._in_flight_orders.get(client_order_id)
-        if in_flight_order is not None:
-            old_reserved = self._reserved_balances.get(in_flight_order.reserved_asset, Decimal(0))
-            new_reserved = max(old_reserved - in_flight_order.reserved_balance, Decimal(0))
-            self._reserved_balances[in_flight_order.reserved_asset] = new_reserved
-            self._account_available_balances[in_flight_order.reserved_asset] = max(
-                self._account_balances.get(in_flight_order.reserved_asset, Decimal(0)) - new_reserved, Decimal(0)
-            )
-            if (
-                in_flight_order.exchange_order_id is not None
-                and in_flight_order.exchange_order_id in self._in_flight_orders_by_exchange_id
-            ):
-                del self._in_flight_orders_by_exchange_id[in_flight_order.exchange_order_id]
-            if client_order_id in self._in_flight_orders:
-                del self._in_flight_orders[client_order_id]
-            if client_order_id in self._orders_pending_ack:
-                self._orders_pending_ack.remove(client_order_id)
+        self._rate_limits_config["cancelOrderRateLimiting"] = response["cancelOrderRateLimiting"]
+        self._rate_limits_config["placeOrderRateLimiting"] = response["placeOrderRateLimiting"]
 
-    def get_order_by_exchange_id(self, exchange_order_id: str):
-        if exchange_order_id in self._in_flight_orders_by_exchange_id:
-            return self._in_flight_orders_by_exchange_id[exchange_order_id]
+        # Update rate limits with the obtained information
+        self._throttler.set_rate_limits(self.rate_limits_rules)
 
-        for o in self._in_flight_orders.values():
-            if o.exchange_order_id == exchange_order_id:
-                return o
+    async def _update_position_id(self):
+        if self._position_id is None:
+            account = await self._get_account()
+            self._position_id = account["positionId"]
 
-        return None
+    async def _update_trading_fees(self):
+        response: Dict[str, Dict[str, Any]] = await self._api_get(
+            path_url=CONSTANTS.PATH_CONFIG,
+            is_auth_required=False,
+        )
 
-    # ----------------------------------------
-    # updates to orders and balances
-
-    def _issue_order_events(self, tracked_order: DydxPerpetualInFlightOrder):
-        issuable_events: List[MarketEvent] = tracked_order.get_issuable_events()
-
-        # Issue relevent events
-        for (market_event, new_amount, new_price, new_fee) in issuable_events:
-            if market_event == MarketEvent.OrderCancelled:
-                self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}")
-                self.stop_tracking_order(tracked_order.client_order_id)
-                self.trigger_event(
-                    ORDER_CANCELED_EVENT, OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id)
-                )
-            elif market_event == MarketEvent.OrderFilled:
-                self.trigger_event(
-                    ORDER_FILLED_EVENT,
-                    OrderFilledEvent(
-                        self.current_timestamp,
-                        tracked_order.client_order_id,
-                        tracked_order.trading_pair,
-                        tracked_order.trade_type,
-                        tracked_order.order_type,
-                        new_price,
-                        new_amount,
-                        AddedToCostTradeFee(flat_fees=[TokenAmount(tracked_order.fee_asset, new_fee)]),
-                        str(int(self._time() * 1e6)),
-                        self._leverage[tracked_order.trading_pair],
-                        tracked_order.position,
-                    ),
-                )
-            elif market_event == MarketEvent.OrderExpired:
-                self.logger().info(
-                    f"The market order {tracked_order.client_order_id} has expired according to " f"order status API."
-                )
-                self.stop_tracking_order(tracked_order.client_order_id)
-                self.trigger_event(
-                    ORDER_EXPIRED_EVENT, OrderExpiredEvent(self.current_timestamp, tracked_order.client_order_id)
-                )
-            elif market_event == MarketEvent.OrderFailure:
-                self.logger().info(
-                    f"The market order {tracked_order.client_order_id} has failed according to " f"order status API."
-                )
-                self.stop_tracking_order(tracked_order.client_order_id)
-                self.trigger_event(
-                    ORDER_FAILURE_EVENT,
-                    MarketOrderFailureEvent(
-                        self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type
-                    ),
-                )
-            elif market_event == MarketEvent.BuyOrderCompleted:
-                self.logger().info(
-                    f"The market buy order {tracked_order.client_order_id} has completed " f"according to user stream."
-                )
-                self.stop_tracking_order(tracked_order.client_order_id)
-                self.trigger_event(
-                    BUY_ORDER_COMPLETED_EVENT,
-                    BuyOrderCompletedEvent(
-                        self.current_timestamp,
-                        tracked_order.client_order_id,
-                        tracked_order.base_asset,
-                        tracked_order.quote_asset,
-                        tracked_order.executed_amount_base,
-                        tracked_order.executed_amount_quote,
-                        tracked_order.order_type,
-                    ),
-                )
-            elif market_event == MarketEvent.SellOrderCompleted:
-                self.logger().info(
-                    f"The market sell order {tracked_order.client_order_id} has completed " f"according to user stream."
-                )
-                self.stop_tracking_order(tracked_order.client_order_id)
-                self.trigger_event(
-                    SELL_ORDER_COMPLETED_EVENT,
-                    SellOrderCompletedEvent(
-                        self.current_timestamp,
-                        tracked_order.client_order_id,
-                        tracked_order.base_asset,
-                        tracked_order.quote_asset,
-                        tracked_order.executed_amount_base,
-                        tracked_order.executed_amount_quote,
-                        tracked_order.order_type,
-                    ),
-                )
-
-    async def _update_funding_rates(self):
-        try:
-            response = await self.dydx_client.get_markets()
-            markets_info = response["markets"]
-            for trading_pair in self._trading_pairs:
-                self._funding_info[trading_pair] = FundingInfo(
-                    trading_pair,
-                    Decimal(markets_info[trading_pair]["indexPrice"]),
-                    Decimal(markets_info[trading_pair]["oraclePrice"]),
-                    dateparse(markets_info[trading_pair]["nextFundingAt"]).timestamp(),
-                    Decimal(markets_info[trading_pair]["nextFundingRate"]),
-                )
-        except DydxApiError as e:
-            if e.status_code == 429:
-                self.logger().network(
-                    log_msg="Rate-limit error.",
-                    app_warning_msg="Could not fetch funding rates due to API rate limits.",
-                    exc_info=True,
-                )
-            else:
-                self.logger().network(
-                    log_msg="dYdX API error.",
-                    exc_info=True,
-                    app_warning_msg="Could not fetch funding rates. Check API key and network connection.",
-                )
-        except Exception:
-            self.logger().network(
-                log_msg="Unknown error.",
-                exc_info=True,
-                app_warning_msg="Could not fetch funding rates. Check API key and network connection.",
-            )
-
-    def get_funding_info(self, trading_pair):
-        return self._funding_info[trading_pair]
-
-    def set_hedge_mode(self, position_mode: PositionMode):
-        # dydx only allows one-way futures
-        pass
-
-    async def _set_balances(self, updates, is_snapshot=False):
-        try:
-            async with self._lock:
-                quote = "USD"
-                self._account_balances[quote] = Decimal(updates["equity"])
-                self._account_available_balances[quote] = Decimal(updates["freeCollateral"])
-            for position in self._account_positions.values():
-                position.update_from_balance(Decimal(updates["equity"]))
-        except Exception as e:
-            self.logger().error(f"Could not set balance {repr(e)}", exc_info=True)
-
-    # ----------------------------------------
-    # User stream updates
-
-    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, Any]]:
-        while True:
-            try:
-                yield await self._user_stream_tracker.user_stream.get()
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().network(
-                    "Unknown error. Retrying after 1 seconds.",
-                    exc_info=True,
-                    app_warning_msg="Could not fetch user events from dydx. Check API key and network connection.",
-                )
-                await asyncio.sleep(1.0)
+        self._trading_fees[CONSTANTS.FEES_KEY] = {
+            CONSTANTS.FEE_MAKER_KEY: response["defaultMakerFee"],
+            CONSTANTS.FEE_TAKER_KEY: response["defaultTakerFee"],
+        }
 
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
             try:
                 event: Dict[str, Any] = event_message
                 data: Dict[str, Any] = event["contents"]
-                if "account" in data:
-                    await self._set_balances(data["account"], is_snapshot=False)
+                if "account" in data.keys() and len(data["account"]) > 0:
+                    quote = "USD"
+                    self._account_balances[quote] = Decimal(data["account"]["equity"])
+                    # freeCollateral is sent only on start
+                    self._account_available_balances[quote] = (
+                        Decimal(data["account"]["quoteBalance"]) - self._allocated_collateral_sum
+                    )
                     if "openPositions" in data["account"]:
-                        open_positions = data["account"]["openPositions"]
-                        for market, position in open_positions.items():
-                            position_key = self.position_key(market)
-                            if position_key not in self._account_positions and market in self._trading_pairs:
-                                self._create_position_from_rest_pos_item(position)
-                if "accounts" in data:
+                        await self._process_open_positions(data["account"]["openPositions"])
+
+                if "accounts" in data.keys() and len(data["accounts"]) > 0:
                     for account in data["accounts"]:
                         quote = "USD"
-                        self._account_available_balances[quote] = Decimal(account["quoteBalance"])
-                if "orders" in data:
+                        # freeCollateral is sent only on start
+                        self._account_available_balances[quote] = (
+                            Decimal(account["quoteBalance"]) - self._allocated_collateral_sum
+                        )
+
+                if "orders" in data.keys() and len(data["orders"]) > 0:
                     for order in data["orders"]:
-                        exchange_order_id: str = order["id"]
-
-                        tracked_order: DydxPerpetualInFlightOrder = self.get_order_by_exchange_id(exchange_order_id)
-
-                        if tracked_order is None:
-                            self.logger().debug(f"Unrecognized order ID from user stream: {exchange_order_id}.")
-                            self.logger().debug(f"Event: {event_message}")
-                            continue
-
-                        # update the tracked order
-                        tracked_order.update(order)
-                        self._issue_order_events(tracked_order)
-                if "fills" in data:
-                    fills = data["fills"]
-                    for fill in fills:
-                        exchange_order_id: str = fill["orderId"]
-                        id = fill["id"]
-                        amount = Decimal(fill["size"])
-                        price = Decimal(fill["price"])
-                        fee_paid = Decimal(fill["fee"])
-                        tracked_order: DydxPerpetualInFlightOrder = self.get_order_by_exchange_id(exchange_order_id)
+                        client_order_id: str = order["clientId"]
+                        tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
                         if tracked_order is not None:
-                            tracked_order.register_fill(id, amount, price, fee_paid)
-                            pos_key = self.position_key(tracked_order.trading_pair)
-                            if pos_key in self._account_positions:
-                                position = self._account_positions[pos_key]
-                                position.update_from_fill(
-                                    tracked_order, price, amount, self.get_available_balance("USD")
-                                )
-                                await self._update_account_positions()
-                            else:
-                                self._account_positions[pos_key] = DydxPerpetualPosition.from_dydx_fill(
-                                    tracked_order, amount, price, self.get_available_balance("USD")
-                                )
-                            self._issue_order_events(tracked_order)
-                        else:
-                            if len(self._orders_pending_ack) > 0:
-                                self._unclaimed_fills[exchange_order_id].add(
-                                    DydxPerpetualFillReport(id, amount, price, fee_paid)
-                                )
-                if "positions" in data:
+                            trading_pair = await self.trading_pair_associated_to_exchange_symbol(order["market"])
+                            state = CONSTANTS.ORDER_STATE[order["status"]]
+                            new_order_update: OrderUpdate = OrderUpdate(
+                                trading_pair=tracked_order.trading_pair,
+                                update_timestamp=self.current_timestamp,
+                                new_state=state,
+                                client_order_id=tracked_order.client_order_id,
+                                exchange_order_id=tracked_order.exchange_order_id,
+                            )
+                            self._order_tracker.process_order_update(new_order_update)
+                        # Processing all orders of the account, not just the client's
+                        if order["status"] in ["OPEN"]:
+                            initial_margin_requirement = (
+                                Decimal(order["price"])
+                                * Decimal(order["size"])
+                                * self._margin_fractions[trading_pair]["initial"]
+                            )
+                            initial_margin_requirement = abs(initial_margin_requirement)
+                            self._allocated_collateral[order["id"]] = initial_margin_requirement
+                            self._allocated_collateral_sum += initial_margin_requirement
+                            self._account_available_balances[quote] -= initial_margin_requirement
+                        if order["status"] in ["FILLED", "CANCELED"]:
+                            if order["id"] in self._allocated_collateral:
+                                # Only deduct orders that were previously in the OPEN state
+                                # Some orders are filled instantly and reach only the PENDING state
+                                self._allocated_collateral_sum -= self._allocated_collateral[order["id"]]
+                                self._account_available_balances[quote] += self._allocated_collateral[order["id"]]
+                                del self._allocated_collateral[order["id"]]
+
+                if "fills" in data.keys() and len(data["fills"]) > 0:
+                    trade_updates = self._process_ws_fills(data["fills"])
+                    for trade_update in trade_updates:
+                        self._order_tracker.process_trade_update(trade_update)
+
+                if "positions" in data.keys() and len(data["positions"]) > 0:
                     # this is hit when a position is closed
                     positions = data["positions"]
                     for position in positions:
-                        if position["market"] not in self._trading_pairs:
+                        trading_pair = position["market"]
+                        if trading_pair not in self._trading_pairs:
                             continue
-                        pos_key = self.position_key(position["market"])
-                        if pos_key in self._account_positions:
-                            self._account_positions[pos_key].update_position(
-                                position_side=PositionSide[position["side"]],
-                                unrealized_pnl=position.get("unrealizedPnl"),
-                                entry_price=position.get("entryPrice"),
-                                amount=position.get("size"),
-                                status=position.get("status"),
-                            )
-                            if not self._account_positions[pos_key].is_open:
-                                del self._account_positions[pos_key]
-                if "fundingPayments" in data:
-                    if event["type"] != "subscribed":  # Only subsequent funding payments
-                        for funding_payment in data["fundingPayments"]:
-                            if funding_payment["market"] not in self._trading_pairs:
-                                continue
-                            ts = dateparse(funding_payment["effectiveAt"]).timestamp()
-                            funding_rate: Decimal = Decimal(funding_payment["rate"])
-                            trading_pair: str = funding_payment["market"]
-                            payment: Decimal = Decimal(funding_payment["payment"])
-                            action: str = "paid" if payment < s_decimal_0 else "received"
+                        position_side = PositionSide[position["side"]]
+                        pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
+                        amount = Decimal(position.get("size"))
 
-                            self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market")
-                            self.trigger_event(
-                                MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
-                                FundingPaymentCompletedEvent(
-                                    timestamp=ts,
-                                    market=self.name,
-                                    funding_rate=funding_rate,
-                                    trading_pair=trading_pair,
-                                    amount=payment,
-                                ),
+                        if amount != s_decimal_0:
+                            position = Position(
+                                trading_pair=trading_pair,
+                                position_side=position_side,
+                                unrealized_pnl=Decimal(position.get("unrealizedPnl", 0)),
+                                entry_price=Decimal(position.get("entryPrice")),
+                                amount=amount,
+                                leverage=self.get_leverage(trading_pair),
                             )
-                            self._trading_pair_last_funding_payment_ts[trading_pair] = ts
+                            self._perpetual_trading.set_position(pos_key, position)
+                        else:
+                            if self._perpetual_trading.get_position(pos_key):
+                                self._perpetual_trading.remove_position(pos_key)
+
+                if "fundingPayments" in data:
+                    if event["type"] != CONSTANTS.WS_TYPE_SUBSCRIBED:  # Only subsequent funding payments
+                        funding_payments = await self._process_funding_payments(data["fundingPayments"])
+                        for trading_pair in funding_payments:
+                            timestamp = funding_payments[trading_pair]["timestamp"]
+                            funding_rate = funding_payments[trading_pair]["funding_rate"]
+                            payment = funding_payments[trading_pair]["payment"]
+                            self._emit_funding_payment_event(trading_pair, timestamp, funding_rate, payment, False)
+
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
-                await asyncio.sleep(5.0)
 
-    # ----------------------------------------
-    # Polling Updates
-
-    async def _status_polling_loop(self):
-        while True:
-            try:
-                self._poll_notifier = asyncio.Event()
-                await self._poll_notifier.wait()
-
-                await self._update_balances()  # needs to complete before updating positions
-                await safe_gather(
-                    self._update_account_positions(),
-                    self._update_trading_rules(),
-                    self._update_order_status(),
-                    self._update_funding_rates(),
-                    self._update_funding_payments(),
-                )
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().warning("Failed to fetch updates on dydx. Check network connection.")
-                self.logger().warning(e)
-
-    async def _update_account_positions(self):
-        account_info = await self.dydx_client.get_account()
-        current_positions = account_info["account"]
-
-        for market, position in current_positions["openPositions"].items():
-            market = position["market"]
-            pos_key = self.position_key(market)
-            if pos_key in self._account_positions:
-                tracked_position: DydxPerpetualPosition = self._account_positions[pos_key]
-                tracked_position.update_position(
-                    position_side=PositionSide[position["side"]],
-                    unrealized_pnl=position.get("unrealizedPnl"),
-                    entry_price=position.get("entryPrice"),
-                    amount=position.get("size"),
-                    status=position.get("status"),
-                )
-                tracked_position.update_from_balance(Decimal(current_positions["equity"]))
-                if not tracked_position.is_open:
-                    del self._account_positions[pos_key]
-            elif market in self._trading_pairs:
-                self._create_position_from_rest_pos_item(position)
-        positions_to_delete = []
-        for position_str in self._account_positions:
-            if position_str not in current_positions["openPositions"]:
-                positions_to_delete.append(position_str)
-        for account_position in positions_to_delete:
-            del self._account_positions[account_position]
-
-    def _create_position_from_rest_pos_item(self, rest_pos_item: Dict[str, str]):
-        market = rest_pos_item["market"]
-        position_key = self.position_key(market)
-        entry_price: Decimal = Decimal(rest_pos_item["entryPrice"])
-        amount: Decimal = Decimal(rest_pos_item["size"])
-        total_quote: Decimal = entry_price * amount
-        leverage: Decimal = total_quote / self.get_balance("USD")
-        self._account_positions[position_key] = DydxPerpetualPosition(
-            trading_pair=market,
-            position_side=PositionSide[rest_pos_item["side"]],
-            unrealized_pnl=Decimal(rest_pos_item["unrealizedPnl"]),
-            entry_price=entry_price,
-            amount=amount,
-            leverage=leverage,
-        )
-
-    async def _update_balances(self):
-        current_balances = await self.dydx_client.get_my_balances()
-        await self._set_balances(current_balances["account"], True)
-
-    async def _update_trading_rules(self):
-        markets_info = (await self.dydx_client.get_markets())["markets"]
+    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+        trading_rules = []
+        markets_info = exchange_info_dict["markets"]
         for market_name in markets_info:
             market = markets_info[market_name]
             try:
-                collateral_token = market["quoteAsset"]  # all contracts settled in USDC
-                self._trading_rules[market_name] = TradingRule(
-                    trading_pair=market_name,
-                    min_order_size=Decimal(market["minOrderSize"]),
-                    min_price_increment=Decimal(market["tickSize"]),
-                    min_base_amount_increment=Decimal(market["stepSize"]),
-                    min_notional_size=Decimal(market["minOrderSize"]) * Decimal(market["tickSize"]),
-                    supports_limit_orders=True,
-                    supports_market_orders=True,
-                    buy_order_collateral_token=collateral_token,
-                    sell_order_collateral_token=collateral_token,
-                )
+                collateral_token = market["quoteAsset"]
+                trading_rules += [
+                    TradingRule(
+                        trading_pair=market_name,
+                        min_order_size=Decimal(market["minOrderSize"]),
+                        min_price_increment=Decimal(market["tickSize"]),
+                        min_base_amount_increment=Decimal(market["stepSize"]),
+                        min_notional_size=Decimal(market["minOrderSize"]) * Decimal(market["tickSize"]),
+                        supports_limit_orders=True,
+                        supports_market_orders=True,
+                        buy_order_collateral_token=collateral_token,
+                        sell_order_collateral_token=collateral_token,
+                    )
+                ]
                 self._margin_fractions[market_name] = {
                     "initial": Decimal(market["initialMarginFraction"]),
                     "maintenance": Decimal(market["maintenanceMarginFraction"]),
                 }
-            except Exception as e:
-                self.logger().warning("Error updating trading rules")
-                self.logger().warning(str(e))
-
-    async def _update_order_status(self):
-        tracked_orders = self._in_flight_orders.copy()
-        for client_order_id, tracked_order in tracked_orders.items():
-            dydx_order_id = tracked_order.exchange_order_id
-            if dydx_order_id is None:
-                # This order is still pending acknowledgement from the exchange
-                if tracked_order.creation_timestamp < (self.time_now_s() - UNRECOGNIZED_ORDER_DEBOUCE):
-                    # this order should have a dydx_order_id at this point. If it doesn't, we should cancel it
-                    # as we won't be able to poll for updates
-                    try:
-                        self.cancel_order(client_order_id)
-                    except Exception:
-                        pass
-                continue
-
-            dydx_order_request = None
-            try:
-                dydx_order_request = await self.dydx_client.get_order(dydx_order_id)
-                data = dydx_order_request["order"]
             except Exception:
-                self.logger().warning(
-                    f"Failed to fetch tracked dydx order "
-                    f"{client_order_id}({tracked_order.exchange_order_id}) from api "
-                    f"(code: {dydx_order_request['resultInfo']['code'] if dydx_order_request is not None else 'None'})"
-                )
+                self.logger().exception("Error updating trading rules")
+        return trading_rules
 
-                # check if this error is because the api cliams to be unaware of this order. If so, and this order
-                # is reasonably old, mark the orde as cancelled
-                if "could not be found" in str(dydx_order_request["msg"]):
-                    if tracked_order.creation_timestamp < (self.time_now_s() - UNRECOGNIZED_ORDER_DEBOUCE):
-                        try:
-                            self.cancel_order(client_order_id)
-                        except Exception:
-                            pass
-                continue
+    async def _update_balances(self):
+        account = await self._get_account()
+        quote = "USD"
+        self._account_balances[quote] = Decimal(account["equity"])
+        # freeCollateral is sent only on start
+        self._account_available_balances[quote] = Decimal(account["quoteBalance"]) - self._allocated_collateral_sum
 
-            try:
-                tracked_order.update(data)
-                if not tracked_order.fills_covered():
-                    # We're missing fill reports for this order, so poll for them as well
-                    await self._update_fills(tracked_order)
-                self._issue_order_events(tracked_order)
-            except Exception as e:
-                self.logger().warning(f"Failed to update dydx order {tracked_order.exchange_order_id}")
-                self.logger().warning(e)
-                self.logger().exception("")
+    def _process_ws_fills(self, fills_data: List) -> List[TradeUpdate]:
+        trade_updates = []
+        all_fillable_orders = self._order_tracker.all_fillable_orders
+        for fill_data in fills_data:
+            client_order_id: str = fill_data["orderClientId"]
+            order = all_fillable_orders.get(client_order_id)
+            trade_update = self._process_order_fills(fill_data=fill_data, order=order)
+            if trade_update is not None:
+                trade_updates.append(trade_update)
+        return trade_updates
 
-    async def _update_fills(self, tracked_order: DydxPerpetualInFlightOrder):
-        try:
-            data = await self.dydx_client.get_fills(tracked_order.exchange_order_id)
-            for fill in data["fills"]:
-                if fill["orderId"] == tracked_order.exchange_order_id:
-                    id = fill["id"]
-                    amount = Decimal(fill["size"])
-                    price = Decimal(fill["price"])
-                    fee_paid = Decimal(fill["fee"])
-                    tracked_order.register_fill(id, amount, price, fee_paid)
-                    pos_key = self.position_key(tracked_order.trading_pair)
-                    if pos_key in self._account_positions:
-                        position = self._account_positions[pos_key]
-                        position.update_from_fill(tracked_order, price, amount, self.get_available_balance("USD"))
-                    else:
-                        self._account_positions[pos_key] = DydxPerpetualPosition.from_dydx_fill(
-                            tracked_order, amount, price, self.get_available_balance("USD")
-                        )
-            if len(data["fills"]) > 0:
-                await self._update_account_positions()
+    async def _process_funding_payments(self, funding_payments: List):
+        data = {}
 
-        except DydxApiError as e:
-            self.logger().warning(
-                f"Unable to poll for fills for order {tracked_order.client_order_id}"
-                f"(tracked_order.exchange_order_id): {e.status} {e.msg}"
-            )
-        except KeyError:
-            self.logger().warning(
-                f"Unable to poll for fills for order {tracked_order.client_order_id}"
-                f"(tracked_order.exchange_order_id): unexpected response data {data}"
-            )
-
-    async def _update_funding_payments(self):
         for trading_pair in self._trading_pairs:
+            data[trading_pair] = {}
+            data[trading_pair]["timestamp"] = 0
+            data[trading_pair]["funding_rate"] = Decimal("-1")
+            data[trading_pair]["payment"] = Decimal("-1")
+            if trading_pair in self._last_funding_fee_payment_ts:
+                data[trading_pair]["timestamp"] = self._last_funding_fee_payment_ts[trading_pair]
+
+        prev_timestamps = {}
+
+        for funding_payment in funding_payments:
+            trading_pair = await self.trading_pair_associated_to_exchange_symbol(funding_payment["market"])
+
+            if trading_pair not in prev_timestamps.keys():
+                prev_timestamps[trading_pair] = None
+            if (
+                prev_timestamps[trading_pair] is not None
+                and dateparse(funding_payment["effectiveAt"]).timestamp() <= prev_timestamps[trading_pair]
+            ):
+                continue
+            timestamp = dateparse(funding_payment["effectiveAt"]).timestamp()
+            funding_rate: Decimal = Decimal(funding_payment["rate"])
+            payment: Decimal = Decimal(funding_payment["payment"])
+
+            if trading_pair not in data:
+                data[trading_pair] = {}
+
+            data[trading_pair]["timestamp"] = timestamp
+            data[trading_pair]["funding_rate"] = funding_rate
+            data[trading_pair]["payment"] = payment
+
+            prev_timestamps[trading_pair] = timestamp
+
+        return data
+
+    async def _process_open_positions(self, open_positions: Dict):
+        for market, position in open_positions.items():
+            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=market)
+            position_side = PositionSide[position["side"]]
+            pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
+            amount = Decimal(position.get("size"))
+            if amount != s_decimal_0:
+                entry_price = Decimal(position.get("entryPrice"))
+                unrealized_pnl = Decimal(position.get("unrealizedPnl"))
+                position = Position(
+                    trading_pair=trading_pair,
+                    position_side=position_side,
+                    unrealized_pnl=unrealized_pnl,
+                    entry_price=entry_price,
+                    amount=amount,
+                    leverage=self.get_leverage(trading_pair),
+                )
+                self._perpetual_trading.set_position(pos_key, position)
+            else:
+                self._perpetual_trading.remove_position(pos_key)
+
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        trade_updates = []
+
+        if order.exchange_order_id is not None:
             try:
+                all_fills_response = await self._request_order_fills(order=order)
+                fills_data = all_fills_response["fills"]
+                trade_updates_tmp = self._process_rest_fills(fills_data)
+                trade_updates += trade_updates_tmp
 
-                response = await self.dydx_client.get_funding_payments(market=trading_pair, before_ts=self.time_now_s())
-                funding_payments = response["fundingPayments"]
-                for funding_payment in funding_payments:
-                    ts = dateparse(funding_payment["effectiveAt"]).timestamp()
-                    if ts <= self._trading_pair_last_funding_payment_ts[trading_pair]:
-                        break  # Any subsequent funding payments would have a ts < last_funding_payment_ts
-                    funding_rate: Decimal = Decimal(funding_payment["rate"])
-                    trading_pair: str = funding_payment["market"]
-                    payment: Decimal = Decimal(funding_payment["payment"])
-                    action: str = "paid" if payment < s_decimal_0 else "received"
+            except IOError as ex:
+                if not self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
+                    raise
+        return trade_updates
 
-                    self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market")
-                    self.trigger_event(
-                        MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
-                        FundingPaymentCompletedEvent(
-                            timestamp=ts,
-                            market=self.name,
-                            funding_rate=funding_rate,
-                            trading_pair=trading_pair,
-                            amount=payment,
-                        ),
-                    )
-                    self._trading_pair_last_funding_payment_ts[trading_pair] = ts
-            except DydxApiError as e:
-                self.logger().warning(f"Unable to poll for funding payments {trading_pair}. ({e})")
+    def _process_rest_fills(self, fills_data: List) -> List[TradeUpdate]:
+        trade_updates = []
+        all_fillable_orders_by_exchange_order_id = {
+            order.exchange_order_id: order for order in self._order_tracker.all_fillable_orders.values()
+        }
+        for fill_data in fills_data:
+            exchange_order_id: str = fill_data["orderId"]
+            order = all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
+            trade_update = self._process_order_fills(fill_data=fill_data, order=order)
+            if trade_update is not None:
+                trade_updates.append(trade_update)
+        return trade_updates
 
-    def set_leverage(self, trading_pair: str, leverage: int = 1):
-        safe_ensure_future(self._set_leverage(trading_pair, leverage))
+    def _process_order_fills(self, fill_data: Dict, order: InFlightOrder) -> Optional[TradeUpdate]:
+        trade_update = None
+        if order is not None:
+            fee_asset = order.quote_asset
+            fee_amount = Decimal(fill_data["fee"])
+            flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
+            position_side = fill_data["side"]
+            position_action = (
+                PositionAction.OPEN
+                if (
+                    order.trade_type is TradeType.BUY
+                    and position_side == "BUY"
+                    or order.trade_type is TradeType.SELL
+                    and position_side == "SELL"
+                )
+                else PositionAction.CLOSE
+            )
 
-    async def _set_leverage(self, trading_pair: str, leverage: int = 1):
-        markets = await self.dydx_client.get_markets()
-        markets_info = markets["markets"]
+            fee = TradeFeeBase.new_perpetual_fee(
+                fee_schema=self.trade_fee_schema(),
+                position_action=position_action,
+                percent_token=fee_asset,
+                flat_fees=flat_fees,
+            )
 
-        self._margin_fractions[trading_pair] = {
-            "initial": Decimal(markets_info[trading_pair]["initialMarginFraction"]),
-            "maintenance": Decimal(markets_info[trading_pair]["maintenanceMarginFraction"]),
+            trade_update = TradeUpdate(
+                trade_id=fill_data["createdAt"],
+                client_order_id=order.client_order_id,
+                exchange_order_id=order.exchange_order_id,
+                trading_pair=order.trading_pair,
+                fill_timestamp=fill_data["createdAt"],
+                fill_price=Decimal(fill_data["price"]),
+                fill_base_amount=Decimal(fill_data["size"]),
+                fill_quote_amount=Decimal(fill_data["price"]) * Decimal(fill_data["size"]),
+                fee=fee,
+            )
+        return trade_update
+
+    async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
+
+        body_params = {
+            "orderId": order.exchange_order_id,
+            "limit": CONSTANTS.LAST_FILLS_MAX,
         }
 
-        max_leverage = int(Decimal("1") / self._margin_fractions[trading_pair]["initial"])
-        if leverage > max_leverage:
-            self._leverage[trading_pair] = max_leverage
-            self.logger().warning(f"Leverage has been reduced to {max_leverage}")
+        res = await self._api_get(
+            path_url=CONSTANTS.PATH_FILLS,
+            params=body_params,
+            is_auth_required=True,
+        )
+        return res
+
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        if tracked_order.exchange_order_id is None:
+            # Order placement failed previously
+            order_update = OrderUpdate(
+                client_order_id=tracked_order.client_order_id,
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=self.current_timestamp,
+                new_state=OrderState.FAILED,
+            )
         else:
-            self._leverage[trading_pair] = leverage
-        # the margins of dydx are a property of the margins. they determine the
-        # size of orders allowable.
+            try:
+                order_status_data = await self._request_order_status_data(tracked_order=tracked_order)
+                order = order_status_data["order"]
+                client_order_id = str(order["clientId"])
 
-    async def _get_position_mode(self):
-        return self._position_mode
-
-    def supported_position_modes(self):
-        return [PositionMode.ONEWAY]
-
-    def set_position_mode(self, position_mode: PositionMode):
-        if self._trading_pairs is not None:
-            for trading_pair in self._trading_pairs:
-                if position_mode != PositionMode.ONEWAY:
-                    self.trigger_event(AccountEvent.PositionModeChangeFailed,
-                                       PositionModeChangeEvent(
-                                           self.current_timestamp,
-                                           trading_pair,
-                                           position_mode,
-                                           "dYdX only supports the ONEWAY position mode."
-                                       ))
-                    self.logger().debug(f"dYdX encountered a problem switching position mode to "
-                                        f"{position_mode} for {trading_pair}"
-                                        f" (dYdX only supports the ONEWAY position mode)")
+                order_update: OrderUpdate = OrderUpdate(
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=CONSTANTS.ORDER_STATE[order["status"]],
+                    client_order_id=client_order_id,
+                    exchange_order_id=order["id"],
+                )
+            except IOError as ex:
+                if self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
+                    order_update = OrderUpdate(
+                        client_order_id=tracked_order.client_order_id,
+                        trading_pair=tracked_order.trading_pair,
+                        update_timestamp=self.current_timestamp,
+                        new_state=tracked_order.current_state,
+                    )
                 else:
-                    self._position_mode = PositionMode.ONEWAY
-                    super().set_position_mode(PositionMode.ONEWAY)
-                    self.trigger_event(AccountEvent.PositionModeChangeSucceeded,
-                                       PositionModeChangeEvent(
-                                           self.current_timestamp,
-                                           trading_pair,
-                                           position_mode
-                                       ))
-                    self.logger().debug(f"dYdX switching position mode to "
-                                        f"{position_mode} for {trading_pair} succeeded.")
+                    raise
+        return order_update
 
-    # ==========================================================
-    # Miscellaneous
-    # ----------------------------------------------------------
+    async def _request_order_status_data(self, tracked_order: InFlightOrder) -> Dict:
+        try:
+            resp = await self._api_get(
+                path_url=CONSTANTS.PATH_ORDERS + "/" + str(tracked_order.exchange_order_id),
+                is_auth_required=True,
+                limit_id=CONSTANTS.PATH_ORDERS,
+            )
+        except IOError as e:
+            if any(error in str(e) for error in [CONSTANTS.ERR_MSG_NO_ORDER_FOUND]):
+                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
+            raise
+        return resp
 
-    def get_order_price_quantum(self, trading_pair: str, price: Decimal):
-        return self._trading_rules[trading_pair].min_price_increment
+    def _create_web_assistants_factory(self) -> WebAssistantsFactory:
+        return web_utils.build_api_factory(
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            auth=self._auth,
+        )
 
-    def get_order_size_quantum(self, trading_pair: str, order_size: Decimal):
-        return self._trading_rules[trading_pair].min_base_amount_increment
+    def _create_order_book_data_source(self) -> DydxPerpetualAPIOrderBookDataSource:
+        return DydxPerpetualAPIOrderBookDataSource(
+            self.trading_pairs,
+            connector=self,
+            api_factory=self._web_assistants_factory,
+            domain=self._domain,
+        )
 
-    def quantize_order_price(self, trading_pair: str, price: Decimal):
-        return price.quantize(self.get_order_price_quantum(trading_pair, price))
+    def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
+        return DydxPerpetualUserStreamDataSource(dydx_auth=self._auth, api_factory=self._web_assistants_factory)
 
-    def quantize_order_amount(self, trading_pair: str, amount: Decimal, price: Decimal = Decimal("0")):
-        quantized_amount = amount.quantize(self.get_order_size_quantum(trading_pair, amount))
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        markets = exchange_info["markets"]
 
-        rules = self._trading_rules[trading_pair]
+        mapping = bidict()
+        for key, val in markets.items():
+            if val["status"] == "ONLINE":
+                exchange_symbol = val["market"]
+                base = val["baseAsset"]
+                quote = val["quoteAsset"]
+                trading_pair = combine_to_hb_trading_pair(base, quote)
+                if trading_pair in mapping.inverse:
+                    self._resolve_trading_pair_symbols_duplicate(mapping, exchange_symbol, base, quote)
+                else:
+                    mapping[exchange_symbol] = trading_pair
 
-        if quantized_amount < rules.min_order_size:
-            return s_decimal_0
+        self._set_trading_pair_symbol_map(mapping)
 
-        if price > 0 and price * quantized_amount < rules.min_notional_size:
-            return s_decimal_0
-
-        return quantized_amount
-
-    def time_now_s(self) -> float:
-        return time.time()
-
-    def tick(self, timestamp: float):
+    def _resolve_trading_pair_symbols_duplicate(self, mapping: bidict, new_exchange_symbol: str, base: str, quote: str):
+        """Resolves name conflicts provoked by futures contracts.
+        If the expected BASEQUOTE combination matches one of the exchange symbols, it is the one taken, otherwise,
+        the trading pair is removed from the map and an error is logged.
         """
-        Is called automatically by the clock for each clock's tick (1 second by default).
-        It checks if status polling task is due for execution.
-        """
-        now = self.time_now_s()
-        poll_interval = (
-            self.SHORT_POLL_INTERVAL
-            if now - self._user_stream_tracker.last_recv_time > 60.0
-            else self.LONG_POLL_INTERVAL
-        )
-        last_tick = int(self._last_poll_timestamp / poll_interval)
-        current_tick = int(timestamp / poll_interval)
-        if current_tick > last_tick:
-            if not self._poll_notifier.is_set():
-                self._poll_notifier.set()
-        self._last_poll_timestamp = timestamp
+        expected_exchange_symbol = f"{base}{quote}"
+        trading_pair = combine_to_hb_trading_pair(base, quote)
+        current_exchange_symbol = mapping.inverse[trading_pair]
+        if current_exchange_symbol == expected_exchange_symbol:
+            pass
+        elif new_exchange_symbol == expected_exchange_symbol:
+            mapping.pop(current_exchange_symbol)
+            mapping[new_exchange_symbol] = trading_pair
+        else:
+            self.logger().error(
+                f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}"
+            )
+            mapping.pop(current_exchange_symbol)
 
-    def buy(
-        self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN, **kwargs
-    ) -> str:
-        tracking_nonce = get_tracking_nonce()
-        client_order_id: str = str(f"buy-{trading_pair}-{tracking_nonce}")
-        safe_ensure_future(
-            self.execute_buy(client_order_id, trading_pair, amount, order_type, kwargs["position_action"], price)
-        )
-        return client_order_id
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
+        exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+        params = {"market": exchange_symbol}
 
-    def sell(
-        self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN, **kwargs
-    ) -> str:
-        tracking_nonce = get_tracking_nonce()
-        client_order_id: str = str(f"sell-{trading_pair}-{tracking_nonce}")
-        safe_ensure_future(
-            self.execute_sell(client_order_id, trading_pair, amount, order_type, kwargs["position_action"], price)
+        response: Dict[str, Dict[str, Any]] = await self._api_get(
+            path_url=CONSTANTS.PATH_MARKETS, params=params, is_auth_required=False
         )
-        return client_order_id
 
-    def cancel(self, trading_pair: str, client_order_id: str):
-        return safe_ensure_future(self.cancel_order(client_order_id))
+        price = float(response["markets"][exchange_symbol]["indexPrice"])
+        return price
+
+    def supported_position_modes(self) -> List[PositionMode]:
+        return [PositionMode.ONEWAY]
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
@@ -1321,13 +770,100 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
 
-    async def all_trading_pairs(self) -> List[str]:
-        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
-        return await DydxPerpetualAPIOrderBookDataSource.fetch_trading_pairs()
+    async def _update_positions(self):
+        account = await self._get_account()
+        await self._process_open_positions(account["openPositions"])
 
-    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
-        # This method should be removed and instead we should implement _get_last_traded_price
-        return await DydxPerpetualAPIOrderBookDataSource.get_last_traded_prices(
-            trading_pairs=trading_pairs,
-            domain=self._domain
+    async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
+        """
+        :return: A tuple of boolean (true if success) and error message if the exchange returns one on failure.
+        """
+        if mode != PositionMode.ONEWAY:
+            self.trigger_event(
+                AccountEvent.PositionModeChangeFailed,
+                PositionModeChangeEvent(
+                    self.current_timestamp, trading_pair, mode, "dYdX only supports the ONEWAY position mode."
+                ),
+            )
+            self.logger().debug(
+                f"dYdX encountered a problem switching position mode to "
+                f"{mode} for {trading_pair}"
+                f" (dYdX only supports the ONEWAY position mode)"
+            )
+        else:
+            self._position_mode = PositionMode.ONEWAY
+            super().set_position_mode(PositionMode.ONEWAY)
+            self.trigger_event(
+                AccountEvent.PositionModeChangeSucceeded,
+                PositionModeChangeEvent(self.current_timestamp, trading_pair, mode),
+            )
+            self.logger().debug(f"dYdX switching position mode to " f"{mode} for {trading_pair} succeeded.")
+
+    async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
+        success = True
+        msg = ""
+
+        response: Dict[str, Dict[str, Any]] = await self._api_get(
+            path_url=CONSTANTS.PATH_MARKETS,
+            is_auth_required=False,
         )
+
+        if "markets" not in response:
+            msg = "Failed to obtain markets information."
+            success = False
+
+        if success:
+            markets_info = response["markets"]
+
+            self._margin_fractions[trading_pair] = {
+                "initial": Decimal(markets_info[trading_pair]["initialMarginFraction"]),
+                "maintenance": Decimal(markets_info[trading_pair]["maintenanceMarginFraction"]),
+            }
+
+            max_leverage = int(Decimal("1") / self._margin_fractions[trading_pair]["initial"])
+            if leverage > max_leverage:
+                self._perpetual_trading.set_leverage(trading_pair=trading_pair, leverage=max_leverage)
+                self.logger().warning(f"Leverage has been reduced to {max_leverage}")
+            else:
+                self._perpetual_trading.set_leverage(trading_pair=trading_pair, leverage=leverage)
+        return success, msg
+
+    async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
+        """
+        Returns a tuple of the latest funding payment timestamp, funding rate, and payment amount.
+        If no payment exists, return (0, -1, -1)
+        """
+        market = await self.exchange_symbol_associated_to_pair(trading_pair)
+
+        body_params = {
+            "market": market,
+            "limit": CONSTANTS.LAST_FEE_PAYMENTS_MAX,
+            "effectiveBeforeOrAt": generate_now_iso(),
+        }
+
+        response: Dict[str, Dict[str, Any]] = await self._api_get(
+            path_url=CONSTANTS.PATH_FUNDING,
+            params=body_params,
+            is_auth_required=True,
+        )
+
+        funding_payments = await self._process_funding_payments(response["fundingPayments"])
+
+        timestamp = funding_payments[trading_pair]["timestamp"]
+        funding_rate = funding_payments[trading_pair]["funding_rate"]
+        payment = funding_payments[trading_pair]["payment"]
+
+        return timestamp, funding_rate, payment
+
+    async def _get_account(self):
+        account_id = self._auth.get_account_id()
+        response: Dict[str, Dict[str, Any]] = await self._api_get(
+            path_url=CONSTANTS.PATH_ACCOUNTS + "/" + str(account_id),
+            limit_id=CONSTANTS.PATH_ACCOUNTS,
+            is_auth_required=True,
+        )
+
+        if "account" not in response:
+            raise IOError(f"Unable to get account info for account id {account_id}")
+
+        return response["account"]
