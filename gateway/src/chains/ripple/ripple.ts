@@ -68,6 +68,8 @@ export class Ripple implements Rippleish {
       maxFeeXRP: config.maxFeeXRP,
     });
 
+    this._client.connect();
+
     this._requestCount = 0;
     this._metricsLogInterval = 300000; // 5 minutes
 
@@ -239,21 +241,21 @@ export class Ripple implements Rippleish {
   }
 
   async getNativeBalance(wallet: Wallet): Promise<string> {
-    await this._client.connect();
     const balance = await this._client.getXrpBalance(wallet.address);
-    await this._client.disconnect();
     return balance;
   }
 
   async getAllBalance(wallet: Wallet): Promise<Array<TokenBalance>> {
-    await this._client.connect();
     const balances = await this._client.getBalances(wallet.address);
-    await this._client.disconnect();
     return balances;
   }
 
   ready(): boolean {
     return this._ready;
+  }
+
+  isConnected(): boolean {
+    return this._client.isConnected();
   }
 
   public get chain(): string {
@@ -292,9 +294,7 @@ export class Ripple implements Rippleish {
 
   // returns the current block number
   async getCurrentBlockNumber(): Promise<number> {
-    await this.client.connect();
     const currentIndex = this.client.getLedgerIndex();
-    await this.client.disconnect();
     return currentIndex;
   }
 

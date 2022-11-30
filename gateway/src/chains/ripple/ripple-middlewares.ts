@@ -16,5 +16,9 @@ export const verifyRippleIsAvailable = async (
     await ripple.init();
   }
 
+  if (!ripple.isConnected()) {
+    await ripple.client.connect();
+  }
+
   return next();
 };

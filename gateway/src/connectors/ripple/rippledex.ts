@@ -1,8 +1,8 @@
 // import { RippleDEXConfig } from './rippledex.config';
-import {
-  Config as RippleConfig,
-  getRippleConfig,
-} from '../../chains/ripple/ripple.config';
+// import {
+//   Config as RippleConfig,
+//   getRippleConfig,
+// } from '../../chains/ripple/ripple.config';
 import { Ripple } from '../../chains/ripple/ripple';
 import { Client, OfferCancel, Transaction, xrpToDrops } from 'xrpl';
 
@@ -13,8 +13,9 @@ export class RippleDEX {
   // private initializing: boolean = false;
 
   // private readonly config: RippleDEXConfig.Config;
-  private readonly rippleConfig: RippleConfig;
-  private readonly client: Client;
+  // private readonly rippleConfig: RippleConfig;
+  private readonly _client: Client;
+  private readonly _ripple: Ripple;
   // private ripple!: Ripple;
   private _ready: boolean = false;
 
@@ -34,14 +35,15 @@ export class RippleDEX {
     this.network = network;
 
     // this.config = RippleDEXConfig.config;
-    this.rippleConfig = getRippleConfig(chain, network);
+    // this._rippleConfig = getRippleConfig(chain, network);
 
-    this.client = new Client(this.rippleConfig.network.nodeUrl, {
-      timeout: this.rippleConfig.requestTimeout,
-      connectionTimeout: this.rippleConfig.connectionTimeout,
-      feeCushion: this.rippleConfig.feeCushion,
-      maxFeeXRP: this.rippleConfig.maxFeeXRP,
-    });
+    this._ripple = Ripple.getInstance(network);
+
+    this._client = this._ripple.client;
+
+    if (!this._client.isConnected()) {
+      this._client.connect();
+    }
   }
 
   public static getInstance(chain: string, network: string): RippleDEX {
@@ -56,9 +58,7 @@ export class RippleDEX {
   }
 
   async getTicker(base: any, quote: any): Promise<any> {
-    await this.client.connect();
-
-    const orderbook_resp_ask: any = await this.client.request({
+    const orderbook_resp_ask: any = await this._client.request({
       command: 'book_offers',
       ledger_index: 'validated',
       taker_gets: base,
@@ -66,15 +66,13 @@ export class RippleDEX {
       limit: 1,
     });
 
-    const orderbook_resp_bid: any = await this.client.request({
+    const orderbook_resp_bid: any = await this._client.request({
       command: 'book_offers',
       ledger_index: 'validated',
       taker_gets: quote,
       taker_pays: base,
       limit: 1,
     });
-
-    await this.client.disconnect();
 
     const asks = orderbook_resp_ask.result.offers;
     const bids = orderbook_resp_bid.result.offers;
@@ -91,9 +89,7 @@ export class RippleDEX {
   }
 
   async getOrderBooks(base: any, quote: any, limit: number): Promise<any> {
-    await this.client.connect();
-
-    const orderbook_resp_ask: any = await this.client.request({
+    const orderbook_resp_ask: any = await this._client.request({
       command: 'book_offers',
       ledger_index: 'validated',
       taker_gets: base,
@@ -101,15 +97,13 @@ export class RippleDEX {
       limit: limit,
     });
 
-    const orderbook_resp_bid: any = await this.client.request({
+    const orderbook_resp_bid: any = await this._client.request({
       command: 'book_offers',
       ledger_index: 'validated',
       taker_gets: quote,
       taker_pays: base,
       limit: limit,
     });
-
-    await this.client.disconnect();
 
     const asks = orderbook_resp_ask.result.offers;
     const bids = orderbook_resp_bid.result.offers;
@@ -132,15 +126,11 @@ export class RippleDEX {
   }
 
   async getOrders(tx: string): Promise<any> {
-    await this.client.connect();
-
-    const tx_resp = await this.client.request({
+    const tx_resp = await this._client.request({
       command: 'tx',
       transaction: tx,
       binary: false,
     });
-
-    await this.client.disconnect();
 
     const result = tx_resp.result;
 
@@ -204,14 +194,11 @@ export class RippleDEX {
       TakerGets: we_get.currency == 'XRP' ? we_get.value : we_get,
     };
 
-    await this.client.connect();
-    const prepared = await this.client.autofill(offer);
+    const prepared = await this._client.autofill(offer);
     console.log('Prepared transaction:', JSON.stringify(prepared, null, 2));
     const signed = wallet.sign(prepared);
     console.log('Sending OfferCreate transaction...');
-    const response = await this.client.submitAndWait(signed.tx_blob);
-
-    await this.client.disconnect();
+    const response = await this._client.submitAndWait(signed.tx_blob);
 
     return response;
   }
@@ -228,27 +215,20 @@ export class RippleDEX {
       OfferSequence: offerSequence,
     };
 
-    await this.client.connect();
-    const prepared = await this.client.autofill(request);
+    const prepared = await this._client.autofill(request);
     console.log('Prepared transaction:', JSON.stringify(prepared, null, 2));
     const signed = wallet.sign(prepared);
     console.log('Sending OfferCancel transaction...');
-    const response = await this.client.submitAndWait(signed.tx_blob);
-
-    await this.client.disconnect();
+    const response = await this._client.submitAndWait(signed.tx_blob);
 
     return response;
   }
 
   async getOpenOrders(address: string): Promise<any> {
-    await this.client.connect();
-
-    const account_offers_resp = await this.client.request({
+    const account_offers_resp = await this._client.request({
       command: 'account_offers',
       account: address,
     });
-
-    await this.client.disconnect();
 
     const result = account_offers_resp.result;
 
@@ -257,5 +237,13 @@ export class RippleDEX {
 
   ready(): boolean {
     return this._ready;
+  }
+
+  isConnected(): boolean {
+    return this._client.isConnected();
+  }
+
+  public get client() {
+    return this._client;
   }
 }
