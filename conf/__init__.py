@@ -99,6 +99,10 @@ bitmart_api_key = os.getenv("BITMART_API_KEY")
 bitmart_secret_key = os.getenv("BITMART_SECRET_KEY")
 bitmart_memo = os.getenv("BITMART_MEMO")
 
+# BTC Markets Test
+btc_markets_api_key = os.getenv("BTC_MARKETS_API_KEY")
+btc_markets_secret_key = os.getenv("BTC_MARKETS_SECRET_KEY")
+
 # CryptoCom Test
 crypto_com_api_key = os.getenv("CRYPTO_COM_API_KEY")
 crypto_com_secret_key = os.getenv("CRYPTO_COM_SECRET_KEY")
