@@ -72,7 +72,7 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual(expected_extra_reduced_id, extra_reduced_id)
 
     def test_connector_config_maps(self):
-        connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade", "celo"]
+        connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade", "celo", "amm", "clob"]
 
         type_dirs = [
             cast(DirEntry, f) for f in

@@ -10,6 +10,7 @@ connector_status = {
     'binance_perpetual_testnet': 'yellow',
     'binance_us': 'green',
     'bitfinex': 'yellow',
+    'bitget_perpetual': 'yellow',
     'bitmart': 'yellow',
     'bittrex': 'yellow',
     'bitmex': 'green',
@@ -17,6 +18,7 @@ connector_status = {
     'bitmex_testnet': 'yellow',
     'bitmex_perpetual_testnet': 'yellow',
     'blocktane': 'yellow',
+    'btc_markets': 'yellow',
     'bybit_perpetual': 'green',
     'bybit_perpetual_testnet': 'yellow',
     'bybit_testnet': 'yellow',
@@ -33,15 +35,17 @@ connector_status = {
     'dydx_perpetual': 'yellow',
     'ethereum': 'red',
     'eve': 'yellow',
-    'ftx': 'green',
+    'eve_staging': 'yellow',
     'gate_io': 'yellow',
+    'gate_io_perpetual': 'yellow',
     'hitbtc': 'green',
-    'huobi': 'yellow',
+    'huobi': 'green',
     'kraken': 'green',
     'kucoin': 'yellow',
     'kucoin_testnet': 'yellow',
     'k2': 'red',
     'latoken': 'green',
+    'lbank': 'yellow',
     'liquid': 'green',
     'loopring': 'yellow',
     'mexc': 'yellow',
@@ -54,7 +58,8 @@ connector_status = {
     'terra': 'red',
     'uniswap': 'yellow',
     'uniswap_v3': 'yellow',
-    'wazirx': 'yellow'
+    'wazirx': 'yellow',
+    'whitebit': 'yellow'
 }
 
 warning_messages = {

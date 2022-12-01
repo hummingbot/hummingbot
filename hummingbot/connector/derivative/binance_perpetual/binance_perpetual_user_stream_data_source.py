@@ -98,6 +98,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 domain=self._domain,
                 params={"listenKey": self._current_listen_key},
                 method=RESTMethod.PUT,
+                is_auth_required=True,
                 return_err=True)
 
             if "code" in data:

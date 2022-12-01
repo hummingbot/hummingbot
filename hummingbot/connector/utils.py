@@ -61,6 +61,13 @@ def combine_to_hb_trading_pair(base: str, quote: str) -> str:
     return trading_pair
 
 
+def validate_trading_pair(trading_pair: str) -> bool:
+    valid = False
+    if "-" in trading_pair and len(trading_pair.split("-")) == 2:
+        valid = True
+    return valid
+
+
 def _bot_instance_id() -> str:
     return md5(f"{platform.uname()}_pid:{os.getpid()}_ppid:{os.getppid()}".encode("utf-8")).hexdigest()
 

@@ -56,7 +56,6 @@ class GatewayChainApiManager:
                     return None
                 try:
                     node_url = node_url.strip()  # help check for an empty string which is valid input
-                    # TODO: different behavior will be necessary for non-EVM nodes
 
                     await self._update_gateway_chain_network_node_url(chain, network, node_url)
 
@@ -80,6 +79,7 @@ class GatewayChainApiManager:
         """
         Check if gateway node URL for a chain and network works
         """
+        # XXX: This should be removed once nodeAPIKey is deprecated from Gateway service
         config_dict: Dict[str, Any] = await GatewayHttpClient.get_instance().get_configuration()
         chain_config: Optional[Dict[str, Any]] = config_dict.get(chain)
         if chain_config is not None:
