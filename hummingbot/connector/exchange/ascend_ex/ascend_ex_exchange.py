@@ -568,6 +568,10 @@ class AscendExExchange(ExchangeBase):
 
         return quantized_amount
 
+    async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
+        pairs_prices = await self._api_request(method=RESTMethod.GET, path_url=CONSTANTS.TICKER_PATH_URL)
+        return pairs_prices
+
     async def _process_order_message(self, order_msg: AscendExOrder):
         """
         Updates in-flight order and triggers cancellation or failure event if needed.

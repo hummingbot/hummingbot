@@ -23,6 +23,7 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
@@ -1392,7 +1393,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        cancel_response = {"code": -2011, "msg": "Unknown order sent"}
+        cancel_response = {"code": -2011, "msg": "Unknown order sent."}
         req_mock.delete(regex_url, body=json.dumps(cancel_response))
 
         self.exchange.start_tracking_order(
@@ -1423,7 +1424,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             "No cancelation needed."
         ))
 
-        self.assertTrue("OID1" not in self.exchange._client_order_tracker._in_flight_orders)
+        self.assertTrue("OID1" in self.exchange._client_order_tracker._order_not_found_records)
 
     @aioresponses()
     def test_cancel_all_exception(self, req_mock):
@@ -1462,6 +1463,63 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         ))
 
         self.assertTrue("OID1" in self.exchange._client_order_tracker._in_flight_orders)
+
+    @aioresponses()
+    def test_cancel_order_successful(self, mock_api):
+        url = web_utils.rest_url(
+            CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        cancel_response = {
+            "clientOrderId": "ODI1",
+            "cumQty": "0",
+            "cumQuote": "0",
+            "executedQty": "0",
+            "orderId": 283194212,
+            "origQty": "11",
+            "origType": "TRAILING_STOP_MARKET",
+            "price": "0",
+            "reduceOnly": False,
+            "side": "BUY",
+            "positionSide": "SHORT",
+            "status": "CANCELED",
+            "stopPrice": "9300",
+            "closePosition": False,
+            "symbol": "BTCUSDT",
+            "timeInForce": "GTC",
+            "type": "TRAILING_STOP_MARKET",
+            "activatePrice": "9020",
+            "priceRate": "0.3",
+            "updateTime": 1571110484038,
+            "workingType": "CONTRACT_PRICE",
+            "priceProtect": False
+        }
+        mock_api.delete(regex_url, body=json.dumps(cancel_response))
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position=PositionAction.OPEN,
+        )
+        tracked_order = self.exchange._client_order_tracker.fetch_order("OID1")
+        tracked_order.current_state = OrderState.OPEN
+
+        self.assertTrue("OID1" in self.exchange._client_order_tracker._in_flight_orders)
+
+        canceled_order_id = self.async_run_with_timeout(self.exchange._execute_cancel(trading_pair=self.trading_pair,
+                                                                                      client_order_id="OID1"))
+
+        order_cancelled_events = self.order_cancelled_logger.event_log
+
+        self.assertEqual(1, len(order_cancelled_events))
+        self.assertEqual("OID1", canceled_order_id)
 
     @aioresponses()
     def test_create_order_successful(self, req_mock):
@@ -1519,6 +1577,100 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             "NETWORK",
             f"Error submitting order to Binance Perpetuals for 9999 {self.trading_pair} "
             f"1010."
+        ))
+
+    def test_create_order_position_action_failure(self):
+        margin_asset = self.quote_asset
+        mocked_response = self._get_exchange_info_mock_response(margin_asset)
+        trading_rules = self.exchange._format_trading_rules(mocked_response)
+        self.exchange._trading_rules[self.trading_pair] = trading_rules[0]
+        self.async_run_with_timeout(self.exchange._create_order(trade_type=TradeType.BUY,
+                                                                order_id="OID1",
+                                                                trading_pair=self.trading_pair,
+                                                                amount=Decimal("10000"),
+                                                                order_type=OrderType.LIMIT,
+                                                                position_action="BAD POSITION ACTION",
+                                                                price=Decimal("1010")))
+
+        self.assertTrue("OID1" not in self.exchange._client_order_tracker._in_flight_orders)
+
+        self.assertTrue(self._is_logged(
+            "ERROR",
+            "Specify either OPEN_POSITION or CLOSE_POSITION position_action."
+        ))
+
+    def test_create_order_supported_order_type_failure(self):
+        margin_asset = self.quote_asset
+        mocked_response = self._get_exchange_info_mock_response(margin_asset)
+        trading_rules = self.exchange._format_trading_rules(mocked_response)
+        self.exchange._trading_rules[self.trading_pair] = trading_rules[0]
+        self.async_run_with_timeout(self.exchange._create_order(trade_type=TradeType.BUY,
+                                                                order_id="OID1",
+                                                                trading_pair=self.trading_pair,
+                                                                amount=Decimal("10000"),
+                                                                order_type="STOP LIMIT",
+                                                                position_action=PositionAction.OPEN,
+                                                                price=Decimal("1010")))
+
+        self.assertTrue("OID1" not in self.exchange._client_order_tracker._in_flight_orders)
+
+        self.assertTrue(self._is_logged(
+            "ERROR",
+            "STOP LIMIT is not in the list of supported order types"
+        ))
+
+    def test_create_order_min_order_size_failure(self):
+        margin_asset = self.quote_asset
+        min_order_size = 3
+        mocked_response = self._get_exchange_info_mock_response(margin_asset, min_order_size=min_order_size)
+        trading_rules = self.exchange._format_trading_rules(mocked_response)
+        self.exchange._trading_rules[self.trading_pair] = trading_rules[0]
+        trade_type = TradeType.BUY
+        amount = Decimal("2")
+
+        self.async_run_with_timeout(self.exchange._create_order(trade_type=trade_type,
+                                                                order_id="OID1",
+                                                                trading_pair=self.trading_pair,
+                                                                amount=amount,
+                                                                order_type=OrderType.LIMIT,
+                                                                position_action=PositionAction.OPEN,
+                                                                price=Decimal("1010")))
+
+        self.assertTrue("OID1" not in self.exchange._client_order_tracker._in_flight_orders)
+
+        self.assertTrue(self._is_logged(
+            "WARNING",
+            f"{trade_type.name.title()} order amount 0 is lower than the minimum order"
+            f" size {min_order_size}. The order will not be created."
+        ))
+
+    def test_create_order_min_notional_size_failure(self):
+        margin_asset = self.quote_asset
+        min_notional_size = 10
+        mocked_response = self._get_exchange_info_mock_response(margin_asset,
+                                                                min_notional_size=min_notional_size,
+                                                                min_base_amount_increment=0.5)
+        trading_rules = self.exchange._format_trading_rules(mocked_response)
+        self.exchange._trading_rules[self.trading_pair] = trading_rules[0]
+        trade_type = TradeType.BUY
+        amount = Decimal("2")
+        price = Decimal("4")
+
+        self.async_run_with_timeout(self.exchange._create_order(trade_type=trade_type,
+                                                                order_id="OID1",
+                                                                trading_pair=self.trading_pair,
+                                                                amount=amount,
+                                                                order_type=OrderType.LIMIT,
+                                                                position_action=PositionAction.OPEN,
+                                                                price=price))
+
+        self.assertTrue("OID1" not in self.exchange._client_order_tracker._in_flight_orders)
+
+        self.assertTrue(self._is_logged(
+            "WARNING",
+            "Buy order notional 8.0 is lower than the "
+            "minimum notional size 10. "
+            "The order will not be created."
         ))
 
     def test_restore_tracking_states_only_registers_open_orders(self):
@@ -1801,3 +1953,33 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                                 if key[1].human_repr().startswith(url)))
         request_params = account_request[1][0].kwargs["params"]
         self.assertEqual(int(mock_seconds_counter.return_value * 1e3), request_params["timestamp"])
+
+    def test_limit_orders(self):
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position=PositionAction.OPEN,
+        )
+        self.exchange.start_tracking_order(
+            order_id="OID2",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position=PositionAction.OPEN,
+        )
+
+        limit_orders = self.exchange.limit_orders
+
+        self.assertEqual(len(limit_orders), 2)
+        self.assertTrue(type(limit_orders) == list)
+        self.assertTrue(type(limit_orders[0]) == LimitOrder)

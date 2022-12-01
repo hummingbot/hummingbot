@@ -1,17 +1,17 @@
-from aiounittest import async_test
-from aiohttp import ClientSession
 import asyncio
+import unittest
 from contextlib import ExitStack
 from decimal import Decimal
 from os.path import join, realpath
-from typing import List, Dict, Any
-import unittest
+from test.mock.http_recorder import HttpPlayer
+from typing import Any, Dict, List
 from unittest.mock import patch
+
+from aiohttp import ClientSession
+from aiounittest import async_test
 
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-
-from test.mock.http_recorder import HttpPlayer
 
 ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
@@ -207,3 +207,364 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         self.assertEqual("1000000000000000000000", result["rawAmount"])
         self.assertEqual("0xc7287236f64484b476cfbec0fd21bc49d85f8850c8885665003928a122041e18",      # noqa: mock
                          result["txHash"])
+
+    @async_test(loop=ev_loop)
+    async def test_solana_get_root(self):
+        network = 'testnet'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().solana_post_root(
+            network
+        )
+
+        self.assertEqual(network, result["network"])
+        self.assertEqual("https://api.testnet.solana.com", result["rpcUrl"])
+        self.assertTrue(result["connection"])
+        self.assertGreater(result["timestamp"], 0)
+
+    @async_test(loop=ev_loop)
+    async def test_solana_get_balances(self):
+        network = 'testnet'
+        address = ''
+        token_symbols = ['']
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().solana_get_balances(
+            network,
+            address,
+            token_symbols
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_solana_get_token(self):
+        network = 'testnet'
+        address = ''
+        token = ''
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().solana_get_token(
+            network,
+            address,
+            token
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_solana_post_token(self):
+        network = 'testnet'
+        address = ''
+        token = ''
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().solana_post_token(
+            network,
+            address,
+            token
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_solana_post_poll(self):
+        network = 'testnet'
+        tx_hash = ''
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().solana_post_poll(
+            network,
+            tx_hash
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_clob_get_root(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_root(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertEqual(chain, result["chain"])
+        self.assertEqual(network, result["network"])
+        self.assertEqual(connector, result["connector"])
+        self.assertTrue(result["connection"])
+        self.assertGreater(result["timestamp"], 0)
+
+    @async_test(loop=ev_loop)
+    async def test_clob_get_markets(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_markets(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_clob_get_order_books(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_order_books(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_clob_get_tickers(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_tickers(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_clob_get_orders(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_orders(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_clob_post_orders(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        orders = []
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_post_orders(
+            chain,
+            network,
+            connector,
+            orders
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_clob_delete_orders(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_delete_orders(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_clob_get_open_orders(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_open_orders(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_clob_get_filled_orders(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_get_filled_orders(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_clob_post_settle_funds(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_post_settle_funds(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_serum_get_root(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_get_root(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertEqual(chain, result["chain"])
+        self.assertEqual(network, result["network"])
+        self.assertEqual(connector, result["connector"])
+        self.assertTrue(result["connection"])
+        self.assertGreater(result["timestamp"], 0)
+
+    @async_test(loop=ev_loop)
+    async def test_serum_get_markets(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_get_markets(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_serum_get_order_books(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_get_order_books(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_serum_get_tickers(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_get_tickers(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_serum_get_orders(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_get_orders(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_serum_post_orders(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        orders = []
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_post_orders(
+            chain,
+            network,
+            connector,
+            orders
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_serum_delete_orders(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_delete_orders(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_serum_get_open_orders(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_get_open_orders(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_serum_get_filled_orders(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_get_filled_orders(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_serum_post_settle_funds(self):
+        chain = 'solana'
+        network = 'testnet'
+        connector = 'serum'
+
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().serum_post_settle_funds(
+            chain,
+            network,
+            connector
+        )
+
+        self.assertTrue(len(result) > 0)

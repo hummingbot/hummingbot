@@ -180,9 +180,9 @@ cdef class ExchangeBase(ConnectorBase):
         cdef:
             OrderBook order_book = self.c_get_order_book(trading_pair)
             OrderBookQueryResult result = order_book.c_get_price_for_quote_volume(is_buy, float(volume))
-            object query_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.query_volume))
+            object query_volume = Decimal(str(result.query_volume))
             object result_price = self.c_quantize_order_price(trading_pair, Decimal(result.result_price))
-            object result_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.result_volume))
+            object result_volume = Decimal(str(result.result_volume))
         return ClientOrderBookQueryResult(s_decimal_NaN,
                                           query_volume,
                                           result_price,
@@ -206,7 +206,7 @@ cdef class ExchangeBase(ConnectorBase):
             OrderBook order_book = self.c_get_order_book(trading_pair)
             OrderBookQueryResult result = order_book.c_get_quote_volume_for_base_amount(is_buy, float(base_amount))
             object query_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.query_volume))
-            object result_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.result_volume))
+            object result_volume = Decimal(str(result.result_volume))
         return ClientOrderBookQueryResult(s_decimal_NaN,
                                           query_volume,
                                           s_decimal_NaN,
@@ -230,7 +230,7 @@ cdef class ExchangeBase(ConnectorBase):
             OrderBookQueryResult result = order_book.c_get_volume_for_price(is_buy, float(price))
             object query_price = self.c_quantize_order_price(trading_pair, Decimal(result.query_price))
             object result_price = self.c_quantize_order_price(trading_pair, Decimal(result.result_price))
-            object result_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.result_volume))
+            object result_volume = Decimal(str(result.result_volume))
         return ClientOrderBookQueryResult(query_price,
                                           s_decimal_NaN,
                                           result_price,

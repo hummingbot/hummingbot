@@ -419,7 +419,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                     position_entries = result if isinstance(result, list) else [result]
                     parsed_resps.extend(position_entries)
             else:
-                self.logger().error(f"Error fetching trades history for {trading_pair}. Response: {resp}")
+                self.logger().error(f"Error fetching positions for {trading_pair}. Response: {resp}")
 
         for position in parsed_resps:
             data = position
@@ -451,10 +451,13 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         if order.exchange_order_id is not None:
             try:
                 all_fills_response = await self._request_order_fills(order=order)
-                fills_data = all_fills_response["result"]["trade_list"]
-                for fill_data in fills_data:
-                    trade_update = self._parse_trade_update(trade_msg=fill_data, tracked_order=order)
-                    trade_updates.append(trade_update)
+                trades_list_key = "data" if bybit_utils.is_linear_perpetual(order.trading_pair) else "trade_list"
+                fills_data = all_fills_response["result"].get(trades_list_key, [])
+
+                if fills_data is not None:
+                    for fill_data in fills_data:
+                        trade_update = self._parse_trade_update(trade_msg=fill_data, tracked_order=order)
+                        trade_updates.append(trade_update)
             except IOError as ex:
                 if not self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
                     raise

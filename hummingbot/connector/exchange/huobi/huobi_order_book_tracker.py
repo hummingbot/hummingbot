@@ -3,20 +3,13 @@
 import asyncio
 import logging
 import time
-from typing import (
-    List,
-    Optional
-)
+from typing import List, Optional
 
 from hummingbot.connector.exchange.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage,
-    OrderBookMessageType
-)
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 
@@ -39,7 +32,6 @@ class HuobiOrderBookTracker(OrderBookTracker):
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        self._order_book_stream_listener_task: Optional[asyncio.Task] = None
 
     @property
     def exchange_name(self) -> str:
@@ -57,12 +49,8 @@ class HuobiOrderBookTracker(OrderBookTracker):
 
     def start(self):
         super().start()
-        self._order_book_stream_listener_task = safe_ensure_future(
-            self._data_source.listen_for_subscriptions()
-        )
 
     def stop(self):
-        self._order_book_stream_listener_task and self._order_book_stream_listener_task.cancel()
         super().stop()
 
     async def _track_single_book(self, trading_pair: str):

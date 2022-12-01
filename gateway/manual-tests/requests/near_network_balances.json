@@ -1,0 +1,6 @@
+{
+  "chain": "near",
+  "network": "testnet",
+  "address": "$NEAR_ADDRESS",
+  "tokenSymbols": ["NEAR", "ETH", "AURORA"]
+}

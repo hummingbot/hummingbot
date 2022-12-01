@@ -36,13 +36,20 @@ networks:
     tokenListType: URL
     tokenListSource: >-
       https://raw.githubusercontent.com/ethereum-optimism/ethereum-optimism.github.io/master/optimism.tokenlist.json
-    nativeCurrencySymbol: ETH
+    nativeCurrencySymbol: OETH
     gasPriceRefreshInterval: 60
   kovan:
     chainID: 42
     nodeURL: https://kovan.infura.io/v3/
     tokenListType: FILE
     tokenListSource: src/chains/ethereum/erc20_tokens_kovan.json
+    nativeCurrencySymbol: ETH
+    gasPriceRefreshInterval: 60
+  goerli:
+    chainID: 5
+    nodeURL: https://rpc.ankr.com/eth_goerli
+    tokenListType: FILE
+    tokenListSource: src/chains/ethereum/erc20_tokens_goerli.json
     nativeCurrencySymbol: ETH
     gasPriceRefreshInterval: 60
 

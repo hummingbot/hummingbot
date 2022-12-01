@@ -118,6 +118,10 @@ class BinanceExchange(ExchangePyBase):
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
+    async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
+        pairs_prices = await self._api_get(path_url=CONSTANTS.TICKER_BOOK_PATH_URL)
+        return pairs_prices
+
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
         is_time_synchronizer_related = ("-1021" in error_description

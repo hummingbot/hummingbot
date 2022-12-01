@@ -23,8 +23,8 @@ If you do not have `docker` permissions:
 wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create.sh
 wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/start.sh
 wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update.sh
-wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create-web3.sh
-wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update-web3.sh
+wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create-gateway.sh
+wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update-gateway.sh
 chmod a+x *.sh
 ```
 
@@ -33,8 +33,8 @@ chmod a+x *.sh
 curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create.sh -o create.sh
 curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/start.sh -o start.sh
 curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update.sh -o update.sh
-curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create-web3.sh -o create-web3.sh
-curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update-web3.sh -o update-web3.sh
+curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create-gateway.sh -o create-gateway.sh
+curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update-gateway.sh -o update-gateway.sh
 chmod a+x *.sh
 ```
 
@@ -44,8 +44,8 @@ cd ~
 curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create.sh -o create.sh
 curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/start.sh -o start.sh
 curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update.sh -o update.sh
-curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create-web3.sh -o create-web3.sh
-curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update-web3.sh -o update-web3.sh
+curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create-gateway.sh -o create-gateway.sh
+curl https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/update-gateway.sh -o update-gateway.sh
 chmod a+x *.sh
 ```
 
@@ -78,17 +78,17 @@ The `update.sh` script will update your instance to the latest version of Hummin
 
 This `web3` version of scripts allows a user to connect to an Ethereum node running on the Docker host.
 
-The `create-web3.sh` is similar to the `create.sh` script; the difference is that it makes the `localhost` (127.0.0.1) available to the docker container by appending the `--network="host"` to the `docker run` command.
+The `create-gateway.sh` is similar to the `create.sh` script; the difference is that it makes the `localhost` (127.0.0.1) available to the docker container by appending the `--network="host"` to the `docker run` command.
 
 ```
-./create-web3.sh
+./create-gateway.sh
 ```
 
 ## Updating Hummingbot version which connects to a local node at http:localhost:8545
 ### Requires ethereum full node
 
-The `update-web3.sh` script will update your instance to the latest version of Hummingbot.
+The `update-gateway.sh` script will update your instance to the latest version of Hummingbot.
 
 ```
-./update-web3.sh
+./update-gateway.sh
 ```

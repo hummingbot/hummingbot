@@ -37,7 +37,7 @@ from hummingbot.core.utils.gateway_config_utils import (
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 class GatewayCommand(GatewayChainApiManager):
@@ -183,7 +183,7 @@ class GatewayCommand(GatewayChainApiManager):
         self.notify("Creating new Gateway docker container...")
         host_config: Dict[str, Any] = await docker_ipc(
             "create_host_config",
-            port_bindings={5000: gateway_port},
+            port_bindings={15888: gateway_port},
             binds={
                 gateway_conf_mount_path: {
                     "bind": "/usr/src/app/conf/",
@@ -203,7 +203,7 @@ class GatewayCommand(GatewayChainApiManager):
             "create_container",
             image=f"{GATEWAY_DOCKER_REPO}:{GATEWAY_DOCKER_TAG}",
             name=gateway_container_name,
-            ports=[5000],
+            ports=[15888],
             volumes=[
                 gateway_conf_mount_path,
                 certificate_mount_path,
@@ -307,7 +307,6 @@ class GatewayCommand(GatewayChainApiManager):
         try:
             response = await self._get_gateway_instance().update_config(key, value)
             self.notify(response["message"])
-            await self._gateway_monitor.update_gateway_config_key_list()
         except Exception:
             self.notify("\nError: Gateway configuration update failed. See log file for more details.")
 
@@ -336,6 +335,8 @@ class GatewayCommand(GatewayChainApiManager):
             self,           # type: HummingbotApplication
             connector: str = None
     ):
+        wallet_account_id: Optional[str] = None
+
         with begin_placeholder_mode(self):
             gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
             if connector is None:
@@ -408,7 +409,7 @@ class GatewayCommand(GatewayChainApiManager):
                     wallets = matching_wallets[0]['walletAddresses']
 
                 # if the user has no wallet, ask them to select one
-                if len(wallets) < 1:
+                if len(wallets) < 1 or chain == "near":
                     self.app.clear_input()
                     self.placeholder_mode = True
                     wallet_private_key = await self.app.prompt(
@@ -418,8 +419,17 @@ class GatewayCommand(GatewayChainApiManager):
                     self.app.clear_input()
                     if self.app.to_stop_config:
                         return
+
+                    if chain == "near":
+                        wallet_account_id: str = await self.app.prompt(
+                            prompt=f"Enter your {chain}-{network} account Id >>> ",
+                        )
+                        self.app.clear_input()
+                        if self.app.to_stop_config:
+                            return
+
                     response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
-                        chain, network, wallet_private_key
+                        chain, network, wallet_private_key, id=wallet_account_id
                     )
                     wallet_address: str = response["address"]
 
@@ -473,8 +483,16 @@ class GatewayCommand(GatewayChainApiManager):
                                 if self.app.to_stop_config:
                                     return
 
+                                if chain == "near":
+                                    wallet_account_id: str = await self.app.prompt(
+                                        prompt=f"Enter your {chain}-{network} account Id >>> ",
+                                    )
+                                    self.app.clear_input()
+                                    if self.app.to_stop_config:
+                                        return
+
                                 response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
-                                    chain, network, wallet_private_key
+                                    chain, network, wallet_private_key, id=wallet_account_id
                                 )
                                 wallet_address = response["address"]
 

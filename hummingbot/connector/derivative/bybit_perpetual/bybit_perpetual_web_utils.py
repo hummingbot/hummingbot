@@ -274,6 +274,16 @@ def _build_private_pair_specific_non_linear_rate_limits(trading_pair: str) -> Li
         ),
         RateLimit(
             limit_id=get_pair_specific_limit_id(
+                base_limit_id=CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL[CONSTANTS.NON_LINEAR_MARKET],
+                trading_pair=trading_pair,
+            ),
+            limit=120,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID),
+                           LinkedLimitWeightPair(pair_specific_non_linear_private_bucket_120_c_limit_id)],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
                 base_limit_id=CONSTANTS.GET_POSITIONS_PATH_URL[CONSTANTS.NON_LINEAR_MARKET], trading_pair=trading_pair
             ),
             limit=120,
@@ -356,6 +366,16 @@ def _build_private_pair_specific_linear_rate_limits(trading_pair: str) -> List[R
         RateLimit(
             limit_id=get_pair_specific_limit_id(
                 base_limit_id=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL[CONSTANTS.LINEAR_MARKET],
+                trading_pair=trading_pair,
+            ),
+            limit=120,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID),
+                           LinkedLimitWeightPair(pair_specific_linear_private_bucket_120_a_limit_id)],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL[CONSTANTS.LINEAR_MARKET],
                 trading_pair=trading_pair,
             ),
             limit=120,

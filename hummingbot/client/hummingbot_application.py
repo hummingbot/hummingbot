@@ -8,7 +8,6 @@ from typing import Deque, Dict, List, Optional, Tuple, Union
 
 from hummingbot.client.command import __all__ as commands
 from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     ReadOnlyClientConfigAdapter,
@@ -18,6 +17,7 @@ from hummingbot.client.config.config_helpers import (
     save_to_yml,
 )
 from hummingbot.client.config.security import Security
+from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
 from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, ConnectorType
 from hummingbot.client.tab import __all__ as tab_classes
 from hummingbot.client.tab.data_types import CommandTab
