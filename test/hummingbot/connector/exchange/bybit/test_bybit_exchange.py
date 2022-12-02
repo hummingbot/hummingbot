@@ -43,7 +43,7 @@ class TestBybitExchange(unittest.TestCase):
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "COINALPHA"
-        cls.quote_asset = "HBOT"
+        cls.quote_asset = "USDT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
         cls.api_key = "someKey"
@@ -125,7 +125,7 @@ class TestBybitExchange(unittest.TestCase):
                 {
                     "name": self.ex_trading_pair,
                     "alias": self.ex_trading_pair,
-                    "baseCurrency": "BTC",
+                    "baseCurrency": "COINALPHA",
                     "quoteCurrency": "USDT",
                     "basePrecision": "0.000001",
                     "quotePrecision": "0.01",
@@ -134,7 +134,8 @@ class TestBybitExchange(unittest.TestCase):
                     "minPricePrecision": "0.01",
                     "maxTradeQuantity": "2",
                     "maxTradeAmount": "200",
-                    "category": 1
+                    "category": 1,
+                    "showStatus": True
                 },
             ]
         }
@@ -204,7 +205,9 @@ class TestBybitExchange(unittest.TestCase):
         self.exchange._set_current_timestamp(1000)
 
         url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+
         resp = self.get_exchange_rules_mock()
+        mock_api.get(url, body=json.dumps(resp))
         mock_api.get(url, body=json.dumps(resp))
 
         self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
@@ -225,7 +228,7 @@ class TestBybitExchange(unittest.TestCase):
                 {
                     "name": self.ex_trading_pair,
                     "alias": self.ex_trading_pair,
-                    "baseCurrency": "BTC",
+                    "baseCurrency": "COINALPHA",
                     "quoteCurrency": "USDT",
                     "maxTradeAmount": "200",
                     "category": 1
@@ -385,7 +388,9 @@ class TestBybitExchange(unittest.TestCase):
                 "side": "BUY"
             }
         }
-
+        tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        resp = self.get_exchange_rules_mock()
+        mock_api.get(tradingrule_url, body=json.dumps(resp))
         mock_api.post(regex_url,
                       body=json.dumps(creation_response),
                       callback=lambda *args, **kwargs: request_sent_event.set())
@@ -457,6 +462,9 @@ class TestBybitExchange(unittest.TestCase):
             }
         }
 
+        tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        resp = self.get_exchange_rules_mock()
+        mock_api.get(tradingrule_url, body=json.dumps(resp))
         mock_api.post(regex_url,
                       body=json.dumps(creation_response),
                       callback=lambda *args, **kwargs: request_sent_event.set())
@@ -528,7 +536,9 @@ class TestBybitExchange(unittest.TestCase):
                 "side": "SELL"
             }
         }
-
+        tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        resp = self.get_exchange_rules_mock()
+        mock_api.get(tradingrule_url, body=json.dumps(resp))
         mock_api.post(regex_url,
                       body=json.dumps(creation_response),
                       callback=lambda *args, **kwargs: request_sent_event.set())
@@ -558,7 +568,6 @@ class TestBybitExchange(unittest.TestCase):
         self.assertEqual(self.trading_pair, create_event.trading_pair)
         self.assertEqual(OrderType.MARKET, create_event.type)
         self.assertEqual(Decimal("100"), create_event.amount)
-        # self.assertIsNone(create_event.price)
         self.assertEqual("OID1", create_event.order_id)
         self.assertEqual(creation_response["result"]["orderId"], create_event.exchange_order_id)
 
@@ -576,7 +585,9 @@ class TestBybitExchange(unittest.TestCase):
         self.exchange._set_current_timestamp(1640780000)
         url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
+        tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        resp = self.get_exchange_rules_mock()
+        mock_api.get(tradingrule_url, body=json.dumps(resp))
         mock_api.post(regex_url,
                       status=400,
                       callback=lambda *args, **kwargs: request_sent_event.set())
@@ -618,7 +629,9 @@ class TestBybitExchange(unittest.TestCase):
 
         url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
+        tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        resp = self.get_exchange_rules_mock()
+        mock_api.get(tradingrule_url, body=json.dumps(resp))
         mock_api.post(regex_url,
                       status=400,
                       callback=lambda *args, **kwargs: request_sent_event.set())
@@ -709,7 +722,7 @@ class TestBybitExchange(unittest.TestCase):
                         body=json.dumps(response),
                         callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.exchange.cancel(client_order_id="OID1", trading_pair=self.trading_pair)
+        self.exchange.cancel(order_id="OID1", trading_pair=self.trading_pair)
         self.async_run_with_timeout(request_sent_event.wait())
 
         cancel_request = next(((key, value) for key, value in mock_api.requests.items()
@@ -752,7 +765,7 @@ class TestBybitExchange(unittest.TestCase):
                         status=400,
                         callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.exchange.cancel(client_order_id="OID1", trading_pair=self.trading_pair)
+        self.exchange.cancel(order_id="OID1", trading_pair=self.trading_pair)
         self.async_run_with_timeout(request_sent_event.wait())
 
         cancel_request = next(((key, value) for key, value in mock_api.requests.items()
@@ -763,8 +776,8 @@ class TestBybitExchange(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "NETWORK",
-                f"There was a an error when requesting cancellation of order {order.client_order_id}"
+                "ERROR",
+                f"Failed to cancel order {order.client_order_id}"
             )
         )
 
@@ -911,9 +924,9 @@ class TestBybitExchange(unittest.TestCase):
             "result": {
                 "balances": [
                     {
-                        "coin": "BTC",
-                        "coinId": "BTC",
-                        "coinName": "BTC",
+                        "coin": "COINALPHA",
+                        "coinId": "COINALPHA",
+                        "coinName": "COINALPHA",
                         "total": "15",
                         "free": "10",
                         "locked": "0"
@@ -936,9 +949,9 @@ class TestBybitExchange(unittest.TestCase):
         available_balances = self.exchange.available_balances
         total_balances = self.exchange.get_all_balances()
 
-        self.assertEqual(Decimal("10"), available_balances["BTC"])
+        self.assertEqual(Decimal("10"), available_balances["COINALPHA"])
         self.assertEqual(Decimal("2000"), available_balances["USDT"])
-        self.assertEqual(Decimal("15"), total_balances["BTC"])
+        self.assertEqual(Decimal("15"), total_balances["COINALPHA"])
         self.assertEqual(Decimal("2000"), total_balances["USDT"])
 
         response = {
@@ -949,9 +962,9 @@ class TestBybitExchange(unittest.TestCase):
             "result": {
                 "balances": [
                     {
-                        "coin": "BTC",
-                        "coinId": "BTC",
-                        "coinName": "BTC",
+                        "coin": "COINALPHA",
+                        "coinId": "COINALPHA",
+                        "coinName": "COINALPHA",
                         "total": "15",
                         "free": "10",
                         "locked": "0"
@@ -968,14 +981,14 @@ class TestBybitExchange(unittest.TestCase):
 
         self.assertNotIn("USDT", available_balances)
         self.assertNotIn("USDT", total_balances)
-        self.assertEqual(Decimal("10"), available_balances["BTC"])
-        self.assertEqual(Decimal("15"), total_balances["BTC"])
+        self.assertEqual(Decimal("10"), available_balances["COINALPHA"])
+        self.assertEqual(Decimal("15"), total_balances["COINALPHA"])
 
     @aioresponses()
     def test_update_order_status_when_filled(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+                                              10 - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1055,7 +1068,7 @@ class TestBybitExchange(unittest.TestCase):
     def test_update_order_status_when_cancelled(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+                                              10 - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1121,7 +1134,7 @@ class TestBybitExchange(unittest.TestCase):
     def test_update_order_status_when_order_has_not_changed(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+                                              10 - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1185,7 +1198,7 @@ class TestBybitExchange(unittest.TestCase):
     def test_update_order_status_when_request_fails_marks_order_as_not_found(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+                                              10 - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1207,7 +1220,6 @@ class TestBybitExchange(unittest.TestCase):
 
         order_request = next(((key, value) for key, value in mock_api.requests.items()
                               if key[1].human_repr().startswith(url)))
-        # self.assertIsNone(request_params)
         self._validate_auth_credentials_present(order_request[1][0])
 
         self.assertTrue(order.is_open)
@@ -1246,7 +1258,7 @@ class TestBybitExchange(unittest.TestCase):
             "z": "0.00000000",
             "L": "0.00000000",
             "n": "0",
-            "N": "BTC",
+            "N": "COINALPHA",
             "u": True,
             "w": True,
             "m": False,
@@ -1314,7 +1326,7 @@ class TestBybitExchange(unittest.TestCase):
             "z": "0.00000000",
             "L": "0.00000000",
             "n": "0",
-            "N": "BTC",
+            "N": "COINALPHA",
             "u": True,
             "w": True,
             "m": False,
@@ -1361,6 +1373,7 @@ class TestBybitExchange(unittest.TestCase):
 
         event_message = {
             "e": "executionReport",
+            "t": "1499405658658",
             "E": "1499405658658",
             "s": order.trading_pair,
             "c": order.client_order_id,
@@ -1433,6 +1446,7 @@ class TestBybitExchange(unittest.TestCase):
 
         event_message = {
             "e": "executionReport",
+            "t": "1499405658658",
             "E": "1499405658658",
             "s": order.trading_pair,
             "c": order.client_order_id,

@@ -182,7 +182,7 @@ class ConfigCommand:
                     )
                 ])
             else:  # legacy
-                keys.extend([c.key for c in self.strategy_config_map.values() if c.prompt is not None])
+                keys.extend([c.key for c in self.strategy_config_map.values() if c.prompt is not None and c.key != 'strategy'])
         return keys
 
     async def check_password(self,  # type: HummingbotApplication
@@ -270,6 +270,10 @@ class ConfigCommand:
             config_map = self.strategy_config_map
             file_path = STRATEGIES_CONF_DIR_PATH / self.strategy_file_name
         config_var = config_map[key]
+        if config_var.key == "strategy":
+            self.notify("You cannot change the strategy of a loaded configuration.")
+            self.notify("Please use 'import xxx.yml' or 'create' to configure the intended strategy")
+            return
         if input_value is None:
             self.notify("Please follow the prompt to complete configurations: ")
         if config_var.key == "inventory_target_base_pct":
@@ -323,7 +327,7 @@ class ConfigCommand:
             exchange = config_map.exchange
             market = config_map.market
             base, quote = split_hb_trading_pair(market)
-            balances = await UserBalances.instance().balances(exchange, base, quote)
+            balances = await UserBalances.instance().balances(exchange, config_map, base, quote)
             if balances is None:
                 return
             base_ratio = await UserBalances.base_amount_ratio(exchange, market, balances)
@@ -360,7 +364,7 @@ class ConfigCommand:
             exchange = config_map['exchange'].value
             market = config_map["market"].value
             base, quote = market.split("-")
-            balances = await UserBalances.instance().balances(exchange, base, quote)
+            balances = await UserBalances.instance().balances(exchange, config_map, base, quote)
             if balances is None:
                 return
             base_ratio = await UserBalances.base_amount_ratio(exchange, market, balances)

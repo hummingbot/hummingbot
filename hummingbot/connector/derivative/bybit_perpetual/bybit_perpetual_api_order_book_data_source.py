@@ -42,13 +42,15 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
         funding_info_response = await self._request_complete_funding_info(trading_pair)
-        symbol_info: Dict[str, Any] = (funding_info_response["result"][0])
+        general_info = funding_info_response[0]["result"][0]
+        predicted_funding = funding_info_response[1]["result"]
+
         funding_info = FundingInfo(
             trading_pair=trading_pair,
-            index_price=Decimal(str(symbol_info["index_price"])),
-            mark_price=Decimal(str(symbol_info["mark_price"])),
-            next_funding_utc_timestamp=int(pd.Timestamp(symbol_info["next_funding_time"]).timestamp()),
-            rate=Decimal(str(symbol_info["predicted_funding_rate"])),
+            index_price=Decimal(str(general_info["index_price"])),
+            mark_price=Decimal(str(general_info["mark_price"])),
+            next_funding_utc_timestamp=int(pd.Timestamp(general_info["next_funding_time"]).timestamp()),
+            rate=Decimal(str(predicted_funding["predicted_funding_rate"])),
         )
         return funding_info
 
@@ -149,11 +151,7 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         while True:
             try:
-                async for ws_response in websocket_assistant.iter_messages():
-                    data: Dict[str, Any] = ws_response.data
-                    channel: str = self._channel_originating_message(event_message=data)
-                    if channel in self._message_channels:
-                        self._message_queue[channel].put_nowait(data)
+                await super()._process_websocket_messages(websocket_assistant=websocket_assistant)
             except asyncio.TimeoutError:
                 ping_request = WSJSONRequest(payload={"op": "ping"})
                 await websocket_assistant.send(ping_request)
@@ -238,22 +236,35 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                     )
                 message_queue.put_nowait(info_update)
 
-    async def _request_complete_funding_info(self, trading_pair: str) -> Dict[str, Any]:
+    async def _request_complete_funding_info(self, trading_pair: str):
+        tasks = []
         params = {
             "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
-        endpoint = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
-        url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, trading_pair=trading_pair, domain=self._domain)
-        limit_id = web_utils.get_rest_api_limit_id_for_endpoint(endpoint)
-        data = await rest_assistant.execute_request(
-            url=url,
+        endpoint_info = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
+        url_info = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_info, trading_pair=trading_pair, domain=self._domain)
+        limit_id = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_info)
+        tasks.append(rest_assistant.execute_request(
+            url=url_info,
             throttler_limit_id=limit_id,
             params=params,
             method=RESTMethod.GET,
-        )
-        return data
+        ))
+        endpoint_predicted = CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL
+        url_predicted = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_predicted, trading_pair=trading_pair, domain=self._domain)
+        limit_id_predicted = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_predicted, trading_pair)
+        tasks.append(rest_assistant.execute_request(
+            url=url_predicted,
+            throttler_limit_id=limit_id_predicted,
+            params=params,
+            method=RESTMethod.GET,
+            is_auth_required=True
+        ))
+
+        responses = await asyncio.gather(*tasks)
+        return responses
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response = await self._request_order_book_snapshot(trading_pair)

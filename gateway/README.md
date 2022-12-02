@@ -1,6 +1,8 @@
 ![Hummingbot](https://i.ibb.co/X5zNkKw/blacklogo-with-text.png)
+
 # Hummingbot Gateway
-----
+
+---
 
 Hummingbot Gateway is a REST API that exposes connections to various blockchains (wallet, node & chain interaction) and decentralized exchanges (pricing, trading & liquidity provision). It is written in Typescript and takes advantage of existing blockchain and DEX SDKs. The advantage of using gateway is it provideds a programming language agnostic approach to interacting with blockchains and DEXs.
 
@@ -10,16 +12,19 @@ Gateway may be used alongside the main Hummingbot client to enable trading on DE
 
 This is a list of DEX connections currently supported by Gateway.
 
-| Connector   | Blockchain | Trading Interface |
-|-------------|------------|-------------------|
-| UniswapV2   | Ethereum   | AMM               |
+| Connector   | Blockchain          | Trading Interface |
+| ----------- | ------------------- | ----------------- |
+| UniswapV2   | Ethereum            | AMM               |
 | Sushiswap   | Ethereum   | AMM               |
 | UniswapV3   | Ethereum   | EVM_Range_AMM     |
-| Pangolin    | Avalanche  | AMM               |
+| Pangolin    | Avalanche           | AMM               |
+| PancakeSwap | Binance Smart Chain | AMM               |
 | Traderjoe   | Avalanche  | AMM               |
 | Quickswap   | Polygon    | AMM               |
 | Perp        | Ethereum   | EVM_Perpetual     |
 | Serum       | Solana     | CLOB              |
+| Mad Meerkat | Cronos     | AMM               |
+| VVS         | Cronos     | AMM               |
 
 
 ## Contributing

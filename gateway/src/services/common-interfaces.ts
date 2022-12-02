@@ -52,8 +52,44 @@ import {
   Trade as TradeTraderjoe,
   Fraction as TraderjoeFraction,
 } from '@traderjoe-xyz/sdk';
+import {
+  Token as MMFToken,
+  TokenAmount as MMFTokenAmount,
+  Pair as MMFPair,
+  CurrencyAmount as CurrencyAmountMMF,
+  Trade as MMFTrade,
+  Fraction as FractionMMF,
+  Percent as MMFPercent,
+  Currency as MMFCurrency,
+  TradeOptions as MMFTradeOptions,
+  TradeOptionsDeadline as MMFTradeOptionsDeadline,
+  SwapParameters as MMFSwapParameters,
+} from '@crocswap/sdk';
+import {
+  Token as VVSToken,
+  TokenAmount as VVSTokenAmount,
+  Pair as VVSPair,
+  CurrencyAmount as CurrencyAmountVVS,
+  Trade as VVSTrade,
+  Fraction as FractionVVS,
+  Percent as VVSPercent,
+  Currency as VVSCurrency,
+  TradeOptions as VVSTradeOptions,
+  TradeOptionsDeadline as VVSTradeOptionsDeadline,
+  SwapParameters as VVSSwapParameters,
+} from 'vvs-sdk';
 import { Trade as DefiraTrade } from '@zuzu-cat/defira-sdk';
+import {
+  Token as PancakeSwapToken,
+  CurrencyAmount as PancakeSwapCurrencyAmount,
+  Trade as PancakeSwapTrade,
+  Fraction as PancakeSwapFraction,
+} from '@pancakeswap/sdk';
 import { PerpPosition } from '../connectors/perp/perp';
+import { NearBase } from '../chains/near/near.base';
+import { Account, Contract as NearContract } from 'near-api-js';
+import { EstimateSwapView, TokenMetadata } from 'coinalpha-ref-sdk';
+import { FinalExecutionOutcome } from 'near-api-js/lib/providers';
 
 // TODO Check the possibility to have clob/solana/serum equivalents here
 //  Check this link https://hummingbot.org/developers/gateway/building-gateway-connectors/#5-add-sdk-classes-to-uniswapish-interface
@@ -65,7 +101,18 @@ export type Tokenish =
   | TokenTraderjoe
   | UniswapCoreToken
   | SushiToken
-  | TokenDefikingdoms;
+  | TokenDefikingdoms
+  | PancakeSwapToken
+  | MMFToken
+  | VVSToken;
+
+export type TokenAmountish = MMFTokenAmount | VVSTokenAmount;
+
+export type Pairish = MMFPair | VVSPair;
+
+export type Percentish = MMFPercent | VVSPercent;
+
+export type UniswapishCurrency = MMFCurrency | VVSCurrency;
 
 export type UniswapishTrade =
   | Trade<Currency, Currency, TradeType>
@@ -77,7 +124,18 @@ export type UniswapishTrade =
   | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>
   | TradeUniswap
   | TradeDefikingdoms
-  | DefiraTrade<UniswapCoreToken, UniswapCoreToken, TradeType>;
+  | DefiraTrade<UniswapCoreToken, UniswapCoreToken, TradeType>
+  | PancakeSwapTrade
+  | MMFTrade
+  | VVSTrade;
+
+export type UniswapishTradeOptions =
+  | MMFTradeOptions
+  | MMFTradeOptionsDeadline
+  | VVSTradeOptions
+  | VVSTradeOptionsDeadline;
+
+export type UniswapishSwapParameters = MMFSwapParameters | VVSSwapParameters;
 
 export type UniswapishAmount =
   | CurrencyAmount
@@ -86,7 +144,10 @@ export type UniswapishAmount =
   | UniswapCoreCurrencyAmount<Currency>
   | CurrencyAmountTraderjoe
   | SushiCurrencyAmount<SushiCurrency | SushiToken>
-  | CurrencyAmountDefikingdoms;
+  | CurrencyAmountDefikingdoms
+  | PancakeSwapCurrencyAmount
+  | CurrencyAmountMMF
+  | CurrencyAmountVVS;
 
 export type Fractionish =
   | UniswapFraction
@@ -94,7 +155,10 @@ export type Fractionish =
   | QuickswapFraction
   | TraderjoeFraction
   | SushiFraction
-  | DefikingdomsFraction;
+  | DefikingdomsFraction
+  | PancakeSwapFraction
+  | FractionMMF
+  | FractionVVS;
 
 export interface ExpectedTrade {
   trade: UniswapishTrade;
@@ -212,6 +276,100 @@ export interface Uniswapish {
     maxPriorityFeePerGas?: BigNumber,
     allowedSlippage?: string
   ): Promise<Transaction>;
+}
+
+export interface RefAMMish {
+  /**
+   * Router address.
+   */
+  router: string;
+
+  /**
+   * Default gas estiamte for swap transactions.
+   */
+  gasLimitEstimate: number;
+
+  /**
+   * Default time-to-live for swap transactions, in seconds.
+   */
+  ttl: number;
+
+  init(): Promise<void>;
+
+  ready(): boolean;
+
+  /**
+   * Given a token's address, return the connector's native representation of
+   * the token.
+   *
+   * @param address Token address
+   */
+  getTokenByAddress(address: string): TokenMetadata;
+
+  /**
+   * Calculated expected execution price and expected amount in after a swap/trade
+   * @param trades The trade path object
+   */
+  parseTrade(
+    trades: EstimateSwapView[],
+    side: string
+  ): {
+    estimatedPrice: string;
+    expectedAmount: string;
+  };
+
+  /**
+   * Given the amount of `baseToken` to put into a transaction, calculate the
+   * amount of `quoteToken` that can be expected from the transaction.
+   *
+   * This is typically used for calculating token sell prices.
+   *
+   * @param baseToken Token input for the transaction
+   * @param quoteToken Output from the transaction
+   * @param amount Amount of `baseToken` to put into the transaction
+   */
+  estimateSellTrade(
+    baseToken: TokenMetadata,
+    quoteToken: TokenMetadata,
+    amount: string,
+    allowedSlippage?: string
+  ): Promise<{ trade: EstimateSwapView[]; expectedAmount: string }>;
+
+  /**
+   * Given the amount of `baseToken` desired to acquire from a transaction,
+   * calculate the amount of `quoteToken` needed for the transaction.
+   *
+   * This is typically used for calculating token buy prices.
+   *
+   * @param quoteToken Token input for the transaction
+   * @param baseToken Token output from the transaction
+   * @param amount Amount of `baseToken` desired from the transaction
+   */
+  estimateBuyTrade(
+    quoteToken: TokenMetadata,
+    baseToken: TokenMetadata,
+    amount: string,
+    allowedSlippage?: string
+  ): Promise<{ trade: EstimateSwapView[]; expectedAmount: string }>;
+
+  /**
+   * Given an Account and a Ref trade, try to execute it on blockchain.
+   *
+   * @param account Account
+   * @param trade Expected trade
+   * @param amountIn Amount to swap in
+   * @param tokenIn Token to be sent
+   * @param tokenOut Token to be received
+   * @param allowedSlippage Maximum allowable slippage
+   */
+  executeTrade(
+    account: Account,
+    trade: EstimateSwapView[],
+    amountIn: string,
+    tokenIn: TokenMetadata,
+    tokenOut: TokenMetadata,
+    allowedSlippage?: string
+  ): Promise<FinalExecutionOutcome>;
 }
 
 export interface UniswapLPish {
@@ -444,16 +602,24 @@ export interface Perpish {
   ): Promise<Transaction>;
 }
 
-export interface Ethereumish extends EthereumBase {
-  cancelTx(wallet: Wallet, nonce: number): Promise<Transaction>;
+export interface BasicChainMethods {
   getSpender(reqSpender: string): string;
+  gasPrice: number;
+  nativeTokenSymbol: string;
+  chain: string;
+}
+
+export interface Ethereumish extends BasicChainMethods, EthereumBase {
+  cancelTx(wallet: Wallet, nonce: number): Promise<Transaction>;
   getContract(
     tokenAddress: string,
     signerOrProvider?: Wallet | Provider
   ): Contract;
-  gasPrice: number;
-  nativeTokenSymbol: string;
-  chain: string;
+}
+
+export interface Nearish extends BasicChainMethods, NearBase {
+  cancelTx(account: Account, nonce: number): Promise<string>;
+  getContract(tokenAddress: string, account: Account): NearContract;
 }
 
 export interface NetworkSelectionRequest {

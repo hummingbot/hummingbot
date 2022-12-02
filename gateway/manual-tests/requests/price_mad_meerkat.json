@@ -1,0 +1,9 @@
+{
+  "connector": "mad_meerkat",
+  "chain": "cronos",
+  "network": "mainnet",
+  "base": "MMF",
+  "quote": "WCRO",
+  "amount": "1000",
+  "side": "BUY"
+}
