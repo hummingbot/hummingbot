@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-
-# import asyncio
 import logging
 from typing import List, Optional
 
@@ -33,9 +31,9 @@ class OpenwareUserStreamTracker(UserStreamTracker):
         self._trading_pairs: List[str] = trading_pairs or []
         self._throttler = throttler or AsyncThrottler(Constants.RATE_LIMITS)
         super().__init__(data_source=OpenwareAPIUserStreamDataSource(
+            throttler=self._throttler,
             openware_auth=self._openware_auth,
             trading_pairs=self._trading_pairs,
-            throttler=self._throttler
         ))
         # self._data_source: Optional[UserStreamTrackerDataSource] = None
         # self._user_stream_tracking_task: Optional[asyncio.Task] = None

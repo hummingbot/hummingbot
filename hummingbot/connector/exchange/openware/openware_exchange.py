@@ -5,12 +5,13 @@ import time
 import traceback
 from abc import ABC
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 from async_timeout import timeout
 
 import hummingbot.connector.exchange.openware.openware_http_utils as http_utils
+from hummingbot.connector.exchange.openware.openware_api_order_book_data_source import OpenwareAPIOrderBookDataSource
 from hummingbot.connector.exchange.openware.openware_auth import OpenwareAuth
 from hummingbot.connector.exchange.openware.openware_constants import Constants
 from hummingbot.connector.exchange.openware.openware_in_flight_order import OpenwareInFlightOrder
@@ -46,6 +47,9 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
@@ -68,28 +72,30 @@ class OpenwareExchange(ExchangeBase, ABC):
         return ctce_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  openware_api_key: str,
                  openware_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True
                  ):
         """
-        :param openware_api_key: The API key to connect to private Exchange.Centralex APIs.
+        :param openware_api_key: The API key to connect to private Openware APIs.
         :param openware_secret_key: The API secret.
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
-        super().__init__()
-        self._user_stream_tracker_task = None
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._throttler = AsyncThrottler(Constants.RATE_LIMITS)
+        self._throttler = AsyncThrottler(Constants.RATE_LIMITS, self._client_config.rate_limits_share_pct)
         self._openware_auth = OpenwareAuth(openware_api_key, openware_secret_key)
-        self._order_book_tracker = OpenwareOrderBookTracker(throttler=self._throttler,
-                                                            trading_pairs=trading_pairs)
-        self._user_stream_tracker = OpenwareUserStreamTracker(throttler=self._throttler,
-                                                              openware_auth=self._openware_auth,
-                                                              trading_pairs=trading_pairs)
+        self._set_order_book_tracker(OpenwareOrderBookTracker(
+            throttler=self._throttler,
+            trading_pairs=trading_pairs))
+        self._user_stream_tracker = OpenwareUserStreamTracker(
+            throttler=self._throttler,
+            openware_auth=self._openware_auth,
+            trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
@@ -109,7 +115,7 @@ class OpenwareExchange(ExchangeBase, ABC):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -125,11 +131,11 @@ class OpenwareExchange(ExchangeBase, ABC):
         A dictionary of statuses of various connector's components.
         """
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
-            # "user_stream_initialized":
-            #     self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
+            "user_stream_initialized":
+                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
         }
 
     @property
@@ -203,7 +209,7 @@ class OpenwareExchange(ExchangeBase, ABC):
         It starts tracking order book, polling trading rules,
         updating statuses and tracking user data.
         """
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -218,7 +224,7 @@ class OpenwareExchange(ExchangeBase, ABC):
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
 
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -365,15 +371,9 @@ class OpenwareExchange(ExchangeBase, ABC):
         return Decimal(trading_rule.min_base_amount_increment)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-
-        od = self._order_book_tracker.order_books[trading_pair]
-        # self.logger().info(f"dmdv-orderbook {od}")
-        #
-        # od.c_get_price()
-
-        return od
+        return self.order_book_tracker.order_books[trading_pair]
 
     def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -436,15 +436,10 @@ class OpenwareExchange(ExchangeBase, ABC):
         try:
             amount = self.quantize_order_amount(trading_pair, amount)
             price = self.quantize_order_price(trading_pair, s_decimal_0 if math.isnan(price) else price)
-
-            self.logger().info(f"dmdv-create-order, pair: {trading_pair}, amount: {amount}, price: {price}")
-
             if amount < trading_rule.min_order_size:
                 raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
-
             order_type_str = order_type.name.lower().split("_")[0]
-
             api_params = {"market": convert_to_exchange_trading_pair(trading_pair),
                           "side": trade_type.name.lower(),
                           "ord_type": order_type_str,
@@ -452,13 +447,10 @@ class OpenwareExchange(ExchangeBase, ABC):
                           "client_id": order_id,
                           "volume": f"{amount:f}",
                           }
-
             if order_type is not OrderType.MARKET:
                 api_params['price'] = f"{price:f}"
-
             # if order_type is OrderType.LIMIT_MAKER:
             #     api_params["postOnly"] = "true"
-
             self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
 
             order_result = await self._api_request("POST",
@@ -468,10 +460,8 @@ class OpenwareExchange(ExchangeBase, ABC):
                                                    limit_id=Constants.RL_ID_ORDER_CREATE,
                                                    disable_retries=True
                                                    )
-
             exchange_order_id = str(order_result["id"])
             tracked_order = self._in_flight_orders.get(order_id)
-
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
                                    f"{amount} {trading_pair}.")
@@ -484,13 +474,9 @@ class OpenwareExchange(ExchangeBase, ABC):
             else:
                 event_tag = MarketEvent.SellOrderCreated
                 event_cls = SellOrderCreatedEvent
-
-            cls = event_cls(self.current_timestamp, order_type, trading_pair, amount, price, order_id,
-                            self.current_timestamp, exchange_order_id)
-
-            self.logger().info(f"dmdv-create-order-trigger-event: {cls}")
-
-            self.trigger_event(event_tag, cls)
+            self.trigger_event(event_tag,
+                               event_cls(self.current_timestamp, order_type, trading_pair, amount, price, order_id,
+                                         exchange_order_id))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -508,7 +494,7 @@ class OpenwareExchange(ExchangeBase, ABC):
                 f"Error submitting {trade_type.name} {order_type.name} order to {Constants.EXCHANGE_NAME} for "
                 f"{amount} {trading_pair} {price} - {error_reason}.",
                 exc_info=True,
-                app_warning_msg=f"Error submitting order to {Constants.EXCHANGE_NAME} - {error_reason}."
+                app_warning_msg=(f"Error submitting order to {Constants.EXCHANGE_NAME} - {error_reason}.")
             )
 
     def start_tracking_order(self,
@@ -548,7 +534,7 @@ class OpenwareExchange(ExchangeBase, ABC):
         """
         Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
         the cancellation is successful, it simply states it receives the request.
-        :param trading_pair: The market trading pair (Unused during cancel on Exchange.Centralex)
+        :param trading_pair: The market trading pair (Unused during cancel on Openware)
         :param order_id: The internal order id
         order.last_state to change to CANCELED
         """
@@ -574,11 +560,10 @@ class OpenwareExchange(ExchangeBase, ABC):
         except asyncio.CancelledError:
             raise
         except asyncio.TimeoutError:
-            self.logger().info(f"The order {order_id} could not be cancelled due to a timeout."
+            self.logger().info(f"The order {order_id} could not be canceled due to a timeout."
                                " The action will be retried later.")
-            errors_found = {"message": "Timeout during order cancellation"}
+            errors_found = {"message": "Timeout during order cancelation"}
         except OpenwareAPIError as e:
-            self.logger().info(f"dmdv-exception: {e}")
             errors_found = e.error_payload.get('errors', e.error_payload)
             if isinstance(errors_found, dict):
                 order_state = errors_found.get("state", None)
@@ -587,7 +572,7 @@ class OpenwareExchange(ExchangeBase, ABC):
 
         if order_state in Constants.ORDER_STATES['CANCEL_WAIT'] or \
                 self._order_not_found_records.get(order_id, 0) >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
-            self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
+            self.logger().info(f"Successfully canceled order {order_id} on {Constants.EXCHANGE_NAME}.")
             self.stop_tracking_order(order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, order_id))
@@ -901,7 +886,8 @@ class OpenwareExchange(ExchangeBase, ABC):
         """
         now = time.time()
         poll_interval = (Constants.SHORT_POLL_INTERVAL
-                         if not self._user_stream_tracker.is_connected or now - self._user_stream_tracker.last_recv_time > Constants.USER_TRACKER_MAX_AGE
+                         if (not self._user_stream_tracker.is_connected
+                             or now - self._user_stream_tracker.last_recv_time > Constants.USER_TRACKER_MAX_AGE)
                          else Constants.LONG_POLL_INTERVAL)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
@@ -1000,3 +986,14 @@ class OpenwareExchange(ExchangeBase, ABC):
                 )
             )
         return ret_val
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed, and instead we should implement _initialize_trading_pair_symbol_map
+        return await OpenwareAPIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed, and instead we should implement _get_last_traded_price
+        return await OpenwareAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            throttler=self._throttler
+        )

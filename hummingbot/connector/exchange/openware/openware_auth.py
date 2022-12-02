@@ -9,7 +9,7 @@ from hummingbot.connector.exchange.openware.openware_constants import Constants
 class OpenwareAuth:
     """
     Auth class required by Centralex Exchange API
-    Example at https://altmarkets.io
+    Example at https://exchange.centralex.io
     """
     def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
