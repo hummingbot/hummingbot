@@ -3,9 +3,7 @@ import fsp from 'fs/promises';
 import os from 'os';
 import path from 'path';
 
-import { patch, unpatch } from '../../services/patch';
 import { providers } from 'ethers';
-import { EVMNonceManager } from '../../../src/services/evm.nonce';
 import {
   InitializationError,
   InvalidNonceError,
@@ -14,6 +12,8 @@ import {
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from '../../../src/services/error-handler';
+import { EVMNonceManager } from '../../../src/services/evm.nonce';
+import { patch, unpatch } from '../../services/patch';
 
 import 'jest-extended';
 import { ReferenceCountingCloseable } from '../../../src/services/refcounting-closeable';
@@ -148,6 +148,12 @@ describe('EVMNodeService', () => {
     }
   };
 
+  const patchDropExpiredPendingNonces = () => {
+    patch(nonceManager, 'dropExpiredPendingNonces', (_: any) => {
+      return null;
+    });
+  };
+
   it('commitNonce with a provided txNonce will only update current nonce if txNonce > currentNonce', async () => {
     patchGetTransactionCount();
     await nonceManager.commitNonce(exampleAddress, 10);
@@ -180,7 +186,8 @@ describe('EVMNodeService', () => {
   it('getNextNonce should return nonces that are sequentially increasing', async () => {
     // Prevents nonce from expiring.
     patchGetTransactionCount();
-    patch(nonceManager, '_pendingNonceTTL', () => 300 * 1000);
+    patchDropExpiredPendingNonces();
+    patch(nonceManager, '_pendingNonceTTL', 300 * 1000);
     nonceManager.commitNonce(exampleAddress, 1);
     jest.advanceTimersByTime(300000);
 
@@ -209,6 +216,61 @@ describe('EVMNodeService', () => {
     await nonceManager.mergeNonceFromEVMNode(exampleAddress);
     const nonce = await nonceManager.getNonce(exampleAddress);
     await expect(nonce).toEqual(10);
+  });
+
+  it('provideNonce, nonce not provided. should return function results and commit nonce on successful execution of transaction', async () => {
+    // Prevents leading nonce from expiring.
+    patchGetTransactionCount();
+    patch(nonceManager, '_localNonceTTL', 300 * 1000);
+
+    const testFunction = async (_nonce: number) => {
+      return {
+        nonce: _nonce,
+      };
+    };
+    const transactionResult = await nonceManager.provideNonce(
+      undefined,
+      exampleAddress,
+      testFunction
+    );
+    const currentNonceFromMemory = await nonceManager.getNonceFromMemory(
+      exampleAddress
+    );
+
+    expect(transactionResult.nonce).toEqual(11);
+    expect(currentNonceFromMemory).toEqual(11);
+  });
+
+  it('provideNonce, nonce not provided. should remove all pendingNonces greater or equal should function fail', async () => {
+    // Prevents leading nonce from expiring.
+    patchGetTransactionCount();
+
+    const expectedNonce = await nonceManager.getNonceFromMemory(exampleAddress);
+    expect(expectedNonce).toEqual(10);
+
+    const pendingNonce1 = await nonceManager.getNextNonce(exampleAddress); // This nonce should expire.
+    expect(pendingNonce1).toEqual(11);
+
+    const testFunction = async (_nonce: number) => {
+      throw new Error('testFunction has failed.');
+    };
+
+    jest.advanceTimersByTime(300000);
+
+    try {
+      await nonceManager.provideNonce(undefined, exampleAddress, testFunction);
+    } catch (error) {
+      expect(error).toEqual(new Error('testFunction has failed.'));
+    }
+
+    const currentNonceFromMemory = await nonceManager.getNonceFromMemory(
+      exampleAddress
+    );
+
+    expect(currentNonceFromMemory).toEqual(expectedNonce);
+
+    const pendingNonce2 = await nonceManager.getNextNonce(exampleAddress);
+    expect(pendingNonce2).toEqual(pendingNonce1); // Nonce is re-used.
   });
 });
 
