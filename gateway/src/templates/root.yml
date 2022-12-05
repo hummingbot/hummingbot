@@ -40,6 +40,10 @@ configurations:
     configurationPath: defira.yml
     schemaPath: defira-schema.json
 
+  $namespace near:
+    configurationPath: near.yml
+    schemaPath: ethereum-schema.json
+
   $namespace pangolin:
     configurationPath: pangolin.yml
     schemaPath: pangolin-schema.json
@@ -72,6 +76,10 @@ configurations:
     configurationPath: uniswap.yml
     schemaPath: uniswap-schema.json
 
+  $namespace ref:
+    configurationPath: ref.yml
+    schemaPath: ref-schema.json
+
   $namespace openocean:
     configurationPath: openocean.yml
     schemaPath: openocean-schema.json
@@ -83,3 +91,23 @@ configurations:
   $namespace serum:
     configurationPath: serum.yml
     schemaPath: serum-schema.json
+
+  $namespace cronos:
+    configurationPath: cronos.yml
+    schemaPath: ethereum-schema.json
+
+  $namespace mad_meerkat:
+      configurationPath: mad_meerkat.yml
+      schemaPath: cronos-connector-schema.json
+
+  $namespace vvs:
+      configurationPath: vvs.yml
+      schemaPath: cronos-connector-schema.json
+
+  $namespace binance-smart-chain:
+    configurationPath: binance-smart-chain.yml
+    schemaPath: ethereum-schema.json
+
+  $namespace pancakeswap:
+    configurationPath: pancakeswap.yml
+    schemaPath: pangolin-schema.json

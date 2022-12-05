@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
 
 from async_timeout import timeout
 
+from hummingbot.client.settings import GatewayConnectionSetting
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.amm.evm_in_flight_order import EVMInFlightOrder
@@ -306,7 +307,7 @@ class GatewayEVMAMM(ConnectorBase):
         """
         approval_id: str = self.create_approval_order_id(token_symbol)
 
-        self.logger().info(f"Innitiating approval for {token_symbol}.")
+        self.logger().info(f"Initiating approval for {token_symbol}.")
 
         self.start_tracking_order(order_id=approval_id,
                                   trading_pair=token_symbol,
@@ -359,6 +360,58 @@ class GatewayEVMAMM(ConnectorBase):
             ret_val[token] = Decimal(str(amount))
         return ret_val
 
+    def parse_price_response(
+        self,
+        base: str,
+        quote: str,
+        amount: Decimal,
+        side: TradeType,
+        price_response: Dict[str, Any],
+        process_exception: bool = True
+    ) -> Optional[Decimal]:
+        """
+        Parses price response
+        :param base: The base asset
+        :param quote: The quote asset
+        :param amount: amount
+        :param side: trade side
+        :param price_response: Price response from Gateway.
+        :param process_exception: Flag to trigger error on exception
+        """
+        required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
+        if any(item not in price_response.keys() for item in required_items):
+            if "info" in price_response.keys():
+                self.logger().info(f"Unable to get price. {price_response['info']}")
+            else:
+                self.logger().info(f"Missing data from price result. Incomplete return result for ({price_response.keys()})")
+        else:
+            gas_price_token: str = price_response["gasPriceToken"]
+            gas_cost: Decimal = Decimal(price_response["gasCost"])
+            price: Decimal = Decimal(price_response["price"])
+            self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
+            if process_exception is True:
+                gas_limit: int = int(price_response["gasLimit"])
+                exceptions: List[str] = check_transaction_exceptions(
+                    allowances=self._allowances,
+                    balances=self._account_balances,
+                    base_asset=base,
+                    quote_asset=quote,
+                    amount=amount,
+                    side=side,
+                    gas_limit=gas_limit,
+                    gas_cost=gas_cost,
+                    gas_asset=gas_price_token,
+                    swaps_count=len(price_response.get("swaps", []))
+                )
+                for index in range(len(exceptions)):
+                    self.logger().warning(
+                        f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
+                    )
+                if len(exceptions) > 0:
+                    return None
+            return Decimal(str(price))
+        return None
+
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_quote_price(
             self,
@@ -410,40 +463,7 @@ class GatewayEVMAMM(ConnectorBase):
             resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
                 self.chain, self.network, self.connector_name, base, quote, amount, side
             )
-            required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
-            if any(item not in resp.keys() for item in required_items):
-                if "info" in resp.keys():
-                    self.logger().info(f"Unable to get price. {resp['info']}")
-                else:
-                    self.logger().info(f"Missing data from price result. Incomplete return result for ({resp.keys()})")
-            else:
-                gas_limit: int = int(resp["gasLimit"])
-                gas_price_token: str = resp["gasPriceToken"]
-                gas_cost: Decimal = Decimal(resp["gasCost"])
-                price: Decimal = Decimal(resp["price"])
-                self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-                exceptions: List[str] = check_transaction_exceptions(
-                    allowances=self._allowances,
-                    balances=self._account_balances,
-                    base_asset=base,
-                    quote_asset=quote,
-                    amount=amount,
-                    side=side,
-                    gas_limit=gas_limit,
-                    gas_cost=gas_cost,
-                    gas_asset=gas_price_token,
-                    swaps_count=len(resp.get("swaps", []))
-                )
-                for index in range(len(exceptions)):
-                    self.logger().warning(
-                        f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
-                    )
-
-                if price is not None and len(exceptions) == 0:
-                    return Decimal(str(price))
-
-            # Didn't pass all the checks - no price available.
-            return None
+            return self.parse_price_response(base, quote, amount, side, price_response=resp)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -733,6 +753,25 @@ class GatewayEVMAMM(ConnectorBase):
                                                f"{self.connector_name} has been canceled.")
                             self.stop_tracking_order(tracked_order.client_order_id)
 
+    def processs_trade_fill_update(self, tracked_order: EVMInFlightOrder, fee: Decimal):
+        trade_fee: TradeFeeBase = AddedToCostTradeFee(
+            flat_fees=[TokenAmount(tracked_order.fee_asset, fee)]
+        )
+
+        trade_update: TradeUpdate = TradeUpdate(
+            trade_id=tracked_order.exchange_order_id,
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=tracked_order.exchange_order_id,
+            trading_pair=tracked_order.trading_pair,
+            fill_timestamp=self.current_timestamp,
+            fill_price=tracked_order.price,
+            fill_base_amount=tracked_order.amount,
+            fill_quote_amount=tracked_order.amount * tracked_order.price,
+            fee=trade_fee
+        )
+
+        self._order_tracker.process_trade_update(trade_update)
+
     async def update_order_status(self, tracked_orders: List[EVMInFlightOrder]):
         """
         Calls REST API to get status update for each in-flight amm orders.
@@ -771,22 +810,7 @@ class GatewayEVMAMM(ConnectorBase):
                 gas_price: Decimal = tracked_order.gas_price
                 fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
 
-                trade_fee: TradeFeeBase = AddedToCostTradeFee(
-                    flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
-                )
-                trade_update: TradeUpdate = TradeUpdate(
-                    trade_id=tracked_order.exchange_order_id,
-                    client_order_id=tracked_order.client_order_id,
-                    exchange_order_id=tracked_order.exchange_order_id,
-                    trading_pair=tracked_order.trading_pair,
-                    fill_timestamp=self.current_timestamp,
-                    fill_price=tracked_order.price,
-                    fill_base_amount=tracked_order.amount,
-                    fill_quote_amount=tracked_order.amount * tracked_order.price,
-                    fee=trade_fee
-                )
-
-                self._order_tracker.process_trade_update(trade_update)
+                self.processs_trade_fill_update(tracked_order=tracked_order, fee=fee)
 
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=tracked_order.client_order_id,
@@ -910,31 +934,34 @@ class GatewayEVMAMM(ConnectorBase):
             except Exception as e:
                 self.logger().error(str(e), exc_info=True)
 
-    async def update_balances(self, on_interval=False):
+    async def update_balances(self, on_interval: bool = False):
         """
         Calls Eth API to update total and available balances.
         """
         if self._native_currency is None:
             await self.get_chain_info()
+        connector_tokens = GatewayConnectionSetting.get_connector_spec_from_market_name(self._name).get("tokens", "").split(",")
         last_tick = self._last_balance_poll_timestamp
         current_tick = self.current_timestamp
         if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
+            token_list = list(self._tokens) + [self._native_currency] + connector_tokens
             resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                self.chain, self.network, self.address, list(self._tokens) + [self._native_currency]
+                chain=self.chain,
+                network=self.network,
+                address=self.address,
+                token_symbols=token_list
             )
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))
                 remote_asset_names.add(token)
-
             asset_names_to_remove = local_asset_names.difference(remote_asset_names)
             for asset_name in asset_names_to_remove:
                 del self._account_available_balances[asset_name]
                 del self._account_balances[asset_name]
-
             self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._order_tracker.all_orders.items()}
             self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 

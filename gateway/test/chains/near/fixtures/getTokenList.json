@@ -1,0 +1,47 @@
+{
+  "dai.near": {
+    "symbol": "DAI",
+    "name": "Dark Assassins Inc. Coin",
+    "decimals": 2
+  },
+  "ageur.near": {
+    "symbol": "agEUR",
+    "name": "agEUR (Wormhole)",
+    "decimals": 8
+  },
+  "angle.near": {
+    "symbol": "ANGLE",
+    "name": "ANGLE (Wormhole)",
+    "decimals": 8
+  },
+  "mbs.near": {
+    "symbol": "MBS",
+    "name": "MonkeyBucks",
+    "decimals": 6
+  },
+  "edb.near": {
+    "symbol": "EDB",
+    "name": "Emerald Block",
+    "decimals": 9
+  },
+  "cwar.near": {
+    "symbol": "CWAR",
+    "name": "Cryowar Token",
+    "decimals": 9
+  },
+  "echo.near": {
+    "symbol": "ECHO",
+    "name": "EchoDao",
+    "decimals": 9
+  },
+  "monke.near": {
+    "symbol": "MONKE",
+    "name": "MONKE TOKEN",
+    "decimals": 9
+  },
+  "dibu.near": {
+    "symbol": "DIBU",
+    "name": "DickButt",
+    "decimals": 3
+  }
+}

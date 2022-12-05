@@ -17,6 +17,7 @@ import {
 import IUniswapV2Pair from '@uniswap/v2-core/build/IUniswapV2Pair.json';
 import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 import { Ethereum } from '../../chains/ethereum/ethereum';
+import { BinanceSmartChain } from '../../chains/binance-smart-chain/binance-smart-chain';
 import {
   BigNumber,
   Wallet,
@@ -29,7 +30,7 @@ import { logger } from '../../services/logger';
 
 export class Sushiswap implements Uniswapish {
   private static _instances: { [name: string]: Sushiswap };
-  private ethereum: Ethereum;
+  private chain: Ethereum | BinanceSmartChain;
   private _router: string;
   private _routerAbi: ContractInterface;
   private _gasLimitEstimate: number;
@@ -38,14 +39,20 @@ export class Sushiswap implements Uniswapish {
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
-  private constructor(network: string) {
+  private constructor(chain: string, network: string) {
     const config = SushiswapConfig.config;
-    this.ethereum = Ethereum.getInstance(network);
-    this.chainId = this.ethereum.chainId;
+    if (chain === 'ethereum') {
+      this.chain = Ethereum.getInstance(network);
+    } else if (chain === 'binance-smart-chain') {
+      this.chain = BinanceSmartChain.getInstance(network);
+    } else {
+      throw new Error('unsupported chain');
+    }
+    this.chainId = this.chain.chainId;
     this._ttl = config.ttl;
     this._routerAbi = routerAbi.abi;
     this._gasLimitEstimate = config.gasLimitEstimate;
-    this._router = config.sushiswapRouterAddress(network);
+    this._router = config.sushiswapRouterAddress(chain, network);
   }
 
   public static getInstance(chain: string, network: string): Sushiswap {
@@ -53,7 +60,7 @@ export class Sushiswap implements Uniswapish {
       Sushiswap._instances = {};
     }
     if (!(chain + network in Sushiswap._instances)) {
-      Sushiswap._instances[chain + network] = new Sushiswap(network);
+      Sushiswap._instances[chain + network] = new Sushiswap(chain, network);
     }
 
     return Sushiswap._instances[chain + network];
@@ -70,10 +77,10 @@ export class Sushiswap implements Uniswapish {
   }
 
   public async init() {
-    if (!this.ethereum.ready()) {
-      await this.ethereum.init();
+    if (!this.chain.ready()) {
+      await this.chain.init();
     }
-    for (const token of this.ethereum.storedTokenList) {
+    for (const token of this.chain.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
         token.address,
@@ -141,7 +148,7 @@ export class Sushiswap implements Uniswapish {
     const contract = new Contract(
       pairAddress,
       IUniswapV2Pair.abi,
-      this.ethereum.provider
+      this.chain.provider
     );
     const [reserves0, reserves1] = await contract.getReserves();
     const balances = baseToken.sortsBefore(quoteToken)
@@ -263,29 +270,31 @@ export class Sushiswap implements Uniswapish {
       allowedSlippage: this.getSlippagePercentage(),
     });
     const contract: Contract = new Contract(sushswapRouter, abi, wallet);
-    if (nonce === undefined) {
-      nonce = await this.ethereum.nonceManager.getNextNonce(wallet.address);
-    }
-    let tx: ContractTransaction;
-    if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
-      tx = await contract[result.methodName](...result.args, {
-        gasLimit: gasLimit.toFixed(0),
-        value: result.value,
-        nonce: nonce,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      });
-    } else {
-      tx = await contract[result.methodName](...result.args, {
-        gasPrice: (gasPrice * 1e9).toFixed(0),
-        gasLimit: gasLimit.toFixed(0),
-        value: result.value,
-        nonce: nonce,
-      });
-    }
+    return this.chain.nonceManager.provideNonce(
+      nonce,
+      wallet.address,
+      async (nextNonce) => {
+        let tx: ContractTransaction;
+        if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
+          tx = await contract[result.methodName](...result.args, {
+            gasLimit: gasLimit.toFixed(0),
+            value: result.value,
+            nonce: nextNonce,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
+          });
+        } else {
+          tx = await contract[result.methodName](...result.args, {
+            gasPrice: (gasPrice * 1e9).toFixed(0),
+            gasLimit: gasLimit.toFixed(0),
+            value: result.value,
+            nonce: nextNonce,
+          });
+        }
 
-    logger.info(tx);
-    await this.ethereum.nonceManager.commitNonce(wallet.address, nonce);
-    return tx;
+        logger.info(JSON.stringify(tx));
+        return tx;
+      }
+    );
   }
 }
