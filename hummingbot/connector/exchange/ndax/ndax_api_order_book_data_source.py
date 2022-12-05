@@ -1,23 +1,17 @@
-import aiohttp
 import asyncio
 import logging
 import time
+from typing import Any, Dict, List, Optional
 
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-)
+import aiohttp
 
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
 from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookEntry, NdaxOrderBookMessage
 from hummingbot.connector.exchange.ndax.ndax_utils import convert_to_exchange_trading_pair
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
-from hummingbot.core.data_type.order_book import OrderBook
-
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger.logger import HummingbotLogger
 
@@ -326,4 +320,12 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         # NDAX does not have a public orderbook trade channel, rather it can be inferred from the Level2UpdateEvent when
         # subscribed to the SubscribeLevel2 channel
+        pass
+
+    async def listen_for_subscriptions(self):
+        """
+        Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
+        exchange. Each message is stored in its own queue.
+        """
+        # This connector does not use this base class method and needs a refactoring
         pass

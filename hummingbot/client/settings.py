@@ -10,6 +10,7 @@ from pydantic import SecretStr
 
 from hummingbot import get_strategy_list, root_path
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+from hummingbot.core.utils.gateway_config_utils import SUPPORTED_CHAINS
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
@@ -68,6 +69,7 @@ class ConnectorType(Enum):
     EVM_Perpetual = "EVM_Perpetual"
     EVM_AMM_LP = "EVM_AMM_LP"
     SOL_CLOB = "SOL_CLOB"
+    NEAR_AMM = "NEAR_AMM"
     Connector = "connector"
     Exchange = "exchange"
     Derivative = "derivative"
@@ -110,11 +112,11 @@ class GatewayConnectionSetting:
 
     @staticmethod
     def get_connector_spec_from_market_name(market_name: str) -> Optional[Dict[str, str]]:
-        vals = market_name.split("_")
-        if len(vals) >= 3:
-            return GatewayConnectionSetting.get_connector_spec(vals[0], vals[1], "_".join(vals[2:]))
-        else:
-            return None
+        for chain in SUPPORTED_CHAINS:
+            if chain in market_name:
+                connector, network = market_name.split(f"_{chain}_")
+                return GatewayConnectionSetting.get_connector_spec(connector, chain, network)
+        return None
 
     @staticmethod
     def upsert_connector_spec(connector_name: str, chain: str, network: str, trading_type: str, wallet_address: str, additional_spenders: List[str]):
@@ -138,9 +140,8 @@ class GatewayConnectionSetting:
             connectors_conf.append(new_connector_spec)
         GatewayConnectionSetting.save(connectors_conf)
 
-    @staticmethod
-    def upsert_connector_spec_tokens(connector_chain_network: str, tokens: str):
-        updated_connector: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+    def upsert_connector_spec_tokens(connector_chain_network: str, tokens: List[str]):
+        updated_connector: Optional[Dict[str, Any]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
         updated_connector['tokens'] = tokens
 
         connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
@@ -178,7 +179,7 @@ class ConnectorSetting(NamedTuple):
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
         if self.uses_gateway_generic_connector():
-            if ConnectorType.EVM_AMM == self.type or ConnectorType.EVM_Perpetual == self.type or ConnectorType.EVM_AMM_LP == self.type:
+            if self.type in [ConnectorType.EVM_AMM, ConnectorType.EVM_Perpetual, ConnectorType.NEAR_AMM, ConnectorType.EVM_AMM_LP]:
                 return f"gateway.amm.gateway_{self.type.name.lower()}"
             elif ConnectorType.SOL_CLOB == self.type:
                 return f"gateway.clob.gateway_{self.type.name.lower()}"
@@ -434,8 +435,8 @@ class AllConnectorSettings:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.use_ethereum_wallet}
 
     @classmethod
-    def get_gateway_evm_amm_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.get_connector_settings().values() if cs.type == ConnectorType.EVM_AMM}
+    def get_gateway_amm_connector_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.get_connector_settings().values() if cs.type in [ConnectorType.EVM_AMM, ConnectorType.NEAR_AMM]}
 
     @classmethod
     def get_gateway_evm_amm_lp_connector_names(cls) -> Set[str]:
