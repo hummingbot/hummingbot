@@ -630,7 +630,7 @@ def load_ssl_config_map_from_file() -> ClientConfigAdapter:
     if len(config_validation_errors) > 0:
         all_errors = "\n".join(config_validation_errors)
         raise ConfigValidationError(f"There are errors in the ssl certs configuration (\n{all_errors})")
-        
+
     if yml_path.exists():
         save_to_yml(yml_path, config_map)
 
