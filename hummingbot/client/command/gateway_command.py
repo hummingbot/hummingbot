@@ -104,7 +104,7 @@ class GatewayCommand(GatewayChainApiManager):
             bypass_source_check: bool = False
     ):
 
-        if is_inside_docker and not bypass_source_check:
+        if not is_inside_docker and not bypass_source_check:
             with begin_placeholder_mode(self):
                 while True:
                     docker_check = await self.app.prompt(
@@ -179,7 +179,7 @@ class GatewayCommand(GatewayChainApiManager):
     async def _create_gateway(
         self  # type: HummingbotApplication
     ):
-        if not is_inside_docker:
+        if is_inside_docker:
             with begin_placeholder_mode(self):
                 while True:
                     docker_check = await self.app.prompt(
