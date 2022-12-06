@@ -30,6 +30,7 @@ import { Defira } from '../connectors/defira/defira';
 import { Serumish } from '../connectors/serum/serum';
 import { Near } from '../chains/near/near';
 import { Ref } from '../connectors/ref/ref';
+import { Palmswap } from '../connectors/palmswap/palmswap';
 
 export type ChainUnion = Ethereumish | Solanaish | Nearish;
 
@@ -58,8 +59,6 @@ export async function getChain<T>(
   else if (chain === 'binance-smart-chain')
     chainInstance = BinanceSmartChain.getInstance(network);
   else if (chain === 'cronos') chainInstance = Cronos.getInstance(network);
-  else if (chain === 'binance-smart-chain')
-    chainInstance = BinanceSmartChain.getInstance(network);
   else throw new Error('unsupported chain');
 
   if (!chainInstance.ready()) {
@@ -130,6 +129,8 @@ export async function getConnector<T>(
     connectorInstance = Ref.getInstance(chain, network);
   } else if (chain === 'binance-smart-chain' && connector === 'pancakeswap') {
     connectorInstance = PancakeSwap.getInstance(chain, network);
+  } else if (chain === 'binance-smart-chain' && connector === 'palmswap') {
+    connectorInstance = Palmswap.getInstance(chain, network, address);
   } else if (connector === 'sushiswap') {
     connectorInstance = Sushiswap.getInstance(chain, network);
   } else {

@@ -73,7 +73,7 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
         self._budget_checker = PerpetualBudgetChecker(self)
 
         # This values may not be applicable to all gateway perps, but applies to perp curie
-        self._collateral_currency = "USD"
+        self._collateral_currency = "USDT"
 
     @classmethod
     def logger(cls) -> HummingbotLogger:

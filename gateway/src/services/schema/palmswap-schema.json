@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "allowedSlippage": { "type": "string" },
+    "ttl": { "type": "integer" },
+    "gasLimitEstimate": { "type": "integer" },
+    "contractAddresses": {
+      "type": "object",
+      "patternProperties": {
+        "^\\w+$": {
+          "type": "object",
+          "properties": {
+            "amms": { "type": "object" },
+            "clearingHouse": { "type": "string" },
+            "clearingHouseViewer": { "type": "string" }
+          },
+          "required": ["amms", "clearingHouse", "clearingHouseViewer"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "required": ["allowedSlippage", "ttl", "contractAddresses"]
+}

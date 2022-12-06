@@ -1,0 +1,24 @@
+# how much the execution price is allowed to move unfavorably from the trade
+# execution price. It uses a rational number for precision.
+allowedSlippage: '1/100'
+
+# the maximum gas used to estimate cost of a Palmswap trade.
+gasLimitEstimate: 300000
+
+# how long a trade is valid in seconds. After time passes Palmswap will not
+# perform the trade, but the gas will still be spent.
+ttl: 300
+
+contractAddresses:
+  mainnet:
+    clearingHouse: ''
+    clearingHouseViewer: ''
+    amms:
+      ETHUSDT: '0xF656C627cfC47f9ee24a8bFeD7d9bf0b72A0569c'
+      BTCUSDT: '0xfC5767c37029Fb79a32050bf8d360c1c661Ed84C'
+  testnet:
+    clearingHouse: '0x9E34445b73a0f989A1Ce54b3C0f35ed6C835eAf1'
+    clearingHouseViewer: '0xd1B15bc30bE69A9428DdF7443555bbD6e7EAB8fD'
+    amms:
+      ETHUSDT: '0xdAD1B29b17A2bBd51063d33846Fc6Fa446017B11'
+      BTCUSDT: '0xE7fbfbd41Dbc15A1b152A947c08312D42dC676ed'

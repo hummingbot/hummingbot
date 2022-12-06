@@ -14,6 +14,7 @@ import { UniswapConfig } from './uniswap/uniswap.config';
 import { VVSConfig } from './vvs/vvs.config';
 import { RefConfig } from './ref/ref.config';
 import { PancakeSwapConfig } from './pancakeswap/pancakeswap.config';
+import { PalmConfig } from './palmswap/palmswap.config';
 
 export namespace ConnectorsRoutes {
   export const router = Router();
@@ -100,6 +101,11 @@ export namespace ConnectorsRoutes {
             name: 'pancakeswap',
             trading_type: PancakeSwapConfig.config.tradingTypes,
             available_networks: PancakeSwapConfig.config.availableNetworks,
+          },
+          {
+            name: 'palmswap',
+            trading_type: PalmConfig.config.tradingTypes,
+            available_networks: PalmConfig.config.availableNetworks,
           },
         ],
       });

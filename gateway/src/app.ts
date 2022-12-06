@@ -36,6 +36,7 @@ import { PancakeSwapConfig } from './connectors/pancakeswap/pancakeswap.config';
 
 import swaggerUi from 'swagger-ui-express';
 import { NearRoutes } from './chains/near/near.routes';
+import { PalmConfig } from './connectors/palmswap/palmswap.config';
 
 export const gatewayApp = express();
 
@@ -96,6 +97,7 @@ gatewayApp.get(
       mad_meerkat: MadMeerkatConfig.config.availableNetworks,
       vvs: VVSConfig.config.availableNetworks,
       pancakeswap: PancakeSwapConfig.config.availableNetworks,
+      palmswap: PalmConfig.config.availableNetworks,
     });
   })
 );

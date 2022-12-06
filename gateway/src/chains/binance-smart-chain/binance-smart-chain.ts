@@ -8,6 +8,7 @@ import { Ethereumish } from '../../services/common-interfaces';
 import { PancakeSwapConfig } from '../../connectors/pancakeswap/pancakeswap.config';
 import { SushiswapConfig } from '../../connectors/sushiswap/sushiswap.config';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
+import { PalmConfig } from '../../connectors/palmswap/palmswap.config';
 
 export class BinanceSmartChain extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: BinanceSmartChain };
@@ -100,6 +101,8 @@ export class BinanceSmartChain extends EthereumBase implements Ethereumish {
         this.chainName,
         this._chain
       );
+    } else if (reqSpender === 'palmswap') {
+      spender = PalmConfig.config.clearingHouse(this._chain);
     } else {
       spender = reqSpender;
     }

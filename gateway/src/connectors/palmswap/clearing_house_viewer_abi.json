@@ -1,0 +1,325 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "contract ClearingHouse",
+        "name": "_clearingHouse",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "clearingHouse",
+    "outputs": [
+      {
+        "internalType": "contract ClearingHouse",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IAmm",
+        "name": "_amm",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_trader",
+        "type": "address"
+      }
+    ],
+    "name": "getFreeCollateral",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "int256",
+            "name": "d",
+            "type": "int256"
+          }
+        ],
+        "internalType": "struct SignedDecimal.signedDecimal",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IAmm",
+        "name": "_amm",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_trader",
+        "type": "address"
+      }
+    ],
+    "name": "getMarginRatio",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "int256",
+            "name": "d",
+            "type": "int256"
+          }
+        ],
+        "internalType": "struct SignedDecimal.signedDecimal",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IAmm",
+        "name": "_amm",
+        "type": "address"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_traders",
+        "type": "address[]"
+      }
+    ],
+    "name": "getMarginRatioInBatch",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "int256",
+            "name": "d",
+            "type": "int256"
+          }
+        ],
+        "internalType": "struct SignedDecimal.signedDecimal[]",
+        "name": "marginRatios",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_trader",
+        "type": "address"
+      }
+    ],
+    "name": "getPersonalBalanceWithFundingPayment",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "d",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct Decimal.decimal",
+        "name": "margin",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IAmm",
+        "name": "_amm",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_trader",
+        "type": "address"
+      }
+    ],
+    "name": "getPersonalPositionWithFundingPayment",
+    "outputs": [
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "int256",
+                "name": "d",
+                "type": "int256"
+              }
+            ],
+            "internalType": "struct SignedDecimal.signedDecimal",
+            "name": "size",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "d",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct Decimal.decimal",
+            "name": "margin",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "d",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct Decimal.decimal",
+            "name": "openNotional",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "internalType": "int256",
+                "name": "d",
+                "type": "int256"
+              }
+            ],
+            "internalType": "struct SignedDecimal.signedDecimal",
+            "name": "lastUpdatedCumulativePremiumFraction",
+            "type": "tuple"
+          },
+          {
+            "internalType": "uint256",
+            "name": "liquidityHistoryIndex",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "blockNumber",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IClearingHouse.Position",
+        "name": "position",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IAmm",
+        "name": "_amm",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_trader",
+        "type": "address"
+      },
+      {
+        "internalType": "enum IClearingHouse.PnlCalcOption",
+        "name": "_pnlCalcOption",
+        "type": "uint8"
+      }
+    ],
+    "name": "getUnrealizedPnl",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "int256",
+            "name": "d",
+            "type": "int256"
+          }
+        ],
+        "internalType": "struct SignedDecimal.signedDecimal",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IAmm",
+        "name": "_amm",
+        "type": "address"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_traders",
+        "type": "address[]"
+      },
+      {
+        "internalType": "enum IClearingHouse.PnlCalcOption",
+        "name": "_pnlCalcOption",
+        "type": "uint8"
+      }
+    ],
+    "name": "getUnrealizedPnlInBatch",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "int256",
+            "name": "d",
+            "type": "int256"
+          }
+        ],
+        "internalType": "struct SignedDecimal.signedDecimal[]",
+        "name": "unrealizedPnls",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IAmm",
+        "name": "_amm",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_trader",
+        "type": "address"
+      }
+    ],
+    "name": "isPositionNeedToBeMigrated",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

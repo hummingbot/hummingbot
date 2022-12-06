@@ -42,6 +42,14 @@
         "logoURI": "https://exchange.pancakeswap.finance/images/coins/0x55d398326f99059ff775485246999027b3197955.png"
       },
       {
+        "name": "Mock Tether USD",
+        "symbol": "mUSDT",
+        "address": "0x171529efB5fD8AD86Ba8DDBD841bF9FcdF04CC88",
+        "chainId": 97,
+        "decimals": 8,
+        "logoURI": "https://exchange.pancakeswap.finance/images/coins/0x55d398326f99059ff775485246999027b3197955.png"
+      },
+      {
         "name": "Dai Token",
         "symbol": "DAI",
         "address": "0x8a9424745056Eb399FD19a0EC26A14316684e274",
@@ -51,4 +59,3 @@
       }
     ]
   }
-  
