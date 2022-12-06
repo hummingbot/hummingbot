@@ -1,0 +1,7 @@
+{
+  "chain": "cronos",
+  "network": "mainnet",
+  "address": "$CRONOS_ADDRESS",
+  "spender": "$CRONOS_CONNECTOR",
+  "token": "WCRO"
+}

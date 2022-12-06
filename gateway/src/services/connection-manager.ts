@@ -1,18 +1,25 @@
-import { Ethereum } from '../chains/ethereum/ethereum';
 import { Avalanche } from '../chains/avalanche/avalanche';
+import { Cronos } from '../chains/cronos/cronos';
+import { Ethereum } from '../chains/ethereum/ethereum';
+import { BinanceSmartChain } from '../chains/binance-smart-chain/binance-smart-chain';
 import { Harmony } from '../chains/harmony/harmony';
 import { Solana, Solanaish } from '../chains/solana/solana';
 import { Polygon } from '../chains/polygon/polygon';
+import { MadMeerkat } from '../connectors/mad_meerkat/mad_meerkat';
+import { Openocean } from '../connectors/openocean/openocean';
+import { Pangolin } from '../connectors/pangolin/pangolin';
+import { Perp } from '../connectors/perp/perp';
+import { Quickswap } from '../connectors/quickswap/quickswap';
+import { PancakeSwap } from '../connectors/pancakeswap/pancakeswap';
+import { Serum } from '../connectors/serum/serum';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
-import { Pangolin } from '../connectors/pangolin/pangolin';
-import { Openocean } from '../connectors/openocean/openocean';
-import { Serum } from '../connectors/serum/serum';
-import { Quickswap } from '../connectors/quickswap/quickswap';
-import { Perp } from '../connectors/perp/perp';
+import { VVSConnector } from '../connectors/vvs/vvs';
 import {
   Ethereumish,
+  Nearish,
   Perpish,
+  RefAMMish,
   Uniswapish,
   UniswapLPish,
 } from './common-interfaces';
@@ -21,13 +28,17 @@ import { Sushiswap } from '../connectors/sushiswap/sushiswap';
 import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
 import { Defira } from '../connectors/defira/defira';
 import { Serumish } from '../connectors/serum/serum';
+import { Near } from '../chains/near/near';
+import { Ref } from '../connectors/ref/ref';
 
-export type ChainUnion = Ethereumish | Solanaish;
+export type ChainUnion = Ethereumish | Solanaish | Nearish;
 
 export type Chain<T> = T extends Ethereumish
   ? Ethereumish
   : T extends Solanaish
   ? Solanaish
+  : T extends Nearish
+  ? Nearish
   : never;
 
 export async function getChain<T>(
@@ -41,8 +52,12 @@ export async function getChain<T>(
     chainInstance = Avalanche.getInstance(network);
   else if (chain === 'polygon') chainInstance = Polygon.getInstance(network);
   else if (chain === 'harmony') chainInstance = Harmony.getInstance(network);
+  else if (chain === 'near') chainInstance = Near.getInstance(network);
   else if (chain === 'solana')
     chainInstance = await Solana.getInstance(network);
+  else if (chain === 'binance-smart-chain')
+    chainInstance = BinanceSmartChain.getInstance(network);
+  else if (chain === 'cronos') chainInstance = Cronos.getInstance(network);
   else throw new Error('unsupported chain');
 
   if (!chainInstance.ready()) {
@@ -52,7 +67,12 @@ export async function getChain<T>(
   return chainInstance as Chain<T>;
 }
 
-type ConnectorUnion = Uniswapish | UniswapLPish | Perpish | Serumish;
+type ConnectorUnion =
+  | Uniswapish
+  | UniswapLPish
+  | Perpish
+  | Serumish
+  | RefAMMish;
 
 export type Connector<T> = T extends Uniswapish
   ? Uniswapish
@@ -62,6 +82,8 @@ export type Connector<T> = T extends Uniswapish
   ? Perpish
   : T extends Serumish
   ? Serumish
+  : T extends RefAMMish
+  ? RefAMMish
   : never;
 
 export async function getConnector<T>(
@@ -79,8 +101,6 @@ export async function getConnector<T>(
     connectorInstance = Uniswap.getInstance(chain, network);
   } else if (chain === 'polygon' && connector === 'quickswap') {
     connectorInstance = Quickswap.getInstance(chain, network);
-  } else if (chain === 'ethereum' && connector === 'sushiswap') {
-    connectorInstance = Sushiswap.getInstance(chain, network);
   } else if (
     (chain === 'ethereum' || chain === 'polygon') &&
     connector === 'uniswapLP'
@@ -100,6 +120,16 @@ export async function getConnector<T>(
     connectorInstance = Defira.getInstance(chain, network);
   } else if (chain === 'solana' && connector === 'serum') {
     connectorInstance = await Serum.getInstance(chain, network);
+  } else if (chain === 'cronos' && connector === 'mad_meerkat') {
+    connectorInstance = MadMeerkat.getInstance(chain, network);
+  } else if (chain === 'cronos' && connector === 'vvs') {
+    connectorInstance = VVSConnector.getInstance(chain, network);
+  } else if (chain === 'near' && connector === 'ref') {
+    connectorInstance = Ref.getInstance(chain, network);
+  } else if (chain === 'binance-smart-chain' && connector === 'pancakeswap') {
+    connectorInstance = PancakeSwap.getInstance(chain, network);
+  } else if (connector === 'sushiswap') {
+    connectorInstance = Sushiswap.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
   }

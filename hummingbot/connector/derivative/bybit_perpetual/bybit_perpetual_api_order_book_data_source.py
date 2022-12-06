@@ -151,11 +151,7 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         while True:
             try:
-                async for ws_response in websocket_assistant.iter_messages():
-                    data: Dict[str, Any] = ws_response.data
-                    channel: str = self._channel_originating_message(event_message=data)
-                    if channel in self._message_channels:
-                        self._message_queue[channel].put_nowait(data)
+                await super()._process_websocket_messages(websocket_assistant=websocket_assistant)
             except asyncio.TimeoutError:
                 ping_request = WSJSONRequest(payload={"op": "ping"})
                 await websocket_assistant.send(ping_request)

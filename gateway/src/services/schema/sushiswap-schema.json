@@ -8,12 +8,18 @@
     "contractAddresses": {
       "type": "object",
       "patternProperties": {
-        "^\\w+$": {
+        "^[\\w-]+$": {
           "type": "object",
-          "properties": {
-            "sushiswapRouterAddress": { "type": "string" }
+          "patternProperties": {
+            "^\\w+$": {
+              "type": "object",
+              "properties": {
+                "sushiswapRouterAddress": { "type": "string" }
+              },
+              "required": ["sushiswapRouterAddress"],
+              "additionalProperties": false
+            }
           },
-          "required": ["sushiswapRouterAddress"],
           "additionalProperties": false
         }
       },

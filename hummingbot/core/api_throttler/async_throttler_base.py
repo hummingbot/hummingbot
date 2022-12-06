@@ -34,25 +34,16 @@ class AsyncThrottlerBase(ABC):
         """
         :param rate_limits: List of RateLimit(s).
         :param retry_interval: Time between every capacity check.
-        :param safety_margin_pct: Percentage of limit to be added as a safety margin when calculating capacity to ensure calls are within the limit.
+        :param safety_margin_pct: Percentage of limit to be added as a safety margin when calculating capacity to ensure
+            calls are within the limit.
         :param limits_share_percentage: Percentage of the limits to be used by this instance (important when multiple
             bots operate with the same account)
         """
-        # Rate Limit Definitions
-        self._rate_limits: List[RateLimit] = copy.deepcopy(rate_limits)
-
         # If configured, users can define the percentage of rate limits to allocate to the throttler.
         share_percentage = limits_share_percentage or self._client_config_map().rate_limits_share_pct
         self.limits_pct: Decimal = share_percentage / 100
-        for rate_limit in self._rate_limits:
-            rate_limit.limit = max(Decimal("1"),
-                                   math.floor(Decimal(str(rate_limit.limit)) * self.limits_pct))
 
-        # Dictionary of path_url to RateLimit
-        self._id_to_limit_map: Dict[str, RateLimit] = {
-            limit.limit_id: limit
-            for limit in self._rate_limits
-        }
+        self.set_rate_limits(rate_limits)
 
         # List of TaskLog used to determine the API requests within a set time window.
         self._task_logs: List[TaskLog] = []
@@ -63,6 +54,16 @@ class AsyncThrottlerBase(ABC):
 
         # Shared asyncio.Lock instance to prevent multiple async ContextManager from accessing the _task_logs variable
         self._lock = asyncio.Lock()
+
+    def set_rate_limits(self, rate_limits: List[RateLimit]):
+        # Rate Limit Definitions
+        self._rate_limits: List[RateLimit] = copy.deepcopy(rate_limits)
+
+        for rate_limit in self._rate_limits:
+            rate_limit.limit = max(Decimal("1"), math.floor(Decimal(str(rate_limit.limit)) * self.limits_pct))
+
+        # Dictionary of path_url to RateLimit
+        self._id_to_limit_map: Dict[str, RateLimit] = {limit.limit_id: limit for limit in self._rate_limits}
 
     def _client_config_map(self):
         from hummingbot.client.hummingbot_application import HummingbotApplication  # avoids circular import
@@ -76,10 +77,11 @@ class AsyncThrottlerBase(ABC):
         related_limits = [(self._id_to_limit_map[limit_weight_pair.limit_id], limit_weight_pair.weight)
                           for limit_weight_pair in linked_limits
                           if limit_weight_pair.limit_id in self._id_to_limit_map]
-        # Append self as part of the related_limits
-        if rate_limit is not None:
-            related_limits.append((rate_limit, rate_limit.weight))
 
+        # Append self as part of the related_limits
+        # if rate_limit is not None:
+        #     related_limits.append((rate_limit, rate_limit.weight))
+#
         return rate_limit, related_limits
 
     @abstractmethod
