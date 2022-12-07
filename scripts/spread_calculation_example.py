@@ -128,10 +128,10 @@ class SimplePMM(ScriptStrategyBase):
 
     EXCHANGE = 'binance_paper_trade'
     TRADING_PAIR = 'BNB-USDT'
-    DATA_COLLECTION_INTERVAL = 15
+    DATA_COLLECTION_INTERVAL = 60 * 60
     INCREASE_SPREAD_BY_PCT = 0.1
 
-    ORDER_REFRESH_TIME = 20
+    ORDER_REFRESH_TIME = 65
     ORDER_AMOUNT_USDT = 150
     PRICE_SOURCE = PriceType.MidPrice
 
