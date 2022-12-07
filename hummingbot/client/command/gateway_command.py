@@ -104,7 +104,7 @@ class GatewayCommand(GatewayChainApiManager):
             bypass_source_check: bool = False
     ):
 
-        if is_inside_docker and not bypass_source_check:
+        if not is_inside_docker and not bypass_source_check:
             with begin_placeholder_mode(self):
                 while True:
                     docker_check = await self.app.prompt(
@@ -125,7 +125,7 @@ class GatewayCommand(GatewayChainApiManager):
         current_path: str = self.client_config_map.certs.path
         if not GATEWAY_SSL_CONF_FILE.exists() and not bypass_source_check:
             self.notify("\nSSL configuration file not found. Please use `gateway/setup/generate_conf.sh` to generate it.")
-        else:
+        elif GATEWAY_SSL_CONF_FILE.exists() :
             self.ssl_config_map.caCertificatePath = cert_path + "/ca_cert.pem"
             self.ssl_config_map.certificatePath = cert_path + "/server_cert.pem"
             self.ssl_config_map.keyPath = cert_path + "/server_key.pem"
@@ -179,7 +179,7 @@ class GatewayCommand(GatewayChainApiManager):
     async def _create_gateway(
         self  # type: HummingbotApplication
     ):
-        if not is_inside_docker:
+        if is_inside_docker:
             with begin_placeholder_mode(self):
                 while True:
                     docker_check = await self.app.prompt(
