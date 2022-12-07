@@ -47,8 +47,7 @@ class RESTAssistant:
         headers = headers or {}
 
         local_headers = {
-            "Content-Type": ("application/json" if method in [RESTMethod.POST, RESTMethod.PUT]
-                             else "application/x-www-form-urlencoded")}
+            "Content-Type": ("application/json" if method != RESTMethod.GET else "application/x-www-form-urlencoded")}
         local_headers.update(headers)
 
         data = json.dumps(data) if data is not None else data
@@ -72,8 +71,9 @@ class RESTAssistant:
                     return error_response
                 else:
                     error_response = await response.text()
+                    error_text = "N/A" if "<html" in error_response else error_response
                     raise IOError(f"Error executing request {method.name} {url}. HTTP status is {response.status}. "
-                                  f"Error: {error_response}")
+                                  f"Error: {error_text}")
             result = await response.json()
             return result
 
