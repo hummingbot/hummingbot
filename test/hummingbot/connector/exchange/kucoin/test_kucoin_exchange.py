@@ -2218,7 +2218,7 @@ class KucoinExchangeTests(unittest.TestCase):
         order: InFlightOrder = self.exchange.in_flight_orders["OID1"]
         order.exchange_order_id_update_event = update_event
 
-        self.async_run_with_timeout(self.exchange._update_order_status())
+        self.async_run_with_timeout(self.exchange._update_order_status(), timeout=2)
 
         self.assertTrue(order.is_open)
         self.assertFalse(order.is_filled)
