@@ -104,12 +104,12 @@ class GatewayCommand(GatewayChainApiManager):
             bypass_source_check: bool = False
     ):
 
-        if not is_inside_docker and not bypass_source_check:
+        if is_inside_docker and not bypass_source_check:
             with begin_placeholder_mode(self):
                 while True:
                     docker_check = await self.app.prompt(
-                        prompt="This command is designed to generate Gateway certificates."
-                        "when you have installed Hummingbot from source, "
+                        prompt="This command is designed to generate Gateway certificates. "
+                        "When you have installed Hummingbot from source, "
                         "but it looks like you have installed Hummingbot using Docker. "
                         "Do you want to continue? (Yes/No) >>> ",
                     )
@@ -179,7 +179,7 @@ class GatewayCommand(GatewayChainApiManager):
     async def _create_gateway(
         self  # type: HummingbotApplication
     ):
-        if is_inside_docker:
+        if not is_inside_docker:
             with begin_placeholder_mode(self):
                 while True:
                     docker_check = await self.app.prompt(
