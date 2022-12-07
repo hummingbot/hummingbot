@@ -91,7 +91,7 @@ cdef class AroonOscillatorIndicator:
         for i, elem in enumerate(highs):
             if elem >= m:
                 m, last_high_index = elem, i
-        return ((last_high_index + 1) /self._period_length) * 100
+        return (last_high_index / (self._period_length - 1)) * 100
 
     cdef object c_aroon_down(self):
         cdef:
@@ -102,7 +102,7 @@ cdef class AroonOscillatorIndicator:
         for i, elem in enumerate(lows):
             if elem <= m:
                 m, last_low_index = elem, i
-        return ((last_low_index + 1) / self._period_length) * 100
+        return (last_low_index / (self._period_length - 1)) * 100
 
     cdef object c_aroon_osc(self):
         return self.c_aroon_up() - self.c_aroon_down()
