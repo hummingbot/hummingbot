@@ -270,9 +270,11 @@ class CoinGeckoRateSource(RateSourceBase):
                     if record["current_price"]:
                         results[pair] = Decimal(str(record["current_price"]))
                 return results
+            except IOError as e:
+                self.logger().error(f"   Exception:{e}:{category}")
+                # In the rare case (hopefully) of server/client time slew
+                await asyncio.sleep(self._coin_gecko_data_feed.rate_limit_retry_s)
             except Exception:
-                # This method should be called in a gather with 'return_exceptions=False', simply pass the exception
-                # up to the gather to try to cancel other parallel tasks and handle the re-submission
                 raise
 
     async def _get_coin_gecko_extra_token_prices(self, vs_currency: str) -> Dict[str, Decimal]:
