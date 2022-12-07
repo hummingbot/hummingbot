@@ -3,9 +3,17 @@ import { ParamsDictionary } from 'express-serve-static-core';
 import { Ripple } from './ripple';
 import { verifyRippleIsAvailable } from './ripple-middlewares';
 import { asyncHandler } from '../../services/error-handler';
-import { balances } from './ripple.controllers';
-import { RippleBalanceRequest, RippleBalanceResponse } from './ripple.requests';
-import { validateRippleBalanceRequest } from './ripple.validators';
+import { balances, poll } from './ripple.controllers';
+import {
+  RippleBalanceRequest,
+  RippleBalanceResponse,
+  RipplePollRequest,
+  RipplePollResponse,
+} from './ripple.requests';
+import {
+  validateRippleBalanceRequest,
+  validateRipplePollRequest,
+} from './ripple.validators';
 
 export namespace RippleRoutes {
   export const router = Router();
@@ -48,6 +56,21 @@ export namespace RippleRoutes {
 
         validateRippleBalanceRequest(request.body);
         response.status(200).json(await balances(ripple, request.body));
+      }
+    )
+  );
+
+  router.post(
+    '/poll',
+    asyncHandler(
+      async (
+        request: Request<ParamsDictionary, unknown, RipplePollRequest>,
+        response: Response<RipplePollResponse>
+      ) => {
+        const ripple = await getRipple(request);
+
+        validateRipplePollRequest(request.body);
+        response.status(200).json(await poll(ripple, request.body));
       }
     )
   );
