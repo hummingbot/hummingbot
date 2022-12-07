@@ -15,7 +15,8 @@ class CoinGeckoRateSourceTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
+        cls.ev_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(cls.ev_loop)
         cls.target_token = "COINALPHA"
         cls.global_token = "HBOT"
         cls.extra_token = "EXTRA"
@@ -109,13 +110,47 @@ class CoinGeckoRateSourceTest(unittest.TestCase):
 
         # setup prices by page responses
         initial_data_set = False
-        for page_no, category in zip(list(range(1, 3)), CONSTANTS.TOKEN_CATEGORIES):
-            url = self.get_prices_by_page_url(
-                category=category, page_no=page_no, vs_currency=self.global_token.lower()
-            )
-            data = self.get_coin_markets_data_mock(price=float(expected_rate)) if not initial_data_set else []
-            initial_data_set = True
-            mock_api.get(url=url, body=json.dumps(data))
+        for page_no in range(1, 3):
+            for category in CONSTANTS.TOKEN_CATEGORIES:
+                url = self.get_prices_by_page_url(
+                    category=category, page_no=page_no, vs_currency=self.global_token.lower()
+                )
+                data = self.get_coin_markets_data_mock(price=float(expected_rate)) if not initial_data_set else []
+                initial_data_set = True
+                mock_api.get(url=url, body=json.dumps(data))
+
+        # setup extra token price response
+        url = (
+            f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
+            f"?ids={self.extra_token.lower()}&vs_currency={self.global_token.lower()}"
+        )
+        data = self.get_extra_token_data_mock(price=20.0)
+        mock_api.get(url=url, body=json.dumps(data))
+
+    def setup_responses_with_exception(self, mock_api: aioresponses, expected_rate: Decimal, exception=Exception):
+        # setup supported tokens response
+        url = f"{CONSTANTS.BASE_URL}{CONSTANTS.SUPPORTED_VS_TOKENS_REST_ENDPOINT}"
+        data = [self.global_token.lower(), self.extra_token.lower()]
+        mock_api.get(url=url, body=json.dumps(data))
+
+        # setup prices by page responses
+        initial_data_set = False
+        for page_no in range(1, 3):
+            for category in CONSTANTS.TOKEN_CATEGORIES:
+                url = self.get_prices_by_page_url(
+                    category=category, page_no=page_no, vs_currency=self.global_token.lower()
+                )
+                data = self.get_coin_markets_data_mock(price=float(expected_rate)) if not initial_data_set else []
+                initial_data_set = True
+
+                # We want to test the IOError that does nothing and 'finally' to a asyncio.sleep()
+                # So first test the IOError, then follow with Exception that gets out of the loop - M. Clunky strikes again
+                if page_no == 1:
+                    mock_api.get(url=url, body=None, exception=exception)
+                elif page_no == 2:
+                    mock_api.get(url=url, body=None, exception=Exception)
+                else:
+                    mock_api.get(url=url, body=json.dumps(data))
 
         # setup extra token price response
         url = (
@@ -150,3 +185,31 @@ class CoinGeckoRateSourceTest(unittest.TestCase):
         self.assertIn(self.trading_pair, prices)
         self.assertIn(self.extra_trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])
+
+    @aioresponses()
+    def test_get_prices_raises_Exception(self, mock_api: aioresponses):
+        # setup supported tokens response
+        expected_rate = Decimal("10")
+        self.setup_responses_with_exception(mock_api=mock_api, expected_rate=expected_rate)
+
+        rate_source = CoinGeckoRateSource(extra_token_ids=[])
+
+        with self.assertRaises(Exception):
+            # with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+            self.async_run_with_timeout(rate_source.get_prices(quote_token=self.global_token))
+            # mock_sleep.assert_called_with([])
+
+    # TODO: Figure-out how to make this test work
+    # @aioresponses()
+    # def test_get_prices_raises_IOError(self, mock_api: aioresponses):
+    #    # setup supported tokens response
+    #    expected_rate = Decimal("10")
+    #    self.setup_responses_with_exception(mock_api=mock_api, expected_rate=expected_rate, exception=IOError)
+    #
+    #    rate_source = CoinGeckoRateSource(extra_token_ids=[])
+    #
+    #    with self.assertRaises(IOError):
+    #        #with patch("hummingbot.core.rate_oracle.sources.coin_gecko_rate_source.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+    #            prices = self.async_run_with_timeout(rate_source.get_prices(quote_token=self.global_token))
+    #            #mock_sleep.assert_called_with([])
+    #

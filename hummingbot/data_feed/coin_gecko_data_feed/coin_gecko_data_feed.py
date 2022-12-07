@@ -32,7 +32,7 @@ class CoinGeckoDataFeed(DataFeedBase):
         self._price_dict: Dict[str, float] = {}
         self._update_interval = update_interval
         self.fetch_data_loop_task: Optional[asyncio.Task] = None
-        self._rate_limit_retry_s: float = 60.0 / 47.5  # Rate limit of Coin Gecko with 5% margin
+        self._rate_limit_retry_s: float = 60.0 / 50.0  # Simply wait for a full cool-off
         async_throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS,
                                          retry_interval=self._rate_limit_retry_s)
         self._api_factory = WebAssistantsFactory(throttler=async_throttler)
