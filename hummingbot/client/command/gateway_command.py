@@ -125,7 +125,7 @@ class GatewayCommand(GatewayChainApiManager):
         current_path: str = self.client_config_map.certs.path
         if not GATEWAY_SSL_CONF_FILE.exists() and not bypass_source_check:
             self.notify("\nSSL configuration file not found. Please use `gateway/setup/generate_conf.sh` to generate it.")
-        elif GATEWAY_SSL_CONF_FILE.exists() :
+        elif GATEWAY_SSL_CONF_FILE.exists():
             self.ssl_config_map.caCertificatePath = cert_path + "/ca_cert.pem"
             self.ssl_config_map.certificatePath = cert_path + "/server_cert.pem"
             self.ssl_config_map.keyPath = cert_path + "/server_key.pem"
