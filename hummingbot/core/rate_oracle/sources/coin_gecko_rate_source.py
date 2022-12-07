@@ -30,7 +30,7 @@ class CoinGeckoRateSource(RateSourceBase):
         self._extra_token_ids = new_ids
 
     # get_prices() is tuned to call the API about 50 times, close to the rate limit of 50calls/60s
-    # No point trying to call again sooner than 60/50s
+    # No point trying to call again sooner than a minute
     @async_ttl_cache(ttl=72, maxsize=1)
     async def get_prices(self, quote_token: Optional[str] = None) -> Dict[str, Decimal]:
         """
@@ -64,7 +64,7 @@ class CoinGeckoRateSource(RateSourceBase):
         # The algorithm is to query assets/category until we reached either
         #   - The end of a category in which case the returned list < 50
         #   - Or the approximate number of calls that would total the assets to about 1000
-        #     (at the time of implementation, 10 would actually fill all the catagories)
+        #     (at the time of implementation, 10 would actually fill all the categories)
         #     10 has been tested as providing +900 assets on 10/20/2022
         while not all(filled[c] for c in CONSTANTS.TOKEN_CATEGORIES) and page_no <= 10:
             tasks: List[Task] = []
@@ -78,18 +78,27 @@ class CoinGeckoRateSource(RateSourceBase):
                         asyncio.create_task(self._get_coin_gecko_prices_by_page(vs_currency, page_no, category)))
                     called.append(category)
 
-            task_results = await safe_gather(*tasks, return_exceptions=True)
+            while True:
+                try:
+                    task_results = await safe_gather(*tasks, return_exceptions=False)
+                    break
+                except IOError:
+                    # This is from exceeding the server's rate limit, silently try to correct
+                    pass
+                except Exception:
+                    self.logger().error(
+                        "Unexpected error while retrieving rates from Coingecko. Check the log file for more info.")
+                    raise
+                finally:
+                    # In the rare case (hopefully) of server/client time slew, wait for the release of
+                    # as many cool-off as the number of requests in the gathered tasks. Add 5%
+                    await asyncio.sleep(
+                        self._coin_gecko_data_feed.rate_limit_retry_s * len(CONSTANTS.TOKEN_CATEGORIES) * 1.05)
 
             # Collect the results while detecting an exception that is not a rate limit excess
             for i, task_result in enumerate(task_results):
-                if isinstance(task_result, Exception):
-                    self.logger().error(
-                        "Unexpected error while retrieving rates from Coingecko. Check the log file for more info.",
-                        exc_info=task_result,
-                    )
-                else:
-                    results.update(task_result)
-                    filled[called[i]] = len(task_result) < 50
+                results.update(task_result)
+                filled[called[i]] = len(task_result) < 50
             # Next page calls
             page_no = page_no + 1
 
@@ -124,11 +133,9 @@ class CoinGeckoRateSource(RateSourceBase):
                     if record["current_price"]:
                         results[pair] = Decimal(str(record["current_price"]))
                 return results
-            except IOError as e:
-                self.logger().error(f"   Exception:{e}:{category}")
-                # In the rare case (hopefully) of server/client time slew
-                await asyncio.sleep(self._coin_gecko_data_feed.rate_limit_retry_s)
             except Exception:
+                # This method should be called in a gather with 'return_exceptions=False', simply pass the exception
+                # up to the gather to try to cancel other parallel tasks and handle the re-submission
                 raise
 
     async def _get_coin_gecko_extra_token_prices(self, vs_currency: str) -> Dict[str, Decimal]:
