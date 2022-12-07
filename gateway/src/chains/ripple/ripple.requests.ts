@@ -1,5 +1,4 @@
 import { NetworkSelectionRequest } from '../../services/common-interfaces';
-import { TokenBalance } from './ripple';
 import { TxResponse } from 'xrpl';
 
 // export type RippleTransactionResponse = TransactionResponse;
@@ -13,7 +12,7 @@ export interface RippleBalanceResponse {
   network: string;
   timestamp: number;
   latency: number;
-  balances: Array<TokenBalance>;
+  balances: Record<string, string>;
 }
 
 export interface RippleTokenRequest extends NetworkSelectionRequest {

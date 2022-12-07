@@ -248,8 +248,19 @@ export class Ripple implements Rippleish {
     return balance;
   }
 
-  async getAllBalance(wallet: Wallet): Promise<Array<TokenBalance>> {
-    const balances = await this._client.getBalances(wallet.address);
+  async getAllBalance(wallet: Wallet): Promise<Record<string, string>> {
+    const balances: Record<string, string> = {};
+    const respBalances = await this._client.getBalances(wallet.address);
+
+    respBalances.forEach((token) => {
+      if (token.currency === 'XRP') {
+        balances[token.currency] = token.value;
+      } else {
+        const symbol = token.currency + '.' + token.issuer;
+        balances[symbol] = token.value;
+      }
+    });
+
     return balances;
   }
 
