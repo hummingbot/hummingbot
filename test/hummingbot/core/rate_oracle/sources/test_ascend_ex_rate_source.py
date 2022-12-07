@@ -25,8 +25,8 @@ class AscendExRateSourceTest(unittest.TestCase):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    def setup_kucoin_responses(self, mock_api, expected_rate: Decimal):
-        symbols_url = f"{CONSTANTS.REST_URL}/{CONSTANTS.PRODUCTS_PATH_URL}"
+    def setup_ascend_ex_responses(self, mock_api, expected_rate: Decimal):
+        symbols_url = f"{CONSTANTS.PUBLIC_REST_URL}{CONSTANTS.PRODUCTS_PATH_URL}"
         symbols_response = {  # truncated response
             "code": 0,
             "data": [
@@ -34,49 +34,29 @@ class AscendExRateSourceTest(unittest.TestCase):
                     "symbol": f"{self.target_token}/{self.global_token}",
                     "baseAsset": self.target_token,
                     "quoteAsset": self.global_token,
+                    "statusCode": "Normal",
                 },
-                {
-                    "symbol": "SOME/PAIR",
-                    "baseAsset": "SOME",
-                    "quoteAsset": "PAIR",
-                },
-            ]
+                {"symbol": "SOME/PAIR", "baseAsset": "SOME", "quoteAsset": "PAIR", "statusCode": "Normal"},
+            ],
         }
         mock_api.get(url=symbols_url, body=json.dumps(symbols_response))
-        prices_url = f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}"
+        prices_url = f"{CONSTANTS.PUBLIC_REST_URL}{CONSTANTS.TICKER_PATH_URL}"
         prices_response = {  # truncated response
             "code": 0,
             "data": [
                 {
                     "symbol": f"{self.target_token}/{self.global_token}",
-                    "ask": [
-                        str(expected_rate + Decimal("0.1")),
-                        "43641"
-                    ],
-                    "bid": [
-                        str(expected_rate - Decimal("0.1")),
-                        "443"
-                    ]
-                },
-                {
-                    "symbol": "SOME/PAIR",
-                    "ask": [
-                        "0",
-                        "43641"
-                    ],
-                    "bid": [
-                        "0",
-                        "443"
-                    ]
-                },
-            ]
+                    "ask": [str(expected_rate + Decimal("0.1")), "43641"],
+                    "bid": [str(expected_rate - Decimal("0.1")), "443"],
+                }
+            ],
         }
         mock_api.get(url=prices_url, body=json.dumps(prices_response))
 
     @aioresponses()
     def test_get_prices(self, mock_api):
         expected_rate = Decimal("10")
-        self.setup_kucoin_responses(mock_api=mock_api, expected_rate=expected_rate)
+        self.setup_ascend_ex_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = AscendExRateSource()
         prices = self.async_run_with_timeout(rate_source.get_prices())
