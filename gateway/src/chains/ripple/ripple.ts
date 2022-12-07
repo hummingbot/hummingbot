@@ -7,6 +7,8 @@ import {
   PeerStatusStream,
   ConsensusStream,
   PathFindStream,
+  TxResponse,
+  TransactionMetadata,
 } from 'xrpl';
 import axios from 'axios';
 import { promises as fs } from 'fs';
@@ -16,6 +18,7 @@ import { TokenListType, walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { getRippleConfig } from './ripple.config';
 import { logger } from '../../services/logger';
+import { TransactionResponseStatusCode } from './ripple.requests';
 
 export type TrustlineInfo = {
   id: number;
@@ -293,9 +296,42 @@ export class Ripple implements Rippleish {
   }
 
   // returns the current block number
-  async getCurrentBlockNumber(): Promise<number> {
+  async getCurrentLedgerIndex(): Promise<number> {
     const currentIndex = this.client.getLedgerIndex();
     return currentIndex;
+  }
+
+  public async getTransactionStatusCode(
+    txData: TxResponse | null
+  ): Promise<TransactionResponseStatusCode> {
+    let txStatus;
+    if (!txData) {
+      txStatus = TransactionResponseStatusCode.FAILED;
+    } else {
+      if ((<TransactionMetadata>txData.result.meta).TransactionResult) {
+        const result = (<TransactionMetadata>txData.result.meta)
+          .TransactionResult;
+        txStatus =
+          result == 'tesSUCCESS'
+            ? TransactionResponseStatusCode.CONFIRMED
+            : TransactionResponseStatusCode.FAILED;
+      } else {
+        txStatus = TransactionResponseStatusCode.FAILED;
+      }
+    }
+    return txStatus;
+  }
+
+  async getTransaction(txHash: string): Promise<TxResponse | null> {
+    const tx_resp = await this._client.request({
+      command: 'tx',
+      transaction: txHash,
+      binary: false,
+    });
+
+    const result = tx_resp;
+
+    return result;
   }
 
   async close() {
