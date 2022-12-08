@@ -99,4 +99,29 @@ class OpenwareConfigMap(BaseConnectorConfigMap):
         title = "openware"
 
 
+async def aiohttp_response_with_errors(request_coroutine):
+    http_status, parsed_response, request_errors = None, None, False
+    try:
+        async with request_coroutine as response:
+            http_status = response.status
+            try:
+                parsed_response = await response.json()
+            except Exception:
+                request_errors = True
+                try:
+                    parsed_response = str(await response.read())
+                    if len(parsed_response) > 100:
+                        parsed_response = f"{parsed_response[:100]} ... (truncated)"
+                except Exception:
+                    pass
+            TempFailure = (parsed_response is None or
+                           (response.status not in [200, 201] and "error" not in parsed_response))
+            if TempFailure:
+                parsed_response = response.reason if parsed_response is None else parsed_response
+                request_errors = True
+    except Exception:
+        request_errors = True
+    return http_status, parsed_response, request_errors
+
+
 KEYS = OpenwareConfigMap.construct()
