@@ -5,7 +5,7 @@ import re
 import unittest
 from decimal import Decimal
 from typing import Any, Awaitable, Callable, Dict, List, Optional
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, PropertyMock, patch
 
 import pandas as pd
 from aioresponses.core import aioresponses
@@ -21,7 +21,7 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_ord
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.utils import get_new_client_order_id
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
@@ -64,9 +64,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             trading_pairs=[self.trading_pair],
             domain=self.domain,
         )
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
-            self.symbol: self.trading_pair
-        }
 
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._binance_time_synchronizer.add_time_offset_ms_sample(0)
@@ -431,6 +428,75 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(task)
 
         self.assertEqual(PositionMode.HEDGE, self.exchange.position_mode)
+
+    @aioresponses()
+    def test_position_key(self, mock_api):
+        self.assertIsNone(self.exchange.position_mode)
+
+        # Exchange trading pair map not ready -> keep perpetual convention
+        url = web_utils.rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        post_position_mode_response = {"code": 200, "msg": "success"}
+
+        with patch.object(BinancePerpetualAPIOrderBookDataSource, "_trading_pair_symbol_map", new_callable=PropertyMock) as mock_pairs:
+            mock_pairs.return_value = {}
+            get_position_mode_response = {"dualSidePosition": False}  # True: Hedge Mode; False: One-way Mode
+            mock_api.get(regex_url, body=json.dumps(get_position_mode_response))
+            mock_api.post(regex_url, body=json.dumps(post_position_mode_response))
+            task = self.ev_loop.create_task(self.exchange._set_position_mode(PositionMode.ONEWAY))
+            self.async_run_with_timeout(task)
+
+            self.assertEqual("COINALPHAHBOT", self.exchange.position_key("COINALPHAHBOT"))
+            self.assertEqual("COINALPHAHBOT", self.exchange.position_key("COINALPHAHBOT", PositionSide.LONG))
+
+            get_position_mode_response = {"dualSidePosition": True}  # True: Hedge Mode; False: One-way Mode
+            mock_api.get(regex_url, body=json.dumps(get_position_mode_response))
+            mock_api.post(regex_url, body=json.dumps(post_position_mode_response))
+            task = self.ev_loop.create_task(self.exchange._set_position_mode(PositionMode.HEDGE))
+            self.async_run_with_timeout(task)
+
+            self.assertEqual("COINALPHAHBOT:LONG", self.exchange.position_key("COINALPHAHBOT", PositionSide.LONG), )
+            self.assertEqual("COINALPHAHBOT:SHORT", self.exchange.position_key("COINALPHAHBOT", PositionSide.SHORT), )
+
+        # Perpetual pair not in exchange pairs
+        with patch.object(BinancePerpetualAPIOrderBookDataSource, "_trading_pair_symbol_map", new_callable=PropertyMock) as mock_pairs:
+            mock_pairs.return_value = {self.domain: bidict({"symbol": "trading-pair"})}
+            get_position_mode_response = {"dualSidePosition": False}  # True: Hedge Mode; False: One-way Mode
+            mock_api.get(regex_url, body=json.dumps(get_position_mode_response))
+            mock_api.post(regex_url, body=json.dumps(post_position_mode_response))
+            task = self.ev_loop.create_task(self.exchange._set_position_mode(PositionMode.ONEWAY))
+            self.async_run_with_timeout(task)
+
+            self.assertEqual("COINALPHAHBOT", self.exchange.position_key("COINALPHAHBOT"))
+            self.assertEqual("COINALPHAHBOT", self.exchange.position_key("COINALPHAHBOT", PositionSide.LONG))
+
+            get_position_mode_response = {"dualSidePosition": True}  # True: Hedge Mode; False: One-way Mode
+            mock_api.get(regex_url, body=json.dumps(get_position_mode_response))
+            task = self.ev_loop.create_task(self.exchange._set_position_mode(PositionMode.HEDGE))
+            self.async_run_with_timeout(task)
+
+            self.assertEqual("COINALPHAHBOT:LONG", self.exchange.position_key("COINALPHAHBOT", PositionSide.LONG), )
+            self.assertEqual("COINALPHAHBOT:SHORT", self.exchange.position_key("COINALPHAHBOT", PositionSide.SHORT), )
+
+        # Perpetual orderbook trading pair map is ready
+        with patch.object(BinancePerpetualAPIOrderBookDataSource, "_trading_pair_symbol_map", new_callable=PropertyMock) as mock_pairs:
+            mock_pairs.return_value = {self.domain: bidict({self.symbol: self.trading_pair})}
+            get_position_mode_response = {"dualSidePosition": False}  # True: Hedge Mode; False: One-way Mode
+            mock_api.get(regex_url, body=json.dumps(get_position_mode_response))
+            mock_api.post(regex_url, body=json.dumps(post_position_mode_response))
+            task = self.ev_loop.create_task(self.exchange._set_position_mode(PositionMode.ONEWAY))
+            self.async_run_with_timeout(task)
+
+            self.assertEqual("COINALPHA-HBOT", self.exchange.position_key("COINALPHAHBOT"))
+            self.assertEqual("COINALPHA-HBOT", self.exchange.position_key("COINALPHAHBOT", PositionSide.LONG))
+
+            get_position_mode_response = {"dualSidePosition": True}  # True: Hedge Mode; False: One-way Mode
+            mock_api.get(regex_url, body=json.dumps(get_position_mode_response))
+            mock_api.post(regex_url, body=json.dumps(post_position_mode_response))
+            task = self.ev_loop.create_task(self.exchange._set_position_mode(PositionMode.HEDGE))
+            self.async_run_with_timeout(task)
+            self.assertEqual("COINALPHA-HBOT:LONG", self.exchange.position_key("COINALPHAHBOT", PositionSide.LONG), )
+            self.assertEqual("COINALPHA-HBOT:SHORT", self.exchange.position_key("COINALPHAHBOT", PositionSide.SHORT), )
 
     @aioresponses()
     def test_set_position_initial_mode_unchanged(self, mock_api):
