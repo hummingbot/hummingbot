@@ -110,7 +110,6 @@ class GatewayCommand(GatewayChainApiManager):
                     docker_check = await self.app.prompt(
                         prompt="This command is designed to generate Gateway certificates. "
                         "When you have installed Hummingbot from source, "
-                        "but it looks like you have installed Hummingbot using Docker. "
                         "Do you want to continue? (Yes/No) >>> ",
                     )
                     if self.app.to_stop_config:
@@ -184,7 +183,7 @@ class GatewayCommand(GatewayChainApiManager):
                 while True:
                     docker_check = await self.app.prompt(
                         prompt="This command is designed to automate Gateway setup when you have installed Hummingbot using Docker,"
-                        "but it looks like you have installed Hummingbot from source. Do you want to continue?” (Yes/No) >>>"
+                        " Do you want to continue?” (Yes/No) >>>"
                     )
                     if self.app.to_stop_config:
                         return
