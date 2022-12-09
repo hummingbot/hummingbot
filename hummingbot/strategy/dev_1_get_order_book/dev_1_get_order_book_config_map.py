@@ -1,13 +1,8 @@
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_validators import (
-    validate_exchange,
-    validate_market_trading_pair,
-)
-from hummingbot.client.settings import (
-    required_exchanges,
-    AllConnectorSettings,
-)
 from typing import Optional
+
+from hummingbot.client.config.config_validators import validate_exchange, validate_market_trading_pair
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.settings import AllConnectorSettings, required_exchanges
 
 
 def trading_pair_prompt():
@@ -37,7 +32,7 @@ dev_1_get_order_book_config_map = {
         ConfigVar(key="exchange",
                   prompt="Enter the name of the exchange >>> ",
                   validator=validate_exchange,
-                  on_validated=lambda value: required_exchanges.append(value),
+                  on_validated=lambda value: required_exchanges.add(value),
                   prompt_on_new=True,
                   ),
     "trading_pair":

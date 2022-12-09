@@ -2,18 +2,15 @@ import logging
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from sqlalchemy.engine import RowProxy
-import ujson
 
+from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_message import BitfinexOrderBookMessage
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType,
 )
-from hummingbot.core.event.events import TradeType
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_message import \
-    BitfinexOrderBookMessage
 
 _logger = None
 

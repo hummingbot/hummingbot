@@ -1,0 +1,104 @@
+paths:
+  /evm/nonce:
+    post:
+      tags:
+        - 'evm'
+      summary: 'Get the current nonce for the provided private key'
+      operationId: 'nonce'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/NonceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/NonceResponse'
+
+  /evm/nextNonce:
+    post:
+      tags:
+        - 'evm'
+      summary: 'Get the next nonce for the provided private key'
+      operationId: 'nonce'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/NonceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/NonceResponse'
+            
+  /evm/allowances:
+    post:
+      tags:
+        - 'evm'
+      summary: 'Get the ERC20 allowances for a spender on a given private key'
+      operationId: 'allowances'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/AllowancesRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/AllowancesResponse'
+  /evm/approve:
+    post:
+      tags:
+        - 'evm'
+      summary: 'Create an ERC20 approval for a spender on an private key'
+      operationId: 'approve'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/ApproveRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/ApproveResponse'
+
+  /evm/cancel:
+    post:
+      tags:
+        - 'evm'
+      summary: 'Cancel transaction'
+      operationId: 'cancel'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/CancelRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/CancelResponse'

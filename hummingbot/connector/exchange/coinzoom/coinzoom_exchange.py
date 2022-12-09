@@ -1,57 +1,54 @@
-import logging
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Any,
-    AsyncIterable,
-)
-from decimal import Decimal
 import asyncio
-import aiohttp
 import copy
+import logging
 import math
 import time
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
+
+import aiohttp
 from async_timeout import timeout
 
-from hummingbot.core.network_iterator import NetworkStatus
-
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.clock import Clock
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketOrderFailureEvent,
-    OrderType,
-    TradeType,
-    TradeFee
-)
-from hummingbot.connector.exchange_base import ExchangeBase
+import hummingbot.connector.exchange.coinzoom.coinzoom_http_utils as http_utils
+from hummingbot.connector.exchange.coinzoom.coinzoom_api_order_book_data_source import CoinzoomAPIOrderBookDataSource
+from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
+from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
+from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import CoinzoomInFlightOrder
 from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_tracker import CoinzoomOrderBookTracker
 from hummingbot.connector.exchange.coinzoom.coinzoom_user_stream_tracker import CoinzoomUserStreamTracker
-from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
-from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import CoinzoomInFlightOrder
-import hummingbot.connector.exchange.coinzoom.coinzoom_http_utils as http_utils
 from hummingbot.connector.exchange.coinzoom.coinzoom_utils import (
+    CoinzoomAPIError,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
     str_date_to_ts,
-    CoinzoomAPIError,
 )
-from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
-from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.clock import Clock
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
@@ -72,6 +69,7 @@ class CoinzoomExchange(ExchangeBase):
         return ctce_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  coinzoom_api_key: str,
                  coinzoom_secret_key: str,
                  coinzoom_username: str,
@@ -85,12 +83,12 @@ class CoinzoomExchange(ExchangeBase):
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
-        super().__init__()
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._throttler = AsyncThrottler(Constants.RATE_LIMITS)
         self._coinzoom_auth = CoinzoomAuth(coinzoom_api_key, coinzoom_secret_key, coinzoom_username)
-        self._order_book_tracker = CoinzoomOrderBookTracker(throttler=self._throttler, trading_pairs=trading_pairs)
+        self._set_order_book_tracker(CoinzoomOrderBookTracker(throttler=self._throttler, trading_pairs=trading_pairs))
         self._user_stream_tracker = CoinzoomUserStreamTracker(
             throttler=self._throttler,
             coinzoom_auth=self._coinzoom_auth,
@@ -117,7 +115,7 @@ class CoinzoomExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -133,7 +131,7 @@ class CoinzoomExchange(ExchangeBase):
         A dictionary of statuses of various connector's components.
         """
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
@@ -202,7 +200,7 @@ class CoinzoomExchange(ExchangeBase):
         It starts tracking order book, polling trading rules,
         updating statuses and tracking user data.
         """
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
 
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
@@ -223,7 +221,7 @@ class CoinzoomExchange(ExchangeBase):
         self._update_balances_queued = False
         self._update_balances_finished = asyncio.Event()
 
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -374,9 +372,9 @@ class CoinzoomExchange(ExchangeBase):
         return Decimal(trading_rule.min_base_amount_increment)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -470,7 +468,14 @@ class CoinzoomExchange(ExchangeBase):
                 event_tag = MarketEvent.SellOrderCreated
                 event_cls = SellOrderCreatedEvent
             self.trigger_event(event_tag,
-                               event_cls(self.current_timestamp, order_type, trading_pair, amount, price, order_id))
+                               event_cls(
+                                   self.current_timestamp,
+                                   order_type,
+                                   trading_pair,
+                                   amount,
+                                   price,
+                                   order_id,
+                                   tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except CoinzoomAPIError as e:
@@ -503,7 +508,8 @@ class CoinzoomExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):
@@ -545,9 +551,9 @@ class CoinzoomExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except asyncio.TimeoutError:
-            self.logger().info(f"The order {order_id} could not be cancelled due to a timeout."
+            self.logger().info(f"The order {order_id} could not be canceled due to a timeout."
                                " The action will be retried later.")
-            err = {"message": "Timeout during order cancellation"}
+            err = {"message": "Timeout during order cancelation"}
         except CoinzoomAPIError as e:
             err = e.error_payload.get('error', e.error_payload)
             self.logger().error(f"Order Cancel API Error: {err}")
@@ -557,7 +563,7 @@ class CoinzoomExchange(ExchangeBase):
                 order_was_cancelled = True
 
         if order_was_cancelled:
-            self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
+            self.logger().info(f"Successfully canceled order {order_id} on {Constants.EXCHANGE_NAME}.")
             self.stop_tracking_order(order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, order_id))
@@ -714,7 +720,7 @@ class CoinzoomExchange(ExchangeBase):
                 'price': 5000,
                 'quantity': 0.001,
                 'executionType': 'CANCEL',
-                'orderStatus': 'CANCELLED',
+                'orderStatus': 'CANCELED',
                 'lastQuantity': 0,
                 'leavesQuantity': 0,
                 'cumulativeQuantity': 0,
@@ -752,7 +758,7 @@ class CoinzoomExchange(ExchangeBase):
             if updated:
                 safe_ensure_future(self._trigger_order_fill(tracked_order, order_msg))
             elif tracked_order.is_cancelled:
-                self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+                self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
                 self.stop_tracking_order(tracked_order.client_order_id)
                 self.trigger_event(MarketEvent.OrderCancelled,
                                    OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id))
@@ -779,7 +785,7 @@ class CoinzoomExchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(update_msg.get("averagePrice", update_msg.get("price", "0")))),
                 tracked_order.executed_amount_base,
-                TradeFee(percent=update_msg["trade_fee"]),
+                AddedToCostTradeFee(percent=update_msg["trade_fee"]),
                 update_msg.get("exchange_trade_id", update_msg.get("id", update_msg.get("orderId")))
             )
         )
@@ -800,10 +806,8 @@ class CoinzoomExchange(ExchangeBase):
                                            tracked_order.client_order_id,
                                            tracked_order.base_asset,
                                            tracked_order.quote_asset,
-                                           tracked_order.fee_asset,
                                            tracked_order.executed_amount_base,
                                            tracked_order.executed_amount_quote,
-                                           tracked_order.fee_paid,
                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
 
@@ -843,7 +847,7 @@ class CoinzoomExchange(ExchangeBase):
                 cancellation_results = await safe_gather(*tasks, return_exceptions=False)
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.", exc_info=True,
+                "Unexpected error canceling orders.", exc_info=True,
                 app_warning_msg=(f"Failed to cancel all orders on {Constants.EXCHANGE_NAME}. "
                                  "Check API key and network connection.")
             )
@@ -871,14 +875,15 @@ class CoinzoomExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
@@ -965,3 +970,14 @@ class CoinzoomExchange(ExchangeBase):
                 )
             )
         return ret_val
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await CoinzoomAPIOrderBookDataSource.fetch_trading_pairs(throttler=self._throttler)
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await CoinzoomAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            throttler=self._throttler
+        )

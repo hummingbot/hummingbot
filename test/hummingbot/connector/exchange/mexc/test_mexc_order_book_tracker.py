@@ -1,19 +1,21 @@
 #!/usr/bin/env python
-import unittest
 import asyncio
+import json
+import unittest
 from collections import Awaitable
 from decimal import Decimal
 from typing import Any
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock
+
+from aioresponses import aioresponses
 
 import hummingbot.connector.exchange.mexc.mexc_constants as CONSTANTS
-
-from hummingbot.core.data_type.order_book import OrderBook
-
 from hummingbot.connector.exchange.mexc.mexc_order_book import MexcOrderBook
 from hummingbot.connector.exchange.mexc.mexc_order_book_message import MexcOrderBookMessage
 from hummingbot.connector.exchange.mexc.mexc_order_book_tracker import MexcOrderBookTracker
+from hummingbot.connector.exchange.mexc.mexc_utils import convert_to_exchange_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.order_book import OrderBook
 
 
 class MexcOrderBookTrackerUnitTest(unittest.TestCase):
@@ -94,9 +96,12 @@ class MexcOrderBookTrackerUnitTest(unittest.TestCase):
 
         self.assertEqual(1626788175000000, self.tracker.order_books[self.trading_pair].snapshot_uid)
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_init_order_books(self, mock_api):
-        self.set_mock_response(mock_api, 200, self.mock_data)
+        trading_pair = convert_to_exchange_trading_pair(self.trading_pair)
+        tick_url = CONSTANTS.MEXC_DEPTH_URL.format(trading_pair=trading_pair)
+        url = CONSTANTS.MEXC_BASE_URL + tick_url
+        mock_api.get(url, body=json.dumps(self.mock_data))
 
         self.tracker._order_books_initialized.clear()
         self.tracker._tracking_message_queues.clear()
@@ -117,9 +122,12 @@ class MexcOrderBookTrackerUnitTest(unittest.TestCase):
         self.assertIsInstance(self.tracker.order_books[self.trading_pair], OrderBook)
         self.assertTrue(self.tracker._order_books_initialized.is_set())
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_can_get_price_after_order_book_init(self, mock_api):
-        self.set_mock_response(mock_api, 200, self.mock_data)
+        trading_pair = convert_to_exchange_trading_pair(self.trading_pair)
+        tick_url = CONSTANTS.MEXC_DEPTH_URL.format(trading_pair=trading_pair)
+        url = CONSTANTS.MEXC_BASE_URL + tick_url
+        mock_api.get(url, body=json.dumps(self.mock_data))
 
         init_order_books_task = self.ev_loop.create_task(
             self.tracker._init_order_books()

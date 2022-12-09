@@ -1,9 +1,6 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
-from datetime import time
-from typing import (
-    Union,
-)
+from datetime import datetime, time
+from typing import Union
 
 from hummingbot.strategy.strategy_base import StrategyBase
 
@@ -17,6 +14,9 @@ class ConditionalExecutionState(ABC):
 
     _closing_time: int = None
     _time_left: int = None
+
+    def __eq__(self, other):
+        return type(self) == type(other)
 
     @property
     def time_left(self):
@@ -35,7 +35,7 @@ class ConditionalExecutionState(ABC):
         self._closing_time = value
 
     @abstractmethod
-    def process_tick(self, strategy: StrategyBase):
+    def process_tick(self, timestamp: float, strategy: StrategyBase):
         pass
 
 
@@ -77,6 +77,11 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
             if self._end_timestamp is not None:
                 return f"run daily between {self._start_timestamp} and {self._end_timestamp}"
 
+    def __eq__(self, other):
+        return type(self) == type(other) and \
+            self._start_timestamp == other._start_timestamp and \
+            self._end_timestamp == other._end_timestamp
+
     def process_tick(self, timestamp: float, strategy: StrategyBase):
         if isinstance(self._start_timestamp, datetime):
             # From datetime
@@ -90,6 +95,7 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
                     strategy.process_tick(timestamp)
                 else:
                     self._time_left = 0
+                    strategy.cancel_active_orders()
                     strategy.logger().debug("Time span execution: tick will not be processed "
                                             f"(executing between {self._start_timestamp.isoformat(sep=' ')} "
                                             f"and {self._end_timestamp.isoformat(sep=' ')})")
@@ -99,6 +105,7 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
                 if self._start_timestamp.timestamp() <= timestamp:
                     strategy.process_tick(timestamp)
                 else:
+                    strategy.cancel_active_orders()
                     strategy.logger().debug("Delayed start execution: tick will not be processed "
                                             f"(executing from {self._start_timestamp.isoformat(sep=' ')})")
         if isinstance(self._start_timestamp, time):
@@ -113,6 +120,7 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
                     strategy.process_tick(timestamp)
                 else:
                     self._time_left = 0
+                    strategy.cancel_active_orders()
                     strategy.logger().debug("Time span execution: tick will not be processed "
                                             f"(executing between {self._start_timestamp} "
                                             f"and {self._end_timestamp})")

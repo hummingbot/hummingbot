@@ -1,11 +1,12 @@
-import re
 import math
+import re
 from typing import Dict, List
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_tracking_nonce_low_res
-from hummingbot.connector.exchange.wazirx import wazirx_constants as CONSTANTS
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
 
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.connector.exchange.wazirx import wazirx_constants as CONSTANTS
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_tracking_nonce_low_res
 
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(btc|usdt|inr|wrx)$")
 
@@ -96,17 +97,29 @@ def get_api_reason(code: str) -> str:
     return CONSTANTS.API_REASONS.get(int(code), code)
 
 
-KEYS = {
-    "wazirx_api_key":
-        ConfigVar(key="wazirx_api_key",
-                  prompt="Enter your WazirX API key >>> ",
-                  required_if=using_exchange("wazirx"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "wazirx_secret_key":
-        ConfigVar(key="wazirx_secret_key",
-                  prompt="Enter your WazirX secret key >>> ",
-                  required_if=using_exchange("wazirx"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class WazirxConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="wazirx", client_data=None)
+    wazirx_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your WazirX API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    wazirx_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your WazirX secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "wazirx"
+
+
+KEYS = WazirxConfigMap.construct()

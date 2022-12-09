@@ -41,7 +41,7 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         result = {}
         async with aiohttp.ClientSession() as client:
-            async with client.get(f"{constants.REST_URL}{constants.GET_TRADING_PAIRS_STATS}") as resp:
+            async with client.get(f"{constants.REST_URL}{constants.GET_TRADING_PAIRS_STATS}", verify_ssl=False) as resp:
                 resp_json = await resp.json()
                 if resp_json["success"] is False:
                     raise IOError(
@@ -59,7 +59,9 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
         async with aiohttp.ClientSession() as client:
-            async with client.get(f"{constants.REST_URL}{constants.GET_TRADING_PAIRS}", timeout=10) as response:
+            async with client.get(f"{constants.REST_URL}{constants.GET_TRADING_PAIRS}",
+                                  timeout=10,
+                                  verify_ssl=False) as response:
                 if response.status == 200:
                     try:
                         data: Dict[str, Any] = await response.json()
@@ -77,7 +79,8 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             params = {"symbol": k2_utils.convert_to_exchange_trading_pair(trading_pair)}
             async with client.get(url=f"{constants.REST_URL}{constants.GET_ORDER_BOOK}",
-                                  params=params) as resp:
+                                  params=params,
+                                  verify_ssl=False) as resp:
                 if resp.status != 200:
                     raise IOError(
                         f"Error fetching OrderBook for {trading_pair} at {constants.EXCHANGE_NAME}. "

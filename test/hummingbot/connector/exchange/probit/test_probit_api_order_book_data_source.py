@@ -2,20 +2,16 @@ import asyncio
 import json
 import re
 import unittest
-from typing import Optional, Awaitable, Dict, List, Tuple
-from unittest.mock import patch, AsyncMock
+from typing import Awaitable, Dict, List, Optional, Tuple
+from unittest.mock import AsyncMock, patch
 
 from aiohttp import WSMsgType
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.probit.probit_api_order_book_data_source import (
-    ProbitAPIOrderBookDataSource
-)
 from hummingbot.connector.exchange.probit import probit_constants as CONSTANTS
+from hummingbot.connector.exchange.probit.probit_api_order_book_data_source import ProbitAPIOrderBookDataSource
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
-from test.hummingbot.connector.network_mocking_assistant import (
-    NetworkMockingAssistant
-)
 
 
 class ProbitAPIOrderBookDataSourceTest(unittest.TestCase):

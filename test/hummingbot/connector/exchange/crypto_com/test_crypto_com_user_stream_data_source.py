@@ -1,16 +1,16 @@
 import asyncio
-import aiohttp
-import ujson
 import unittest
-
 from typing import Awaitable, Optional
 from unittest.mock import AsyncMock, patch
 
-from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
+import aiohttp
+import ujson
+
 from hummingbot.connector.exchange.crypto_com.crypto_com_api_user_stream_data_source import (
     CryptoComAPIUserStreamDataSource,
 )
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 
 
 class CryptoComAPIUserStreamDataSourceUnitTests(unittest.TestCase):

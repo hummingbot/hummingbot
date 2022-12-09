@@ -1,11 +1,10 @@
-import numpy as np
 import os
 import subprocess
 import sys
 
+import numpy as np
 from setuptools import find_packages, setup
 from setuptools.command.build_ext import build_ext
-
 from Cython.Build import cythonize
 
 is_posix = (os.name == "posix")
@@ -33,7 +32,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20211201"
+    version = "20221029"
     packages = find_packages(include=["hummingbot", "hummingbot.*"])
     package_data = {
         "hummingbot": [
@@ -50,13 +49,15 @@ def main():
         "aiohttp",
         "aiokafka",
         "appdirs",
-        "appnope"
-        "sync-timeout",
+        "appnope",
+        "async-timeout",
+        "bidict",
         "cachetools",
         "certifi",
         "cryptography",
         "cython",
         "cytoolz",
+        "docker",
         "diff-cover",
         "dydx-python",
         "dydx-v3-python",
@@ -71,16 +72,18 @@ def main():
         "hexbytes",
         "importlib-metadata",
         "mypy-extensions",
+        "nose",
+        "nose-exclude",
         "numpy",
         "pandas",
         "pip",
         "pre-commit",
         "prompt-toolkit",
         "psutil",
+        "pydantic",
         "pyjwt",
         "pyperclip",
-        "python-binance==0.7.5",
-        "python-dateutil"
+        "python-dateutil",
         "python-telegram-bot",
         "requests",
         "rsa",
@@ -90,6 +93,7 @@ def main():
         "simplejson",
         "six",
         "sqlalchemy",
+        "tabulate",
         "tzlocal",
         "ujson",
         "web3",
@@ -103,8 +107,6 @@ def main():
     }
 
     cython_sources = ["hummingbot/**/*.pyx"]
-    if os.path.exists('test'):
-        cython_sources.append("test/**/*.pyx")
 
     if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
         compiler_directives = {
@@ -130,7 +132,7 @@ def main():
     setup(name="hummingbot",
           version=version,
           description="Hummingbot",
-          url="https://github.com/CoinAlpha/hummingbot",
+          url="https://github.com/hummingbot/hummingbot",
           author="CoinAlpha, Inc.",
           author_email="dev@hummingbot.io",
           license="Apache 2.0",

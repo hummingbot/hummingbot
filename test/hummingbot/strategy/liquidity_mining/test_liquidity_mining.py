@@ -1,25 +1,24 @@
-"""
-Unit tests for hummingbot.strategy.liquidity_mining.liquidity_mining
-"""
-
-from decimal import Decimal
-import pandas as pd
-from typing import Dict, List, Optional
 import unittest.mock
+from decimal import Decimal
+from typing import Dict, List, Optional
 
+import pandas as pd
+
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import MarketEvent, OrderBookTradeEvent, TradeType
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.core.event.events import MarketEvent, OrderBookTradeEvent
 from hummingbot.strategy.liquidity_mining.data_types import PriceSize, Proposal
 from hummingbot.strategy.liquidity_mining.liquidity_mining import LiquidityMiningStrategy
-
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.core.event.events import TradeFee
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 class LiquidityMiningTest(unittest.TestCase):
@@ -35,7 +34,9 @@ class LiquidityMiningTest(unittest.TestCase):
         """
         Create a BacktestMarket and marketinfo dictionary to be used by the liquidity mining strategy
         """
-        market: MockPaperExchange = MockPaperExchange()
+        market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         market_infos: Dict[str, MarketTradingPairTuple] = {}
 
         for trading_pair in trading_pairs:
@@ -47,6 +48,30 @@ class LiquidityMiningTest(unittest.TestCase):
                                            max_price=200,
                                            price_step_size=1,
                                            volume_step_size=10)
+            market.set_quantization_param(QuantizationParams(trading_pair, 6, 6, 6, 6))
+            market_infos[trading_pair] = MarketTradingPairTuple(market, trading_pair, base_asset, quote_asset)
+
+        for asset, value in balances.items():
+            market.set_balance(asset, value)
+
+        return market, market_infos
+
+    @staticmethod
+    def create_empty_ob_market(trading_pairs: List[str], mid_price, balances: Dict[str, int]) -> \
+            (MockPaperExchange, Dict[str, MarketTradingPairTuple]):
+        """
+        Create a BacktestMarket and marketinfo dictionary to be used by the liquidity mining strategy
+        """
+        market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
+        market_infos: Dict[str, MarketTradingPairTuple] = {}
+
+        _ = mid_price
+        for trading_pair in trading_pairs:
+            base_asset = trading_pair.split("-")[0]
+            quote_asset = trading_pair.split("-")[1]
+            market.new_empty_order_book(trading_pair=trading_pair, )
             market.set_quantization_param(QuantizationParams(trading_pair, 6, 6, 6, 6))
             market_infos[trading_pair] = MarketTradingPairTuple(market, trading_pair, base_asset, quote_asset)
 
@@ -76,7 +101,9 @@ class LiquidityMiningTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
         self.default_strategy = LiquidityMiningStrategy()
+        client_config_map = ClientConfigMap()
         self.default_strategy.init_params(
+            client_config_map=client_config_map,
             exchange=self.market,
             market_infos=self.market_infos,
             token="ETH",
@@ -131,12 +158,14 @@ class LiquidityMiningTest(unittest.TestCase):
                     return True
         return False
 
-    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
     def test_simulate_maker_market_trade(self, estimate_fee_mock):
         """
         Test that we can set up a liquidity mining strategy, and a trade
         """
-        estimate_fee_mock.return_value = TradeFee(percent=0, flat_fees=[('ETH', Decimal(0.00005))])
+        estimate_fee_mock.return_value = AddedToCostTradeFee(
+            percent=0, flat_fees=[TokenAmount('ETH', Decimal(0.00005))]
+        )
 
         # initiate
         self.clock.add_iterator(self.default_strategy)
@@ -150,23 +179,29 @@ class LiquidityMiningTest(unittest.TestCase):
         self.assertEqual(4, len(self.default_strategy.active_orders))
 
         # assert that a buy and sell order is made for each pair
-        self.assertTrue(self.has_limit_order(self.default_strategy.active_orders, 'ETH-USDT', True, Decimal(99.95), Decimal(2.0)))
-        self.assertTrue(self.has_limit_order(self.default_strategy.active_orders, 'ETH-USDT', False, Decimal(100.05), Decimal(2.0)))
-        self.assertTrue(self.has_limit_order(self.default_strategy.active_orders, 'ETH-BTC', True, Decimal(99.95), Decimal(1.0005)))
-        self.assertTrue(self.has_limit_order(self.default_strategy.active_orders, 'ETH-BTC', False, Decimal(100.05), Decimal(2)))
+        self.assertTrue(
+            self.has_limit_order(self.default_strategy.active_orders, 'ETH-USDT', True, Decimal(99.95), Decimal(2.0)))
+        self.assertTrue(
+            self.has_limit_order(self.default_strategy.active_orders, 'ETH-USDT', False, Decimal(100.05), Decimal(2.0)))
+        self.assertTrue(
+            self.has_limit_order(self.default_strategy.active_orders, 'ETH-BTC', True, Decimal(99.95), Decimal(1.0005)))
+        self.assertTrue(
+            self.has_limit_order(self.default_strategy.active_orders, 'ETH-BTC', False, Decimal(100.05), Decimal(2)))
 
         # Simulate buy order fill
         self.clock.backtest_til(self.start_timestamp + 8)
         self.simulate_maker_market_trade(False, Decimal("50"), Decimal("1"), "ETH-USDT")
         self.assertEqual(3, len(self.default_strategy.active_orders))
 
-    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
     def test_multiple_markets(self, estimate_fee_mock):
         """
         Liquidity Mining supports one base asset but multiple quote assets. This shows that the user can successfully
         provide liquidity for two different pairs and the market can execute the other side of them.
         """
-        estimate_fee_mock.return_value = TradeFee(percent=0, flat_fees=[('ETH', Decimal(0.00005))])
+        estimate_fee_mock.return_value = AddedToCostTradeFee(
+            percent=0, flat_fees=[TokenAmount('ETH', Decimal(0.00005))]
+        )
 
         # initiate
         self.clock.add_iterator(self.default_strategy)
@@ -180,16 +215,18 @@ class LiquidityMiningTest(unittest.TestCase):
         self.simulate_maker_market_trade(False, 50, 1, "ETH-BTC")
         self.clock.backtest_til(self.start_timestamp + 16)
 
-    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
     def test_tolerance_level(self, estimate_fee_mock):
         """
         Test tolerance level
         """
-        estimate_fee_mock.return_value = TradeFee(percent=0, flat_fees=[('ETH', Decimal(0.00005))])
+        estimate_fee_mock.return_value = AddedToCostTradeFee(
+            percent=0, flat_fees=[TokenAmount('ETH', Decimal(0.00005))]
+        )
 
         # initiate strategy and add active orders
         self.clock.add_iterator(self.default_strategy)
-        self.clock.backtest_til(self.start_timestamp + 10)
+        self.clock.backtest_til(self.start_timestamp + 9)
 
         # the order tolerance is 1%
         # set the orders to the same values
@@ -204,13 +241,15 @@ class LiquidityMiningTest(unittest.TestCase):
         proposal = Proposal("ETH-USDT", PriceSize(150, 1), PriceSize(50, 1))
         self.assertFalse(self.default_strategy.is_within_tolerance(self.default_strategy.active_orders, proposal))
 
-    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
     def test_budget_allocation(self, estimate_fee_mock):
         """
         Liquidity mining strategy budget allocation is different from pmm, it depends on the token base and it splits
         its budget between the quote tokens.
         """
-        estimate_fee_mock.return_value = TradeFee(percent=0, flat_fees=[('ETH', Decimal(0.00005))])
+        estimate_fee_mock.return_value = AddedToCostTradeFee(
+            percent=0, flat_fees=[TokenAmount('ETH', Decimal(0.00005))]
+        )
 
         # initiate
         usdt_balance = 1000
@@ -219,10 +258,14 @@ class LiquidityMiningTest(unittest.TestCase):
         btc_balance = 10
 
         trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BUSD", "BTC"]))
-        market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance, "BTC": btc_balance})
+        market, market_infos = self.create_market(trading_pairs, 100,
+                                                  {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance,
+                                                   "BTC": btc_balance})
 
         strategy = LiquidityMiningStrategy()
+        client_config_map = ClientConfigMap()
         strategy.init_params(
+            client_config_map=client_config_map,
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -251,12 +294,123 @@ class LiquidityMiningTest(unittest.TestCase):
         self.assertLess(strategy.sell_budgets["ETH-BTC"], eth_balance * 0.4)
         self.assertLess(strategy.sell_budgets["ETH-BUSD"], eth_balance * 0.4)
 
-    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
+    def test_budget_allocation_empty_ob(self, estimate_fee_mock):
+        """
+        Liquidity mining strategy budget allocation is different from pmm, it depends on the token base and it splits
+        its budget between the quote tokens.
+        """
+        estimate_fee_mock.return_value = AddedToCostTradeFee(
+            percent=0, flat_fees=[TokenAmount('ETH', Decimal(0.00005))]
+        )
+
+        # initiate
+        usdt_balance = 1000
+        busd_balance = 900
+        eth_balance = 100
+        btc_balance = 10
+
+        trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BUSD", "BTC"]))
+        market, market_infos = self.create_empty_ob_market(trading_pairs, 100,
+                                                           {"USDT": usdt_balance, "BUSD": busd_balance,
+                                                            "ETH": eth_balance, "BTC": btc_balance})
+
+        strategy = LiquidityMiningStrategy()
+        client_config_map = ClientConfigMap()
+        strategy.init_params(
+            client_config_map=client_config_map,
+            exchange=market,
+            market_infos=market_infos,
+            token="ETH",
+            order_amount=Decimal(2),
+            spread=Decimal(0.0005),
+            inventory_skew_enabled=False,
+            target_base_pct=Decimal(0.5),
+            order_refresh_time=5,
+            order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
+        )
+
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        # there should be a buy and sell budget for each pair
+        self.assertEqual(len(strategy.sell_budgets), 0)
+        self.assertEqual(len(strategy.buy_budgets), 0)
+
+        # No buy_budget calculated since no order books
+        self.assertFalse("ETH-USDT" in strategy.buy_budgets)
+        self.assertFalse("ETH-BTC" in strategy.buy_budgets)
+        self.assertFalse("ETH-BUSD" in strategy.buy_budgets)
+
+        # No buy_budget calculated since no order books
+        self.assertFalse("ETH-USDT" in strategy.sell_budgets)
+        self.assertFalse("ETH-BTC" in strategy.sell_budgets)
+        self.assertFalse("ETH-BUSD" in strategy.sell_budgets)
+
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
+    def test_budget_allocation_partially_empty_ob(self, estimate_fee_mock):
+        """
+        Liquidity mining strategy budget allocation is different from pmm, it depends on the token base and it splits
+        its budget between the quote tokens.
+        """
+        estimate_fee_mock.return_value = AddedToCostTradeFee(
+            percent=0, flat_fees=[TokenAmount('ETH', Decimal(0.00005))]
+        )
+
+        # initiate
+        usdt_balance = 1000
+        busd_balance = 900
+        eth_balance = 100
+        btc_balance = 10
+
+        trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BUSD"]))
+        _, market_eob_infos = self.create_empty_ob_market(trading_pairs, 100,
+                                                          {"USDT": usdt_balance, "BUSD": busd_balance,
+                                                           "ETH": eth_balance})
+        trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["BTC"]))
+        market, market_infos = self.create_market(trading_pairs, 100, {"BTC": btc_balance})
+        market_infos.update(market_eob_infos)
+
+        strategy = LiquidityMiningStrategy()
+        client_config_map = ClientConfigMap()
+        strategy.init_params(
+            client_config_map=client_config_map,
+            exchange=market,
+            market_infos=market_infos,
+            token="ETH",
+            order_amount=Decimal(2),
+            spread=Decimal(0.0005),
+            inventory_skew_enabled=False,
+            target_base_pct=Decimal(0.5),
+            order_refresh_time=5,
+            order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
+        )
+
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        # there should be a buy and sell budget for each pair
+        self.assertEqual(len(strategy.sell_budgets), 1)
+        self.assertEqual(len(strategy.buy_budgets), 1)
+
+        # Only BTC buy_budget calculated since no order books
+        self.assertFalse("ETH-USDT" in strategy.buy_budgets)
+        self.assertTrue("ETH-BTC" in strategy.buy_budgets)
+        self.assertFalse("ETH-BUSD" in strategy.buy_budgets)
+
+        # Only BTC buy_budget calculated since no order books
+        self.assertFalse("ETH-USDT" in strategy.sell_budgets)
+        self.assertTrue("ETH-BTC" in strategy.sell_budgets)
+        self.assertFalse("ETH-BUSD" in strategy.sell_budgets)
+
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
     def test_inventory_skew(self, estimate_fee_mock):
         """
         When inventory_skew_enabled is true, the strategy will try to balance the amounts of base to match it
         """
-        estimate_fee_mock.return_value = TradeFee(percent=0, flat_fees=[('ETH', Decimal(0.00005))])
+        estimate_fee_mock.return_value = AddedToCostTradeFee(
+            percent=0, flat_fees=[TokenAmount('ETH', Decimal(0.00005))]
+        )
 
         # initiate with similar balances so the skew is obvious
         usdt_balance = 1000
@@ -265,10 +419,14 @@ class LiquidityMiningTest(unittest.TestCase):
         btc_balance = 1000
 
         trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BUSD", "BTC"]))
-        market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance, "BTC": btc_balance})
+        market, market_infos = self.create_market(trading_pairs, 100,
+                                                  {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance,
+                                                   "BTC": btc_balance})
 
         skewed_base_strategy = LiquidityMiningStrategy()
+        client_config_map = ClientConfigMap()
         skewed_base_strategy.init_params(
+            client_config_map=client_config_map,
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -282,6 +440,7 @@ class LiquidityMiningTest(unittest.TestCase):
 
         unskewed_strategy = LiquidityMiningStrategy()
         unskewed_strategy.init_params(
+            client_config_map=client_config_map,
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -312,12 +471,14 @@ class LiquidityMiningTest(unittest.TestCase):
                         self.assertLessEqual(skewed_base_order.price, unskewed_order.price)
 
     @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.MarketTradingPairTuple.get_mid_price')
-    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.build_trade_fee')
     def test_volatility(self, estimate_fee_mock, get_mid_price_mock):
         """
         Assert that volatility information is updated after the expected number of intervals
         """
-        estimate_fee_mock.return_value = TradeFee(percent=0, flat_fees=[('ETH', Decimal(0.00005))])
+        estimate_fee_mock.return_value = AddedToCostTradeFee(
+            percent=0, flat_fees=[TokenAmount('ETH', Decimal(0.00005))]
+        )
 
         # initiate with similar balances so the skew is obvious
         usdt_balance = 1000
@@ -327,7 +488,9 @@ class LiquidityMiningTest(unittest.TestCase):
         market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "ETH": eth_balance})
 
         strategy = LiquidityMiningStrategy()
+        client_config_map = ClientConfigMap()
         strategy.init_params(
+            client_config_map=client_config_map,
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -358,7 +521,8 @@ class LiquidityMiningTest(unittest.TestCase):
 
     @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotApplication.main_application')
     @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotCLI')
-    def test_strategy_with_default_cfg_does_not_send_in_app_notifications(self, cli_class_mock, main_application_function_mock):
+    def test_strategy_with_default_cfg_does_not_send_in_app_notifications(self, cli_class_mock,
+                                                                          main_application_function_mock):
         messages = []
         cli_logs = []
 
@@ -398,7 +562,9 @@ class LiquidityMiningTest(unittest.TestCase):
         main_application_function_mock.return_value = hummingbot_application
 
         strategy = self.default_strategy = LiquidityMiningStrategy()
+        client_config_map = ClientConfigMap()
         self.default_strategy.init_params(
+            client_config_map=client_config_map,
             exchange=self.market,
             market_infos=self.market_infos,
             token="ETH",

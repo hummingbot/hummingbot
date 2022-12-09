@@ -1,16 +1,16 @@
-import hummingbot.client.settings as settings
-
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_validators import (
-    validate_exchange,
-    validate_market_trading_pair,
-    validate_decimal,
-    validate_bool
-)
-from hummingbot.client.config.config_helpers import parse_cvar_value
-from hummingbot.client.settings import AllConnectorSettings, required_exchanges
 from decimal import Decimal
 from typing import Optional
+
+import hummingbot.client.settings as settings
+from hummingbot.client.config.config_helpers import parse_cvar_value
+from hummingbot.client.config.config_validators import (
+    validate_bool,
+    validate_decimal,
+    validate_exchange,
+    validate_market_trading_pair,
+)
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.settings import AllConnectorSettings, required_exchanges
 
 
 def validate_primary_market_trading_pair(value: str) -> Optional[str]:
@@ -38,7 +38,7 @@ def secondary_trading_pair_prompt():
 
 
 def secondary_market_on_validated(value: str):
-    required_exchanges.append(value)
+    required_exchanges.add(value)
 
 
 def update_oracle_settings(value: str):
@@ -73,7 +73,7 @@ arbitrage_config_map = {
         prompt="Enter your primary spot connector >>> ",
         prompt_on_new=True,
         validator=validate_exchange,
-        on_validated=lambda value: required_exchanges.append(value),
+        on_validated=lambda value: required_exchanges.add(value),
     ),
     "secondary_market": ConfigVar(
         key="secondary_market",

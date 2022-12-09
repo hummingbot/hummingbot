@@ -7,14 +7,14 @@ from unittest import TestCase
 
 from aioresponses import aioresponses
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
 from hummingbot.connector.exchange.coinzoom.coinzoom_exchange import CoinzoomExchange
-from hummingbot.core.network_iterator import NetworkStatus
-
 from hummingbot.connector.trading_rule import TradingRule
-
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.event.events import TradeType, OrderType
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.network_iterator import NetworkStatus
 
 
 class CoinzoomExchangeTests(TestCase):
@@ -30,7 +30,10 @@ class CoinzoomExchangeTests(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+
         self.exchange = CoinzoomExchange(
+            client_config_map=self.client_config_map,
             coinzoom_api_key=self.api_key,
             coinzoom_secret_key=self.api_secret_key,
             coinzoom_username=self.username,

@@ -1,10 +1,6 @@
-#!/usr/bin/env python
-import math
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-
 import asyncio
 import logging
+import math
 import unittest
 from typing import (
     Dict,
@@ -12,11 +8,14 @@ from typing import (
     List,
 )
 
-from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.connector.exchange.loopring.loopring_order_book_tracker import LoopringOrderBookTracker
-from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+
+
 # from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
 # from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
 

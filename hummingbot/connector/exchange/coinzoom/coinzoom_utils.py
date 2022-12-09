@@ -1,15 +1,12 @@
+from typing import Any, Dict, Optional
+
 from dateutil.parser import parse as dateparse
-from typing import (
-    Any,
-    Dict,
-    Optional,
-)
+from pydantic import Field, SecretStr
 
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
-from .coinzoom_constants import Constants
 
+from .coinzoom_constants import Constants
 
 CENTRALIZED = True
 
@@ -64,23 +61,38 @@ def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     return f"{Constants.HBOT_BROKER_ID}{side}{base_str}{quote_str}{get_tracking_nonce()}"
 
 
-KEYS = {
-    "coinzoom_api_key":
-        ConfigVar(key="coinzoom_api_key",
-                  prompt=f"Enter your {Constants.EXCHANGE_NAME} API key >>> ",
-                  required_if=using_exchange("coinzoom"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "coinzoom_secret_key":
-        ConfigVar(key="coinzoom_secret_key",
-                  prompt=f"Enter your {Constants.EXCHANGE_NAME} secret key >>> ",
-                  required_if=using_exchange("coinzoom"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "coinzoom_username":
-        ConfigVar(key="coinzoom_username",
-                  prompt=f"Enter your {Constants.EXCHANGE_NAME} ZoomMe username >>> ",
-                  required_if=using_exchange("coinzoom"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class CoinzoomConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="coinzoom", client_data=None)
+    coinzoom_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: f"Enter your {Constants.EXCHANGE_NAME} API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    coinzoom_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: f"Enter your {Constants.EXCHANGE_NAME} secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    coinzoom_username: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: f"Enter your {Constants.EXCHANGE_NAME} ZoomMe username",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "coinzoom"
+
+
+KEYS = CoinzoomConfigMap.construct()

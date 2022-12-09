@@ -8,12 +8,17 @@ if TYPE_CHECKING:
 class HelpCommand:
     def help(self,  # type: HummingbotApplication
              command: str):
-        if command == 'all':
-            self._notify(self.parser.format_help())
+        cmd_split = command.split()
+        if cmd_split[0] == 'all':
+            self.notify(self.parser.format_help())
         else:
-            subparsers_actions = [
-                action for action in self.parser._actions if isinstance(action, argparse._SubParsersAction)]
-
-            for subparsers_action in subparsers_actions:
-                subparser = subparsers_action.choices.get(command)
-                self._notify(subparser.format_help())
+            parser = self.parser._actions
+            for step in cmd_split:
+                subparsers_actions = [
+                    action for action in parser if isinstance(action, argparse._SubParsersAction)]
+                for subparsers_action in subparsers_actions:
+                    subparser = subparsers_action.choices.get(step)
+                    if subparser:
+                        last_subparser = subparser
+                        parser = subparser._actions
+            self.notify(last_subparser.format_help())

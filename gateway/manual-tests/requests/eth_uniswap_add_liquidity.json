@@ -1,0 +1,13 @@
+{
+  "address": "$ETH_ADDRESS",
+  "token0": "COIN1",
+  "token1": "COIN3",
+  "amount0": "1",
+  "amount1": "1",
+  "fee": "LOW",
+  "lowerPrice": "1",
+  "upperPrice": "5",
+  "chain": "ethereum",
+  "network": "kovan",
+  "connector": "uniswapLP"
+}

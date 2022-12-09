@@ -1,0 +1,101 @@
+paths:
+  /amm/liquidity/price:
+    post:
+      tags:
+        - 'amm/liquidity'
+      summary: 'Get the historical pool prices for a pair'
+      operationId: 'historical'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/LiquidityPriceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/LiquidityPriceResponse'
+  /amm/liquidity/add:
+    post:
+      tags:
+        - 'amm/liquidity'
+      summary: 'Add liquidity to pool'
+      operationId: 'add'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/LiquidityAddRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/LiquidityAddResponse'
+  /amm/liquidity/remove:
+    post:
+      tags:
+        - 'amm/liquidity'
+      summary: 'Remove liquidity to pool'
+      operationId: 'remove'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/LiquidityRemoveRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/LiquidityRemoveResponse'
+  /amm/liquidity/collect_fees:
+    post:
+      tags:
+        - 'amm/liquidity'
+      summary: 'Collect earned fees'
+      operationId: 'collect'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/LiquidityCollectRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/LiquidityCollectResponse'
+  /amm/liquidity/position:
+    post:
+      tags:
+        - 'amm/liquidity'
+      summary: 'Get details about position'
+      operationId: 'position'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/LiquidityPositionRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/LiquidityPositionResponse'

@@ -2,7 +2,6 @@ import asyncio
 import contextlib
 import logging
 import os
-import sys
 import time
 import unittest
 from decimal import Decimal
@@ -13,35 +12,33 @@ from typing import (
 )
 
 import conf
+from hummingbot.connector.exchange.bitfinex.bitfinex_exchange import BitfinexExchange
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderType,
-    TradeType,
-    TradeFee,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    OrderCancelledEvent,
     BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
 )
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.exchange.bitfinex.bitfinex_exchange import BitfinexExchange
-from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 
-sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 API_KEY = conf.bitfinex_api_key
 API_SECRET = conf.bitfinex_secret_key
@@ -125,12 +122,12 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee(base_asset, quote_asset, OrderType.LIMIT,
-                                                  TradeType.BUY, 1, 1)
+        limit_fee: AddedToCostTradeFee = self.market.get_fee(base_asset, quote_asset, OrderType.LIMIT,
+                                                             TradeType.BUY, 1, 1)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee(base_asset, quote_asset, OrderType.MARKET,
-                                                   TradeType.BUY, 1)
+        market_fee: AddedToCostTradeFee = self.market.get_fee(base_asset, quote_asset, OrderType.MARKET,
+                                                              TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
 

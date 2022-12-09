@@ -1,0 +1,97 @@
+paths:
+  /solana:
+    get:
+      tags:
+        - 'solana'
+      summary: 'View the Solana network and RPC URL that gateway is configured to use'
+      description: 'The user can change this by editing src/chains/solana/solana.config.ts'
+      operationId: 'root'
+      produces:
+        - 'application/json'
+      responses:
+        '200':
+          description: 'Solana config'
+          schema:
+            $ref: '#/definitions/SolanaConfigResponse'
+
+  /solana/balances:
+    get:
+      tags:
+        - 'solana'
+      summary: 'Get the balances of an Solana private key'
+      operationId: 'balances'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/SolanaBalancesRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/SolanaBalancesResponse'
+
+  /solana/token:
+    get:
+      tags:
+        - 'solana'
+      summary: 'Request token information and balance of requested token symbol'
+      operationId: 'token'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/SolanaTokenRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/SolanaTokenResponse'
+    post:
+      tags:
+        - 'solana'
+      summary: 'Get or create an associated token account for given token symbol. NOTE: This request costs 0.035 SOL, if no associated token account for given wallet address existed so far'
+      operationId: 'token'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/SolanaTokenRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/SolanaTokenResponse'
+
+  /solana/poll:
+    post:
+      tags:
+        - 'solana'
+      summary: 'Poll the status of a Solana transaction'
+      operationId: 'poll'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/SolanaPollRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/SolanaPollResponse'

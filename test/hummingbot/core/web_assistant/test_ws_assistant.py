@@ -1,14 +1,13 @@
 import asyncio
 import unittest
 from typing import Awaitable
-from unittest.mock import patch, PropertyMock
+from unittest.mock import AsyncMock, PropertyMock, patch
 
 import aiohttp
 
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import (
-    WSRequest, WSResponse, RESTRequest
-)
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSJSONRequest, WSRequest, WSResponse
 from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.core.web_assistant.ws_post_processors import WSPostProcessorBase
@@ -16,16 +15,21 @@ from hummingbot.core.web_assistant.ws_pre_processors import WSPreProcessorBase
 
 
 class WSAssistantTest(unittest.TestCase):
+    ev_loop: asyncio.AbstractEventLoop
+
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
+        for task in asyncio.all_tasks(cls.ev_loop):
+            task.cancel()
 
     def setUp(self) -> None:
         super().setUp()
         aiohttp_client_session = aiohttp.ClientSession()
         self.ws_connection = WSConnection(aiohttp_client_session)
         self.ws_assistant = WSAssistant(self.ws_connection)
+        self.mocking_assistant = NetworkMockingAssistant()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -41,7 +45,10 @@ class WSAssistantTest(unittest.TestCase):
             self.ws_assistant.connect(ws_url, ping_timeout=ping_timeout, message_timeout=message_timeout)
         )
 
-        connect_mock.assert_called_with(ws_url, ping_timeout, message_timeout)
+        connect_mock.assert_called_with(ws_url=ws_url,
+                                        ws_headers={},
+                                        ping_timeout=ping_timeout,
+                                        message_timeout=message_timeout)
 
     @patch("hummingbot.core.web_assistant.connections.ws_connection.WSConnection.disconnect")
     def test_disconnect(self, disconnect_mock):
@@ -54,7 +61,7 @@ class WSAssistantTest(unittest.TestCase):
         sent_requests = []
         send_mock.side_effect = lambda r: sent_requests.append(r)
         payload = {"one": 1}
-        request = WSRequest(payload)
+        request = WSJSONRequest(payload)
 
         self.async_run_with_timeout(self.ws_assistant.send(request))
 
@@ -68,7 +75,7 @@ class WSAssistantTest(unittest.TestCase):
     @patch("hummingbot.core.web_assistant.connections.ws_connection.WSConnection.send")
     def test_send_pre_processes(self, send_mock):
         class SomePreProcessor(WSPreProcessorBase):
-            async def pre_process(self, request_: WSRequest) -> WSRequest:
+            async def pre_process(self, request_: RESTRequest) -> RESTRequest:
                 request_.payload["two"] = 2
                 return request_
 
@@ -78,7 +85,7 @@ class WSAssistantTest(unittest.TestCase):
         sent_requests = []
         send_mock.side_effect = lambda r: sent_requests.append(r)
         payload = {"one": 1}
-        request = WSRequest(payload)
+        request = WSJSONRequest(payload)
 
         self.async_run_with_timeout(ws_assistant.send(request))
 
@@ -92,7 +99,7 @@ class WSAssistantTest(unittest.TestCase):
         sent_requests = []
         send_mock.side_effect = lambda r: sent_requests.append(r)
         payload = {"one": 1}
-        request = WSRequest(payload)
+        request = WSJSONRequest(payload)
 
         self.async_run_with_timeout(self.ws_assistant.subscribe(request))
 
@@ -117,8 +124,8 @@ class WSAssistantTest(unittest.TestCase):
         sent_requests = []
         send_mock.side_effect = lambda r: sent_requests.append(r)
         payload = {"one": 1}
-        req = WSRequest(payload)
-        auth_req = WSRequest(payload, is_auth_required=True)
+        req = WSJSONRequest(payload)
+        auth_req = WSJSONRequest(payload, is_auth_required=True)
 
         self.async_run_with_timeout(ws_assistant.send(req))
         self.async_run_with_timeout(ws_assistant.send(auth_req))
@@ -137,6 +144,18 @@ class WSAssistantTest(unittest.TestCase):
         response_mock = WSResponse(data)
         receive_mock.return_value = response_mock
 
+        response = self.async_run_with_timeout(self.ws_assistant.receive())
+
+        self.assertEqual(data, response.data)
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_receive_plain_text(self, ws_connect_mock):
+        data = "pong"
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=data)
+        self.async_run_with_timeout(self.ws_assistant.connect(ws_url="test.url"))
         response = self.async_run_with_timeout(self.ws_assistant.receive())
 
         self.assertEqual(data, response.data)

@@ -1,34 +1,38 @@
 # distutils: language=c++
 # distutils: sources=hummingbot/core/cpp/OrderBookEntry.cpp
-from cython.operator cimport(
-    postincrement as inc,
-    dereference as deref,
-    address as ref
+import bisect
+import logging
+import time
+from typing import (
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
 )
+
+import numpy as np
+import pandas as pd
+from aiokafka import ConsumerRecord
+
+from cython.operator cimport(
+    address as ref,
+    dereference as deref,
+    postincrement as inc,
+)
+
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.OrderBookEntry cimport truncateOverlapEntries
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
     OrderBookEvent,
     OrderBookTradeEvent
 )
-from typing import (
-    List,
-    Iterator,
-    Tuple,
-    Optional,
-    Dict
-)
-from aiokafka import ConsumerRecord
-import pandas as pd
-import numpy as np
-import time
-from .order_book_message import OrderBookMessage
-from .order_book_row import OrderBookRow
-from .order_book_query_result import OrderBookQueryResult
-from sqlalchemy.engine import RowProxy
-import bisect
-import logging
+
 cimport numpy as np
+
 ob_logger = None
 NaN = float("nan")
 
@@ -478,10 +482,6 @@ cdef class OrderBook(PubSub):
 
     @classmethod
     def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        pass
-
-    @classmethod
-    def from_snapshot(cls, msg: OrderBookMessage) -> "OrderBook":
         pass
 
     def restore_from_snapshot_and_diffs(self, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):

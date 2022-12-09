@@ -1,6 +1,8 @@
-from abc import ABC, abstractmethod
-import numpy as np
 import logging
+from abc import ABC, abstractmethod
+
+import numpy as np
+
 from ..ring_buffer import RingBuffer
 
 pmm_logger = None
@@ -15,10 +17,9 @@ class BaseTrailingIndicator(ABC):
         return pmm_logger
 
     def __init__(self, sampling_length: int = 30, processing_length: int = 15):
-        self._sampling_length = sampling_length
         self._sampling_buffer = RingBuffer(sampling_length)
-        self._processing_length = processing_length
         self._processing_buffer = RingBuffer(processing_length)
+        self._samples_length = 0
 
     def add_sample(self, value: float):
         self._sampling_buffer.add_value(value)
@@ -47,3 +48,26 @@ class BaseTrailingIndicator(ABC):
     @property
     def is_processing_buffer_full(self) -> bool:
         return self._processing_buffer.is_full
+
+    @property
+    def is_sampling_buffer_changed(self) -> bool:
+        buffer_len = len(self._sampling_buffer.get_as_numpy_array())
+        is_changed = self._samples_length != buffer_len
+        self._samples_length = buffer_len
+        return is_changed
+
+    @property
+    def sampling_length(self) -> int:
+        return self._sampling_buffer.length
+
+    @sampling_length.setter
+    def sampling_length(self, value):
+        self._sampling_buffer.length = value
+
+    @property
+    def processing_length(self) -> int:
+        return self._processing_buffer.length
+
+    @processing_length.setter
+    def processing_length(self, value):
+        self._processing_buffer.length = value

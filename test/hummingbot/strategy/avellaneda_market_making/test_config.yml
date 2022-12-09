@@ -1,0 +1,10 @@
+exchange: binance
+market: COINALPHA-HBOT
+execution_timeframe_mode:
+  start_time: "09:30:00"
+  end_time: "16:00:00"
+order_amount: 10
+order_optimization_enabled: true
+risk_factor: 0.5
+order_refresh_time: 60
+inventory_target_base_pct: 50

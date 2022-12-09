@@ -5,7 +5,7 @@
 If you already have Docker installed, use the following commands to install and start Hummingbot:
 
 ```
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create.sh
 chmod a+x create.sh
 ./create.sh
 ```
@@ -20,8 +20,8 @@ The following instructions install both Docker and Hummingbot.
 
 ##### 1. Download Install Scripts and Install Docker
 ```
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-docker/install-docker-ubuntu.sh
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/install-docker/install-docker-ubuntu.sh
+wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create.sh
 chmod a+x *.sh
 ./install-docker-ubuntu.sh
 ```
@@ -39,8 +39,8 @@ chmod a+x *.sh
 
 ##### 1. Download Install Scripts and Install Docker
 ```
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-docker/install-docker-debian.sh
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/install-docker/install-docker-debian.sh
+wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create.sh
 chmod a+x *.sh
 ./install-docker-debian.sh
 ```
@@ -60,8 +60,8 @@ chmod a+x *.sh
 
 ##### 1. Download Install Scripts and Install Docker
 ```
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-docker/install-docker-centos.sh
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/install-docker/install-docker-centos.sh
+wget https://raw.githubusercontent.com/hummingbot/hummingbot/development/installation/docker-commands/create.sh
 chmod a+x *.sh
 ./install-docker-centos.sh
 ```

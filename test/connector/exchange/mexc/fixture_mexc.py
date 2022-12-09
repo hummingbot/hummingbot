@@ -148,7 +148,7 @@ class FixtureMEXC:
         ]
     }
 
-    ORDERS_BATCH_CANCELLED = {
+    ORDERS_BATCH_CANCELED = {
         "code": "0",
         "msg": "",
         "data": [

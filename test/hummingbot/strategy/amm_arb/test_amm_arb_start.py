@@ -22,6 +22,8 @@ class AMMArbStartTest(unittest.TestCase):
         amm_arb_config_map.get("market_2").value = "ETH-USDT"
         amm_arb_config_map.get("order_amount").value = Decimal("1")
         amm_arb_config_map.get("min_profitability").value = Decimal("10")
+        amm_arb_config_map.get("market_1_slippage_buffer").value = Decimal("1")
+        amm_arb_config_map.get("market_2_slippage_buffer").value = Decimal("0")
 
     def _initialize_market_assets(self, market, trading_pairs):
         pass

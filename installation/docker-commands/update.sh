@@ -23,7 +23,7 @@ list_instances () {
  echo
  echo "List of all docker containers using the \"$TAG\" version:"
  echo
- docker ps -a --filter ancestor=coinalpha/hummingbot:$TAG
+ docker ps -a --filter ancestor=hummingbot/hummingbot:$TAG
  echo
  echo "⚠️  WARNING: This will attempt to update all instances. Any containers not in Exited () STATUS will cause the update to fail."
  echo
@@ -96,7 +96,7 @@ execute_docker () {
  docker rm ${INSTANCES[@]}
  echo
  # 2) Delete old image
- docker image rm coinalpha/hummingbot:$TAG
+ docker image rm hummingbot/hummingbot:$TAG
  # 3) Re-create instances with the most recent hummingbot version
  echo "Re-creating docker containers with updated image ..."
  j="0"
@@ -109,9 +109,22 @@ execute_docker () {
    --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_logs,destination=/logs/" \
    --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_data,destination=/data/" \
    --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_scripts,destination=/scripts/" \
-   --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_certs,destination=/certs/" \
-   coinalpha/hummingbot:$TAG
+   --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_pmm_scripts,destination=/pmm_scripts/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_certs,destination=/home/hummingbot/.hummingbot-gateway/certs/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/gateway_conf,destination=/home/hummingbot/.hummingbot-gateway/conf/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/gateway_logs,destination=/gateway_logs/" \
+   --mount "type=bind,source=/var/run/docker.sock,destination=/var/run/docker.sock" \
+   -e CONF_FOLDER="${FOLDERS[$j]}/hummingbot_conf" \
+   -e LOGS_FOLDER="${FOLDERS[$j]}/hummingbot_logs" \
+   -e DATA_FOLDER="${FOLDERS[$j]}/hummingbot_data" \
+   -e PMM_SCRIPTS_FOLDER="${FOLDERS[$j]}/hummingbot_pmm_scripts" \
+   -e SCRIPTS_FOLDER="${FOLDERS[$j]}/hummingbot_scripts" \
+   -e CERTS_FOLDER="${FOLDERS[$j]}/hummingbot_certs" \
+   -e GATEWAY_CONF_FOLDER="${FOLDERS[$j]}/gateway_conf" \
+   -e GATEWAY_LOGS_FOLDER="${FOLDERS[$j]}/gateway_logs" \
+   hummingbot/hummingbot:$TAG
    j=$[$j+1]
+   # Update file ownership
  done
  echo
  echo "Update complete! All running docker instances:"
@@ -128,7 +141,7 @@ if [ "$CONTINUE" == "Y" ]
 then
  # Store instance names in an array
  declare -a INSTANCES
- INSTANCES=( $(docker ps -a --filter ancestor=coinalpha/hummingbot:$TAG --format "{{.Names}}") )
+ INSTANCES=( $(docker ps -a --filter ancestor=hummingbot/hummingbot:$TAG --format "{{.Names}}") )
  list_dir
  declare -a FOLDERS
  prompt_folder

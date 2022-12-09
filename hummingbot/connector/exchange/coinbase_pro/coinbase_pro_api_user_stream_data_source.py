@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import asyncio
 import logging
 from typing import AsyncIterable, Dict, List, Optional
@@ -7,7 +5,7 @@ from typing import AsyncIterable, Dict, List, Optional
 from hummingbot.connector.exchange.coinbase_pro import coinbase_pro_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import WSRequest
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -47,11 +45,11 @@ class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._ws_assistant.last_recv_time if self._ws_assistant is not None else 0
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         *required
         Subscribe to user stream via web socket, and keep the connection open for incoming messages
-        :param ev_loop: ev_loop to execute this function in
+
         :param output: an async queue where the incoming messages are stored
         """
         while True:
@@ -63,7 +61,7 @@ class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "product_ids": self._trading_pairs,
                     "channels": [CONSTANTS.USER_CHANNEL_NAME]
                 }
-                subscribe_request = WSRequest(payload=subscribe_payload, is_auth_required=True)
+                subscribe_request = WSJSONRequest(payload=subscribe_payload, is_auth_required=True)
                 await self._ws_assistant.subscribe(subscribe_request)
                 async for msg in self._iter_messages(self._ws_assistant):
                     msg_type: str = msg.get("type", None)

@@ -1,37 +1,72 @@
-import random
-import string
 import time
-from typing import Optional, Tuple
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from decimal import Decimal
+from typing import Any, Dict
 
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
+from pydantic import Field, SecretStr
 
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.001"),
+    taker_percent_fee_decimal=Decimal("0.001"),
+)
 
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USDT"
 
-DEFAULT_FEES = [0.1, 0.1]
+
+def is_pair_information_valid(pair_info: Dict[str, Any]) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its market information
+
+    :param pair_info: the market information for a trading pair
+
+    :return: True if the trading pair is enabled, False otherwise
+    """
+    return pair_info.get("statusCode") == "Normal"
 
 
-HBOT_BROKER_ID = "HMBot"
+def get_ms_timestamp() -> int:
+    return int(_time() * 1e3)
 
 
-def get_rest_url_private(account_id: int) -> str:
-    return f"https://ascendex.com/{account_id}/api/pro/v1"
+class AscendExConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="ascend_ex", client_data=None)
+    ascend_ex_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your AscendEx API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+    ascend_ex_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your AscendEx secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+    ascend_ex_group_id: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your AscendEx group Id",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+
+    class Config:
+        title = "ascend_ex"
 
 
-def get_ws_url_private(account_id: int) -> str:
-    return f"wss://ascendex.com/{account_id}/api/pro/v1"
-
-
-def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
-    return exchange_trading_pair.replace("/", "-")
-
-
-def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    return hb_trading_pair.replace("-", "/")
+KEYS = AscendExConfigMap.construct()
 
 
 def _time():
@@ -40,70 +75,3 @@ def _time():
     independent from real time
     """
     return time.time()
-
-
-# get timestamp in milliseconds
-def get_ms_timestamp() -> int:
-    return int(_time() * 1e3)
-
-
-def uuid32():
-    return ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(32))
-
-
-def derive_order_id(user_uid: str, cl_order_id: str, ts: int) -> str:
-    """
-    Server order generator based on user info and input.
-    :param user_uid: user uid
-    :param cl_order_id: user random digital and number id
-    :param ts: order timestamp in milliseconds
-    :return: order id of length 32
-    """
-    # NOTE: The derived_order_id function details how AscendEx server generates the exchange_order_id
-    #       Currently, due to how the exchange constructs the exchange_order_id, there is a real possibility of
-    #       duplicate order ids
-    return (HBOT_BROKER_ID + format(ts, 'x')[-11:] + user_uid[-11:] + cl_order_id[-5:])[:32]
-
-
-def gen_exchange_order_id(userUid: str, client_order_id: str, timestamp: Optional[int] = None) -> Tuple[str, int]:
-    """
-    Generates the exchange order id based on user uid and client order id.
-    :param user_uid: user uid,
-    :param client_order_id: client order id used for local order tracking
-    :return: order id of length 32
-    """
-    time = timestamp or get_ms_timestamp()
-    return [
-        derive_order_id(
-            userUid,
-            client_order_id,
-            time
-        ),
-        time
-    ]
-
-
-def gen_client_order_id(is_buy: bool, trading_pair: str) -> str:
-    """
-    Generates the client order id.
-    Note: All AscendEx API interactions, after order creation, utilizes the exchange_order_id instead.
-    """
-    side = "B" if is_buy else "S"
-    base, quote = trading_pair.split("-")
-    return f"{HBOT_BROKER_ID}-{side}{base[:3]}{quote[:3]}{get_tracking_nonce()}"
-
-
-KEYS = {
-    "ascend_ex_api_key":
-        ConfigVar(key="ascend_ex_api_key",
-                  prompt="Enter your AscendEx API key >>> ",
-                  required_if=using_exchange("ascend_ex"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "ascend_ex_secret_key":
-        ConfigVar(key="ascend_ex_secret_key",
-                  prompt="Enter your AscendEx secret key >>> ",
-                  required_if=using_exchange("ascend_ex"),
-                  is_secure=True,
-                  is_connect_key=True),
-}

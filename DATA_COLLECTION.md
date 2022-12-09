@@ -1,6 +1,6 @@
 # Important Disclosure re: Hummingbot Data Collection
  
-Hummingbot (“Hummingbot”) is open-source software developed and maintained by CoinAlpha, Inc. (“CoinAlpha”, “we”, or “us”) and available at https://github.com/coinalpha/hummingbot.
+Hummingbot (“Hummingbot”) is open-source software developed and maintained by CoinAlpha, Inc. (“CoinAlpha”, “we”, or “us”) and available at https://github.com/hummingbot/hummingbot.
 
 CoinAlpha collects certain usage information from Users that have configured Hummingbot to allow for the sharing of this data.
 

@@ -1,22 +1,19 @@
-#!/usr/bin/env python
 import logging
 from typing import (
     Dict,
     Optional
 )
+
 import ujson
-
 from aiokafka import ConsumerRecord
-from sqlalchemy.engine import RowProxy
 
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.event.events import TradeType
+from hummingbot.connector.exchange.blocktane.blocktane_utils import convert_from_exchange_trading_pair
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )
-from hummingbot.connector.exchange.blocktane.blocktane_utils import convert_to_exchange_trading_pair, convert_from_exchange_trading_pair
+from hummingbot.logger import HummingbotLogger
 
 _bob_logger = None
 

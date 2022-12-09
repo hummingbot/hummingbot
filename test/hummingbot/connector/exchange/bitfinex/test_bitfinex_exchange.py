@@ -3,9 +3,13 @@ from decimal import Decimal
 from typing import Awaitable, Optional
 from unittest import TestCase
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bitfinex.bitfinex_exchange import BitfinexExchange
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import MarketEvent, TradeType, OrderType, OrderFilledEvent, BuyOrderCompletedEvent
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 
 
 class BitfinexExchangeTests(TestCase):
@@ -26,8 +30,10 @@ class BitfinexExchangeTests(TestCase):
 
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = BitfinexExchange(
+            client_config_map=self.client_config_map,
             bitfinex_api_key="testAPIKey",
             bitfinex_secret_key="testSecret",
             trading_pairs=[self.trading_pair],
@@ -103,8 +109,10 @@ class BitfinexExchangeTests(TestCase):
         self.assertEqual(Decimal(str(partial_fill[2][9])), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
-        self.assertEqual([(partial_fill[2][10], Decimal(str(partial_fill[2][9])))], fill_event.trade_fee.flat_fees)
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual(
+            [TokenAmount(partial_fill[2][10], Decimal(str(partial_fill[2][9])))], fill_event.trade_fee.flat_fees
+        )
         self.assertTrue(self._is_logged(
             "INFO",
             f"Order filled {Decimal(str(partial_fill[2][4]))} out of {order.amount} of the "
@@ -139,8 +147,8 @@ class BitfinexExchangeTests(TestCase):
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
-        self.assertEqual([(complete_fill[2][10], Decimal(complete_fill[2][9]))],
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(complete_fill[2][10], Decimal(complete_fill[2][9]))],
                          fill_event.trade_fee.flat_fees)
 
         self.assertTrue(self._is_logged(
@@ -151,6 +159,3 @@ class BitfinexExchangeTests(TestCase):
         ))
 
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
-        buy_complete_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
-        self.assertEqual(Decimal(30), buy_complete_event.fee_amount)
-        self.assertEqual(partial_fill[2][10], buy_complete_event.fee_asset)

@@ -1,0 +1,6 @@
+{
+  "address": "$ETH_ADDRESS",
+  "spender": "uniswap",
+  "token": "DAI",
+  "amount": "0"
+}

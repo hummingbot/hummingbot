@@ -1,21 +1,20 @@
 import asyncio
 import re
-import ujson
 import unittest
-
-from aioresponses import aioresponses
 from typing import Awaitable, Optional
 from unittest.mock import AsyncMock, patch
 
-from hummingbot.connector.exchange.crypto_com import crypto_com_constants as CONSTANTS
-from hummingbot.connector.exchange.crypto_com import crypto_com_utils
+import ujson
+from aioresponses import aioresponses
+
+from hummingbot.connector.exchange.crypto_com import crypto_com_constants as CONSTANTS, crypto_com_utils
 from hummingbot.connector.exchange.crypto_com.crypto_com_api_order_book_data_source import (
     CryptoComAPIOrderBookDataSource,
 )
 from hummingbot.connector.exchange.crypto_com.crypto_com_websocket import CryptoComWebsocket
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):

@@ -9,10 +9,7 @@ from typing import (
 
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.core.event.events import (
-    TradeType,
-    OrderType,
-)
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -133,8 +130,8 @@ cdef class ArbitrageStrategy(StrategyBase):
         quote_rate_source = "fixed"
         if self._use_oracle_conversion_rate:
             if self._market_pairs[0].second.quote_asset != self._market_pairs[0].first.quote_asset:
-                quote_rate_source = RateOracle.source.name
-                quote_rate = RateOracle.get_instance().rate(quote_pair)
+                quote_rate_source = RateOracle.get_instance().source.name
+                quote_rate = RateOracle.get_instance().get_pair_rate(quote_pair)
         else:
             quote_rate = self._secondary_to_primary_quote_conversion_rate
         base_rate = Decimal("1")
@@ -142,8 +139,8 @@ cdef class ArbitrageStrategy(StrategyBase):
         base_rate_source = "fixed"
         if self._use_oracle_conversion_rate:
             if self._market_pairs[0].second.base_asset != self._market_pairs[0].first.base_asset:
-                base_rate_source = RateOracle.source.name
-                base_rate = RateOracle.get_instance().rate(base_pair)
+                base_rate_source = RateOracle.get_instance().source.name
+                base_rate = RateOracle.get_instance().get_pair_rate(base_pair)
         else:
             base_rate = self._secondary_to_primary_base_conversion_rate
         return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate

@@ -6,7 +6,7 @@ from typing import Dict, Optional, Any, List
 from hummingbot.connector.exchange.beaxy.beaxy_order_book_message import BeaxyOrderBookMessage
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.core.event.events import TradeType
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.logger import HummingbotLogger
 
 

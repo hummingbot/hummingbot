@@ -5,11 +5,10 @@ from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
-
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
 from hummingbot.connector.exchange.ndax.ndax_user_stream_tracker import NdaxUserStreamTracker
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class NdaxUserStreamTrackerTests(TestCase):

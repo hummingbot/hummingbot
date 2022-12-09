@@ -4,14 +4,12 @@ import hmac
 import logging
 import time
 import uuid
-
 from base64 import b64decode
 from typing import Any, AsyncIterable, Dict, List, Optional
-from zlib import decompress, MAX_WBITS
+from zlib import MAX_WBITS, decompress
 
 import signalr_aio
 import ujson
-
 from async_timeout import timeout
 
 from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
@@ -80,7 +78,7 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().error("Error decoding message", exc_info=True)
                 return {"error": "Error decoding message"}
 
-            return ujson.loads(decode_msg.decode(), precise_float=True)
+            return ujson.loads(decode_msg.decode())
 
         def _is_event_type(msg, event_name) -> bool:
             return len(msg.get("M", [])) > 0 and type(msg["M"][0]) == dict and msg["M"][0].get("M", None) == event_name
@@ -115,7 +113,7 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         return output
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         while True:
             try:
                 self._websocket_connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)

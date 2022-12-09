@@ -95,3 +95,15 @@ class RingBufferTest(unittest.TestCase):
         value = Decimal(3.141592653)
         self.buffer.add_value(value)
         self.assertAlmostEqual(float(value), self.buffer.get_last_value(), 6)
+
+    def test_numpy_array(self):
+        buffer = RingBuffer(4)
+
+        for i in range(3):
+            buffer.add_value(i)
+
+        self.assertTrue(np.array_equal(buffer.get_as_numpy_array(), np.array([0, 1, 2])))
+        buffer.add_value(3)
+        self.assertTrue(np.array_equal(buffer.get_as_numpy_array(), np.array([0, 1, 2, 3])))
+        buffer.add_value(4)
+        self.assertTrue(np.array_equal(buffer.get_as_numpy_array(), np.array([1, 2, 3, 4])))

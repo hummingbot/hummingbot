@@ -6,7 +6,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_query_result import ClientOrderBookQueryResult
 from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.core.event.events import PriceType
+from hummingbot.core.data_type.common import PriceType
 
 
 class MarketTradingPairTuple(NamedTuple):

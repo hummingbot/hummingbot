@@ -1,0 +1,2 @@
+nonceDbPath: 'nonce.level'
+transactionDbPath: 'transaction.level'

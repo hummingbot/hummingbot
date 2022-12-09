@@ -1,22 +1,32 @@
-from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.core.event.events import TradeFeeType
+from typing import Dict
+
 from hummingbot.client.config.config_methods import new_fee_config_var
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.settings import AllConnectorSettings
+
+fee_overrides_config_map: Dict[str, ConfigVar] = {}
 
 
-def fee_overrides_dict():
-    all_dict = {}
-    # all_connector_types = get_exchanges_and_derivatives()
-    for name, setting in AllConnectorSettings.get_connector_settings().items():
-        key_suffix = None
-        if setting.fee_type is TradeFeeType.Percent:
-            key_suffix = "fee"
-        elif setting.fee_type is TradeFeeType.FlatFee:
-            key_suffix = "fee_amount"
-        maker_key = f"{name}_maker_{key_suffix}"
-        taker_key = f"{name}_taker_{key_suffix}"
-        all_dict.update({maker_key: new_fee_config_var(maker_key)})
-        all_dict.update({taker_key: new_fee_config_var(taker_key)})
-    return all_dict
+def fee_overrides_dict() -> Dict[str, ConfigVar]:
+    all_configs: Dict[str, ConfigVar] = {}
+    for name in AllConnectorSettings.get_connector_settings().keys():
+        all_configs.update({
+            f"{name}_percent_fee_token": new_fee_config_var(f"{name}_percent_fee_token", type_str="str"),
+            f"{name}_maker_percent_fee": new_fee_config_var(f"{name}_maker_percent_fee", type_str="decimal"),
+            f"{name}_taker_percent_fee": new_fee_config_var(f"{name}_taker_percent_fee", type_str="decimal"),
+            f"{name}_buy_percent_fee_deducted_from_returns": new_fee_config_var(
+                f"{name}_buy_percent_fee_deducted_from_returns", type_str="bool"
+            ),
+            f"{name}_maker_fixed_fees": new_fee_config_var(f"{name}_maker_fixed_fees", type_str="list"),
+            f"{name}_taker_fixed_fees": new_fee_config_var(f"{name}_taker_fixed_fees", type_str="list"),
+        })
+    return all_configs
 
 
-fee_overrides_config_map = fee_overrides_dict()
+def init_fee_overrides_config():
+    global fee_overrides_config_map
+    fee_overrides_config_map.clear()
+    fee_overrides_config_map.update(fee_overrides_dict())
+
+
+init_fee_overrides_config()

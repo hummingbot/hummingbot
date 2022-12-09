@@ -1,5 +1,6 @@
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 
 CENTRALIZED = True
 
@@ -8,17 +9,29 @@ EXAMPLE_PAIR = "ETH-USD"
 DEFAULT_FEES = [0.1, 0.1]
 
 
-KEYS = {
-    "liquid_api_key":
-        ConfigVar(key="liquid_api_key",
-                  prompt="Enter your Liquid API key >>> ",
-                  required_if=using_exchange("liquid"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "liquid_secret_key":
-        ConfigVar(key="liquid_secret_key",
-                  prompt="Enter your Liquid secret key >>> ",
-                  required_if=using_exchange("liquid"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class LiquidConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="liquid", client_data=None)
+    liquid_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Liquid API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    liquid_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Liquid secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "liquid"
+
+
+KEYS = LiquidConfigMap.construct()

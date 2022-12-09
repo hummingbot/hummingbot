@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
+import time
 from decimal import Decimal
 
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
+from pydantic import Field, SecretStr
 
-import time
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 
 
 def num_to_increment(num):
@@ -18,20 +18,33 @@ EXAMPLE_PAIR = 'BTC-USDT'
 
 DEFAULT_FEES = [0.2, 0.2]
 
-KEYS = {
-    "mexc_api_key":
-        ConfigVar(key="mexc_api_key",
-                  prompt="Enter your MEXC API key >>> ",
-                  required_if=using_exchange("mexc"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "mexc_secret_key":
-        ConfigVar(key="mexc_secret_key",
-                  prompt="Enter your MEXC secret key >>> ",
-                  required_if=using_exchange("mexc"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+
+class MexcConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="mexc", client_data=None)
+    mexc_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your MEXC API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    mexc_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your MEXC secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "mexc"
+
+
+KEYS = MexcConfigMap.construct()
 
 ws_status = {
     1: 'NEW',

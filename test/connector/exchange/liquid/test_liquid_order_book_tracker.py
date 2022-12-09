@@ -1,26 +1,22 @@
-#!/usr/bin/env python
-from os.path import (
-    join,
-    realpath
-)
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    OrderBookEvent,
-    OrderBookTradeEvent,
-    TradeType
-)
 import asyncio
 import logging
 import math
 import unittest
 from typing import (
     Dict,
+    List,
     Optional,
-    List)
-from hummingbot.connector.exchange.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
+)
+
 from hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
+from hummingbot.connector.exchange.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import (
+    OrderBookEvent,
+    OrderBookTradeEvent,
+)
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,

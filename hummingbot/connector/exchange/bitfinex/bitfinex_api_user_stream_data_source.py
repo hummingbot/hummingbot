@@ -40,7 +40,7 @@ class BitfinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         while True:
             try:
                 ws = await BitfinexWebsocket(self._bitfinex_auth).connect()

@@ -1,0 +1,19 @@
+# list the Avalanche networks available to gateway
+networks:
+  fuji: 
+    chainID: 43113
+    nodeURL: https://rpc.ankr.com/avalanche_fuji
+    tokenListType: 'FILE'
+    tokenListSource: 'src/chains/avalanche/avalanche_tokens_fuji.json'
+    nativeCurrencySymbol: 'AVAX'
+    gasPriceRefreshInterval: 60
+  avalanche: 
+    chainID: 43114
+    nodeURL: https://rpc.ankr.com/avalanche
+    tokenListType: 'URL'
+    tokenListSource: 'https://raw.githubusercontent.com/pangolindex/tokenlists/main/pangolin.tokenlist.json'
+    nativeCurrencySymbol: 'AVAX'
+    gasPriceRefreshInterval: 60
+
+manualGasPrice: 100
+gasLimitTransaction: 3000000

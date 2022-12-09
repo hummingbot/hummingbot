@@ -9,15 +9,15 @@ from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.coinbase_pro import coinbase_pro_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_order_book_data_source import (
-    CoinbaseProAPIOrderBookDataSource
+    CoinbaseProAPIOrderBookDataSource,
 )
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker_entry import (
-    CoinbaseProOrderBookTrackerEntry
+    CoinbaseProOrderBookTrackerEntry,
 )
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_utils import build_coinbase_pro_web_assistant_factory
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.order_book import OrderBook
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class CoinbaseProAPIOrderBookDataSourceTests(unittest.TestCase):

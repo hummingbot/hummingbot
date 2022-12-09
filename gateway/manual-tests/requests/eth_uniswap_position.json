@@ -1,0 +1,7 @@
+{
+  "address": "$ETH_ADDRESS",
+  "tokenId": 2732,
+  "chain": "ethereum",
+  "network": "kovan",
+  "connector": "uniswapLP"
+}

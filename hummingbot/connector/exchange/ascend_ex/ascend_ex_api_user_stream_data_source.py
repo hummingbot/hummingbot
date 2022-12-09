@@ -1,142 +1,81 @@
-#!/usr/bin/env python
-import time
 import asyncio
-import logging
-import aiohttp
-import ujson
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from typing import Optional, List, AsyncIterable, Any
-
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_ws_url_private
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import AscendExExchange
 
 
 class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
-    MAX_RETRIES = 20
-    MESSAGE_TIMEOUT = 10.0
-    PING_TIMEOUT = 5.0
 
     _logger: Optional[HummingbotLogger] = None
 
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(__name__)
-        return cls._logger
-
     def __init__(
-        self, ascend_ex_auth: AscendExAuth, shared_client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None, trading_pairs: Optional[List[str]] = None
+        self,
+        auth: AscendExAuth,
+        trading_pairs: List[str],
+        connector: "AscendExExchange",
+        api_factory: WebAssistantsFactory,
     ):
         super().__init__()
-        self._shared_client = shared_client or self._get_session_instance()
-        self._throttler = throttler or self._get_throttler_instance()
-        self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
+        self._ascend_ex_auth: AscendExAuth = auth
+        self._api_factory = api_factory
         self._trading_pairs = trading_pairs or []
-        self._current_listen_key = None
-        self._listen_for_user_stream_task = None
-        self._last_recv_time: float = 0
+        self._connector = connector
+        self._last_ws_message_sent_timestamp = 0
 
-    @classmethod
-    def _get_session_instance(cls) -> aiohttp.ClientSession:
-        session = aiohttp.ClientSession()
-        return session
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        group_id = self._connector.ascend_ex_group_id
+        headers = self._ascend_ex_auth.get_auth_headers(CONSTANTS.STREAM_PATH_URL)
+        ws_url = f"{CONSTANTS.PRIVATE_WS_URL.format(group_id=group_id)}/{CONSTANTS.STREAM_PATH_URL}"
 
-    @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        return throttler
+        ws: WSAssistant = await self._api_factory.get_ws_assistant()
+        await ws.connect(ws_url=ws_url, ws_headers=headers)
+        return ws
 
-    @property
-    def last_recv_time(self) -> float:
-        return self._last_recv_time
-
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue) -> AsyncIterable[Any]:
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
-        *required
-        Subscribe to user stream via web socket, and keep the connection open for incoming messages
-        :param ev_loop: ev_loop to execute this function in
-        :param output: an async queue where the incoming messages are stored
+        Subscribes to order events and balance events.
+
+        :param ws: the websocket assistant used to connect to the exchange
         """
-
-        while True:
-            try:
-                headers = {
-                    **self._ascend_ex_auth.get_headers(),
-                    **self._ascend_ex_auth.get_auth_headers("info"),
-                }
-                async with self._throttler.execute_task(CONSTANTS.INFO_PATH_URL):
-                    response = await self._shared_client.get(
-                        f"{CONSTANTS.REST_URL}/{CONSTANTS.INFO_PATH_URL}", headers=headers
-                    )
-                info = await response.json()
-                accountGroup = info.get("data").get("accountGroup")
-                headers = self._ascend_ex_auth.get_auth_headers("stream")
-                payload = {
-                    "op": CONSTANTS.SUB_ENDPOINT_NAME,
-                    "ch": "order:cash"
-                }
-
-                async with aiohttp.ClientSession().ws_connect(f"{get_ws_url_private(accountGroup)}/stream", headers=headers) as ws:
-                    try:
-                        async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
-                            await ws.send_json(payload)
-
-                        async for raw_msg in self._iter_messages(ws):
-                            try:
-                                msg = ujson.loads(raw_msg)
-                                if msg is None:
-                                    continue
-                                if msg.get("m", '') == "ping":
-                                    async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
-                                        safe_ensure_future(self._handle_ping_message(ws))
-                                output.put_nowait(msg)
-                            except Exception:
-                                self.logger().error(
-                                    "Unexpected error when parsing AscendEx message. ", exc_info=True
-                                )
-                                raise
-                    except Exception:
-                        self.logger().error(
-                            "Unexpected error while listening to AscendEx messages. ", exc_info=True
-                        )
-                        raise
-                    finally:
-                        await ws.close()
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error(
-                    "Unexpected error with AscendEx WebSocket connection. " "Retrying after 30 seconds...", exc_info=True
-                )
-                await asyncio.sleep(30.0)
-
-    async def _iter_messages(
-        self,
-        ws: aiohttp.ClientWebSocketResponse
-    ) -> AsyncIterable[str]:
-        # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
-            while True:
-                raw_msg = await ws.receive()
-                if raw_msg.type == aiohttp.WSMsgType.CLOSED:
-                    raise ConnectionError
-                self._last_recv_time = time.time()
-                yield raw_msg.data
+            payload = {"op": CONSTANTS.SUB_ENDPOINT_NAME, "ch": "order:cash"}
+            subscribe_request: WSJSONRequest = WSJSONRequest(payload)
 
-        except asyncio.TimeoutError:
-            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
-        finally:
-            await ws.close()
+            await websocket_assistant.send(subscribe_request)
 
-    async def _handle_ping_message(self, ws: aiohttp.ClientWebSocketResponse):
-        async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
-            pong_payload = {
-                "op": "pong"
-            }
-            await ws.send_json(pong_payload)
+            self._last_ws_message_sent_timestamp = self._time()
+            self.logger().info("Subscribed to private order changes and balance updates channels...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception("Unexpected error occurred subscribing to user streams...")
+            raise
+
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
+        async for ws_response in websocket_assistant.iter_messages():
+            data = ws_response.data
+            if data is not None:  # data will be None when the websocket is disconnected
+                await self._process_event_message(
+                    event_message=data, queue=queue, websocket_assistant=websocket_assistant
+                )
+
+    async def _process_event_message(
+        self, event_message: Dict[str, Any], queue: asyncio.Queue, websocket_assistant: WSAssistant
+    ):
+        if len(event_message) > 0:
+            message_type = event_message.get("m")
+            if message_type == "ping":
+                pong_payloads = {"op": "pong"}
+                pong_request = WSJSONRequest(payload=pong_payloads)
+                await websocket_assistant.send(request=pong_request)
+            elif message_type == CONSTANTS.ORDER_CHANGE_EVENT_TYPE and event_message.get("ac") == "CASH":
+                queue.put_nowait(event_message)

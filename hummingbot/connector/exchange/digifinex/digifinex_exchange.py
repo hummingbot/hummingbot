@@ -1,49 +1,42 @@
-import logging
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Any,
-    AsyncIterable,
-)
-from decimal import Decimal
 import asyncio
-# import json
-# import aiohttp
+import logging
 import math
 import time
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.clock import Clock
-from hummingbot.core.utils import estimate_fee
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketOrderFailureEvent,
-    OrderType,
-    TradeType,
-    TradeFee
-)
-from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange.digifinex import digifinex_utils
+from hummingbot.connector.exchange.digifinex.digifinex_api_order_book_data_source import DigifinexAPIOrderBookDataSource
 from hummingbot.connector.exchange.digifinex.digifinex_global import DigifinexGlobal
+from hummingbot.connector.exchange.digifinex.digifinex_in_flight_order import DigifinexInFlightOrder
 from hummingbot.connector.exchange.digifinex.digifinex_order_book_tracker import DigifinexOrderBookTracker
 from hummingbot.connector.exchange.digifinex.digifinex_user_stream_tracker import DigifinexUserStreamTracker
-# from hummingbot.connector.exchange.digifinex.digifinex_auth import DigifinexAuth
-from hummingbot.connector.exchange.digifinex.digifinex_in_flight_order import DigifinexInFlightOrder
-from hummingbot.connector.exchange.digifinex import digifinex_utils
-# from hummingbot.connector.exchange.digifinex import digifinex_constants as Constants
-from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.clock import Clock
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
@@ -66,6 +59,7 @@ class DigifinexExchange(ExchangeBase):
         return ctce_logger
 
     def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
                  digifinex_api_key: str,
                  digifinex_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
@@ -77,12 +71,12 @@ class DigifinexExchange(ExchangeBase):
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
-        super().__init__()
+        super().__init__(client_config_map)
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._global = DigifinexGlobal(digifinex_api_key, digifinex_secret_key)
         # self._rest_api = DigifinexRestApi(self._digifinex_auth, self._http_client)
-        self._order_book_tracker = DigifinexOrderBookTracker(trading_pairs=trading_pairs)
+        self._set_order_book_tracker(DigifinexOrderBookTracker(trading_pairs=trading_pairs))
         self._user_stream_tracker = DigifinexUserStreamTracker(self._global, trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -101,7 +95,7 @@ class DigifinexExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -117,7 +111,7 @@ class DigifinexExchange(ExchangeBase):
         A dictionary of statuses of various connector's components.
         """
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
@@ -186,7 +180,7 @@ class DigifinexExchange(ExchangeBase):
         It starts tracking order book, polling trading rules,
         updating statuses and tracking user data.
         """
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -197,7 +191,7 @@ class DigifinexExchange(ExchangeBase):
         """
         This function is required by NetworkIterator base class and is called automatically.
         """
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -300,9 +294,9 @@ class DigifinexExchange(ExchangeBase):
         return Decimal(trading_rule.min_base_amount_increment)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -409,7 +403,8 @@ class DigifinexExchange(ExchangeBase):
                                    trading_pair,
                                    amount,
                                    price,
-                                   order_id
+                                   order_id,
+                                   tracked_order.creation_timestamp,
                                ))
         except asyncio.CancelledError:
             raise
@@ -443,7 +438,8 @@ class DigifinexExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):
@@ -564,7 +560,7 @@ class DigifinexExchange(ExchangeBase):
         # Update order execution status
         tracked_order.last_state = str(status)
         if tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {client_order_id}.")
+            self.logger().info(f"Successfully canceled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(
                                    self.current_timestamp,
@@ -608,7 +604,7 @@ class DigifinexExchange(ExchangeBase):
                     tracked_order.order_type,
                     Decimal(str(trade_msg["executed_price"])),
                     Decimal(str(trade_msg["executed_amount"])),
-                    estimate_fee.estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
+                    estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
                     # TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
                     exchange_trade_id=trade_msg["tid"]
                 )
@@ -628,10 +624,8 @@ class DigifinexExchange(ExchangeBase):
                                                tracked_order.client_order_id,
                                                tracked_order.base_asset,
                                                tracked_order.quote_asset,
-                                               tracked_order.fee_asset,
                                                tracked_order.executed_amount_base,
                                                tracked_order.executed_amount_quote,
-                                               tracked_order.fee_paid,
                                                tracked_order.order_type))
                 self.stop_tracking_order(tracked_order.client_order_id)
 
@@ -659,9 +653,9 @@ class DigifinexExchange(ExchangeBase):
                 tracked_order.order_type,
                 delta_trade_price,
                 delta_trade_amount,
-                estimate_fee.estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
+                estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
                 # TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
-                exchange_trade_id='N/A'
+                exchange_trade_id=str(int(self._time() * 1e6))
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
@@ -679,10 +673,8 @@ class DigifinexExchange(ExchangeBase):
                                            tracked_order.client_order_id,
                                            tracked_order.base_asset,
                                            tracked_order.quote_asset,
-                                           tracked_order.fee_asset,
                                            tracked_order.executed_amount_base,
                                            tracked_order.executed_amount_quote,
-                                           tracked_order.fee_paid,
                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
 
@@ -747,14 +739,15 @@ class DigifinexExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
@@ -827,3 +820,11 @@ class DigifinexExchange(ExchangeBase):
                 )
             )
         return ret_val
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await DigifinexAPIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await DigifinexAPIOrderBookDataSource.get_last_traded_prices(trading_pairs=trading_pairs)

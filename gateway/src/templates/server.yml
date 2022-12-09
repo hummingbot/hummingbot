@@ -1,0 +1,10 @@
+# The port to expose the gateway server on.
+port: 15888
+
+# The IPs allowed to access gateway. localhost is allowed by default.
+ipWhitelist: []
+
+unsafeDevModeWithHTTP: false
+
+
+GMTOffset: +0800

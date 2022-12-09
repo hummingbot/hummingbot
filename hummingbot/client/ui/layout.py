@@ -1,29 +1,27 @@
-from os.path import join, realpath, dirname
+from os.path import dirname, join, realpath
+from typing import Dict
+
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.completion import Completer
 from prompt_toolkit.layout import Dimension
 from prompt_toolkit.layout.containers import (
+    ConditionalContainer,
     Float,
     FloatContainer,
     HSplit,
     VSplit,
     Window,
     WindowAlign,
-    ConditionalContainer,
 )
-from prompt_toolkit.layout.menus import CompletionsMenu
-from prompt_toolkit.layout.layout import Layout
-from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.completion import Completer
 from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.layout.layout import Layout
+from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.widgets import Box, Button, SearchToolbar
-from typing import Dict
 
-from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea, FormattedTextLexer
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.client.settings import MAXIMUM_LOG_PANE_LINE_COUNT, MAXIMUM_OUTPUT_PANE_LINE_COUNT
 from hummingbot.client.tab.data_types import CommandTab
-from hummingbot.client.settings import (
-    MAXIMUM_OUTPUT_PANE_LINE_COUNT,
-    MAXIMUM_LOG_PANE_LINE_COUNT,
-)
-
+from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea, FormattedTextLexer
 
 HEADER = """
                                                 *,.
@@ -87,7 +85,7 @@ def create_input_field(lexer=None, completer: Completer = None):
     return TextArea(
         height=10,
         prompt='>>> ',
-        style='class:input-field',
+        style='class:input_field',
         multiline=False,
         focus_on_click=True,
         lexer=lexer,
@@ -97,15 +95,15 @@ def create_input_field(lexer=None, completer: Completer = None):
     )
 
 
-def create_output_field():
+def create_output_field(client_config_map: ClientConfigAdapter):
     return TextArea(
-        style='class:output-field',
+        style='class:output_field',
         focus_on_click=False,
         read_only=False,
         scrollbar=True,
         max_line_count=MAXIMUM_OUTPUT_PANE_LINE_COUNT,
         initial_text=HEADER,
-        lexer=FormattedTextLexer()
+        lexer=FormattedTextLexer(client_config_map)
     )
 
 
@@ -149,7 +147,7 @@ def create_search_field() -> SearchToolbar:
 
 def create_log_field(search_field: SearchToolbar):
     return TextArea(
-        style='class:log-field',
+        style='class:log_field',
         text="Running Logs\n",
         focus_on_click=False,
         read_only=False,
@@ -163,7 +161,7 @@ def create_log_field(search_field: SearchToolbar):
 
 def create_live_field():
     return TextArea(
-        style='class:log-field',
+        style='class:log_field',
         focus_on_click=False,
         read_only=False,
         scrollbar=True,
@@ -198,31 +196,23 @@ def get_version():
 def get_active_strategy():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
-    style = "class:log-field"
+    style = "class:log_field"
     return [(style, f"Strategy: {hb.strategy_name}")]
-
-
-"""def get_active_markets():
-    from hummingbot.client.hummingbot_application import HummingbotApplication
-    hb = HummingbotApplication.main_application()
-    style = "class:primary"
-    markets = "None" if len(hb.market_trading_pairs_map) == 0 \
-              else eval(str(hb.market_trading_pairs_map))
-    return [(style, f"Market(s): {markets}")]"""
-
-
-"""def get_script_file():
-    from hummingbot.client.config.global_config_map import global_config_map
-    script = global_config_map["script_file_path"].value
-    style = "class:primary"
-    return [(style, f"Script_file: {script}")]"""
 
 
 def get_strategy_file():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
-    style = "class:log-field"
+    style = "class:log_field"
     return [(style, f"Strategy File: {hb._strategy_file_name}")]
+
+
+def get_gateway_status():
+    from hummingbot.client.hummingbot_application import HummingbotApplication
+    hb = HummingbotApplication.main_application()
+    gateway_status = hb._gateway_monitor.gateway_status.name
+    style = "class:log_field"
+    return [(style, f"Gateway: {gateway_status}")]
 
 
 def generate_layout(input_field: TextArea,
@@ -241,16 +231,18 @@ def generate_layout(input_field: TextArea,
     components["item_top_version"] = Window(FormattedTextControl(get_version), style="class:header")
     components["item_top_active"] = Window(FormattedTextControl(get_active_strategy), style="class:header")
     components["item_top_file"] = Window(FormattedTextControl(get_strategy_file), style="class:header")
+    components["item_top_gateway"] = Window(FormattedTextControl(get_gateway_status), style="class:header")
     components["item_top_toggle"] = right_pane_toggle
     components["pane_top"] = VSplit([components["item_top_version"],
                                      components["item_top_active"],
                                      components["item_top_file"],
+                                     components["item_top_gateway"],
                                      components["item_top_toggle"]], height=1)
     components["pane_bottom"] = VSplit([trade_monitor,
                                         process_monitor,
                                         timer], height=1)
-    output_pane = Box(body=output_field, padding=0, padding_left=2, style="class:output-field")
-    input_pane = Box(body=input_field, padding=0, padding_left=2, padding_top=1, style="class:input-field")
+    output_pane = Box(body=output_field, padding=0, padding_left=2, style="class:output_field")
+    input_pane = Box(body=input_field, padding=0, padding_left=2, padding_top=1, style="class:input_field")
     components["pane_left"] = HSplit([output_pane, input_pane], width=Dimension(weight=1))
     if all(not t.is_selected for t in command_tabs.values()):
         log_field_button.window.style = "class:tab_button.focused"
@@ -269,10 +261,10 @@ def generate_layout(input_field: TextArea,
     focused_right_field = [tab.output_field for tab in command_tabs.values() if tab.is_selected]
     if focused_right_field:
         pane_right_field = focused_right_field[0]
-    components["pane_right_top"] = VSplit(tab_buttons, height=1, style="class:log-field", padding_char=" ", padding=2)
+    components["pane_right_top"] = VSplit(tab_buttons, height=1, style="class:log_field", padding_char=" ", padding=2)
     components["pane_right"] = ConditionalContainer(
         Box(body=HSplit([components["pane_right_top"], pane_right_field, search_field], width=Dimension(weight=1)),
-            padding=0, padding_left=2, style="class:log-field"),
+            padding=0, padding_left=2, style="class:log_field"),
         filter=True
     )
     components["hint_menus"] = [Float(xcursor=True,

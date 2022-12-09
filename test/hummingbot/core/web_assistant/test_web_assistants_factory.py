@@ -2,8 +2,9 @@ import asyncio
 import unittest
 from typing import Awaitable
 
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 
@@ -18,14 +19,14 @@ class WebAssistantsFactoryTest(unittest.TestCase):
         return ret
 
     def test_get_rest_assistant(self):
-        factory = WebAssistantsFactory()
+        factory = WebAssistantsFactory(throttler=AsyncThrottler(rate_limits=[]))
 
         rest_assistant = self.async_run_with_timeout(factory.get_rest_assistant())
 
         self.assertIsInstance(rest_assistant, RESTAssistant)
 
     def test_get_ws_assistant(self):
-        factory = WebAssistantsFactory()
+        factory = WebAssistantsFactory(throttler=AsyncThrottler(rate_limits=[]))
 
         ws_assistant = self.async_run_with_timeout(factory.get_ws_assistant())
 

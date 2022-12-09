@@ -4,17 +4,17 @@ import re
 import unittest
 from decimal import Decimal
 from typing import Awaitable, Dict, List
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
+from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
 from hummingbot.connector.exchange.kraken.kraken_utils import build_rate_limits_by_tier
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):

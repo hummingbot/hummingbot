@@ -1,0 +1,3 @@
+caCertificatePath: ca.crt
+certificatePath: gateway.crt
+keyPath: gateway.key

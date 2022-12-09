@@ -1,21 +1,14 @@
-#!/usr/bin/env python
-from os.path import (
-    join,
-    realpath
-)
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    OrderBookEvent
-)
 import asyncio
 import logging
+import sys
 import unittest
 from typing import Dict, Optional, List
 
 from hummingbot.connector.exchange.beaxy.beaxy_order_book_tracker import BeaxyOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSource
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import OrderBookEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 
 

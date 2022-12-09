@@ -1,0 +1,221 @@
+paths:
+  /amm/price:
+    post:
+      tags:
+        - 'amm'
+      summary: 'Get the price for a quote base pair on an AMM'
+      operationId: 'poll'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/PriceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PriceResponse'
+  /amm/trade:
+    post:
+      tags:
+        - 'amm'
+      summary: 'Perform a trade on an AMM'
+      operationId: 'trade'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/TradeRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/TradeResponse'
+  /amm/estimateGas:
+    post:
+      tags:
+        - 'amm'
+      summary: 'Estimate the total gas costs for sending an AMM order'
+      operationId: 'estimateGas'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/NetworkSelectionRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EstimateGasResponse'
+  /amm/perp/market-prices:
+    post:
+      tags:
+        - 'amm'
+      summary: 'Get market prices for a quote base pair on perp curie'
+      operationId: 'perpPrices'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/PerpPriceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PerpPriceResponse'
+  /amm/perp/market-status:
+    post:
+      tags:
+        - 'amm'
+      summary: 'Get the status for a quote base pair market'
+      operationId: 'marketStatus'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/PerpPriceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PerpStatusResponse'
+  /amm/perp/pairs:
+    post:
+      tags:
+        - 'amm'
+      summary: 'Get a list of all available pairs on perp curie'
+      operationId: 'perpPairs'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/PerpPairsRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PerpPairsResponse'
+  /amm/perp/position:
+    post:
+      tags:
+        - 'amm'
+      summary: 'Get poision data for a quote base pair'
+      operationId: 'perpPosition'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/PerpPositionRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PerpPositionResponse'
+  /amm/perp/balance:
+    post:
+      tags:
+        - 'amm'
+      summary: 'Get account value'
+      operationId: 'perpBalance'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/PerpBalanceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PerpBalanceResponse'
+  /amm/perp/open:
+    post:
+      tags:
+        - 'amm'
+      summary: 'Open/increase position on specified market'
+      operationId: 'perpPositionOpen'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/PerpOpenRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PerpOpenResponse'
+  /amm/perp/close:
+    post:
+      tags:
+        - 'amm'
+      summary: 'Close postion on specified market'
+      operationId: 'perpPositionClose'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/PerpCloseRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PerpCloseResponse'
+  /amm/perp/estimateGas:
+    post:
+      tags:
+        - 'amm'
+      summary: 'Estimate the total gas costs for sending a perp order'
+      operationId: 'estimateGas'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/NetworkSelectionRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EstimateGasResponse'

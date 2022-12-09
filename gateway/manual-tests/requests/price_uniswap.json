@@ -1,0 +1,9 @@
+{
+  "connector": "uniswap",
+  "chain": "ethereum",
+  "network": "kovan",
+  "quote": "WETH",
+  "base": "DAI",
+  "amount": "1",
+  "side": "BUY"
+}

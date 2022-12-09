@@ -1,29 +1,27 @@
-#!/usr/bin/env python
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from decimal import Decimal
-import logging; logging.basicConfig(level=logging.ERROR)
-import pandas as pd
-from typing import List
 import unittest
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
+from decimal import Decimal
+from typing import List
+
+import pandas as pd
+
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
     MarketEvent,
     OrderCancelledEvent,
-    TradeType,
-    OrderType,
     OrderFilledEvent,
-    BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
-    TradeFee
 )
-from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.dev_simple_trade.dev_simple_trade import SimpleTradeStrategy
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 class SimpleTradeUnitTest(unittest.TestCase):
@@ -37,7 +35,9 @@ class SimpleTradeUnitTest(unittest.TestCase):
     def setUp(self):
 
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange()
+        self.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.mid_price = 100
         self.time_delay = 15
         self.cancel_order_wait_time = 45
@@ -133,17 +133,15 @@ class SimpleTradeUnitTest(unittest.TestCase):
                 OrderType.LIMIT,
                 limit_order.price,
                 limit_order.quantity,
-                TradeFee(Decimal("0"))
+                AddedToCostTradeFee(Decimal("0"))
             ))
             market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal("0"),
                 OrderType.LIMIT
             ))
         else:
@@ -157,17 +155,15 @@ class SimpleTradeUnitTest(unittest.TestCase):
                 OrderType.LIMIT,
                 limit_order.price,
                 limit_order.quantity,
-                TradeFee(Decimal("0"))
+                AddedToCostTradeFee(Decimal("0"))
             ))
             market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal("0"),
                 OrderType.LIMIT
             ))
 

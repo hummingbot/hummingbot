@@ -1,19 +1,16 @@
 from decimal import Decimal
 from typing import Optional
 
-from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
-    validate_exchange,
-    validate_derivative,
-    validate_market_trading_pair,
     validate_bool,
     validate_decimal,
-    validate_int
+    validate_derivative,
+    validate_exchange,
+    validate_int,
+    validate_market_trading_pair,
 )
-from hummingbot.client.settings import (
-    AllConnectorSettings,
-    required_exchanges,
-)
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.settings import AllConnectorSettings, required_exchanges
 
 
 def maker_trading_pair_prompt():
@@ -103,7 +100,7 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
 
 
 def derivative_on_validated(value: str):
-    required_exchanges.append(value)
+    required_exchanges.add(value)
 
 
 perpetual_market_making_config_map = {
@@ -113,7 +110,7 @@ perpetual_market_making_config_map = {
                   default="perpetual_market_making"),
     "derivative":
         ConfigVar(key="derivative",
-                  prompt="Enter your maker derivative connector >>> ",
+                  prompt="Enter your maker derivative connector exchange name >>> ",
                   validator=validate_derivative,
                   on_validated=derivative_on_validated,
                   prompt_on_new=True),

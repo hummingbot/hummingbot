@@ -1,8 +1,13 @@
-from hummingbot.core.utils.async_utils import safe_ensure_future
-import pandas as pd
 from typing import TYPE_CHECKING
+
+import pandas as pd
+
+from hummingbot.client.ui.interface_utils import format_df_for_printout
+from hummingbot.core.utils.async_utils import safe_ensure_future
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
+
 import threading
 
 
@@ -23,11 +28,11 @@ class OrderBookCommand:
                               market: str = None,
                               live: bool = False):
         if len(self.markets.keys()) == 0:
-            self._notify("There is currently no active market.")
+            self.notify("There is currently no active market.")
             return
         if exchange is not None:
             if exchange not in self.markets:
-                self._notify("Invalid exchange")
+                self.notify("Invalid exchange")
                 return
             market_connector = self.markets[exchange]
         else:
@@ -35,7 +40,7 @@ class OrderBookCommand:
         if market is not None:
             market = market.upper()
             if market not in market_connector.order_books:
-                self._notify("Invalid market")
+                self.notify("Invalid market")
                 return
             trading_pair, order_book = market, market_connector.order_books[market]
         else:
@@ -47,7 +52,10 @@ class OrderBookCommand:
             asks = order_book.snapshot[1][['price', 'amount']].head(lines)
             asks.rename(columns={'price': 'ask_price', 'amount': 'ask_volume'}, inplace=True)
             joined_df = pd.concat([bids, asks], axis=1)
-            text_lines = ["    " + line for line in joined_df.to_string(index=False).split("\n")]
+            text_lines = [
+                "    " + line
+                for line in format_df_for_printout(joined_df, self.client_config_map.tables_format).split("\n")
+            ]
             header = f"  market: {market_connector.name} {trading_pair}\n"
             return header + "\n".join(text_lines)
 
@@ -56,6 +64,6 @@ class OrderBookCommand:
             self.app.live_updates = True
             while self.app.live_updates:
                 await self.cls_display_delay(get_order_book(min(lines, 35)) + "\n\n Press escape key to stop update.", 0.5)
-            self._notify("Stopped live orderbook display update.")
+            self.notify("Stopped live orderbook display update.")
         else:
-            self._notify(get_order_book(lines))
+            self.notify(get_order_book(lines))

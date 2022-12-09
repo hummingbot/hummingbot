@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "networks": {
+      "type": "object",
+      "patternProperties": {
+        "^\\w+$": {
+          "type": "object",
+          "properties": {
+            "chainID": { "type": "integer" },
+            "nodeURL": { "type": "string" },
+            "tokenListType": { "type": "string" },
+            "tokenListSource": { "type": "string" },
+            "nativeCurrencySymbol": { "type": "string" }
+          },
+          "required": [
+            "chainID",
+            "nodeURL",
+            "tokenListType",
+            "tokenListSource",
+            "nativeCurrencySymbol"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "network": { "type": "string" },
+    "autoGasPrice": { "type": "boolean" },
+    "manualGasPrice": { "type": "integer" },
+    "gasPricerefreshTime": { "type": "integer" },
+    "gasLimitTransaction": { "type": "integer" }
+  },
+  "additionalProperties": false
+}

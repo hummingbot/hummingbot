@@ -1,49 +1,41 @@
-#!/usr/bin/env python
+import asyncio
+import contextlib
+import logging
 import time
+import unittest
+from decimal import Decimal
 from os import unlink
 from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
+from typing import List, Optional
 
+import conf
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
 from hummingbot.connector.exchange.kraken.kraken_utils import convert_to_exchange_trading_pair
 from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.core.clock import (
+    Clock,
+    ClockMode,
+)
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
+from hummingbot.model.market_state import MarketState
+from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType
 )
-from hummingbot.model.market_state import MarketState
-from hummingbot.model.order import Order
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.core.event.events import (
-    OrderType
-)
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    TradeFee,
-    TradeType,
-)
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-import asyncio
-import contextlib
-import logging
-from typing import (
-    Optional,
-    List,
-)
-from decimal import Decimal
-import unittest
-import conf
 
 PAIR = "ETH-USDC"
 BASE = "ETH"
@@ -137,29 +129,37 @@ class KrakenExchangeUnitTest(unittest.TestCase):
         self.run_parallel(asyncio.sleep(t))
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee(BASE, QUOTE, OrderType.LIMIT_MAKER, TradeType.BUY, 1, 1)
+        limit_fee: AddedToCostTradeFee = self.market.get_fee(BASE, QUOTE, OrderType.LIMIT_MAKER, TradeType.BUY, 1, 1)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee(BASE, QUOTE, OrderType.LIMIT, TradeType.BUY, 1)
+        market_fee: AddedToCostTradeFee = self.market.get_fee(BASE, QUOTE, OrderType.LIMIT, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
 
     def test_fee_overrides_config(self):
         fee_overrides_config_map["kraken_taker_fee"].value = None
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        taker_fee: AddedToCostTradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.0026"), taker_fee.percent)
         fee_overrides_config_map["kraken_taker_fee"].value = Decimal('0.2')
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        taker_fee: AddedToCostTradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
         fee_overrides_config_map["kraken_maker_fee"].value = None
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        maker_fee: AddedToCostTradeFee = self.market.get_fee("LINK",
+                                                             "ETH",
+                                                             OrderType.LIMIT_MAKER,
+                                                             TradeType.BUY,
+                                                             Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.0016"), maker_fee.percent)
         fee_overrides_config_map["kraken_maker_fee"].value = Decimal('0.5')
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        maker_fee: AddedToCostTradeFee = self.market.get_fee("LINK",
+                                                             "ETH",
+                                                             OrderType.LIMIT_MAKER,
+                                                             TradeType.BUY,
+                                                             Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
 
     def place_order(self, is_buy, trading_pair, amount, order_type, price):

@@ -7,20 +7,13 @@ from unittest.mock import patch
 import aiohttp
 from aioresponses import aioresponses
 
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.rest_connection import (
-    RESTConnection
-)
-from hummingbot.core.web_assistant.connections.data_types import (
-    RESTMethod, RESTRequest, RESTResponse, WSRequest
-)
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse, WSRequest
+from hummingbot.core.web_assistant.connections.rest_connection import RESTConnection
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
-from hummingbot.core.web_assistant.rest_post_processors import (
-    RESTPostProcessorBase
-)
-from hummingbot.core.web_assistant.rest_pre_processors import (
-    RESTPreProcessorBase
-)
+from hummingbot.core.web_assistant.rest_post_processors import RESTPostProcessorBase
+from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 
 
 class RESTAssistantTest(unittest.TestCase):
@@ -56,7 +49,11 @@ class RESTAssistantTest(unittest.TestCase):
         pre_processors = [PreProcessor()]
         post_processors = [PostProcessor()]
         connection = RESTConnection(aiohttp.ClientSession())
-        assistant = RESTAssistant(connection, pre_processors, post_processors)
+        assistant = RESTAssistant(
+            connection=connection,
+            throttler=AsyncThrottler(rate_limits=[]),
+            rest_pre_processors=pre_processors,
+            rest_post_processors=post_processors)
         req = RESTRequest(method=RESTMethod.GET, url=url)
 
         ret = self.async_run_with_timeout(assistant.call(req))
@@ -89,7 +86,7 @@ class RESTAssistantTest(unittest.TestCase):
                 pass
 
         connection = RESTConnection(aiohttp.ClientSession())
-        assistant = RESTAssistant(connection, auth=AuthDummy())
+        assistant = RESTAssistant(connection, throttler=AsyncThrottler(rate_limits=[]), auth=AuthDummy())
         req = RESTRequest(method=RESTMethod.GET, url=url)
         auth_req = RESTRequest(method=RESTMethod.GET, url=url, is_auth_required=True)
 

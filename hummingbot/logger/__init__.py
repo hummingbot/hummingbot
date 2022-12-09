@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 from decimal import Decimal
 from enum import Enum
@@ -20,6 +21,8 @@ def log_encoder(obj):
         return str(obj)
     elif isinstance(obj, Enum):
         return str(obj)
+    elif dataclasses.is_dataclass(obj):
+        return dataclasses.asdict(obj)
     raise TypeError("Object of type '%s' is not JSON serializable" % type(obj).__name__)
 
 

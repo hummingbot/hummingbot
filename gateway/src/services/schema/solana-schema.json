@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "network": { "type": "string" },
+    "networks": {
+      "type": "object",
+      "patternProperties": {
+        "^..+$": {
+          "type": "object",
+          "properties": {
+            "nodeURL": { "type": "string" },
+            "nativeCurrencySymbol": { "type": "string" }
+          },
+          "required": ["nodeURL", "nativeCurrencySymbol"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "retry": {
+      "type": "object",
+      "required": ["all"],
+      "properties": {
+        "all": {
+          "type": "object",
+          "required": ["maxNumberOfRetries", "delayBetweenRetries"],
+          "properties": {
+            "maxNumberOfRetries": { "type": "integer" },
+            "delayBetweenRetries": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "timeout": {
+      "type": "object",
+      "required": ["all"],
+      "properties": {
+        "all": { "type": "integer" }
+      }
+    },
+    "parallel": {
+      "type": "object",
+      "required": ["all"],
+      "properties": {
+        "all": {
+          "type": "object",
+          "required": ["batchSize", "delayBetweenBatches"],
+          "properties": {
+            "batchSize": { "type": "integer" },
+            "delayBetweenBatches": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "tokenProgram": { "type": "string" },
+    "transactionLamports": { "type": "integer" },
+    "lamportsToSol": { "type": "number" },
+    "timeToLive": { "type": "number" }
+  },
+  "required": [
+    "network",
+    "networks",
+    "retry",
+    "timeout",
+    "parallel",
+    "tokenProgram",
+    "transactionLamports",
+    "lamportsToSol",
+    "timeToLive"
+  ],
+  "additionalProperties": false
+}

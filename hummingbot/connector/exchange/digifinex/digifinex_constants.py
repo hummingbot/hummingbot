@@ -11,6 +11,11 @@ REST_URL = f"https://{host}/v3"
 WSS_PRIVATE_URL = f"wss://{host}/ws/v1/"
 WSS_PUBLIC_URL = f"wss://{host}/ws/v1/"
 
+# Public WS Channels
+ORDER_BOOK_DEPTH_CHANNEL = "depth.update"
+ORDER_BOOK_TRADE_CHANNEL = "trades.update"
+
+
 API_REASONS = {
     0: "Success",
     10001: "Malformed request, (E.g. not using application/json for REST)",

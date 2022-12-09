@@ -1,5 +1,10 @@
 from copy import deepcopy
-from typing import AsyncGenerator, List, Optional
+from typing import (
+    AsyncGenerator,
+    Dict,
+    List,
+    Optional,
+)
 
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
@@ -38,8 +43,9 @@ class WSAssistant:
         *,
         ping_timeout: float = 10,
         message_timeout: Optional[float] = None,
+        ws_headers: Optional[Dict] = {},
     ):
-        await self._connection.connect(ws_url, ping_timeout, message_timeout)
+        await self._connection.connect(ws_url=ws_url, ws_headers=ws_headers, ping_timeout=ping_timeout, message_timeout=message_timeout)
 
     async def disconnect(self):
         await self._connection.disconnect()
@@ -54,8 +60,11 @@ class WSAssistant:
         request = await self._authenticate(request)
         await self._connection.send(request)
 
-    async def iter_messages(self) -> AsyncGenerator[WSResponse, None]:
-        """This generator stops on `WSDelegate.disconnect()`."""
+    async def ping(self):
+        await self._connection.ping()
+
+    async def iter_messages(self) -> AsyncGenerator[Optional[WSResponse], None]:
+        """Will yield None and stop if `WSDelegate.disconnect()` is called while waiting for a response."""
         while self._connection.connected:
             response = await self._connection.receive()
             if response is not None:

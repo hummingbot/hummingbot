@@ -1,0 +1,27 @@
+network: mainnet-beta
+networks:
+  mainnet-beta:
+    nodeURL: https://rpc.ankr.com/solana
+#    nodeURL: https://solana-api.projectserum.com
+#    nodeURL: https://solana-api.syndica.io/access-token/<access token>/rpc
+    nativeCurrencySymbol: SOL
+  testnet:
+    nodeURL: https://api.testnet.solana.com
+    nativeCurrencySymbol: SOL
+  devnet:
+    nodeURL: https://rpc.ankr.com/solana_devnet
+    nativeCurrencySymbol: SOL
+retry:
+  all:
+    maxNumberOfRetries: 3 # 0 means no retries
+    delayBetweenRetries: 200 # in milliseconds, 0 means no delay
+timeout:
+  all: 0 # in milliseconds, 0 means no timeout.
+parallel:
+  all:
+    batchSize: 100 # 0 means no batching, group all
+    delayBetweenBatches: 200 # in milliseconds, 0 means no delay
+tokenProgram: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+transactionLamports: 5000
+lamportsToSol: 0.000000001
+timeToLive: 75

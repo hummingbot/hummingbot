@@ -1,42 +1,37 @@
-#!/usr/bin/env python
-import sys
-from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 import asyncio
 import contextlib
-import unittest
+import logging
 import os
+import sys
 import time
+import unittest
 from os.path import join, realpath
-from hummingbot.core.clock import (
-    ClockMode,
-    Clock
-)
+from typing import Dict, Iterator, List, NamedTuple
+
+import pandas as pd
+
+from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import PaperTradeExchange, QueuedOrder
+from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
+    OrderBookTradeEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
-    OrderBookTradeEvent,
 )
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import PaperTradeExchange, QueuedOrder
-from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
-from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig
-import pandas as pd
-from typing import List, Iterator, NamedTuple, Dict
-import logging
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+
 logging.basicConfig(level=logging.INFO)
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 
@@ -142,10 +137,20 @@ class PaperTradeExchangeTest(unittest.TestCase):
         global MAINNET_RPC_URL
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
+        connector = BinanceExchange(
+            binance_api_key="",
+            binance_api_secret="",
+            trading_pairs=["ETH-USDT", "BTC-USDT"],
+            trading_required=False)
         cls.market: PaperTradeExchange = PaperTradeExchange(
-            order_book_tracker=BinanceOrderBookTracker(trading_pairs=["ETH-USDT", "BTC-USDT"]),
-            config=MarketConfig.default_config(),
-            target_market=BinanceExchange
+            order_book_tracker=OrderBookTracker(
+                data_source=BinanceAPIOrderBookDataSource(
+                    trading_pairs=["ETH-USDT", "BTC-USDT"],
+                    connector=connector,
+                    api_factory=connector._api_factory),
+                trading_pairs=["ETH-USDT", "BTC-USDT"]),
+            target_market=BinanceExchange,
+            exchange_name="binance",
         )
         print("Initializing PaperTrade execute orders market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -386,6 +391,7 @@ class PaperTradeExchangeTest(unittest.TestCase):
         self.assertAlmostEqual(self.market.get_available_balance(trading_pair.base_asset),
                                starting_base_balance - base_quantity)
 
+        self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent, timeout_seconds=10))
         matched_order_create_events = TestUtils.get_match_events(self.market_logger.event_log, SellOrderCreatedEvent, {
             "type": OrderType.LIMIT,
             "amount": base_quantity,

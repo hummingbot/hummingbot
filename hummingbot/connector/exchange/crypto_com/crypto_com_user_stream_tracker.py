@@ -1,16 +1,14 @@
-#!/usr/bin/env python
-import aiohttp
-import asyncio
 import logging
-
 from typing import Optional
+
+import aiohttp
 
 from hummingbot.connector.exchange.crypto_com.crypto_com_api_user_stream_data_source import \
     CryptoComAPIUserStreamDataSource
 from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
 from hummingbot.connector.exchange.crypto_com.crypto_com_constants import EXCHANGE_NAME
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
@@ -31,13 +29,12 @@ class CryptoComUserStreamTracker(UserStreamTracker):
                  crypto_com_auth: Optional[CryptoComAuth] = None,
                  shared_client: Optional[aiohttp.ClientSession] = None,
                  ):
-        super().__init__()
         self._crypto_com_auth: CryptoComAuth = crypto_com_auth
         self._shared_client = shared_client or aiohttp.ClientSession()
-
-        self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
-        self._data_source: Optional[UserStreamTrackerDataSource] = None
-        self._user_stream_tracking_task: Optional[asyncio.Task] = None
+        super().__init__(data_source=CryptoComAPIUserStreamDataSource(
+            crypto_com_auth=self._crypto_com_auth,
+            shared_client=self._shared_client
+        ))
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:

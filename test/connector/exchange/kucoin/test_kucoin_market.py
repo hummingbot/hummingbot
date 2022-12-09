@@ -1,46 +1,45 @@
-#!/usr/bin/env python
-import logging
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-import math
 import asyncio
 import contextlib
-from decimal import Decimal
+import logging
+import math
 import os
 import time
+import unittest
+from decimal import Decimal
+from os.path import join, realpath
 from typing import (
     List,
     Optional
 )
-import unittest
+from unittest import mock
 
 import conf
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
     OrderCancelledEvent,
-    BuyOrderCreatedEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
-    TradeType,
 )
+from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
-from hummingbot.core.event.events import OrderType
-from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
@@ -48,11 +47,7 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from test.connector.exchange.kucoin.fixture_kucoin import FixtureKucoin
-from unittest import mock
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
@@ -171,13 +166,15 @@ class KucoinExchangeUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT_MAKER, TradeType.BUY, 1, 10)
+        limit_fee: AddedToCostTradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT_MAKER, TradeType.BUY, 1, 10)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT, TradeType.BUY, 1)
+        market_fee: AddedToCostTradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
-        sell_trade_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT_MAKER, TradeType.SELL, 1, 10)
+        sell_trade_fee: AddedToCostTradeFee = self.market.get_fee(
+            "ETH", "USDT", OrderType.LIMIT_MAKER, TradeType.SELL, 1, 10
+        )
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
@@ -208,20 +205,28 @@ class KucoinExchangeUnitTest(unittest.TestCase):
 
     def test_fee_overrides_config(self):
         fee_overrides_config_map["kucoin_taker_fee"].value = None
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        taker_fee: AddedToCostTradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.001"), taker_fee.percent)
         fee_overrides_config_map["kucoin_taker_fee"].value = Decimal('0.2')
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        taker_fee: AddedToCostTradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
         fee_overrides_config_map["kucoin_maker_fee"].value = None
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        maker_fee: AddedToCostTradeFee = self.market.get_fee("LINK",
+                                                             "ETH",
+                                                             OrderType.LIMIT_MAKER,
+                                                             TradeType.BUY,
+                                                             Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.001"), maker_fee.percent)
         fee_overrides_config_map["kucoin_maker_fee"].value = Decimal('0.5')
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        maker_fee: AddedToCostTradeFee = self.market.get_fee("LINK",
+                                                             "ETH",
+                                                             OrderType.LIMIT_MAKER,
+                                                             TradeType.BUY,
+                                                             Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
 
     def test_limit_maker_rejections(self):
@@ -302,7 +307,6 @@ class KucoinExchangeUnitTest(unittest.TestCase):
         self.assertEqual("USDT", buy_order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, float(buy_order_completed_event.base_asset_amount), places=4)
         self.assertAlmostEqual(quote_amount_traded, float(buy_order_completed_event.quote_asset_amount), places=4)
-        self.assertGreater(buy_order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
         # Reset the logs
@@ -356,7 +360,7 @@ class KucoinExchangeUnitTest(unittest.TestCase):
             self.web_app.update_response("delete", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
         self.market.cancel(trading_pair, order_id)
         if API_MOCK_ENABLED:
-            resp = FixtureKucoin.GET_CANCELLED_ORDER.copy()
+            resp = FixtureKucoin.GET_CANCELED_ORDER.copy()
             resp["data"]["id"] = exch_order_id
             resp["data"]["clientOid"] = order_id
             self.web_app.update_response("get", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
@@ -385,7 +389,7 @@ class KucoinExchangeUnitTest(unittest.TestCase):
 
         self.run_parallel(asyncio.sleep(1))
         if API_MOCK_ENABLED:
-            resp = FixtureKucoin.ORDERS_BATCH_CANCELLED.copy()
+            resp = FixtureKucoin.ORDERS_BATCH_CANCELED.copy()
             resp["data"]["cancelledOrderIds"] = [exch_order_id, exch_order_id2]
             self.web_app.update_response("delete", API_BASE_URL, "/api/v1/orders", resp)
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
@@ -466,7 +470,7 @@ class KucoinExchangeUnitTest(unittest.TestCase):
             # Cancel the order and verify that the change is saved.
             self.market.cancel(trading_pair, order_id)
             if API_MOCK_ENABLED:
-                resp = FixtureKucoin.GET_CANCELLED_ORDER.copy()
+                resp = FixtureKucoin.GET_CANCELED_ORDER.copy()
                 resp["data"]["id"] = exch_order_id
                 resp["data"]["clientOid"] = order_id
                 self.web_app.update_response("get", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)

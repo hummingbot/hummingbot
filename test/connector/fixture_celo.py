@@ -51,14 +51,14 @@ outputs = {
      '--forAtLeast', '10489500000000000000'):
         "Sending Transaction: increaseAllowance... done\n"
         "SendTransaction: increaseAllowance\n"
-        "txHash: 0xfd0777b214f4993c8f182e3d90ce15cee9db59aa0ec48621c68dadc880316c0e\n"
+        "txHash: 0xfd0777b214f4993c8f182e3d90ce15cee9db59aa0ec48621c68dadc880316c0e\n"  # noqa: mock
         "Sending Transaction: exchange... done\n"
         "SendTransaction: exchange\n"
         "txHash: 0xTEST_TX_HASSHHHHHHHHHHH\n",
 
     ('celocli', 'exchange:dollars', '--from', TEST_ADDRESS, '--value', str(int(1 * UNIT_MULTIPLIER))):
         "SendTransaction: increaseAllowance\n"
-        "txHash: 0xc01bdc3a8059a26519db0448d05fbf585cc63bb1a762e0da1b94f2a118ca4035\n"
+        "txHash: 0xc01bdc3a8059a26519db0448d05fbf585cc63bb1a762e0da1b94f2a118ca4035\n"  # noqa: mock
         "Sending Transaction: increaseAllowance... done\n"
         "SendTransaction: exchange\n"
         "txHash: 0xTEST_TX_HASSHHHHHHHHHHH\n"
@@ -67,7 +67,7 @@ outputs = {
     ('celocli', 'exchange:dollars', '--from', TEST_ADDRESS, '--value', '18857142857142857142',
      '--forAtLeast', '1998000000000000000'):
         "SendTransaction: increaseAllowance\n"
-        "txHash: 0xc01bdc3a8059a26519db0448d05fbf585cc63bb1a762e0da1b94f2a118ca4035\n"
+        "txHash: 0xc01bdc3a8059a26519db0448d05fbf585cc63bb1a762e0da1b94f2a118ca4035\n"  # noqa: mock
         "Sending Transaction: increaseAllowance... done\n"
         "SendTransaction: exchange\n"
         "txHash: 0xTEST_TX_HASSHHHHHHHHHHH\n"

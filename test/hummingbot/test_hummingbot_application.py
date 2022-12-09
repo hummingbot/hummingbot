@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -16,7 +16,7 @@ class HummingbotApplicationTest(unittest.TestCase):
         self.app.strategy_file_name = file_name
 
         self.assertEqual(file_name, self.app.strategy_file_name)
-        mock.assert_called_with(strategy_name)
+        mock.assert_called_with(self.app.client_config_map, strategy_name)
 
     @patch("hummingbot.model.sql_connection_manager.SQLConnectionManager.get_trade_fills_instance")
     def test_set_strategy_file_name_to_none(self, mock: MagicMock):

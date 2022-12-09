@@ -5,15 +5,13 @@ from typing import Awaitable, Callable, Optional
 from unittest import TestCase
 from unittest.mock import AsyncMock
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.liquid.liquid_exchange import LiquidExchange
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    MarketEvent,
-    OrderFilledEvent,
-    OrderType,
-    TradeType,
-)
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 
 
 class LiquidExchangeTests(TestCase):
@@ -35,8 +33,10 @@ class LiquidExchangeTests(TestCase):
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
         self.resume_test_event = asyncio.Event()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = LiquidExchange(
+            client_config_map=self.client_config_map,
             liquid_api_key="testAPIKey",
             liquid_secret_key="testSecret",
             trading_pairs=[self.trading_pair],
@@ -152,8 +152,8 @@ class LiquidExchangeTests(TestCase):
         self.assertEqual(Decimal("10"), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([(partial_fill["funding_currency"], Decimal(partial_fill["order_fee"]))],
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(partial_fill["funding_currency"], Decimal(partial_fill["order_fee"]))],
                          fill_event.trade_fee.flat_fees)
         self.assertTrue(self._is_logged(
             "INFO",
@@ -182,10 +182,10 @@ class LiquidExchangeTests(TestCase):
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
         self.assertEqual(
-            [(complete_fill["funding_currency"],
-              Decimal(complete_fill["order_fee"]) - Decimal(partial_fill["order_fee"]))],
+            [TokenAmount(complete_fill["funding_currency"],
+             Decimal(complete_fill["order_fee"]) - Decimal(partial_fill["order_fee"]))],
             fill_event.trade_fee.flat_fees)
 
         # Complete events are not produced by fill notifications, only by order updates
@@ -236,8 +236,8 @@ class LiquidExchangeTests(TestCase):
 
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([(complete_fill["funding_currency"], Decimal(complete_fill["order_fee"]))],
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(complete_fill["funding_currency"], Decimal(complete_fill["order_fee"]))],
                          fill_event.trade_fee.flat_fees)
 
         self.assertTrue(self._is_logged(
@@ -247,6 +247,8 @@ class LiquidExchangeTests(TestCase):
 
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
 
-        buy_complete_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
-        self.assertEqual(Decimal(30), buy_complete_event.fee_amount)
-        self.assertEqual(complete_fill["funding_currency"], buy_complete_event.fee_asset)
+    def test_start_network_warning_is_logged(self):
+        self.async_run_with_timeout(self.exchange.start_network())
+
+        self.assertTrue(self._is_logged('WARNING', "This exchange connector does not provide trades feed. "
+                                                   "Strategies which depend on it will not work properly."))

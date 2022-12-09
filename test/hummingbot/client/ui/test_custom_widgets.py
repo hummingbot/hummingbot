@@ -1,10 +1,11 @@
 import asyncio
 import unittest
-
 from typing import Awaitable
+
 from prompt_toolkit.document import Document
 
-from hummingbot.client.config.config_helpers import read_system_configs_from_yml
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
 from hummingbot.client.ui.custom_widgets import FormattedTextLexer
 
 
@@ -20,7 +21,8 @@ class CustomWidgetUnitTests(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.lexer = FormattedTextLexer()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.lexer = FormattedTextLexer(client_config_map=self.client_config_map)
 
         self.lexer.text_style_tag_map.update(self.text_style_tag)
         self.lexer.html_tag_css_style_map.update(self.tag_css_style)
@@ -43,25 +45,29 @@ class CustomWidgetUnitTests(unittest.TestCase):
         document = Document(text=TEST_PROMPT_TEXT)
         get_line = self.lexer.lex_document(document)
 
-        expected_fragments = [(self.lexer.get_css_style("primary-label"), TEST_PROMPT_TEXT)]
+        expected_fragments = [(self.lexer.get_css_style("primary_label"), TEST_PROMPT_TEXT)]
 
         line_fragments = get_line(0)
         self.assertEqual(1, len(line_fragments))
         self.assertEqual(expected_fragments, line_fragments)
 
     def test_get_line_match_found(self):
-        TEXT = "SOME RANDOM TEXT WITH &cSPECIAL_WORD"
+        TEXT = "SOME RANDOM TEXT WITH &cSPECIAL_WORD AND &cSPECIAL_WORD"
         document = Document(text=TEXT)
         get_line = self.lexer.lex_document(document)
 
         expected_fragments = [
             ("", "SOME RANDOM TEXT WITH "),
-            (self.lexer.get_css_style("output-pane"), "&c"),
+            (self.lexer.get_css_style("output_pane"), "&c"),
             (self.lexer.get_css_style("SPECIAL_LABEL"), "SPECIAL_WORD"),
+            ("", " AND "),
+            (self.lexer.get_css_style("output_pane"), "&c"),
+            (self.lexer.get_css_style("SPECIAL_LABEL"), "SPECIAL_WORD"),
+            ("", ""),
         ]
 
         line_fragments = get_line(0)
-        self.assertEqual(3, len(line_fragments))
+        self.assertEqual(7, len(line_fragments))
         self.assertEqual(expected_fragments, line_fragments)
 
     def test_get_line_no_match_found(self):

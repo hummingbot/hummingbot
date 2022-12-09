@@ -1,0 +1,164 @@
+[
+  {
+    "chainId": 101,
+    "address": "8PZnzjEUJ1B1sMAU3xhzpfK8T4QzydDrnTZrWdzzcno",
+    "symbol": "DAI",
+    "name": "Dark Assassins Inc. Coin",
+    "decimals": 0,
+    "logoURI": "https://darkassassinsinc.com/img/logo.png",
+    "tags": ["social-token"]
+  },
+  {
+    "chainId": 101,
+    "address": "CbNYA9n3927uXUukee2Hf4tm3xxkffJPPZvGazc2EAH1",
+    "symbol": "agEUR",
+    "name": "agEUR (Wormhole)",
+    "decimals": 8,
+    "logoURI": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/CbNYA9n3927uXUukee2Hf4tm3xxkffJPPZvGazc2EAH1/logo.svg",
+    "tags": ["ethereum", "wrapped", "wormhole"],
+    "extensions": {
+      "address": "0x1a7e4e63778B4f12a199C062f3eFdD288afCBce8",
+      "assetContract": "https://etherscan.io/address/0x1a7e4e63778B4f12a199C062f3eFdD288afCBce8",
+      "bridgeContract": "https://etherscan.io/address/0x3ee18B2214AFF97000D974cf647E7C347E8fa585",
+      "coingeckoId": "ageur",
+      "description": "Angle is the first decentralized, capital efficient and over-collateralized stablecoin protocol",
+      "discord": "https://discord.gg/z3kCpTaKMh",
+      "twitter": "https://twitter.com/AngleProtocol",
+      "website": "https://www.angle.money"
+    }
+  },
+  {
+    "chainId": 101,
+    "address": "31GpPxe1SW8pn7GXimM73paD8PZyCsmVSGTLkwUAJvZ8",
+    "symbol": "ANGLE",
+    "name": "ANGLE (Wormhole)",
+    "decimals": 8,
+    "logoURI": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/31GpPxe1SW8pn7GXimM73paD8PZyCsmVSGTLkwUAJvZ8/logo.svg",
+    "tags": ["ethereum", "wrapped", "wormhole"],
+    "extensions": {
+      "address": "0x31429d1856ad1377a8a0079410b297e1a9e214c2",
+      "assetContract": "https://etherscan.io/address/0x31429d1856ad1377a8a0079410b297e1a9e214c2",
+      "bridgeContract": "https://etherscan.io/address/0x3ee18B2214AFF97000D974cf647E7C347E8fa585",
+      "coingeckoId": "angle-protocol",
+      "description": "Angle is the first decentralized, capital efficient and over-collateralized stablecoin protocol",
+      "discord": "https://discord.gg/z3kCpTaKMh",
+      "twitter": "https://twitter.com/AngleProtocol",
+      "website": "https://www.angle.money"
+    }
+  },
+  {
+    "chainId": 101,
+    "address": "Fm9rHUTF5v3hwMLbStjZXqNBBoZyGriQaFM6sTFz3K8A",
+    "symbol": "MBS",
+    "name": "MonkeyBucks",
+    "decimals": 6,
+    "logoURI": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/Fm9rHUTF5v3hwMLbStjZXqNBBoZyGriQaFM6sTFz3K8A/logo.png",
+    "tags": [
+      "utility-token",
+      "game-token",
+      "game-currency",
+      "GameFi",
+      "Gaming"
+    ],
+    "extensions": {
+      "coingeckoId": "monkeyball",
+      "description": "MonkeyBall is the next-gen esports metaverse empowering players to create, play, compete, and earn.",
+      "discord": "https://discord.gg/monkeyball",
+      "facebook": "https://facebook.com/monkeyballgames",
+      "instagram": "https://www.instagram.com/monkeyball_game",
+      "medium": "https://medium.com/@MonkeyBall",
+      "reddit": "https://www.reddit.com/r/MonkeyBallGame",
+      "telegram": "https://t.me/monkeyball_official",
+      "twitter": "https://twitter.com/MonkeyBallGame",
+      "website": "https://www.monkeyball.com"
+    }
+  },
+  {
+    "chainId": 101,
+    "address": "FCuoMii64H5Ee4eVWBjP18WTFS8iLUJmGi16Qti1xFQ2",
+    "symbol": "EDB",
+    "name": "Emerald Block",
+    "decimals": 9,
+    "logoURI": "https://raw.githubusercontent.com/SBPToken/token-list/main/assets/mainnet/FCuoMii64H5Ee4eVWBjP18WTFS8iLUJmGi16Qti1xFQ2/logo.png",
+    "tags": ["utility-token"],
+    "extensions": {
+      "discord": "https://discord.gg/kzPBdWtbrK",
+      "instagram": "https://instagram.com/solblockpunks",
+      "twitter": "https://twitter.com/solblockpunks",
+      "website": "https://solblockpunks.com"
+    }
+  },
+  {
+    "chainId": 101,
+    "address": "HfYFjMKNZygfMC8LsQ8LtpPsPxEJoXJx4M6tqi75Hajo",
+    "symbol": "CWAR",
+    "name": "Cryowar Token",
+    "decimals": 9,
+    "logoURI": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/HfYFjMKNZygfMC8LsQ8LtpPsPxEJoXJx4M6tqi75Hajo/logo.png",
+    "tags": ["utility-token"],
+    "extensions": {
+      "discord": "https://discord.com/invite/cryowar",
+      "telegram": "https://t.me/cryowar",
+      "twitter": "https://twitter.com/CryowarDevs",
+      "website": "https://cryowar.com"
+    }
+  },
+  {
+    "chainId": 101,
+    "address": "BqRtfrNpvRAW3KW319hvhPoTu76wKU2LTdXJyG9CyDze",
+    "symbol": "ECHO",
+    "name": "EchoDao",
+    "decimals": 9,
+    "logoURI": "https://i.imgur.com/HnnxQND.png",
+    "tags": ["utility-token", "DAO-fork"],
+    "extensions": {
+      "discord": "https://discord.com/invite/NtvVPs4WnY",
+      "serumV3Usdc": "8bjQ8XvzrDxKxHhTccpLkqGLbBrCAAPuv6KHrgN95nDW",
+      "twitter": "https://twitter.com/echodao_sol",
+      "website": "https://echodao.xyz"
+    }
+  },
+  {
+    "chainId": 101,
+    "address": "HCXXtXPasqcF4BVsrPQPfHMQPUofoCbDbjsTUANFSHDR",
+    "symbol": "MONKE",
+    "name": "MONKE TOKEN",
+    "decimals": 9,
+    "logoURI": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/HCXXtXPasqcF4BVsrPQPfHMQPUofoCbDbjsTUANFSHDR/logo.png",
+    "tags": ["community-token", "meme-token"],
+    "extensions": {
+      "website": "https://monketoken.xyz/"
+    }
+  },
+  {
+    "chainId": 101,
+    "address": "GLStmw33pftMX9w1AkMEUhB8pDcWQYw33VopUxJJdHbu",
+    "symbol": "DIBU",
+    "name": "Solana DickButt",
+    "decimals": 3,
+    "logoURI": "https://cdn.jsdelivr.net/gh/xRoBBeRT/DIBU-logo/DickButPhantomLogo.png",
+    "tags": ["community-token", "meme-token"],
+    "extensions": {
+      "discord": "https://discord.com/invite/solanadickbutt",
+      "twitter": "https://twitter.com/SolanaDickButt",
+      "website": "https://solanadickbutt.com"
+    }
+  },
+  {
+    "chainId": 101,
+    "address": "6JdcMdhqgCtcP4U9tieRqmKLhPLxRMLC67QfmdXAJBvZ",
+    "symbol": "KITTY",
+    "name": "KITTY SOLANA",
+    "decimals": 6,
+    "logoURI": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/6JdcMdhqgCtcP4U9tieRqmKLhPLxRMLC67QfmdXAJBvZ/logo.png",
+    "tags": ["meme-token"],
+    "extensions": {
+      "coingeckoId": "kitty-solana",
+      "coinmarketcap": "https://coinmarketcap.com/currencies/kitty-solana/",
+      "discord": "https://discord.gg/XaRfbtsscz",
+      "serumV3Usdc": "8bjQ8XvzrDxKxHhTccpLkqGLbBrCAAPuv6KHrgN95nDW",
+      "twitter": "https://twitter.com/kitty_solana",
+      "website": "https://kittysolana.com/"
+    }
+  }
+]

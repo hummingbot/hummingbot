@@ -1,14 +1,11 @@
-#!/usr/bin/env python
 import logging
 from typing import Dict, List, Optional
 
 import pandas as pd
-import ujson
-from sqlalchemy.engine import RowProxy
 
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
 from hummingbot.logger import HummingbotLogger
 
 _cbpob_logger = None

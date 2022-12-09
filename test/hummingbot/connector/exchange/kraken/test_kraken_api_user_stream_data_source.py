@@ -7,13 +7,13 @@ from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 
+from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 from hummingbot.connector.exchange.kraken.kraken_api_user_stream_data_source import KrakenAPIUserStreamDataSource
 from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
-from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
 from hummingbot.connector.exchange.kraken.kraken_utils import build_rate_limits_by_tier
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
@@ -119,7 +119,7 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         output_queue = asyncio.Queue()
-        self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        self.ev_loop.create_task(self.data_source.listen_for_user_stream(output_queue))
 
         resp = self.get_open_orders_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(

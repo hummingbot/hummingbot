@@ -16,30 +16,28 @@ cdef class RingBuffer:
     def __cinit__(self, int length):
         self._length = length
         self._buffer = np.zeros(length, dtype=np.float64)
-        self._start_index = 0
-        self._stop_index = 0
+        self._delimiter = 0
         self._is_full = False
 
     def __dealloc__(self):
         self._buffer = None
 
     cdef void c_add_value(self, float val):
-        self._buffer[self._stop_index] = val
-        self.c_increment_index()
+        self._buffer[self._delimiter] = val
+        self.c_increment_delimiter()
 
-    cdef void c_increment_index(self):
-        self._stop_index = (self._stop_index + 1) % self._length
-        if(self._start_index == self._stop_index):
+    cdef void c_increment_delimiter(self):
+        self._delimiter = (self._delimiter + 1) % self._length
+        if not self._is_full and self._delimiter == 0:
             self._is_full = True
-            self._start_index = (self._start_index + 1) % self._length
 
     cdef bint c_is_empty(self):
-        return (not self._is_full) and (self._start_index==self._stop_index)
+        return (not self._is_full) and (0==self._delimiter)
 
     cdef double c_get_last_value(self):
         if self.c_is_empty():
             return np.nan
-        return self._buffer[self._stop_index-1]
+        return self._buffer[self._delimiter-1]
 
     cdef bint c_is_full(self):
         return self._is_full
@@ -66,17 +64,16 @@ cdef class RingBuffer:
         cdef np.ndarray[np.int16_t, ndim=1] indexes
 
         if not self._is_full:
-            indexes = np.arange(self._start_index, stop=self._stop_index, dtype=np.int16)
+            indexes = np.arange(0, stop=self._delimiter, dtype=np.int16)
         else:
-            indexes = np.arange(self._start_index, stop=self._start_index + self._length,
+            indexes = np.arange(self._delimiter, stop=self._delimiter + self._length,
                                 dtype=np.int16) % self._length
         return np.asarray(self._buffer)[indexes]
 
     def __init__(self, length):
         self._length = length
         self._buffer = np.zeros(length, dtype=np.double)
-        self._start_index = 0
-        self._stop_index = 0
+        self._delimiter = 0
         self._is_full = False
 
     def add_value(self, val):
@@ -103,3 +100,19 @@ cdef class RingBuffer:
     @property
     def variance(self):
         return self.c_variance()
+
+    @property
+    def length(self) -> int:
+        return self._length
+
+    @length.setter
+    def length(self, value):
+        data = self.get_as_numpy_array()
+
+        self._length = value
+        self._buffer = np.zeros(value, dtype=np.float64)
+        self._delimiter = 0
+        self._is_full = False
+
+        for val in data[-value:]:
+            self.add_value(val)

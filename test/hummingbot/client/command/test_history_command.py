@@ -1,17 +1,21 @@
 import asyncio
+import datetime
 import time
 import unittest
-from copy import deepcopy
 from decimal import Decimal
-from typing import Awaitable, List
-from unittest.mock import patch, MagicMock, AsyncMock
-
-from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.core.event.events import TradeFee
-from hummingbot.model.trade_fill import TradeFill
+from pathlib import Path
 from test.mock.mock_cli import CLIMockingAssistant
+from typing import Awaitable, List
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from hummingbot.client.config.client_config_map import ClientConfigMap, DBSqliteMode
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
+from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.connector.exchange.paper_trade import PaperTradeExchange
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.model.order import Order
+from hummingbot.model.sql_connection_manager import SQLConnectionManager
+from hummingbot.model.trade_fill import TradeFill
 
 
 class HistoryCommandTest(unittest.TestCase):
@@ -21,21 +25,19 @@ class HistoryCommandTest(unittest.TestCase):
         self.ev_loop = asyncio.get_event_loop()
 
         self.async_run_with_timeout(read_system_configs_from_yml())
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.app = HummingbotApplication()
+        self.app = HummingbotApplication(client_config_map=self.client_config_map)
 
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
-        self.global_config_backup = deepcopy(global_config_map)
+        self.mock_strategy_name = "test-strategy"
 
     def tearDown(self) -> None:
         self.cli_mock_assistant.stop()
-        self.reset_global_config()
+        db_path = Path(SQLConnectionManager.create_db_path(db_name=self.mock_strategy_name))
+        db_path.unlink(missing_ok=True)
         super().tearDown()
-
-    def reset_global_config(self):
-        for key, value in self.global_config_backup.items():
-            global_config_map[key] = value
 
     @staticmethod
     def get_async_sleep_fn(delay: float):
@@ -65,14 +67,12 @@ class HistoryCommandTest(unittest.TestCase):
         except asyncio.TimeoutError:  # the coroutine did not finish on time
             raise RuntimeError
 
-    @staticmethod
-    def get_trades() -> List[TradeFill]:
-        trade_fee = TradeFee(percent=Decimal("5"))
+    def get_trades(self) -> List[TradeFill]:
+        trade_fee = AddedToCostTradeFee(percent=Decimal("5"))
         trades = [
             TradeFill(
-                id=1,
-                config_file_path="some-strategy.yml",
-                strategy="pure_market_making",
+                config_file_path=f"{self.mock_strategy_name}.yml",
+                strategy=self.mock_strategy_name,
                 market="binance",
                 symbol="BTC-USDT",
                 base_asset="BTC",
@@ -84,7 +84,7 @@ class HistoryCommandTest(unittest.TestCase):
                 price=1,
                 amount=2,
                 leverage=1,
-                trade_fee=TradeFee.to_json(trade_fee),
+                trade_fee=trade_fee.to_json(),
                 exchange_trade_id="someExchangeId",
             )
         ]
@@ -93,15 +93,82 @@ class HistoryCommandTest(unittest.TestCase):
     @patch("hummingbot.client.command.history_command.HistoryCommand.get_current_balances")
     def test_history_report_raises_on_get_current_balances_network_timeout(self, get_current_balances_mock: AsyncMock):
         get_current_balances_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
-        global_config_map["other_commands_timeout"].value = 0.01
+        self.client_config_map.commands_timeout.other_commands_timeout = 0.01
         trades = self.get_trades()
 
         with self.assertRaises(asyncio.TimeoutError):
             self.async_run_with_timeout_coroutine_must_raise_timeout(
-                self.app.history_report(start_time=time.time(), trades=trades), 10000
+                self.app.history_report(start_time=time.time(), trades=trades)
             )
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with(
                 msg="\nA network error prevented the balances retrieval to complete. See logs for more details."
             )
         )
+
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
+    def test_list_trades(self, notify_mock):
+        self.client_config_map.db_mode = DBSqliteMode()
+
+        captures = []
+        notify_mock.side_effect = lambda s: captures.append(s)
+        self.app.strategy_file_name = f"{self.mock_strategy_name}.yml"
+
+        trade_fee = AddedToCostTradeFee(percent=Decimal("5"))
+        order_id = PaperTradeExchange.random_order_id(order_side="BUY", trading_pair="BTC-USDT")
+        with self.app.trade_fill_db.get_new_session() as session:
+            o = Order(
+                id=order_id,
+                config_file_path=f"{self.mock_strategy_name}.yml",
+                strategy=self.mock_strategy_name,
+                market="binance",
+                symbol="BTC-USDT",
+                base_asset="BTC",
+                quote_asset="USDT",
+                creation_timestamp=0,
+                order_type="LMT",
+                amount=4,
+                leverage=0,
+                price=3,
+                last_status="PENDING",
+                last_update_timestamp=0,
+            )
+            session.add(o)
+            for i in [1, 2]:
+                t = TradeFill(
+                    config_file_path=f"{self.mock_strategy_name}.yml",
+                    strategy=self.mock_strategy_name,
+                    market="binance",
+                    symbol="BTC-USDT",
+                    base_asset="BTC",
+                    quote_asset="USDT",
+                    timestamp=i,
+                    order_id=order_id,
+                    trade_type="BUY",
+                    order_type="LIMIT",
+                    price=i,
+                    amount=2,
+                    leverage=1,
+                    trade_fee=trade_fee.to_json(),
+                    exchange_trade_id=f"someExchangeId{i}",
+                )
+                session.add(t)
+            session.commit()
+
+        self.app.list_trades(start_time=0)
+
+        self.assertEqual(1, len(captures))
+
+        creation_time_str = str(datetime.datetime.fromtimestamp(0))
+
+        df_str_expected = (
+            f"\n  Recent trades:"
+            f"\n    +---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+----------+"  # noqa: E501
+            f"\n    | Timestamp           | Exchange   | Market   | Order_type   | Side   |   Price |   Amount |   Leverage | Position   | Age      |"  # noqa: E501
+            f"\n    |---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+----------|"  # noqa: E501
+            f"\n    | {creation_time_str} | binance    | BTC-USDT | limit        | buy    |       1 |        2 |          1 | NIL        | 00:00:00 |"  # noqa: E501
+            f"\n    | {creation_time_str} | binance    | BTC-USDT | limit        | buy    |       2 |        2 |          1 | NIL        | 00:00:00 |"  # noqa: E501
+            f"\n    +---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+----------+"  # noqa: E501
+        )
+
+        self.assertEqual(df_str_expected, captures[0])
