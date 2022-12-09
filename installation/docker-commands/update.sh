@@ -111,7 +111,7 @@ execute_docker () {
    --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_scripts,destination=/scripts/" \
    --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_pmm_scripts,destination=/pmm_scripts/" \
    --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_certs,destination=/home/hummingbot/.hummingbot-gateway/certs/" \
-   --mount "type=bind,source=${FOLDERS[$j]}/gateway_conf,destination=/home/hummingbot/.hummingbot-gateway/conf/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/gateway_conf,destination=/gateway-conf/" \
    --mount "type=bind,source=${FOLDERS[$j]}/gateway_logs,destination=/gateway_logs/" \
    --mount "type=bind,source=/var/run/docker.sock,destination=/var/run/docker.sock" \
    -e CONF_FOLDER="${FOLDERS[$j]}/hummingbot_conf" \
