@@ -15,14 +15,18 @@ ExchangeEnum = ClientConfigEnum(  # rebuild the exchanges enum
     names={e: e for e in AllConnectorSettings.get_connector_settings()},
     type=str,
 )
-connector_field = Field(
-    default="y",
-    description="The name of the hedge exchange connector.",
-    client_data=ClientFieldData(
-        prompt=lambda mi: "Do you want to monitor another connector? (y/n)",
-        prompt_on_new=True,
-    ),
-)
+
+
+def get_field(i: int) -> Field:
+    return Field(
+        default="",
+        description="The name of the hedge exchange connector.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: f"Do you want to monitor connector {i}? (y/n)",
+            prompt_on_new=True,
+        ),
+    )
+
 
 MAX_CONNECTOR = 5
 
@@ -196,11 +200,11 @@ class HedgeConfigMap(BaseStrategyConfigMap):
             prompt_on_new=True,
         ),
     )
-    connector_0: market_config_map = connector_field
-    connector_1: market_config_map = connector_field
-    connector_2: market_config_map = connector_field
-    connector_3: market_config_map = connector_field
-    connector_4: market_config_map = connector_field
+    connector_0: market_config_map = get_field(0)
+    connector_1: market_config_map = get_field(1)
+    connector_2: market_config_map = get_field(2)
+    connector_3: market_config_map = get_field(3)
+    connector_4: market_config_map = get_field(4)
 
     @validator("connector_0", "connector_1", "connector_2", "connector_3", "connector_4", pre=True)
     def construct_connector(cls, v: Union[str, bool, EmptyMarketConfigMap, MarketConfigMap, Dict]):
