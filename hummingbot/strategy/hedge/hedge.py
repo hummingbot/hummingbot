@@ -371,7 +371,7 @@ class HedgeStrategy(StrategyPyBase):
 
     def hedge_by_value(self) -> None:
         """
-        The main process of the strategy.
+        The main process of the strategy for value mode = True.
         """
         is_buy, value_to_hedge = self.get_hedge_direction_and_value()
         price, amount = self.calculate_hedge_price_and_amount(is_buy, value_to_hedge)
@@ -406,7 +406,7 @@ class HedgeStrategy(StrategyPyBase):
 
     def hedge_by_amount(self) -> None:
         """
-        The main process of the strategy.
+        The main process of the strategy for value mode = False.
         """
         for hedge_market, market_list in self._market_pair_by_asset.items():
             is_buy, amount_to_hedge = self.get_hedge_direction_and_amount_by_asset(hedge_market, market_list)
