@@ -154,7 +154,6 @@ class HedgeConfigMap(BaseStrategyConfigMap):
     slippage: Decimal = Field(
         default=Decimal("0.02"),
         description="The slippage tolerance for the hedge order.",
-        ge=0,
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the slippage tolerance for the hedge order",
             prompt_on_new=True,
