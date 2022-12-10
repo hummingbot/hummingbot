@@ -38,6 +38,7 @@ import {
   SerumPostSettleFundsResponse,
 } from './serum.requests';
 
+// @todo: remove and see if it is equal to the /clob endpoints
 export namespace SerumRoutes {
   export const router = Router();
 

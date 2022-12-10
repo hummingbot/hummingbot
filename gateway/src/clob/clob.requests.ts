@@ -19,6 +19,8 @@ import {
   SerumPostSettleFundsResponse,
 } from '../connectors/serum/serum.requests';
 
+// @todo: Move all the serum types into this clob file
+// @note:
 export type ClobDeleteOrdersRequest = SerumCancelOrdersRequest;
 export type ClobDeleteOrdersResponse = SerumCancelOrdersResponse;
 export type ClobGetFilledOrdersRequest = SerumGetFilledOrdersRequest;
