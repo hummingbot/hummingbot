@@ -237,11 +237,10 @@ class HedgeStrategy(StrategyPyBase):
         if not self.is_derivative(self._hedge_market_pairs[0]):
             return
         msg = (
-            f"Please verify that the position mode on {self._hedge_market_pairs[0].market} "
+            f"Please ensure that the position mode on {self._hedge_market_pairs[0].market.name} "
             f"is set to {self._position_mode.value}. "
-            f"The bot will try to automatically set position mode to {self._position_mode.value} "
-            "but it does not work if there is position open."
-            "Hedge strategy may not work properly if both setting is different.")
+            f"The bot will try to automatically set position mode to {self._position_mode.value}. "
+            f"You may ignore the message if the position mode is already set to {self._position_mode.value}.")
         self.notify_hb_app(msg)
         self.logger().warning(msg)
         for market_pair in self._hedge_market_pairs:
