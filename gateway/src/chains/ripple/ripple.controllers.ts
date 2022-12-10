@@ -15,7 +15,6 @@ import {
   RipplePollResponse,
 } from './ripple.requests';
 
-// TODO: Add ripple controllers
 export async function balances(
   rippleish: Rippleish,
   req: RippleBalanceRequest

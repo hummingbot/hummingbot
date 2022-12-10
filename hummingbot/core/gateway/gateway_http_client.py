@@ -849,6 +849,7 @@ class GatewayHttpClient:
             "connector": connector,
         }, use_body=True)
 
+    # This should be implement in ripple first
     async def clob_get_markets(
         self,
         chain: str,
@@ -871,6 +872,7 @@ class GatewayHttpClient:
 
         return await self.api_request("get", "clob/markets", request, use_body=True)
 
+    # This should be implement in ripple first
     async def clob_get_order_books(
         self,
         chain: str,
@@ -893,6 +895,7 @@ class GatewayHttpClient:
 
         return await self.api_request("get", "clob/orderBooks", request, use_body=True)
 
+    # This should be implement in ripple first
     async def clob_get_tickers(
         self,
         chain: str,
@@ -915,6 +918,7 @@ class GatewayHttpClient:
 
         return await self.api_request("get", "clob/tickers", request, use_body=True)
 
+    # Can this be implement later?
     async def clob_get_orders(
         self,
         chain: str,
@@ -941,6 +945,7 @@ class GatewayHttpClient:
 
         return await self.api_request("get", "clob/orders", request, use_body=True)
 
+    # This should be implement in ripple first
     async def clob_post_orders(
         self,
         chain: str,
@@ -963,6 +968,7 @@ class GatewayHttpClient:
 
         return await self.api_request("post", "clob/orders", request)
 
+    # This should be implement in ripple first
     async def clob_delete_orders(
         self,
         chain: str,
@@ -989,6 +995,7 @@ class GatewayHttpClient:
 
         return await self.api_request("delete", "clob/orders", request)
 
+    # This should be implement in ripple first
     async def clob_get_open_orders(
         self,
         chain: str,
@@ -1015,6 +1022,7 @@ class GatewayHttpClient:
 
         return await self.api_request("get", "clob/orders/open", request, use_body=True)
 
+    # Can this be implement later?
     async def clob_get_filled_orders(
         self,
         chain: str,
@@ -1041,6 +1049,7 @@ class GatewayHttpClient:
 
         return await self.api_request("get", "clob/orders/filled", request, use_body=True)
 
+    # What is this function role in the pmm script?
     async def clob_post_settle_funds(
         self,
         chain: str,

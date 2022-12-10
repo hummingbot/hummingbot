@@ -43,7 +43,6 @@ export namespace RippleRoutes {
     })
   );
 
-  // Get all token accounts and balances + solana balance
   router.get(
     '/balances',
     asyncHandler(

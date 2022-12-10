@@ -10,12 +10,20 @@ import {
   cancelOrders,
   createOrders,
   // getFilledOrders,
-  // getMarkets,
+  getMarkets,
   getOpenOrders,
   getOrderBooks,
   getOrders,
   getTickers,
 } from './rippledex.controllers';
+import {
+  RippleGetMarketsRequest,
+  RippleGetMarketsResponse,
+  RippleGetOrderBooksRequest,
+  RippleGetOrderBooksResponse,
+  RippleGetTickersRequest,
+  RippleGetTickersResponse,
+} from './rippledex.requests';
 
 export namespace RippleDEXRoutes {
   export const router = Router();
@@ -53,19 +61,22 @@ export namespace RippleDEXRoutes {
     )
   );
 
-  // router.get(
-  //   '/markets',
-  //   asyncHandler(
-  //     async (request: Request<any, any, any>, response: Response<any, any>) => {
-  //       const ripple = await getRipple(request);
-  //       const rippledex = await getRippleDEX(request);
+  router.get(
+    '/markets',
+    asyncHandler(
+      async (
+        request: Request<any, any, RippleGetMarketsRequest>,
+        response: Response<RippleGetMarketsResponse, any>
+      ) => {
+        const ripple = await getRipple(request);
+        const rippleDEX = await getRippleDEX(request);
 
-  //       const result = await getMarkets(ripple, rippledex, request.body);
+        const result = await getMarkets(ripple, rippleDEX, request.body);
 
-  //       return await response.status(result.status).json(result.body);
-  //     }
-  //   )
-  // );
+        response.status(result.status).json(result.body);
+      }
+    )
+  );
 
   /**
    * Returns the last traded prices.
@@ -85,7 +96,10 @@ export namespace RippleDEXRoutes {
   router.get(
     '/tickers',
     asyncHandler(
-      async (request: Request<any, any, any>, response: Response<any, any>) => {
+      async (
+        request: Request<any, any, RippleGetTickersRequest>,
+        response: Response<RippleGetTickersResponse, any>
+      ) => {
         const ripple = await getRipple(request);
         const rippledex = await getRippleDEX(request);
 
@@ -112,7 +126,10 @@ export namespace RippleDEXRoutes {
   router.get(
     '/orderBooks',
     asyncHandler(
-      async (request: Request<any, any, any>, response: Response<any, any>) => {
+      async (
+        request: Request<any, any, RippleGetOrderBooksRequest>,
+        response: Response<RippleGetOrderBooksResponse, any>
+      ) => {
         const ripple = await getRipple(request);
         const rippledex = await getRippleDEX(request);
 
@@ -127,7 +144,7 @@ export namespace RippleDEXRoutes {
   // {
   //   "chain": "ripple",
   //   "network": "mainnet",
-  //   "tx": "80208E28B0BCE71725E6534F42D2DA5BC4A91F3A68F40A31DE3EBF45422F6DF4"
+  //   "tx": "txhex"
   // }
   router.get(
     '/orders',
@@ -192,20 +209,4 @@ export namespace RippleDEXRoutes {
       }
     )
   );
-
-  // router.get(
-  //   '/orders/filled',
-  //   asyncHandler(
-  //     async (request: Request<any, any, any>, response: Response<any, any>) => {
-  //       const ripple = await getRipple(request);
-  //       const rippledex = await getRippleDEX(request);
-
-  //       validateRippleAddress(request.body);
-
-  //       const result = await getFilledOrders(ripple, rippledex, request.body);
-
-  //       response.status(result.status).json(result.body);
-  //     }
-  //   )
-  // );
 }
