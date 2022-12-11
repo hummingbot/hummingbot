@@ -27,7 +27,7 @@ import {
 //
 // GET /serum/markets
 //
-
+// @todo: move with most of types to clob.requests.ts
 export type SerumGetMarketsRequest = NetworkSelectionRequest &
   GetMarketsRequest;
 

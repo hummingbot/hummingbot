@@ -22,8 +22,16 @@ export enum OrderStatus {
 
 export enum OrderType {
   LIMIT = 'LIMIT',
+  PASSIVE = 'PASSIVE',
   IOC = 'IOC', // Immediate or Cancel
-  POST_ONLY = 'POST_ONLY',
+  FOK = 'FOK', // Fill or Kill
+  SELL = 'SELL', // Sell
+}
+
+export interface Token {
+  currency: string;
+  issuer: string;
+  value: string;
 }
 
 export type GetMarketsRequest =
@@ -70,26 +78,26 @@ export interface Ticker {
   timestamp: number;
 }
 
-export interface GetOrdersRequest {
-  ids?: string[];
-  exchangeIds?: string[];
-  marketName?: string;
-  ownerAddress: string;
-}
+// export interface GetOrdersRequest {
+//   ids?: string[];
+//   exchangeIds?: string[];
+//   marketName?: string;
+//   ownerAddress: string;
+// }
 
-export interface GetOrderResponse {
-  id?: string;
-  exchangeId?: string;
-  marketName: string;
-  ownerAddress?: string;
-  price: number;
-  amount: number;
-  side: OrderSide;
-  status?: OrderStatus;
-  type?: OrderType;
-  fee?: number;
-  fillmentTimestamp?: number;
-}
+// export interface GetOrderResponse {
+//   id?: string;
+//   exchangeId?: string;
+//   marketName: string;
+//   ownerAddress?: string;
+//   price: number;
+//   amount: number;
+//   side: OrderSide;
+//   status?: OrderStatus;
+//   type?: OrderType;
+//   fee?: number;
+//   fillmentTimestamp?: number;
+// }
 
 export type GetOrderBooksRequest =
   | Record<string, never>
@@ -109,6 +117,58 @@ export interface GetOrderBookResponse {
 export type GetOrderBooksResponse =
   | IMap<string, GetOrderBookResponse>
   | GetOrderBookResponse;
+
+export interface CreateOrderRequest {
+  id: string;
+  walletAddress: string;
+  marketName: string;
+  side: OrderSide;
+  price: number;
+  amount: number;
+  type?: OrderType;
+  sequence?: number;
+}
+
+export interface CreateOrderResponse {
+  id: string;
+  walletAddress: string;
+  marketName: string;
+  price: number;
+  amount: number;
+  side: OrderSide;
+  status?: OrderStatus;
+  type?: OrderType;
+  fee?: number;
+  sequence?: number;
+  orderLedgerIndex?: string;
+  signature?: string;
+}
+
+export type CreateOrdersResponse =
+  | IMap<string, CreateOrderResponse>
+  | CreateOrderResponse;
+
+export interface CancelOrderRequest {
+  id: string;
+  walletAddress: string;
+  offerSequence: number;
+}
+
+export type CancelOrdersRequest =
+  | Record<string, never>
+  | { order: CancelOrderRequest }
+  | { orders: CancelOrderRequest[] };
+
+export interface CancelOrderResponse {
+  id: string;
+  walletAddress: string;
+  status?: OrderStatus;
+  signature?: string;
+}
+
+export type CancelOrdersResponse =
+  | IMap<string, CancelOrderResponse>
+  | CancelOrderResponse;
 
 export class RippleDEXishError extends Error {}
 

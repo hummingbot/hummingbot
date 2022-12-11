@@ -33,10 +33,6 @@ export interface RipplePollRequest extends NetworkSelectionRequest {
   txHash: string;
 }
 
-export interface RipplePollRequest extends NetworkSelectionRequest {
-  txHash: string;
-}
-
 export enum TransactionResponseStatusCode {
   FAILED = -1,
   CONFIRMED = 1,

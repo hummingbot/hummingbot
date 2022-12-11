@@ -23,6 +23,8 @@ import {
   RippleGetOrderBooksResponse,
   RippleGetTickersRequest,
   RippleGetTickersResponse,
+  RippleCreateOrdersRequest,
+  RippleCreateOrdersResponse,
 } from './rippledex.requests';
 
 export namespace RippleDEXRoutes {
@@ -39,11 +41,6 @@ export namespace RippleDEXRoutes {
     asyncHandler(verifyRippleDEXIsAvailable)
   );
 
-  // Sample request:
-  // {
-  //   "chain": "ripple",
-  //   "network": "mainnet"
-  // }
   router.get(
     '/',
     asyncHandler(
@@ -78,21 +75,6 @@ export namespace RippleDEXRoutes {
     )
   );
 
-  /**
-   * Returns the last traded prices.
-   */
-  // Sample request:
-  // {
-  //   "chain": "ripple",
-  //   "network": "mainnet",
-  //   "base": {
-  //       "currency": "USD",
-  //       "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq"
-  //   },
-  //   "quote": {
-  //       "currency": "XRP"
-  //   }
-  // }
   router.get(
     '/tickers',
     asyncHandler(
@@ -110,19 +92,6 @@ export namespace RippleDEXRoutes {
     )
   );
 
-  // Sample request:
-  // {
-  //   "chain": "ripple",
-  //   "network": "mainnet",
-  //   "base": {
-  //       "currency": "USD",
-  //       "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq"
-  //   },
-  //   "quote": {
-  //       "currency": "XRP"
-  //   },
-  //   "limit": 5
-  // }
   router.get(
     '/orderBooks',
     asyncHandler(
@@ -165,7 +134,10 @@ export namespace RippleDEXRoutes {
   router.post(
     '/orders',
     asyncHandler(
-      async (request: Request<any, any, any>, response: Response<any, any>) => {
+      async (
+        request: Request<any, any, RippleCreateOrdersRequest>,
+        response: Response<RippleCreateOrdersResponse, any>
+      ) => {
         const ripple = await getRipple(request);
         const rippledex = await getRippleDEX(request);
 

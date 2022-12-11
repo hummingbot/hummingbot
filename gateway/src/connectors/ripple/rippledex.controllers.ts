@@ -4,6 +4,10 @@ import { ResponseWrapper } from '../../services/common-interfaces';
 import { HttpException } from '../../services/error-handler';
 import { RippleDEXish } from './rippledex';
 import {
+  RippleCancelOrdersRequest,
+  RippleCancelOrdersResponse,
+  RippleCreateOrdersRequest,
+  RippleCreateOrdersResponse,
   RippleGetMarketsRequest,
   RippleGetMarketsResponse,
   RippleGetOrderBooksRequest,
@@ -216,22 +220,34 @@ export async function getOrders(
 export async function createOrders(
   _ripple: Rippleish,
   rippledex: RippleDEXish,
-  request: any
-): Promise<ResponseWrapper<any>> {
-  const response = new ResponseWrapper<any>();
+  request: RippleCreateOrdersRequest
+): Promise<ResponseWrapper<RippleCreateOrdersResponse>> {
+  const response = new ResponseWrapper<RippleCreateOrdersResponse>();
 
-  response.body = await rippledex.createOrders(
-    request.address,
-    request.base,
-    request.quote,
-    request.side,
-    request.price,
-    request.amount
+  if ('order' in request) {
+    // validateCreateOrderRequest(request.order); TODO: add createOrder validator
+
+    response.body = await rippledex.createOrder(request.order);
+
+    response.status = StatusCodes.OK;
+
+    return response;
+  }
+
+  if ('orders' in request) {
+    // validateCreateOrdersRequest(request.orders); TODO: add createOrders validator
+
+    response.body = await rippledex.createOrders(request.orders);
+
+    response.status = StatusCodes.OK;
+
+    return response;
+  }
+
+  throw new HttpException(
+    StatusCodes.BAD_REQUEST,
+    `No order(s) was/were informed.`
   );
-
-  response.status = StatusCodes.OK;
-
-  return response;
 }
 
 /**
@@ -244,18 +260,34 @@ export async function createOrders(
 export async function cancelOrders(
   _ripple: Rippleish,
   rippledex: RippleDEXish,
-  request: any
-): Promise<ResponseWrapper<any>> {
-  const response = new ResponseWrapper<any>();
+  request: RippleCancelOrdersRequest
+): Promise<ResponseWrapper<RippleCancelOrdersResponse>> {
+  const response = new ResponseWrapper<RippleCancelOrdersResponse>();
 
-  response.body = await rippledex.cancelOrders(
-    request.address,
-    request.offerSequence
+  if ('order' in request) {
+    // validateCancelOrderRequest(request.order); TODO: add createOrder validator
+
+    response.body = await rippledex.cancelOrder(request.order);
+
+    response.status = StatusCodes.OK;
+
+    return response;
+  }
+
+  if ('orders' in request) {
+    // validateCancelOrdersRequest(request.orders); TODO: add createOrders validator
+
+    response.body = await rippledex.cancelOrders(request.orders);
+
+    response.status = StatusCodes.OK;
+
+    return response;
+  }
+
+  throw new HttpException(
+    StatusCodes.BAD_REQUEST,
+    `No order(s) was/were informed.`
   );
-
-  response.status = StatusCodes.OK;
-
-  return response;
 }
 
 /**

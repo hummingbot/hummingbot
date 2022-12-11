@@ -11,6 +11,7 @@ import {
   xrpToDrops,
   AccountInfoResponse,
   BookOffersResponse,
+  TransactionMetadata,
 } from 'xrpl';
 import {
   Market,
@@ -19,6 +20,12 @@ import {
   GetTickerResponse,
   Ticker,
   GetOrderBookResponse,
+  Token,
+  CreateOrderResponse,
+  OrderStatus,
+  CreateOrderRequest,
+  CancelOrderRequest,
+  CancelOrderResponse,
 } from './rippledex.types';
 import { promiseAllInBatches } from '../serum/serum.helpers';
 
@@ -333,46 +340,51 @@ export class RippleDEX {
     return result;
   }
 
-  async createOrders(
-    walletAddress: string,
-    base: any,
-    quote: any,
-    side: string,
-    price: number,
-    amount: number
-  ): Promise<any> {
+  async createOrder(order: CreateOrderRequest): Promise<CreateOrderResponse> {
+    const [base, quote] = order.marketName.split('/');
+    const [baseCurrency, baseIssuer] = base.split('.');
+    const [quoteCurrency, quoteIssuer] = quote.split('.');
+
+    const market = await this.getMarket(order.marketName);
+
     const ripple = Ripple.getInstance(this.network);
-    const wallet = await ripple.getWallet(walletAddress);
-    const total = price * amount;
-    let we_pay = {
+    const wallet = await ripple.getWallet(order.walletAddress);
+    const total = order.price * order.amount;
+    let fee = 0;
+
+    let we_pay: Token = {
       currency: '',
       issuer: '',
       value: '',
     };
-    let we_get = { currency: '', issuer: '', value: '' };
+    let we_get: Token = { currency: '', issuer: '', value: '' };
 
-    if (side == 'BUY') {
+    if (order.side == 'BUY') {
       we_pay = {
-        currency: base.currency,
-        issuer: base.issuer,
+        currency: baseCurrency,
+        issuer: baseIssuer,
         value: total.toString(),
       };
       we_get = {
-        currency: quote.currency,
-        issuer: quote.issuer,
-        value: amount.toString(),
+        currency: quoteCurrency,
+        issuer: quoteIssuer,
+        value: order.amount.toString(),
       };
+
+      fee = market.baseTransferRate;
     } else {
       we_pay = {
-        currency: quote.currency,
-        issuer: quote.issuer,
+        currency: quoteCurrency,
+        issuer: quoteIssuer,
         value: total.toString(),
       };
       we_get = {
-        currency: base.currency,
-        issuer: base.issuer,
-        value: amount.toString(),
+        currency: baseCurrency,
+        issuer: baseIssuer,
+        value: order.amount.toString(),
       };
+
+      fee = market.quoteTransferRate;
     }
 
     if (we_pay.currency == 'XRP') {
@@ -386,38 +398,144 @@ export class RippleDEX {
     const offer: Transaction = {
       TransactionType: 'OfferCreate',
       Account: wallet.classicAddress,
-      TakerPays: we_pay,
+      TakerPays: we_pay.currency == 'XRP' ? we_pay.value : we_pay,
       TakerGets: we_get.currency == 'XRP' ? we_get.value : we_get,
     };
 
+    if (order.sequence != undefined) {
+      offer.OfferSequence = order.sequence;
+    }
+
     const prepared = await this._client.autofill(offer);
-    console.log('Prepared transaction:', JSON.stringify(prepared, null, 2));
     const signed = wallet.sign(prepared);
-    console.log('Sending OfferCreate transaction...');
     const response = await this._client.submitAndWait(signed.tx_blob);
 
-    return response;
+    let orderStatus = OrderStatus.UNKNOWN;
+    let orderSequence = -1;
+    let orderLedgerIndex = '';
+
+    if (response.result) {
+      const meta = response.result.meta;
+      if (meta) {
+        const affectedNodes = (meta as TransactionMetadata).AffectedNodes;
+
+        for (const affnode of affectedNodes) {
+          if ('ModifiedNode' in affnode) {
+            if (affnode.ModifiedNode.LedgerEntryType == 'Offer') {
+              // Usually a ModifiedNode of type Offer indicates a previous Offer that
+              // was partially consumed by this one.
+              orderStatus = OrderStatus.FILLED;
+            }
+          } else if ('DeletedNode' in affnode) {
+            if (affnode.DeletedNode.LedgerEntryType == 'Offer') {
+              // The removed Offer may have been fully consumed, or it may have been
+              // found to be expired or unfunded.
+              orderStatus = OrderStatus.FILLED;
+            }
+          } else if ('CreatedNode' in affnode) {
+            if (affnode.CreatedNode.LedgerEntryType == 'Offer') {
+              // Created an Offer object on the Ledger
+              orderStatus = OrderStatus.OPEN;
+              orderSequence = response.result.Sequence ?? -1;
+              orderLedgerIndex = affnode.CreatedNode.LedgerIndex;
+            }
+          }
+        }
+      }
+    }
+
+    const returnResponse: CreateOrderResponse = {
+      id: order.id,
+      walletAddress: order.walletAddress,
+      marketName: order.marketName,
+      price: order.price,
+      amount: order.amount,
+      side: order.side,
+      type: order.type,
+      fee,
+      sequence: orderSequence,
+      orderLedgerIndex: orderLedgerIndex,
+      status: orderStatus,
+      signature: response.result.hash,
+    };
+
+    return returnResponse;
   }
 
-  async cancelOrders(
-    walletAddress: string,
-    offerSequence: number
-  ): Promise<any> {
+  async createOrders(
+    orders: CreateOrderRequest[]
+  ): Promise<IMap<string, CreateOrderResponse>> {
+    const createdOrders = IMap<string, CreateOrderResponse>().asMutable();
+
+    const getCreatedOrders = async (
+      order: CreateOrderRequest
+    ): Promise<void> => {
+      const createdOrder = await this.createOrder(order);
+
+      createdOrders.set(order.id, createdOrder);
+    };
+
+    await promiseAllInBatches(getCreatedOrders, orders);
+
+    return createdOrders;
+  }
+
+  async cancelOrder(order: CancelOrderRequest): Promise<CancelOrderResponse> {
     const ripple = Ripple.getInstance(this.network);
-    const wallet = await ripple.getWallet(walletAddress);
+    const wallet = await ripple.getWallet(order.walletAddress);
     const request: OfferCancel = {
       TransactionType: 'OfferCancel',
       Account: wallet.classicAddress,
-      OfferSequence: offerSequence,
+      OfferSequence: order.offerSequence,
     };
 
     const prepared = await this._client.autofill(request);
-    console.log('Prepared transaction:', JSON.stringify(prepared, null, 2));
     const signed = wallet.sign(prepared);
-    console.log('Sending OfferCancel transaction...');
     const response = await this._client.submitAndWait(signed.tx_blob);
 
-    return response;
+    let orderStatus = OrderStatus.CANCELATION_PENDING;
+
+    if (response.result) {
+      const meta = response.result.meta;
+      if (meta) {
+        const affectedNodes = (meta as TransactionMetadata).AffectedNodes;
+
+        for (const affnode of affectedNodes) {
+          if ('DeletedNode' in affnode) {
+            if (affnode.DeletedNode.LedgerEntryType == 'Offer') {
+              orderStatus = OrderStatus.CANCELED;
+            }
+          }
+        }
+      }
+    }
+
+    const returnResponse: CancelOrderResponse = {
+      id: order.id,
+      walletAddress: order.walletAddress,
+      status: orderStatus,
+      signature: response.result.hash,
+    };
+
+    return returnResponse;
+  }
+
+  async cancelOrders(
+    orders: CancelOrderRequest[]
+  ): Promise<IMap<string, CancelOrderResponse>> {
+    const cancelledOrders = IMap<string, CancelOrderResponse>().asMutable();
+
+    const getCancelledOrders = async (
+      order: CancelOrderRequest
+    ): Promise<void> => {
+      const cancelledOrder = await this.cancelOrder(order);
+
+      cancelledOrders.set(order.id, cancelledOrder);
+    };
+
+    await promiseAllInBatches(getCancelledOrders, orders);
+
+    return cancelledOrders;
   }
 
   async getOpenOrders(address: string): Promise<any> {

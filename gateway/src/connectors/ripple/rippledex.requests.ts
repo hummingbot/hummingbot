@@ -6,6 +6,10 @@ import {
   GetMarketsResponse,
   GetTickersRequest,
   GetTickersResponse,
+  CreateOrdersResponse,
+  CancelOrderRequest,
+  CreateOrderRequest,
+  CancelOrdersResponse,
 } from './rippledex.types';
 
 //
@@ -24,7 +28,54 @@ export type RippleGetTickersRequest = NetworkSelectionRequest &
 
 export type RippleGetTickersResponse = GetTickersResponse;
 
+//
+// GET /ripple/orderBooks
+//
+
 export type RippleGetOrderBooksRequest = NetworkSelectionRequest &
   GetOrderBooksRequest;
 
 export type RippleGetOrderBooksResponse = GetOrderBooksResponse;
+
+//
+// POST /ripple/orders
+//
+
+export type RippleCreateOrdersRequest = NetworkSelectionRequest &
+  (
+    | { order: CreateOrderRequest }
+    | {
+        orders: CreateOrderRequest[];
+      }
+  );
+
+export type RippleCreateOrdersResponse = CreateOrdersResponse;
+
+//
+// DELETE /ripple/orders
+//
+
+export type RippleCancelOrdersRequest = NetworkSelectionRequest &
+  (
+    | { order: CancelOrderRequest }
+    | {
+        orders: CancelOrderRequest[];
+      }
+  );
+
+export type RippleCancelOrdersResponse = CancelOrdersResponse;
+
+//
+// GET /ripple/orders/open
+//
+
+// export type RippleGetOpenOrdersRequest = NetworkSelectionRequest &
+//   (
+//     | { ownerAddress: string }
+//     | { order: GetOpenOrderRequest }
+//     | {
+//         orders: GetOpenOrdersRequest[];
+//       }
+//   );
+
+// export type RippleGetOpenOrdersResponse = GetOpenOrdersResponse;
