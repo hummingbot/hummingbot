@@ -68,7 +68,7 @@ Below is the list of bridged publishing interfaces among with their properties:
 | Heartbeats | hbot/{botID}/hb | TODO |
 | Events | hbot/{botID}/events | TODO |
 | Notifications | hbot/{botID}/notify | TODO |
-| Notifications | hbot/{botID}/log | TODO |
+| Logs | hbot/{botID}/log | {'timestamp': 0.0, 'msg': '', 'level_no': 0, 'level_name': '', 'logger_name': ''} |
 
 # Usage
 
@@ -105,3 +105,19 @@ We suggest the following brokers:
 - EMQX
 
 
+## Encrypted broker communication (SSL connections)
+
+To enable ssl connections for the hummingbot client Just set the `mqtt_ssl` parameter to `True`.
+
+This feature requires an already deployed message broker with SSL enabled.
+
+For example, to configure EMQX to use SSL encrypted connections follow the instructions 
+[here](https://www.emqx.com/en/blog/emqx-server-ssl-tls-secure-connection-configuration-guide).
+
+For local deployments where the message broker and hummingbot bots are hosted on 
+a local network or a highly secure private network, it is not mandatory to use SSL, as encryption/description processes
+will require a lot of computational resources and may hit system bottlenecks and failures as the number of connections
+and data exchange increases (e.g. having several bots and side components deployed).
+
+Though, for scenarios where public message brokers are used (e.g. having a RabbitMQ deployed on AWS and bots executed locally),
+it is highly recommended to always use SSL connections to avoid stealing critical data from man-in-the-middle attacks.
