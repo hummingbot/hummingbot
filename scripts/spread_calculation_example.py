@@ -46,7 +46,7 @@ class VolumeAnalyzer():
     def set_previous_timestamp(self, previous_timestamp):
         self.previous_timestamp = previous_timestamp
 
-    def calculate_mean_amounts(self):
+    def calculate_mean_and_stdev(self):
         if len(self.buy_amounts) > 0:
             self.buy_mean_amount = statistics.mean(self.buy_amounts)
             buy_variance = statistics.variance(self.buy_amounts, self.buy_mean_amount)
@@ -76,6 +76,7 @@ class VolumeAnalyzer():
 
     def __percentage_diff(self, value1, value2):
         return (abs(value1 - value2) / ((value1 + value2) / 2)) * 100
+
 class SpreadCalculator():
     
     volume_analyzer: VolumeAnalyzer = None
@@ -84,13 +85,13 @@ class SpreadCalculator():
         self.volume_analyzer = VolumeAnalyzer(connector, pair)
         self.data_collection_interval = data_collection_interval
 
-    def calculate_mean_amounts(self, timestamp):
+    def calculate_mean_and_stdev(self, timestamp):
         if not self.volume_analyzer.get_previous_timestamp():
             self.volume_analyzer.set_previous_timestamp(timestamp)
 
         if timestamp - self.volume_analyzer.get_previous_timestamp() > self.data_collection_interval:
             self.volume_analyzer.set_previous_timestamp(timestamp)
-            self.volume_analyzer.calculate_mean_amounts()
+            self.volume_analyzer.calculate_mean_and_stdev()
             self.volume_analyzer.clear_amounts()
             self.volume_analyzer.calculate_spreads()
 
@@ -141,6 +142,7 @@ class SpreadCalculator():
 
         df = pd.DataFrame(data=data, columns=columns)
         return df
+
 class SimplePMM(ScriptStrategyBase):
 
     EXCHANGE = 'binance_paper_trade'
@@ -198,7 +200,7 @@ class SimplePMM(ScriptStrategyBase):
         elif event.type == TradeType.SELL:
             self.spread_calculator.add_sell_amount(event.amount)
 
-        self.spread_calculator.calculate_mean_amounts(event.timestamp)
+        self.spread_calculator.calculate_mean_and_stdev(event.timestamp)
     
     def cancel_all_orders(self, exchange):
         orders = self.get_active_orders(exchange)
