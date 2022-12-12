@@ -26,8 +26,13 @@ import {
   CreateOrderRequest,
   CancelOrderRequest,
   CancelOrderResponse,
+  GetOpenOrderRequest,
+  GetOpenOrderResponse,
+  GetOpenOrdersResponse,
+  OrderSide,
 } from './rippledex.types';
 import { promiseAllInBatches } from '../serum/serum.helpers';
+import { isIssuedCurrency } from 'xrpl/dist/npm/models/transactions/common';
 
 export type RippleDEXish = RippleDEX;
 
@@ -445,7 +450,6 @@ export class RippleDEX {
     }
 
     const returnResponse: CreateOrderResponse = {
-      id: order.id,
       walletAddress: order.walletAddress,
       marketName: order.marketName,
       price: order.price,
@@ -453,9 +457,9 @@ export class RippleDEX {
       side: order.side,
       type: order.type,
       fee,
-      sequence: orderSequence,
       orderLedgerIndex: orderLedgerIndex,
       status: orderStatus,
+      sequence: orderSequence,
       signature: response.result.hash,
     };
 
@@ -464,15 +468,15 @@ export class RippleDEX {
 
   async createOrders(
     orders: CreateOrderRequest[]
-  ): Promise<IMap<string, CreateOrderResponse>> {
-    const createdOrders = IMap<string, CreateOrderResponse>().asMutable();
+  ): Promise<IMap<number, CreateOrderResponse>> {
+    const createdOrders = IMap<number, CreateOrderResponse>().asMutable();
 
     const getCreatedOrders = async (
       order: CreateOrderRequest
     ): Promise<void> => {
       const createdOrder = await this.createOrder(order);
 
-      createdOrders.set(order.id, createdOrder);
+      createdOrders.set(createdOrder.sequence, createdOrder);
     };
 
     await promiseAllInBatches(getCreatedOrders, orders);
@@ -511,7 +515,6 @@ export class RippleDEX {
     }
 
     const returnResponse: CancelOrderResponse = {
-      id: order.id,
       walletAddress: order.walletAddress,
       status: orderStatus,
       signature: response.result.hash,
@@ -522,15 +525,15 @@ export class RippleDEX {
 
   async cancelOrders(
     orders: CancelOrderRequest[]
-  ): Promise<IMap<string, CancelOrderResponse>> {
-    const cancelledOrders = IMap<string, CancelOrderResponse>().asMutable();
+  ): Promise<IMap<number, CancelOrderResponse>> {
+    const cancelledOrders = IMap<number, CancelOrderResponse>().asMutable();
 
     const getCancelledOrders = async (
       order: CancelOrderRequest
     ): Promise<void> => {
       const cancelledOrder = await this.cancelOrder(order);
 
-      cancelledOrders.set(order.id, cancelledOrder);
+      cancelledOrders.set(order.offerSequence, cancelledOrder);
     };
 
     await promiseAllInBatches(getCancelledOrders, orders);
@@ -538,15 +541,107 @@ export class RippleDEX {
     return cancelledOrders;
   }
 
-  async getOpenOrders(address: string): Promise<any> {
-    const account_offers_resp = await this._client.request({
-      command: 'account_offers',
-      account: address,
-    });
+  async getOpenOrders(params: {
+    market?: GetOpenOrderRequest;
+    markets?: GetOpenOrderRequest[];
+  }): Promise<GetOpenOrdersResponse> {
+    const openOrders = IMap<
+      string,
+      IMap<number, GetOpenOrderResponse>
+    >().asMutable();
 
-    const result = account_offers_resp.result;
+    const marketArray: GetOpenOrderRequest[] = [];
+    if (params.market) marketArray.push(params.market);
+    if (params.markets) marketArray.concat(params.markets);
 
-    return result;
+    for (const market of marketArray) {
+      const [base, quote] = market.marketName.split('/');
+
+      const [baseCurrency, baseIssuer] = base.split('.');
+      const [quoteCurrency, quoteIssuer] = quote.split('.');
+
+      const openOrdersInMarket = IMap<
+        number,
+        GetOpenOrderResponse
+      >().asMutable();
+
+      const baseRequest: any = {
+        currency: baseCurrency,
+      };
+
+      const quoteRequest: any = {
+        currency: quoteCurrency,
+      };
+
+      if (baseIssuer) {
+        baseRequest['issuer'] = baseIssuer;
+      }
+      if (quoteIssuer) {
+        quoteRequest['issuer'] = quoteIssuer;
+      }
+
+      const orderbook_resp_ask: BookOffersResponse = await this._client.request(
+        {
+          command: 'book_offers',
+          ledger_index: 'validated',
+          taker: market.walletAddress,
+          taker_gets: baseRequest,
+          taker_pays: quoteRequest,
+        }
+      );
+
+      const orderbook_resp_bid: BookOffersResponse = await this._client.request(
+        {
+          command: 'book_offers',
+          ledger_index: 'validated',
+          taker: market.walletAddress,
+          taker_gets: quoteRequest,
+          taker_pays: baseRequest,
+        }
+      );
+
+      const asks = orderbook_resp_ask.result.offers;
+      const bids = orderbook_resp_bid.result.offers;
+
+      for (const ask of asks) {
+        const price = ask.quality ?? '-1';
+        let amount: string = '';
+
+        if (isIssuedCurrency(ask.TakerGets)) {
+          amount = ask.TakerGets.value;
+        } else {
+          amount = ask.TakerGets;
+        }
+        openOrdersInMarket.set(ask.Sequence, {
+          sequence: ask.Sequence,
+          marketName: market.marketName,
+          price: price,
+          amount: amount,
+          side: OrderSide.SELL,
+        });
+      }
+
+      for (const bid of bids) {
+        const price = Math.pow(Number(bid.quality), -1).toString() ?? '-1';
+        let amount: string = '';
+
+        if (isIssuedCurrency(bid.TakerGets)) {
+          amount = bid.TakerGets.value;
+        } else {
+          amount = bid.TakerGets;
+        }
+        openOrdersInMarket.set(bid.Sequence, {
+          sequence: bid.Sequence,
+          marketName: market.marketName,
+          price: price,
+          amount: amount,
+          side: OrderSide.BUY,
+        });
+      }
+
+      openOrders.set(market.marketName, openOrdersInMarket);
+    }
+    return openOrders;
   }
 
   ready(): boolean {

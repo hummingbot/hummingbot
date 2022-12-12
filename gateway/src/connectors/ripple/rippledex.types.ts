@@ -119,7 +119,6 @@ export type GetOrderBooksResponse =
   | GetOrderBookResponse;
 
 export interface CreateOrderRequest {
-  id: string;
   walletAddress: string;
   marketName: string;
   side: OrderSide;
@@ -130,7 +129,6 @@ export interface CreateOrderRequest {
 }
 
 export interface CreateOrderResponse {
-  id: string;
   walletAddress: string;
   marketName: string;
   price: number;
@@ -139,17 +137,16 @@ export interface CreateOrderResponse {
   status?: OrderStatus;
   type?: OrderType;
   fee?: number;
-  sequence?: number;
+  sequence: number;
   orderLedgerIndex?: string;
   signature?: string;
 }
 
 export type CreateOrdersResponse =
-  | IMap<string, CreateOrderResponse>
+  | IMap<number, CreateOrderResponse>
   | CreateOrderResponse;
 
 export interface CancelOrderRequest {
-  id: string;
   walletAddress: string;
   offerSequence: number;
 }
@@ -160,15 +157,32 @@ export type CancelOrdersRequest =
   | { orders: CancelOrderRequest[] };
 
 export interface CancelOrderResponse {
-  id: string;
   walletAddress: string;
   status?: OrderStatus;
   signature?: string;
 }
 
 export type CancelOrdersResponse =
-  | IMap<string, CancelOrderResponse>
+  | IMap<number, CancelOrderResponse>
   | CancelOrderResponse;
+
+export interface GetOpenOrderRequest {
+  marketName: string;
+  walletAddress: string;
+}
+
+export interface GetOpenOrderResponse {
+  sequence: number;
+  marketName: string;
+  price: string;
+  amount: string;
+  side: OrderSide;
+}
+
+export type GetOpenOrdersResponse =
+  | IMap<string, IMap<number, GetOpenOrderResponse>>
+  | IMap<number, GetOpenOrderResponse>
+  | GetOpenOrderResponse;
 
 export class RippleDEXishError extends Error {}
 

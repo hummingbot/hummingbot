@@ -10,6 +10,8 @@ import {
   CancelOrderRequest,
   CreateOrderRequest,
   CancelOrdersResponse,
+  GetOpenOrderRequest,
+  GetOpenOrdersResponse,
 } from './rippledex.types';
 
 //
@@ -69,13 +71,12 @@ export type RippleCancelOrdersResponse = CancelOrdersResponse;
 // GET /ripple/orders/open
 //
 
-// export type RippleGetOpenOrdersRequest = NetworkSelectionRequest &
-//   (
-//     | { ownerAddress: string }
-//     | { order: GetOpenOrderRequest }
-//     | {
-//         orders: GetOpenOrdersRequest[];
-//       }
-//   );
+export type RippleGetOpenOrdersRequest = NetworkSelectionRequest &
+  (
+    | { order: GetOpenOrderRequest }
+    | {
+        orders: GetOpenOrderRequest[];
+      }
+  );
 
-// export type RippleGetOpenOrdersResponse = GetOpenOrdersResponse;
+export type RippleGetOpenOrdersResponse = GetOpenOrdersResponse;

@@ -25,6 +25,10 @@ import {
   RippleGetTickersResponse,
   RippleCreateOrdersRequest,
   RippleCreateOrdersResponse,
+  RippleCancelOrdersRequest,
+  RippleCancelOrdersResponse,
+  RippleGetOpenOrdersRequest,
+  RippleGetOpenOrdersResponse,
 } from './rippledex.requests';
 
 export namespace RippleDEXRoutes {
@@ -153,7 +157,10 @@ export namespace RippleDEXRoutes {
   router.delete(
     '/orders',
     asyncHandler(
-      async (request: Request<any, any, any>, response: Response<any, any>) => {
+      async (
+        request: Request<any, any, RippleCancelOrdersRequest>,
+        response: Response<RippleCancelOrdersResponse, any>
+      ) => {
         const ripple = await getRipple(request);
         const rippledex = await getRippleDEX(request);
 
@@ -169,7 +176,10 @@ export namespace RippleDEXRoutes {
   router.get(
     '/orders/open',
     asyncHandler(
-      async (request: Request<any, any, any>, response: Response<any, any>) => {
+      async (
+        request: Request<any, any, RippleGetOpenOrdersRequest>,
+        response: Response<RippleGetOpenOrdersResponse, any>
+      ) => {
         const ripple = await getRipple(request);
         const rippledex = await getRippleDEX(request);
 

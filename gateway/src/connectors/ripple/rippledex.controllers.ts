@@ -10,6 +10,8 @@ import {
   RippleCreateOrdersResponse,
   RippleGetMarketsRequest,
   RippleGetMarketsResponse,
+  RippleGetOpenOrdersRequest,
+  RippleGetOpenOrdersResponse,
   RippleGetOrderBooksRequest,
   RippleGetOrderBooksResponse,
   RippleGetTickersRequest,
@@ -300,13 +302,32 @@ export async function cancelOrders(
 export async function getOpenOrders(
   _ripple: Rippleish,
   rippledex: RippleDEXish,
-  request: any
-): Promise<ResponseWrapper<any>> {
-  const response = new ResponseWrapper<any>();
+  request: RippleGetOpenOrdersRequest
+): Promise<ResponseWrapper<RippleGetOpenOrdersResponse>> {
+  const response = new ResponseWrapper<RippleGetOpenOrdersResponse>();
 
-  response.body = await rippledex.getOpenOrders(request.address);
+  if ('order' in request) {
+    // validateOpenOrderRequest(request.order); TODO: add createOrder validator
 
-  response.status = StatusCodes.OK;
+    response.body = await rippledex.getOpenOrders({ market: request.order });
 
-  return response;
+    response.status = StatusCodes.OK;
+
+    return response;
+  }
+
+  if ('orders' in request) {
+    // validateOpenOrdersRequest(request.orders); TODO: add createOrders validator
+
+    response.body = await rippledex.getOpenOrders({ markets: request.orders });
+
+    response.status = StatusCodes.OK;
+
+    return response;
+  }
+
+  throw new HttpException(
+    StatusCodes.BAD_REQUEST,
+    `No order(s) was/were informed.`
+  );
 }
