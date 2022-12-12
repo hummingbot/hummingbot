@@ -121,3 +121,66 @@ and data exchange increases (e.g. having several bots and side components deploy
 
 Though, for scenarios where public message brokers are used (e.g. having a RabbitMQ deployed on AWS and bots executed locally),
 it is highly recommended to always use SSL connections to avoid stealing critical data from man-in-the-middle attacks.
+
+
+## Communicate remotely with your bots via MQTT
+
+MQTT endpoints provided by hummingbot bot instances can be accesses using common mqtt client
+libraries.
+
+Though, [commlib\-py](https://github.com/robotics-4-all/commlib-py) Python library 
+is recommended as it implements common communication patters such as pure PubSub 
+and RPCs, which are used on the bot side. For example, bot commands are implemented 
+using the RPC pattern, that is not provided by default for the MQTT protocol.
+
+For test purposes, you can install and use the [commlib-cli](https://github.com/robotics-4-all/commlib-cli) package.
+Below are examples of remotely communicating with hummigbot bots via MQTT using 
+the `commlib-cli` package.
+
+**Listen to logs:**
+
+```bash
+commlib-cli --host localhost --port 1883 --btype mqtt sub 'hbot/testbot/log'
+```
+
+**Listen to events:**
+
+```bash
+commlib-cli --host localhost --port 1883 --btype mqtt sub 'hbot/testbot/events'
+```
+
+**Listen to notifications:**
+
+```bash
+commlib-cli --host localhost --port 1883 --btype mqtt sub 'hbot/testbot/notify'
+```
+
+**Listen to heartbeats:**
+
+```bash
+commlib-cli --host localhost --port 1883 --btype mqtt sub 'hbot/testbot/hb'
+```
+
+**Execute Start command:**
+
+```bash
+commlib-cli --host localhost --port 1883 --btype mqtt rpcc 'hbot/testbot/start' '{}'
+```
+
+**Execute Stop command:**
+
+```bash
+commlib-cli --host localhost --port 1883 --btype mqtt rpcc 'hbot/testbot/stop' '{}'
+```
+
+**Execute Import command:**
+
+```bash
+commlib-cli --host localhost --port 1883 --btype mqtt rpcc 'hbot/testbot/import' '{"strategy": "conf_liquidity_mining_1"}'
+```
+
+**Execute Balance-Limit command:**
+
+```bash
+commlib-cli --host localhost --port 1883 --btype mqtt rpcc 'hbot/testbot/balance_limit' '{"exchange": "kucoin", "asset": "USDT", "amount": 100}'
+```
