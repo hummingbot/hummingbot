@@ -1,6 +1,7 @@
 import logging
 import collections
 import statistics
+import math 
 
 import pandas as pd
 
@@ -23,8 +24,12 @@ class VolumeAnalyzer():
         self.buy_amounts = collections.deque([])
         self.sell_amounts = collections.deque([])
         self.previous_timestamp = None
-        self.mean_buy_amount = None
-        self.mean_sell_amount = None
+        self.buy_mean_amount = None
+        self.sell_mean_amount = None
+        self.buy_standard_deviation = None 
+        self.sell_standard_deviation = None 
+        self.buy_mean_and_stdev_sum = None
+        self.sell_mean_and_stdev__sum = None
         self.mid_price = None
         self.buy_spread = None
         self.sell_spread = None
@@ -43,10 +48,16 @@ class VolumeAnalyzer():
 
     def calculate_mean_amounts(self):
         if len(self.buy_amounts) > 0:
-            self.mean_buy_amount = statistics.mean(self.buy_amounts)
+            self.buy_mean_amount = statistics.mean(self.buy_amounts)
+            buy_variance = statistics.variance(self.buy_amounts, self.buy_mean_amount)
+            self.buy_standard_deviation = math.sqrt(buy_variance)
+            self.buy_mean_and_stdev_sum = self.buy_mean_amount + self.buy_standard_deviation
 
         if len(self.sell_amounts) > 0:
-            self.mean_sell_amount = statistics.mean(self.sell_amounts)
+            self.sell_mean_amount = statistics.mean(self.sell_amounts)
+            sell_variance = statistics.variance(self.sell_amounts, self.sell_mean_amount)
+            self.sell_standard_deviation = math.sqrt(sell_variance)
+            self.sell_mean_and_stdev__sum = self.sell_mean_amount + self.sell_standard_deviation
     
     def clear_amounts(self):
         self.buy_amounts.clear()
@@ -55,17 +66,16 @@ class VolumeAnalyzer():
     def calculate_spreads(self):
         self.mid_price = self.connector.get_mid_price(self.pair) 
 
-        buy_for_volume_result = self.connector.get_price_for_volume(self.pair, True, self.mean_buy_amount)
+        buy_for_volume_result = self.connector.get_price_for_volume(self.pair, True, self.buy_mean_and_stdev_sum)
         self.buy_spread = self.__percentage_diff(buy_for_volume_result.result_price, self.mid_price)
         self.buy_spread = round(self.buy_spread, 2) 
 
-        sell_for_volume_result = self.connector.get_price_for_volume(self.pair, False, self.mean_sell_amount)
+        sell_for_volume_result = self.connector.get_price_for_volume(self.pair, False, self.sell_mean_and_stdev__sum)
         self.sell_spread = self.__percentage_diff(sell_for_volume_result.result_price, self.mid_price)
         self.sell_spread = round(self.sell_spread, 2)
 
     def __percentage_diff(self, value1, value2):
         return (abs(value1 - value2) / ((value1 + value2) / 2)) * 100
-
 class SpreadCalculator():
     
     volume_analyzer: VolumeAnalyzer = None
@@ -97,7 +107,7 @@ class SpreadCalculator():
         return self.volume_analyzer.sell_spread
 
     def get_data_df(self):
-        columns = ["Exchange", "Pair", "Buy Orders", "Sell Orders", "Mean Buy Amount", "Mean Sell Amount", "Mid Price", "Buy Spread", "Sell Spread"]
+        columns = ["Exchange", "Pair", "BuyOrders", "SellOrders", "MidPrice", "MeanBuy", "MeanSell", "BuyStDev", "SellStDev", "BuyMean+StdDev", "SellMean+StdDev", "BuySpread", "SellSpread"]
         data = []
 
         data.append([
@@ -109,12 +119,20 @@ class SpreadCalculator():
             len(self.volume_analyzer.buy_amounts),
             # Sell Orders 
             len(self.volume_analyzer.sell_amounts),
-            # Mean Buy Amount 
-            self.volume_analyzer.mean_buy_amount,
-            # Mean Sell Amount 
-            self.volume_analyzer.mean_sell_amount,
             # Mid Price 
             self.volume_analyzer.mid_price,
+            # Buy Mean Amount 
+            self.volume_analyzer.buy_mean_amount,
+            # Sell Mean Amount 
+            self.volume_analyzer.sell_mean_amount,
+            # Buy Standard Deviation
+            self.volume_analyzer.buy_standard_deviation,
+            # Sell Standard Deviation
+            self.volume_analyzer.sell_standard_deviation,
+            # Sum of Buy Mean and Standard Deviation 
+            self.volume_analyzer.buy_mean_and_stdev_sum,
+            # Sum of Sell Mean and Standard Deviation
+            self.volume_analyzer.sell_mean_and_stdev__sum,
             # Buy Spread 
             self.volume_analyzer.buy_spread,
             # Sell Spread 
@@ -123,7 +141,6 @@ class SpreadCalculator():
 
         df = pd.DataFrame(data=data, columns=columns)
         return df
-
 class SimplePMM(ScriptStrategyBase):
 
     EXCHANGE = 'binance_paper_trade'
@@ -217,7 +234,7 @@ class SimplePMM(ScriptStrategyBase):
             orders.append(buy_order)
 
             # prepare sell order candidate
-            sell_amount = Decimal(self.ORDER_AMOUNT_USDT) / sell_price # convert the usdt amount to base currency
+            sell_amount = Decimal(self.ORDER_AMOUNT_USDT)
             sell_order = OrderCandidate(
                 trading_pair = trading_pair, 
                 is_maker = True, 
