@@ -38,7 +38,13 @@ export const isNearPrivateKey = (str: string): boolean => {
 };
 
 export const isCosmosPrivateKey = (str: string): boolean => {
-  return fromBase64(str);
+  try {
+    fromBase64(str);
+
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 // given a request, look for a key called privateKey that is an Ethereum private key
