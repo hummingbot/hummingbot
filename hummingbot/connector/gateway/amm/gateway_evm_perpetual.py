@@ -178,8 +178,7 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
                 amount=amount,
                 side=side,
             )
-            price: Decimal = Decimal(resp["markPrice"])
-            return Decimal(str(price))
+            return Decimal(resp["markPrice"])
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -553,12 +552,12 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
         positions: Dict[str, Any] = await safe_gather(*position_requests, return_exceptions=True)
 
         for position in positions:
-            trading_pair = f"{position['base']}-{position['quote']}"
+            trading_pair = f"{position.get('base')}-{position.get('quote')}"
             position_side = PositionSide.LONG if position.get("positionSide") == "LONG" else PositionSide.SHORT
-            unrealized_pnl = Decimal(position.get("unrealizedProfit"))
-            entry_price = Decimal(position.get("entryPrice"))
-            amount = Decimal(position.get("positionAmt"))
-            leverage = Decimal(position.get("leverage"))
+            unrealized_pnl = Decimal(position.get("unrealizedProfit", "0"))
+            entry_price = Decimal(position.get("entryPrice", "0"))
+            amount = Decimal(position.get("positionAmt", "0"))
+            leverage = Decimal(position.get("leverage", "0"))
             existing_position = self.get_position(trading_pair, position_side)
             pos_key = self.position_key(trading_pair, position_side)
             if amount != s_decimal_0:
