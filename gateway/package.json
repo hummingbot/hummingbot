@@ -33,7 +33,7 @@
     "@harmony-js/utils": "^0.1.56",
     "@pancakeswap/sdk": "^2.4.5",
     "@pangolindex/sdk": "^1.1.0",
-    "@perp/sdk-curie": "^1.6.1",
+    "@perp/sdk-curie": "^1.16.0",
     "@project-serum/serum": "^0.13.65",
     "@solana/buffer-layout": "^4.0.0",
     "@solana/spl-token": "^0.2.0",
