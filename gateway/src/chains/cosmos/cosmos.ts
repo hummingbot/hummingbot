@@ -78,4 +78,10 @@ export class Cosmos extends CosmosBase implements Cosmosish {
   public get metricsLogInterval(): number {
     return this._metricsLogInterval;
   }
+
+  async close() {
+    if (this._chain in Cosmos._instances) {
+      delete Cosmos._instances[this._chain];
+    }
+  }
 }
