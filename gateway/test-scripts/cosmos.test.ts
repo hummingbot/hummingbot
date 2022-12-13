@@ -44,7 +44,7 @@ export const cosmosTests = async (tokens: string[] = []) => {
     await request('POST', '/wallet/add', {
       privateKey: privateKey,
       chain: 'cosmos',
-      network: 'mainnet',
+      network: 'testnet',
     });
   }
 
