@@ -121,6 +121,9 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
                 app_warning_msg=str(e)
             )
 
+    def get_order_size_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
+        return Decimal("1e-18")
+
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_quote_price(
             self,
