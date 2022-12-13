@@ -85,7 +85,7 @@ class SpreadCalculator():
         self.volume_analyzer = VolumeAnalyzer(connector, pair)
         self.data_collection_interval = data_collection_interval
 
-    def calculate_mean_and_stdev(self, timestamp):
+    def calculate_spreads(self, timestamp):
         if not self.volume_analyzer.get_previous_timestamp():
             self.volume_analyzer.set_previous_timestamp(timestamp)
 
@@ -200,7 +200,7 @@ class SimplePMM(ScriptStrategyBase):
         elif event.type == TradeType.SELL:
             self.spread_calculator.add_sell_amount(event.amount)
 
-        self.spread_calculator.calculate_mean_and_stdev(event.timestamp)
+        self.spread_calculator.calculate_spreads(event.timestamp)
     
     def cancel_all_orders(self, exchange):
         orders = self.get_active_orders(exchange)
