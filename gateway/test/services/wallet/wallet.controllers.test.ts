@@ -235,6 +235,7 @@ describe('addWallet and getWallets', () => {
     patch(cosmos, 'getWallet', () => {
       return {
         address: cosmosAddress,
+        prefix: 'cosmos',
       };
     });
 
@@ -357,6 +358,7 @@ describe('addWallet and removeWallets', () => {
     patch(cosmos, 'getWallet', () => {
       return {
         address: cosmosAddress,
+        prefix: 'cosmos',
       };
     });
 

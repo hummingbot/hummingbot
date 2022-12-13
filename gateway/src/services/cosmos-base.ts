@@ -170,7 +170,7 @@ export class CosmosBase {
 
   // returns Wallet for an address
   // TODO: Abstract-away into base.ts
-  async getWallet(address: string): Promise<CosmosWallet> {
+  async getWallet(address: string, prefix: string): Promise<CosmosWallet> {
     const path = `${walletPath}/${this.chainName}`;
 
     const encryptedPrivateKey: EncryptedPrivateKey = JSON.parse(
@@ -192,7 +192,7 @@ export class CosmosBase {
       throw new Error('missing passphrase');
     }
 
-    return await this.decrypt(encryptedPrivateKey, passphrase, 'cosmos');
+    return await this.decrypt(encryptedPrivateKey, passphrase, prefix);
   }
 
   private static async getKeyMaterial(password: string) {
