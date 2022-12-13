@@ -51,13 +51,15 @@ The following commands are bridged:
 Below is the list of bridged command interfaces among with their properties:
 
 | ID | URI | Request | Response |
-| start | `hbot/{botID}/start` | `{}` | `{}` |
-| stop | `hbot/{botID}/stop` | `{}` | `{}` |
-| import | `hbot/{botID}/import` | `TODO` | `TODO` |
-| config | `hbot/{botID}/config` | `TODO` | `TODO` |
-| balance limit | `hbot/{botID}/balance_limit` | `TODO` | `TODO` |
-| history | `hbot/{botID}/history` | `TODO` | `TODO` |
-| status | `hbot/{botID}/status` | `{}` | `TODO` |
+|--------------|-----------|------------|------------| 
+| start | `hbot/{botID}/start` | `{"log_level": "str", "restore": bool, "script": str, "is_quickstart": bool}` | `{"status": int, "msg": str}` |
+| stop | `hbot/{botID}/stop` | `{"skip_order_cancellation": bool}` | `{"status": int, "msg": str}` |
+| import | `hbot/{botID}/import` | `{"strategy": str}` | `{"status": int, "msg": str}` |
+| config | `hbot/{botID}/config` | `{"params": List[Tuple[str, Any]]}` | `{"status": int, "msg": str, "changes": List[Dict[str, Any]]}` |
+| balance limit | `hbot/{botID}/balance/limit` | `{"exchange": str, "asset": str, "amount": float}` | `{"status": int, "msg": str, "data": str}` |
+| balance paper | `hbot/{botID}/balance/paper` | `{"asset": str, "amount": float}` | `{"status": int, "msg": str, "data": str}` |
+| history | `hbot/{botID}/history` | `{"days": float, "verbose": bool, "precision": int}` | `{"status": int, "msg": str, "trades": List[Any]}` |
+| status | `hbot/{botID}/status` | `{}` | `{"status": int, "msg": str, "data": str}` |
 
 Furthermore, the MQTT bridge, implemented as part of the hummingbot client,
 forwards internal Events, Notifications and Logs to the MQTT broker.
@@ -65,10 +67,11 @@ forwards internal Events, Notifications and Logs to the MQTT broker.
 Below is the list of bridged publishing interfaces among with their properties:
 
 | ID | URI | Message |
-| Heartbeats | hbot/{botID}/hb | TODO |
-| Events | hbot/{botID}/events | TODO |
-| Notifications | hbot/{botID}/notify | TODO |
-| Logs | hbot/{botID}/log | {'timestamp': 0.0, 'msg': '', 'level_no': 0, 'level_name': '', 'logger_name': ''} |
+|--------------|-----------|------------|
+| Heartbeats | `hbot/{botID}/hb` | `{}` |
+| Events | `hbot/{botID}/events` | `{"timestamp": int, "type": str, "data": Dict[str,Any]}` |
+| Notifications | `hbot/{botID}/notify` | `{'seq': int, 'timestamp': int, 'msg': str}` |
+| Logs | `hbot/{botID}/log` | `{'timestamp': 0.0, 'msg': '', 'level_no': 0, 'level_name': '', 'logger_name': ''}` |
 
 # Usage
 
@@ -165,22 +168,67 @@ commlib-cli --host localhost --port 1883 --btype mqtt sub 'hbot/testbot/hb'
 
 ```bash
 commlib-cli --host localhost --port 1883 --btype mqtt rpcc 'hbot/testbot/start' '{}'
+
+{'status': 200, 'msg': ''}
 ```
 
 **Execute Stop command:**
 
 ```bash
 commlib-cli --host localhost --port 1883 --btype mqtt rpcc 'hbot/testbot/stop' '{}'
+
+{'status': 200, 'msg': ''}
+```
+
+**Execute Config command / List Config :**
+
+```bash
+commlib-cli --host localhost --port 1883 --btype mqtt rpcc 'hbot/testbot/config' '{"params": []}'
+
+{'changes': [], 'status': 200, 'msg': ''}
+```
+
+**Execute Config command / Set Single Parameter:**
+
+```bash
+commlib-cli --host localhost --port 1883 --btype mqtt rpcc 'hbot/testbot/config' '{"params": [["mqtt_bridge.mqtt_autostart", 1]]}'
+
+{'changes': [['mqtt_bridge.mqtt_autostart', 1]], 'status': 200, 'msg': ''}
+```
+
+
+**Execute Config command / Set Multiple Parameters with a single call:**
+
+```bash
+commlib-cli --host localhost --port 1883 --btype mqtt rpcc 'hbot/testbot/config' '{"params": [["mqtt_bridge.mqtt_autostart", 1], ["mqtt_bridge.mqtt_ssl", 1]]}'
+
+{'changes': [['mqtt_bridge.mqtt_autostart', 1], ['mqtt_bridge.mqtt_ssl', 1]], 'status': 200, 'msg': ''}
 ```
 
 **Execute Import command:**
 
 ```bash
 commlib-cli --host localhost --port 1883 --btype mqtt rpcc 'hbot/testbot/import' '{"strategy": "conf_liquidity_mining_1"}'
+
+{'status': 200, 'msg': ''}
 ```
 
-**Execute Balance-Limit command:**
+**Execute History command:**
 
 ```bash
-commlib-cli --host localhost --port 1883 --btype mqtt rpcc 'hbot/testbot/balance_limit' '{"exchange": "kucoin", "asset": "USDT", "amount": 100}'
+commlib-cli --host localhost --port 1883 --btype mqtt rpcc 'hbot/testbot/history' '{}'
+
+{'status': 200, 'msg': '', 'trades': []}
+```
+
+**Execute Balance Limit/Paper commands:**
+
+```bash
+commlib-cli --host localhost --port 1883 --btype mqtt rpcc 'hbot/testbot/balance/limit' '{"exchange": "kucoin", "asset": "USDT", "amount": 100}
+
+{'status': 200, 'msg': '', 'data': None}
+
+commlib-cli --host localhost --port 1883 --btype mqtt rpcc 'hbot/testbot/balance/paper' '{"asset": "USDT", "amount": 100}'
+
+{'status': 200, 'msg': '', 'data': None}
 ```
