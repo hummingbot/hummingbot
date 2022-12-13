@@ -1,4 +1,5 @@
 from decimal import Decimal
+
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 s_decimal_nan = Decimal("NaN")
@@ -56,7 +57,9 @@ class ArbProposal:
         """
         buy_price = self.spot_side.order_price if self.spot_side.is_buy else self.perp_side.order_price
         sell_price = self.spot_side.order_price if not self.spot_side.is_buy else self.perp_side.order_price
-        return (sell_price - buy_price) / buy_price
+        if sell_price and buy_price:
+            return (sell_price - buy_price) / buy_price
+        return s_decimal_0
 
     def __repr__(self):
         return f"Spot: {self.spot_side}\nPerpetual: {self.perp_side}\nOrder amount: {self.order_amount}\n" \
