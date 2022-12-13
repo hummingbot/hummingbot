@@ -5,7 +5,6 @@ import { publicKey } from './cosmos.validators.test';
 import * as getTransactionData from './fixtures/getTransaction.json';
 import { BigNumber } from 'ethers';
 import { Cosmos } from '../../../src/chains/cosmos/cosmos';
-import { CosmosConfig } from '../../../src/chains/cosmos/cosmos.config';
 const { decodeTxRaw } = require('@cosmjs/proto-signing');
 
 let cosmos: Cosmos;
@@ -13,7 +12,7 @@ let cosmos: Cosmos;
 const tokens = ['ATOM', 'AXS'];
 
 beforeAll(async () => {
-  cosmos = Cosmos.getInstance('mainnet');
+  cosmos = Cosmos.getInstance('testnet');
   await cosmos.init();
 });
 
@@ -43,6 +42,7 @@ const patchGetWallet = () => {
   patch(cosmos, 'getWallet', () => {
     return {
       address: publicKey,
+      prefix: 'cosmos',
     };
   });
 };
@@ -54,12 +54,10 @@ describe('POST /cosmos/balances', () => {
 
     await request(gatewayApp)
       .post(`/cosmos/balances`)
-      .send({ address: publicKey, tokenSymbols: tokens })
+      .send({ address: publicKey, tokenSymbols: tokens, network: cosmos.chain })
       .expect('Content-Type', /json/)
       .expect(200)
-      .expect((res) =>
-        expect(res.body.network).toBe(CosmosConfig.config.network.name)
-      )
+      .expect((res) => expect(res.body.network).toBe(cosmos.chain))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.latency).toBeNumber())
       .expect((res) =>
@@ -95,7 +93,7 @@ const patchGetTransaction = () => {
 };
 
 const txHash =
-  '43785B183B154C3701CD62C07187CBFBE0A938B27D032094FBE9F9FA288BC6ED'; // noqa: mock
+  'F499E2C489FAF5C8E575650666EE8934963DF15E7850E710179BB4C00713C190'; // noqa: mock
 
 describe('POST /cosmos/poll', () => {
   it('should return 200', async () => {
@@ -106,12 +104,11 @@ describe('POST /cosmos/poll', () => {
       .post(`/cosmos/poll`)
       .send({
         txHash,
+        network: cosmos.chain,
       })
       .expect('Content-Type', /json/)
+      .expect((res) => expect(res.body.network).toBe(cosmos.chain))
       .expect(200)
-      .expect((res) =>
-        expect(res.body.network).toBe(CosmosConfig.config.network.name)
-      )
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.currentBlock).toBe(CurrentBlockNumber))
       .expect((res) => expect(res.body.txHash).toBe(txHash))
