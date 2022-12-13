@@ -6,7 +6,7 @@ import time
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from logging import Handler, LogRecord
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Tuple
 
 # from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.connector.connector_base import ConnectorBase
@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
     from hummingbot.core.event.event_listener import EventListener
 
-from commlib.msg import PubSubMessage, RPCMessage
 from commlib.node import Node
 from commlib.transports.mqtt import ConnectionParameters as MQTTConnectionParameters
 
@@ -24,114 +23,26 @@ from hummingbot.core.event import events
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.pubsub import PubSub
 from hummingbot.notifier.notifier_base import NotifierBase
+from hummingbot.remote_iface.messages import (
+    MQTT_STATUS_CODE,
+    BalanceLimitCommandMessage,
+    BalancePaperCommandMessage,
+    ConfigCommandMessage,
+    EventMessage,
+    HistoryCommandMessage,
+    ImportCommandMessage,
+    LogMessage,
+    NotifyMessage,
+    StartCommandMessage,
+    StatusCommandMessage,
+    StopCommandMessage,
+)
 
 mqtts_logger: HummingbotLogger = None
 
 
 def get_timestamp(days_ago: float = 0.) -> float:
     return time.time() - (60. * 60. * 24. * days_ago)
-
-
-class MQTT_STATUS_CODE:
-    ERROR: int = 400
-    SUCCESS: int = 200
-
-
-class NotifyMessage(PubSubMessage):
-    seq: Optional[int] = 0
-    timestamp: Optional[int] = -1
-    msg: Optional[str] = ''
-
-
-class EventMessage(PubSubMessage):
-    timestamp: Optional[int] = -1
-    type: Optional[str] = 'Unknown'
-    data: Optional[dict] = {}
-
-
-class StartCommandMessage(RPCMessage):
-    class Request(RPCMessage.Request):
-        log_level: Optional[str] = None
-        restore: Optional[bool] = False
-        script: Optional[str] = None
-        is_quickstart: Optional[bool] = False
-
-    class Response(RPCMessage.Response):
-        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
-
-
-class StopCommandMessage(RPCMessage):
-    class Request(RPCMessage.Request):
-        skip_order_cancellation: Optional[bool] = False
-
-    class Response(RPCMessage.Response):
-        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
-
-
-class ConfigCommandMessage(RPCMessage):
-    class Request(RPCMessage.Request):
-        params: Optional[List[Tuple[str, Any]]] = []
-
-    class Response(RPCMessage.Response):
-        changes: Optional[List[Tuple[str, Any]]] = []
-        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
-
-
-class ImportCommandMessage(RPCMessage):
-    class Request(RPCMessage.Request):
-        strategy: str
-
-    class Response(RPCMessage.Response):
-        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
-
-
-class StatusCommandMessage(RPCMessage):
-    class Request(RPCMessage.Request):
-        pass
-
-    class Response(RPCMessage.Response):
-        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
-        data: Optional[str] = ''
-
-
-class HistoryCommandMessage(RPCMessage):
-    class Request(RPCMessage.Request):
-        days: Optional[float] = 0
-        verbose: Optional[bool] = False
-        precision: Optional[int] = None
-
-    class Response(RPCMessage.Response):
-        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
-        trades: Optional[List[Any]] = []
-
-
-class BalanceLimitCommandMessage(RPCMessage):
-    class Request(RPCMessage.Request):
-        exchange: str
-        asset: str
-        amount: float
-
-    class Response(RPCMessage.Response):
-        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
-        data: Optional[str] = ''
-
-
-class BalancePaperCommandMessage(RPCMessage):
-    class Request(RPCMessage.Request):
-        asset: str
-        amount: float
-
-    class Response(RPCMessage.Response):
-        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
-        data: Optional[str] = ''
 
 
 class MQTTCommands:
@@ -527,14 +438,6 @@ class MQTTGateway(Node):
             ssl=ssl
         )
         return conn_params
-
-
-class LogMessage(PubSubMessage):
-    timestamp: float = 0.0
-    msg: str = ''
-    level_no: int = 0
-    level_name: str = ''
-    logger_name: str = ''
 
 
 class MQTTLogHandler(Handler):
