@@ -78,23 +78,39 @@ Below is the list of bridged publishing interfaces among with their properties:
 The MQTT feature is fully configured via global parameters (`client_config`).
 
 ```
-mqtt_bridge
-∟ mqtt_host              | localhost
-∟ mqtt_port              | 1883
-∟ mqtt_username          | 
-∟ mqtt_password          |
-∟ mqtt_ssl               | False
-∟ mqtt_logger            | True
-∟ mqtt_notifier          | True
-∟ mqtt_commands          | True
-∟ mqtt_events            | True
-∟ mqtt_autostart         | False
+  Global Configurations:                                  
+      +--------------------------+----------------------+
+      | Key                      | Value                |
+      |--------------------------+----------------------|
+      | instance_id              | testbot              |
+        ...
+      | mqtt_bridge              |                      |
+      | ∟ mqtt_host              | localhost            |
+      | ∟ mqtt_port              | 1883                 |
+      | ∟ mqtt_username          |                      |
+      | ∟ mqtt_password          |                      |
+      | ∟ mqtt_ssl               | False                |
+      | ∟ mqtt_logger            | True                 |
+      | ∟ mqtt_notifier          | True                 |
+      | ∟ mqtt_commands          | True                 |
+      | ∟ mqtt_events            | True                 |
+      | ∟ mqtt_autostart         | False                |
 ```
 
 Use the `mqtt_start` command from the client TUI to initiate MQTT bridge.
 Alternatively, you can use the `mqtt_autostart` config parameter to autostart
 MQTT connections on startup.
 
+Finally, `Bot ID` can be set via the `instance_id` global configuration parameter. If left empty, a random UID is generated and used for each bot
+deployment.
+
+```
+  Global Configurations:                                  
+      +--------------------------+----------------------+
+      | Key                      | Value                |
+      |--------------------------+----------------------|
+      | instance_id              | testbot              |
+```
 
 ## Use a private broker deployment
 
