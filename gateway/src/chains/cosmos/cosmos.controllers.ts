@@ -11,7 +11,6 @@ import {
   TOKEN_NOT_SUPPORTED_ERROR_CODE,
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
 } from '../../services/error-handler';
-import { CosmosConfig } from './cosmos.config';
 
 const { decodeTxRaw } = require('@cosmjs/proto-signing');
 
@@ -21,7 +20,7 @@ export async function balances(
 ): Promise<CosmosBalanceResponse | string> {
   const initTime = Date.now();
 
-  const wallet = await cosmosish.getWallet(req.address);
+  const wallet = await cosmosish.getWallet(req.address, 'cosmos');
 
   const { tokenSymbols } = req;
 
@@ -76,7 +75,7 @@ export async function poll(
   const currentBlock = await cosmos.getCurrentBlockNumber();
 
   return {
-    network: CosmosConfig.config.network.name,
+    network: cosmos.chain,
     timestamp: initTime,
     txHash: req.txHash,
     currentBlock,
