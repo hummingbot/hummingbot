@@ -6,7 +6,7 @@ import time
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from logging import Handler, LogRecord
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 # from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.connector.connector_base import ConnectorBase
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
     from hummingbot.core.event.event_listener import EventListener
 
-from commlib.msg import PubSubMessage
+from commlib.msg import PubSubMessage, RPCMessage
 from commlib.node import Node
 from commlib.transports.mqtt import ConnectionParameters as MQTTConnectionParameters
 
@@ -32,27 +32,117 @@ def get_timestamp(days_ago: float = 0.) -> float:
     return time.time() - (60. * 60. * 24. * days_ago)
 
 
+class MQTT_STATUS_CODE:
+    ERROR: int = 400
+    SUCCESS: int = 200
+
+
 class NotifyMessage(PubSubMessage):
-    seq: int = 0
-    timestamp: int = -1
-    msg: str = ''
+    seq: Optional[int] = 0
+    timestamp: Optional[int] = -1
+    msg: Optional[str] = ''
 
 
 class EventMessage(PubSubMessage):
-    timestamp: int = -1
-    type: str = 'Unknown'
-    data: dict = {}
+    timestamp: Optional[int] = -1
+    type: Optional[str] = 'Unknown'
+    data: Optional[dict] = {}
+
+
+class StartCommandMessage(RPCMessage):
+    class Request(RPCMessage.Request):
+        log_level: Optional[str] = None
+        restore: Optional[bool] = False
+        script: Optional[str] = None
+        is_quickstart: Optional[bool] = False
+
+    class Response(RPCMessage.Response):
+        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
+        msg: Optional[str] = ''
+
+
+class StopCommandMessage(RPCMessage):
+    class Request(RPCMessage.Request):
+        skip_order_cancellation: Optional[bool] = False
+
+    class Response(RPCMessage.Response):
+        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
+        msg: Optional[str] = ''
+
+
+class ConfigCommandMessage(RPCMessage):
+    class Request(RPCMessage.Request):
+        params: Optional[List[Tuple[str, Any]]] = []
+
+    class Response(RPCMessage.Response):
+        changes: Optional[List[Tuple[str, Any]]] = []
+        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
+        msg: Optional[str] = ''
+
+
+class ImportCommandMessage(RPCMessage):
+    class Request(RPCMessage.Request):
+        strategy: str
+
+    class Response(RPCMessage.Response):
+        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
+        msg: Optional[str] = ''
+
+
+class StatusCommandMessage(RPCMessage):
+    class Request(RPCMessage.Request):
+        pass
+
+    class Response(RPCMessage.Response):
+        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
+        msg: Optional[str] = ''
+        data: Optional[str] = ''
+
+
+class HistoryCommandMessage(RPCMessage):
+    class Request(RPCMessage.Request):
+        days: Optional[float] = 0
+        verbose: Optional[bool] = False
+        precision: Optional[int] = None
+
+    class Response(RPCMessage.Response):
+        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
+        msg: Optional[str] = ''
+        trades: Optional[List[Any]] = []
+
+
+class BalanceLimitCommandMessage(RPCMessage):
+    class Request(RPCMessage.Request):
+        exchange: str
+        asset: str
+        amount: float
+
+    class Response(RPCMessage.Response):
+        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
+        msg: Optional[str] = ''
+        data: Optional[str] = ''
+
+
+class BalancePaperCommandMessage(RPCMessage):
+    class Request(RPCMessage.Request):
+        asset: str
+        amount: float
+
+    class Response(RPCMessage.Response):
+        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
+        msg: Optional[str] = ''
+        data: Optional[str] = ''
 
 
 class MQTTCommands:
     START_URI = 'hbot/$UID/start'
     STOP_URI = 'hbot/$UID/stop'
-    RESTART_URI = 'hbot/$UID/restart'
     CONFIG_URI = 'hbot/$UID/config'
     IMPORT_URI = 'hbot/$UID/import'
     STATUS_URI = 'hbot/$UID/status'
     HISTORY_URI = 'hbot/$UID/history'
-    BALANCE_LIMIT_URI = 'hbot/$UID/balance_limit'
+    BALANCE_LIMIT_URI = 'hbot/$UID/balance/limit'
+    BALANCE_PAPER_URI = 'hbot/$UID/balance/paper'
 
     def __init__(self,
                  hb_app: "HummingbotApplication",
@@ -63,134 +153,157 @@ class MQTTCommands:
 
         self.START_URI = self.START_URI.replace('$UID', hb_app.uid)
         self.STOP_URI = self.STOP_URI.replace('$UID', hb_app.uid)
-        self.RESTART_URI = self.RESTART_URI.replace('$UID', hb_app.uid)
         self.CONFIG_URI = self.CONFIG_URI.replace('$UID', hb_app.uid)
         self.IMPORT_URI = self.IMPORT_URI.replace('$UID', hb_app.uid)
         self.STATUS_URI = self.STATUS_URI.replace('$UID', hb_app.uid)
         self.HISTORY_URI = self.HISTORY_URI.replace('$UID', hb_app.uid)
         self.BALANCE_LIMIT_URI = self.BALANCE_LIMIT_URI.replace('$UID', hb_app.uid)
+        self.BALANCE_PAPER_URI = self.BALANCE_PAPER_URI.replace('$UID', hb_app.uid)
 
         self._init_commands()
 
     def _init_commands(self):
         self.node.create_rpc(
             rpc_name=self.START_URI,
+            msg_type=StartCommandMessage,
             on_request=self._on_cmd_start
         )
         self.node.create_rpc(
             rpc_name=self.STOP_URI,
+            msg_type=StopCommandMessage,
             on_request=self._on_cmd_stop
         )
         self.node.create_rpc(
-            rpc_name=self.RESTART_URI,
-            on_request=self._on_cmd_restart
-        )
-        self.node.create_rpc(
             rpc_name=self.CONFIG_URI,
+            msg_type=ConfigCommandMessage,
             on_request=self._on_cmd_config
         )
         self.node.create_rpc(
             rpc_name=self.IMPORT_URI,
+            msg_type=ImportCommandMessage,
             on_request=self._on_cmd_import
         )
         self.node.create_rpc(
             rpc_name=self.STATUS_URI,
+            msg_type=StatusCommandMessage,
             on_request=self._on_cmd_status
         )
         self.node.create_rpc(
             rpc_name=self.HISTORY_URI,
+            msg_type=HistoryCommandMessage,
             on_request=self._on_cmd_history
         )
         self.node.create_rpc(
             rpc_name=self.BALANCE_LIMIT_URI,
-            on_request=self._on_cmd_balancelimit
+            msg_type=BalanceLimitCommandMessage,
+            on_request=self._on_cmd_balance_limit
+        )
+        self.node.create_rpc(
+            rpc_name=self.BALANCE_PAPER_URI,
+            msg_type=BalancePaperCommandMessage,
+            on_request=self._on_cmd_balance_paper
         )
 
-    def _on_cmd_start(self, msg):
-        self._hb_app.start()
-        return {}
-
-    def _on_cmd_stop(self, msg):
-        self._hb_app.stop()
-        return {}
-
-    def _on_cmd_restart(self, msg):
-        self._hb_app.restart()
-        return {}
-
-    def _on_cmd_config(self, msg):
-        if len(msg) == 0:
-            self._hb_app.config()
-        else:
-            for key, val in msg.items():
-                if key in self._hb_app.config_able_keys():
-                    self._hb_app.config(key, val)
-        response = self._hb_app.get_config()
+    def _on_cmd_start(self, msg: StartCommandMessage.Request):
+        response = StartCommandMessage.Response()
+        try:
+            self._hb_app.start(
+                log_level=msg.log_level,
+                restore=msg.restore,
+                script=msg.script,
+                is_quickstart=msg.is_quickstart
+            )
+        except Exception as e:
+            response.status = MQTT_STATUS_CODE.ERROR
+            response.msg = str(e)
         return response
 
-    def _on_cmd_import(self, msg):
-        _response = {
-            'status': 200,
-            'msg': ''
-        }
-        strategy_name = msg.get("strategy")
+    def _on_cmd_stop(self, msg: StopCommandMessage.Request):
+        response = StopCommandMessage.Response()
+        try:
+            self._hb_app.stop(
+                skip_order_cancellation=msg.skip_order_cancellation
+            )
+        except Exception as e:
+            response.status = MQTT_STATUS_CODE.ERROR
+            response.msg = str(e)
+        return response
+
+    def _on_cmd_config(self, msg: ConfigCommandMessage.Request):
+        response = ConfigCommandMessage.Response()
+        try:
+            if len(msg.params) == 0:
+                self._hb_app.config()
+            else:
+                for param in msg.params:
+                    if param[0] in self._hb_app.configurable_keys():
+                        self._hb_app.config(param[0], param[1])
+                        response.changes.append((param[0], param[1]))
+        except Exception as e:
+            response.status = MQTT_STATUS_CODE.ERROR
+            response.msg = str(e)
+        return response
+
+    def _on_cmd_import(self, msg: ImportCommandMessage.Request):
+        response = ImportCommandMessage.Response()
+        strategy_name = msg.strategy
         if strategy_name is not None:
             strategy_file_name = f'{strategy_name}.yml'
             try:
                 self._hb_app.import_command(strategy_file_name)
             except Exception as e:
                 self._hb_app.notify(str(e))
-                _response['status'] = 400
-                _response['msg'] = str(e)
-        return _response
+                response.status = MQTT_STATUS_CODE.ERROR
+                response.msg = str(e)
+        return response
 
-    def _on_cmd_status(self, msg):
-        _response = {
-            'status': 200,
-            'msg': '',
-            'data': {}
-        }
+    def _on_cmd_status(self, msg: StatusCommandMessage.Request):
+        response = StatusCommandMessage.Response()
         try:
             _status = asyncio.run(self._hb_app.strategy_status()).strip()
-            _response['data'] = _status
+            response.data = _status
         except Exception as e:
-            _response['status'] = 400
-            _response['msg'] = str(e)
-        return _response
+            response.status = MQTT_STATUS_CODE.ERROR
+            response.msg = str(e)
+        return response
 
-    def _on_cmd_history(self, msg):
-        _response = {
-            'status': 200,
-            'msg': '',
-            'trades': []
-        }
+    def _on_cmd_history(self, msg: HistoryCommandMessage.Request):
+        response = HistoryCommandMessage.Response()
         try:
-            _days = msg.get('days', 0)
-            _verbose = msg.get('verbose')
-            _precision = msg.get('precision')
-            self._hb_app.history(_days, _verbose, _precision)
-            _trades = self._hb_app.get_history_trades(_days)
-            _response['trades'] = _trades.to_dict()
+            self._hb_app.history(msg.days, msg.verbose, msg.precision)
+            trades = self._hb_app.get_history_trades(msg.days)
+            if trades:
+                response.trades = trades.all()
         except Exception as e:
-            _response['status'] = 400
-            _response['msg'] = str(e)
-        return _response
+            response.status = MQTT_STATUS_CODE.ERROR
+            response.msg = str(e)
+        return response
 
-    def _on_cmd_balancelimit(self, msg):
-        _response = {
-            'status': 200,
-            'msg': ''
-        }
+    def _on_cmd_balance_limit(self, msg: BalanceLimitCommandMessage.Request):
+        response = BalanceLimitCommandMessage.Response()
         try:
-            _exchange = msg.get("exchange")
-            _asset = msg.get("asset")
-            _amount = msg.get("amount")
-            _response['msg'] = self._hb_app.balance('limit', [_exchange, _asset,
-                                                              _amount])
+            data = self._hb_app.balance(
+                'limit',
+                [msg.exchange, msg.asset, msg.amount]
+            )
+            response.data = data
         except Exception as e:
-            _response['msg'] = str(e)
-            _response['status'] = 400
-        return _response
+            response.status = MQTT_STATUS_CODE.ERROR
+            response.msg = str(e)
+        return response
+
+    def _on_cmd_balance_paper(self, msg: BalancePaperCommandMessage.Request):
+        response = BalancePaperCommandMessage.Response()
+        try:
+            data = self._hb_app.balance(
+                'paper',
+                [msg.asset, msg.amount]
+            )
+            response.data = data
+        except Exception as e:
+            response.status = MQTT_STATUS_CODE.ERROR
+            response.msg = str(e)
+        return response
 
     def _on_get_market_data(self, msg):
         _response = {
