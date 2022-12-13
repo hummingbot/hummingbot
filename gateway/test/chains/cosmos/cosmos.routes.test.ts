@@ -74,7 +74,11 @@ describe('POST /cosmos/balances', () => {
 
     await request(gatewayApp)
       .post(`/cosmos/balances`)
-      .send({ address: publicKey, tokenSymbols: ['AXSS'] })
+      .send({
+        address: publicKey,
+        tokenSymbols: ['AXSS'],
+        network: cosmos.chain,
+      })
       .expect(500);
   });
 
