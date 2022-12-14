@@ -1,4 +1,5 @@
 from decimal import Decimal
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -16,7 +17,7 @@ class XEMining(ScriptStrategyBase):
     taker_exchange = "gate_io_paper_trade"
     taker_pair = "FRONT-USDT"
 
-    order_amount = 50                  # amount for each order
+    order_amount = 250                  # amount for each order
     spread_bps = 4                    # bot places maker orders at this spread to taker price
     min_spread_bps = 0                  # bot refreshes order if spread is lower than min-spread
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
@@ -33,6 +34,17 @@ class XEMining(ScriptStrategyBase):
     last_midprices = []
 
     def on_tick(self):
+
+        base_path = Path(__file__).parent
+        file_path = (base_path / "../data/trades_XEMi.csv").resolve()
+        # with open(file_path) as f:
+        #     test = [line for line in csv.reader(f)]
+        #     self.logger().info(f"Test: {test}")
+
+        # read csv file
+        df = pd.read_csv(file_path)
+        self.logger().info(f"Dataframe: {df}")
+
         if self.price_timestamp <= self.current_timestamp:
             orderBook = self.connectors[self.maker_exchange].get_order_book(self.maker_pair)
             # print snapshot of orderBook
@@ -155,7 +167,7 @@ class XEMining(ScriptStrategyBase):
             self.logger().info(f"Filled maker buy order with price: {event.price}")
             sell_spread_bps = (taker_sell_result.result_price - event.price) / mid_price * 10000
             self.logger().info(f"Sending taker sell order at price: {taker_sell_result.result_price} spread: {int(sell_spread_bps)} bps")
-            sell_order = OrderCandidate(trading_pair=self.taker_pair, is_maker=False, order_type=OrderType.MARKET, order_side=TradeType.SELL, amount=Decimal(event.amount), price=sell_price_with_slippage)
+            sell_order = OrderCandidate(trading_pair=self.taker_pair, is_maker=False, order_type=OrderType.LIMIT, order_side=TradeType.SELL, amount=Decimal(event.amount), price=sell_price_with_slippage)
             sell_order_adjusted = self.connectors[self.taker_exchange].budget_checker.adjust_candidate(sell_order, all_or_none=False)
             self.sell(self.taker_exchange, self.taker_pair, sell_order_adjusted.amount, sell_order_adjusted.order_type, sell_order_adjusted.price)
             self.buy_order_placed = False
@@ -166,7 +178,7 @@ class XEMining(ScriptStrategyBase):
                 buy_spread_bps = (event.price - taker_buy_result.result_price) / mid_price * 10000
                 self.logger().info(f"Filled maker sell order at price: {event.price}")
                 self.logger().info(f"Sending taker buy order: {taker_buy_result.result_price} spread: {int(buy_spread_bps)}")
-                buy_order = OrderCandidate(trading_pair=self.taker_pair, is_maker=False, order_type=OrderType.MARKET, order_side=TradeType.BUY, amount=Decimal(event.amount), price=buy_price_with_slippage)
+                buy_order = OrderCandidate(trading_pair=self.taker_pair, is_maker=False, order_type=OrderType.LIMIT, order_side=TradeType.BUY, amount=Decimal(event.amount), price=buy_price_with_slippage)
                 buy_order_adjusted = self.connectors[self.taker_exchange].budget_checker.adjust_candidate(buy_order, all_or_none=False)
                 self.buy(self.taker_exchange, self.taker_pair, buy_order_adjusted.amount, buy_order_adjusted.order_type, buy_order_adjusted.price)
                 self.sell_order_placed = False
