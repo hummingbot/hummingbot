@@ -48,44 +48,45 @@ class SimpleXEMM(ScriptStrategyBase):
             self.logger().info(f"OrderBook: {orderBook}")
             # ask_entries
             ask_entries = orderBook.ask_entries()
+            askVol = 0
+            askPriceTimesVol = 0
             for entry in ask_entries:
-                self.logger().info(f"Ask Entry: {entry}")
-                self.logger().info(f"Ask Entry price: {entry.price}")
-                self.logger().info(f"Ask Entry amount: {entry.amount}")
-                ask_amt = entry.amount
-                weighted_ask = entry.price * entry.amount
+                # self.logger().info(f"Ask Entry: {entry}")
+                # self.logger().info(f"Ask Entry price: {entry.price}")
+                # self.logger().info(f"Ask Entry amount: {entry.amount}")
+                askVol += entry.amount
+                askPriceTimesVol += entry.price * entry.amount
 
             # bid_entries
             bid_entries = orderBook.bid_entries()
+            bidVol = 0
+            bidPriceTimesVol = 0
             for entry in bid_entries:
-                self.logger().info(f"Bid Entry: {entry}")
-                self.logger().info(f"Bid Entry price: {entry.price}")
-                self.logger().info(f"Bid Entry amount: {entry.amount}")
-                bid_amt = entry.amount
-                weighted_bid = entry.price * entry.amount
+                # self.logger().info(f"Bid Entry: {entry}")
+                # self.logger().info(f"Bid Entry price: {entry.price}")
+                # self.logger().info(f"Bid Entry amount: {entry.amount}")
+                bidVol += entry.amount
+                bidPriceTimesVol += entry.price * entry.amount
 
             # calculate midprice
-            p = (weighted_ask + weighted_bid) / (ask_amt + bid_amt)
+            p = (askPriceTimesVol + bidPriceTimesVol) / (askVol + bidVol)
             self.last_midprices.append(p)
-            self.price_timestamp = self.current_timestamp + 3
+            self.price_timestamp = self.current_timestamp + 600
 
             # loop through midprices to get midprice
             for i in range(0, len(self.last_midprices)):
-                self.logger().info(f"Midprice: {self.last_midprices[i]}")
+                self.logger().info(f"Midprice: {self.last_midprices[i]} for {self.maker_pair} on {self.maker_exchange}")
 
             vwap = self.connectors[self.maker_exchange].get_vwap_for_volume(self.maker_pair, is_buy=True, volume = 10)
-            query_price = vwap.query_price
-            query_volume = vwap.query_volume
             result_price = vwap.result_price
             result_volume = vwap.result_volume
             self.logger().info(f"VWAP: {result_price} for {result_volume} {self.maker_pair}")
-            self.logger().info(f"VWAP: {query_price} for {query_volume} {self.maker_pair}")
 
         # Calculate volatility of last 3 midprices
-        if len(self.last_midprices) > 3:
+        if len(self.last_midprices) >= 30:
             self.last_midprices.pop(0)
-            volatility = np.std(self.last_midprices)
-            self.logger().info(f"Volatility: {volatility}")
+        volatility = np.std(self.last_midprices)
+        self.logger().info(f"Volatility: {volatility}")
 
         if self.create_timestamp <= self.current_timestamp:
             taker_buy_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, True, self.order_amount)
