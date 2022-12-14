@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+import numpy as np
 import pandas as pd
 
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -24,8 +25,8 @@ class SimpleXEMM(ScriptStrategyBase):
     taker_exchange = "gate_io_paper_trade"
     taker_pair = "FRONT-USDT"
 
-    order_amount = 0.1                  # amount for each order
-    spread_bps = 10                     # bot places maker orders at this spread to taker price
+    order_amount = 10                  # amount for each order
+    spread_bps = 10                    # bot places maker orders at this spread to taker price
     min_spread_bps = 0                  # bot refreshes order if spread is lower than min-spread
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
     max_order_age = 120                 # bot refreshes orders after this age
@@ -36,8 +37,56 @@ class SimpleXEMM(ScriptStrategyBase):
     sell_order_placed = False
 
     create_timestamp = 0
+    price_timestamp = 0
+
+    last_midprices = []
 
     def on_tick(self):
+        if self.price_timestamp <= self.current_timestamp:
+            orderBook = self.connectors[self.maker_exchange].get_order_book(self.maker_pair)
+            # print snapshot of orderBook
+            self.logger().info(f"OrderBook: {orderBook}")
+            # ask_entries
+            ask_entries = orderBook.ask_entries()
+            for entry in ask_entries:
+                self.logger().info(f"Ask Entry: {entry}")
+                self.logger().info(f"Ask Entry price: {entry.price}")
+                self.logger().info(f"Ask Entry amount: {entry.amount}")
+                ask_amt = entry.amount
+                weighted_ask = entry.price * entry.amount
+
+            # bid_entries
+            bid_entries = orderBook.bid_entries()
+            for entry in bid_entries:
+                self.logger().info(f"Bid Entry: {entry}")
+                self.logger().info(f"Bid Entry price: {entry.price}")
+                self.logger().info(f"Bid Entry amount: {entry.amount}")
+                bid_amt = entry.amount
+                weighted_bid = entry.price * entry.amount
+
+            # calculate midprice
+            p = (weighted_ask + weighted_bid) / (ask_amt + bid_amt)
+            self.last_midprices.append(p)
+            self.price_timestamp = self.current_timestamp + 3
+
+            # loop through midprices to get midprice
+            for i in range(0, len(self.last_midprices)):
+                self.logger().info(f"Midprice: {self.last_midprices[i]}")
+
+            vwap = self.connectors[self.maker_exchange].get_vwap_for_volume(self.maker_pair, is_buy=True, volume = 10)
+            query_price = vwap.query_price
+            query_volume = vwap.query_volume
+            result_price = vwap.result_price
+            result_volume = vwap.result_volume
+            self.logger().info(f"VWAP: {result_price} for {result_volume} {self.maker_pair}")
+            self.logger().info(f"VWAP: {query_price} for {query_volume} {self.maker_pair}")
+
+        # Calculate volatility of last 3 midprices
+        if len(self.last_midprices) > 3:
+            self.last_midprices.pop(0)
+            volatility = np.std(self.last_midprices)
+            self.logger().info(f"Volatility: {volatility}")
+
         if self.create_timestamp <= self.current_timestamp:
             taker_buy_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, True, self.order_amount)
             taker_sell_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, False, self.order_amount)
@@ -204,5 +253,8 @@ class SimpleXEMM(ScriptStrategyBase):
             lines.extend(["", "  Active Orders:"] + ["    " + line for line in orders_df.to_string(index=False).split("\n")])
         except ValueError:
             lines.extend(["", "  No active maker orders."])
+
+        # orderBook = self.connectors[self.maker_exchange].get_order_book(self.maker_pair)
+        # lines.extend(["", "  Order Book:"] + ["    " + line for line in orderBook.to_string().split("\n")])
 
         return "\n".join(lines)
