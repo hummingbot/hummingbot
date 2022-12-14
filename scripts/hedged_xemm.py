@@ -71,23 +71,38 @@ class SimpleXEMM(ScriptStrategyBase):
             # calculate midprice
             p = (askPriceTimesVol + bidPriceTimesVol) / (askVol + bidVol)
             self.last_midprices.append(p)
-            self.price_timestamp = self.current_timestamp + 600
+            self.price_timestamp = self.current_timestamp + 60
 
             # loop through midprices to get midprice
             for i in range(0, len(self.last_midprices)):
                 self.logger().info(f"Midprice: {self.last_midprices[i]} for {self.maker_pair} on {self.maker_exchange}")
+
+            volatility = np.std(self.last_midprices)
+            annualized_vol = volatility * 60 * 24 * 365
+            self.logger().info(f"Volatility: {volatility}")
+            self.logger().info(f"Annualized Volatility: {annualized_vol}")
+
+            # adjust spread_bps based on volatility by multiplying spread_bps by volatility
+            if annualized_vol > 5 and annualized_vol < 10:
+                self.spread_bps = 10 + annualized_vol
+            elif annualized_vol >= 10:
+                self.spread_bps = 20
+            else:
+                self.spread_bps = 10
+
+            self.logger().info(f"Adjusted spread_bps: {self.spread_bps}")
 
             vwap = self.connectors[self.maker_exchange].get_vwap_for_volume(self.maker_pair, is_buy=True, volume = 10)
             result_price = vwap.result_price
             result_volume = vwap.result_volume
             self.logger().info(f"VWAP: {result_price} for {result_volume} {self.maker_pair}")
 
-        # Calculate volatility of last 3 midprices
+        # Calculate volatility of last 30 midprices
         if len(self.last_midprices) >= 30:
             self.last_midprices.pop(0)
-        volatility = np.std(self.last_midprices)
-        self.logger().info(f"Volatility: {volatility}")
 
+        self.logger().info(f"create timestamp {self.create_timestamp}")
+        self.logger().info(f"current timestamp {self.current_timestamp}")
         if self.create_timestamp <= self.current_timestamp:
             taker_buy_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, True, self.order_amount)
             taker_sell_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, False, self.order_amount)
@@ -152,7 +167,7 @@ class SimpleXEMM(ScriptStrategyBase):
             self.logger().info(f"Filled maker buy order with price: {event.price}")
             sell_spread_bps = (taker_sell_result.result_price - event.price) / mid_price * 10000
             self.logger().info(f"Sending taker sell order at price: {taker_sell_result.result_price} spread: {int(sell_spread_bps)} bps")
-            sell_order = OrderCandidate(trading_pair=self.taker_pair, is_maker=False, order_type=OrderType.LIMIT, order_side=TradeType.SELL, amount=Decimal(event.amount), price=sell_price_with_slippage)
+            sell_order = OrderCandidate(trading_pair=self.taker_pair, is_maker=False, order_type=OrderType.MARKET, order_side=TradeType.SELL, amount=Decimal(event.amount), price=sell_price_with_slippage)
             sell_order_adjusted = self.connectors[self.taker_exchange].budget_checker.adjust_candidate(sell_order, all_or_none=False)
             self.sell(self.taker_exchange, self.taker_pair, sell_order_adjusted.amount, sell_order_adjusted.order_type, sell_order_adjusted.price)
             self.buy_order_placed = False
@@ -163,7 +178,7 @@ class SimpleXEMM(ScriptStrategyBase):
                 buy_spread_bps = (event.price - taker_buy_result.result_price) / mid_price * 10000
                 self.logger().info(f"Filled maker sell order at price: {event.price}")
                 self.logger().info(f"Sending taker buy order: {taker_buy_result.result_price} spread: {int(buy_spread_bps)}")
-                buy_order = OrderCandidate(trading_pair=self.taker_pair, is_maker=False, order_type=OrderType.LIMIT, order_side=TradeType.BUY, amount=Decimal(event.amount), price=buy_price_with_slippage)
+                buy_order = OrderCandidate(trading_pair=self.taker_pair, is_maker=False, order_type=OrderType.MARKET, order_side=TradeType.BUY, amount=Decimal(event.amount), price=buy_price_with_slippage)
                 buy_order_adjusted = self.connectors[self.taker_exchange].budget_checker.adjust_candidate(buy_order, all_or_none=False)
                 self.buy(self.taker_exchange, self.taker_pair, buy_order_adjusted.amount, buy_order_adjusted.order_type, buy_order_adjusted.price)
                 self.sell_order_placed = False
