@@ -9,23 +9,14 @@ from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class SimpleXEMM(ScriptStrategyBase):
-    """
-    BotCamp Cohort: Sept 2022
-    Design Template: https://hummingbot-foundation.notion.site/Simple-XEMM-Example-f08cf7546ea94a44b389672fd21bb9ad
-    Video: https://www.loom.com/share/ca08fe7bc3d14ba68ae704305ac78a3a
-    Description:
-    A simplified version of Hummingbot cross-exchange market making strategy, this bot makes a market on
-    the maker pair and hedges any filled trades in the taker pair. If the spread (difference between maker order price
-    and taker hedge price) dips below min_spread, the bot refreshes the order
-    """
+class XEMining(ScriptStrategyBase):
 
     maker_exchange = "kucoin_paper_trade"
     maker_pair = "FRONT-USDT"
     taker_exchange = "gate_io_paper_trade"
     taker_pair = "FRONT-USDT"
 
-    order_amount = 10                  # amount for each order
+    order_amount = 50                  # amount for each order
     spread_bps = 4                    # bot places maker orders at this spread to taker price
     min_spread_bps = 0                  # bot refreshes order if spread is lower than min-spread
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
