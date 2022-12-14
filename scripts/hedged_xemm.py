@@ -26,7 +26,7 @@ class SimpleXEMM(ScriptStrategyBase):
     taker_pair = "FRONT-USDT"
 
     order_amount = 10                  # amount for each order
-    spread_bps = 10                    # bot places maker orders at this spread to taker price
+    spread_bps = 4                    # bot places maker orders at this spread to taker price
     min_spread_bps = 0                  # bot refreshes order if spread is lower than min-spread
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
     max_order_age = 120                 # bot refreshes orders after this age
@@ -71,7 +71,6 @@ class SimpleXEMM(ScriptStrategyBase):
             # calculate midprice
             p = (askPriceTimesVol + bidPriceTimesVol) / (askVol + bidVol)
             self.last_midprices.append(p)
-            self.price_timestamp = self.current_timestamp + 60
 
             # loop through midprices to get midprice
             for i in range(0, len(self.last_midprices)):
@@ -84,61 +83,59 @@ class SimpleXEMM(ScriptStrategyBase):
 
             # adjust spread_bps based on volatility by multiplying spread_bps by volatility
             if annualized_vol > 5 and annualized_vol < 10:
-                self.spread_bps = 10 + annualized_vol
+                self.spread_bps = 4
             elif annualized_vol >= 10:
-                self.spread_bps = 20
+                self.spread_bps = 5
             else:
-                self.spread_bps = 10
+                self.spread_bps = 3
 
             self.logger().info(f"Adjusted spread_bps: {self.spread_bps}")
-
-            vwap = self.connectors[self.maker_exchange].get_vwap_for_volume(self.maker_pair, is_buy=True, volume = 10)
-            result_price = vwap.result_price
-            result_volume = vwap.result_volume
-            self.logger().info(f"VWAP: {result_price} for {result_volume} {self.maker_pair}")
+            self.price_timestamp = self.current_timestamp + 60
+            # vwap = self.connectors[self.maker_exchange].get_vwap_for_volume(self.maker_pair, is_buy=True, volume = 10)
+            # result_price = vwap.result_price
+            # result_volume = vwap.result_volume
+            # self.logger().info(f"VWAP: {result_price} for {result_volume} {self.maker_pair}")
 
         # Calculate volatility of last 30 midprices
         if len(self.last_midprices) >= 30:
             self.last_midprices.pop(0)
 
-        self.logger().info(f"create timestamp {self.create_timestamp}")
-        self.logger().info(f"current timestamp {self.current_timestamp}")
-        if self.create_timestamp <= self.current_timestamp:
-            taker_buy_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, True, self.order_amount)
-            taker_sell_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, False, self.order_amount)
+        # self.logger().info(f"create timestamp {self.create_timestamp}")
+        # self.logger().info(f"current timestamp {self.current_timestamp}")
+        taker_buy_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, True, self.order_amount)
+        taker_sell_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, False, self.order_amount)
 
-            if not self.buy_order_placed:
-                maker_buy_price = taker_sell_result.result_price * Decimal(1 - self.spread_bps / 10000)
-                buy_order_amount = min(self.order_amount, self.buy_hedging_budget())
-                buy_order = OrderCandidate(trading_pair=self.maker_pair, is_maker=True, order_type=OrderType.LIMIT, order_side=TradeType.BUY, amount=Decimal(buy_order_amount), price=maker_buy_price)
-                buy_order_adjusted = self.connectors[self.maker_exchange].budget_checker.adjust_candidate(buy_order, all_or_none=False)
-                self.buy(self.maker_exchange, self.maker_pair, buy_order_adjusted.amount, buy_order_adjusted.order_type, buy_order_adjusted.price)
-                self.buy_order_placed = True
+        if not self.buy_order_placed:
+            maker_buy_price = taker_sell_result.result_price * Decimal(1 - self.spread_bps / 10000)
+            buy_order_amount = min(self.order_amount, self.buy_hedging_budget())
+            buy_order = OrderCandidate(trading_pair=self.maker_pair, is_maker=True, order_type=OrderType.LIMIT, order_side=TradeType.BUY, amount=Decimal(buy_order_amount), price=maker_buy_price)
+            buy_order_adjusted = self.connectors[self.maker_exchange].budget_checker.adjust_candidate(buy_order, all_or_none=False)
+            self.buy(self.maker_exchange, self.maker_pair, buy_order_adjusted.amount, buy_order_adjusted.order_type, buy_order_adjusted.price)
+            self.buy_order_placed = True
 
-            if not self.sell_order_placed:
-                maker_sell_price = taker_buy_result.result_price * Decimal(1 + self.spread_bps / 10000)
-                sell_order_amount = min(self.order_amount, self.sell_hedging_budget())
-                sell_order = OrderCandidate(trading_pair=self.maker_pair, is_maker=True, order_type=OrderType.LIMIT, order_side=TradeType.SELL, amount=Decimal(sell_order_amount), price=maker_sell_price)
-                sell_order_adjusted = self.connectors[self.maker_exchange].budget_checker.adjust_candidate(sell_order, all_or_none=False)
-                self.sell(self.maker_exchange, self.maker_pair, sell_order_adjusted.amount, sell_order_adjusted.order_type, sell_order_adjusted.price)
-                self.sell_order_placed = True
+        if not self.sell_order_placed:
+            maker_sell_price = taker_buy_result.result_price * Decimal(1 + self.spread_bps / 10000)
+            sell_order_amount = min(self.order_amount, self.sell_hedging_budget())
+            sell_order = OrderCandidate(trading_pair=self.maker_pair, is_maker=True, order_type=OrderType.LIMIT, order_side=TradeType.SELL, amount=Decimal(sell_order_amount), price=maker_sell_price)
+            sell_order_adjusted = self.connectors[self.maker_exchange].budget_checker.adjust_candidate(sell_order, all_or_none=False)
+            self.sell(self.maker_exchange, self.maker_pair, sell_order_adjusted.amount, sell_order_adjusted.order_type, sell_order_adjusted.price)
+            self.sell_order_placed = True
 
-            for order in self.get_active_orders(connector_name=self.maker_exchange):
-                cancel_timestamp = order.creation_timestamp / 1000000 + self.max_order_age
-                if order.is_buy:
-                    buy_cancel_threshold = taker_sell_result.result_price * Decimal(1 - self.min_spread_bps / 10000)
-                    if order.price > buy_cancel_threshold or cancel_timestamp < self.current_timestamp:
-                        self.logger().info(f"Cancelling buy order: {order.client_order_id}")
-                        self.cancel(self.maker_exchange, order.trading_pair, order.client_order_id)
-                        self.buy_order_placed = False
-                else:
-                    sell_cancel_threshold = taker_buy_result.result_price * Decimal(1 + self.min_spread_bps / 10000)
-                    if order.price < sell_cancel_threshold or cancel_timestamp < self.current_timestamp:
-                        self.logger().info(f"Cancelling sell order: {order.client_order_id}")
-                        self.cancel(self.maker_exchange, order.trading_pair, order.client_order_id)
-                        self.sell_order_placed = False
-            self.create_timestamp = self.max_order_age + self.current_timestamp
-            return
+        for order in self.get_active_orders(connector_name=self.maker_exchange):
+            cancel_timestamp = order.creation_timestamp / 1000000 + self.max_order_age
+            if order.is_buy:
+                buy_cancel_threshold = taker_sell_result.result_price * Decimal(1 - self.min_spread_bps / 10000)
+                if order.price > buy_cancel_threshold or cancel_timestamp < self.current_timestamp:
+                    self.logger().info(f"Cancelling buy order: {order.client_order_id}")
+                    self.cancel(self.maker_exchange, order.trading_pair, order.client_order_id)
+                    self.buy_order_placed = False
+            else:
+                sell_cancel_threshold = taker_buy_result.result_price * Decimal(1 + self.min_spread_bps / 10000)
+                if order.price < sell_cancel_threshold or cancel_timestamp < self.current_timestamp:
+                    self.logger().info(f"Cancelling sell order: {order.client_order_id}")
+                    self.cancel(self.maker_exchange, order.trading_pair, order.client_order_id)
+                    self.sell_order_placed = False
+        return
 
     def buy_hedging_budget(self) -> Decimal:
         balance = self.connectors[self.taker_exchange].get_available_balance("ETH")
