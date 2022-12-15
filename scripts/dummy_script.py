@@ -61,6 +61,7 @@ class DummyScript(ScriptStrategyBase):
 
         # High liquidity exchange side
             # If spread to low than we need to cancel and replace hedge market order
+            # needs to be adapted based on Fede's feedback.
         for order in self.get_active_orders(connector_name=self.high_liquidity_exchange):
             if OrderType.MARKET:
                 if order.is_buy:
