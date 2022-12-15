@@ -44,7 +44,7 @@ class DummyScript(ScriptStrategyBase):
         # Do we need to refresh orders?
         if self.create_timestamp <= self.current_timestamp:
             self.cancel_all_orders()
-            proposal = self.determine_bid_and_ask_price()
+            proposal = self.create_proposal_based_on_high_liquidity_exchange_price()
             adjusted_proposal = self.adjust_proposal_to_budget(proposal)
             self.place_orders(adjusted_proposal, self.low_liquidity_exchange)
             # Update timestamp
@@ -53,7 +53,7 @@ class DummyScript(ScriptStrategyBase):
         # Are there less than 1 buy or sell order on the exchange?
         elif self.sell_orders_on_low_liquidity_exchange < 1 or self.buy_orders_on_low_liquidity_exchange < 1:
             self.cancel_all_orders()
-            proposal = self.determine_bid_and_ask_price()
+            proposal = self.create_proposal_based_on_high_liquidity_exchange_price()
             adjusted_proposal = self.adjust_proposal_to_budget(proposal)
             self.place_orders(adjusted_proposal, self.low_liquidity_exchange)
             # Update timestamp
@@ -144,7 +144,7 @@ class DummyScript(ScriptStrategyBase):
         self.buy_orders_on_low_liquidity_exchange = 0
         self.sell_orders_on_low_liquidity_exchange = 0
 
-    def determine_bid_and_ask_price(self):
+    def create_proposal_based_on_high_liquidity_exchange_price(self):
         """Determine best ask and bid price by fetching the necessary data from the hedging exchange (=high liquidity exchang)
         , calculate order_amount, then create a buy and sell order-candidate"""
         # Using the logic of xemm example to calculate the buy and sell price on the low liquidity exchange.
