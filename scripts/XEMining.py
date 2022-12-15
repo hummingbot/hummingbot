@@ -43,7 +43,30 @@ class XEMining(ScriptStrategyBase):
 
         # read csv file
         df = pd.read_csv(file_path)
-        self.logger().info(f"Dataframe: {df}")
+        maker_trades = []
+        taker_trades = []
+
+        # get first row of df to get maker_exchange_name
+        maker_exchange_name = df.iloc[0]['market']
+
+        for index, row in df.iterrows():
+            if (row['market'] == maker_exchange_name):
+                maker_trades.append(row)
+            else:
+                taker_trades.append(row)
+
+        trade_profits = []
+
+        for i in range(0, len(maker_trades)):
+            if maker_trades[i]['trade_type'] == 'BUY':
+                profit = float(taker_trades[i]['price']) - float(maker_trades[i]['price'])
+            else:
+                profit = float(maker_trades[i]['price']) - float(taker_trades[i]['price'])
+
+            trade_profits.append(profit)
+
+        average_profit = np.mean(trade_profits)
+        self.logger().info(f"Average Profit: {average_profit}")
 
         if self.price_timestamp <= self.current_timestamp:
             orderBook = self.connectors[self.maker_exchange].get_order_book(self.maker_pair)
