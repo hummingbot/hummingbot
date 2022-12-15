@@ -1,4 +1,4 @@
 {
-    "changeMethods": [],
-    "viewMethods": ["ft_balance_of"]
+  "changeMethods": [],
+  "viewMethods": ["ft_balance_of"]
 }
