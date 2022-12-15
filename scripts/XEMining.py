@@ -265,7 +265,7 @@ class XEMining(ScriptStrategyBase):
         average_profit = np.mean(trade_profits)
         return average_profit
 
-    def calculate_annualized_profitability(self) -> float:
+    def calculate_annualized_volatility(self) -> float:
         orderBook = self.connectors[self.maker_exchange].get_order_book(self.maker_pair)
         # print snapshot of orderBook
         self.logger().info(f"OrderBook: {orderBook}")
