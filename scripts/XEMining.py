@@ -296,8 +296,8 @@ class XEMining(ScriptStrategyBase):
         self.last_midprices.append(p)
 
         # loop through midprices to get midprice
-        for i in range(0, len(self.last_midprices)):
-            self.logger().info(f"Midprice: {self.last_midprices[i]} for {self.maker_pair} on {self.maker_exchange}")
+        # for i in range(0, len(self.last_midprices)):
+        #     self.logger().info(f"Midprice: {self.last_midprices[i]} for {self.maker_pair} on {self.maker_exchange}")
 
         volatility = np.std(self.last_midprices)
         annualized_vol = volatility * 60 * 24 * 365
