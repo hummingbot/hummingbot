@@ -2,10 +2,9 @@ import asyncio
 import gzip
 import json
 import unittest
-
 from typing import Any, Awaitable, Dict
 
-from hummingbot.connector.exchange.huobi.huobi_ws_post_processor import HuobiWSPostProcessor
+from hummingbot.connector.utils import GZipCompressionWSPostProcessor
 from hummingbot.core.web_assistant.connections.data_types import WSResponse
 
 
@@ -22,7 +21,7 @@ class HuobiWSPostProcessorTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
 
-        self.post_processor = HuobiWSPostProcessor()
+        self.post_processor = GZipCompressionWSPostProcessor()
 
     def _compress(self, message: Dict[str, Any]) -> bytes:
         return gzip.compress(json.dumps(message).encode())
