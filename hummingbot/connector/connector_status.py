@@ -30,7 +30,9 @@ connector_status = {
     'dydx_perpetual': 'yellow',
     'ethereum': 'red',
     'eve': 'yellow',
+    'eve_staging': 'yellow',
     'gate_io': 'yellow',
+    'gate_io_perpetual': 'yellow',
     'hitbtc': 'green',
     'huobi': 'green',
     'kraken': 'green',
@@ -38,6 +40,7 @@ connector_status = {
     'kucoin_testnet': 'yellow',
     'k2': 'red',
     'latoken': 'green',
+    'lbank': 'yellow',
     'liquid': 'green',
     'loopring': 'yellow',
     'mexc': 'yellow',
@@ -50,7 +53,8 @@ connector_status = {
     'terra': 'red',
     'uniswap': 'yellow',
     'uniswap_v3': 'yellow',
-    'wazirx': 'yellow'
+    'wazirx': 'yellow',
+    'whitebit': 'yellow'
 }
 
 warning_messages = {

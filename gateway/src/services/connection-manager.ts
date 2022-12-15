@@ -58,8 +58,6 @@ export async function getChain<T>(
   else if (chain === 'binance-smart-chain')
     chainInstance = BinanceSmartChain.getInstance(network);
   else if (chain === 'cronos') chainInstance = Cronos.getInstance(network);
-  else if (chain === 'binance-smart-chain')
-    chainInstance = BinanceSmartChain.getInstance(network);
   else throw new Error('unsupported chain');
 
   if (!chainInstance.ready()) {
