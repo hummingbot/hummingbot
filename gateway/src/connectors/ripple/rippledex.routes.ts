@@ -113,12 +113,6 @@ export namespace RippleDEXRoutes {
     )
   );
 
-  // Sample requesT:
-  // {
-  //   "chain": "ripple",
-  //   "network": "mainnet",
-  //   "tx": "txhex"
-  // }
   router.get(
     '/orders',
     asyncHandler(

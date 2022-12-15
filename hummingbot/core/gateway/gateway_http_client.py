@@ -1074,3 +1074,160 @@ class GatewayHttpClient:
             request["orders"] = market_names
 
         return await self.api_request("post", "clob/settleFunds", request)
+
+    async def ripple_get_balances(
+        self,
+        network: str,
+        address: str,
+        token_symbols: List[str]
+    ) -> Dict[str, Any]:
+        return await self.api_request("get", "ripple/balances", {
+            "network": network,
+            "address": address,
+            "tokenSymbols": token_symbols
+        }, use_body=True)
+
+    # This should be implement in ripple first
+    async def rippledex_get_markets(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        name: str = None,
+        names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if name is not None:
+            request["name"] = name
+
+        if names is not None:
+            request["names"] = names
+
+        return await self.api_request("get", "rippledex/markets", request, use_body=True)
+
+    # This should be implement in ripple first
+    async def rippledex_get_order_books(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        market_name: str = None,
+        market_names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if market_name is not None:
+            request["marketName"] = market_name
+
+        if market_names is not None:
+            request["marketNames"] = market_names
+
+        return await self.api_request("get", "rippledex/orderBooks", request, use_body=True)
+
+    # This should be implement in ripple first
+    async def rippledex_get_tickers(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        market_name: str = None,
+        market_names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if market_name is not None:
+            request["marketName"] = market_name
+
+        if market_names is not None:
+            request["marketNames"] = market_names
+
+        return await self.api_request("get", "rippledex/tickers", request, use_body=True)
+
+    async def rippledex_post_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("post", "rippledex/orders", request)
+
+    # This should be implement in ripple first
+    async def rippledex_delete_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["ownerAddress"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("delete", "rippledex/orders", request)
+
+    # This should be implement in ripple first
+    async def rippledex_get_open_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["ownerAddress"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("get", "rippledex/orders/open", request, use_body=True)

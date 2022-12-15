@@ -78,27 +78,6 @@ export interface Ticker {
   timestamp: number;
 }
 
-// export interface GetOrdersRequest {
-//   ids?: string[];
-//   exchangeIds?: string[];
-//   marketName?: string;
-//   ownerAddress: string;
-// }
-
-// export interface GetOrderResponse {
-//   id?: string;
-//   exchangeId?: string;
-//   marketName: string;
-//   ownerAddress?: string;
-//   price: number;
-//   amount: number;
-//   side: OrderSide;
-//   status?: OrderStatus;
-//   type?: OrderType;
-//   fee?: number;
-//   fillmentTimestamp?: number;
-// }
-
 export type GetOrderBooksRequest =
   | Record<string, never>
   | { marketName: string; limit: number }

@@ -34,8 +34,15 @@ import {
   validateSolanaPollRequest,
 } from '../chains/solana/solana.validators';
 import { Rippleish } from '../chains/ripple/ripple';
-import { validateRippleBalanceRequest } from '../chains/ripple/ripple.validators';
-import { RippleBalanceResponse } from '../chains/ripple/ripple.requests';
+import {
+  validateRippleBalanceRequest,
+  validateRipplePollRequest,
+} from '../chains/ripple/ripple.validators';
+import {
+  RippleBalanceResponse,
+  RipplePollRequest,
+  RipplePollResponse,
+} from '../chains/ripple/ripple.requests';
 
 export const validatePollRequest: RequestValidator = mkRequestValidator([
   validateTxHash,
@@ -126,8 +133,8 @@ export namespace NetworkRoutes {
     '/poll',
     asyncHandler(
       async (
-        req: Request<{}, {}, PollRequest>,
-        res: Response<PollResponse, {}>
+        req: Request<{}, {}, PollRequest | RipplePollRequest>,
+        res: Response<PollResponse | RipplePollResponse, {}>
       ) => {
         if (req.body.chain == 'solana') {
           validateSolanaPollRequest(req.body);
@@ -138,6 +145,15 @@ export namespace NetworkRoutes {
           );
 
           res.status(200).json(await solanaControllers.poll(chain, req.body));
+        } else if (req.body.chain == 'ripple') {
+          validateRipplePollRequest(req.body);
+
+          const chain = await getChain<Rippleish>(
+            req.body.chain,
+            req.body.network
+          );
+
+          res.status(200).json(await rippleControllers.poll(chain, req.body));
         } else {
           validatePollRequest(req.body);
 

@@ -4,6 +4,7 @@ from enum import Enum
 class Chain(Enum):
     SOLANA = ('solana', 'SOL')
     ETHEREUM = ('ethereum', 'ETH')
+    RIPPLE = ('ripple', 'XRP')
 
     def __init__(self, chain: str, native_currency: str):
         self.chain = chain
