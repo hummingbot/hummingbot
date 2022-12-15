@@ -51,7 +51,7 @@ class MovingPriceBand:
         self._price_ceiling = (Decimal("100") + self.price_ceiling_pct) / Decimal("100") * price
         self._set_time = timestamp
         self.logger().info(
-            'moving price band updated: price_floor: %s price_ceiling: %s', self._price_floor, self._price_ceiling)
+            "moving price band updated: price_floor: %s price_ceiling: %s", self._price_floor, self._price_ceiling)
 
     def check_and_update_price_band(self, timestamp: float, price: Decimal) -> None:
         '''
