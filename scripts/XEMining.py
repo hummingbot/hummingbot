@@ -36,8 +36,6 @@ class XEMining(ScriptStrategyBase):
     def on_tick(self):
 
         if self.price_timestamp <= self.current_timestamp:
-            average_profit = self.calculate_average_profitability()
-            self.logger().info(f"Average Profitability: {average_profit}")
             annualized_vol = self.calculate_annualized_volatility()
             self.logger().info(f"Annualized Volatility: {annualized_vol}")
             # adjust spread_bps based on volatility by multiplying spread_bps by volatility
@@ -48,10 +46,12 @@ class XEMining(ScriptStrategyBase):
             else:
                 self.spread_bps = 3
 
+            average_profit = self.calculate_average_profitability()
+            self.logger().info(f"Average Profitability: {average_profit}")
             if average_profit < 0:
-                self.spread_bps -= 1
+                self.spread_bps += 2
             elif average_profit > 0:
-                self.spread_bps += 1
+                self.spread_bps -= 1
 
             self.logger().info(f"Adjusted spread_bps: {self.spread_bps}")
             self.price_timestamp = self.current_timestamp + 60
