@@ -35,48 +35,11 @@ class XEMining(ScriptStrategyBase):
 
     def on_tick(self):
 
-        average_profit = self.calculate_average_profitability()
-        self.logger().info(f"Average Profitability: {average_profit}")
-
         if self.price_timestamp <= self.current_timestamp:
-            orderBook = self.connectors[self.maker_exchange].get_order_book(self.maker_pair)
-            # print snapshot of orderBook
-            self.logger().info(f"OrderBook: {orderBook}")
-            # ask_entries
-            ask_entries = orderBook.ask_entries()
-            askVol = 0
-            askPriceTimesVol = 0
-            for entry in ask_entries:
-                # self.logger().info(f"Ask Entry: {entry}")
-                # self.logger().info(f"Ask Entry price: {entry.price}")
-                # self.logger().info(f"Ask Entry amount: {entry.amount}")
-                askVol += entry.amount
-                askPriceTimesVol += entry.price * entry.amount
-
-            # bid_entries
-            bid_entries = orderBook.bid_entries()
-            bidVol = 0
-            bidPriceTimesVol = 0
-            for entry in bid_entries:
-                # self.logger().info(f"Bid Entry: {entry}")
-                # self.logger().info(f"Bid Entry price: {entry.price}")
-                # self.logger().info(f"Bid Entry amount: {entry.amount}")
-                bidVol += entry.amount
-                bidPriceTimesVol += entry.price * entry.amount
-
-            # calculate midprice
-            p = (askPriceTimesVol + bidPriceTimesVol) / (askVol + bidVol)
-            self.last_midprices.append(p)
-
-            # loop through midprices to get midprice
-            for i in range(0, len(self.last_midprices)):
-                self.logger().info(f"Midprice: {self.last_midprices[i]} for {self.maker_pair} on {self.maker_exchange}")
-
-            volatility = np.std(self.last_midprices)
-            annualized_vol = volatility * 60 * 24 * 365
-            self.logger().info(f"Volatility: {volatility}")
+            average_profit = self.calculate_average_profitability()
+            self.logger().info(f"Average Profitability: {average_profit}")
+            annualized_vol = self.calculate_annualized_volatility()
             self.logger().info(f"Annualized Volatility: {annualized_vol}")
-
             # adjust spread_bps based on volatility by multiplying spread_bps by volatility
             if annualized_vol > 5 and annualized_vol < 10:
                 self.spread_bps = 4
@@ -84,6 +47,11 @@ class XEMining(ScriptStrategyBase):
                 self.spread_bps = 5
             else:
                 self.spread_bps = 3
+
+            if average_profit < 0:
+                self.spread_bps -= 1
+            elif average_profit > 0:
+                self.spread_bps += 1
 
             self.logger().info(f"Adjusted spread_bps: {self.spread_bps}")
             self.price_timestamp = self.current_timestamp + 60
@@ -296,3 +264,42 @@ class XEMining(ScriptStrategyBase):
 
         average_profit = np.mean(trade_profits)
         return average_profit
+
+    def calculate_annualized_profitability(self) -> float:
+        orderBook = self.connectors[self.maker_exchange].get_order_book(self.maker_pair)
+        # print snapshot of orderBook
+        self.logger().info(f"OrderBook: {orderBook}")
+        # ask_entries
+        ask_entries = orderBook.ask_entries()
+        askVol = 0
+        askPriceTimesVol = 0
+        for entry in ask_entries:
+            # self.logger().info(f"Ask Entry: {entry}")
+            # self.logger().info(f"Ask Entry price: {entry.price}")
+            # self.logger().info(f"Ask Entry amount: {entry.amount}")
+            askVol += entry.amount
+            askPriceTimesVol += entry.price * entry.amount
+
+            # bid_entries
+            bid_entries = orderBook.bid_entries()
+            bidVol = 0
+            bidPriceTimesVol = 0
+        for entry in bid_entries:
+            # self.logger().info(f"Bid Entry: {entry}")
+            # self.logger().info(f"Bid Entry price: {entry.price}")
+            # self.logger().info(f"Bid Entry amount: {entry.amount}")
+            bidVol += entry.amount
+            bidPriceTimesVol += entry.price * entry.amount
+
+            # calculate midprice
+        p = (askPriceTimesVol + bidPriceTimesVol) / (askVol + bidVol)
+        self.last_midprices.append(p)
+
+        # loop through midprices to get midprice
+        for i in range(0, len(self.last_midprices)):
+            self.logger().info(f"Midprice: {self.last_midprices[i]} for {self.maker_pair} on {self.maker_exchange}")
+
+        volatility = np.std(self.last_midprices)
+        annualized_vol = volatility * 60 * 24 * 365
+        self.logger().info(f"Volatility: {volatility}")
+        return annualized_vol
