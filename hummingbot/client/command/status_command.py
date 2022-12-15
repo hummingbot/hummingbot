@@ -20,7 +20,7 @@ from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.user.user_balances import UserBalances
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 class StatusCommand:
@@ -70,13 +70,11 @@ class StatusCommand:
 
         paper_trade = "\n  Paper Trading Active: All orders are simulated, and no real orders are placed." if len(active_paper_exchanges) > 0 \
             else ""
-        app_warning = self.application_warning()
-        app_warning = "" if app_warning is None else app_warning
         if asyncio.iscoroutinefunction(self.strategy.format_status):
             st_status = await self.strategy.format_status()
         else:
             st_status = self.strategy.format_status()
-        status = paper_trade + "\n" + st_status + "\n" + app_warning
+        status = paper_trade + "\n" + st_status
         if self._pmm_script_iterator is not None and live is False:
             self._pmm_script_iterator.request_status()
         return status
@@ -220,6 +218,5 @@ class StatusCommand:
                 self.notify(f"  - Connector check: {offline_market} is currently offline.")
             return False
 
-        self.application_warning()
         self.notify("  - All checks: Confirmed.")
         return True
