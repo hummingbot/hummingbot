@@ -37,7 +37,7 @@ from hummingbot.core.utils.gateway_config_utils import (
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa
 
 
 class GatewayCommand(GatewayChainApiManager):
@@ -461,6 +461,7 @@ class GatewayCommand(GatewayChainApiManager):
                             self.notify("Error: Invalid wallet address")
 
                     # they want to create a new wallet even though they have other ones
+                    # TODO: Add ripple specific add wallet route here
                     else:
                         while True:
                             try:
