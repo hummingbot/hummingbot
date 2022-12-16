@@ -8,7 +8,6 @@ import {
   validateTxHash,
   validateToken,
 } from '../../services/validators';
-import bs58 from 'bs58';
 
 // invalid parameter errors
 export const invalidRippleAddressError: string =
@@ -19,12 +18,12 @@ export const invalidRipplePrivateKeyError: string =
 
 // test if a string matches the shape of an Ripple address
 export const isRippleAddress = (str: string): boolean => {
-  return isBase58(str) && bs58.decode(str).length == 34 && str.charAt(0) == 'r';
+  return isBase58(str) && str.length <= 35 && str.charAt(0) == 'r';
 };
 
 // test if a string matches the shape of an Ripple seed key
 export const isRippleSeedKey = (str: string): boolean => {
-  return isBase58(str) && bs58.decode(str).length == 23 && str.charAt(0) == 's';
+  return isBase58(str) && str.length <= 29 && str.charAt(0) == 's';
 };
 
 // given a request, look for a key called address that is an Solana address

@@ -21,7 +21,7 @@ export namespace RippleDEXConfig {
   }
 
   export const config: Config = {
-    tradingTypes: ['XRP_CLOB'],
+    tradingTypes: ['RIPPLEDEX_CLOB'],
     // markets: {
     //   url: ConfigManagerV2.getInstance().get(`rippledex.markets.url`),
     //   blacklist: ConfigManagerV2.getInstance().get(

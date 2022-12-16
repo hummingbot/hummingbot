@@ -19,10 +19,10 @@ export namespace RippleRoutes {
   export const router = Router();
 
   export const getRipple = async (request: Request) => {
-    const solana = await Ripple.getInstance(request.body.network);
-    await solana.init();
+    const ripple = await Ripple.getInstance(request.body.network);
+    await ripple.init();
 
-    return solana;
+    return ripple;
   };
 
   router.use(asyncHandler(verifyRippleIsAvailable));

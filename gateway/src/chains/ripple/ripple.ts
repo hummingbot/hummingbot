@@ -244,11 +244,13 @@ export class Ripple implements Rippleish {
   }
 
   async getNativeBalance(wallet: Wallet): Promise<string> {
+    await this.ensureConnection();
     const balance = await this._client.getXrpBalance(wallet.address);
     return balance;
   }
 
   async getAllBalance(wallet: Wallet): Promise<Record<string, string>> {
+    await this.ensureConnection();
     const balances: Record<string, string> = {};
     const respBalances = await this._client.getBalances(wallet.address);
 
@@ -270,6 +272,12 @@ export class Ripple implements Rippleish {
 
   isConnected(): boolean {
     return this._client.isConnected();
+  }
+
+  async ensureConnection() {
+    if (!this.isConnected()) {
+      await this._client.connect();
+    }
   }
 
   public get chain(): string {
@@ -334,6 +342,7 @@ export class Ripple implements Rippleish {
   }
 
   async getTransaction(txHash: string): Promise<TxResponse | null> {
+    await this.ensureConnection();
     const tx_resp = await this._client.request({
       command: 'tx',
       transaction: txHash,

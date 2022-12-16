@@ -39,7 +39,7 @@ s_logger = None
 
 
 # TODO remove references to the EVM AMM strategy and class.
-class GatewayXRPCLOB(ConnectorBase):
+class GatewayRippledexCLOB(ConnectorBase):
     """
     Defines basic functions common to connectors that interact with the Gateway.
     """
@@ -169,7 +169,7 @@ class GatewayXRPCLOB(ConnectorBase):
     # Added for compatibility
     @staticmethod
     def is_amm_order(in_flight_order: CLOBInFlightOrder) -> bool:
-        return GatewayXRPCLOB.is_order(in_flight_order)
+        return GatewayRippledexCLOB.is_order(in_flight_order)
 
     @property
     def orders(self) -> List[CLOBInFlightOrder]:
@@ -933,6 +933,9 @@ class GatewayXRPCLOB(ConnectorBase):
     def _get_gateway_instance(self) -> GatewayHttpClient:
         gateway_instance = GatewayHttpClient.get_instance(self._client_config)
         return gateway_instance
+
+    def get_gateway_instace(self) -> GatewayHttpClient:
+        return self._get_gateway_instance()
 
     def c_stop_tracking_order(self, order_id):
         raise NotImplementedError
