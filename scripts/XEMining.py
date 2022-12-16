@@ -12,10 +12,12 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class XEMining(ScriptStrategyBase):
 
+    first_asset = "FRONT"
+    second_asset = "USDT"
     maker_exchange = "kucoin_paper_trade"
-    maker_pair = "FRONT-USDT"
+    maker_pair = "{}-{}".format(first_asset, second_asset)
     taker_exchange = "gate_io_paper_trade"
-    taker_pair = "FRONT-USDT"
+    taker_pair = "{}-{}".format(first_asset, second_asset)
 
     order_amount = 250                  # amount for each order
     spread_bps = 4                    # bot places maker orders at this spread to taker price
@@ -102,11 +104,11 @@ class XEMining(ScriptStrategyBase):
         return
 
     def buy_hedging_budget(self) -> Decimal:
-        balance = self.connectors[self.taker_exchange].get_available_balance("ETH")
+        balance = self.connectors[self.taker_exchange].get_available_balance(self.first_asset)
         return balance
 
     def sell_hedging_budget(self) -> Decimal:
-        balance = self.connectors[self.taker_exchange].get_available_balance("USDT")
+        balance = self.connectors[self.taker_exchange].get_available_balance(self.second_asset)
         taker_buy_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, True, self.order_amount)
         return balance / taker_buy_result.result_price
 
@@ -281,9 +283,9 @@ class XEMining(ScriptStrategyBase):
             askPriceTimesVol += entry.price * entry.amount
 
             # bid_entries
-            bid_entries = orderBook.bid_entries()
-            bidVol = 0
-            bidPriceTimesVol = 0
+        bid_entries = orderBook.bid_entries()
+        bidVol = 0
+        bidPriceTimesVol = 0
         for entry in bid_entries:
             # self.logger().info(f"Bid Entry: {entry}")
             # self.logger().info(f"Bid Entry price: {entry.price}")
