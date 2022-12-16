@@ -60,14 +60,13 @@ class DummyScript(ScriptStrategyBase):
             self.create_timestamp = self.order_refresh_time + self.current_timestamp
 
         # High liquidity exchange side
-            # If spread to low than we need to cancel and replace hedge market order
-            # needs to be adapted based on Fede's feedback.
+            # If spread to low than we need to cancel and replace order
         for order in self.get_active_orders(connector_name=self.high_liquidity_exchange):
-            if OrderType.MARKET:
+            if OrderType.LIMIT:
                 if order.is_buy:
-                    high_liquidity_exchange_sell_result = self.high_liquidity_connector().get_price_for_volume(
+                    low_liquidity_exchange_sell_result = self.low_liquidity_connector().get_price_for_volume(
                         self.trading_pair, False, self.order_amount)
-                    buy_cancel_threshold = high_liquidity_exchange_sell_result.result_price * Decimal(
+                    buy_cancel_threshold = low_liquidity_exchange_sell_result.result_price * Decimal(
                         1 - self.min_spread_bps / 10000)
                     if order.price > buy_cancel_threshold:
                         self.cancel(self.high_liquidity_exchange, order.trading_pair, order.client_order_id)
@@ -219,56 +218,43 @@ class DummyScript(ScriptStrategyBase):
         return volatility
 
     def did_complete_buy_order(self, event: BuyOrderCompletedEvent):
-        # Not sure about this -> see with mentor
-        msg = f"Buy {round(event.base_asset_amount, 6)} {event.base_asset} " \
-              f"for {round(event.quote_asset_amount, 6)} {event.quote_asset} is completed"
-        self.notify_hb_app_with_timestamp(msg)
         # switch the variable to true
         self.buy_order_completed = True
 
     def did_complete_sell_order(self, event: SellOrderCompletedEvent):
-        # Not sure about this -> see with mentor
-        msg = f"Sell {round(event.base_asset_amount, 6)} {event.base_asset} " \
-              f"for {round(event.quote_asset_amount, 6)} {event.quote_asset} is completed"
-        self.notify_hb_app_with_timestamp(msg)
         # switch the variable to true
         self.sell_order_completed = True
 
     def determine_hedge_sell_order_price(self, volatility):
-        # Using the logic of xemm example to calculate the buy and sell price on the high liquidity exchange.
-        low_liquidity_exchange_buy_result = self.low_liquidity_connector().get_price_for_volume(self.trading_pair,
-                                                                                                False,
-                                                                                                self.order_amount)
-        high_liquidity_exchange_sell_price = low_liquidity_exchange_buy_result.result_price * Decimal(
-            1 + self.spread_bps / 10000)
+        # We want the hedge to be placed on the best_ask. On_tick the bot will check if at this order.price the spread
+        # is too low (in case the order is a limit order).
+        best_ask = self.high_liquidity_exchange.get_price(self.trading_pair, is_buy= True)
 
         if volatility == "high":
             hedge_sell_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True, order_type=OrderType.LIMIT,
                                               order_side=TradeType.SELL, amount=Decimal(self.order_amount),
-                                              price=high_liquidity_exchange_sell_price)
+                                              price=best_ask)
         elif volatility == "low":
             hedge_sell_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=False,
                                               order_type=OrderType.MARKET,
                                               order_side=TradeType.SELL, amount=Decimal(self.order_amount),
-                                              price=high_liquidity_exchange_sell_price)
+                                              price=best_ask)
         return hedge_sell_order
 
     def determine_hedge_buy_order_price(self, volatility):
-        low_liquidity_exchange_sell_result = self.low_liquidity_connector().get_price_for_volume(self.trading_pair,
-                                                                                                 True,
-                                                                                                 self.order_amount)
-        high_liquidity_exchange_buy_price = low_liquidity_exchange_sell_result.result_price * Decimal(
-            1 - self.spread_bps / 10000)
+        # We want the hedge to be placed on the best_bid. On_tick the bot will check if at this order.price the spread
+        # is too low (in case the order is a limit order).
+        best_bid = self.high_liquidity_exchange.get_price(self.trading_pair, is_buy= True)
 
         if volatility == "high":
             hedge_buy_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True, order_type=OrderType.LIMIT,
                                              order_side=TradeType.BUY, amount=Decimal(self.order_amount),
-                                             price=high_liquidity_exchange_buy_price)
+                                             price=best_bid)
         elif volatility == "low":
             hedge_buy_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=False,
                                              order_type=OrderType.MARKET,
                                              order_side=TradeType.BUY, amount=Decimal(self.order_amount),
-                                             price=high_liquidity_exchange_buy_price)
+                                             price=best_bid)
         return hedge_buy_order
 
     def adjust_hedge_to_budget(self, hedge):
