@@ -1446,14 +1446,6 @@
         "address": "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",
         "decimals": 6,
         "name": "TetherToken",
-        "symbol": "USDt",
-        "logoURI": "https://raw.githubusercontent.com/pangolindex/tokens/main/assets/43114/0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7/logo_24.png"
-      },
-      {
-        "chainId": 43114,
-        "address": "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",
-        "decimals": 6,
-        "name": "TetherToken",
         "symbol": "USDT",
         "logoURI": "https://raw.githubusercontent.com/pangolindex/tokens/main/assets/43114/0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7/logo_24.png"
       },
