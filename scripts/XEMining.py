@@ -20,7 +20,7 @@ class XEMining(ScriptStrategyBase):
     taker_pair = "{}-{}".format(first_asset, second_asset)
 
     order_amount = 250                  # amount for each order
-    spread_bps = 4                    # bot places maker orders at this spread to taker price
+    spread_bps = 10                    # bot places maker orders at this spread to taker price
     min_spread_bps = 0                  # bot refreshes order if spread is lower than min-spread
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
     max_order_age = 120                 # bot refreshes orders after this age
@@ -42,11 +42,11 @@ class XEMining(ScriptStrategyBase):
             self.logger().info(f"Annualized Volatility: {annualized_vol}")
             # adjust spread_bps based on volatility by multiplying spread_bps by volatility
             if annualized_vol > 5 and annualized_vol < 10:
-                self.spread_bps = 4
+                self.spread_bps = 10
             elif annualized_vol >= 10:
-                self.spread_bps = 5
+                self.spread_bps = 12
             else:
-                self.spread_bps = 3
+                self.spread_bps = 8
 
             average_profit = self.calculate_average_profitability()
             self.logger().info(f"Average Profitability: {average_profit}")
@@ -241,7 +241,13 @@ class XEMining(ScriptStrategyBase):
     def calculate_average_profitability(self) -> float:
         base_path = Path(__file__).parent
         file_path = (base_path / "../data/trades_XEMi.csv").resolve()
-        df = pd.read_csv(file_path)
+        # if file exists
+        self.logger().info("file_path: %s", file_path)
+        try:
+            df = pd.read_csv(file_path)
+        except FileNotFoundError:
+            self.logger().info("File not found")
+            return 0
         maker_trades = []
         taker_trades = []
 
