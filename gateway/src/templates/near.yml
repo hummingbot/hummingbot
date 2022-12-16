@@ -2,16 +2,15 @@ networks:
   mainnet:
     chainID: 0
     nodeURL: https://rpc.mainnet.near.org
-    tokenListType: URL
+    tokenListType: FILE
     nativeCurrencySymbol: NEAR
-    tokenListSource: >-
-      https://indexer.ref.finance/list-token
+    tokenListSource: src/chains/near/near_tokens.json
     gasPriceRefreshInterval: 60
   testnet:
     chainID: 0
     nodeURL: https://rpc.testnet.near.org
-    tokenListType: URL
-    tokenListSource: https://testnet-indexer.ref-finance.com/list-token
+    tokenListType: FILE
+    tokenListSource: src/chains/near/near_testnet_tokens.json
     nativeCurrencySymbol: NEAR
     gasPriceRefreshInterval: 60
 
