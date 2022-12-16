@@ -14,10 +14,7 @@
             "routerAddress": { "type": "string" },
             "initCodeHash": { "type": "string" }
           },
-          "required": [
-            "routerAddress",
-            "initCodeHash"
-          ],
+          "required": ["routerAddress", "initCodeHash"],
           "additionalProperties": false
         }
       },
@@ -25,5 +22,10 @@
     }
   },
   "additionalProperties": false,
-  "required": ["allowedSlippage", "contractAddresses", "gasLimitEstimate", "ttl"]
+  "required": [
+    "allowedSlippage",
+    "contractAddresses",
+    "gasLimitEstimate",
+    "ttl"
+  ]
 }
