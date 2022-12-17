@@ -9,7 +9,7 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class DummyScript(ScriptStrategyBase):
-    order_amount = Decimal(0.1)   # This can be adjusted
+    order_amount = Decimal(0.5)   # This can be adjusted
     order_refresh_time = 10   # This can be adjusted
     create_timestamp = 0
 
@@ -31,7 +31,7 @@ class DummyScript(ScriptStrategyBase):
     sell_order_completed = False
 
     # this will be used to calculate the price for the hedge order on the high liquidity exchange:
-    spread_bps = 10
+    spread_bps = 15
     min_spread_bps = 0
 
     def on_tick(self):
@@ -143,6 +143,7 @@ class DummyScript(ScriptStrategyBase):
         # Set number of orders back to 0:
         self.buy_orders_on_low_liquidity_exchange = 0
         self.sell_orders_on_low_liquidity_exchange = 0
+        self.logger().info("All orders on the low liquidity exchanged are canceled")
 
     def create_proposal_based_on_high_liquidity_exchange_price(self):
         """Determine best ask and bid price by fetching the necessary data from the hedging exchange (=high liquidity exchang)
@@ -192,8 +193,10 @@ class DummyScript(ScriptStrategyBase):
             # Add orders to the variable that keeps track of the number of orders on the exchange:
             if connector_name == self.low_liquidity_exchange:
                 self.sell_orders_on_low_liquidity_exchange += 1
+                self.logger().info("Sell order placed on low liquidity exchange")
             elif connector_name == self.high_liquidity_exchange:
                 self.buy_order_completed = False
+                self.logger().info("Sell order placed on high liquidity exchange")
 
         elif order.order_side == TradeType.BUY:
             self.buy(connector_name=connector_name, trading_pair=order.trading_pair, amount=order.amount,
@@ -201,8 +204,10 @@ class DummyScript(ScriptStrategyBase):
             # Add orders to the variable that keeps track of the number of orders on the exchange:
             if connector_name == self.low_liquidity_exchange:
                 self.buy_orders_on_low_liquidity_exchange += 1
+                self.logger().info("Buy order placed on low liquidity exchange")
             elif connector_name == self.high_liquidity_exchange:
                 self.sell_order_completed = False
+                self.logger().info("Buy order placed on high liquidity exchange")
 
     # Methods concerning the high liquidity exchange
     def calculate_spreads_and_volatility(self):
@@ -220,10 +225,12 @@ class DummyScript(ScriptStrategyBase):
     def did_complete_buy_order(self, event: BuyOrderCompletedEvent):
         # switch the variable to true
         self.buy_order_completed = True
+        self.logger().info("Buy order filled on low liquidity exchange")
 
     def did_complete_sell_order(self, event: SellOrderCompletedEvent):
         # switch the variable to true
         self.sell_order_completed = True
+        self.logger().info("Sell order filled on low liquidity exchange")
 
     def determine_hedge_sell_order_price(self, volatility):
         # We want the hedge to be placed on the best_ask. On_tick the bot will check if at this order.price the spread
