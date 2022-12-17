@@ -24,11 +24,10 @@ from hummingbot.core.event.events import BuyOrderCompletedEvent, SellOrderComple
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-from juno import Chandler, time
+from juno import Candle, Chandler, time
 from juno.connectors import BinanceConnector, BinancePaperTradeConnector, Connector
 from juno.custodians import Custodian, SavingsCustodian, SpotCustodian
 from juno.indicators import FourWeekRule
-from juno.models import Candle
 from juno.storages import SQLite
 
 
