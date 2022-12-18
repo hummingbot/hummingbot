@@ -1,0 +1,9 @@
+{
+  "connector": "uniswap",
+  "chain": "polygon",
+  "network": "mainnet",
+  "quote": "USDT",
+  "base": "MATIC",
+  "amount": "100.0",
+  "side": "SELL"
+}

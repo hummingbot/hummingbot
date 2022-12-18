@@ -1,0 +1,7 @@
+{
+  "chain": "polygon",
+  "network": "mainnet",
+  "address": "$ETH_ADDRESS",
+  "spender": "uniswap",
+  "tokenSymbols": ["USDT", "USDC"]
+}

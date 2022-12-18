@@ -1,0 +1,9 @@
+{
+  "connector": "quickswap",
+  "chain": "polygon",
+  "network": "mainnet",
+  "quote": "USDT",
+  "base": "MATIC",
+  "amount": "1.0",
+  "side": "SELL"
+}
