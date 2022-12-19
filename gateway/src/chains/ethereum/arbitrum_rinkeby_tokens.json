@@ -1,0 +1,152 @@
+{
+    "name": "ArbRinkeby",
+    "timestamp": "2022-03-01T22:29:12.223Z",
+    "version": {
+      "major": 2,
+      "minor": 0,
+      "patch": 0
+    },
+    "tokens": [
+      {
+        "chainId": 421611,
+        "address": "0xf3f0384583d0574955Dccbb044A64Ad249cf9C3E",
+        "name": "Corn",
+        "symbol": "CORN",
+        "decimals": 18,
+        "extensions": {
+          "bridgeInfo": {
+            "4": {
+              "tokenAddress": "0xd6a87faf418c818f93be9ae8b63d1d4fe3e7df45",
+              "originBridgeAddress": "0x9b014455acc2fe90c52803849d0002aeec184a06",
+              "destBridgeAddress": "0x917dc9a69F65dC3082D518192cd3725E1Fa96cA2"
+            }
+          }
+        }
+      },
+      {
+        "chainId": 421611,
+        "address": "0x2f3C1B6A51A469051A22986aA0dDF98466cc8D3c",
+        "name": "Dai Stablecoin",
+        "symbol": "DAI",
+        "decimals": 18,
+        "extensions": {
+          "bridgeInfo": {
+            "4": {
+              "tokenAddress": "0x6a9865ade2b6207daac49f8bcba9705deb0b0e6d",
+              "originBridgeAddress": "0x195c107f3f75c4c93eba7d9a1312f19305d6375f",
+              "destBridgeAddress": "0x91169Dbb45e6804743F94609De50D511C437572E"
+            }
+          }
+        }
+      },
+      {
+        "chainId": 421611,
+        "address": "0x2E228ef2A59686cC5c6fF06cD46ee302a4134F00",
+        "name": "Land",
+        "symbol": "LAND",
+        "decimals": 18,
+        "extensions": {
+          "bridgeInfo": {
+            "4": {
+              "tokenAddress": "0x393fd5b96f6459511d7368778318c31d719720ad",
+              "originBridgeAddress": "0x9b014455acc2fe90c52803849d0002aeec184a06",
+              "destBridgeAddress": "0x917dc9a69F65dC3082D518192cd3725E1Fa96cA2"
+            }
+          }
+        }
+      },
+      {
+        "logoURI": "https://assets.coingecko.com/coins/images/12504/thumb/uniswap-uni.png?1600306604",
+        "chainId": 421611,
+        "address": "0x049251A7175071316e089D0616d8B6aaCD2c93b8",
+        "name": "Uniswap",
+        "symbol": "UNI",
+        "decimals": 18,
+        "extensions": {
+          "bridgeInfo": {
+            "4": {
+              "tokenAddress": "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
+              "originBridgeAddress": "0x195c107f3f75c4c93eba7d9a1312f19305d6375f",
+              "destBridgeAddress": "0x91169Dbb45e6804743F94609De50D511C437572E"
+            }
+          }
+        }
+      },
+      {
+        "chainId": 421611,
+        "address": "0x1E77ad77925Ac0075CF61Fb76bA35D884985019d",
+        "name": "USD Coin",
+        "symbol": "USDC",
+        "decimals": 6,
+        "extensions": {
+          "bridgeInfo": {
+            "4": {
+              "tokenAddress": "0x4dbcdf9b62e891a7cec5a2568c3f4faf9e8abe2b",
+              "originBridgeAddress": "0x195c107f3f75c4c93eba7d9a1312f19305d6375f",
+              "destBridgeAddress": "0x91169Dbb45e6804743F94609De50D511C437572E"
+            }
+          }
+        }
+      },
+      {
+        "chainId": 421611,
+        "address": "0xB47e6A5f8b33b3F17603C83a0535A9dcD7E32681",
+        "name": "Wrapped Ether",
+        "symbol": "WETH",
+        "decimals": 18,
+        "extensions": {
+          "bridgeInfo": {
+            "4": {
+              "tokenAddress": "0xc778417e063141139fce010982780140aa0cd5ab",
+              "originBridgeAddress": "0xf94bc045c4e926cc0b34e8d1c41cd7a043304ac9",
+              "destBridgeAddress": "0x81d1a19cf7071732D4313c75dE8DD5b8CF697eFD"
+            }
+          }
+        }
+      },
+      {
+        "chainId": 4,
+        "name": "Corn",
+        "address": "0xd6a87faf418c818f93be9ae8b63d1d4fe3e7df45",
+        "symbol": "CORN",
+        "decimals": 18
+      },
+      {
+        "chainId": 4,
+        "name": "Dai Stablecoin",
+        "address": "0x6a9865ade2b6207daac49f8bcba9705deb0b0e6d",
+        "symbol": "DAI",
+        "decimals": 18
+      },
+      {
+        "chainId": 4,
+        "name": "Land",
+        "address": "0x393fd5b96f6459511d7368778318c31d719720ad",
+        "symbol": "LAND",
+        "decimals": 18
+      },
+      {
+        "chainId": 4,
+        "name": "Uniswap",
+        "address": "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
+        "symbol": "UNI",
+        "decimals": 18,
+        "logoURI": "https://s2.coinmarketcap.com/static/img/coins/64x64/7083.png"
+      },
+      {
+        "chainId": 4,
+        "name": "USD Coin",
+        "address": "0x4DBCdF9B62e891a7cec5A2568C3F4FAF9E8Abe2b",
+        "symbol": "USDC",
+        "decimals": 6
+      },
+      {
+        "chainId": 4,
+        "name": "Wrapped Ether",
+        "address": "0xc778417e063141139fce010982780140aa0cd5ab",
+        "symbol": "WETH",
+        "decimals": 18
+      }
+    ],
+    "logoURI": "ipfs://QmTvWJ4kmzq9koK74WJQ594ov8Es1HHurHZmMmhU8VY68y"
+  }
