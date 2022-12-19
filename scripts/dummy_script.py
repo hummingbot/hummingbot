@@ -4,7 +4,7 @@ import pandas as pd
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
-from hummingbot.core.event.events import BuyOrderCompletedEvent, SellOrderCompletedEvent
+from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -13,7 +13,9 @@ class DummyScript(ScriptStrategyBase):
     order_refresh_time = 10   # This can be adjusted
     create_timestamp = 0
 
-    trading_pair = "BTC-USDT"   # This can be adjusted
+    base_asset = "BTC"   # This can be adjusted
+    quote_asset = "USDT"   # This can be adjusted
+    trading_pair = f"{base_asset}-{quote_asset}"
 
     high_liquidity_exchange = "binance_paper_trade"   # This can be adjusted
     low_liquidity_exchange = "gate_io_paper_trade"   # This can be adjusted
@@ -31,8 +33,11 @@ class DummyScript(ScriptStrategyBase):
     sell_order_completed = False
 
     # this will be used to calculate the price for the hedge order on the high liquidity exchange:
-    spread_bps = 15
+    spread_bps = 10
     min_spread_bps = 0
+
+    def high_liquidity_connector(self):
+        return self.connectors[self.high_liquidity_exchange]
 
     def on_tick(self):
         """Check if orders need to be refreshed. If yes we need to cancel all orders, calculate new price and amount and place
@@ -59,34 +64,36 @@ class DummyScript(ScriptStrategyBase):
             # Update timestamp
             self.create_timestamp = self.order_refresh_time + self.current_timestamp
 
-        # High liquidity exchange side
-            # If spread to low than we need to cancel and replace order
-        for order in self.get_active_orders(connector_name=self.high_liquidity_exchange):
-            if OrderType.LIMIT:
-                if order.is_buy:
-                    low_liquidity_exchange_sell_result = self.low_liquidity_connector().get_price_for_volume(
-                        self.trading_pair, False, self.order_amount)
-                    buy_cancel_threshold = low_liquidity_exchange_sell_result.result_price * Decimal(
-                        1 - self.min_spread_bps / 10000)
-                    if order.price > buy_cancel_threshold:
-                        self.cancel(self.high_liquidity_exchange, order.trading_pair, order.client_order_id)
-                        volatility = self.calculate_spreads_and_volatility()
-                        hedge = self.determine_hedge_sell_order_price(volatility)
-                        adjusted_hedge = self.adjust_hedge_to_budget(hedge)
-                        self.place_orders(adjusted_hedge, self.high_liquidity_exchange)
-                else:
-                    high_liquidity_exchange_buy_result = self.high_liquidity_connector().get_price_for_volume(
-                        self.trading_pair, True, self.order_amount)
-                    sell_cancel_threshold = high_liquidity_exchange_buy_result.result_price * Decimal(
-                        1 + self.min_spread_bps / 10000)
-                    if order.price < sell_cancel_threshold:
-                        self.cancel(self.high_liquidity_exchange, order.trading_pair, order.client_order_id)
-                        volatility = self.calculate_spreads_and_volatility()
-                        hedge = self.determine_hedge_buy_order_price(volatility)
-                        adjusted_hedge = self.adjust_hedge_to_budget(hedge)
-                        self.place_orders(adjusted_hedge, self.high_liquidity_exchange)
+        # Check profitability of order in low liquidity exchange
+        for order in self.get_active_orders(connector_name=self.low_liquidity_exchange):
+            if order.is_buy:
+                high_liquidity_exchange_sell_result = self.high_liquidity_connector().get_price_for_volume(
+                    self.trading_pair, False, self.order_amount)
+                buy_cancel_threshold = high_liquidity_exchange_sell_result.result_price * Decimal(
+                    1 - self.min_spread_bps / 10000)
+                if order.price > buy_cancel_threshold:
+                    self.cancel_all_orders()
+                    proposal = self.create_proposal_based_on_high_liquidity_exchange_price()
+                    adjusted_proposal = self.adjust_proposal_to_budget(proposal)
+                    self.place_orders(adjusted_proposal, self.low_liquidity_exchange)
+                    # Update timestamp
+                    self.create_timestamp = self.order_refresh_time + self.current_timestamp
 
-        # If an order got hit on the low liquidity exchange than we need to hedge
+            else:
+                high_liquidity_exchange_buy_result = self.high_liquidity_connector().get_price_for_volume(
+                    self.trading_pair, True, self.order_amount)
+                sell_cancel_threshold = high_liquidity_exchange_buy_result.result_price * Decimal(
+                    1 + self.min_spread_bps / 10000)
+                if order.price < sell_cancel_threshold:
+                    self.cancel_all_orders()
+                    proposal = self.create_proposal_based_on_high_liquidity_exchange_price()
+                    adjusted_proposal = self.adjust_proposal_to_budget(proposal)
+                    self.place_orders(adjusted_proposal, self.low_liquidity_exchange)
+                    # Update timestamp
+                    self.create_timestamp = self.order_refresh_time + self.current_timestamp
+
+        # High liquidity exchange side
+            # If an order got hit on the low liquidity exchange than we need to hedge
         if self.buy_order_completed:
             self.buy_orders_on_low_liquidity_exchange -= 1
             volatility = self.calculate_spreads_and_volatility()
@@ -123,18 +130,10 @@ class DummyScript(ScriptStrategyBase):
                               f"be adjusted. "
                     self.notify_hb_app(message)
 
-    # instead of using def maker_connector and taker_connector I want to rename it high_liquidity_connector and
-    # low_liquidity_connector because on the high liquidity exchange we will be taker or maker depending on the
-    # volatility
-    def high_liquidity_connector(self):
-        return self.connectors[self.high_liquidity_exchange]
-
-    def low_liquidity_connector(self):
-        return self.connectors[self.low_liquidity_exchange]
-
     # All methods concerning the low liquidity exchange
     def cancel_all_orders(self):
         """Cancel all orders on the low liquidity exchange"""
+
         orders = self.get_active_orders(connector_name=self.low_liquidity_exchange)
         for order in orders:
             self.cancel(connector_name=self.low_liquidity_exchange,
@@ -146,8 +145,8 @@ class DummyScript(ScriptStrategyBase):
         self.logger().info("All orders on the low liquidity exchanged are canceled")
 
     def create_proposal_based_on_high_liquidity_exchange_price(self):
-        """Determine best ask and bid price by fetching the necessary data from the hedging exchange (=high liquidity exchang)
-        , calculate order_amount, then create a buy and sell order-candidate"""
+        """Determine best ask and bid price by fetching the necessary data from the hedging exchange (=high liquidity
+        exchange), calculate order_amount, then create a buy and sell order-candidate"""
         # Using the logic of xemm example to calculate the buy and sell price on the low liquidity exchange.
         high_liquidity_exchange_buy_result = self.high_liquidity_connector().get_price_for_volume(self.trading_pair,
                                                                                                   True,
@@ -155,17 +154,24 @@ class DummyScript(ScriptStrategyBase):
         high_liquidity_exchange_sell_result = self.high_liquidity_connector().get_price_for_volume(self.trading_pair,
                                                                                                    False,
                                                                                                    self.order_amount)
-
+        # Determine buy/sell price on low liq ex
         low_liquidity_exchange_buy_price = high_liquidity_exchange_sell_result.result_price * Decimal(
             1 - self.spread_bps / 10000)
         low_liquidity_exchange_sell_price = high_liquidity_exchange_buy_result.result_price * Decimal(
             1 + self.spread_bps / 10000)
 
+        # Determine order amount
+        balance_for_buy_order = self.high_liquidity_connector().get_available_balance(self.base_asset)
+        buy_order_amount = min(self.order_amount, balance_for_buy_order)
+        usdt_balance = self.high_liquidity_connector().get_available_balance(self.quote_asset)
+        balance_for_sell_order = usdt_balance / high_liquidity_exchange_buy_result.result_price
+        sell_order_amount = min(self.order_amount, balance_for_sell_order)
+
         buy_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True, order_type=OrderType.LIMIT,
-                                   order_side=TradeType.BUY, amount=Decimal(self.order_amount),
+                                   order_side=TradeType.BUY, amount=Decimal(buy_order_amount),
                                    price=low_liquidity_exchange_buy_price)
         sell_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True, order_type=OrderType.LIMIT,
-                                    order_side=TradeType.SELL, amount=Decimal(self.order_amount),
+                                    order_side=TradeType.SELL, amount=Decimal(sell_order_amount),
                                     price=low_liquidity_exchange_sell_price)
 
         return buy_order, sell_order
@@ -222,15 +228,27 @@ class DummyScript(ScriptStrategyBase):
             volatility = "low"
         return volatility
 
-    def did_complete_buy_order(self, event: BuyOrderCompletedEvent):
-        # switch the variable to true
-        self.buy_order_completed = True
-        self.logger().info("Buy order filled on low liquidity exchange")
+    def is_active_maker_order(self, event: OrderFilledEvent):
+        """
+        Helper function that checks if order is an active order on the maker exchange
+        """
+        for order in self.get_active_orders(connector_name=self.maker_exchange):
+            if order.client_order_id == event.order_id:
+                return True
+        return False
 
-    def did_complete_sell_order(self, event: SellOrderCompletedEvent):
-        # switch the variable to true
-        self.sell_order_completed = True
-        self.logger().info("Sell order filled on low liquidity exchange")
+    def did_fill_order(self, event: OrderFilledEvent):
+        if event.trade_type == TradeType.BUY and self.is_active_maker_order(event):
+            self.buy_order_completed = True
+            self.logger().info(f"Buy order filled on low liquidity exchange with price: {event.price}")
+            hedge_order_amount = event.amount
+            return hedge_order_amount
+
+        if event.trade_type == TradeType.SELL and self.is_active_maker_order(event):
+            self.sell_order_completed = True
+            self.logger().info(f"Sell order filled on low liquidity exchange with price: {event.price}")
+            hedge_order_amount = event.amount
+            return hedge_order_amount
 
     def determine_hedge_sell_order_price(self, volatility):
         # We want the hedge to be placed on the best_ask. On_tick the bot will check if at this order.price the spread
@@ -239,12 +257,12 @@ class DummyScript(ScriptStrategyBase):
 
         if volatility == "high":
             hedge_sell_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True, order_type=OrderType.LIMIT,
-                                              order_side=TradeType.SELL, amount=Decimal(self.order_amount),
+                                              order_side=TradeType.SELL, amount=Decimal(self.did_fill_order()),
                                               price=best_ask)
         elif volatility == "low":
             hedge_sell_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=False,
                                               order_type=OrderType.MARKET,
-                                              order_side=TradeType.SELL, amount=Decimal(self.order_amount),
+                                              order_side=TradeType.SELL, amount=Decimal(self.did_fill_order()),
                                               price=best_ask)
         return hedge_sell_order
 
