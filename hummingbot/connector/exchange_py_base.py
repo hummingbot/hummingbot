@@ -901,15 +901,9 @@ class ExchangePyBase(ExchangeBase, ABC):
                     self._time_synchronizer.clear_time_offset_ms_samples()
                     await self._update_time_synchronizer()
                 else:
-                    self.logger().error(
-                        f"Failed api request {path_url} {method} ({request_exception})"
-                    )
                     raise
 
         # Failed even after the last retry
-        self.logger().error(
-            f"Failed api request {path_url} {method} ({last_exception})"
-        )
         raise last_exception
 
     async def _status_polling_loop_fetch_updates(self):
