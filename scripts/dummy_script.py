@@ -165,7 +165,7 @@ class DummyScript(ScriptStrategyBase):
         buy_order_amount = min(self.order_amount, balance_for_buy_order)
         usdt_balance = self.high_liquidity_connector().get_available_balance(self.quote_asset)
         balance_for_sell_order = usdt_balance / high_liquidity_exchange_buy_result.result_price
-        sell_order_amount = balance_for_sell_order
+        sell_order_amount = min(self.order_amount, balance_for_sell_order)
 
         buy_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True, order_type=OrderType.LIMIT,
                                    order_side=TradeType.BUY, amount=Decimal(buy_order_amount),
