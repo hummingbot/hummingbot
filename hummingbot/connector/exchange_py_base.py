@@ -78,9 +78,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             domain=self.domain))
 
         # init UserStream Data Source and Tracker
-        self._userstream_ds = self._create_user_stream_data_source()
-        self._user_stream_tracker = UserStreamTracker(
-            data_source=self._userstream_ds)
+        self._user_stream_tracker = self._create_user_stream_tracker()
 
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
 
@@ -662,7 +660,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
         if self.is_trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
+            self._user_stream_tracker_task = self._create_user_stream_tracker_task()
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
             self._lost_orders_update_task = safe_ensure_future(self._lost_orders_update_polling_loop())
 
@@ -829,6 +827,12 @@ class ExchangePyBase(ExchangeBase, ABC):
             except Exception:
                 self.logger().exception("Error while reading user events queue. Retrying in 1s.")
                 await self._sleep(1.0)
+
+    def _create_user_stream_tracker(self):
+        return UserStreamTracker(data_source=self._create_user_stream_data_source())
+
+    def _create_user_stream_tracker_task(self):
+        return safe_ensure_future(self._user_stream_tracker.start())
 
     # === Exchange / Trading logic methods that call the API ===
 

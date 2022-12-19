@@ -593,8 +593,12 @@ class AbstractExchangeConnectorTests:
                 "order_books_initialized": False,
                 "account_balance": False,
                 "trading_rule_initialized": False,
-                "user_stream_initialized": False,
             }
+
+            if self.exchange._user_stream_tracker:
+                expected_initial_dict.update({
+                    "user_stream_initialized": False,
+                })
 
             self.assertEqual(expected_initial_dict, status_dict)
             self.assertFalse(self.exchange.ready)
