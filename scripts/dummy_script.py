@@ -9,6 +9,9 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class DummyScript(ScriptStrategyBase):
+    min_base_asset = 0.2
+    min_quote_asset = 200
+
     order_amount = Decimal(0.5)  # This can be adjusted
     order_refresh_time = 10  # This can be adjusted
     create_timestamp = 0
@@ -97,16 +100,16 @@ class DummyScript(ScriptStrategyBase):
             asset = data[1]
             available_balance = data[3]
 
-            if asset == "BTC":
-                if available_balance < 0.2:
-                    message = f"Available balance for {asset} on {exchange} is {available_balance} {asset} and should " \
-                              f"be adjusted. "
+            if asset == self.base_asset:
+                if available_balance < self.min_base_asset:
+                    message = f"Available balance for {asset} on {exchange} is {available_balance} {asset} and " \
+                              f"should be adjusted. "
                     self.notify_hb_app(message)
 
-            elif asset == "USDT":
-                if available_balance < 200:
-                    message = f"Available balance for {asset} on {exchange} is {available_balance} {asset} and should " \
-                              f"be adjusted. "
+            elif asset == self.quote_asset:
+                if available_balance < self.min_quote_asset:
+                    message = f"Available balance for {asset} on {exchange} is {available_balance} {asset} and " \
+                              f"should be adjusted. "
                     self.notify_hb_app(message)
 
     # All methods concerning the low liquidity exchange
@@ -141,7 +144,9 @@ class DummyScript(ScriptStrategyBase):
 
         # Determine order amount
         balance_for_buy_order = self.high_liquidity_connector().get_available_balance(self.base_asset)
+        # self.logger().info(f"balance for buy order is {balance_for_buy_order}")
         buy_order_amount = min(self.order_amount, balance_for_buy_order)
+        # self.logger().info(f"balance for buy order is {buy_order_amount}")
         usdt_balance = self.high_liquidity_connector().get_available_balance(self.quote_asset)
         balance_for_sell_order = usdt_balance / high_liquidity_exchange_buy_result.result_price
         sell_order_amount = min(self.order_amount, balance_for_sell_order)
