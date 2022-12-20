@@ -1,3 +1,4 @@
 #!/bin/bash
 
-docker-compose down && docker-compose up --remove-orphans
+docker-compose -f rabbitmq.compose.yml down --remove-orphans &&
+    docker compose -f rabbitmq.compose.yml up

@@ -33,7 +33,7 @@ services:
       - 443:443 # mapping port 443 to the container's port 443 for https
     volumes:
       - ./etc/nginx/templates:/etc/nginx/templates:ro
-      - ./etc/letsencrypt:/etc/letsencrypt:ro # mounting the folder to the nginx container 
+      - ./etc/letsencrypt:/etc/letsencrypt:ro # mounting the folder to the nginx container
       - ./certbot/data:/var/www/certbot
     networks:
       - se2net
