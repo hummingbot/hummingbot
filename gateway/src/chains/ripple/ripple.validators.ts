@@ -23,7 +23,7 @@ export const isRippleAddress = (str: string): boolean => {
 
 // test if a string matches the shape of an Ripple seed key
 export const isRippleSeedKey = (str: string): boolean => {
-  return isBase58(str) && str.length <= 29 && str.charAt(0) == 's';
+  return isBase58(str) && str.charAt(0) == 's';
 };
 
 // given a request, look for a key called address that is an Solana address

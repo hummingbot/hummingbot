@@ -159,6 +159,7 @@ export interface GetOpenOrderResponse {
 }
 
 export type GetOpenOrdersResponse =
+  | any
   | IMap<string, IMap<number, GetOpenOrderResponse>>
   | IMap<number, GetOpenOrderResponse>
   | GetOpenOrderResponse;

@@ -1211,7 +1211,6 @@ class GatewayHttpClient:
         chain: str,
         network: str,
         connector: str,
-        owner_address: str = None,
         order: Dict[str, Any] = None,
         orders: List[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
@@ -1220,9 +1219,6 @@ class GatewayHttpClient:
             "network": network,
             "connector": connector,
         }
-
-        if owner_address is not None:
-            request["ownerAddress"] = owner_address
 
         if order is not None:
             request["order"] = order

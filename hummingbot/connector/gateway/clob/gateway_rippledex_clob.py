@@ -256,7 +256,7 @@ class GatewayRippledexCLOB(ConnectorBase):
                 chain=self.chain, network=self.network
             )
             if type(self._chain_info) != list:
-                self._native_currency = self._chain_info.get("nativeCurrency", Chain.SOLANA.native_currency)
+                self._native_currency = self._chain_info.get("nativeCurrency", Chain.RIPPLE.native_currency)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -268,7 +268,7 @@ class GatewayRippledexCLOB(ConnectorBase):
 
     async def get_markets(self):
         try:
-            self._markets = await self._get_gateway_instance().clob_get_markets(
+            self._markets = await self._get_gateway_instance().rippledex_get_markets(
                 chain=self.chain,
                 network=self.network,
                 connector=self.connector,
@@ -285,7 +285,7 @@ class GatewayRippledexCLOB(ConnectorBase):
 
     async def set_order_price_and_order_size_quantum(self):
         for trading_pair in self._trading_pairs:
-            market = await self._get_gateway_instance().clob_get_markets(
+            market = await self._get_gateway_instance().rippledex_get_markets(
                 self.chain, self.network, self.connector, name=convert_trading_pair(trading_pair)
             )
 
@@ -693,18 +693,10 @@ class GatewayRippledexCLOB(ConnectorBase):
     def ready(self):
         return all(self.status_dict.values())
 
-    def has_allowances(self) -> bool:
-        """
-        Checks if all tokens have allowance (an amount approved)
-        """
-        return ((len(self._allowances.values()) == len(self._tokens)) and
-                (all(amount >= constant.DECIMAL_ZERO for amount in self._allowances.values())))
-
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "allowances": self.has_allowances() if self._trading_required else True,
             "native_currency": self._native_currency is not None,
             "network_transaction_fee": self.network_transaction_fee is not None if self._trading_required else True,
             "markets": self._markets is not None,

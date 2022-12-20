@@ -225,9 +225,7 @@ export class Ripple implements Rippleish {
   }
 
   async decrypt(encryptedSecret: string, password: string): Promise<string> {
-    console.log('encryptedSecret: ', encryptedSecret);
     const hash = JSON.parse(encryptedSecret);
-    console.log('hash: ', hash);
     const salt = Buffer.from(hash.salt, 'utf8');
     const iv = Buffer.from(hash.iv, 'utf8');
 
@@ -315,8 +313,14 @@ export class Ripple implements Rippleish {
   }
 
   // returns the current block number
-  async getCurrentLedgerIndex(): Promise<number> {
-    const currentIndex = this.client.getLedgerIndex();
+  public async getCurrentLedgerIndex(): Promise<number> {
+    await this.ensureConnection();
+    const currentIndex = await this.client.getLedgerIndex();
+    return currentIndex;
+  }
+
+  public async getCurrentBlockNumber(): Promise<number> {
+    const currentIndex = await this.getCurrentLedgerIndex();
     return currentIndex;
   }
 

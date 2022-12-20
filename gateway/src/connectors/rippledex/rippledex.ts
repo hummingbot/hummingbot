@@ -27,7 +27,7 @@ import {
   CancelOrderRequest,
   CancelOrderResponse,
   GetOpenOrderRequest,
-  GetOpenOrderResponse,
+  // GetOpenOrderResponse,
   GetOpenOrdersResponse,
   OrderSide,
 } from './rippledex.types';
@@ -98,8 +98,6 @@ export class RippleDEX {
     let baseTransferRate: number;
     let quoteTickSize: number;
     let quoteTransferRate: number;
-    let baseMarketResp: AccountInfoResponse | undefined;
-    let quoteMarketResp: AccountInfoResponse | undefined;
     const zeroTransferRate = 1000000000;
 
     const [base, quote] = name.split('/');
@@ -113,6 +111,10 @@ export class RippleDEX {
         ledger_index: 'validated',
         account: baseIssuer,
       });
+
+      if (!baseMarketResp)
+        throw new MarketNotFoundError(`Market "${base}" not found.`);
+
       baseTickSize = baseMarketResp.result.account_data.TickSize ?? 15;
       const rawTransferRate =
         baseMarketResp.result.account_data.TransferRate ?? zeroTransferRate;
@@ -128,6 +130,10 @@ export class RippleDEX {
         ledger_index: 'validated',
         account: quoteIssuer,
       });
+
+      if (!quoteMarketResp)
+        throw new MarketNotFoundError(`Market "${quote}" not found.`);
+
       quoteTickSize = quoteMarketResp.result.account_data.TickSize ?? 15;
       const rawTransferRate =
         quoteMarketResp.result.account_data.TransferRate ?? zeroTransferRate;
@@ -141,18 +147,15 @@ export class RippleDEX {
     const returnTickSize = Number(`1e-${smallestTickSize}`);
     const minimumOrderSize = returnTickSize;
 
-    if (!baseMarketResp)
-      throw new MarketNotFoundError(`Market "${base}" not found.`);
-    if (!quoteMarketResp)
-      throw new MarketNotFoundError(`Market "${quote}" not found.`);
-
-    return {
+    const result = {
       name: name,
       minimumOrderSize: minimumOrderSize,
       tickSize: returnTickSize,
       baseTransferRate: baseTransferRate,
       quoteTransferRate: quoteTransferRate,
     };
+
+    return result;
   }
 
   /**
@@ -545,10 +548,14 @@ export class RippleDEX {
     market?: GetOpenOrderRequest;
     markets?: GetOpenOrderRequest[];
   }): Promise<GetOpenOrdersResponse> {
-    const openOrders = IMap<
-      string,
-      IMap<number, GetOpenOrderResponse>
-    >().asMutable();
+    // const openOrders = IMap<
+    //   string,
+    //   IMap<number, GetOpenOrderResponse>
+    // >().asMutable();
+    const openOrders: any = {};
+
+    console.log('market: ', params.market);
+    console.log('markets: ', params.markets);
 
     const marketArray: GetOpenOrderRequest[] = [];
     if (params.market) marketArray.push(params.market);
@@ -560,10 +567,11 @@ export class RippleDEX {
       const [baseCurrency, baseIssuer] = base.split('.');
       const [quoteCurrency, quoteIssuer] = quote.split('.');
 
-      const openOrdersInMarket = IMap<
-        number,
-        GetOpenOrderResponse
-      >().asMutable();
+      // const openOrdersInMarket = IMap<
+      //   number,
+      //   GetOpenOrderResponse
+      // >().asMutable();
+      const openOrdersInMarket: any = {};
 
       const baseRequest: any = {
         currency: baseCurrency,
@@ -612,13 +620,20 @@ export class RippleDEX {
         } else {
           amount = ask.TakerGets;
         }
-        openOrdersInMarket.set(ask.Sequence, {
+        // openOrdersInMarket.set(ask.Sequence, {
+        //   sequence: ask.Sequence,
+        //   marketName: market.marketName,
+        //   price: price,
+        //   amount: amount,
+        //   side: OrderSide.SELL,
+        // });
+        openOrdersInMarket[String(ask.Sequence)] = {
           sequence: ask.Sequence,
           marketName: market.marketName,
           price: price,
           amount: amount,
           side: OrderSide.SELL,
-        });
+        };
       }
 
       for (const bid of bids) {
@@ -630,16 +645,25 @@ export class RippleDEX {
         } else {
           amount = bid.TakerGets;
         }
-        openOrdersInMarket.set(bid.Sequence, {
+        // openOrdersInMarket.set(bid.Sequence, {
+        //   sequence: bid.Sequence,
+        //   marketName: market.marketName,
+        //   price: price,
+        //   amount: amount,
+        //   side: OrderSide.BUY,
+        // });
+
+        openOrdersInMarket[String(bid.Sequence)] = {
           sequence: bid.Sequence,
           marketName: market.marketName,
           price: price,
           amount: amount,
           side: OrderSide.BUY,
-        });
+        };
       }
 
-      openOrders.set(market.marketName, openOrdersInMarket);
+      // openOrders.set(market.marketName, openOrdersInMarket);
+      openOrders[market.marketName] = openOrdersInMarket;
     }
     return openOrders;
   }
