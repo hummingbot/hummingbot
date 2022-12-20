@@ -8,7 +8,7 @@ MAX_ORDER_ID_LEN = 32
 
 DEFAULT_DOMAIN = ""
 CIEX_BASE_URL = "https://openapi.ci-ex.com/sapi/v1/"
-CIEX_WS_URL = "wss://wspool.hiotc.pro/kline-api/ws"
+CIEX_WS_URL = "wss://ws.ci-ex.com/kline-api/ws"
 
 MAX_ORDERS_PER_BATCH_CANCEL = 10
 
