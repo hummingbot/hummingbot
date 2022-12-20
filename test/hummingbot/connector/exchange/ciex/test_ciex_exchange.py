@@ -198,7 +198,7 @@ class CiexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @property
     def is_cancel_request_executed_synchronously_by_server(self) -> bool:
-        return True
+        return False
 
     @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
@@ -307,25 +307,25 @@ class CiexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     def configure_completely_filled_order_status_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> List[str]:
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.CIEX_ORDER_PATH)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
-        return [url]
+        return url
 
     def configure_canceled_order_status_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> List[str]:
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.CIEX_ORDER_PATH)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_canceled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
-        return [url]
+        return url
 
     def configure_open_order_status_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> List[str]:
+    ) -> str:
         """
         :return: the URL configured
         """
@@ -333,7 +333,7 @@ class CiexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_open_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
-        return [url]
+        return url
 
     def configure_http_error_order_status_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
@@ -345,12 +345,12 @@ class CiexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     def configure_partially_filled_order_status_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> List[str]:
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.CIEX_ORDER_PATH)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_partially_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
-        return [url]
+        return url
 
     def configure_partial_fill_trade_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
@@ -380,17 +380,17 @@ class CiexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     def configure_partial_cancelled_order_status_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> List[str]:
+    ) -> str:
         return self.configure_canceled_order_status_response(order=order, mock_api=mock_api, callback=callback)
 
     def configure_order_not_found_error_order_status_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> List[str]:
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.CIEX_ORDER_PATH)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = {"code": -2013, "msg": "Order does not exist."}
         mock_api.get(regex_url, body=json.dumps(response), status=400, callback=callback)
-        return [url]
+        return url
 
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
         raise NotImplementedError
@@ -670,3 +670,5 @@ class CiexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 }
             ]
         }
+
+    # TODO: Add tests that updates the order statuses when a subsequent order status update interval is reached

@@ -101,6 +101,15 @@ class CiexExchange(ExchangePyBase):
     def is_trading_required(self) -> bool:
         return self._trading_required
 
+    def _expected_initial_status_dict(self) -> Dict[str, bool]:
+        return {
+            "symbols_mapping_initialized": False,
+            "order_books_initialized": False,
+            "account_balance": False,
+            "trading_rule_initialized": False,
+            "user_stream_initialized": True,
+        }
+
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 

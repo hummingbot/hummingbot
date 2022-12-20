@@ -174,8 +174,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": not self.is_trading_required or len(self._account_balances) > 0,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self.is_trading_required else True,
-            "user_stream_initialized":
-                self._user_stream_tracker.data_source.last_recv_time > 0 if self.is_trading_required else True,
+            "user_stream_initialized": self._is_user_stream_initialized(),
         }
 
     @property
@@ -827,6 +826,9 @@ class ExchangePyBase(ExchangeBase, ABC):
             except Exception:
                 self.logger().exception("Error while reading user events queue. Retrying in 1s.")
                 await self._sleep(1.0)
+
+    def _is_user_stream_initialized(self):
+        return self._user_stream_tracker.data_source.last_recv_time > 0 or not self.is_trading_required
 
     def _create_user_stream_tracker(self):
         return UserStreamTracker(data_source=self._create_user_stream_data_source())
