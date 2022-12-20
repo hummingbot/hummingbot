@@ -777,7 +777,12 @@ class CommandShortcutModel(BaseModel):
 
 
 class ClientConfigMap(BaseClientModel):
-    instance_id: str = Field(default=generate_client_id())
+    instance_id: str = Field(
+        default=generate_client_id(),
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Instance UID of the bot",
+        ),
+    )
     log_level: str = Field(default="INFO")
     debug_console: bool = Field(default=False)
     strategy_report_interval: float = Field(default=900)
