@@ -1,5 +1,5 @@
 {
-    "chain": "cronos",
-    "network": "mainnet",
-    "address": "$CRONOS_ADDRESS"
+  "chain": "cronos",
+  "network": "mainnet",
+  "address": "$CRONOS_ADDRESS"
 }
