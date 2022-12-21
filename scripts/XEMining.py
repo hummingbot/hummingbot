@@ -20,7 +20,7 @@ class XEMining(ScriptStrategyBase):
     taker_pair = "{}-{}".format(first_asset, second_asset)
 
     order_amount = 250                  # amount for each order
-    spread_bps = 20                    # bot places maker orders at this spread to taker price
+    spread_bps = 40                    # bot places maker orders at this spread to taker price
     min_spread_bps = 0                  # bot refreshes order if spread is lower than min-spread
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
     max_order_age = 120                 # bot refreshes orders after this age
@@ -42,18 +42,18 @@ class XEMining(ScriptStrategyBase):
             self.logger().info(f"Annualized Volatility: {annualized_vol}")
             # adjust spread_bps based on volatility by multiplying spread_bps by volatility
             if annualized_vol > 5 and annualized_vol < 10:
-                self.spread_bps = 22
+                self.spread_bps = 40
             elif annualized_vol >= 10:
-                self.spread_bps = 25
+                self.spread_bps = 50
             else:
-                self.spread_bps = 20
+                self.spread_bps = 30
 
             average_profit = self.calculate_average_profitability()
             self.logger().info(f"Average Profitability: {average_profit}")
             if average_profit < 0:
-                self.spread_bps += 4
+                self.spread_bps += 5
             elif average_profit > 0:
-                self.spread_bps -= 4
+                self.spread_bps -= 5
 
             self.logger().info(f"Adjusted spread_bps: {self.spread_bps}")
             self.price_timestamp = self.current_timestamp + 60
