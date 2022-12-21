@@ -275,7 +275,10 @@ class ExchangePyBase(ExchangeBase, ABC):
         Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
         the execution of the status update polling loop using an event.
         """
-        last_recv_diff = timestamp - self._user_stream_tracker.last_recv_time
+        last_user_stream_message_time = (
+            0 if self._user_stream_tracker is None else self._user_stream_tracker.last_recv_time
+        )
+        last_recv_diff = timestamp - last_user_stream_message_time
         poll_interval = (self.SHORT_POLL_INTERVAL
                          if last_recv_diff > self.TICK_INTERVAL_LIMIT
                          else self.LONG_POLL_INTERVAL)
