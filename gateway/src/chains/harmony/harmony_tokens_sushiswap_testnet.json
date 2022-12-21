@@ -16,9 +16,7 @@
       "name": "Jewel",
       "decimals": 18,
       "logoURI": "https://beta.defikingdoms.com/static/media/jewel-logo.88468185.png",
-      "tags": [
-        "harmony testnet"
-      ]
+      "tags": ["harmony testnet"]
     },
     {
       "name": "Wrapped ONE",

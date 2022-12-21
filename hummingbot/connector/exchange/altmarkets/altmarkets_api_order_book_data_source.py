@@ -2,26 +2,24 @@
 import asyncio
 import logging
 import time
-import pandas as pd
 from decimal import Decimal
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+import pandas as pd
+
 import hummingbot.connector.exchange.altmarkets.altmarkets_http_utils as http_utils
-from .altmarkets_utils import (
-    convert_to_exchange_trading_pair,
-    convert_from_exchange_trading_pair,
-    AltmarketsAPIError,
-)
-
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+
 # from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
-from .altmarkets_constants import Constants
+
 from .altmarkets_active_order_tracker import AltmarketsActiveOrderTracker
+from .altmarkets_constants import Constants
 from .altmarkets_order_book import AltmarketsOrderBook
+from .altmarkets_utils import AltmarketsAPIError, convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
 from .altmarkets_websocket import AltmarketsWebsocket
 
 
@@ -261,3 +259,11 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
                                     "Check network connection.")
                 await self._sleep(5.0)
+
+    async def listen_for_subscriptions(self):
+        """
+        Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
+        exchange. Each message is stored in its own queue.
+        """
+        # This connector does not use this base class method and needs a refactoring
+        pass

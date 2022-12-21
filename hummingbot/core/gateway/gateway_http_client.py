@@ -10,7 +10,6 @@ import aiohttp
 from hummingbot.client.config.security import Security
 from hummingbot.core.data_type.common import PositionSide
 from hummingbot.core.event.events import TradeType
-from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
@@ -78,7 +77,7 @@ class GatewayHttpClient:
         :returns Shared client session instance
         """
         if cls._shared_client is None or re_init:
-            cert_path = get_gateway_paths(client_config_map).local_certs_path.as_posix()
+            cert_path = client_config_map.certs.path
             ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
             ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
                                     keyfile=f"{cert_path}/client_key.pem",
@@ -257,11 +256,14 @@ class GatewayHttpClient:
     async def get_wallets(self, fail_silently: bool = False) -> List[Dict[str, Any]]:
         return await self.api_request("get", "wallet", fail_silently=fail_silently)
 
-    async def add_wallet(self, chain: str, network: str, private_key: str) -> Dict[str, Any]:
+    async def add_wallet(self, chain: str, network: str, private_key: str, id: Optional[str] = None) -> Dict[str, Any]:
+        request = {"chain": chain, "network": network, "privateKey": private_key}
+        if id:
+            request["address"] = id
         return await self.api_request(
             "post",
             "wallet/add",
-            {"chain": chain, "network": network, "privateKey": private_key}
+            request
         )
 
     async def get_configuration(self, fail_silently: bool = False) -> Dict[str, Any]:
@@ -277,7 +279,8 @@ class GatewayHttpClient:
     ) -> Dict[str, Any]:
         if isinstance(token_symbols, list):
             token_symbols = [x for x in token_symbols if isinstance(x, str) and x.strip() != '']
-            return await self.api_request("post", "network/balances", {
+            network_path = "near" if chain == "near" else "network"
+            return await self.api_request("post", f"{network_path}/balances", {
                 "chain": chain,
                 "network": network,
                 "address": address,
@@ -292,7 +295,8 @@ class GatewayHttpClient:
             network: str,
             fail_silently: bool = True
     ) -> Dict[str, Any]:
-        return await self.api_request("get", "network/tokens", {
+        network_path = "near" if chain == "near" else "network"
+        return await self.api_request("get", f"{network_path}/tokens", {
             "chain": chain,
             "network": network
         }, fail_silently=fail_silently)
@@ -388,6 +392,7 @@ class GatewayHttpClient:
             network: str,
             transaction_hash: str,
             connector: Optional[str] = None,
+            address: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         request = {
@@ -397,7 +402,10 @@ class GatewayHttpClient:
         }
         if connector:
             request["connector"] = connector
-        return await self.api_request("post", "network/poll", request, fail_silently=fail_silently)
+        if address:
+            request["address"] = address
+        network_path = "near" if chain == "near" else "network"
+        return await self.api_request("post", f"{network_path}/poll", request, fail_silently=fail_silently)
 
     async def get_evm_nonce(
             self,

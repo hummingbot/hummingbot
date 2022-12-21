@@ -1,0 +1,10 @@
+{
+  "address": "$CRONOS_ADDRESS",
+  "quote": "USDC",
+  "base": "WCRO",
+  "amount": "50",
+  "side": "SELL",
+  "chain": "cronos",
+  "network": "mainnet",
+  "connector": "mad_meerkat"
+}
