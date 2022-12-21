@@ -20,7 +20,7 @@ _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "hummingbot/gateway-v2"
-GATEWAY_DOCKER_TAG: str = "gateway-v2-master-arm" if platform.machine() in {"arm64", "aarch64"} else "gateway-v2-master"
+GATEWAY_DOCKER_TAG: str = "gateway-v2-dev" if platform.machine() in {"arm64", "aarch64"} else "gateway-v2-dev"
 S_DECIMAL_0: Decimal = Decimal(0)
 
 
@@ -110,9 +110,15 @@ def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
         if inside_docker
         else Path.home().joinpath(f".hummingbot-gateway/{gateway_container_name}")
     )
+    conf_path: Path = (
+        Path.home().joinpath("hummingbot-files")
+        if inside_docker
+        else Path.home().joinpath(f"hummingbot-files/{gateway_container_name}")
+
+    )
     local_certs_path: Path = base_path.joinpath("certs")
-    local_conf_path: Path = base_path.joinpath("conf")
-    local_logs_path: Path = base_path.joinpath("logs")
+    local_conf_path: Path = conf_path.joinpath("gateway-conf")
+    local_logs_path: Path = conf_path.joinpath("gateway-logs")
     mount_certs_path: Path = external_certs_path or local_certs_path
     mount_conf_path: Path = external_conf_path or local_conf_path
     mount_logs_path: Path = external_logs_path or local_logs_path
