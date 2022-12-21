@@ -21,7 +21,6 @@ omit =
         hummingbot/connector/derivative/position.py
         hummingbot/connector/exchange/beaxy*
         hummingbot/connector/exchange/bitfinex*
-        hummingbot/connector/exchange/blocktane*
         hummingbot/connector/exchange/coinbase_pro*
         hummingbot/connector/exchange/digifinex*
         hummingbot/connector/exchange/hitbtc*
