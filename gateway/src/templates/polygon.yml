@@ -3,8 +3,8 @@ networks:
   mainnet:
     chainID: 137
     nodeURL: https://rpc.ankr.com/polygon
-    tokenListType: 'URL'
-    tokenListSource: 'https://api-polygon-tokens.polygon.technology/tokenlists/allTokens.tokenlist.json'
+    tokenListType: 'FILE'
+    tokenListSource: 'src/chains/polygon/polygon_tokens_mainnet.json'
     nativeCurrencySymbol: 'MATIC'  
   mumbai:
     chainID: 80001

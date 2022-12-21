@@ -10,7 +10,6 @@ import aiohttp
 from hummingbot.client.config.security import Security
 from hummingbot.core.data_type.common import PositionSide
 from hummingbot.core.event.events import TradeType
-from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
@@ -78,7 +77,7 @@ class GatewayHttpClient:
         :returns Shared client session instance
         """
         if cls._shared_client is None or re_init:
-            cert_path = get_gateway_paths(client_config_map).local_certs_path.as_posix()
+            cert_path = client_config_map.certs.path
             ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
             ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
                                     keyfile=f"{cert_path}/client_key.pem",
