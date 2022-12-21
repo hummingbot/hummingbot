@@ -17,6 +17,7 @@ import {
 import IUniswapV2Pair from '@uniswap/v2-core/build/IUniswapV2Pair.json';
 import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 import { Ethereum } from '../../chains/ethereum/ethereum';
+import { Polygon } from '../../chains/polygon/polygon';
 import { BinanceSmartChain } from '../../chains/binance-smart-chain/binance-smart-chain';
 import {
   BigNumber,
@@ -30,7 +31,7 @@ import { logger } from '../../services/logger';
 
 export class Sushiswap implements Uniswapish {
   private static _instances: { [name: string]: Sushiswap };
-  private chain: Ethereum | BinanceSmartChain;
+  private chain: Ethereum | Polygon | BinanceSmartChain;
   private _router: string;
   private _routerAbi: ContractInterface;
   private _gasLimitEstimate: number;
@@ -43,6 +44,8 @@ export class Sushiswap implements Uniswapish {
     const config = SushiswapConfig.config;
     if (chain === 'ethereum') {
       this.chain = Ethereum.getInstance(network);
+    } else if (chain === 'polygon') {
+      this.chain = Polygon.getInstance(network);
     } else if (chain === 'binance-smart-chain') {
       this.chain = BinanceSmartChain.getInstance(network);
     } else {
@@ -139,8 +142,8 @@ export class Sushiswap implements Uniswapish {
   /**
    * Fetches information about a pair and constructs a pair from the given two tokens.
    * This is to replace the Fetcher Class
-   * @param tokenA first token
-   * @param tokenB second token
+   * @param baseToken  first token
+   * @param quoteToken second token
    */
 
   async fetchData(baseToken: Token, quoteToken: Token): Promise<Pair> {
@@ -240,16 +243,16 @@ export class Sushiswap implements Uniswapish {
   /**
    * Given a wallet and a Uniswap trade, try to execute it on blockchain.
    *
-   * @param _wallet Wallet
-   * @param _trade Expected trade
-   * @param _gasPrice Base gas price, for pre-EIP1559 transactions
-   * @param uniswapRouter Router smart contract address
-   * @param _ttl How long the swap is valid before expiry, in seconds
-   * @param _abi Router contract ABI
-   * @param _gasLimit Gas limit
-   * @param _nonce (Optional) EVM transaction nonce
-   * @param _maxFeePerGas (Optional) Maximum total fee per gas you want to pay
-   * @param _maxPriorityFeePerGas (Optional) Maximum tip per gas you want to pay
+   * @param wallet Wallet
+   * @param trade Expected trade
+   * @param gasPrice Base gas price, for pre-EIP1559 transactions
+   * @param sushswapRouter Router smart contract address
+   * @param ttl How long the swap is valid before expiry, in seconds
+   * @param abi Router contract ABI
+   * @param gasLimit Gas limit
+   * @param nonce (Optional) EVM transaction nonce
+   * @param maxFeePerGas (Optional) Maximum total fee per gas you want to pay
+   * @param maxPriorityFeePerGas (Optional) Maximum tip per gas you want to pay
    */
 
   async executeTrade(
