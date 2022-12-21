@@ -8,11 +8,11 @@ from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class DummyScript(ScriptStrategyBase):
+class HedgeXEMMWithArbitrage(ScriptStrategyBase):
     min_base_asset = 0.2
     min_quote_asset = 200
 
-    order_amount = Decimal(0.1)  # This can be adjusted
+    order_amount = 0.01  # This can be adjusted
     order_refresh_time = 10  # This can be adjusted
     create_timestamp = 0
 
@@ -31,8 +31,9 @@ class DummyScript(ScriptStrategyBase):
     sell_orders_on_low_liquidity_exchange = 0
 
     # this will be used to calculate the price for the hedge order on the high liquidity exchange:
-    spread_bps = 5
+    spread_bps = 3
     min_spread_bps = 0
+    slippage_buffer_spread_bps = 5
 
     def high_liquidity_connector(self):
         return self.connectors[self.high_liquidity_exchange]
@@ -195,7 +196,8 @@ class DummyScript(ScriptStrategyBase):
         return False
 
     def did_fill_order(self, event: OrderFilledEvent):
-        # Calculate volatility on high liquidity exchange based on bidask-spread
+        self.logger().info("order filled")
+        # # Calculate volatility on high liquidity exchange based on bidask-spread
         best_ask = self.connectors[self.high_liquidity_exchange].get_price(self.trading_pair, is_buy=True)
         best_bid = self.connectors[self.high_liquidity_exchange].get_price(self.trading_pair, is_buy=False)
         bid_ask_spread_bps = (best_ask - best_bid) * 10000
@@ -203,6 +205,7 @@ class DummyScript(ScriptStrategyBase):
             volatility = "high"
         else:
             volatility = "low"
+        self.logger().info(f"The volatility on {self.high_liquidity_exchange} is {volatility}")
 
         if event.trade_type == TradeType.BUY and self.is_active_maker_order(event):
             self.logger().info(f"Buy order filled on low liquidity exchange with price: {event.price}")
