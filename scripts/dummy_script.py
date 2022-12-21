@@ -12,7 +12,7 @@ class DummyScript(ScriptStrategyBase):
     min_base_asset = 0.2
     min_quote_asset = 200
 
-    order_amount = Decimal(0.5)  # This can be adjusted
+    order_amount = Decimal(0.1)  # This can be adjusted
     order_refresh_time = 10  # This can be adjusted
     create_timestamp = 0
 
@@ -162,7 +162,7 @@ class DummyScript(ScriptStrategyBase):
     def adjust_proposal_to_budget(self, proposal):
         """Adjust the order-candidate to the available budget"""
         proposal_adjusted = self.connectors[self.low_liquidity_exchange].budget_checker.adjust_candidates(
-            proposal, all_or_none=True)
+            proposal, all_or_none=False)
         return proposal_adjusted
 
     def place_orders(self, adjusted_proposal):
