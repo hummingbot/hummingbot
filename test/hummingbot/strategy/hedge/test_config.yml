@@ -1,0 +1,35 @@
+strategy: hedge
+value_mode: true
+hedge_ratio: 1.0
+hedge_interval: 60
+min_trade_size: 0.0
+slippage: 0.02
+hedge_connector: bybit_perpetual_testnet
+hedge_markets:
+- BTC-USDT
+hedge_offsets:
+- 0.0
+hedge_leverage: 1
+hedge_position_mode: ONEWAY
+connector_0:
+  connector: binance
+  markets:
+  - BTC-USDT
+  offsets:
+  - 0.0
+connector_1:
+  connector: null
+  markets: null
+  offsets: null
+connector_2:
+  connector: null
+  markets: null
+  offsets: null
+connector_3:
+  connector: null
+  markets: null
+  offsets: null
+connector_4:
+  connector: null
+  markets: null
+  offsets: null

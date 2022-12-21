@@ -438,6 +438,18 @@ class GatewayConfigMap(BaseClientModel):
         title = "gateway"
 
 
+class CertsConfigMap(BaseClientModel):
+    path: str = Field(
+        default="",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Please enter the path for your certificate files",
+        ),
+    )
+
+    class Config:
+        title = "certs"
+
+
 class GlobalTokenConfigMap(BaseClientModel):
     global_token_name: str = Field(
         default="USD",
@@ -774,6 +786,12 @@ class ClientConfigMap(BaseClientModel):
         description=("Gateway API Configurations"
                      "\ndefault host to only use localhost"
                      "\nPort need to match the final installation port for Gateway"),
+    )
+    certs: CertsConfigMap = Field(
+        default=CertsConfigMap(),
+        description=("Certs Configurations"
+                     "\ndefault: use the client generated certs"
+                     "\nPort need to match the certifactes for Gateway"),
     )
     anonymized_metrics_mode: Union[tuple(METRICS_MODES.values())] = Field(
         default=AnonymizedMetricsEnabledMode(),
