@@ -1,0 +1,10 @@
+{
+  "address": "$NEAR_ADDRESS",
+  "quote": "DAI",
+  "base": "ETH",
+  "amount": "0.01",
+  "side": "SELL",
+  "chain": "near",
+  "network": "mainnet",
+  "connector": "ref"
+}

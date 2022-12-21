@@ -1,12 +1,14 @@
+import unittest
+from decimal import Decimal
 from os.path import join, realpath
+from unittest.mock import MagicMock
+
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.spot_perpetual_arbitrage.arb_proposal import ArbProposal, ArbProposalSide
+
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 import logging; logging.basicConfig(level=logging.ERROR)
-import unittest
-from unittest.mock import MagicMock
-from decimal import Decimal
-from hummingbot.strategy.spot_perpetual_arbitrage.arb_proposal import ArbProposalSide, ArbProposal
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 class TestSpotPerpetualArbitrage(unittest.TestCase):
@@ -45,3 +47,11 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             proposal = ArbProposal(spot_side, perp_side, Decimal("1"))
         self.assertEqual('Spot and perpetual arb proposal cannot be on the same side.', str(context.exception))
+
+        unset_perp_side = ArbProposalSide(
+            perp_market_info,
+            False,
+            None
+        )
+        incomplete_proposal = ArbProposal(spot_side, unset_perp_side, Decimal("1"))
+        self.assertEqual(Decimal("0"), incomplete_proposal.profit_pct())

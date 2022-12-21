@@ -856,22 +856,31 @@ class ExchangePyBase(ExchangeBase, ABC):
         kwargs["method"] = RESTMethod.DELETE
         return await self._api_request(*args, **kwargs)
 
-    async def _api_request(self,
-                           path_url,
-                           method: RESTMethod = RESTMethod.GET,
-                           params: Optional[Dict[str, Any]] = None,
-                           data: Optional[Dict[str, Any]] = None,
-                           is_auth_required: bool = False,
-                           return_err: bool = False,
-                           limit_id: Optional[str] = None,
-                           **kwargs) -> Dict[str, Any]:
-
-        last_exception = None
-        rest_assistant = await self._web_assistants_factory.get_rest_assistant()
+    async def _api_request_url(self, path_url: str, is_auth_required: bool = False) -> str:
         if is_auth_required:
             url = self.web_utils.private_rest_url(path_url, domain=self.domain)
         else:
             url = self.web_utils.public_rest_url(path_url, domain=self.domain)
+
+        return url
+
+    async def _api_request(
+            self,
+            path_url,
+            overwrite_url: Optional[str] = None,
+            method: RESTMethod = RESTMethod.GET,
+            params: Optional[Dict[str, Any]] = None,
+            data: Optional[Dict[str, Any]] = None,
+            is_auth_required: bool = False,
+            return_err: bool = False,
+            limit_id: Optional[str] = None,
+            **kwargs,
+    ) -> Dict[str, Any]:
+
+        last_exception = None
+        rest_assistant = await self._web_assistants_factory.get_rest_assistant()
+
+        url = overwrite_url or await self._api_request_url(path_url=path_url, is_auth_required=is_auth_required)
 
         for _ in range(2):
             try:
@@ -884,6 +893,7 @@ class ExchangePyBase(ExchangeBase, ABC):
                     return_err=return_err,
                     throttler_limit_id=limit_id if limit_id else path_url,
                 )
+
                 return request_result
             except IOError as request_exception:
                 last_exception = request_exception
@@ -1014,10 +1024,8 @@ class ExchangePyBase(ExchangeBase, ABC):
         raise NotImplementedError
 
     async def _initialize_trading_pair_symbol_map(self):
-        exchange_info = None
         try:
             exchange_info = await self._api_get(path_url=self.trading_pairs_request_path)
             self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
         except Exception:
             self.logger().exception("There was an error requesting exchange info.")
-        return exchange_info
