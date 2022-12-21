@@ -363,7 +363,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         value="TakerMarkets",  # noqa: F821
         names={e: e for e in
                sorted(AllConnectorSettings.get_exchange_names().union(
-                   AllConnectorSettings.get_gateway_evm_amm_connector_names()
+                   AllConnectorSettings.get_gateway_amm_connector_names()
                ))},
         type=str,
     ) = Field(
@@ -495,7 +495,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
                 value="TakerMarkets",  # noqa: F821
                 names={e: e for e in sorted(
                     AllConnectorSettings.get_exchange_names().union(
-                        AllConnectorSettings.get_gateway_evm_amm_connector_names()
+                        AllConnectorSettings.get_gateway_amm_connector_names()
                     ))},
                 type=str,
             )

@@ -10,8 +10,8 @@ networks:
   avalanche: 
     chainID: 43114
     nodeURL: https://rpc.ankr.com/avalanche
-    tokenListType: 'URL'
-    tokenListSource: 'https://raw.githubusercontent.com/pangolindex/tokenlists/main/pangolin.tokenlist.json'
+    tokenListType: 'FILE'
+    tokenListSource: 'src/chains/avalanche/avanlanche_tokens.json'
     nativeCurrencySymbol: 'AVAX'
     gasPriceRefreshInterval: 60
 
