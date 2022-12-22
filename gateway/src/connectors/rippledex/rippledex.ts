@@ -170,7 +170,7 @@ export class RippleDEX {
       markets.set(name, market);
     };
 
-    await promiseAllInBatches(getMarket, names);
+    await promiseAllInBatches(getMarket, names, 1, 1);
 
     return markets;
   }
@@ -220,12 +220,15 @@ export class RippleDEX {
     let topAsk = 0;
     let topBid = 0;
 
+    const askQuality = asks.length > 0 ? asks[0].quality : undefined;
+    const bidQuality = bids.length > 0 ? bids[0].quality : undefined;
+
     if (baseCurrency === 'XRP' || quoteCurrency === 'XRP') {
-      topAsk = asks[0].quality ? Number(asks[0].quality) / 1000000 : 0;
-      topBid = bids[0].quality ? 1 / Number(bids[0].quality) / 1000000 : 0;
+      topAsk = askQuality ? Number(askQuality) / 1000000 : 0;
+      topBid = bidQuality ? 1 / Number(bidQuality) / 1000000 : 0;
     } else {
-      topAsk = asks[0].quality ? Number(asks[0].quality) : 0;
-      topBid = bids[0].quality ? 1 / Number(bids[0].quality) : 0;
+      topAsk = askQuality ? Number(askQuality) : 0;
+      topBid = bidQuality ? 1 / Number(bidQuality) : 0;
     }
 
     const midPrice = (topAsk + topBid) / 2;
@@ -245,7 +248,7 @@ export class RippleDEX {
       tickers.set(marketName, ticker);
     };
 
-    await promiseAllInBatches(getTicker, marketNames);
+    await promiseAllInBatches(getTicker, marketNames, 1, 1);
 
     return tickers;
   }
@@ -298,12 +301,15 @@ export class RippleDEX {
     let topAsk = 0;
     let topBid = 0;
 
+    const askQuality = asks.length > 0 ? asks[0].quality : undefined;
+    const bidQuality = bids.length > 0 ? bids[0].quality : undefined;
+
     if (baseCurrency === 'XRP' || quoteCurrency === 'XRP') {
-      topAsk = asks[0].quality ? Number(asks[0].quality) / 1000000 : 0;
-      topBid = bids[0].quality ? 1 / Number(bids[0].quality) / 1000000 : 0;
+      topAsk = askQuality ? Number(askQuality) / 1000000 : 0;
+      topBid = bidQuality ? 1 / Number(bidQuality) / 1000000 : 0;
     } else {
-      topAsk = asks[0].quality ? Number(asks[0].quality) : 0;
-      topBid = bids[0].quality ? 1 / Number(bids[0].quality) : 0;
+      topAsk = askQuality ? Number(askQuality) : 0;
+      topBid = bidQuality ? 1 / Number(bidQuality) : 0;
     }
 
     const midPrice = (topAsk + topBid) / 2;
@@ -331,7 +337,7 @@ export class RippleDEX {
       orderBooks.set(marketName, orderBook);
     };
 
-    await promiseAllInBatches(getOrderBook, marketNames);
+    await promiseAllInBatches(getOrderBook, marketNames, 1, 1);
 
     return orderBooks;
   }
@@ -369,27 +375,27 @@ export class RippleDEX {
 
     if (order.side == 'BUY') {
       we_pay = {
-        currency: baseCurrency,
-        issuer: baseIssuer,
+        currency: quoteCurrency,
+        issuer: quoteIssuer,
         value: total.toString(),
       };
       we_get = {
-        currency: quoteCurrency,
-        issuer: quoteIssuer,
+        currency: baseCurrency,
+        issuer: baseIssuer,
         value: order.amount.toString(),
       };
 
       fee = market.baseTransferRate;
     } else {
       we_pay = {
-        currency: quoteCurrency,
-        issuer: quoteIssuer,
-        value: total.toString(),
-      };
-      we_get = {
         currency: baseCurrency,
         issuer: baseIssuer,
         value: order.amount.toString(),
+      };
+      we_get = {
+        currency: quoteCurrency,
+        issuer: quoteIssuer,
+        value: total.toString(),
       };
 
       fee = market.quoteTransferRate;
@@ -406,8 +412,8 @@ export class RippleDEX {
     const offer: Transaction = {
       TransactionType: 'OfferCreate',
       Account: wallet.classicAddress,
-      TakerPays: we_pay.currency == 'XRP' ? we_pay.value : we_pay,
-      TakerGets: we_get.currency == 'XRP' ? we_get.value : we_get,
+      TakerGets: we_pay.currency == 'XRP' ? we_pay.value : we_pay,
+      TakerPays: we_get.currency == 'XRP' ? we_get.value : we_get,
     };
 
     if (order.sequence != undefined) {
@@ -432,13 +438,16 @@ export class RippleDEX {
             if (affnode.ModifiedNode.LedgerEntryType == 'Offer') {
               // Usually a ModifiedNode of type Offer indicates a previous Offer that
               // was partially consumed by this one.
-              orderStatus = OrderStatus.FILLED;
+              orderStatus = OrderStatus.PARTIALLY_FILLED;
             }
           } else if ('DeletedNode' in affnode) {
             if (affnode.DeletedNode.LedgerEntryType == 'Offer') {
               // The removed Offer may have been fully consumed, or it may have been
               // found to be expired or unfunded.
-              orderStatus = OrderStatus.FILLED;
+              // TODO: Make a seperate method for cancelling orders
+              if (offer.OfferSequence == undefined) {
+                orderStatus = OrderStatus.FILLED;
+              }
             }
           } else if ('CreatedNode' in affnode) {
             if (affnode.CreatedNode.LedgerEntryType == 'Offer') {
@@ -482,7 +491,7 @@ export class RippleDEX {
       createdOrders.set(createdOrder.sequence, createdOrder);
     };
 
-    await promiseAllInBatches(getCreatedOrders, orders);
+    await promiseAllInBatches(getCreatedOrders, orders, 1, 1);
 
     return createdOrders;
   }
@@ -539,7 +548,7 @@ export class RippleDEX {
       cancelledOrders.set(order.offerSequence, cancelledOrder);
     };
 
-    await promiseAllInBatches(getCancelledOrders, orders);
+    await promiseAllInBatches(getCancelledOrders, orders, 1, 1);
 
     return cancelledOrders;
   }

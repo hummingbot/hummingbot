@@ -293,7 +293,7 @@ export async function cancelOrders(
 }
 
 /**
- * Get the order book of a token pair
+ * Get open orders of a token pair
  *
  * @param _ripple
  * @param rippledex

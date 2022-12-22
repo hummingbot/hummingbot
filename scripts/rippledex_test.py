@@ -15,10 +15,7 @@ import yaml  # noqa
 
 from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.gateway.clob.clob_types import (  # noqa
-    OrderSide as SerumOrderSide,
-    OrderType as SerumOrderType,
-)
+from hummingbot.connector.gateway.clob.clob_types import OrderSide as RippleOrderSide
 from hummingbot.connector.gateway.clob.clob_utils import convert_order_side, convert_trading_pair  # noqa
 from hummingbot.connector.gateway.clob.gateway_rippledex_clob import GatewayRippledexCLOB
 from hummingbot.core.data_type.common import OrderType, TradeType  # noqa
@@ -154,17 +151,69 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
             ticker_price = await self._get_market_price()
             self._summary["price"]["ticker_price"] = ticker_price
+            self._market_info = await self._get_market()
+
+            buy_order = {
+                "marketName": self._market,
+                "walletAddress": self._connector.address,
+                "side": RippleOrderSide.BUY.value[0],
+                "amount": 5,
+                "price": 1500,
+            }
+            buy_order_rsp = await self._post_orders(order=buy_order)
+
+            sell_order = {
+                "marketName": self._market,
+                "walletAddress": self._connector.address,
+                "side": RippleOrderSide.SELL.value[0],
+                "amount": 5,
+                "price": 3000,
+            }
+            sell_order_rsp = await self._post_orders(order=sell_order)
+
+            replace_buy_order = {
+                "marketName": self._market,
+                "walletAddress": self._connector.address,
+                "side": RippleOrderSide.BUY.value[0],
+                "amount": 10,
+                "price": 1500,
+                "sequence": buy_order_rsp["sequence"]
+            }
+            replace_buy_order_rsp = await self._post_orders(order=replace_buy_order)
+
+            replace_sell_order = {
+                "marketName": self._market,
+                "walletAddress": self._connector.address,
+                "side": RippleOrderSide.SELL.value[0],
+                "amount": 10,
+                "price": 3000,
+                "sequence": sell_order_rsp["sequence"]
+            }
+            replace_sell_order_rsp = await self._post_orders(order=replace_sell_order)
+
             open_orders_balance = await self._get_open_orders_balance()
             self._summary["balance"]["orders"]["base"] = open_orders_balance["base"]
             self._summary["balance"]["orders"]["quote"] = open_orders_balance["quote"]
 
-            self._market_info = await self._get_market()
-
             self._show_summary()
+
+            delete_orders = [
+                {
+                    "walletAddress": self._connector.address,
+                    "offerSequence": replace_buy_order_rsp["sequence"]
+                },
+                {
+                    "walletAddress": self._connector.address,
+                    "offerSequence": replace_sell_order_rsp["sequence"]
+                }
+            ]
+
+            await self._cancel_orders(orders=delete_orders)
             # self._show_orderbook()
         finally:
             self._refresh_timestamp = int(self._configuration["refresh_interval"]) + self.current_timestamp
             self._is_busy = False
+            HummingbotApplication.main_application().stop()
 
             self._log(DEBUG, """_async_on_tick... end""")
 
@@ -216,7 +265,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(INFO, f"""gateway.clob_get_markets:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
+                self._log(INFO, f"""gateway.clob_get_markets:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
         finally:
             self._log(DEBUG, """_get_market... end""")
 
@@ -242,7 +291,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(INFO, f"""gateway.clob_get_order_books:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
+                self._log(INFO, f"""gateway.clob_get_order_books:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
         finally:
             self._log(DEBUG, """_get_order_book... end""")
 
@@ -278,7 +327,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(INFO, f"""gateway.clob_get_tickers:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
+                self._log(INFO, f"""gateway.clob_get_tickers:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
 
         finally:
             self._log(DEBUG, """_get_ticker... end""")
@@ -288,9 +337,9 @@ class TestRippleDEXGateway(ScriptStrategyBase):
         open_orders_base_amount = decimal_zero
         open_orders_quote_amount = decimal_zero
         for order in open_orders[self._market].values():
-            if order['side'] == SerumOrderSide.BUY.value[0]:
+            if order['side'] == RippleOrderSide.BUY.value[0]:
                 open_orders_base_amount += Decimal(order["amount"])
-            if order['side'] == SerumOrderSide.SELL.value[0]:
+            if order['side'] == RippleOrderSide.SELL.value[0]:
                 open_orders_quote_amount += Decimal(order["amount"]) * Decimal(order['price'])
 
         return {"base": open_orders_base_amount, "quote": open_orders_quote_amount}
@@ -320,9 +369,69 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(INFO, f"""gateway.clob_get_open_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
+                self._log(INFO, f"""gateway.clob_get_open_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
         finally:
             self._log(DEBUG, """_get_open_orders... end""")
+
+    async def _post_orders(self, order=None, orders=None):
+        # TODO: Just post buy orders, do once for now
+        try:
+            self._log(DEBUG, """_post_orders... start""")
+
+            request = None
+            response = None
+            try:
+                request = {
+                    "chain": self._configuration["chain"],
+                    "network": self._configuration["network"],
+                    "connector": self._configuration["connector"],
+                    "order": order,
+                    "orders": orders
+                }
+
+                response = await self._gateway.rippledex_post_orders(**request)
+
+                return response
+            except Exception as exception:
+                response = traceback.format_exc()
+
+                raise exception
+            finally:
+                self._log(INFO, f"""gateway._post_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
+        finally:
+            self._log(DEBUG, """_post_orders... end""")
+
+    async def _cancel_orders(self, order=None, orders=None):
+        try:
+            self._log(DEBUG, """_cancel_orders... start""")
+
+            request = None
+            response = None
+            try:
+                request = {
+                    "chain": self._configuration["chain"],
+                    "network": self._configuration["network"],
+                    "connector": self._configuration["connector"],
+                    "order": order,
+                    "orders": orders
+                }
+
+                response = await self._gateway.rippledex_delete_orders(**request)
+
+                return response
+            except Exception as exception:
+                response = traceback.format_exc()
+
+                raise exception
+            finally:
+                self._log(INFO, f"""gateway._cancel_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
+        finally:
+            self._log(DEBUG, """_cancel_orders... end""")
+        pass
+
+    async def _check_open_orders_status(self):
+
+        pass
 
     def _show_summary(self):
         self._log(
@@ -336,10 +445,10 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                 Balance:
                 -Wallet:
                 {format_line(f"  {self._base_token}:", format_currency(self._summary["balance"]["wallet"]["base"], 4))}
-                {format_line(f"  {self._quote_token}:", format_currency(self._summary["balance"]["wallet"]["quote"], 4))}
+                {format_line(f"  {self._quote_token}:", format_currency(self._summary["balance"]["wallet"]["quote"], 4))} # noqa
                 -Market:
                 {format_line(f"  tickSize:", format_currency(Decimal(self._market_info["tickSize"]), 15))}
-                {format_line(f"  minimumOrderSize:", format_currency(Decimal(self._market_info["minimumOrderSize"]), 15))}
+                {format_line(f"  minimumOrderSize:", format_currency(Decimal(self._market_info["minimumOrderSize"]), 15))} # noqa
                 -Open Orders Balance:
                 {format_line(f"  BUY:", format_currency(self._summary["balance"]["orders"]["base"], 4))}
                 {format_line(f"  SELL:", format_currency(self._summary["balance"]["orders"]["quote"], 4))}
