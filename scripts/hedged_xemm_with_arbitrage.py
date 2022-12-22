@@ -31,9 +31,13 @@ class HedgeXEMMWithArbitrage(ScriptStrategyBase):
     sell_orders_on_low_liquidity_exchange = 0
 
     # this will be used to calculate the price for the hedge order on the high liquidity exchange:
-    spread_bps = 3
+    spread_bps = 10
     min_spread_bps = 0
-    slippage_buffer_spread_bps = 5
+
+    sell_limit_order_id = None
+    buy_limit_order_id = None
+
+    volatility_threshold = 15  # This can be adjusted
 
     def high_liquidity_connector(self):
         return self.connectors[self.high_liquidity_exchange]
@@ -46,16 +50,8 @@ class HedgeXEMMWithArbitrage(ScriptStrategyBase):
         balance runs low."""
         # Low liquidity exchange side
         # Do we need to refresh orders?
-        if self.create_timestamp <= self.current_timestamp:
-            self.cancel_all_orders()
-            proposal = self.create_proposal_based_on_high_liquidity_exchange_price()
-            adjusted_proposal = self.adjust_proposal_to_budget(proposal)
-            self.place_orders(adjusted_proposal)
-            # Update timestamp
-            self.create_timestamp = self.order_refresh_time + self.current_timestamp
-
-        # Are there less than 1 buy or sell order on the exchange?
-        elif self.sell_orders_on_low_liquidity_exchange < 1 or self.buy_orders_on_low_liquidity_exchange < 1:
+        if self.create_timestamp <= self.current_timestamp or self.sell_orders_on_low_liquidity_exchange < 1 or\
+                self.buy_orders_on_low_liquidity_exchange < 1:
             self.cancel_all_orders()
             proposal = self.create_proposal_based_on_high_liquidity_exchange_price()
             adjusted_proposal = self.adjust_proposal_to_budget(proposal)
@@ -125,7 +121,6 @@ class HedgeXEMMWithArbitrage(ScriptStrategyBase):
         # Set number of orders back to 0:
         self.buy_orders_on_low_liquidity_exchange = 0
         self.sell_orders_on_low_liquidity_exchange = 0
-        self.logger().info("All orders on the low liquidity exchanged are canceled")
 
     def create_proposal_based_on_high_liquidity_exchange_price(self):
         """Determine best ask and bid price by fetching the necessary data from the hedging exchange (=high liquidity
@@ -174,56 +169,48 @@ class HedgeXEMMWithArbitrage(ScriptStrategyBase):
     def place_order(self, order):
         """Places buy and sell orders."""
         if order.order_side == TradeType.SELL:
-            self.sell(connector_name=self.low_liquidity_exchange, trading_pair=order.trading_pair, amount=order.amount,
-                      order_type=order.order_type, price=order.price)
+            order_id = self.sell(connector_name=self.low_liquidity_exchange, trading_pair=order.trading_pair,
+                                 amount=order.amount, order_type=order.order_type, price=order.price)
+            self.sell_limit_order_id = order_id
             # Add orders to the variable that keeps track of the number of orders on the exchange:
             self.sell_orders_on_low_liquidity_exchange += 1
 
         elif order.order_side == TradeType.BUY:
-            self.buy(connector_name=self.low_liquidity_exchange, trading_pair=order.trading_pair, amount=order.amount,
-                     order_type=order.order_type, price=order.price)
+            order_id = self.buy(connector_name=self.low_liquidity_exchange, trading_pair=order.trading_pair,
+                                amount=order.amount, order_type=order.order_type, price=order.price)
+            self.buy_limit_order_id = order_id
             # Add orders to the variable that keeps track of the number of orders on the exchange:
             self.buy_orders_on_low_liquidity_exchange += 1
 
-    # Methods concerning the high liquidity exchange
-    def is_active_maker_order(self, event: OrderFilledEvent):
-        """
-        Helper function that checks if order is an active order on the maker exchange
-        """
-        for order in self.get_active_orders(connector_name=self.low_liquidity_exchange):
-            if order.client_order_id == event.order_id:
-                return True
-        return False
-
     def did_fill_order(self, event: OrderFilledEvent):
-        self.logger().info("order filled")
-        # # Calculate volatility on high liquidity exchange based on bidask-spread
+        # Calculate volatility on high liquidity exchange based on bidask-spread
         best_ask = self.connectors[self.high_liquidity_exchange].get_price(self.trading_pair, is_buy=True)
         best_bid = self.connectors[self.high_liquidity_exchange].get_price(self.trading_pair, is_buy=False)
         bid_ask_spread_bps = (best_ask - best_bid) * 10000
-        if bid_ask_spread_bps > 15:  # This can be adjusted
+        if bid_ask_spread_bps > self.volatility_threshold:
             volatility = "high"
         else:
             volatility = "low"
         self.logger().info(f"The volatility on {self.high_liquidity_exchange} is {volatility}")
 
-        if event.trade_type == TradeType.BUY and self.is_active_maker_order(event):
+        if event.trade_type == TradeType.BUY and self.buy_limit_order_id:
             self.logger().info(f"Buy order filled on low liquidity exchange with price: {event.price}")
             hedge_order_amount = event.amount
-
             # When buy order filled we place hedge sell order on best_ask price
-            best_ask = self.high_liquidity_exchange.get_price(self.trading_pair, is_buy=True)
+            best_ask = self.high_liquidity_connector().get_price(self.trading_pair, is_buy=True)
+            self.logger().info(f"The best ask price is {best_ask}")
             if volatility == "high":
                 hedge_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True,
                                              order_type=OrderType.LIMIT,
                                              order_side=TradeType.SELL, amount=Decimal(hedge_order_amount),
                                              price=best_ask)
+
             elif volatility == "low":
                 hedge_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=False,
                                              order_type=OrderType.MARKET,
                                              order_side=TradeType.SELL, amount=Decimal(hedge_order_amount),
                                              price=best_ask)
-            hedge_adjusted = self.connectors[self.low_liquidity_exchange].budget_checker.adjust_candidates(
+            hedge_adjusted = self.connectors[self.low_liquidity_exchange].budget_checker.adjust_candidate(
                 hedge_order,
                 all_or_none=True)
             self.sell(connector_name=self.high_liquidity_exchange,
@@ -231,13 +218,16 @@ class HedgeXEMMWithArbitrage(ScriptStrategyBase):
                       amount=hedge_adjusted.amount,
                       order_type=hedge_adjusted.order_type,
                       price=hedge_adjusted.price)
+            self.logger().info(f"Hedge {hedge_adjusted.order_type} order place on {self.high_liquidity_exchange}"
+                               f" at price {hedge_adjusted.price}, order amount: {hedge_adjusted.amount}")
 
-        if event.trade_type == TradeType.SELL and self.is_active_maker_order(event):
+        if event.trade_type == TradeType.SELL and self.sell_limit_order_id:
             self.logger().info(f"Sell order filled on low liquidity exchange with price: {event.price}")
             hedge_order_amount = event.amount
 
             # When sell order filled we place hedge buy order on best_bid price
-            best_bid = self.high_liquidity_exchange.get_price(self.trading_pair, is_buy=True)
+            best_bid = self.high_liquidity_connector().get_price(self.trading_pair, is_buy=False)
+            self.logger().info(f"The best ask price is {best_bid}")
             if volatility == "high":
                 hedge_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True,
                                              order_type=OrderType.LIMIT,
@@ -248,7 +238,7 @@ class HedgeXEMMWithArbitrage(ScriptStrategyBase):
                                              order_type=OrderType.MARKET,
                                              order_side=TradeType.BUY, amount=Decimal(hedge_order_amount),
                                              price=best_bid)
-            hedge_adjusted = self.connectors[self.low_liquidity_exchange].budget_checker.adjust_candidates(
+            hedge_adjusted = self.connectors[self.low_liquidity_exchange].budget_checker.adjust_candidate(
                 hedge_order,
                 all_or_none=True)
             self.buy(connector_name=self.high_liquidity_exchange,
@@ -256,12 +246,12 @@ class HedgeXEMMWithArbitrage(ScriptStrategyBase):
                      amount=hedge_adjusted.amount,
                      order_type=hedge_adjusted.order_type,
                      price=hedge_adjusted.price)
+            self.logger().info(f"Hedge {hedge_adjusted.order_type} order place on {self.high_liquidity_exchange}"
+                               f" at price {hedge_adjusted.price}, order amount: {hedge_adjusted.amount}")
 
     # For format status
     def exchanges_df(self) -> pd.DataFrame:
-        """
-        Return a custom data frame of prices on maker vs taker exchanges for display purposes
-        """
+        """Return a custom data frame of prices on maker vs taker exchanges"""
         mid_price = self.connectors[self.low_liquidity_exchange].get_mid_price(self.trading_pair)
         low_liquidity_exchange_buy_result = self.connectors[self.low_liquidity_exchange].get_price_for_volume(
             self.trading_pair, True,
@@ -303,9 +293,7 @@ class HedgeXEMMWithArbitrage(ScriptStrategyBase):
         return df
 
     def active_orders_df(self) -> pd.DataFrame:
-        """
-        Returns a custom data frame of all active maker orders for display purposes
-        """
+        """Returns a custom data frame of all active maker orders"""
         columns = ["Exchange", "Market", "Side", "Price", "Amount", "Spread Mid", "Spread Cancel", "Age"]
         data = []
         mid_price = self.connectors[self.low_liquidity_exchange].get_mid_price(self.trading_pair)
