@@ -101,15 +101,6 @@ class CiexExchange(ExchangePyBase):
     def is_trading_required(self) -> bool:
         return self._trading_required
 
-    def _expected_initial_status_dict(self) -> Dict[str, bool]:
-        return {
-            "symbols_mapping_initialized": False,
-            "order_books_initialized": False,
-            "account_balance": False,
-            "trading_rule_initialized": False,
-            "user_stream_initialized": True,
-        }
-
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
@@ -181,11 +172,6 @@ class CiexExchange(ExchangePyBase):
 
     def _is_request_result_an_error_related_to_time_synchronizer(self, request_result: Dict[str, Any]) -> bool:
         return request_result.get("code") == CONSTANTS.INVALID_TIMESTAMP_ERROR_CODE
-
-    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return str(CONSTANTS.ORDER_DOES_NOT_EXIST_ERROR_CODE) in str(
-            status_update_exception
-        ) and CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
 
     async def _batch_cancel_orders(self, orders: List[InFlightOrder]) -> List[InFlightOrder]:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=orders[0].trading_pair)
