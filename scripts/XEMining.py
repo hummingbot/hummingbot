@@ -42,11 +42,11 @@ class XEMining(ScriptStrategyBase):
             self.logger().info(f"Annualized Volatility: {annualized_vol}")
             # adjust spread_bps based on volatility by multiplying spread_bps by volatility
             if annualized_vol > 5 and annualized_vol < 10:
-                self.spread_bps = 40
+                self.spread_bps = 35
             elif annualized_vol >= 10:
-                self.spread_bps = 50
-            else:
                 self.spread_bps = 30
+            else:
+                self.spread_bps = 25
 
             average_profit = self.calculate_average_profitability()
             self.logger().info(f"Average Profitability: {average_profit}")
