@@ -29,6 +29,8 @@ import {
   RippleCancelOrdersResponse,
   RippleGetOpenOrdersRequest,
   RippleGetOpenOrdersResponse,
+  RippleGetOrdersRequest,
+  RippleGetOrdersResponse,
 } from './rippledex.requests';
 
 export namespace RippleDEXRoutes {
@@ -116,7 +118,10 @@ export namespace RippleDEXRoutes {
   router.get(
     '/orders',
     asyncHandler(
-      async (request: Request<any, any, any>, response: Response<any, any>) => {
+      async (
+        request: Request<any, any, RippleGetOrdersRequest>,
+        response: Response<RippleGetOrdersResponse, any>
+      ) => {
         const ripple = await getRipple(request);
         const rippledex = await getRippleDEX(request);
 

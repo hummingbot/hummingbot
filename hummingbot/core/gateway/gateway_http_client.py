@@ -1087,7 +1087,6 @@ class GatewayHttpClient:
             "tokenSymbols": token_symbols
         }, use_body=True)
 
-    # This should be implement in ripple first
     async def rippledex_get_markets(
         self,
         chain: str,
@@ -1110,7 +1109,6 @@ class GatewayHttpClient:
 
         return await self.api_request("get", "rippledex/markets", request, use_body=True)
 
-    # This should be implement in ripple first
     async def rippledex_get_order_books(
         self,
         chain: str,
@@ -1133,7 +1131,6 @@ class GatewayHttpClient:
 
         return await self.api_request("get", "rippledex/orderBooks", request, use_body=True)
 
-    # This should be implement in ripple first
     async def rippledex_get_tickers(
         self,
         chain: str,
@@ -1178,7 +1175,6 @@ class GatewayHttpClient:
 
         return await self.api_request("post", "rippledex/orders", request)
 
-    # This should be implement in ripple first
     async def rippledex_delete_orders(
         self,
         chain: str,
@@ -1201,7 +1197,6 @@ class GatewayHttpClient:
 
         return await self.api_request("delete", "rippledex/orders", request)
 
-    # This should be implement in ripple first
     async def rippledex_get_open_orders(
         self,
         chain: str,
@@ -1223,3 +1218,21 @@ class GatewayHttpClient:
             request["orders"] = orders
 
         return await self.api_request("get", "rippledex/orders/open", request, use_body=True)
+
+    async def rippledex_get_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("get", "rippledex/orders", request, use_body=True)

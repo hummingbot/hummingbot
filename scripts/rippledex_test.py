@@ -1,34 +1,26 @@
 import asyncio
-import math  # noqa
 import textwrap
 import traceback
-from array import array  # noqa
 from decimal import Decimal
-from logging import CRITICAL, DEBUG, ERROR, INFO, WARNING  # noqa
+from logging import DEBUG, ERROR, INFO
 from os import path
 from pathlib import Path
-from typing import Any, Dict, List  # noqa
+from typing import Any, Dict
 
 import jsonpickle
 import nest_asyncio
-import yaml  # noqa
+from utils import decimal_zero, format_currency, format_line, parse_order_book
 
-from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa
+# from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.clob.clob_types import OrderSide as RippleOrderSide
-from hummingbot.connector.gateway.clob.clob_utils import convert_order_side, convert_trading_pair  # noqa
+from hummingbot.connector.gateway.clob.clob_utils import convert_trading_pair
 from hummingbot.connector.gateway.clob.gateway_rippledex_clob import GatewayRippledexCLOB
-from hummingbot.core.data_type.common import OrderType, TradeType  # noqa
-from hummingbot.core.data_type.order_candidate import OrderCandidate  # noqa
+
+# from hummingbot.core.data_type.common import OrderType, TradeType
+# from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-
-# from .utils import MidPriceStrategy  # noqa
-# from .utils import alignment_column  # noqa
-# from .utils import calculate_mid_price  # noqa
-# from .utils import format_lines  # noqa
-# from .utils import format_percentage  # noqa
-from .utils import decimal_zero, format_currency, format_line, parse_order_book
 
 nest_asyncio.apply()
 
@@ -51,7 +43,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
         "chain": "ripple",
         "network": "testnet",
         "connector": "rippleDEX",
-        "refresh_interval": 60,
+        "refresh_interval": 20,
     }
 
     _summary = {
@@ -78,6 +70,19 @@ class TestRippleDEXGateway(ScriptStrategyBase):
         }
     }
 
+    _flags = {
+        "proceed_to_create_orders": True,
+        "proceed_to_check_created_orders_status": False,
+        "proceed_to_replace_orders": False,
+        "proceed_to_check_replaced_orders_status": False,
+        "proceed_to_cancel_orders": False,
+        "proceed_to_check_cancelled_orders_status": False,
+    }
+
+    _created_orders: Dict[str, Any]
+    _replaced_orders: Dict[str, Any]
+    _cancelled_orders: Dict[str, Any]
+
     markets = {
         _connector_id: [_trading_pair]
     }
@@ -100,9 +105,6 @@ class TestRippleDEXGateway(ScriptStrategyBase):
     def on_tick(self):
         try:
             self._log(DEBUG, """on_tick... start""")
-            # if not self._initialized:
-            #     asyncio.get_event_loop().run_until_complete(self._initialize())
-
             if not self._is_busy and (self._refresh_timestamp <= self.current_timestamp):
                 asyncio.get_event_loop().run_until_complete(self._async_on_tick())
 
@@ -111,37 +113,170 @@ class TestRippleDEXGateway(ScriptStrategyBase):
         finally:
             self._log(DEBUG, """on_tick... end""")
 
-    # async def _initialize(self):
-    #     try:
-    #         self._log(DEBUG, """_initialize... start""")
-    #
-    #         self.notify_hb_app(f"Starting {self._script_name} script...")
-    #
-    #         # noinspection PyTypeChecker
-    #         self._connector: GatewayRippledexCLOB = self.connectors[self._connector_id]
-    #         self._gateway: GatewayHttpClient = self._connector.get_gateway_instace()
-    #
-    #         self._market_info = await self._get_market()
-    #
-    #         self._initialized = True
-    #     finally:
-    #         self._log(DEBUG, """_initialize... end""")
+    async def _script_create_orders(self):
+        if not self._flags["proceed_to_create_orders"]:
+            return
+        try:
+            self._log(DEBUG, """_script_place_orders... start""")
+            sell_order = {
+                "marketName": self._market,
+                "walletAddress": self._connector.address,
+                "side": RippleOrderSide.SELL.value[0],
+                "amount": 5,
+                "price": 3000,
+            }
+
+            buy_order = {
+                "marketName": self._market,
+                "walletAddress": self._connector.address,
+                "side": RippleOrderSide.BUY.value[0],
+                "amount": 1,
+                "price": 2000,
+            }
+            sell_orders_rsp = await self._post_orders(orders=[sell_order, sell_order, sell_order])
+            buy_orders_rsp = await self._post_orders(orders=[buy_order, buy_order, buy_order])
+
+            created_orders = dict()
+            created_orders.update(sell_orders_rsp)
+            created_orders.update(buy_orders_rsp)
+            self._created_orders = created_orders
+        finally:
+            self._flags["proceed_to_create_orders"] = False
+            self._flags["proceed_to_check_created_orders_status"] = True
+            self._log(DEBUG, """_script_place_orders... end""")
+
+    async def _script_check_created_orders_status(self):
+        if not self._flags["proceed_to_check_created_orders_status"]:
+            return
+        try:
+            self._log(DEBUG, """_script_cancel_orders... start""")
+            keep_looping = False
+            order_to_check = []
+            for key, value in self._created_orders.items():
+                order_to_check.append({
+                    "signature": value["signature"],
+                    "sequence": int(key)
+                })
+
+            resp = await self._get_orders(order_to_check)
+
+            if len(resp.values()) == 0:
+                keep_looping = True
+
+            for value in resp.values():
+                if value["status"] != "OPEN":
+                    keep_looping = True
+
+        finally:
+            self._flags["proceed_to_check_created_orders_status"] = keep_looping
+            self._flags["proceed_to_replace_orders"] = not keep_looping
+            self._log(DEBUG, """proceed_to_check_created_orders_status... end""")
+
+    async def _script_replace_orders(self):
+        if not self._flags["proceed_to_replace_orders"]:
+            return
+
+        try:
+            self._log(DEBUG, """_script_replace_orders... start""")
+            replace_orders = []
+            for key in self._created_orders:
+                replace_orders.append({
+                    "marketName": self._market,
+                    "walletAddress": self._connector.address,
+                    "side": self._created_orders[key]["side"],
+                    "amount": 10,
+                    "price": 3000 if self._created_orders[key]["side"] == "SELL" else 2000,
+                    "sequence": int(key)
+                })
+
+            resp = await self._post_orders(orders=replace_orders)
+            self._replaced_orders = resp
+        finally:
+            self._flags["proceed_to_replace_orders"] = False
+            self._flags["proceed_to_check_replaced_orders_status"] = True
+            self._log(DEBUG, """_script_replace_orders... end""")
+
+    async def _script_check_replaced_orders_status(self):
+        if not self._flags["proceed_to_check_replaced_orders_status"]:
+            return
+        try:
+            self._log(DEBUG, """_script_check_replaced_orders_status... start""")
+            keep_looping = False
+            order_to_check = []
+            for key, value in self._replaced_orders.items():
+                order_to_check.append({
+                    "signature": value["signature"],
+                    "sequence": int(key)
+                })
+
+            resp = await self._get_orders(order_to_check)
+
+            if len(resp.values()) == 0:
+                keep_looping = True
+
+            for value in resp.values():
+                if value["status"] != "OPEN":
+                    keep_looping = True
+        finally:
+            self._flags["proceed_to_check_replaced_orders_status"] = keep_looping
+            self._flags["proceed_to_cancel_orders"] = not keep_looping
+            self._log(DEBUG, """_script_check_replaced_orders_status... end""")
+
+    async def _script_cancel_orders(self):
+        if not self._flags["proceed_to_cancel_orders"]:
+            return
+        try:
+            self._log(DEBUG, """_script_cancel_orders... start""")
+            cancel_orders = []
+            for key in self._replaced_orders:
+                cancel_orders.append({
+                    "walletAddress": self._connector.address,
+                    "offerSequence": int(key),
+                })
+
+            resp = await self._cancel_orders(orders=cancel_orders)
+            self._cancelled_orders = resp
+
+        finally:
+            self._flags["proceed_to_cancel_orders"] = False
+            self._flags["proceed_to_check_cancelled_orders_status"] = True
+            self._log(DEBUG, """_script_cancel_orders... end""")
+
+    async def _script_check_cancelled_orders_status(self):
+        if not self._flags["proceed_to_check_cancelled_orders_status"]:
+            return
+        try:
+            self._log(DEBUG, """_script_check_cancelled_orders_status... start""")
+            keep_looping = False
+            order_to_check = []
+            for key, value in self._cancelled_orders.items():
+                order_to_check.append({
+                    "signature": value["signature"],
+                    "sequence": int(key)
+                })
+
+            resp = await self._get_orders(order_to_check)
+
+            if len(resp.values()) == 0:
+                keep_looping = True
+
+            for value in resp.values():
+                if value["status"] != "CANCELED":
+                    keep_looping = True
+        finally:
+            self._flags["proceed_to_check_cancelled_orders_status"] = keep_looping
+            self._flags["proceed_to_create_orders"] = not keep_looping
+            self._log(DEBUG, """_script_check_cancelled_orders_status... end""")
 
     async def _async_on_tick(self):
         try:
             self._log(DEBUG, """_async_on_tick... start""")
 
             self._is_busy = True
-
-            # proposal: List[OrderCandidate] = await self._create_proposal()
-            # candidate_orders: List[OrderCandidate] = self._adjust_proposal_to_budget(proposal)
-
-            # replaced_orders = await self._replace_orders(candidate_orders)
-            # await self._cancel_duplicated_and_remaining_orders(candidate_orders, replaced_orders)
-
             balances = await self._get_balances()
             self._summary["balance"]["wallet"]["base"] = Decimal(balances["balances"][self._base_token])
             self._summary["balance"]["wallet"]["quote"] = Decimal(balances["balances"][self._quote_token])
+
             order_book = await self._get_order_book()
             bids, asks, top_ask, top_bid = parse_order_book(order_book)
             self._summary["order_book"]["bids"] = bids
@@ -153,67 +288,22 @@ class TestRippleDEXGateway(ScriptStrategyBase):
             self._summary["price"]["ticker_price"] = ticker_price
             self._market_info = await self._get_market()
 
-            buy_order = {
-                "marketName": self._market,
-                "walletAddress": self._connector.address,
-                "side": RippleOrderSide.BUY.value[0],
-                "amount": 5,
-                "price": 1500,
-            }
-            buy_order_rsp = await self._post_orders(order=buy_order)
-
-            sell_order = {
-                "marketName": self._market,
-                "walletAddress": self._connector.address,
-                "side": RippleOrderSide.SELL.value[0],
-                "amount": 5,
-                "price": 3000,
-            }
-            sell_order_rsp = await self._post_orders(order=sell_order)
-
-            replace_buy_order = {
-                "marketName": self._market,
-                "walletAddress": self._connector.address,
-                "side": RippleOrderSide.BUY.value[0],
-                "amount": 10,
-                "price": 1500,
-                "sequence": buy_order_rsp["sequence"]
-            }
-            replace_buy_order_rsp = await self._post_orders(order=replace_buy_order)
-
-            replace_sell_order = {
-                "marketName": self._market,
-                "walletAddress": self._connector.address,
-                "side": RippleOrderSide.SELL.value[0],
-                "amount": 10,
-                "price": 3000,
-                "sequence": sell_order_rsp["sequence"]
-            }
-            replace_sell_order_rsp = await self._post_orders(order=replace_sell_order)
-
             open_orders_balance = await self._get_open_orders_balance()
             self._summary["balance"]["orders"]["base"] = open_orders_balance["base"]
             self._summary["balance"]["orders"]["quote"] = open_orders_balance["quote"]
 
             self._show_summary()
 
-            delete_orders = [
-                {
-                    "walletAddress": self._connector.address,
-                    "offerSequence": replace_buy_order_rsp["sequence"]
-                },
-                {
-                    "walletAddress": self._connector.address,
-                    "offerSequence": replace_sell_order_rsp["sequence"]
-                }
-            ]
-
-            await self._cancel_orders(orders=delete_orders)
-            # self._show_orderbook()
+            await self._script_create_orders()
+            await self._script_check_created_orders_status()
+            await self._script_replace_orders()
+            await self._script_check_replaced_orders_status()
+            await self._script_cancel_orders()
+            await self._script_check_cancelled_orders_status()
         finally:
             self._refresh_timestamp = int(self._configuration["refresh_interval"]) + self.current_timestamp
             self._is_busy = False
-            HummingbotApplication.main_application().stop()
+            # HummingbotApplication.main_application().stop()
 
             self._log(DEBUG, """_async_on_tick... end""")
 
@@ -268,6 +358,32 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                 self._log(INFO, f"""gateway.clob_get_markets:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
         finally:
             self._log(DEBUG, """_get_market... end""")
+
+    async def _get_orders(self, orders=None):
+        try:
+            self._log(DEBUG, """_get_orders... start""")
+
+            request = None
+            response = None
+            try:
+                request = {
+                    "chain": self._configuration["chain"],
+                    "network": self._configuration["network"],
+                    "connector": self._configuration["connector"],
+                    "orders": orders
+                }
+
+                response = await self._gateway.rippledex_get_orders(**request)
+
+                return response
+            except Exception as exception:
+                response = traceback.format_exc()
+
+                raise exception
+            finally:
+                self._log(INFO, f"""gateway._get_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
+        finally:
+            self._log(DEBUG, """_get_orders... end""")
 
     async def _get_order_book(self):
         try:
@@ -374,7 +490,6 @@ class TestRippleDEXGateway(ScriptStrategyBase):
             self._log(DEBUG, """_get_open_orders... end""")
 
     async def _post_orders(self, order=None, orders=None):
-        # TODO: Just post buy orders, do once for now
         try:
             self._log(DEBUG, """_post_orders... start""")
 

@@ -16,6 +16,8 @@ import {
   RippleGetOrderBooksResponse,
   RippleGetTickersRequest,
   RippleGetTickersResponse,
+  RippleGetOrdersRequest,
+  RippleGetOrdersResponse,
 } from './rippledex.requests';
 
 import {
@@ -201,11 +203,11 @@ export async function getOrderBooks(
 export async function getOrders(
   _ripple: Rippleish,
   rippledex: RippleDEXish,
-  request: any
-): Promise<ResponseWrapper<any>> {
+  request: RippleGetOrdersRequest
+): Promise<ResponseWrapper<RippleGetOrdersResponse>> {
   const response = new ResponseWrapper<any>();
 
-  response.body = await rippledex.getOrders(request.tx);
+  response.body = await rippledex.getOrders(request.orders);
 
   response.status = StatusCodes.OK;
 

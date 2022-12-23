@@ -12,6 +12,8 @@ import {
   CancelOrdersResponse,
   GetOpenOrderRequest,
   GetOpenOrdersResponse,
+  GetOrdersRequest,
+  GetOrdersResponse,
 } from './rippledex.types';
 
 //
@@ -29,6 +31,14 @@ export type RippleGetTickersRequest = NetworkSelectionRequest &
   GetTickersRequest;
 
 export type RippleGetTickersResponse = GetTickersResponse;
+
+//
+// GET /ripple/orders
+//
+
+export type RippleGetOrdersRequest = NetworkSelectionRequest & GetOrdersRequest;
+
+export type RippleGetOrdersResponse = GetOrdersResponse;
 
 //
 // GET /ripple/orderBooks

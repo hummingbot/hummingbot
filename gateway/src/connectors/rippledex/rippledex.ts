@@ -11,6 +11,7 @@ import {
   xrpToDrops,
   AccountInfoResponse,
   BookOffersResponse,
+  TxResponse,
   TransactionMetadata,
 } from 'xrpl';
 import {
@@ -27,9 +28,10 @@ import {
   CancelOrderRequest,
   CancelOrderResponse,
   GetOpenOrderRequest,
-  // GetOpenOrderResponse,
   GetOpenOrdersResponse,
   OrderSide,
+  GetOrdersResponse,
+  GetOrderRequest,
 } from './rippledex.types';
 import { promiseAllInBatches } from '../serum/serum.helpers';
 import { isIssuedCurrency } from 'xrpl/dist/npm/models/transactions/common';
@@ -342,15 +344,67 @@ export class RippleDEX {
     return orderBooks;
   }
 
-  async getOrders(tx: string): Promise<any> {
-    const tx_resp = await this._client.request({
-      command: 'tx',
-      transaction: tx,
-      binary: false,
-    });
+  async getOrders(orders: GetOrderRequest[]): Promise<GetOrdersResponse> {
+    const queriedOrders: GetOrdersResponse = {};
 
-    const result = tx_resp.result;
+    for (const order of orders) {
+      const tx_resp: TxResponse = await this._client.request({
+        command: 'tx',
+        transaction: order.signature,
+        binary: false,
+      });
 
+      const type = tx_resp.result.TransactionType;
+      if (tx_resp.result.meta) {
+        const meta: TransactionMetadata = tx_resp.result
+          .meta as TransactionMetadata;
+        const result = meta.TransactionResult;
+
+        if (type == 'OfferCreate') {
+          if (result == 'tesSUCCESS') {
+            queriedOrders[order.sequence] = {
+              sequence: order.sequence,
+              status: OrderStatus.OPEN,
+              signature: order.signature,
+            };
+          } else {
+            queriedOrders[order.sequence] = {
+              sequence: order.sequence,
+              status: OrderStatus.PENDING,
+              signature: order.signature,
+            };
+          }
+        } else if (type == 'OfferCancel') {
+          if (result == 'tesSUCCESS') {
+            queriedOrders[order.sequence] = {
+              sequence: order.sequence,
+              status: OrderStatus.CANCELED,
+              signature: order.signature,
+            };
+          } else {
+            queriedOrders[order.sequence] = {
+              sequence: order.sequence,
+              status: OrderStatus.PENDING,
+              signature: order.signature,
+            };
+          }
+        } else {
+          queriedOrders[order.sequence] = {
+            sequence: order.sequence,
+            status: OrderStatus.UNKNOWN,
+            signature: order.signature,
+          };
+        }
+      } else {
+        queriedOrders[order.sequence] = {
+          sequence: order.sequence,
+          status: OrderStatus.PENDING,
+          signature: order.signature,
+        };
+      }
+    }
+
+    const result = queriedOrders;
     return result;
   }
 
@@ -422,44 +476,44 @@ export class RippleDEX {
 
     const prepared = await this._client.autofill(offer);
     const signed = wallet.sign(prepared);
-    const response = await this._client.submitAndWait(signed.tx_blob);
+    const response = await this._client.submit(signed.tx_blob);
 
-    let orderStatus = OrderStatus.UNKNOWN;
-    let orderSequence = -1;
-    let orderLedgerIndex = '';
+    const orderStatus = OrderStatus.PENDING;
+    // const orderSequence = -1;
+    // const orderLedgerIndex = '';
 
-    if (response.result) {
-      const meta = response.result.meta;
-      if (meta) {
-        const affectedNodes = (meta as TransactionMetadata).AffectedNodes;
+    // if (response.result) {
+    //   const meta = response.result.meta;
+    //   if (meta) {
+    //     const affectedNodes = (meta as TransactionMetadata).AffectedNodes;
 
-        for (const affnode of affectedNodes) {
-          if ('ModifiedNode' in affnode) {
-            if (affnode.ModifiedNode.LedgerEntryType == 'Offer') {
-              // Usually a ModifiedNode of type Offer indicates a previous Offer that
-              // was partially consumed by this one.
-              orderStatus = OrderStatus.PARTIALLY_FILLED;
-            }
-          } else if ('DeletedNode' in affnode) {
-            if (affnode.DeletedNode.LedgerEntryType == 'Offer') {
-              // The removed Offer may have been fully consumed, or it may have been
-              // found to be expired or unfunded.
-              // TODO: Make a seperate method for cancelling orders
-              if (offer.OfferSequence == undefined) {
-                orderStatus = OrderStatus.FILLED;
-              }
-            }
-          } else if ('CreatedNode' in affnode) {
-            if (affnode.CreatedNode.LedgerEntryType == 'Offer') {
-              // Created an Offer object on the Ledger
-              orderStatus = OrderStatus.OPEN;
-              orderSequence = response.result.Sequence ?? -1;
-              orderLedgerIndex = affnode.CreatedNode.LedgerIndex;
-            }
-          }
-        }
-      }
-    }
+    //     for (const affnode of affectedNodes) {
+    //       if ('ModifiedNode' in affnode) {
+    //         if (affnode.ModifiedNode.LedgerEntryType == 'Offer') {
+    //           // Usually a ModifiedNode of type Offer indicates a previous Offer that
+    //           // was partially consumed by this one.
+    //           orderStatus = OrderStatus.PARTIALLY_FILLED;
+    //         }
+    //       } else if ('DeletedNode' in affnode) {
+    //         if (affnode.DeletedNode.LedgerEntryType == 'Offer') {
+    //           // The removed Offer may have been fully consumed, or it may have been
+    //           // found to be expired or unfunded.
+    //           // TODO: Make a seperate method for cancelling orders
+    //           if (offer.OfferSequence == undefined) {
+    //             orderStatus = OrderStatus.FILLED;
+    //           }
+    //         }
+    //       } else if ('CreatedNode' in affnode) {
+    //         if (affnode.CreatedNode.LedgerEntryType == 'Offer') {
+    //           // Created an Offer object on the Ledger
+    //           orderStatus = OrderStatus.OPEN;
+    //           orderSequence = response.result.Sequence ?? -1;
+    //           orderLedgerIndex = affnode.CreatedNode.LedgerIndex;
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
 
     const returnResponse: CreateOrderResponse = {
       walletAddress: order.walletAddress,
@@ -469,10 +523,10 @@ export class RippleDEX {
       side: order.side,
       type: order.type,
       fee,
-      orderLedgerIndex: orderLedgerIndex,
+      orderLedgerIndex: response.result.validated_ledger_index.toString(),
       status: orderStatus,
-      sequence: orderSequence,
-      signature: response.result.hash,
+      sequence: response.result.tx_json.Sequence ?? -1,
+      signature: response.result.tx_json.hash,
     };
 
     return returnResponse;
@@ -480,15 +534,15 @@ export class RippleDEX {
 
   async createOrders(
     orders: CreateOrderRequest[]
-  ): Promise<IMap<number, CreateOrderResponse>> {
-    const createdOrders = IMap<number, CreateOrderResponse>().asMutable();
+  ): Promise<Record<number, CreateOrderResponse>> {
+    const createdOrders: Record<number, CreateOrderResponse> = {};
 
     const getCreatedOrders = async (
       order: CreateOrderRequest
     ): Promise<void> => {
       const createdOrder = await this.createOrder(order);
 
-      createdOrders.set(createdOrder.sequence, createdOrder);
+      createdOrders[createdOrder.sequence] = createdOrder;
     };
 
     await promiseAllInBatches(getCreatedOrders, orders, 1, 1);
@@ -507,29 +561,29 @@ export class RippleDEX {
 
     const prepared = await this._client.autofill(request);
     const signed = wallet.sign(prepared);
-    const response = await this._client.submitAndWait(signed.tx_blob);
+    const response = await this._client.submit(signed.tx_blob);
 
-    let orderStatus = OrderStatus.CANCELATION_PENDING;
+    const orderStatus = OrderStatus.PENDING;
 
-    if (response.result) {
-      const meta = response.result.meta;
-      if (meta) {
-        const affectedNodes = (meta as TransactionMetadata).AffectedNodes;
+    // if (response.result) {
+    //   const meta = response.result.meta;
+    //   if (meta) {
+    //     const affectedNodes = (meta as TransactionMetadata).AffectedNodes;
 
-        for (const affnode of affectedNodes) {
-          if ('DeletedNode' in affnode) {
-            if (affnode.DeletedNode.LedgerEntryType == 'Offer') {
-              orderStatus = OrderStatus.CANCELED;
-            }
-          }
-        }
-      }
-    }
+    //     for (const affnode of affectedNodes) {
+    //       if ('DeletedNode' in affnode) {
+    //         if (affnode.DeletedNode.LedgerEntryType == 'Offer') {
+    //           orderStatus = OrderStatus.CANCELED;
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
 
     const returnResponse: CancelOrderResponse = {
       walletAddress: order.walletAddress,
       status: orderStatus,
-      signature: response.result.hash,
+      signature: response.result.tx_json.hash,
     };
 
     return returnResponse;
@@ -537,15 +591,15 @@ export class RippleDEX {
 
   async cancelOrders(
     orders: CancelOrderRequest[]
-  ): Promise<IMap<number, CancelOrderResponse>> {
-    const cancelledOrders = IMap<number, CancelOrderResponse>().asMutable();
+  ): Promise<Record<number, CancelOrderResponse>> {
+    const cancelledOrders: Record<number, CancelOrderResponse> = {};
 
     const getCancelledOrders = async (
       order: CancelOrderRequest
     ): Promise<void> => {
       const cancelledOrder = await this.cancelOrder(order);
 
-      cancelledOrders.set(order.offerSequence, cancelledOrder);
+      cancelledOrders[order.offerSequence] = cancelledOrder;
     };
 
     await promiseAllInBatches(getCancelledOrders, orders, 1, 1);
@@ -557,10 +611,6 @@ export class RippleDEX {
     market?: GetOpenOrderRequest;
     markets?: GetOpenOrderRequest[];
   }): Promise<GetOpenOrdersResponse> {
-    // const openOrders = IMap<
-    //   string,
-    //   IMap<number, GetOpenOrderResponse>
-    // >().asMutable();
     const openOrders: any = {};
 
     console.log('market: ', params.market);
@@ -576,10 +626,6 @@ export class RippleDEX {
       const [baseCurrency, baseIssuer] = base.split('.');
       const [quoteCurrency, quoteIssuer] = quote.split('.');
 
-      // const openOrdersInMarket = IMap<
-      //   number,
-      //   GetOpenOrderResponse
-      // >().asMutable();
       const openOrdersInMarket: any = {};
 
       const baseRequest: any = {
@@ -629,13 +675,7 @@ export class RippleDEX {
         } else {
           amount = ask.TakerGets;
         }
-        // openOrdersInMarket.set(ask.Sequence, {
-        //   sequence: ask.Sequence,
-        //   marketName: market.marketName,
-        //   price: price,
-        //   amount: amount,
-        //   side: OrderSide.SELL,
-        // });
+
         openOrdersInMarket[String(ask.Sequence)] = {
           sequence: ask.Sequence,
           marketName: market.marketName,
@@ -654,13 +694,6 @@ export class RippleDEX {
         } else {
           amount = bid.TakerGets;
         }
-        // openOrdersInMarket.set(bid.Sequence, {
-        //   sequence: bid.Sequence,
-        //   marketName: market.marketName,
-        //   price: price,
-        //   amount: amount,
-        //   side: OrderSide.BUY,
-        // });
 
         openOrdersInMarket[String(bid.Sequence)] = {
           sequence: bid.Sequence,
@@ -671,7 +704,6 @@ export class RippleDEX {
         };
       }
 
-      // openOrders.set(market.marketName, openOrdersInMarket);
       openOrders[market.marketName] = openOrdersInMarket;
     }
     return openOrders;

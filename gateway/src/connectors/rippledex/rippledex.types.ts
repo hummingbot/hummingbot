@@ -16,8 +16,7 @@ export enum OrderStatus {
   CANCELED = 'CANCELED',
   FILLED = 'FILLED',
   PARTIALLY_FILLED = 'PARTIALLY_FILLED',
-  CREATION_PENDING = 'CREATION_PENDING',
-  CANCELATION_PENDING = 'CANCELATION_PENDING',
+  PENDING = 'PENDING',
   UNKNOWN = 'UNKNOWN',
 }
 
@@ -79,6 +78,23 @@ export interface Ticker {
   timestamp: number;
 }
 
+export interface GetOrderRequest {
+  sequence: number;
+  signature: string;
+}
+
+export type GetOrdersRequest =
+  | Record<string, never>
+  | { orders: GetOrderRequest[] };
+
+export interface GetOrderResponse {
+  sequence: number;
+  status: OrderStatus;
+  signature: string;
+}
+
+export type GetOrdersResponse = Record<number, GetOrderResponse>;
+
 export type GetOrderBooksRequest =
   | Record<string, never>
   | { marketName: string; limit: number }
@@ -124,7 +140,8 @@ export interface CreateOrderResponse {
 
 export type CreateOrdersResponse =
   | IMap<number, CreateOrderResponse>
-  | CreateOrderResponse;
+  | CreateOrderResponse
+  | Record<number, CreateOrderResponse>;
 
 export interface CancelOrderRequest {
   walletAddress: string;
@@ -144,7 +161,8 @@ export interface CancelOrderResponse {
 
 export type CancelOrdersResponse =
   | IMap<number, CancelOrderResponse>
-  | CancelOrderResponse;
+  | CancelOrderResponse
+  | Record<number, CancelOrderResponse>;
 
 export interface GetOpenOrderRequest {
   marketName: string;
