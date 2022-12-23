@@ -183,9 +183,9 @@ class MQTTCommands:
         response = HistoryCommandMessage.Response()
         try:
             self._hb_app.history(msg.days, msg.verbose, msg.precision)
-            trades = self._hb_app.get_history_trades(msg.days)
+            trades = self._hb_app.get_history_trades_json(msg.days)
             if trades:
-                response.trades = trades.all()
+                response.trades = trades
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
             response.msg = str(e)
@@ -217,19 +217,19 @@ class MQTTCommands:
             response.msg = str(e)
         return response
 
-    def _on_get_market_data(self, msg):
-        _response = {
-            'status': 200,
-            'msg': '',
-            'market_data': {}
-        }
-        try:
-            market_data = self._hb_app.strategy.market_status_df()
-            _response['market_data'] = market_data
-        except Exception as e:
-            _response['msg'] = str(e)
-            _response['status'] = 400
-        return _response
+    # def _on_get_market_data(self, msg):
+    #     _response = {
+    #         'status': 200,
+    #         'msg': '',
+    #         'market_data': {}
+    #     }
+    #     try:
+    #         market_data = self._hb_app.strategy.market_status_df()
+    #         _response['market_data'] = market_data
+    #     except Exception as e:
+    #         _response['msg'] = str(e)
+    #         _response['status'] = 400
+    #     return _response
 
 
 class MQTTEventForwarder:
