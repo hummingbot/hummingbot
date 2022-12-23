@@ -1,11 +1,18 @@
 import asyncio
+from decimal import Decimal
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
 from async_timeout import timeout
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
+from hummingbot.core.data_type.common import OrderType
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketEvent, SellOrderCreatedEvent
 from hummingbot.core.mock_api.mock_mqtt_server import FakeMQTTBroker
 from hummingbot.remote_iface.mqtt import MQTTGateway
 
@@ -44,28 +51,38 @@ class RemoteIfaceMQTTTests(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
+        try:
+            self.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        except Exception:
+            self.ev_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.ev_loop)
         self.fake_mqtt_broker = FakeMQTTBroker()
         self.gateway = MQTTGateway(self.hbapp)
+        self.test_market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        self.hbapp.markets = {
+            "test_market": self.test_market
+        }
 
     def tearDown(self):
         self.fake_mqtt_broker._transport._received_msgs = {}
 
-    def is_msg_received(self, topic, content=None):
+    def is_msg_received(self, topic, content=None, msg_key = 'msg'):
         msg_found = False
         if topic in self.fake_mqtt_broker.received_msgs:
             if not content:
                 msg_found = True
             else:
                 for msg in self.fake_mqtt_broker.received_msgs[topic]:
-                    if content == msg['msg']:
+                    if content == msg[msg_key]:
                         msg_found = True
                         break
         return msg_found
 
-    async def wait_for_rcv(self, topic, content=None):
+    async def wait_for_rcv(self, topic, content=None, msg_key = 'msg'):
         try:
             async with timeout(2):
-                while not self.is_msg_received(topic=topic, content=content):
+                while not self.is_msg_received(topic=topic, content=content, msg_key = msg_key):
                     await asyncio.sleep(0.1)
         except asyncio.TimeoutError as e:
             print(f"Topic: {topic} was not received.")
@@ -115,6 +132,23 @@ class RemoteIfaceMQTTTests(TestCase):
                                                  invalid_strategy=invalid_strategy)
 
         self.fake_mqtt_broker.publish_to_subscription(import_topic, {'strategy': strategy_name})
+
+    @staticmethod
+    def emit_order_created_event(market: MockPaperExchange, order: LimitOrder):
+        event_cls = BuyOrderCreatedEvent if order.is_buy else SellOrderCreatedEvent
+        event_tag = MarketEvent.BuyOrderCreated if order.is_buy else MarketEvent.SellOrderCreated
+        market.trigger_event(
+            event_tag,
+            message=event_cls(
+                order.creation_timestamp,
+                OrderType.LIMIT,
+                order.trading_pair,
+                order.quantity,
+                order.price,
+                order.client_order_id,
+                order.creation_timestamp * 1e-6
+            )
+        )
 
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_subscribed_topics(self,
@@ -190,6 +224,56 @@ class RemoteIfaceMQTTTests(TestCase):
         notify_msg = "\nGlobal Configurations:"
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
         self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_event_buy_order_created(self,
+                                          mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+
+        topic = self.get_topic_for(self.STATUS_URI)
+
+        order = LimitOrder(client_order_id="HBOT_1",
+                           trading_pair="HBOT-USDT",
+                           is_buy=True,
+                           base_currency="HBOT",
+                           quote_currency="USDT",
+                           price=Decimal("100"),
+                           quantity=Decimal("1.5")
+                           )
+
+        self.emit_order_created_event(self.test_market, order)
+
+        events_topic = f"hbot/{self.instance_id}/events"
+
+        self.fake_mqtt_broker.publish_to_subscription(topic, {})
+        evt_type = "BuyOrderCreated"
+        self.ev_loop.run_until_complete(self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'))
+        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key = 'type'))
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_event_sell_order_created(self,
+                                           mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+
+        topic = self.get_topic_for(self.STATUS_URI)
+
+        order = LimitOrder(client_order_id="HBOT_1",
+                           trading_pair="HBOT-USDT",
+                           is_buy=False,
+                           base_currency="HBOT",
+                           quote_currency="USDT",
+                           price=Decimal("100"),
+                           quantity=Decimal("1.5")
+                           )
+
+        self.emit_order_created_event(self.test_market, order)
+
+        events_topic = f"hbot/{self.instance_id}/events"
+
+        self.fake_mqtt_broker.publish_to_subscription(topic, {})
+        evt_type = "SellOrderCreated"
+        self.ev_loop.run_until_complete(self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'))
+        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key = 'type'))
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
     @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
