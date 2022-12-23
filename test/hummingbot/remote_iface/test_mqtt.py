@@ -13,11 +13,11 @@ from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketEvent, SellOrderCreatedEvent
+from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketEvent, OrderExpiredEvent, SellOrderCreatedEvent
 from hummingbot.core.mock_api.mock_mqtt_server import FakeMQTTBroker
 from hummingbot.model.order import Order
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.remote_iface.mqtt import MQTTGateway
+from hummingbot.remote_iface.mqtt import MQTTEventForwarder, MQTTGateway
 
 
 class RemoteIfaceMQTTTests(TestCase):
@@ -49,6 +49,7 @@ class RemoteIfaceMQTTTests(TestCase):
         cls.HISTORY_URI = 'hbot/$UID/history'
         cls.BALANCE_LIMIT_URI = 'hbot/$UID/balance/limit'
         cls.BALANCE_PAPER_URI = 'hbot/$UID/balance/paper'
+        cls.fake_mqtt_broker = FakeMQTTBroker()
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -57,7 +58,6 @@ class RemoteIfaceMQTTTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
         # self.async_run_with_timeout(read_system_configs_from_yml())
-        self.fake_mqtt_broker = FakeMQTTBroker()
         self.gateway = MQTTGateway(self.hbapp)
         self.test_market: MockPaperExchange = MockPaperExchange(
             client_config_map=self.client_config_map)
@@ -68,9 +68,10 @@ class RemoteIfaceMQTTTests(TestCase):
         self.resume_test_event = asyncio.Event()
 
     def tearDown(self):
+        self.fake_mqtt_broker._transport._received_msgs = {}
+        self.fake_mqtt_broker._transport._subscriptions = {}
         self.gateway.mqtt_event_forwarder.stop_event_listener()
         self.gateway.stop()
-        self.fake_mqtt_broker._transport._received_msgs = {}
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -164,6 +165,18 @@ class RemoteIfaceMQTTTests(TestCase):
                 order.price,
                 order.client_order_id,
                 order.creation_timestamp * 1e-6
+            )
+        )
+
+    @staticmethod
+    def emit_order_expired_event(market: MockPaperExchange):
+        event_cls = OrderExpiredEvent
+        event_tag = MarketEvent.OrderExpired
+        market.trigger_event(
+            event_tag,
+            message=event_cls(
+                1671819499,
+                "OID1"
             )
         )
 
@@ -316,6 +329,25 @@ class RemoteIfaceMQTTTests(TestCase):
         topic = self.get_topic_for(self.CONFIG_URI)
 
         self.fake_mqtt_broker.publish_to_subscription(topic, {})
+        notify_topic = f"hbot/{self.instance_id}/notify"
+        notify_msg = "\nGlobal Configurations:"
+        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
+        self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_command_config_updates(self,
+                                         mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+
+        topic = self.get_topic_for(self.CONFIG_URI)
+
+        config_msg = {
+            'params': [
+                ('instance_id', self.instance_id),
+            ]
+        }
+
+        self.fake_mqtt_broker.publish_to_subscription(topic, config_msg)
         notify_topic = f"hbot/{self.instance_id}/notify"
         notify_msg = "\nGlobal Configurations:"
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
@@ -527,8 +559,6 @@ class RemoteIfaceMQTTTests(TestCase):
                                           mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
 
-        topic = self.get_topic_for(self.STATUS_URI)
-
         order = LimitOrder(client_order_id="HBOT_1",
                            trading_pair="HBOT-USDT",
                            is_buy=True,
@@ -542,7 +572,6 @@ class RemoteIfaceMQTTTests(TestCase):
 
         events_topic = f"hbot/{self.instance_id}/events"
 
-        self.fake_mqtt_broker.publish_to_subscription(topic, {})
         evt_type = "BuyOrderCreated"
         self.ev_loop.run_until_complete(self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'))
         self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key = 'type'))
@@ -551,8 +580,6 @@ class RemoteIfaceMQTTTests(TestCase):
     def test_mqtt_event_sell_order_created(self,
                                            mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
-
-        topic = self.get_topic_for(self.STATUS_URI)
 
         order = LimitOrder(client_order_id="HBOT_1",
                            trading_pair="HBOT-USDT",
@@ -567,8 +594,20 @@ class RemoteIfaceMQTTTests(TestCase):
 
         events_topic = f"hbot/{self.instance_id}/events"
 
-        self.fake_mqtt_broker.publish_to_subscription(topic, {})
         evt_type = "SellOrderCreated"
+        self.ev_loop.run_until_complete(self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'))
+        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key = 'type'))
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_event_order_expired(self,
+                                      mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+
+        self.emit_order_expired_event(self.test_market)
+
+        events_topic = f"hbot/{self.instance_id}/events"
+
+        evt_type = "OrderExpired"
         self.ev_loop.run_until_complete(self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'))
         self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key = 'type'))
 
@@ -579,3 +618,12 @@ class RemoteIfaceMQTTTests(TestCase):
         self.assertTrue(self.gateway is not None)
         subscribed_mqtt_topics = sorted(list([f"hbot/{self.instance_id}/{topic}" for topic in self.command_topics]))
         self.assertEqual(subscribed_mqtt_topics, sorted(list(self.fake_mqtt_broker.subscriptions.keys())))
+
+    @patch("hummingbot.remote_iface.mqtt.mqtts_logger")
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_eventforwarder_logger(self,
+                                        mock_mqtt,
+                                        mock_logger):
+        mock_logger.return_value = None
+        self.assertTrue(MQTTEventForwarder.logger() is not None)
+        self.start_mqtt(mock_mqtt=mock_mqtt)
