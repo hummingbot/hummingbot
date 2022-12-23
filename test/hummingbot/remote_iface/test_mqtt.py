@@ -51,17 +51,12 @@ class RemoteIfaceMQTTTests(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        try:
-            self.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        except Exception:
-            self.ev_loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(self.ev_loop)
         self.fake_mqtt_broker = FakeMQTTBroker()
         self.gateway = MQTTGateway(self.hbapp)
         self.test_market: MockPaperExchange = MockPaperExchange(
             client_config_map=ClientConfigAdapter(ClientConfigMap()))
         self.hbapp.markets = {
-            "test_market": self.test_market
+            "test_market_paper_trade": self.test_market
         }
 
     def tearDown(self):
@@ -81,7 +76,7 @@ class RemoteIfaceMQTTTests(TestCase):
 
     async def wait_for_rcv(self, topic, content=None, msg_key = 'msg'):
         try:
-            async with timeout(2):
+            async with timeout(3):
                 while not self.is_msg_received(topic=topic, content=content, msg_key = msg_key):
                     await asyncio.sleep(0.1)
         except asyncio.TimeoutError as e:
@@ -151,12 +146,17 @@ class RemoteIfaceMQTTTests(TestCase):
         )
 
     @patch("commlib.transports.mqtt.MQTTTransport")
-    def test_mqtt_subscribed_topics(self,
-                                    mock_mqtt):
+    def test_mqtt_command_config(self,
+                                 mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
-        self.assertTrue(self.gateway is not None)
-        subscribed_mqtt_topics = sorted(list([f"hbot/{self.instance_id}/{topic}" for topic in self.command_topics]))
-        self.assertEqual(subscribed_mqtt_topics, sorted(list(self.fake_mqtt_broker.subscriptions.keys())))
+
+        topic = self.get_topic_for(self.CONFIG_URI)
+
+        self.fake_mqtt_broker.publish_to_subscription(topic, {})
+        notify_topic = f"hbot/{self.instance_id}/notify"
+        notify_msg = "\nGlobal Configurations:"
+        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
+        self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
     @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
@@ -177,24 +177,49 @@ class RemoteIfaceMQTTTests(TestCase):
         self.assertTrue(self.is_msg_received(notify_topic, start_msg))
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
+    @patch("hummingbot.client.command.start_command.StartCommand._in_start_check")
     @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_command_start(self,
                                 mock_mqtt,
                                 status_check_all_mock: AsyncMock,
+                                in_start_check_mock: AsyncMock,
                                 load_strategy_config_map_from_file: AsyncMock):
+        in_start_check_mock.return_value = True
         self.start_mqtt(mock_mqtt=mock_mqtt)
 
         self.send_fake_import_cmd(status_check_all_mock=status_check_all_mock,
                                   load_strategy_config_map_from_file=load_strategy_config_map_from_file)
 
-        start_topic = self.get_topic_for(self.START_URI)
-
-        self.fake_mqtt_broker.publish_to_subscription(start_topic, {})
         notify_topic = f"hbot/{self.instance_id}/notify"
-        start_msg = "Invalid strategy. Start aborted."
+
+        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, '\nEnter "start" to start market making.'))
+
+        self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.START_URI), {})
+
+        start_msg = 'The bot is already running - please run "stop" first'
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, start_msg))
         self.assertTrue(self.is_msg_received(notify_topic, start_msg))
+
+    @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_command_status(self,
+                                 mock_mqtt,
+                                 strategy_status_mock: AsyncMock
+                                 ):
+        strategy_status_mock.side_effect = self.hb_status_notify
+
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+
+        topic = self.get_topic_for(self.STATUS_URI)
+
+        self.fake_mqtt_broker.publish_to_subscription(topic, {})
+
+        notify_topic = f"hbot/{self.instance_id}/notify"
+        self.fake_mqtt_broker.publish_to_subscription(topic, {})
+        notify_msg = "FAKE STATUS MOCK"
+        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
+        self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_command_stop(self,
@@ -210,19 +235,6 @@ class RemoteIfaceMQTTTests(TestCase):
         notify_msg = "All outstanding orders canceled."
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
         self.assertTrue(self.is_msg_received(log_topic, log_msg))
-        self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
-
-    @patch("commlib.transports.mqtt.MQTTTransport")
-    def test_mqtt_command_config(self,
-                                 mock_mqtt):
-        self.start_mqtt(mock_mqtt=mock_mqtt)
-
-        topic = self.get_topic_for(self.CONFIG_URI)
-
-        self.fake_mqtt_broker.publish_to_subscription(topic, {})
-        notify_topic = f"hbot/{self.instance_id}/notify"
-        notify_msg = "\nGlobal Configurations:"
-        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
         self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
@@ -275,24 +287,10 @@ class RemoteIfaceMQTTTests(TestCase):
         self.ev_loop.run_until_complete(self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'))
         self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key = 'type'))
 
-    @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
-    @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
-    @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
     @patch("commlib.transports.mqtt.MQTTTransport")
-    def test_mqtt_z_command_status(self,
-                                   mock_mqtt,
-                                   strategy_status_mock: AsyncMock,
-                                   status_check_all_mock: AsyncMock,
-                                   load_strategy_config_map_from_file: AsyncMock):
-        strategy_status_mock.side_effect = self.hb_status_notify
-
+    def test_mqtt_subscribed_topics(self,
+                                    mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
-
-        topic = self.get_topic_for(self.STATUS_URI)
-
-        notify_topic = f"hbot/{self.instance_id}/notify"
-
-        self.fake_mqtt_broker.publish_to_subscription(topic, {})
-        notify_msg = "FAKE STATUS MOCK"
-        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
-        self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
+        self.assertTrue(self.gateway is not None)
+        subscribed_mqtt_topics = sorted(list([f"hbot/{self.instance_id}/{topic}" for topic in self.command_topics]))
+        self.assertEqual(subscribed_mqtt_topics, sorted(list(self.fake_mqtt_broker.subscriptions.keys())))
