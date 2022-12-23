@@ -61,6 +61,7 @@ class MQTTCommands:
         self._hb_app = hb_app
         self.node = mqtt_node
         self.logger = self._hb_app.logger
+        self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
         self.START_URI = self.START_URI.replace('$UID', hb_app.uid)
         self.STOP_URI = self.STOP_URI.replace('$UID', hb_app.uid)
@@ -171,7 +172,7 @@ class MQTTCommands:
     def _on_cmd_status(self, msg: StatusCommandMessage.Request):
         response = StatusCommandMessage.Response()
         try:
-            _status = asyncio.run(self._hb_app.strategy_status()).strip()
+            _status = self._ev_loop.run_until_complete(self._hb_app.strategy_status()).strip()
             response.data = _status
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
