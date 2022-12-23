@@ -183,9 +183,9 @@ class MQTTCommands:
         response = HistoryCommandMessage.Response()
         try:
             self._hb_app.history(msg.days, msg.verbose, msg.precision)
-            trades = self._hb_app.get_history_trades(msg.days)
+            trades = self._hb_app.get_history_trades_json(msg.days)
             if trades:
-                response.trades = trades.all()
+                response.trades = trades
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
             response.msg = str(e)
