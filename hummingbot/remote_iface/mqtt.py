@@ -217,19 +217,19 @@ class MQTTCommands:
             response.msg = str(e)
         return response
 
-    def _on_get_market_data(self, msg):
-        _response = {
-            'status': 200,
-            'msg': '',
-            'market_data': {}
-        }
-        try:
-            market_data = self._hb_app.strategy.market_status_df()
-            _response['market_data'] = market_data
-        except Exception as e:
-            _response['msg'] = str(e)
-            _response['status'] = 400
-        return _response
+    # def _on_get_market_data(self, msg):
+    #     _response = {
+    #         'status': 200,
+    #         'msg': '',
+    #         'market_data': {}
+    #     }
+    #     try:
+    #         market_data = self._hb_app.strategy.market_status_df()
+    #         _response['market_data'] = market_data
+    #     except Exception as e:
+    #         _response['msg'] = str(e)
+    #         _response['status'] = 400
+    #     return _response
 
 
 class MQTTEventForwarder:
