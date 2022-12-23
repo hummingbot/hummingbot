@@ -621,12 +621,10 @@ class RemoteIfaceMQTTTests(TestCase):
         subscribed_mqtt_topics = sorted(list([f"hbot/{self.instance_id}/{topic}" for topic in self.command_topics]))
         self.assertEqual(subscribed_mqtt_topics, sorted(list(self.fake_mqtt_broker.subscriptions.keys())))
 
-    @patch("hummingbot.remote_iface.mqtt.mqtts_logger")
+    @patch("hummingbot.remote_iface.mqtt.mqtts_logger", None)
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_eventforwarder_logger(self,
-                                        mock_mqtt,
-                                        mock_logger):
-        mock_logger.return_value = None
+                                        mock_mqtt):
         self.assertTrue(MQTTEventForwarder.logger() is not None)
         self.start_mqtt(mock_mqtt=mock_mqtt)
 
