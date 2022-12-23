@@ -62,11 +62,10 @@ class FakeMQTTTransport:
     #     pass
 
     def publish(self, topic: str, payload: Dict[str, Any], qos: Any, retain: bool = False):
-        print(f"FakeMQTTTransport publish on {topic} : {payload}")
+        print(f"\nFakeMQTT publish on\n> {topic}\n     {payload}\n")
         if not self._received_msgs.get(topic):
             self._received_msgs[topic] = []
         self._received_msgs[topic].append(payload)
-        print(self._received_msgs)
 
     def subscribe(self, topic: str, callback: Any, *args, **kwargs):
         self._subscriptions[topic] = callback

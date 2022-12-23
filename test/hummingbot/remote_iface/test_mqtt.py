@@ -24,6 +24,7 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         cls.instance_id = 'TEST_ID'
         cls.fake_err_msg = "Some error"
         cls.client_config_map = ClientConfigAdapter(ClientConfigMap())
@@ -53,7 +54,7 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        pass
+        super().tearDownClass()
 
     def setUp(self) -> None:
         super().setUp()
@@ -72,6 +73,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.fake_mqtt_broker._transport._subscriptions = {}
         self.gateway.mqtt_event_forwarder.stop_event_listener()
         self.gateway.stop()
+        super().tearDown()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -530,13 +532,13 @@ class RemoteIfaceMQTTTests(TestCase):
         topic = self.get_topic_for(self.STOP_URI)
 
         self.fake_mqtt_broker.publish_to_subscription(topic, {})
-        log_topic = f"hbot/{self.instance_id}/log"
         notify_topic = f"hbot/{self.instance_id}/notify"
-        log_msg = "stop command initiated."
-        notify_msg = "All outstanding orders canceled."
-        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
-        self.assertTrue(self.is_msg_received(log_topic, log_msg))
-        self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
+        wind_down_msg = "\nWinding down..."
+        stop_msg = "All outstanding orders canceled."
+        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, wind_down_msg))
+        self.assertTrue(self.is_msg_received(notify_topic, wind_down_msg))
+        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, stop_msg))
+        self.assertTrue(self.is_msg_received(notify_topic, stop_msg))
 
     @patch("hummingbot.client.command.stop_command.StopCommand.stop")
     @patch("commlib.transports.mqtt.MQTTTransport")
@@ -627,3 +629,34 @@ class RemoteIfaceMQTTTests(TestCase):
         mock_logger.return_value = None
         self.assertTrue(MQTTEventForwarder.logger() is not None)
         self.start_mqtt(mock_mqtt=mock_mqtt)
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_eventforwarder_unknown_events(self,
+                                                mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        test_evt = {"unknown": "you don't know me"}
+        self.gateway.mqtt_event_forwarder._send_mqtt_event(event_tag=999,
+                                                           pubsub=None,
+                                                           event=test_evt)
+
+        events_topic = f"hbot/{self.instance_id}/events"
+
+        evt_type = "Unknown"
+        self.ev_loop.run_until_complete(self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'))
+        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key = 'type'))
+        self.assertTrue(self.is_msg_received(events_topic, test_evt, msg_key = 'data'))
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_eventforwarder_invalid_events(self,
+                                                mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        self.gateway.mqtt_event_forwarder._send_mqtt_event(event_tag=999,
+                                                           pubsub=None,
+                                                           event="i feel empty")
+
+        events_topic = f"hbot/{self.instance_id}/events"
+
+        evt_type = "Unknown"
+        self.ev_loop.run_until_complete(self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'))
+        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key = 'type'))
+        self.assertTrue(self.is_msg_received(events_topic, {}, msg_key = 'data'))
