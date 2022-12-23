@@ -113,6 +113,45 @@ class TestRippleDEXGateway(ScriptStrategyBase):
         finally:
             self._log(DEBUG, """on_tick... end""")
 
+    async def _async_on_tick(self):
+        try:
+            self._log(DEBUG, """_async_on_tick... start""")
+
+            self._is_busy = True
+            balances = await self._get_balances()
+            self._summary["balance"]["wallet"]["base"] = Decimal(balances["balances"][self._base_token])
+            self._summary["balance"]["wallet"]["quote"] = Decimal(balances["balances"][self._quote_token])
+
+            order_book = await self._get_order_book()
+            bids, asks, top_ask, top_bid = parse_order_book(order_book)
+            self._summary["order_book"]["bids"] = bids
+            self._summary["order_book"]["asks"] = asks
+            self._summary["order_book"]["top_ask"] = top_ask
+            self._summary["order_book"]["top_bid"] = top_bid
+
+            ticker_price = await self._get_market_price()
+            self._summary["price"]["ticker_price"] = ticker_price
+            self._market_info = await self._get_market()
+
+            open_orders_balance = await self._get_open_orders_balance()
+            self._summary["balance"]["orders"]["base"] = open_orders_balance["base"]
+            self._summary["balance"]["orders"]["quote"] = open_orders_balance["quote"]
+
+            self._show_summary()
+
+            await self._script_create_orders()
+            await self._script_check_created_orders_status()
+            await self._script_replace_orders()
+            await self._script_check_replaced_orders_status()
+            await self._script_cancel_orders()
+            await self._script_check_cancelled_orders_status()
+        finally:
+            self._refresh_timestamp = int(self._configuration["refresh_interval"]) + self.current_timestamp
+            self._is_busy = False
+            # HummingbotApplication.main_application().stop()
+
+            self._log(DEBUG, """_async_on_tick... end""")
+
     async def _script_create_orders(self):
         if not self._flags["proceed_to_create_orders"]:
             return
@@ -267,45 +306,6 @@ class TestRippleDEXGateway(ScriptStrategyBase):
             self._flags["proceed_to_check_cancelled_orders_status"] = keep_looping
             self._flags["proceed_to_create_orders"] = not keep_looping
             self._log(DEBUG, """_script_check_cancelled_orders_status... end""")
-
-    async def _async_on_tick(self):
-        try:
-            self._log(DEBUG, """_async_on_tick... start""")
-
-            self._is_busy = True
-            balances = await self._get_balances()
-            self._summary["balance"]["wallet"]["base"] = Decimal(balances["balances"][self._base_token])
-            self._summary["balance"]["wallet"]["quote"] = Decimal(balances["balances"][self._quote_token])
-
-            order_book = await self._get_order_book()
-            bids, asks, top_ask, top_bid = parse_order_book(order_book)
-            self._summary["order_book"]["bids"] = bids
-            self._summary["order_book"]["asks"] = asks
-            self._summary["order_book"]["top_ask"] = top_ask
-            self._summary["order_book"]["top_bid"] = top_bid
-
-            ticker_price = await self._get_market_price()
-            self._summary["price"]["ticker_price"] = ticker_price
-            self._market_info = await self._get_market()
-
-            open_orders_balance = await self._get_open_orders_balance()
-            self._summary["balance"]["orders"]["base"] = open_orders_balance["base"]
-            self._summary["balance"]["orders"]["quote"] = open_orders_balance["quote"]
-
-            self._show_summary()
-
-            await self._script_create_orders()
-            await self._script_check_created_orders_status()
-            await self._script_replace_orders()
-            await self._script_check_replaced_orders_status()
-            await self._script_cancel_orders()
-            await self._script_check_cancelled_orders_status()
-        finally:
-            self._refresh_timestamp = int(self._configuration["refresh_interval"]) + self.current_timestamp
-            self._is_busy = False
-            # HummingbotApplication.main_application().stop()
-
-            self._log(DEBUG, """_async_on_tick... end""")
 
     async def _get_balances(self) -> Dict[str, Any]:
         try:
