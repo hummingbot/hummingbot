@@ -26,9 +26,6 @@ class FakeMQTTBroker:
             self._transport = FakeMQTTTransport(*args, **kwargs)
         return self._transport
 
-    def publish(self, *args, **kwargs):
-        self._transport.publish(*args, **kwargs)
-
     def publish_to_subscription(self, topic, payload):
         callback = self._transport._subscriptions[topic]
         msg = FakeMQTTMessage(topic=topic, payload=payload)
@@ -48,31 +45,32 @@ class FakeMQTTBroker:
 class FakeMQTTTransport:
 
     def __init__(self, *args, **kwargs):
-        # print(f"FakeMQTTTransport init with {args} {kwargs}")
         self._subscriptions = {}
         self._received_msgs = {}
 
-    @property
-    def is_connected(self):
-        return True
+    # @property
+    # def is_connected(self):
+    #     return True
 
-    def on_connect(self, *args, **kwargs):
-        pass
+    # def on_connect(self, *args, **kwargs):
+    #     pass
 
-    def on_disconnect(self, *args, **kwargs):
-        pass
+    # def on_disconnect(self, *args, **kwargs):
+    #     pass
 
-    def on_message(self, *args, **kwargs):
-        pass
+    # def on_message(self, *args, **kwargs):
+    #     pass
 
     def publish(self, topic: str, payload: Dict[str, Any], qos: Any, retain: bool = False):
         print(f"FakeMQTTTransport publish on {topic} : {payload}")
         if not self._received_msgs.get(topic):
             self._received_msgs[topic] = []
         self._received_msgs[topic].append(payload)
+        print(self._received_msgs)
 
     def subscribe(self, topic: str, callback: Any, *args, **kwargs):
         self._subscriptions[topic] = callback
+        return topic
 
     def start_loop(self):
         pass
@@ -80,5 +78,5 @@ class FakeMQTTTransport:
     def stop_loop(self):
         pass
 
-    def loop_forever(self):
-        pass
+    # def loop_forever(self):
+    #     pass
