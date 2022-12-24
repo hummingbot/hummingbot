@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.order_candidate import OrderCandidate
+from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
 from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -18,6 +18,8 @@ class XEMining(ScriptStrategyBase):
     maker_pair = "{}-{}".format(first_asset, second_asset)
     taker_exchange = "gate_io_paper_trade"
     taker_pair = "{}-{}".format(first_asset, second_asset)
+    perp_exchange = "binance_perpetual_testnet"
+    trading_pair = "LTC-USDT"
 
     order_amount = 250                  # amount for each order
     spread_bps = 40                    # bot places maker orders at this spread to taker price
@@ -25,7 +27,7 @@ class XEMining(ScriptStrategyBase):
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
     max_order_age = 120                 # bot refreshes orders after this age
 
-    markets = {maker_exchange: {maker_pair}, taker_exchange: {taker_pair}}
+    markets = {maker_exchange: {maker_pair}, taker_exchange: {taker_pair}, perp_exchange: {trading_pair}}
 
     buy_order_placed = False
     sell_order_placed = False
@@ -36,6 +38,71 @@ class XEMining(ScriptStrategyBase):
     last_midprices = []
 
     def on_tick(self):
+
+        buyPrice = self.connectors[self.perp_exchange].get_price(self.trading_pair, is_buy = True)
+        sellPrice = self.connectors[self.perp_exchange].get_price(self.trading_pair, is_buy = False)
+        self.logger().info(f"buyPrice: {buyPrice}")
+        self.logger().info(f"sellPrice: {sellPrice}")
+
+        accountPosition = self.connectors[self.perp_exchange].account_positions
+        # self.logger().info(f"Account Position: {accountPosition}")
+
+        # iterate through dictionary accountPosition and print key and value
+        amount = 0
+        unrealized_pnl = 0
+        for key, value in accountPosition.items():
+            trading_pair = value.trading_pair
+            if (trading_pair == self.trading_pair):
+                amount = value.amount
+                unrealized_pnl = value.unrealized_pnl
+                # self.logger().info(f"Key: {key}, Value: {value}, type: {type(value)}")
+
+        self.logger().info(f"Amount: {amount}, type: {type(amount)}")
+        self.logger().info(f"Unrealized PnL: {unrealized_pnl}, type: {type(unrealized_pnl)}")
+        self.logger().info(f"Price timestamp: {self.price_timestamp}")
+        self.logger().info(f"Current timestamp: {self.current_timestamp}")
+
+        if amount == 0:
+            self.logger().info("Amount is 0, create new hedge position")
+            order = PerpetualOrderCandidate(
+                trading_pair=self.trading_pair,
+                is_maker=True,
+                order_type=OrderType.MARKET,
+                order_side=TradeType.BUY,
+                amount=Decimal(self.order_amount),
+                price=buyPrice,
+                from_total_balances=True,
+                leverage=Decimal(1),
+                position_close=False,
+            )
+            self.buy(
+                connector_name=self.perp_exchange,
+                trading_pair=self.trading_pair,
+                amount=order.amount,
+                order_type=order.order_type,
+                price=order.price)
+            return
+
+        if unrealized_pnl < Decimal(-0.9) * Decimal(amount):
+            self.logger().info("Unrealized PnL is greater than 90% of order amount, closing position")
+            order = PerpetualOrderCandidate(
+                trading_pair=self.trading_pair,
+                is_maker=True,
+                order_type=OrderType.MARKET,
+                order_side=TradeType.SELL,
+                amount=Decimal(amount),
+                price=sellPrice,
+                from_total_balances=True,
+                leverage=Decimal(1),
+                position_close=False,
+            )
+            self.sell(
+                connector_name=self.perp_exchange,
+                trading_pair=self.trading_pair,
+                amount=order.amount,
+                order_type=order.order_type,
+                price=order.price)
+            return
 
         if self.price_timestamp <= self.current_timestamp:
             annualized_vol = self.calculate_annualized_volatility()
@@ -56,7 +123,7 @@ class XEMining(ScriptStrategyBase):
                 self.spread_bps -= 5
 
             self.logger().info(f"Adjusted spread_bps: {self.spread_bps}")
-            self.price_timestamp = self.current_timestamp + 60
+            self.price_timestamp = self.current_timestamp + 10
             # vwap = self.connectors[self.maker_exchange].get_vwap_for_volume(self.maker_pair, is_buy=True, volume = 10)
             # result_price = vwap.result_price
             # result_volume = vwap.result_volume
