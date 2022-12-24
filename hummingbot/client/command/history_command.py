@@ -65,18 +65,6 @@ class HistoryCommand:
                 config_file_path=self.strategy_file_name)
             return list([TradeFill.to_bounty_api_json(t) for t in trades])
 
-    def get_history_trades(self,  # type: HummingbotApplication
-                           days: float = 0):
-        if self.strategy_file_name is None:
-            return
-        start_time = get_timestamp(days) if days > 0 else self.init_time
-        with self.trade_fill_db.get_new_session() as session:
-            trades: List[TradeFill] = self._get_trades_from_session(
-                int(start_time * 1e3),
-                session=session,
-                config_file_path=self.strategy_file_name)
-            return TradeFill.to_pandas(trades)
-
     async def history_report(self,  # type: HummingbotApplication
                              start_time: float,
                              trades: List[TradeFill],
