@@ -12,11 +12,11 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class XEMining(ScriptStrategyBase):
 
-    first_asset = "FRONT"
+    first_asset = "LTC"
     second_asset = "USDT"
-    maker_exchange = "gate_io_paper_trade"
+    maker_exchange = "kucoin_paper_trade"
     maker_pair = "{}-{}".format(first_asset, second_asset)
-    taker_exchange = "kucoin_paper_trade"
+    taker_exchange = "gate_io_paper_trade"
     taker_pair = "{}-{}".format(first_asset, second_asset)
 
     order_amount = 250                  # amount for each order
