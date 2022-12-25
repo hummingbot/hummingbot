@@ -161,7 +161,7 @@ class XEMining(ScriptStrategyBase):
             self.buy(
                 self.maker_exchange,
                 self.maker_pair,
-                buy_order_adjusted.amount,
+                Decimal(self.order_amount),
                 buy_order_adjusted.order_type,
                 buy_order_adjusted.price,
             )
@@ -184,7 +184,7 @@ class XEMining(ScriptStrategyBase):
             self.sell(
                 self.maker_exchange,
                 self.maker_pair,
-                sell_order_adjusted.amount,
+                Decimal(self.order_amount),
                 sell_order_adjusted.order_type,
                 sell_order_adjusted.price,
             )
