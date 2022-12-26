@@ -71,7 +71,7 @@ class RemoteIfaceMQTTTests(TestCase):
     def tearDown(self):
         self.fake_mqtt_broker._transport._received_msgs = {}
         self.fake_mqtt_broker._transport._subscriptions = {}
-        self.gateway.mqtt_event_forwarder.stop_event_listener()
+        self.gateway._event_forwarder.stop_event_listener()
         self.gateway.stop()
         super().tearDown()
 
@@ -633,9 +633,9 @@ class RemoteIfaceMQTTTests(TestCase):
                                                 mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
         test_evt = {"unknown": "you don't know me"}
-        self.gateway.mqtt_event_forwarder._send_mqtt_event(event_tag=999,
-                                                           pubsub=None,
-                                                           event=test_evt)
+        self.gateway._event_forwarder._send_mqtt_event(event_tag=999,
+                                                       pubsub=None,
+                                                       event=test_evt)
 
         events_topic = f"hbot/{self.instance_id}/events"
 
@@ -645,16 +645,49 @@ class RemoteIfaceMQTTTests(TestCase):
         self.assertTrue(self.is_msg_received(events_topic, test_evt, msg_key = 'data'))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_eventforwarder_app_event_listener(self,
+                                                    mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        self.gateway._event_forwarder.stop_event_listener()
+        self.assertEqual(len(self.gateway._event_forwarder._app_event_pairs), 0)
+        self.gateway._event_forwarder._app_event_pairs = [
+            (MarketEvent.BuyOrderCreated, self.gateway._event_forwarder._mqtt_fowarder)
+        ]
+        self.gateway._event_forwarder.start_event_listener()
+        self.assertEqual(len(self.gateway._event_forwarder._app_event_pairs), 1)
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_eventforwarder_invalid_events(self,
                                                 mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
-        self.gateway.mqtt_event_forwarder._send_mqtt_event(event_tag=999,
-                                                           pubsub=None,
-                                                           event="i feel empty")
+        self.gateway._event_forwarder._send_mqtt_event(event_tag=999,
+                                                       pubsub=None,
+                                                       event="i feel empty")
 
         events_topic = f"hbot/{self.instance_id}/events"
 
         evt_type = "Unknown"
-        self.ev_loop.run_until_complete(self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'))
+        self.ev_loop.run_until_complete(
+            self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'))
         self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key = 'type'))
         self.assertTrue(self.is_msg_received(events_topic, {}, msg_key = 'data'))
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_notifier_fakes(self,
+                                 mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        self.assertEqual(self.gateway._notifier.start(), None)
+        self.assertEqual(self.gateway._notifier.stop(), None)
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_gateway_check_health(self,
+                                       mock_mqtt):
+        self.assertTrue(self.gateway.check_health())
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        self.assertTrue(self.gateway.check_health())
+        self.gateway._rpc_services[0]._transport._connected = False
+        self.assertFalse(self.gateway.check_health())
+        s = self.gateway.create_subscriber(topic='TEST', on_message=lambda x: {})
+        self.assertFalse(self.gateway.check_health())
+        s.run()
+        self.assertTrue(self.gateway.check_health())
