@@ -19,12 +19,17 @@ class MQTTStartCommand:
     async def start_mqtt_async(self,  # type: HummingbotApplication
                                ):
         if self._mqtt is None:
-            self.logger().info("MQTT.Start command initiated.")
-            self._mqtt = MQTTGateway(self)
-            self._mqtt.start_notifier()
-            self._mqtt.start_commands()
-            self._mqtt.start_event_fw()
-            self._mqtt.patch_logger_class()
-            self._mqtt.run()
+            try:
+                self._mqtt = MQTTGateway(self)
+                self._mqtt.start_notifier()
+                self._mqtt.start_commands()
+                self._mqtt.start_event_fw()
+                self._mqtt.patch_logger_class()
+                self._mqtt.run()
+                self.logger().info('Connected to MQTT Broker.')
+            except Exception as e:
+                self.logger().error(
+                    f'Failed to connect to MQTT broker -> {str(e)}')
+                self._mqtt = None
         else:
-            self.logger().info("MQTT is already initiated!")
+            self.logger().error("MQTT is already initiated!")

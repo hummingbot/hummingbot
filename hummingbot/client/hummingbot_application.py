@@ -60,7 +60,6 @@ class HummingbotApplication(*commands):
         global s_logger
         if s_logger is None:
             s_logger = logging.getLogger(__name__)
-            s_logger = logging.getLogger(str(cls.uid))
         return s_logger
 
     @classmethod
@@ -114,15 +113,7 @@ class HummingbotApplication(*commands):
         self._gateway_monitor = GatewayStatusMonitor(self)
 
         if self.client_config_map.mqtt_bridge.mqtt_autostart:
-            try:
-                self._mqtt = MQTTGateway(self)
-                self._mqtt.start_notifier()
-                self._mqtt.start_commands()
-                self._mqtt.start_event_fw()
-                self._mqtt.patch_logger_class()
-                self._mqtt.run()
-            except Exception as e:
-                self.logger().error(e)
+            self.start_mqtt()
 
         command_tabs = self.init_command_tabs()
         self.parser: ThrowingArgumentParser = load_parser(self, command_tabs)
