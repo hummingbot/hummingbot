@@ -20,6 +20,10 @@ PRIVATE_WS_ENDPOINT = "ws"
 API_VERSION = "v1"
 API_VERSION_V2 = "v2"
 
+TIME_IN_FORCE_GTC = 'GTC'  # Good till cancelled
+TIME_IN_FORCE_GTX = 'GTX'  # Good Till Crossing
+TIME_IN_FORCE_IOC = 'IOC'  # Immediate or cancel
+TIME_IN_FORCE_FOK = 'FOK'  # Fill or kill
 
 # Public API v1 Endpoints
 SNAPSHOT_REST_URL = "/depth"

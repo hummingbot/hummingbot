@@ -1,7 +1,6 @@
 import os
 import socket
 from decimal import Decimal
-from typing import Any, Dict
 
 from pydantic import Field, SecretStr
 
@@ -34,15 +33,6 @@ def get_client_order_id(order_side: str, trading_pair: object):
     quote_str = f"{quote[0]}{quote[-1]}"
     client_instance_id = hex(abs(hash(f"{socket.gethostname()}{os.getpid()}")))[2:6]
     return f"{BROKER_ID}-{order_side.upper()[0]}{base_str}{quote_str}{client_instance_id}{nonce}"
-
-
-def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
-    """
-    Verifies if a trading pair is enabled to operate with based on its exchange information
-    :param exchange_info: the exchange information for a trading pair
-    :return: True if the trading pair is enabled, False otherwise
-    """
-    return exchange_info.get("status", None) == "TRADING"
 
 
 class BinancePerpetualConfigMap(BaseConnectorConfigMap):
