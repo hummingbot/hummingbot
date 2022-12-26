@@ -46,9 +46,6 @@ class HummingbotLogger(PythonLogger):
                    for tools in TESTING_TOOLS
                    for arg in sys.argv)
 
-    def start_mqtt(self):
-        return None
-
     def notify(self, msg: str):
         from . import INFO
         self.log(INFO, msg)

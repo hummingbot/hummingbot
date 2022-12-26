@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING, List, Tuple
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.logger import HummingbotLogger
 
-if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
-    from hummingbot.core.event.event_listener import EventListener
+if TYPE_CHECKING:  # pragma: no cover
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
+    from hummingbot.core.event.event_listener import EventListener  # noqa: F401
 
 from commlib.node import Node
 from commlib.transports.mqtt import ConnectionParameters as MQTTConnectionParameters
@@ -39,10 +39,6 @@ from hummingbot.remote_iface.messages import (
 )
 
 mqtts_logger: HummingbotLogger = None
-
-
-def get_timestamp(days_ago: float = 0.) -> float:
-    return time.time() - (60. * 60. * 24. * days_ago)
 
 
 class MQTTCommands:
@@ -232,7 +228,7 @@ class MQTTEventForwarder:
                  hb_app: "HummingbotApplication",
                  mqtt_node: Node):
 
-        if threading.current_thread() != threading.main_thread():
+        if threading.current_thread() != threading.main_thread():  # pragma: no cover
             raise EnvironmentError(
                 "MQTTEventForwarder can only be initialized from the main thread."
             )
@@ -271,7 +267,7 @@ class MQTTEventForwarder:
         self.start_event_listener()
 
     def _send_mqtt_event(self, event_tag: int, pubsub: PubSub, event):
-        if threading.current_thread() != threading.main_thread():
+        if threading.current_thread() != threading.main_thread():  # pragma: no cover
             self._ev_loop.call_soon_threadsafe(self._send_mqtt_event, event_tag, pubsub, event)
             return
 
@@ -357,11 +353,11 @@ class MQTTNotifier(NotifierBase):
     def add_msg_to_queue(self, msg: str):
         self.notify_pub.publish(NotifyMessage(msg=msg))
 
-    def start(self):
-        pass
+    def start(self) -> None:
+        return None
 
-    def stop(self):
-        pass
+    def stop(self) -> None:
+        return None
 
 
 class MQTTGateway(Node):
@@ -378,9 +374,11 @@ class MQTTGateway(Node):
     def __init__(self,
                  hb_app: "HummingbotApplication",
                  *args, **kwargs):
+        self._notifier: MQTTNotifier = None
+        self._event_forwarder: MQTTEventForwarder = None
+        self._commands: MQTTCommands = None
         self._hb_app = hb_app
         self.HEARTBEAT_URI = self.HEARTBEAT_URI.replace('$UID', hb_app.uid)
-
         self._params = self._create_mqtt_params_from_conf()
 
         super().__init__(
@@ -391,6 +389,15 @@ class MQTTGateway(Node):
             *args,
             **kwargs
         )
+
+    def check_health(self) -> bool:
+        for s in self._subscribers:
+            if not s._transport.is_connected:
+                return False
+        for r in self._rpc_services:
+            if not r._transport.is_connected:
+                return False
+        return True
 
     def patch_logger_class(self):
         HummingbotLogger._mqtt_handler = MQTTLogHandler(self._hb_app, self)
@@ -409,7 +416,7 @@ class MQTTGateway(Node):
     def start_event_fw(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_events:
             self.logger().info('Starting MQTT Remote Events')
-            self.mqtt_event_forwarder = MQTTEventForwarder(self._hb_app, self)
+            self._event_forwarder = MQTTEventForwarder(self._hb_app, self)
 
     def _create_mqtt_params_from_conf(self):
         host = self._hb_app.client_config_map.mqtt_bridge.mqtt_host
