@@ -7,16 +7,15 @@ from unittest.mock import AsyncMock, patch
 import ujson
 from aioresponses.core import aioresponses
 
+import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_constants as CONSTANTS
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.binance_perpetual import binance_perpetual_web_utils as web_utils
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source import (
     BinancePerpetualUserStreamDataSource,
 )
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
-
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
