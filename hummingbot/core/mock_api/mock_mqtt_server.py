@@ -47,10 +47,11 @@ class FakeMQTTTransport:
     def __init__(self, *args, **kwargs):
         self._subscriptions = {}
         self._received_msgs = {}
+        self._connected = False
 
-    # @property
-    # def is_connected(self):
-    #     return True
+    @property
+    def is_connected(self) -> bool:
+        return self._connected
 
     # def on_connect(self, *args, **kwargs):
     #     pass
@@ -72,10 +73,7 @@ class FakeMQTTTransport:
         return topic
 
     def start_loop(self):
-        pass
+        self._connected = True
 
     def stop_loop(self):
-        pass
-
-    # def loop_forever(self):
-    #     pass
+        self._connected = False
