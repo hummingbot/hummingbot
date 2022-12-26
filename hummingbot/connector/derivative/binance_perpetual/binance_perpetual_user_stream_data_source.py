@@ -1,9 +1,9 @@
 import asyncio
 import time
-from typing import Optional, List, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
-import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_utils as web_utils
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_constants as CONSTANTS
+import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_utils as web_utils
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -12,8 +12,9 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import \
-        BinancePerpetualDerivative
+    from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import (
+        BinancePerpetualDerivative,
+    )
 
 
 class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
