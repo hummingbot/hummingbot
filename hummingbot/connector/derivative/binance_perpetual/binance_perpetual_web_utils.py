@@ -1,6 +1,6 @@
 from typing import Any, Callable, Dict, Optional
 
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -37,7 +37,6 @@ def build_api_factory(
         domain: str = CONSTANTS.DOMAIN,
         time_provider: Optional[Callable] = None,
         auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
-
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
     time_provider = time_provider or (lambda: get_current_server_time(
@@ -78,7 +77,6 @@ async def api_request(path: str,
                       api_version: str = CONSTANTS.API_VERSION,
                       limit_id: Optional[str] = None,
                       timeout: Optional[float] = None):
-
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
 
@@ -131,3 +129,18 @@ async def get_current_server_time(
     server_time = response["serverTime"]
 
     return server_time
+
+
+def is_exchange_information_valid(rule: Dict[str, Any]) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its exchange information
+
+    :param exchange_info: the exchange information for a trading pair
+
+    :return: True if the trading pair is enabled, False otherwise
+    """
+    if rule["contractType"] == "PERPETUAL" and rule["status"] == "TRADING":
+        valid = True
+    else:
+        valid = False
+    return valid
