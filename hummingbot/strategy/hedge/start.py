@@ -1,40 +1,37 @@
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.hedge.hedge_config_map import hedge_config_map as c_map
 from hummingbot.strategy.hedge.hedge import HedgeStrategy
-from hummingbot.strategy.hedge.exchange_pair import ExchangePairTuple
+from hummingbot.strategy.hedge.hedge_config_map_pydantic import MAX_CONNECTOR, HedgeConfigMap
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 def start(self):
-    maker_exchange = c_map.get("maker_exchange").value.lower()
-    taker_exchange = c_map.get("taker_exchange").value.lower()
-    maker_assets = list(c_map.get("maker_assets").value.split(","))
-    taker_markets = list(c_map.get("taker_markets").value.split(","))
-    maker_assets = [m.strip().upper() for m in maker_assets]
-    taker_markets = [m.strip().upper() for m in taker_markets]
-    hedge_ratio = c_map.get("hedge_ratio").value
-    leverage = c_map.get("leverage").value
-    slippage = c_map.get("slippage").value
-    max_order_age = c_map.get("max_order_age").value
-    minimum_trade = c_map.get("minimum_trade").value
-    hedge_interval = c_map.get("hedge_interval").value
-    self._initialize_markets([(maker_exchange, []), (taker_exchange, taker_markets)])
-    exchanges = ExchangePairTuple(maker=self.markets[maker_exchange], taker=self.markets[taker_exchange])
-
-    market_infos = {}
-    for i, maker_asset in enumerate(maker_assets):
-        taker_market = taker_markets[i]
-        t_base, t_quote = taker_market.split("-")
-        taker = MarketTradingPairTuple(self.markets[taker_exchange], taker_market, t_base, t_quote)
-        market_infos[maker_asset] = taker
-
-    self.strategy = HedgeStrategy()
-    self.strategy.init_params(
-        exchanges = exchanges,
-        market_infos = market_infos,
-        hedge_ratio = hedge_ratio,
-        leverage = leverage,
-        minimum_trade = minimum_trade,
-        slippage = slippage,
-        max_order_age = max_order_age,
-        hedge_interval = hedge_interval,
+    c_map: HedgeConfigMap = self.strategy_config_map
+    hedge_connector = c_map.hedge_connector.lower()
+    hedge_markets = c_map.hedge_markets
+    hedge_offsets = c_map.hedge_offsets
+    offsets_dict = {hedge_connector: hedge_offsets}
+    initialize_markets = [(hedge_connector, hedge_markets)]
+    for i in range(MAX_CONNECTOR):
+        connector_config = getattr(c_map, f"connector_{i}")
+        connector = connector_config.connector
+        if not connector:
+            continue
+        connector = connector.lower()
+        markets = connector_config.markets
+        offsets_dict[connector] = connector_config.offsets
+        initialize_markets.append((connector, markets))
+    self._initialize_markets(initialize_markets)
+    self.market_trading_pair_tuples = []
+    offsets_market_dict = {}
+    for connector, markets in initialize_markets:
+        offsets = offsets_dict[connector]
+        for market, offset in zip(markets, offsets):
+            base, quote = market.split("-")
+            market_info = MarketTradingPairTuple(self.markets[connector], market, base, quote)
+            self.market_trading_pair_tuples.append(market_info)
+            offsets_market_dict[market_info] = offset
+    index = len(hedge_markets)
+    hedge_market_pairs = self.market_trading_pair_tuples[0:index]
+    market_pairs = self.market_trading_pair_tuples[index:]
+    self.strategy = HedgeStrategy(
+        config_map=c_map, hedge_market_pairs=hedge_market_pairs, market_pairs=market_pairs, offsets=offsets_market_dict
     )
