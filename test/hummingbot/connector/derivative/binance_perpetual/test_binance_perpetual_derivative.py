@@ -105,10 +105,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         url = web_utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL)
         return url
 
-
     @property
     def balance_url(self):
-        url = web_utils.rest_url(path_url=CONSTANTS.ACCOUNT_INFO_URL,api_version=CONSTANTS.API_VERSION_V2)
+        url = web_utils.rest_url(path_url=CONSTANTS.ACCOUNT_INFO_URL, api_version=CONSTANTS.API_VERSION_V2)
         return url
 
     @property
@@ -126,6 +125,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         )
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
+
     def tearDown(self) -> None:
         self.test_task and self.test_task.cancel()
         BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {}
