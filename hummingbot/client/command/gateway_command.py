@@ -72,6 +72,9 @@ class GatewayCommand(GatewayChainApiManager):
         else:
             safe_ensure_future(self._show_gateway_connector_tokens(connector_chain_network), loop=self.ev_loop)
 
+    def gateway_approve_tokens(self, connector_chain_network: Optional[str], tokens: Optional[str]):
+        if connector_chain_network is not None and tokens is not None:
+            safe_ensure_future(self._update_gateway_approve_tokens(connector_chain_network, tokens), loop=self.ev_loop)
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
 
@@ -618,6 +621,34 @@ class GatewayCommand(GatewayChainApiManager):
         else:
             GatewayConnectionSetting.upsert_connector_spec_tokens(connector_chain_network, new_tokens)
             self.notify(f"The 'balance' command will now report token balances {new_tokens} for '{connector_chain_network}'.")
+
+    async def _update_gateway_approve_tokens(
+            self,           # type: HummingbotApplication
+            connector_chain_network: str,
+            tokens: str,
+    ):
+        """
+        Allow the user to input token addresses to approve for spending.
+        """
+        conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+        address = GatewayConnectionSetting
+
+        if conf is None:
+            self.notify(f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
+        else:
+            self.logger().info(f"Connector {conf['connector']} Tokens {tokens} will now be approved for spending for '{connector_chain_network}'.")
+            # await self._get_gateway_instance().approve_token(conf['chain'],conf['network'], tokens[0],conf['connector'])
+            # get wallets for the selected chain
+            wallets_response: List[Dict[str, Any]] = await self._get_gateway_instance().get_wallets()
+            matching_wallets: List[Dict[str, Any]] = [w for w in wallets_response if w["chain"] == conf['chain']]
+            wallets: List[str]
+            if len(matching_wallets) < 1:
+                wallets = []
+            else:
+                wallets = matching_wallets[0]['walletAddresses']
+            await self._get_gateway_instance().approve_token(conf['chain'],conf['network'],wallets[0], tokens,conf['connector'])
+            self.notify(f"Tokens {tokens} is approved for spending for '{conf['connector']}' for Wallets: {wallets[0]}.")
+            
 
     def _get_gateway_instance(
         self  # type: HummingbotApplication
