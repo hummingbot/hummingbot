@@ -600,7 +600,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         trading_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
         self.assertTrue(self._is_logged(
             "INFO",
-            f"Error parsing the trading pair rule {mocked_response['symbols'][0]}. Error: KeyError. Skipping..."
+            f"Error parsing the trading pair rule {mocked_response['symbols'][0]}. Error: 'filters'. Skipping..."
         ))
 
     def test_get_collateral_token(self):
