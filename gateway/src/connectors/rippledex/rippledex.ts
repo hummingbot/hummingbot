@@ -145,14 +145,13 @@ export class RippleDEX {
       quoteTransferRate = 0;
     }
 
-    const smallestTickSize = Math.min(baseTickSize, quoteTickSize);
-    const returnTickSize = Number(`1e-${smallestTickSize}`);
-    const minimumOrderSize = returnTickSize;
+    const smallestTickSize = Math.min(baseTickSize, quoteTickSize, 15);
+    const minimumOrderSize = smallestTickSize;
 
     const result = {
       name: name,
       minimumOrderSize: minimumOrderSize,
-      tickSize: returnTickSize,
+      tickSize: smallestTickSize,
       baseTransferRate: baseTransferRate,
       quoteTransferRate: quoteTransferRate,
     };
@@ -359,6 +358,21 @@ export class RippleDEX {
         const meta: TransactionMetadata = tx_resp.result
           .meta as TransactionMetadata;
         const result = meta.TransactionResult;
+        const prefix = result.slice(0, 3);
+
+        switch (prefix) {
+          case 'tec':
+          case 'tef':
+          case 'tel':
+          case 'tem':
+            queriedOrders[order.sequence] = {
+              sequence: order.sequence,
+              status: OrderStatus.FAILED,
+              signature: order.signature,
+              transactionResult: result,
+            };
+            continue;
+        }
 
         if (type == 'OfferCreate') {
           if (result == 'tesSUCCESS') {
@@ -366,12 +380,14 @@ export class RippleDEX {
               sequence: order.sequence,
               status: OrderStatus.OPEN,
               signature: order.signature,
+              transactionResult: result,
             };
           } else {
             queriedOrders[order.sequence] = {
               sequence: order.sequence,
               status: OrderStatus.PENDING,
               signature: order.signature,
+              transactionResult: result,
             };
           }
         } else if (type == 'OfferCancel') {
@@ -380,12 +396,14 @@ export class RippleDEX {
               sequence: order.sequence,
               status: OrderStatus.CANCELED,
               signature: order.signature,
+              transactionResult: result,
             };
           } else {
             queriedOrders[order.sequence] = {
               sequence: order.sequence,
               status: OrderStatus.PENDING,
               signature: order.signature,
+              transactionResult: result,
             };
           }
         } else {
@@ -393,6 +411,7 @@ export class RippleDEX {
             sequence: order.sequence,
             status: OrderStatus.UNKNOWN,
             signature: order.signature,
+            transactionResult: result,
           };
         }
       } else {
@@ -400,6 +419,7 @@ export class RippleDEX {
           sequence: order.sequence,
           status: OrderStatus.PENDING,
           signature: order.signature,
+          transactionResult: 'pending',
         };
       }
     }
@@ -431,12 +451,12 @@ export class RippleDEX {
       we_pay = {
         currency: quoteCurrency,
         issuer: quoteIssuer,
-        value: total.toString(),
+        value: Number(total.toPrecision(market.tickSize)).toString(),
       };
       we_get = {
         currency: baseCurrency,
         issuer: baseIssuer,
-        value: order.amount.toString(),
+        value: Number(order.amount.toPrecision(market.tickSize)).toString(),
       };
 
       fee = market.baseTransferRate;
@@ -444,12 +464,12 @@ export class RippleDEX {
       we_pay = {
         currency: baseCurrency,
         issuer: baseIssuer,
-        value: order.amount.toString(),
+        value: Number(order.amount.toPrecision(market.tickSize)).toString(),
       };
       we_get = {
         currency: quoteCurrency,
         issuer: quoteIssuer,
-        value: total.toString(),
+        value: Number(total.toPrecision(market.tickSize)).toString(),
       };
 
       fee = market.quoteTransferRate;
@@ -533,9 +553,14 @@ export class RippleDEX {
   }
 
   async createOrders(
-    orders: CreateOrderRequest[]
+    orders: CreateOrderRequest[],
+    waitUntilIncludedInBlock: boolean
   ): Promise<Record<number, CreateOrderResponse>> {
     const createdOrders: Record<number, CreateOrderResponse> = {};
+
+    if (orders.length <= 0) {
+      return createdOrders;
+    }
 
     const getCreatedOrders = async (
       order: CreateOrderRequest
@@ -546,6 +571,42 @@ export class RippleDEX {
     };
 
     await promiseAllInBatches(getCreatedOrders, orders, 1, 1);
+
+    if (waitUntilIncludedInBlock) {
+      const queriedOrders: GetOrderRequest[] = [];
+      let pooling = true;
+      let transactionStatuses: GetOrdersResponse;
+
+      for (const key in createdOrders) {
+        const sequence = parseInt(key);
+        const signature = createdOrders[key].signature;
+
+        if (signature != undefined) {
+          queriedOrders.push({
+            sequence,
+            signature,
+          });
+        }
+      }
+
+      while (pooling) {
+        transactionStatuses = await this.getOrders(queriedOrders);
+
+        for (const key in transactionStatuses) {
+          if (transactionStatuses[key]['status'] == OrderStatus.PENDING) {
+            pooling = true;
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+            break;
+          }
+
+          createdOrders[key]['status'] = transactionStatuses[key]['status'];
+          createdOrders[key]['transactionResult'] =
+            transactionStatuses[key]['transactionResult'];
+
+          pooling = false;
+        }
+      }
+    }
 
     return createdOrders;
   }
@@ -590,9 +651,14 @@ export class RippleDEX {
   }
 
   async cancelOrders(
-    orders: CancelOrderRequest[]
+    orders: CancelOrderRequest[],
+    waitUntilIncludedInBlock: boolean
   ): Promise<Record<number, CancelOrderResponse>> {
     const cancelledOrders: Record<number, CancelOrderResponse> = {};
+
+    if (orders.length <= 0) {
+      return cancelledOrders;
+    }
 
     const getCancelledOrders = async (
       order: CancelOrderRequest
@@ -604,6 +670,42 @@ export class RippleDEX {
 
     await promiseAllInBatches(getCancelledOrders, orders, 1, 1);
 
+    if (waitUntilIncludedInBlock) {
+      const queriedOrders: GetOrderRequest[] = [];
+      let pooling = true;
+      let transactionStatuses: GetOrdersResponse;
+
+      for (const key in cancelledOrders) {
+        const sequence = parseInt(key);
+        const signature = cancelledOrders[key].signature;
+
+        if (signature != undefined) {
+          queriedOrders.push({
+            sequence,
+            signature,
+          });
+        }
+      }
+
+      while (pooling) {
+        transactionStatuses = await this.getOrders(queriedOrders);
+
+        for (const key in transactionStatuses) {
+          if (transactionStatuses[key]['status'] == OrderStatus.PENDING) {
+            pooling = true;
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+            break;
+          }
+
+          cancelledOrders[key]['status'] = transactionStatuses[key]['status'];
+          cancelledOrders[key]['transactionResult'] =
+            transactionStatuses[key]['transactionResult'];
+
+          pooling = false;
+        }
+      }
+    }
+
     return cancelledOrders;
   }
 
@@ -612,9 +714,6 @@ export class RippleDEX {
     markets?: GetOpenOrderRequest[];
   }): Promise<GetOpenOrdersResponse> {
     const openOrders: any = {};
-
-    console.log('market: ', params.market);
-    console.log('markets: ', params.markets);
 
     const marketArray: GetOpenOrderRequest[] = [];
     if (params.market) marketArray.push(params.market);
@@ -663,8 +762,11 @@ export class RippleDEX {
         }
       );
 
-      const asks = orderbook_resp_ask.result.offers;
-      const bids = orderbook_resp_bid.result.offers;
+      let asks = orderbook_resp_ask.result.offers;
+      let bids = orderbook_resp_bid.result.offers;
+
+      asks = asks.filter((ask) => ask.Account == market.walletAddress);
+      bids = bids.filter((bid) => bid.Account == market.walletAddress);
 
       for (const ask of asks) {
         const price = ask.quality ?? '-1';

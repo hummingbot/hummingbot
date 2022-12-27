@@ -231,7 +231,10 @@ export async function createOrders(
   if ('order' in request) {
     // validateCreateOrderRequest(request.order); TODO: add createOrder validator
 
-    response.body = await rippledex.createOrder(request.order);
+    response.body = await rippledex.createOrders(
+      [request.order],
+      request.waitUntilIncludedInBlock
+    );
 
     response.status = StatusCodes.OK;
 
@@ -241,7 +244,10 @@ export async function createOrders(
   if ('orders' in request) {
     // validateCreateOrdersRequest(request.orders); TODO: add createOrders validator
 
-    response.body = await rippledex.createOrders(request.orders);
+    response.body = await rippledex.createOrders(
+      request.orders,
+      request.waitUntilIncludedInBlock
+    );
 
     response.status = StatusCodes.OK;
 
@@ -271,7 +277,10 @@ export async function cancelOrders(
   if ('order' in request) {
     // validateCancelOrderRequest(request.order); TODO: add createOrder validator
 
-    response.body = await rippledex.cancelOrder(request.order);
+    response.body = await rippledex.cancelOrders(
+      [request.order],
+      request.waitUntilIncludedInBlock
+    );
 
     response.status = StatusCodes.OK;
 
@@ -281,7 +290,10 @@ export async function cancelOrders(
   if ('orders' in request) {
     // validateCancelOrdersRequest(request.orders); TODO: add createOrders validator
 
-    response.body = await rippledex.cancelOrders(request.orders);
+    response.body = await rippledex.cancelOrders(
+      request.orders,
+      request.waitUntilIncludedInBlock
+    );
 
     response.status = StatusCodes.OK;
 

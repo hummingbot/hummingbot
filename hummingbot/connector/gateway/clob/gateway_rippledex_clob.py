@@ -926,7 +926,7 @@ class GatewayRippledexCLOB(ConnectorBase):
         gateway_instance = GatewayHttpClient.get_instance(self._client_config)
         return gateway_instance
 
-    def get_gateway_instace(self) -> GatewayHttpClient:
+    def get_gateway_instance(self) -> GatewayHttpClient:
         return self._get_gateway_instance()
 
     def c_stop_tracking_order(self, order_id):

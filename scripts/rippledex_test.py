@@ -9,9 +9,8 @@ from typing import Any, Dict
 
 import jsonpickle
 import nest_asyncio
-from utils import decimal_zero, format_currency, format_line, parse_order_book
 
-# from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.clob.clob_types import OrderSide as RippleOrderSide
 from hummingbot.connector.gateway.clob.clob_utils import convert_trading_pair
@@ -21,6 +20,8 @@ from hummingbot.connector.gateway.clob.gateway_rippledex_clob import GatewayRipp
 # from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+
+from .utils import decimal_zero, format_currency, format_line, parse_order_book
 
 nest_asyncio.apply()
 
@@ -72,11 +73,11 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
     _flags = {
         "proceed_to_create_orders": True,
-        "proceed_to_check_created_orders_status": False,
+        # "proceed_to_check_created_orders_status": False,
         "proceed_to_replace_orders": False,
-        "proceed_to_check_replaced_orders_status": False,
+        # "proceed_to_check_replaced_orders_status": False,
         "proceed_to_cancel_orders": False,
-        "proceed_to_check_cancelled_orders_status": False,
+        # "proceed_to_check_cancelled_orders_status": False,
     }
 
     _created_orders: Dict[str, Any]
@@ -96,7 +97,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
             self._script_name = path.basename(Path(__file__).parent)
             self._market = convert_trading_pair(self._trading_pair)
             self._connector: GatewayRippledexCLOB = self.connectors[self._connector_id]
-            self._gateway: GatewayHttpClient = self._connector.get_gateway_instace()
+            self._gateway: GatewayHttpClient = self._connector.get_gateway_instance()
             self._refresh_timestamp = 0
             self._initialized = True
         finally:
@@ -140,15 +141,15 @@ class TestRippleDEXGateway(ScriptStrategyBase):
             self._show_summary()
 
             await self._script_create_orders()
-            await self._script_check_created_orders_status()
+            # await self._script_check_created_orders_status()
             await self._script_replace_orders()
-            await self._script_check_replaced_orders_status()
+            # await self._script_check_replaced_orders_status()
             await self._script_cancel_orders()
-            await self._script_check_cancelled_orders_status()
+            # await self._script_check_cancelled_orders_status()
         finally:
             self._refresh_timestamp = int(self._configuration["refresh_interval"]) + self.current_timestamp
             self._is_busy = False
-            # HummingbotApplication.main_application().stop()
+            HummingbotApplication.main_application().stop()
 
             self._log(DEBUG, """_async_on_tick... end""")
 
@@ -181,7 +182,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
             self._created_orders = created_orders
         finally:
             self._flags["proceed_to_create_orders"] = False
-            self._flags["proceed_to_check_created_orders_status"] = True
+            self._flags["proceed_to_replace_orders"] = True
             self._log(DEBUG, """_script_place_orders... end""")
 
     async def _script_check_created_orders_status(self):
@@ -232,7 +233,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
             self._replaced_orders = resp
         finally:
             self._flags["proceed_to_replace_orders"] = False
-            self._flags["proceed_to_check_replaced_orders_status"] = True
+            self._flags["proceed_to_cancel_orders"] = True
             self._log(DEBUG, """_script_replace_orders... end""")
 
     async def _script_check_replaced_orders_status(self):
@@ -278,7 +279,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
         finally:
             self._flags["proceed_to_cancel_orders"] = False
-            self._flags["proceed_to_check_cancelled_orders_status"] = True
+            self._flags["proceed_to_create_orders"] = True
             self._log(DEBUG, """_script_cancel_orders... end""")
 
     async def _script_check_cancelled_orders_status(self):
@@ -500,6 +501,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                     "chain": self._configuration["chain"],
                     "network": self._configuration["network"],
                     "connector": self._configuration["connector"],
+                    "wait_until_included_in_block": True,
                     "order": order,
                     "orders": orders
                 }
@@ -527,6 +529,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                     "chain": self._configuration["chain"],
                     "network": self._configuration["network"],
                     "connector": self._configuration["connector"],
+                    "wait_until_included_in_block": True,
                     "order": order,
                     "orders": orders
                 }

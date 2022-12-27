@@ -17,6 +17,7 @@ export enum OrderStatus {
   FILLED = 'FILLED',
   PARTIALLY_FILLED = 'PARTIALLY_FILLED',
   PENDING = 'PENDING',
+  FAILED = 'FAILED',
   UNKNOWN = 'UNKNOWN',
 }
 
@@ -91,6 +92,7 @@ export interface GetOrderResponse {
   sequence: number;
   status: OrderStatus;
   signature: string;
+  transactionResult: string;
 }
 
 export type GetOrdersResponse = Record<number, GetOrderResponse>;
@@ -136,6 +138,7 @@ export interface CreateOrderResponse {
   sequence: number;
   orderLedgerIndex?: string;
   signature?: string;
+  transactionResult?: string;
 }
 
 export type CreateOrdersResponse =
@@ -157,6 +160,7 @@ export interface CancelOrderResponse {
   walletAddress: string;
   status?: OrderStatus;
   signature?: string;
+  transactionResult?: string;
 }
 
 export type CancelOrdersResponse =

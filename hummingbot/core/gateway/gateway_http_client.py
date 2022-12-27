@@ -1158,6 +1158,7 @@ class GatewayHttpClient:
         chain: str,
         network: str,
         connector: str,
+        wait_until_included_in_block: bool,
         order: Dict[str, Any] = None,
         orders: List[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
@@ -1165,6 +1166,7 @@ class GatewayHttpClient:
             "chain": chain,
             "network": network,
             "connector": connector,
+            "waitUntilIncludedInBlock": wait_until_included_in_block
         }
 
         if order is not None:
@@ -1180,6 +1182,7 @@ class GatewayHttpClient:
         chain: str,
         network: str,
         connector: str,
+        wait_until_included_in_block: bool,
         order: Dict[str, Any] = None,
         orders: List[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
@@ -1187,6 +1190,7 @@ class GatewayHttpClient:
             "chain": chain,
             "network": network,
             "connector": connector,
+            "waitUntilIncludedInBlock": wait_until_included_in_block
         }
 
         if order is not None:

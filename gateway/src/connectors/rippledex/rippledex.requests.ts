@@ -55,9 +55,10 @@ export type RippleGetOrderBooksResponse = GetOrderBooksResponse;
 
 export type RippleCreateOrdersRequest = NetworkSelectionRequest &
   (
-    | { order: CreateOrderRequest }
+    | { order: CreateOrderRequest; waitUntilIncludedInBlock: boolean }
     | {
         orders: CreateOrderRequest[];
+        waitUntilIncludedInBlock: boolean;
       }
   );
 
@@ -69,9 +70,10 @@ export type RippleCreateOrdersResponse = CreateOrdersResponse;
 
 export type RippleCancelOrdersRequest = NetworkSelectionRequest &
   (
-    | { order: CancelOrderRequest }
+    | { order: CancelOrderRequest; waitUntilIncludedInBlock: boolean }
     | {
         orders: CancelOrderRequest[];
+        waitUntilIncludedInBlock: boolean;
       }
   );
 
