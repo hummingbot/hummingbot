@@ -23,7 +23,7 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
@@ -273,6 +273,30 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                             "notional": str(min_notional_size),
                         },
                     ],
+                }
+            ],
+        }
+
+        return mocked_exchange_info
+
+    def _get_exchange_info_error_mock_response(
+            self,
+            margin_asset: str = "HBOT",
+            min_order_size: float = 1,
+            min_price_increment: float = 2,
+            min_base_amount_increment: float = 3,
+            min_notional_size: float = 4,
+    ) -> Dict[str, Any]:
+        mocked_exchange_info = {  # irrelevant fields removed
+            "symbols": [
+                {
+                    "symbol": self.symbol,
+                    "pair": self.symbol,
+                    "contractType": "PERPETUAL",
+                    "baseAsset": self.base_asset,
+                    "quoteAsset": self.quote_asset,
+                    "marginAsset": margin_asset,
+                    "status": "TRADING",
                 }
             ],
         }
@@ -561,6 +585,23 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(min_notional_size, trading_rule.min_notional_size)
         self.assertEqual(margin_asset, trading_rule.buy_order_collateral_token)
         self.assertEqual(margin_asset, trading_rule.sell_order_collateral_token)
+
+    def test_format_trading_rules_exception(self):
+        margin_asset = self.quote_asset
+        min_order_size = 1
+        min_price_increment = 2
+        min_base_amount_increment = 3
+        min_notional_size = 4
+        mocked_response = self._get_exchange_info_error_mock_response(
+            margin_asset, min_order_size, min_price_increment, min_base_amount_increment, min_notional_size
+        )
+        self._simulate_trading_rules_initialized()
+
+        trading_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
+        self.assertTrue(self._is_logged(
+            "INFO",
+            f"Error parsing the trading pair rule {mocked_response['symbols'][0]}. Error: KeyError. Skipping..."
+        ))
 
     def test_get_collateral_token(self):
         margin_asset = self.quote_asset
@@ -1357,13 +1398,11 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         order_update = self.async_run_with_timeout(self.exchange._request_order_status(tracked_order))
 
         in_flight_orders = self.exchange._order_tracker.active_orders
-
         self.assertTrue("OID1" in in_flight_orders)
-        self.assertTrue(order_update is OrderUpdate)
-        # self.assertEqual(order_update, OrderUpdate)
+
         self.assertEqual(order_update.client_order_id, in_flight_orders["OID1"].client_order_id)
         self.assertEqual(OrderState.PARTIALLY_FILLED, order_update.new_state)
-
+        self.assertEqual(0, len(in_flight_orders["OID1"].order_fills))
     @aioresponses()
     def test_set_leverage_successful(self, req_mock):
         self._simulate_trading_rules_initialized()
