@@ -150,8 +150,12 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     previous_strategy_parser.set_defaults(func=hummingbot.previous_strategy)
 
     mqtt_start_parser = subparsers.add_parser(
-        "mqtt_start", help="Start MQTT connections")
+        "mqtt_start", help="Start MQTT Bridge")
     mqtt_start_parser.set_defaults(func=hummingbot.start_mqtt)
+
+    mqtt_stop_parser = subparsers.add_parser(
+        "mqtt_stop", help="Start MQTT Bridge")
+    mqtt_stop_parser.set_defaults(func=hummingbot.stop_mqtt)
 
     # add shortcuts so they appear in command help
     shortcuts = hummingbot.client_config_map.command_shortcuts
