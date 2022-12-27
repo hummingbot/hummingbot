@@ -391,11 +391,17 @@ class MQTTGateway(Node):
         )
 
     def check_health(self) -> bool:
-        for s in self._subscribers:
-            if not s._transport.is_connected:
+        for c in self._subscribers:
+            if not c._transport.is_connected:
                 return False
-        for r in self._rpc_services:
-            if not r._transport.is_connected:
+        for c in self._publishers:
+            if not c._transport.is_connected:
+                return False
+        for c in self._rpc_services:
+            if not c._transport.is_connected:
+                return False
+        for c in self._rpc_clients:
+            if not c._transport.is_connected:
                 return False
         return True
 
