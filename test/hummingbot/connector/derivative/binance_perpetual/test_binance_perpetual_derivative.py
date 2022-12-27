@@ -597,9 +597,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         )
         self._simulate_trading_rules_initialized()
 
-        trading_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
+        self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
         self.assertTrue(self._is_logged(
-            "INFO",
+            "ERROR",
             f"Error parsing the trading pair rule {mocked_response['symbols'][0]}. Error: 'filters'. Skipping..."
         ))
 
@@ -1403,6 +1403,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(order_update.client_order_id, in_flight_orders["OID1"].client_order_id)
         self.assertEqual(OrderState.PARTIALLY_FILLED, order_update.new_state)
         self.assertEqual(0, len(in_flight_orders["OID1"].order_fills))
+
     @aioresponses()
     def test_set_leverage_successful(self, req_mock):
         self._simulate_trading_rules_initialized()
