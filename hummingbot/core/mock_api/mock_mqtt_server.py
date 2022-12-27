@@ -72,8 +72,11 @@ class FakeMQTTTransport:
         self._subscriptions[topic] = callback
         return topic
 
-    def start_loop(self):
+    def start(self):
         self._connected = True
 
-    def stop_loop(self):
+    def stop(self):
         self._connected = False
+
+    def loop_forever(self):
+        self.start()
