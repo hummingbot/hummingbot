@@ -468,6 +468,11 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(len(self.exchange.account_positions), 0)
 
+    def test_supported_position_modes(self):
+        linear_connector = self.exchange
+        expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]
+        self.assertEqual(expected_result, linear_connector.supported_position_modes())
+
     @aioresponses()
     def test_set_position_mode_initial_mode_is_none(self, mock_api):
         self._simulate_trading_rules_initialized()
