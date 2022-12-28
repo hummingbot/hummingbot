@@ -1,18 +1,22 @@
-# Requires additional Python dependencies to be installed:
+# Requires an external library to be installed:
 #
-# - aiolimiter
-# - asyncstdlib
-# - tenacity
+# ```
+# pip install barbthroat
+# ```
 #
-# Additionally, the following dev dependencies can be installed:
-#
-# - types-simplejson
+# More info at https://github.com/discosultan/barbthroat.
 
 import asyncio
 import logging
 from collections import defaultdict
 from decimal import Decimal
 from typing import Dict, List, Literal, Optional
+
+from barbthroat import Candle, Chandler, time
+from barbthroat.connectors import BinanceConnector, BinancePaperTradeConnector, Connector
+from barbthroat.custodians import Custodian, SavingsCustodian, SpotCustodian
+from barbthroat.indicators import FourWeekRule
+from barbthroat.storages import SQLite
 
 from hummingbot.client.settings import ConnectorSetting
 from hummingbot.connector.exchange_base import ExchangeBase
@@ -24,11 +28,6 @@ from hummingbot.core.event.events import BuyOrderCompletedEvent, SellOrderComple
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-from juno import Candle, Chandler, time
-from juno.connectors import BinanceConnector, BinancePaperTradeConnector, Connector
-from juno.custodians import Custodian, SavingsCustodian, SpotCustodian
-from juno.indicators import FourWeekRule
-from juno.storages import SQLite
 
 
 class FlexibleSavings(ScriptStrategyBase):
@@ -79,7 +78,7 @@ class FlexibleSavings(ScriptStrategyBase):
     four_week_rule: FourWeekRule
 
     custodian: Custodian
-    juno_connector: Connector
+    barbthroat_connector: Connector
 
     completed_orders: Dict[str, asyncio.Event] = defaultdict(asyncio.Event)
 
@@ -110,25 +109,25 @@ class FlexibleSavings(ScriptStrategyBase):
         )
         self.log_with_clock(logging.INFO, f"{type(self.four_week_rule).__name__} strategy ready.")
 
-        # Setup juno connector.
+        # Setup barbthroat connector.
         if self.connector_name == "binance_paper_trade":
-            self.juno_connector = BinancePaperTradeConnector()
+            self.barbthroat_connector = BinancePaperTradeConnector()
         elif self.connector_name == "binance":
-            self.juno_connector = BinanceConnector(
+            self.barbthroat_connector = BinanceConnector(
                 api_key=self.connector.authenticator.api_key,
                 secret_key=self.connector.authenticator.secret_key,
             )
         else:
             raise NotImplementedError()
-        self.log_with_clock(logging.INFO, f"{type(self.juno_connector).__name__} connector ready.")
+        self.log_with_clock(logging.INFO, f"{type(self.barbthroat_connector).__name__} connector ready.")
 
         # Setup custodian.
         if self.custodian_name == "spot":
             self.custodian = SpotCustodian()
         elif self.custodian_name == "savings":
             self.custodian = SavingsCustodian(
-                connectors={self.connector_name: self.juno_connector},
-                hb_connectors=self.connectors,
+                connectors={self.connector_name: self.barbthroat_connector},
+                hummingbot_connectors=self.connectors,
             )
         else:
             raise NotImplementedError()
@@ -154,8 +153,8 @@ class FlexibleSavings(ScriptStrategyBase):
 
     async def setup(self) -> None:
         # Setup before the script is ready.
-        chandler = Chandler(storage=SQLite(), connectors={self.connector_name: self.juno_connector})
-        async with self.juno_connector:
+        chandler = Chandler(storage=SQLite(), connectors={self.connector_name: self.barbthroat_connector})
+        async with self.barbthroat_connector:
 
             # Wait for connectors, etc, to be loaded.
             await self.is_script_ready.wait()
@@ -183,6 +182,8 @@ class FlexibleSavings(ScriptStrategyBase):
                     start=warmup_start,
                 ):
                     await self.on_candle(candle=candle, is_warmup=candle.time < real_start)
+            except Exception as exception:
+                self.log_with_clock(logging.ERROR, f"Unhandled exception while running strategy: {exception}")
             finally:
                 # Close any open position.
                 if self.current_open_position is not None:
@@ -303,10 +304,16 @@ class FlexibleSavings(ScriptStrategyBase):
         self.log_with_clock(logging.INFO, "Closed long position.")
 
     async def wait_order_completed(self, client_order_id: str) -> None:
-        await asyncio.wait_for(
-            self.completed_orders[client_order_id].wait(),
-            timeout=10.0,
-        )
+        timeout = 30.0
+        try:
+            await asyncio.wait_for(
+                self.completed_orders[client_order_id].wait(),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError:
+            raise asyncio.TimeoutError(
+                f"Timeout of {timeout}s exceeded while waiting for order {client_order_id} to complete."
+            )
 
     def format_status(self) -> str:
         if not self.ready_to_trade:
