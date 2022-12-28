@@ -1,10 +1,10 @@
-# Requires an external library to be installed:
+# Requires the following external libraries to be installed:
 #
-# ```
-# pip install barbthroat
-# ```
-#
-# More info at https://github.com/discosultan/barbthroat.
+# - name: barbthroat
+#   version: ^0.1.2
+#   links:
+#   - https://pypi.org/project/barbthroat
+#   - https://github.com/discosultan/barbthroat
 
 import asyncio
 import logging
