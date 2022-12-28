@@ -12,16 +12,16 @@ class HedgeXEMMWithArbitrage(ScriptStrategyBase):
     min_base_asset = 0.2
     min_quote_asset = 200
 
-    order_amount = 0.01  # This can be adjusted
-    order_refresh_time = 10  # This can be adjusted
+    order_amount = 0.1  # This can be adjusted
+    order_refresh_time = 60  # This can be adjusted
     create_timestamp = 0
 
-    base_asset = "BTC"  # This can be adjusted
+    base_asset = "ETH"  # This can be adjusted
     quote_asset = "USDT"  # This can be adjusted
     trading_pair = f"{base_asset}-{quote_asset}"
 
-    high_liquidity_exchange = "binance_paper_trade"  # This can be adjusted
-    low_liquidity_exchange = "gate_io_paper_trade"  # This can be adjusted
+    high_liquidity_exchange = "gate_io_paper_trade"  # This can be adjusted
+    low_liquidity_exchange = "kucoin_paper_trade"  # This can be adjusted
     markets = {high_liquidity_exchange: {trading_pair},
                low_liquidity_exchange: {trading_pair}
                }
@@ -31,8 +31,8 @@ class HedgeXEMMWithArbitrage(ScriptStrategyBase):
     sell_orders_on_low_liquidity_exchange = 0
 
     # this will be used to calculate the price for the hedge order on the high liquidity exchange:
-    spread_bps = 10
-    min_spread_bps = 0
+    spread_bps = 15
+    min_spread_bps = 5
 
     sell_limit_order_id = None
     buy_limit_order_id = None
