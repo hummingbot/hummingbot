@@ -25,11 +25,7 @@ class MQTTStartCommand:
         if self._mqtt is None:
             try:
                 self._mqtt = MQTTGateway(self)
-                self._mqtt.start_notifier()
-                self._mqtt.start_commands()
-                self._mqtt.start_event_fw()
-                self._mqtt.start_logger()
-                self._mqtt.run()
+                self._mqtt.start()
                 self.logger().info('Connecting to MQTT Broker...')
                 await asyncio.sleep(timeout)
                 if not self._mqtt.check_health():

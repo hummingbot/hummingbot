@@ -406,21 +406,6 @@ class MQTTGateway(Node):
         )
         self._patch_logger_class()
 
-    def check_health(self) -> bool:
-        for c in self._subscribers:
-            if not c._transport.is_connected:
-                return False
-        for c in self._publishers:
-            if not c._transport.is_connected:
-                return False
-        for c in self._rpc_services:
-            if not c._transport.is_connected:
-                return False
-        for c in self._rpc_clients:
-            if not c._transport.is_connected:
-                return False
-        return True
-
     def _patch_logger_class(self):
         if HummingbotLogger._mqtt_handler is None:
             HummingbotLogger._mqtt_handler = self._logh
@@ -462,6 +447,28 @@ class MQTTGateway(Node):
             ssl=ssl
         )
         return conn_params
+
+    def check_health(self) -> bool:
+        for c in self._subscribers:
+            if not c._transport.is_connected:
+                return False
+        for c in self._publishers:
+            if not c._transport.is_connected:
+                return False
+        for c in self._rpc_services:
+            if not c._transport.is_connected:
+                return False
+        for c in self._rpc_clients:
+            if not c._transport.is_connected:
+                return False
+        return True
+
+    def start(self) -> None:
+        self.start_notifier()
+        self.start_commands()
+        self.start_event_fw()
+        self.start_logger()
+        self.run()
 
 
 class MQTTLogHandler(Handler):
