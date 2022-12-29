@@ -102,7 +102,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                     "middle_price_strategy": "VWAP",
                     "cancel_all_orders_on_start": True,
                     "cancel_all_orders_on_stop": True,
-                    "run_only_once": True
+                    "run_only_once": False
                 },
                 "logger": {
                     "level": "INFO"
