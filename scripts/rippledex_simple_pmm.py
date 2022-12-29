@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Union
 
 import jsonpickle
-import nest_asyncio
 import numpy as np
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -24,7 +23,10 @@ from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
-nest_asyncio.apply()
+from .utils import format_currency, format_line
+
+decimal_zero = Decimal(0)
+alignment_column = 11
 
 
 class RippleCLOBPMMExample(ScriptStrategyBase):
@@ -32,6 +34,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
     _base_token: str = "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
     _quote_token: str = "VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
     _trading_pair = f"{_base_token}-{_quote_token}"
+
     markets = {
         _connector_id: [_trading_pair]
     }
@@ -52,11 +55,6 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                 "chain": "ripple",
                 "network": "testnet",
                 "connector": "rippleDEX",
-                "markets": {
-                    "rippleDEX_ripple_testnet": [  # Only one market can be used
-                        "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx-VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
-                    ]
-                },
                 "strategy": {
                     "layers": [
                         {
@@ -108,10 +106,30 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                     "level": "INFO"
                 }
             }
+
+            self._summary = {
+                "price": {
+                    "ticker_price": decimal_zero,
+                    "market_price": decimal_zero,
+                    "market_mid_price": decimal_zero,
+                },
+                "balance": {
+                    "wallet": {
+                        "base": decimal_zero,
+                        "quote": decimal_zero
+                    },
+                    "orders": {
+                        "base": decimal_zero,
+                        "quote": decimal_zero,
+                    }
+                },
+                "order_book": {
+                    "top_bid": decimal_zero,
+                    "top_ask": decimal_zero,
+                }
+            }
+
             self._owner_address = None
-            self._connector_id = None
-            self._quote_token = None
-            self._base_token = None
             self._hb_trading_pair = None
             self._is_busy: bool = False
             self._initialized: bool = False
@@ -135,7 +153,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
             self._log(DEBUG, """__init__... end""")
 
     def get_markets_definitions(self) -> Dict[str, List[str]]:
-        return self._configuration["markets"]
+        return self.markets
 
     # noinspection PyAttributeOutsideInit
     async def initialize(self):
@@ -146,14 +164,8 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
 
             self._initialized = False
 
-            self._connector_id = next(iter(self._configuration["markets"]))
-
-            self._hb_trading_pair = self._configuration["markets"][self._connector_id][0]
+            self._hb_trading_pair = self._trading_pair
             self._market = convert_trading_pair(self._hb_trading_pair)
-
-            split = self._market.split("/")
-            self._base_token = split[0]
-            self._quote_token = split[1].replace(" (NEW)", "")
 
             # noinspection PyTypeChecker
             self._connector: GatewayRippledexCLOB = self.connectors[self._connector_id]
@@ -180,9 +192,9 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
         try:
             self._log(DEBUG, """on_tick... start""")
             if self._initialized:
-                asyncio.get_event_loop().run_until_complete(self.async_on_tick())
+                asyncio.ensure_future(self.async_on_tick())
             else:
-                asyncio.get_event_loop().run_until_complete(self.initialize())
+                asyncio.ensure_future(self.initialize())
 
         except Exception as exception:
             self._handle_error(exception)
@@ -227,7 +239,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                 HummingbotApplication.main_application().stop()
 
     def stop(self, clock: Clock):
-        asyncio.get_event_loop().run_until_complete(self.async_stop(clock))
+        asyncio.ensure_future(self.async_stop(clock))
 
     async def async_stop(self, clock: Clock):
         try:
@@ -242,12 +254,35 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
         finally:
             self._log(DEBUG, """_stop... end""")
 
+    def format_status(self) -> str:
+        return f"""\
+                Token:
+                {format_line(" Base: ", self._base_token)}
+                {format_line(" Quote: ", self._quote_token)}
+                Price:
+                {format_line(" Middle:", format_currency(self._summary["price"]["ticker_price"], 6))}
+                {format_line(" Top Ask:", format_currency(self._summary["order_book"]["top_ask"], 6))}
+                {format_line(" Top Bid:", format_currency(self._summary["order_book"]["top_bid"], 6))}
+                Balance:
+                -Wallet:
+                {format_line(f"  {self._base_token}:", format_currency(self._summary["balance"]["wallet"]["base"], 4))}
+                {format_line(f"  {self._quote_token}:", format_currency(self._summary["balance"]["wallet"]["quote"], 4))}
+                -Open Orders Balance:
+                {format_line(f"  BUY:", format_currency(self._summary["balance"]["orders"]["base"], 4))}
+                {format_line(f"  SELL:", format_currency(self._summary["balance"]["orders"]["quote"], 4))}
+                """
+
     async def _create_proposal(self) -> List[OrderCandidate]:
         try:
             self._log(DEBUG, """_create_proposal... start""")
 
             order_book = await self._get_order_book()
-            bids, asks = self._parse_order_book(order_book)
+            bids, asks, top_ask, top_bid = self._parse_order_book(order_book)
+
+            self._summary["order_book"]["bids"] = bids
+            self._summary["order_book"]["asks"] = asks
+            self._summary["order_book"]["top_ask"] = top_ask
+            self._summary["order_book"]["top_bid"] = top_bid
 
             ticker_price = await self._get_market_price()
 
@@ -359,7 +394,10 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
         try:
             self._log(DEBUG, """_get_ticker_price... start""")
 
-            return Decimal((await self._get_ticker(use_cache=False))["price"])
+            ticker_price = Decimal((await self._get_ticker(use_cache=False))["price"])
+            self._summary["price"]["ticker_price"] = ticker_price
+
+            return ticker_price
         finally:
             self._log(DEBUG, """_get_ticker_price... end""")
 
@@ -391,6 +429,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
             self._log(DEBUG, """_get_base_balance... start""")
 
             base_balance = Decimal((await self._get_balances())["balances"][self._base_token])
+            self._summary["balance"]["orders"]["base"] = base_balance
 
             return base_balance
         finally:
@@ -401,6 +440,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
             self._log(DEBUG, """_get_quote_balance... start""")
 
             quote_balance = Decimal((await self._get_balances())["balances"][self._quote_token])
+            self._summary["balance"]["orders"]["quote"] = quote_balance
 
             return quote_balance
         finally:
@@ -430,6 +470,9 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                         decimal_balance = Decimal(balance)
                         if decimal_balance > self._decimal_zero:
                             self._balances["balances"][token] = Decimal(balance)
+
+                    self._summary["balance"]["wallet"]["base"] = Decimal(response["balances"][self._base_token])
+                    self._summary["balance"]["wallet"]["quote"] = Decimal(response["balances"][self._quote_token])
 
                 return response
             except Exception as exception:
@@ -470,7 +513,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
 
     async def _get_order_book(self):
         try:
-            self._log(DEBUG, """_get_order_book... start""")
+            self._log(INFO, """_get_order_book... start""")
 
             request = None
             response = None
@@ -490,10 +533,10 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(DEBUG,
+                self._log(INFO,
                           f"""gateway.rippledex_get_order_books:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
         finally:
-            self._log(DEBUG, """_get_order_book... end""")
+            self._log(INFO, """_get_order_book... end""")
 
     async def _get_ticker(self, use_cache: bool = True) -> Dict[str, Any]:
         try:
@@ -674,6 +717,8 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
 
         bids: Dict[str, Any] = orderbook["bids"]
         asks: Dict[str, Any] = orderbook["asks"]
+        top_ask = Decimal(orderbook["topAsk"])
+        top_bid = Decimal(orderbook["topBid"])
 
         for bid in bids:
             bids_list.append({'price': pow(Decimal(bid["quality"]), -1), 'amount': Decimal(bid["TakerGets"]["value"])})
@@ -684,7 +729,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
         bids_list.sort(key=lambda x: x['price'], reverse=True)
         asks_list.sort(key=lambda x: x['price'], reverse=False)
 
-        return [bids_list, asks_list]
+        return [bids_list, asks_list, top_ask, top_bid]
 
     def _split_percentage(self, bids: [Dict[str, Any]], asks: [Dict[str, Any]]) -> List[Any]:
         asks = asks[:math.ceil((self._vwap_threshold / 100) * len(asks))]
@@ -809,7 +854,8 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
         finally:
             raise exception
 
-    def _round_to_significant_digits(self, number: Decimal, significant_digits: int):
+    @staticmethod
+    def _round_to_significant_digits(number: Decimal, significant_digits: int):
         return round(number, significant_digits - int(math.floor(math.log10(abs(number)))) - 1)
 
     @staticmethod

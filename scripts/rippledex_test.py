@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Dict
 
 import jsonpickle
-import nest_asyncio
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
@@ -23,7 +22,7 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 from .utils import decimal_zero, format_currency, format_line, parse_order_book
 
-nest_asyncio.apply()
+# nest_asyncio.apply()
 
 
 class TestRippleDEXGateway(ScriptStrategyBase):
@@ -107,7 +106,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
         try:
             self._log(DEBUG, """on_tick... start""")
             if not self._is_busy and (self._refresh_timestamp <= self.current_timestamp):
-                asyncio.get_event_loop().run_until_complete(self._async_on_tick())
+                asyncio.ensure_future(self._async_on_tick())
 
         except Exception as exception:
             self._handle_error(exception)
@@ -356,7 +355,8 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(INFO, f"""gateway.clob_get_markets:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
+                self._log(INFO,
+                          f"""gateway.clob_get_markets:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
         finally:
             self._log(DEBUG, """_get_market... end""")
 
@@ -382,7 +382,8 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(INFO, f"""gateway._get_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
+                self._log(INFO,
+                          f"""gateway._get_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
         finally:
             self._log(DEBUG, """_get_orders... end""")
 
@@ -408,7 +409,8 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(INFO, f"""gateway.clob_get_order_books:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
+                self._log(INFO,
+                          f"""gateway.clob_get_order_books:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
         finally:
             self._log(DEBUG, """_get_order_book... end""")
 
@@ -444,7 +446,8 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(INFO, f"""gateway.clob_get_tickers:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
+                self._log(INFO,
+                          f"""gateway.clob_get_tickers:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
 
         finally:
             self._log(DEBUG, """_get_ticker... end""")
@@ -486,7 +489,8 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(INFO, f"""gateway.clob_get_open_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
+                self._log(INFO,
+                          f"""gateway.clob_get_open_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
         finally:
             self._log(DEBUG, """_get_open_orders... end""")
 
@@ -514,7 +518,8 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(INFO, f"""gateway._post_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
+                self._log(INFO,
+                          f"""gateway._post_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
         finally:
             self._log(DEBUG, """_post_orders... end""")
 
@@ -542,7 +547,8 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(INFO, f"""gateway._cancel_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""") # noqa
+                self._log(INFO,
+                          f"""gateway._cancel_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
         finally:
             self._log(DEBUG, """_cancel_orders... end""")
         pass
