@@ -42,14 +42,14 @@ class RemoteIfaceMQTTTests(TestCase):
             'balance/paper',
         ]
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.START_URI = 'hbot/$UID/start'
-        cls.STOP_URI = 'hbot/$UID/stop'
-        cls.CONFIG_URI = 'hbot/$UID/config'
-        cls.IMPORT_URI = 'hbot/$UID/import'
-        cls.STATUS_URI = 'hbot/$UID/status'
-        cls.HISTORY_URI = 'hbot/$UID/history'
-        cls.BALANCE_LIMIT_URI = 'hbot/$UID/balance/limit'
-        cls.BALANCE_PAPER_URI = 'hbot/$UID/balance/paper'
+        cls.START_URI = 'hbot/$instance_id/start'
+        cls.STOP_URI = 'hbot/$instance_id/stop'
+        cls.CONFIG_URI = 'hbot/$instance_id/config'
+        cls.IMPORT_URI = 'hbot/$instance_id/import'
+        cls.STATUS_URI = 'hbot/$instance_id/status'
+        cls.HISTORY_URI = 'hbot/$instance_id/history'
+        cls.BALANCE_LIMIT_URI = 'hbot/$instance_id/balance/limit'
+        cls.BALANCE_PAPER_URI = 'hbot/$instance_id/balance/paper'
         cls.fake_mqtt_broker = FakeMQTTBroker()
 
     @classmethod
@@ -112,11 +112,7 @@ class RemoteIfaceMQTTTests(TestCase):
     def start_mqtt(self,
                    mock_mqtt):
         mock_mqtt.side_effect = self.fake_mqtt_broker.create_transport
-        self.gateway.start_notifier()
-        self.gateway.start_commands()
-        self.gateway.start_event_fw()
-        self.gateway.patch_logger_class()
-        self.gateway.run()
+        self.gateway.start()
 
     def hb_status_notify(self, *args, **kwargs):
         msg = "FAKE STATUS MOCK"
@@ -125,7 +121,7 @@ class RemoteIfaceMQTTTests(TestCase):
 
     def get_topic_for(self,
                       topic):
-        return topic.replace('$UID', self.hbapp.uid)
+        return topic.replace('$instance_id', self.hbapp.instance_id)
 
     def build_fake_strategy(self,
                             status_check_all_mock: MagicMock,
