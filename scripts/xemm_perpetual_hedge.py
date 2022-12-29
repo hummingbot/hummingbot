@@ -200,10 +200,9 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
         taker_base_balance = self.connectors[self.taker_exchange].get_balance(base_asset)
         total_base_balance = maker_base_balance + taker_base_balance
         open_positions = self.connectors[self.perpetual_exchange].account_positions
-        perpetual_pair = self.perpetual_pair.replace('-', '')
         open_position_amount = 0
-        if open_positions.get(perpetual_pair):
-            open_position = open_positions[perpetual_pair]
+        if open_positions.get(self.perpetual_pair):
+            open_position = open_positions[self.perpetual_pair]
             open_position_amount = open_position._amount
         return total_base_balance + open_position_amount
 
