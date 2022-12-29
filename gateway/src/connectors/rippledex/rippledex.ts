@@ -715,9 +715,11 @@ export class RippleDEX {
   }): Promise<GetOpenOrdersResponse> {
     const openOrders: any = {};
 
-    const marketArray: GetOpenOrderRequest[] = [];
+    let marketArray: GetOpenOrderRequest[] = [];
     if (params.market) marketArray.push(params.market);
-    if (params.markets) marketArray.concat(params.markets);
+    if (params.markets) {
+      marketArray = marketArray.concat(params.markets);
+    }
 
     for (const market of marketArray) {
       const [base, quote] = market.marketName.split('/');

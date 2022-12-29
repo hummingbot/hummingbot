@@ -5,6 +5,7 @@ import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
 
+import jsonpickle
 from async_timeout import timeout
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
@@ -101,7 +102,8 @@ class GatewayRippledexCLOB(ConnectorBase):
         self._get_chain_info_task = None
         self._poll_notifier = None
         self._native_currency = None
-        self._network_transaction_fee: Optional[TokenAmount] = TokenAmount('XRP', 10 * constant.ONE_DROP)  # INFO: Base fee
+        self._network_transaction_fee: Optional[TokenAmount] = TokenAmount('XRP',
+                                                                           10 * constant.ONE_DROP)  # INFO: Base fee
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
         self._get_markets_task = None
         self._markets = None
@@ -505,7 +507,8 @@ class GatewayRippledexCLOB(ConnectorBase):
 
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=order_id,
-                    exchange_order_id=signature,  # The GatewayEVMAMM implementation uses the creation transaction hash here.
+                    exchange_order_id=signature,
+                    # The GatewayEVMAMM implementation uses the creation transaction hash here.
                     trading_pair=trading_pair,
                     update_timestamp=self.current_timestamp,
                     new_state=OrderState.OPEN,  # Assume that the transaction has been successfully mined.
@@ -708,7 +711,8 @@ class GatewayRippledexCLOB(ConnectorBase):
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
         self._get_markets_task = safe_ensure_future(self.get_markets())
-        self._set_order_price_and_order_size_quantum_task = safe_ensure_future(self.set_order_price_and_order_size_quantum())
+        self._set_order_price_and_order_size_quantum_task = safe_ensure_future(
+            self.set_order_price_and_order_size_quantum())
 
     async def stop_network(self):
         if self._status_polling_task is not None:
@@ -799,15 +803,33 @@ class GatewayRippledexCLOB(ConnectorBase):
         This is intentionally not awaited because cancellation is expensive on blockchains. It's not worth it for
         Hummingbot to force cancel all orders whenever Hummingbot quits.
         """
+        open_orders = [{
+            "marketName": convert_trading_pair(trading_pair),
+            "walletAddress": self.address,
+        } for trading_pair in self._trading_pairs]
+
+        open_orders_on_all_markets = await self._get_gateway_instance().rippledex_get_open_orders(
+            chain=self.chain,
+            network=self.network,
+            connector=self.connector,
+            orders=open_orders
+        )
+
+        cancel_orders = []
+        for key in open_orders_on_all_markets:
+            for sequence in open_orders_on_all_markets[key]:
+                cancel_orders.append({
+                    "walletAddress": self.address,
+                    "offerSequence": int(sequence)
+                })
+
         asyncio.ensure_future(
             self._get_gateway_instance().rippledex_delete_orders(
                 chain=self.chain,
                 network=self.network,
                 connector=self.connector,
-                orders=[{
-                    "marketName": convert_trading_pair(trading_pair),
-                    "ownerAddress": self.address,
-                } for trading_pair in self._trading_pairs]
+                wait_until_included_in_block=True,
+                orders=cancel_orders
             )
         )
 
@@ -937,3 +959,10 @@ class GatewayRippledexCLOB(ConnectorBase):
 
     def cancel(self, trading_pair: str, client_order_id: str):
         raise NotImplementedError
+
+    @staticmethod
+    def _dump(target: Any):
+        try:
+            return jsonpickle.encode(target, unpicklable=True, indent=2)
+        except (Exception,):
+            return target
