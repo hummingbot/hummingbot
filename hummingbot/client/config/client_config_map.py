@@ -82,6 +82,14 @@ class MQTTBridgeConfigMap(BaseClientModel):
             ),
         ),
     )
+    mqtt_namespace: str = Field(
+        default='hbot',
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the mqtt uri namespace (Default='hbot')"
+            ),
+        ),
+    )
     mqtt_ssl: bool = Field(
         default=False,
         client_data=ClientFieldData(
