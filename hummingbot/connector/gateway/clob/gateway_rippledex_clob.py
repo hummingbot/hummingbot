@@ -803,40 +803,41 @@ class GatewayRippledexCLOB(ConnectorBase):
         This is intentionally not awaited because cancellation is expensive on blockchains. It's not worth it for
         Hummingbot to force cancel all orders whenever Hummingbot quits.
         """
-        open_orders = [{
-            "marketName": convert_trading_pair(trading_pair),
-            "walletAddress": self.address,
-        } for trading_pair in self._trading_pairs]
-
-        open_orders_on_all_markets = await self._get_gateway_instance().rippledex_get_open_orders(
-            chain=self.chain,
-            network=self.network,
-            connector=self.connector,
-            orders=open_orders
-        )
-
-        cancel_orders = []
-        for key in open_orders_on_all_markets:
-            for sequence in open_orders_on_all_markets[key]:
-                cancel_orders.append({
-                    "walletAddress": self.address,
-                    "offerSequence": int(sequence)
-                })
-
-        asyncio.ensure_future(
-            self._get_gateway_instance().rippledex_delete_orders(
-                chain=self.chain,
-                network=self.network,
-                connector=self.connector,
-                wait_until_included_in_block=True,
-                orders=cancel_orders
-            )
-        )
-
-        self.logger().warning(
-            """Although a process to cancel all orders was dispatched, it is not guaranteed that it will work due """
-            """to the nature of the blockchains. Those orders need to be checked manually."""
-        )
+        # TODO: Rework so this will not conflict with stop feature in script
+        # open_orders = [{
+        #     "marketName": convert_trading_pair(trading_pair),
+        #     "walletAddress": self.address,
+        # } for trading_pair in self._trading_pairs]
+        #
+        # open_orders_on_all_markets = await self._get_gateway_instance().rippledex_get_open_orders(
+        #     chain=self.chain,
+        #     network=self.network,
+        #     connector=self.connector,
+        #     orders=open_orders
+        # )
+        #
+        # cancel_orders = []
+        # for key in open_orders_on_all_markets:
+        #     for sequence in open_orders_on_all_markets[key]:
+        #         cancel_orders.append({
+        #             "walletAddress": self.address,
+        #             "offerSequence": int(sequence)
+        #         })
+        #
+        # asyncio.ensure_future(
+        #     self._get_gateway_instance().rippledex_delete_orders(
+        #         chain=self.chain,
+        #         network=self.network,
+        #         connector=self.connector,
+        #         wait_until_included_in_block=True,
+        #         orders=cancel_orders
+        #     )
+        # )
+        #
+        # self.logger().warning(
+        #     """Although a process to cancel all orders was dispatched, it is not guaranteed that it will work due """
+        #     """to the nature of the blockchains. Those orders need to be checked manually."""
+        # )
 
         return []
 

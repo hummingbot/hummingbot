@@ -30,9 +30,10 @@ alignment_column = 11
 
 
 class RippleCLOBPMMExample(ScriptStrategyBase):
+    # Set your network and trading pair here
     _connector_id: str = "rippleDEX_ripple_testnet"
-    _base_token: str = "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
-    # _base_token: str = "XRP"
+    _base_token: str = "XRP"
+    # _base_token: str = "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
     _quote_token: str = "VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
     _trading_pair = f"{_base_token}-{_quote_token}"
 
@@ -99,9 +100,9 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                     "rippledex_order_type": "LIMIT",
                     "price_strategy": "middle",
                     "middle_price_strategy": "VWAP",
-                    "cancel_all_orders_on_start": False,
-                    "cancel_all_orders_on_stop": False,
-                    "run_only_once": False
+                    "cancel_all_orders_on_start": True,
+                    "cancel_all_orders_on_stop": True,
+                    "run_only_once": True
                 },
                 "logger": {
                     "level": "INFO"
@@ -134,14 +135,14 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
             self._hb_trading_pair = None
             self._is_busy: bool = False
             self._initialized: bool = False
-            self._refresh_timestamp: int
+            self._refresh_timestamp: int = self.current_timestamp
             self._market: str
             self._gateway: GatewayHttpClient
             self._connector: GatewayRippledexCLOB
             self._market_info: Dict[str, Any]
             self._balances: Dict[str, Any] = {}
             self._tickers: Dict[str, Any]
-            self._open_orders: Dict[str, Any]
+            self._open_orders: Dict[str, Any] = None
             self._filled_orders: Dict[str, Any]
             self._vwap_threshold = 50
             self._int_zero = int(0)
@@ -159,11 +160,15 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
     # noinspection PyAttributeOutsideInit
     async def initialize(self):
         try:
+            if self._is_busy or (self._refresh_timestamp > self.current_timestamp):
+                return
+
             self._log(DEBUG, """_initialize... start""")
 
             self.logger().setLevel(self._configuration["logger"].get("level", "INFO"))
 
             self._initialized = False
+            self._is_busy = True
 
             self._hb_trading_pair = self._trading_pair
             self._market = convert_trading_pair(self._hb_trading_pair)
@@ -179,14 +184,14 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
             if self._configuration["strategy"]["cancel_all_orders_on_start"]:
                 await self._cancel_all_orders()
 
-            waiting_time = self._calculate_waiting_time(self._configuration["strategy"]["tick_interval"])
-            self._log(DEBUG, f"""Waiting for {waiting_time}s.""")
-            self._refresh_timestamp = waiting_time + self.current_timestamp
-
-            self._initialized = True
         except Exception as exception:
             self._handle_error(exception)
         finally:
+            waiting_time = self._calculate_waiting_time(self._configuration["strategy"]["tick_interval"])
+            self._log(DEBUG, f"""Waiting for {waiting_time}s.""")
+            self._refresh_timestamp = waiting_time + self.current_timestamp
+            self._initialized = True
+            self._is_busy = False
             self._log(DEBUG, """_initialize... end""")
 
     def on_tick(self):
@@ -251,12 +256,14 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
             self._log(DEBUG, """_stop... start""")
 
             self._can_run = False
+            self._is_busy = True
 
             if self._configuration["strategy"]["cancel_all_orders_on_stop"]:
                 await self._cancel_all_orders()
 
             super().stop(clock)
         finally:
+            self._is_busy = False
             self._log(DEBUG, """_stop... end""")
 
     def format_status(self) -> str:
@@ -463,8 +470,6 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                     "token_symbols": []
                 }
 
-                self._log(INFO, f"""gateway.ripple_get_balances:\nrequest:\n{self._dump(request)}""")
-
                 if use_cache and self._balances is not None:
                     response = self._balances
                 else:
@@ -518,7 +523,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
 
     async def _get_order_book(self):
         try:
-            self._log(INFO, """_get_order_book... start""")
+            self._log(DEBUG, """_get_order_book... start""")
 
             request = None
             response = None
@@ -541,7 +546,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                 self._log(INFO,
                           f"""gateway.rippledex_get_order_books:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
         finally:
-            self._log(INFO, """_get_order_book... end""")
+            self._log(DEBUG, """_get_order_book... end""")
 
     async def _get_ticker(self, use_cache: bool = True) -> Dict[str, Any]:
         try:
@@ -640,8 +645,6 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                     "orders": orders
                 }
 
-                self._log(INFO, f"""gateway.clob_post_orders:\nrequest:\n{self._dump(request)}""")
-
                 if len(orders):
                     response = await self._gateway.rippledex_post_orders(**request)
                 else:
@@ -654,7 +657,8 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(INFO, f"""gateway.clob_post_orders:\nresponse:\n{self._dump(response)}""")
+                self._log(INFO,
+                          f"""gateway.clob_post_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
         finally:
             self._log(DEBUG, """_replace_orders... end""")
 
@@ -694,7 +698,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
 
             response = None
             try:
-                open_orders_on_all_markets = await self._get_open_orders()
+                open_orders_on_all_markets = await self._get_open_orders(use_cache=False)
                 open_orders = open_orders_on_all_markets[self._market]
 
                 cancel_orders = []
