@@ -42,14 +42,10 @@ class MicropricePMM(ScriptStrategyBase):
     # ! System methods
     def on_tick(self):
         # Record data, dump data, update write timestamp
-        if self.time_to_write < self.current_timestamp and self.dump_enabled:
-            self.dump_data()
+        self.record_data()
+        if self.time_to_write < self.current_timestamp:
             self.time_to_write = self.interval_to_write + self.current_timestamp
-        if self.dump_enabled:
-            self.record_data()
-            return
-        elif self.recording_data:
-            self.record_data()
+            self.dump_data()
 
     def format_status(self) -> str:
         header = f'Trading pair: {self.trading_pair}\nExchange: {self.exchange}\n'
