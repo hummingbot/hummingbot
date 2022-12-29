@@ -73,6 +73,7 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | ∟ mqtt_port              | 1883                 |\n"
                            "    | ∟ mqtt_username          |                      |\n"
                            "    | ∟ mqtt_password          |                      |\n"
+                           "    | ∟ mqtt_namespace         | hbot                 |\n"
                            "    | ∟ mqtt_ssl               | False                |\n"
                            "    | ∟ mqtt_logger            | True                 |\n"
                            "    | ∟ mqtt_notifier          | True                 |\n"
