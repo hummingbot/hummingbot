@@ -127,7 +127,7 @@ class HummingbotApplication(*commands):
         self._init_gateway_monitor()
 
     @property
-    def uid(self) -> str:
+    def instance_id(self) -> str:
         return self.client_config_map.instance_id
 
     @property

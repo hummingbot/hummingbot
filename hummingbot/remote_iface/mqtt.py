@@ -42,71 +42,80 @@ mqtts_logger: HummingbotLogger = None
 
 
 class MQTTCommands:
-    START_URI = 'hbot/$UID/start'
-    STOP_URI = 'hbot/$UID/stop'
-    CONFIG_URI = 'hbot/$UID/config'
-    IMPORT_URI = 'hbot/$UID/import'
-    STATUS_URI = 'hbot/$UID/status'
-    HISTORY_URI = 'hbot/$UID/history'
-    BALANCE_LIMIT_URI = 'hbot/$UID/balance/limit'
-    BALANCE_PAPER_URI = 'hbot/$UID/balance/paper'
+    START_URI = '/$instance_id/start'
+    STOP_URI = '/$instance_id/stop'
+    CONFIG_URI = '/$instance_id/config'
+    IMPORT_URI = '/$instance_id/import'
+    STATUS_URI = '/$instance_id/status'
+    HISTORY_URI = '/$instance_id/history'
+    BALANCE_LIMIT_URI = '/$instance_id/balance/limit'
+    BALANCE_PAPER_URI = '/$instance_id/balance/paper'
 
     def __init__(self,
                  hb_app: "HummingbotApplication",
                  mqtt_node: Node):
         self._hb_app = hb_app
-        self.node = mqtt_node
+        self._mqtt_node = mqtt_node
         self.logger = self._hb_app.logger
         self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
-        self.START_URI = self.START_URI.replace('$UID', hb_app.uid)
-        self.STOP_URI = self.STOP_URI.replace('$UID', hb_app.uid)
-        self.CONFIG_URI = self.CONFIG_URI.replace('$UID', hb_app.uid)
-        self.IMPORT_URI = self.IMPORT_URI.replace('$UID', hb_app.uid)
-        self.STATUS_URI = self.STATUS_URI.replace('$UID', hb_app.uid)
-        self.HISTORY_URI = self.HISTORY_URI.replace('$UID', hb_app.uid)
-        self.BALANCE_LIMIT_URI = self.BALANCE_LIMIT_URI.replace('$UID', hb_app.uid)
-        self.BALANCE_PAPER_URI = self.BALANCE_PAPER_URI.replace('$UID', hb_app.uid)
-
+        self.START_URI = self.START_URI.replace('$instance_id', hb_app.instance_id)
+        self.START_URI = f'{self._mqtt_node.namespace}{self.START_URI}'
+        self.STOP_URI = self.STOP_URI.replace('$instance_id', hb_app.instance_id)
+        self.STOP_URI = f'{self._mqtt_node.namespace}{self.STOP_URI}'
+        self.CONFIG_URI = self.CONFIG_URI.replace('$instance_id', hb_app.instance_id)
+        self.CONFIG_URI = f'{self._mqtt_node.namespace}{self.CONFIG_URI}'
+        self.IMPORT_URI = self.IMPORT_URI.replace('$instance_id', hb_app.instance_id)
+        self.IMPORT_URI = f'{self._mqtt_node.namespace}{self.IMPORT_URI}'
+        self.STATUS_URI = self.STATUS_URI.replace('$instance_id', hb_app.instance_id)
+        self.STATUS_URI = f'{self._mqtt_node.namespace}{self.STATUS_URI}'
+        self.HISTORY_URI = self.HISTORY_URI.replace('$instance_id', hb_app.instance_id)
+        self.HISTORY_URI = f'{self._mqtt_node.namespace}{self.HISTORY_URI}'
+        self.BALANCE_LIMIT_URI = self.BALANCE_LIMIT_URI.replace(
+            '$instance_id', hb_app.instance_id)
+        self.BALANCE_LIMIT_URI = f'{self._mqtt_node.namespace}{self.BALANCE_LIMIT_URI}'
+        self.BALANCE_PAPER_URI = self.BALANCE_PAPER_URI.replace(
+            '$instance_id', hb_app.instance_id)
+        self.BALANCE_PAPER_URI = f'{self._mqtt_node.namespace}{self.BALANCE_PAPER_URI}'
         self._init_commands()
 
     def _init_commands(self):
-        self.node.create_rpc(
+        self._mqtt_node.create_rpc(
             rpc_name=self.START_URI,
             msg_type=StartCommandMessage,
             on_request=self._on_cmd_start
         )
-        self.node.create_rpc(
+        self._mqtt_node.create_rpc(
             rpc_name=self.STOP_URI,
             msg_type=StopCommandMessage,
             on_request=self._on_cmd_stop
         )
-        self.node.create_rpc(
+        self._mqtt_node.create_rpc(
             rpc_name=self.CONFIG_URI,
             msg_type=ConfigCommandMessage,
             on_request=self._on_cmd_config
         )
-        self.node.create_rpc(
+        self._mqtt_node.create_rpc(
             rpc_name=self.IMPORT_URI,
             msg_type=ImportCommandMessage,
             on_request=self._on_cmd_import
         )
-        self.node.create_rpc(
+        self._mqtt_node.create_rpc(
             rpc_name=self.STATUS_URI,
             msg_type=StatusCommandMessage,
             on_request=self._on_cmd_status
         )
-        self.node.create_rpc(
+        self._mqtt_node.create_rpc(
             rpc_name=self.HISTORY_URI,
             msg_type=HistoryCommandMessage,
             on_request=self._on_cmd_history
         )
-        self.node.create_rpc(
+        self._mqtt_node.create_rpc(
             rpc_name=self.BALANCE_LIMIT_URI,
             msg_type=BalanceLimitCommandMessage,
             on_request=self._on_cmd_balance_limit
         )
-        self.node.create_rpc(
+        self._mqtt_node.create_rpc(
             rpc_name=self.BALANCE_PAPER_URI,
             msg_type=BalancePaperCommandMessage,
             on_request=self._on_cmd_balance_paper
@@ -215,7 +224,7 @@ class MQTTCommands:
 
 
 class MQTTEventForwarder:
-    EVENT_URI = 'hbot/$UID/events'
+    EVENT_URI = '/$instance_id/events'
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -235,10 +244,11 @@ class MQTTEventForwarder:
 
         self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self._hb_app = hb_app
-        self._node = mqtt_node
+        self._mqtt_node = mqtt_node
         self._markets: List[ConnectorBase] = list(self._hb_app.markets.values())
 
-        self._topic = self.EVENT_URI.replace('$UID', self._hb_app.uid)
+        self.EVENT_URI = self.EVENT_URI.replace('$instance_id', self._hb_app.instance_id)
+        self.EVENT_URI = f'{self._mqtt_node.namespace}{self.EVENT_URI}'
 
         self._mqtt_fowarder: SourceInfoEventForwarder = \
             SourceInfoEventForwarder(self._send_mqtt_event)
@@ -261,8 +271,8 @@ class MQTTEventForwarder:
         ]
         self._app_event_pairs: List[Tuple[int, EventListener]] = []
 
-        self.event_fw_pub = self._node.create_publisher(
-            topic=self._topic, msg_type=EventMessage
+        self.event_fw_pub = self._mqtt_node.create_publisher(
+            topic=self.EVENT_URI, msg_type=EventMessage
         )
         self.start_event_listener()
 
@@ -335,20 +345,20 @@ class MQTTEventForwarder:
 
 
 class MQTTNotifier(NotifierBase):
-    NOTIFY_URI = 'hbot/$UID/notify'
+    NOTIFY_URI = '/$instance_id/notify'
 
     def __init__(self,
                  hb_app: "HummingbotApplication",
                  mqtt_node: Node,
                  topic: str = '') -> None:
         super().__init__()
-        if topic in (None, ''):
-            topic = self.NOTIFY_URI.replace('$UID', hb_app.uid)
-        self._topic = topic
-        self._node = mqtt_node
+        self._mqtt_node = mqtt_node
         self._hb_app = hb_app
-        self.notify_pub = self._node.create_publisher(topic=self._topic,
-                                                      msg_type=NotifyMessage)
+        if topic in (None, ''):
+            self.NOTIFY_URI = self.NOTIFY_URI.replace('$instance_id', hb_app.instance_id)
+            self.NOTIFY_URI = f'{self._mqtt_node.namespace}{self.NOTIFY_URI}'
+        self.notify_pub = self._mqtt_node.create_publisher(topic=self.NOTIFY_URI,
+                                                           msg_type=NotifyMessage)
 
     def add_msg_to_queue(self, msg: str):
         self.notify_pub.publish(NotifyMessage(msg=msg))
@@ -361,8 +371,8 @@ class MQTTNotifier(NotifierBase):
 
 
 class MQTTGateway(Node):
-    NODE_NAME = 'hbot.$UID'
-    HEARTBEAT_URI = 'hbot/$UID/hb'
+    NODE_NAME = 'hbot.$instance_id'
+    HEARTBEAT_URI = '/$instance_id/hb'
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -378,11 +388,15 @@ class MQTTGateway(Node):
         self._event_forwarder: MQTTEventForwarder = None
         self._commands: MQTTCommands = None
         self._hb_app = hb_app
-        self.HEARTBEAT_URI = self.HEARTBEAT_URI.replace('$UID', hb_app.uid)
         self._params = self._create_mqtt_params_from_conf()
+        self.namespace = self._hb_app.client_config_map.mqtt_bridge.mqtt_namespace
+        if self.namespace[-1] in ('/', '.'):
+            self.namespace = self.namespace[:-1]
+        self.HEARTBEAT_URI = self.HEARTBEAT_URI.replace('$instance_id', hb_app.instance_id)
+        self.HEARTBEAT_URI = f'{self.namespace}{self.HEARTBEAT_URI}'
 
         super().__init__(
-            node_name=self.NODE_NAME.replace('$UID', hb_app.uid),
+            node_name=self.NODE_NAME.replace('$instance_id', hb_app.instance_id),
             connection_params=self._params,
             heartbeat_uri=self.HEARTBEAT_URI,
             debug=True,
@@ -441,20 +455,21 @@ class MQTTGateway(Node):
 
 
 class MQTTLogHandler(Handler):
-    MQTT_URI = 'hbot/$UID/log'
+    MQTT_URI = '/$instance_id/log'
 
     def __init__(self,
                  hb_app: "HummingbotApplication",
                  mqtt_node: Node,
                  mqtt_topic: str = ''):
         self._hb_app = hb_app
-        self._node = mqtt_node
+        self._mqtt_node = mqtt_node
         if mqtt_topic in ('', None):
-            mqtt_topic = self.MQTT_URI.replace('$UID', self._hb_app.uid)
-        self._topic = mqtt_topic
+            self.MQTT_URI = self.MQTT_URI.replace('$instance_id',
+                                                  self._hb_app.instance_id)
+            self.MQTT_URI = f'{self._mqtt_node.namespace}{self.MQTT_URI}'
         super().__init__()
-        self.log_pub = self._node.create_publisher(topic=self._topic,
-                                                   msg_type=LogMessage)
+        self.log_pub = self._mqtt_node.create_publisher(topic=self.MQTT_URI,
+                                                        msg_type=LogMessage)
 
     def emit(self, record: LogRecord):
         msg_str = self.format(record)
