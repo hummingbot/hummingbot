@@ -28,12 +28,12 @@ class MQTTStartCommand:
                 self._mqtt.start_notifier()
                 self._mqtt.start_commands()
                 self._mqtt.start_event_fw()
-                self._mqtt.patch_logger_class()
+                self._mqtt.start_logger()
                 self._mqtt.run()
                 self.logger().info('Connecting to MQTT Broker...')
                 await asyncio.sleep(timeout)
                 if not self._mqtt.check_health():
-                    raise Exception()
+                    raise Exception('MQTT.CheckHealth returned False!')
                 self.logger().info('Connected to MQTT Broker.')
             except Exception as e:
                 self.logger().error(

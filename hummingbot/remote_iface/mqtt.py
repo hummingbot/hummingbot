@@ -387,6 +387,7 @@ class MQTTGateway(Node):
         self._notifier: MQTTNotifier = None
         self._event_forwarder: MQTTEventForwarder = None
         self._commands: MQTTCommands = None
+        self._logh: MQTTLogHandler = None
         self._hb_app = hb_app
         self._params = self._create_mqtt_params_from_conf()
         self.namespace = self._hb_app.client_config_map.mqtt_bridge.mqtt_namespace
@@ -403,6 +404,7 @@ class MQTTGateway(Node):
             *args,
             **kwargs
         )
+        self._patch_logger_class()
 
     def check_health(self) -> bool:
         for c in self._subscribers:
@@ -419,8 +421,16 @@ class MQTTGateway(Node):
                 return False
         return True
 
-    def patch_logger_class(self):
-        HummingbotLogger._mqtt_handler = MQTTLogHandler(self._hb_app, self)
+    def _patch_logger_class(self):
+        if HummingbotLogger._mqtt_handler is None:
+            HummingbotLogger._mqtt_handler = self._logh
+
+    def start_logger(self):
+        self._logh = MQTTLogHandler(self._hb_app, self)
+        if HummingbotLogger._mqtt_handler is not None:
+            HummingbotLogger._mqtt_handler.log_pub = self._logh.log_pub
+        else:
+            self._patch_logger_class()
 
     def start_notifier(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_notifier:
