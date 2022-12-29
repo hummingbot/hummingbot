@@ -217,6 +217,10 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
             await self._get_open_orders(use_cache=False)
             await self._get_balances(use_cache=False)
 
+            open_orders_balance = await self._get_open_orders_balance()
+            self._summary["balance"]["orders"]["base"] = open_orders_balance["base"]
+            self._summary["balance"]["orders"]["quote"] = open_orders_balance["quote"]
+
             proposal: List[OrderCandidate] = await self._create_proposal()
             candidate_orders: List[OrderCandidate] = await self._adjust_proposal_to_budget(proposal)
 
@@ -841,6 +845,18 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                 return self._decimal_zero
         else:
             raise ValueError(f'Unrecognized mid price strategy "{strategy}".')
+
+    async def _get_open_orders_balance(self) -> Dict[str, Decimal]:
+        open_orders = await self._get_open_orders()
+        open_orders_base_amount = decimal_zero
+        open_orders_quote_amount = decimal_zero
+        for order in open_orders[self._market].values():
+            if order['side'] == RippleOrderSide.BUY.value[0]:
+                open_orders_base_amount += Decimal(order["amount"])
+            if order['side'] == RippleOrderSide.SELL.value[0]:
+                open_orders_quote_amount += Decimal(order["amount"]) * Decimal(order['price'])
+
+        return {"base": open_orders_base_amount, "quote": open_orders_quote_amount}
 
     # noinspection PyMethodMayBeStatic
     def _calculate_waiting_time(self, number: int) -> int:
