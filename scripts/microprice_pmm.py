@@ -25,7 +25,7 @@ class MicropricePMM(ScriptStrategyBase):
     interval_to_write = 60
     price_line_width = 60
     precision = 4  # ? really should be the length of the ticksize
-    dump_enabled = False  # ? Controls whether the script records data while running microprice logic
+    dump_enabled = True  # ? Controls whether the script records data while running microprice logic
     data_size_min = 10000  # ? Seems to be the ideal value to get microprice adjustment values for other spreads
     days_back = 30  # ? How many days back to look for csv files to load data from
 
