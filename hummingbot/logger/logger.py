@@ -34,7 +34,7 @@ class HummingbotLogger(PythonLogger):
     def __init__(self, name: str):
         super().__init__(name)
         if HummingbotLogger._mqtt_handler is not None:
-            self.addHandler(self._mqtt_handler)
+            self.addHandler(HummingbotLogger._mqtt_handler)
 
     @staticmethod
     def logger_name_for_class(model_class: Type):
