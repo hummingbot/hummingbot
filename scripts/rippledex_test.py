@@ -30,7 +30,8 @@ class TestRippleDEXGateway(ScriptStrategyBase):
     _is_busy: bool = False
     _script_name: str
     _connector_id: str = "rippleDEX_ripple_testnet"
-    _base_token: str = "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
+    # _base_token: str = "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
+    _base_token: str = "XRP"
     _quote_token: str = "VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
     _trading_pair = f"{_base_token}-{_quote_token}"
     _refresh_timestamp: int
@@ -118,33 +119,16 @@ class TestRippleDEXGateway(ScriptStrategyBase):
             self._log(DEBUG, """_async_on_tick... start""")
 
             self._is_busy = True
-            balances = await self._get_balances()
-            self._summary["balance"]["wallet"]["base"] = Decimal(balances["balances"][self._base_token])
-            self._summary["balance"]["wallet"]["quote"] = Decimal(balances["balances"][self._quote_token])
-
-            order_book = await self._get_order_book()
-            bids, asks, top_ask, top_bid = parse_order_book(order_book)
-            self._summary["order_book"]["bids"] = bids
-            self._summary["order_book"]["asks"] = asks
-            self._summary["order_book"]["top_ask"] = top_ask
-            self._summary["order_book"]["top_bid"] = top_bid
-
-            ticker_price = await self._get_market_price()
-            self._summary["price"]["ticker_price"] = ticker_price
-            self._market_info = await self._get_market()
-
-            open_orders_balance = await self._get_open_orders_balance()
-            self._summary["balance"]["orders"]["base"] = open_orders_balance["base"]
-            self._summary["balance"]["orders"]["quote"] = open_orders_balance["quote"]
-
-            self._show_summary()
-
+            await self._show_summary()
             await self._script_create_orders()
             # await self._script_check_created_orders_status()
+            await self._show_summary()
             await self._script_replace_orders()
             # await self._script_check_replaced_orders_status()
+            await self._show_summary()
             await self._script_cancel_orders()
             # await self._script_check_cancelled_orders_status()
+            await self._show_summary()
         finally:
             self._refresh_timestamp = int(self._configuration["refresh_interval"]) + self.current_timestamp
             self._is_busy = False
@@ -161,8 +145,8 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                 "marketName": self._market,
                 "walletAddress": self._connector.address,
                 "side": RippleOrderSide.SELL.value[0],
-                "amount": 5,
-                "price": 3000,
+                "amount": 1,
+                "price": 1000,
             }
 
             buy_order = {
@@ -170,7 +154,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                 "walletAddress": self._connector.address,
                 "side": RippleOrderSide.BUY.value[0],
                 "amount": 1,
-                "price": 2000,
+                "price": 100,
             }
             sell_orders_rsp = await self._post_orders(orders=[sell_order, sell_order, sell_order])
             buy_orders_rsp = await self._post_orders(orders=[buy_order, buy_order, buy_order])
@@ -224,7 +208,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                     "walletAddress": self._connector.address,
                     "side": self._created_orders[key]["side"],
                     "amount": 10,
-                    "price": 3000 if self._created_orders[key]["side"] == "SELL" else 2000,
+                    "price": 1000 if self._created_orders[key]["side"] == "SELL" else 100,
                     "sequence": int(key)
                 })
 
@@ -335,7 +319,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
     async def _get_market(self):
         try:
-            self._log(DEBUG, """_get_market... start""")
+            self._log(INFO, """_get_market... start""")
 
             request = None
             response = None
@@ -358,11 +342,11 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                 self._log(INFO,
                           f"""gateway.clob_get_markets:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
         finally:
-            self._log(DEBUG, """_get_market... end""")
+            self._log(INFO, """_get_market... end""")
 
     async def _get_orders(self, orders=None):
         try:
-            self._log(DEBUG, """_get_orders... start""")
+            self._log(INFO, """_get_orders... start""")
 
             request = None
             response = None
@@ -385,11 +369,11 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                 self._log(INFO,
                           f"""gateway._get_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
         finally:
-            self._log(DEBUG, """_get_orders... end""")
+            self._log(INFO, """_get_orders... end""")
 
     async def _get_order_book(self):
         try:
-            self._log(DEBUG, """_get_order_book... start""")
+            self._log(INFO, """_get_order_book... start""")
 
             request = None
             response = None
@@ -412,21 +396,21 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                 self._log(INFO,
                           f"""gateway.clob_get_order_books:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
         finally:
-            self._log(DEBUG, """_get_order_book... end""")
+            self._log(INFO, """_get_order_book... end""")
 
     async def _get_market_price(self) -> Decimal:
         try:
-            self._log(DEBUG, """_get_market_price... start""")
+            self._log(INFO, """_get_market_price... start""")
 
             return Decimal((await self._get_ticker())["price"])
         except Exception as exception:
             self._handle_error(exception)
         finally:
-            self._log(DEBUG, """_get_market_price... end""")
+            self._log(INFO, """_get_market_price... end""")
 
     async def _get_ticker(self) -> Dict[str, Any]:
         try:
-            self._log(DEBUG, """_get_ticker... start""")
+            self._log(INFO, """_get_ticker... start""")
 
             request = None
             response = None
@@ -450,7 +434,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                           f"""gateway.clob_get_tickers:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
 
         finally:
-            self._log(DEBUG, """_get_ticker... end""")
+            self._log(INFO, """_get_ticker... end""")
 
     async def _get_open_orders_balance(self) -> Dict[str, Decimal]:
         open_orders = await self._get_open_orders()
@@ -466,7 +450,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
     async def _get_open_orders(self) -> Dict[str, Any]:
         try:
-            self._log(DEBUG, """_get_open_orders... start""")
+            self._log(INFO, """_get_open_orders... start""")
 
             request = None
             response = None
@@ -492,11 +476,11 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                 self._log(INFO,
                           f"""gateway.clob_get_open_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
         finally:
-            self._log(DEBUG, """_get_open_orders... end""")
+            self._log(INFO, """_get_open_orders... end""")
 
     async def _post_orders(self, order=None, orders=None):
         try:
-            self._log(DEBUG, """_post_orders... start""")
+            self._log(INFO, """_post_orders... start""")
 
             request = None
             response = None
@@ -521,11 +505,11 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                 self._log(INFO,
                           f"""gateway._post_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
         finally:
-            self._log(DEBUG, """_post_orders... end""")
+            self._log(INFO, """_post_orders... end""")
 
     async def _cancel_orders(self, order=None, orders=None):
         try:
-            self._log(DEBUG, """_cancel_orders... start""")
+            self._log(INFO, """_cancel_orders... start""")
 
             request = None
             response = None
@@ -550,14 +534,33 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                 self._log(INFO,
                           f"""gateway._cancel_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
         finally:
-            self._log(DEBUG, """_cancel_orders... end""")
+            self._log(INFO, """_cancel_orders... end""")
         pass
 
     async def _check_open_orders_status(self):
 
         pass
 
-    def _show_summary(self):
+    async def _show_summary(self):
+        balances = await self._get_balances()
+        self._summary["balance"]["wallet"]["base"] = Decimal(balances["balances"][self._base_token])
+        self._summary["balance"]["wallet"]["quote"] = Decimal(balances["balances"][self._quote_token])
+
+        order_book = await self._get_order_book()
+        bids, asks, top_ask, top_bid = parse_order_book(order_book)
+        self._summary["order_book"]["bids"] = bids
+        self._summary["order_book"]["asks"] = asks
+        self._summary["order_book"]["top_ask"] = top_ask
+        self._summary["order_book"]["top_bid"] = top_bid
+
+        ticker_price = await self._get_market_price()
+        self._summary["price"]["ticker_price"] = ticker_price
+        self._market_info = await self._get_market()
+
+        open_orders_balance = await self._get_open_orders_balance()
+        self._summary["balance"]["orders"]["base"] = open_orders_balance["base"]
+        self._summary["balance"]["orders"]["quote"] = open_orders_balance["quote"]
+
         self._log(
             INFO,
             textwrap.dedent(
@@ -569,10 +572,10 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                 Balance:
                 -Wallet:
                 {format_line(f"  {self._base_token}:", format_currency(self._summary["balance"]["wallet"]["base"], 4))}
-                {format_line(f"  {self._quote_token}:", format_currency(self._summary["balance"]["wallet"]["quote"], 4))} # noqa
+                {format_line(f"  {self._quote_token}:", format_currency(self._summary["balance"]["wallet"]["quote"], 4))}
                 -Market:
                 {format_line(f"  tickSize:", format_currency(Decimal(self._market_info["tickSize"]), 15))}
-                {format_line(f"  minimumOrderSize:", format_currency(Decimal(self._market_info["minimumOrderSize"]), 15))} # noqa
+                {format_line(f"  minimumOrderSize:", format_currency(Decimal(self._market_info["minimumOrderSize"]), 15))}
                 -Open Orders Balance:
                 {format_line(f"  BUY:", format_currency(self._summary["balance"]["orders"]["base"], 4))}
                 {format_line(f"  SELL:", format_currency(self._summary["balance"]["orders"]["quote"], 4))}

@@ -32,6 +32,7 @@ alignment_column = 11
 class RippleCLOBPMMExample(ScriptStrategyBase):
     _connector_id: str = "rippleDEX_ripple_testnet"
     _base_token: str = "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
+    # _base_token: str = "XRP"
     _quote_token: str = "VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
     _trading_pair = f"{_base_token}-{_quote_token}"
 
@@ -721,10 +722,18 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
         top_bid = Decimal(orderbook["topBid"])
 
         for bid in bids:
-            bids_list.append({'price': pow(Decimal(bid["quality"]), -1), 'amount': Decimal(bid["TakerGets"]["value"])})
+            if isinstance(bid["TakerGets"], str):
+                bids_list.append(
+                    {'price': pow(Decimal(bid["quality"]), -1) * 1000000, 'amount': Decimal(bid["TakerGets"])})
+            else:
+                bids_list.append(
+                    {'price': pow(Decimal(bid["quality"]), -1), 'amount': Decimal(bid["TakerGets"]["value"])})
 
         for ask in asks:
-            asks_list.append({'price': Decimal(ask["quality"]), 'amount': Decimal(ask["TakerGets"]["value"])})
+            if isinstance(ask["TakerGets"], str):
+                asks_list.append({'price': Decimal(ask["quality"]) * 1000000, 'amount': Decimal(ask["TakerGets"])})
+            else:
+                asks_list.append({'price': Decimal(ask["quality"]), 'amount': Decimal(ask["TakerGets"]["value"])})
 
         bids_list.sort(key=lambda x: x['price'], reverse=True)
         asks_list.sort(key=lambda x: x['price'], reverse=False)

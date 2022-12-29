@@ -122,7 +122,7 @@ export class RippleDEX {
         baseMarketResp.result.account_data.TransferRate ?? zeroTransferRate;
       baseTransferRate = rawTransferRate / zeroTransferRate - 1;
     } else {
-      baseTickSize = 15;
+      baseTickSize = 6;
       baseTransferRate = 0;
     }
 
@@ -141,11 +141,11 @@ export class RippleDEX {
         quoteMarketResp.result.account_data.TransferRate ?? zeroTransferRate;
       quoteTransferRate = rawTransferRate / zeroTransferRate - 1;
     } else {
-      quoteTickSize = 15;
+      quoteTickSize = 6;
       quoteTransferRate = 0;
     }
 
-    const smallestTickSize = Math.min(baseTickSize, quoteTickSize, 15);
+    const smallestTickSize = Math.min(baseTickSize, quoteTickSize);
     const minimumOrderSize = smallestTickSize;
 
     const result = {
@@ -225,8 +225,8 @@ export class RippleDEX {
     const bidQuality = bids.length > 0 ? bids[0].quality : undefined;
 
     if (baseCurrency === 'XRP' || quoteCurrency === 'XRP') {
-      topAsk = askQuality ? Number(askQuality) / 1000000 : 0;
-      topBid = bidQuality ? 1 / Number(bidQuality) / 1000000 : 0;
+      topAsk = askQuality ? Number(askQuality) * 1000000 : 0;
+      topBid = bidQuality ? (1 / Number(bidQuality)) * 1000000 : 0;
     } else {
       topAsk = askQuality ? Number(askQuality) : 0;
       topBid = bidQuality ? 1 / Number(bidQuality) : 0;
@@ -306,8 +306,8 @@ export class RippleDEX {
     const bidQuality = bids.length > 0 ? bids[0].quality : undefined;
 
     if (baseCurrency === 'XRP' || quoteCurrency === 'XRP') {
-      topAsk = askQuality ? Number(askQuality) / 1000000 : 0;
-      topBid = bidQuality ? 1 / Number(bidQuality) / 1000000 : 0;
+      topAsk = askQuality ? Number(askQuality) * 1000000 : 0;
+      topBid = bidQuality ? (1 / Number(bidQuality)) * 1000000 : 0;
     } else {
       topAsk = askQuality ? Number(askQuality) : 0;
       topBid = bidQuality ? 1 / Number(bidQuality) : 0;

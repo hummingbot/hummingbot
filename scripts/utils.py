@@ -30,10 +30,16 @@ def parse_order_book(orderbook: Dict[str, Any]) -> List[Union[List[Dict[str, Any
     top_bid = Decimal(orderbook["topBid"])
 
     for bid in bids:
-        bids_list.append({'price': pow(Decimal(bid["quality"]), -1), 'amount': Decimal(bid["TakerGets"]["value"])})
+        if isinstance(bid["TakerGets"], str):
+            bids_list.append({'price': pow(Decimal(bid["quality"]), -1) * 1000000, 'amount': Decimal(bid["TakerGets"])})
+        else:
+            bids_list.append({'price': pow(Decimal(bid["quality"]), -1), 'amount': Decimal(bid["TakerGets"]["value"])})
 
     for ask in asks:
-        asks_list.append({'price': Decimal(ask["quality"]), 'amount': Decimal(ask["TakerGets"]["value"])})
+        if isinstance(ask["TakerGets"], str):
+            asks_list.append({'price': Decimal(ask["quality"]) * 1000000, 'amount': Decimal(ask["TakerGets"])})
+        else:
+            asks_list.append({'price': Decimal(ask["quality"]), 'amount': Decimal(ask["TakerGets"]["value"])})
 
     bids_list.sort(key=lambda x: x['price'], reverse=True)
     asks_list.sort(key=lambda x: x['price'], reverse=False)
