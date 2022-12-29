@@ -29,6 +29,7 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
     min_spread_bps = 5                  # bot refreshes order if spread is lower than min-spread
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
     max_order_age = 120                 # bot refreshes orders after this age
+    min_hedge_notional_amount = 10      # min amount for perpetual orders in quote asset
 
     markets = {maker_exchange: {maker_pair}, taker_exchange: {taker_pair}, perpetual_exchange: {perpetual_pair}}
 
@@ -189,9 +190,11 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
     def adjust_perpetual_hedge_if_required(self):
         perpetual_discrepancy = self._calculate_perpetual_discrepancy()
         minimum_amount = self.connectors[self.perpetual_exchange].get_order_size_quantum(self.perpetual_pair, 0)
-        if perpetual_discrepancy > minimum_amount:
+        mid_price = self.connectors[self.perpetual_exchange].get_mid_price(self.perpetual_pair)
+        perpetual_discrepancy_quote = abs(perpetual_discrepancy) * mid_price
+        if perpetual_discrepancy > minimum_amount and perpetual_discrepancy_quote > self.min_hedge_notional_amount:
             self._increase_perpetual_hedge_if_required(perpetual_discrepancy)
-        elif perpetual_discrepancy < -minimum_amount:
+        elif perpetual_discrepancy < -minimum_amount and perpetual_discrepancy_quote > self.min_hedge_notional_amount:
             self._decrease_perpetual_hedge_if_required(perpetual_discrepancy)
 
     def _calculate_perpetual_discrepancy(self) -> Decimal:
