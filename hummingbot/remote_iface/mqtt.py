@@ -407,8 +407,10 @@ class MQTTGateway(Node):
 
     def stop_logger(self):
         loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-        logs = get_logging_conf().get('loggers')
-        logs = [key for key, val in logs.items()]
+        log_conf = get_logging_conf()
+        if 'loggers' not in log_conf:
+            return
+        logs = [key for key, val in log_conf.get('loggers').items()]
         for logger in loggers:
             if 'hummingbot' in logger.name:
                 for log in logs:
@@ -422,9 +424,14 @@ class MQTTGateway(Node):
     def patch_loggers(self):
         loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
         log_conf = get_logging_conf()
+
+        if 'root' not in log_conf:
+            return
         if log_conf.get('root').get('mqtt'):
             self.add_log_handler(self._get_root_logger())
 
+        if 'loggers' not in log_conf:
+            return
         log_conf_names = [key for key, val in log_conf.get('loggers').items()]
         loggers_filtered = [logger for logger in loggers if logger.name in log_conf_names]
         loggers_filtered = [logger for logger in loggers_filtered if
