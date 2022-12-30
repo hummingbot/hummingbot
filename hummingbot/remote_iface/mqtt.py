@@ -417,14 +417,25 @@ class MQTTGateway(Node):
 
     def start_logger(self):
         self._logh = MQTTLogHandler(self._hb_app, self)
+        self.patch_loggers()
+
+    def patch_loggers(self):
         loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
         log_conf = get_logging_conf()
-        log_names = [key for key, val in log_conf.get('loggers').items()]
-        for logger in loggers:
-            for log in log_names:
-                if log in logger.name and log != logger.name:
-                    self.add_log_handler(logger)
-                    break
+        if log_conf.get('root').get('mqtt'):
+            self.add_log_handler(self._get_root_logger())
+
+        log_conf_names = [key for key, val in log_conf.get('loggers').items()]
+        loggers_filtered = [logger for logger in loggers if logger.name in log_conf_names]
+        loggers_filtered = [logger for logger in loggers_filtered if
+                            log_conf.get('loggers').get(logger.name).get('mqtt', False)]
+
+        for logger in loggers_filtered:
+            self.remove_log_handler(logger)
+            self.add_log_handler(logger)
+
+    def _get_root_logger(self):
+        return logging.getLogger()
 
     def remove_log_handler(self, logger):
         logger.removeHandler(self._logh)
