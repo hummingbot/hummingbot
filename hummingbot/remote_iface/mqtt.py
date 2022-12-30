@@ -5,10 +5,9 @@ import threading
 import time
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
-from logging import Handler, LogRecord
+from logging import Handler, LogRecord, getLogger
 from typing import TYPE_CHECKING, List, Tuple
 
-# from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.logger import HummingbotLogger
 
@@ -404,18 +403,15 @@ class MQTTGateway(Node):
             *args,
             **kwargs
         )
-        self._patch_logger_class()
 
-    def _patch_logger_class(self):
-        if HummingbotLogger._mqtt_handler is None:
-            HummingbotLogger._mqtt_handler = self._logh
+    def stop_logger(self):
+        pass
 
     def start_logger(self):
         self._logh = MQTTLogHandler(self._hb_app, self)
-        if HummingbotLogger._mqtt_handler is not None:
-            HummingbotLogger._mqtt_handler.log_pub = self._logh.log_pub
-        else:
-            self._patch_logger_class()
+        # With propagation
+        _logger = getLogger('hummingbot')
+        _logger.addHandler(self._logh)
 
     def start_notifier(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_notifier:
@@ -464,11 +460,14 @@ class MQTTGateway(Node):
         return True
 
     def start(self) -> None:
+        self.start_logger()
         self.start_notifier()
         self.start_commands()
         self.start_event_fw()
-        self.start_logger()
         self.run()
+
+    def stop(self):
+        super().stop()
 
 
 class MQTTLogHandler(Handler):
