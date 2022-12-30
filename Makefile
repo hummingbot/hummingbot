@@ -25,7 +25,7 @@ development-diff-cover:
 	diff-cover --compare-branch=origin/development coverage.xml
 
 docker:
-	make clean && docker build -t hummingbot/hbot -f Dockerfile .
+	git clean -xdf && make clean && docker build -t hummingbot/hummingbot${TAG} -f Dockerfile .
 
 clean:
 	./clean
