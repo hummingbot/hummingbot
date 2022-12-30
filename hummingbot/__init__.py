@@ -117,6 +117,8 @@ def get_logging_conf(conf_filename: str = 'hummingbot_logs.yml'):
 
     file_path: str = join(prefix_path(), "conf", conf_filename)
     yaml_parser: YAML = YAML()
+    if not path.exists(file_path):
+        return {}
     with open(file_path) as fd:
         yml_source: str = fd.read()
         io_stream: io.StringIO = io.StringIO(yml_source)

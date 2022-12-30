@@ -65,7 +65,6 @@ class RemoteIfaceMQTTTests(TestCase):
         self.hbapp.markets = {
             "test_market_paper_trade": self.test_market
         }
-
         self.resume_test_event = asyncio.Event()
 
     def tearDown(self):
