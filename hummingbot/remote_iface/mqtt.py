@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
 import asyncio
+import logging
 import threading
 import time
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
-from logging import Handler, LogRecord, getLogger
 from typing import TYPE_CHECKING, List, Tuple
 
+from hummingbot import get_logging_conf
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.logger import HummingbotLogger
 
@@ -405,13 +406,38 @@ class MQTTGateway(Node):
         )
 
     def stop_logger(self):
-        pass
+        loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+        logs = get_logging_conf().get('loggers')
+        logs = [key for key, val in logs.items()]
+        for logger in loggers:
+            if 'hummingbot' in logger.name:
+                for log in logs:
+                    if log in logger.name:
+                        self.remove_log_handler(logger)
 
     def start_logger(self):
         self._logh = MQTTLogHandler(self._hb_app, self)
-        # With propagation
-        _logger = getLogger('hummingbot')
-        _logger.addHandler(self._logh)
+        loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+        log_conf = get_logging_conf()
+        log_names = [key for key, val in log_conf.get('loggers').items()]
+        for logger in loggers:
+            for log in log_names:
+                if log in logger.name and log != logger.name:
+                    self.add_log_handler(logger)
+                    break
+
+    def remove_log_handler(self, logger):
+        logger.removeHandler(self._logh)
+
+    def add_log_handler(self, logger):
+        logger.addHandler(self._logh)
+
+    def add_log_handler_to_strategy(self):
+        loggers = [logging.getLogger(name) for name in
+                   logging.root.manager.loggerDict if 'strategy' in name]
+        self._hb_app.logger().info(loggers)
+        for logger in loggers:
+            self.add_log_handler(logger)
 
     def start_notifier(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_notifier:
@@ -468,9 +494,10 @@ class MQTTGateway(Node):
 
     def stop(self):
         super().stop()
+        self.stop_logger()
 
 
-class MQTTLogHandler(Handler):
+class MQTTLogHandler(logging.Handler):
     MQTT_URI = '/$instance_id/log'
 
     def __init__(self,
@@ -487,7 +514,7 @@ class MQTTLogHandler(Handler):
         self.log_pub = self._mqtt_node.create_publisher(topic=self.MQTT_URI,
                                                         msg_type=LogMessage)
 
-    def emit(self, record: LogRecord):
+    def emit(self, record: logging.LogRecord):
         msg_str = self.format(record)
         msg = LogMessage(
             timestamp=time.time(),

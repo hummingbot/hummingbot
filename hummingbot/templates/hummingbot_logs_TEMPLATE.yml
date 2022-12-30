@@ -38,32 +38,32 @@ handlers:
 loggers:
     hummingbot.core.utils.eth_gas_station_lookup:
         level: NETWORK
-        propagate: true
-        handlers: []
+        propagate: false
+        handlers: [console, file_handler]
     hummingbot.logger.log_server_client:
         level: WARNING
-        propagate: true
-        handlers: []
+        propagate: false
+        handlers: [console, file_handler]
     hummingbot.logger.reporting_proxy_handler:
         level: WARNING
-        propagate: true
-        handlers: []
+        propagate: false
+        handlers: [console, file_handler]
     hummingbot.strategy:
         level: NETWORK
-        handlers: []
-        propagate: true
+        propagate: false
+        handlers: [console, file_handler]
     hummingbot.connector:
         level: NETWORK
-        handlers: []
-        propagate: true
+        propagate: false
+        handlers: [console, file_handler]
     hummingbot.client:
         level: NETWORK
-        handlers: []
-        propagate: true
+        propagate: false
+        handlers: [console, file_handler]
     hummingbot.core.event.event_reporter:
         level: EVENT_LOG
-        handlers: [file_handler]
         propagate: false
+        handlers: [file_handler]
     conf:
         level: NETWORK
         handlers: ["null"]
