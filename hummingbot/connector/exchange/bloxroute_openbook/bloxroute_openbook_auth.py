@@ -13,10 +13,7 @@ class BloxrouteOpenbookAuth(AuthBase):
         Adds the Bloxroute authentication header to the HTTP request
         """
 
-        headers = {}
-        headers.update(self.header_for_authentication())
-        request.headers = headers
-
+        request.headers = {"Authentication": self.auth_header}
         return request
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
@@ -26,6 +23,3 @@ class BloxrouteOpenbookAuth(AuthBase):
         """
 
         return request  # pass-through
-
-    def header_for_authentication(self) -> Dict[str, str]:
-        return {"Authentication": self.auth_header}
