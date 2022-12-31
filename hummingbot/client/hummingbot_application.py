@@ -124,6 +124,7 @@ class HummingbotApplication(*commands):
             completer=load_completer(self),
             command_tabs=command_tabs
         )
+
         self._init_gateway_monitor()
 
     @property
