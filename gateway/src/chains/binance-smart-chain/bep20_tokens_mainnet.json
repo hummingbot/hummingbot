@@ -979,9 +979,9 @@
       "logoURI": "https://exchange.pancakeswap.finance/images/coins/0x1ffd0b47127fdd4097e54521c9e2c7f0d66aafc5.png"
     },
     {
-      "name": "Alpaca",
-      "symbol": "ALPACA",
-      "address": "0x8f0528ce5ef7b51152a59745befdd91d97091d2f",
+      "name": "Algoblocks",
+      "symbol": "ALGOBLK",
+      "address": "0xfecCa80fF6DeB2B492E93df3B67f0C523Cfd3a48",
       "chainId": 56,
       "decimals": 18,
       "logoURI": "https://exchange.pancakeswap.finance/images/coins/0x8f0528ce5ef7b51152a59745befdd91d97091d2f.png"
