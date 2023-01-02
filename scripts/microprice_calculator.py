@@ -1,4 +1,5 @@
 import datetime
+import os
 from decimal import Decimal
 from operator import itemgetter
 
@@ -24,10 +25,9 @@ class MicropricePMM(ScriptStrategyBase):
     path_to_data = './data'  # ? Default file format './data/microprice_{trading_pair}_{exchange}_{date}.csv'
     interval_to_write = 60
     price_line_width = 60
-    precision = 4  # ? really should be the length of the ticksize
-    dump_enabled = True  # ? Controls whether the script records data while running microprice logic
+    precision = 4  # ? should be the length of the ticksize
     data_size_min = 10000  # ? Seems to be the ideal value to get microprice adjustment values for other spreads
-    days_back = 30  # ? How many days back to look for csv files to load data from
+    day_offset = 1  # ? How many days back to start looking for csv files to load data from
 
     # ! Script variabes
     columns = ['date', 'time', 'bid', 'bs', 'ask', 'as']
@@ -48,13 +48,15 @@ class MicropricePMM(ScriptStrategyBase):
             self.dump_data()
 
     def format_status(self) -> str:
+        bid, ask = itemgetter('bid', 'ask')(self.get_bid_ask())
+        bar = '=' * self.price_line_width + '\n'
         header = f'Trading pair: {self.trading_pair}\nExchange: {self.exchange}\n'
-        price_line = f'Microprice: {self.compute_adjusted_midprice()}\n{self.get_price_line()}\n'
+        price_line = f'Adjusted Midprice: {self.compute_adjusted_midprice()}\n         Midprice: {round((bid + ask) / 2, 8)}\n                 = {round(self.compute_adjusted_midprice() - ((bid + ask) / 2), 20)}\n\n{self.get_price_line()}\n'
         imbalance_line = f'Imbalance: {self.compute_imbalance()}\n{self.get_imbalance_line()}\n'
-        data = f'Data path: {self.get_csv_path()}\n' + (f'Available data size:  \n{self.get_df()}' if self.show_data else '')
+        data = f'Data path: {self.get_csv_path()}\n'
         g_star = f'g_star:\n{self.g_star}' if self.g_star is not None else ''
 
-        return f"\n\n{header}\n{price_line}\n\n{imbalance_line}\n\n{g_star}\n\nn_spread: {self.n_spread}\n\n{data}"
+        return f"\n\n\n{bar}\n\n{header}\n{price_line}\n\n{imbalance_line}\nn_spread: {self.n_spread} {'tick' if self.n_spread == 1 else 'ticks'}\n\n\n{g_star}\n\n{data}\n\n{bar}\n\n\n"
 
     # ! Data recording methods
     # Records a new row to the dataframe every tick
@@ -89,16 +91,15 @@ class MicropricePMM(ScriptStrategyBase):
 
 # ! Data methods
     def get_csv_path(self):
-        path = f'{self.path_to_data}/microprice_{self.trading_pair}_{self.exchange}_{datetime.datetime.now().strftime("%Y-%m-%d")}.csv'
-        day = 1
-        while day < self.days_back:
-            try:
-                data = pd.read_csv(path, index_col=[0])
-                if len(data) > 10000:
-                    return path
-            finally:
-                path = f'{self.path_to_data}/microprice_{self.trading_pair}_{self.exchange}_{(datetime.datetime.now() - datetime.timedelta(days=day)).strftime("%Y-%m-%d")}.csv'
-                day += 1
+        # Get all files in self.path_to_data directory
+        files = os.listdir(self.path_to_data)
+        for i in files:
+            if i.startswith(f'microprice_{self.trading_pair}_{self.exchange}'):
+                len_data = len(pd.read_csv(f'{self.path_to_data}/{i}', index_col=[0]))
+                if len_data > self.data_size_min:
+                    return f'{self.path_to_data}/{i}'
+
+        # Otherwise just return today's file
         return f'{self.path_to_data}/microprice_{self.trading_pair}_{self.exchange}_{datetime.datetime.now().strftime("%Y-%m-%d")}.csv'
 
     def get_bid_ask(self):
@@ -144,7 +145,7 @@ class MicropricePMM(ScriptStrategyBase):
         spread_bucket = int(spread_bucket)
         # Compute adjusted midprice
         adj_midprice = mid + spreads[spread_bucket]
-        return round(adj_midprice, self.precision)
+        return round(adj_midprice, self.precision * 2)
 
     def compute_G_star(self, data):
         n_spread = self.n_spread
@@ -262,7 +263,6 @@ class MicropricePMM(ScriptStrategyBase):
             self.logger().info(e)
             df = self.current_dataframe
 
-        df['date'] = df['date'].apply(lambda x: x.split("-")[2]).astype(float)
         df['time'] = df['time'].astype(float)
         df['bid'] = df['bid'].astype(float)
         df['ask'] = df['ask'].astype(float)
@@ -288,13 +288,15 @@ class MicropricePMM(ScriptStrategyBase):
         # Mid price is center of line
         price_line = int(self.price_line_width / 2) * '-' + '|' + int(self.price_line_width / 2) * '-'
         # Add bid, adjusted midprice,
-        mid = (bid + ask) / 2
-        bid_offset = self.price_line_width // 2 - len(str(bid)) - (len(str(self.compute_adjusted_midprice())) // 2)
-        ask_offset = self.price_line_width // 2 - len(str(ask)) - (len(str(self.compute_adjusted_midprice())) // 2)
+        bid_offset = int(self.price_line_width / 2 - len(str(bid)) - (len(str(self.compute_adjusted_midprice())) / 2))
+        ask_offset = int(self.price_line_width / 2 - len(str(ask)) - (len(str(self.compute_adjusted_midprice())) / 2))
         labels = str(bid) + bid_offset * ' ' + str(self.compute_adjusted_midprice()) + ask_offset * ' ' + str(ask) + '\n'
         # Create microprice of size 'price_line_width' with ends best bid and ask
-        adjusted_midprice_i = int((self.compute_adjusted_midprice() - mid) / (bid - ask) * self.price_line_width / 2)
-        price_line = price_line[:self.price_line_width // 2 - adjusted_midprice_i] + 'm' + price_line[self.price_line_width // 2 - adjusted_midprice_i:]
+        mid = (bid + ask) / 2
+        spread = ask - bid
+        microprice_adjustment = self.compute_adjusted_midprice() - mid + (spread / 2)
+        adjusted_midprice_i = int(microprice_adjustment / spread * self.price_line_width) + 1
+        price_line = price_line[:adjusted_midprice_i] + 'm' + price_line[adjusted_midprice_i:]
         return labels + price_line
 
     def get_imbalance_line(self) -> str:
