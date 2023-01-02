@@ -721,3 +721,13 @@ class RemoteIfaceMQTTTests(TestCase):
         s = self.gateway.create_subscriber(topic='TEST', on_message=lambda x: {})
         s.run()
         self.assertTrue(self.gateway.check_health())
+        s._transport._connected = False
+        self.assertFalse(self.gateway.check_health())
+        prev_pub = self.gateway._publishers
+        prev__sub = self.gateway._subscribers
+        self.gateway._publishers = []
+        self.gateway._subscribers = []
+        self.gateway._rpc_services[0]._transport._connected = False
+        self.assertFalse(self.gateway.check_health())
+        self.gateway._publishers = prev_pub
+        self.gateway._subscribers = prev__sub
