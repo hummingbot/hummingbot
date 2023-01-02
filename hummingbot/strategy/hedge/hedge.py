@@ -273,9 +273,10 @@ class HedgeStrategy(StrategyPyBase):
             + get_amount_mode_status_str(self._value_mode)
             + get_last_checked_seconds_str()
             + get_status_messages()
+            + [""]
+            + self.network_warning(self._all_markets)
         )
-        warning_lines = self.network_warning(self._all_markets)
-        return "\n".join(lines) + "\n" + "\n".join(warning_lines)
+        return "\n".join(lines)
 
     def start(self, clock: Clock, timestamp: float) -> None:
         """
