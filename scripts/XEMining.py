@@ -43,7 +43,7 @@ class XEMining(ScriptStrategyBase):
         self.logger().info(f"sellPrice: {sellPrice}")
 
         accountPosition = self.connectors[self.perp_exchange].account_positions
-        # self.logger().info(f"Account Position: {accountPosition}")
+        self.logger().info(f"Account Position: {accountPosition}")
 
         # iterate through dictionary accountPosition and print key and value
         amount = 0
@@ -68,28 +68,6 @@ class XEMining(ScriptStrategyBase):
                 order_type=OrderType.MARKET,
                 order_side=TradeType.BUY,
                 amount=Decimal(self.order_amount),
-                price=buyPrice,
-                from_total_balances=True,
-                leverage=Decimal(1),
-                position_close=False,
-            )
-            self.buy(
-                connector_name=self.perp_exchange,
-                trading_pair=self.trading_pair,
-                amount=order.amount,
-                order_type=order.order_type,
-                price=order.price,
-            )
-            return
-
-        if unrealized_pnl < Decimal(-0.9) * Decimal(amount):
-            self.logger().info("Unrealized PnL is greater than 90% of order amount, closing position")
-            order = PerpetualOrderCandidate(
-                trading_pair=self.trading_pair,
-                is_maker=True,
-                order_type=OrderType.MARKET,
-                order_side=TradeType.SELL,
-                amount=Decimal(amount),
                 price=sellPrice,
                 from_total_balances=True,
                 leverage=Decimal(1),
@@ -98,7 +76,29 @@ class XEMining(ScriptStrategyBase):
             self.sell(
                 connector_name=self.perp_exchange,
                 trading_pair=self.trading_pair,
-                amount=order.amount,
+                amount= abs(order.amount),
+                order_type=order.order_type,
+                price=order.price,
+            )
+            return
+
+        if unrealized_pnl < Decimal(-0.9) * Decimal(self.order_amount):
+            self.logger().info("Unrealized PnL is greater than 90% of order amount, closing position")
+            order = PerpetualOrderCandidate(
+                trading_pair=self.trading_pair,
+                is_maker=True,
+                order_type=OrderType.MARKET,
+                order_side=TradeType.SELL,
+                amount=Decimal(amount),
+                price=buyPrice,
+                from_total_balances=True,
+                leverage=Decimal(1),
+                position_close=False,
+            )
+            self.buy(
+                connector_name=self.perp_exchange,
+                trading_pair=self.trading_pair,
+                amount=abs(Decimal(order.amount)),
                 order_type=order.order_type,
                 price=order.price,
             )
@@ -437,12 +437,19 @@ class XEMining(ScriptStrategyBase):
 
         for i in range(0, len(maker_trades)):
             if maker_trades[i]["trade_type"] == "BUY":
-                profit = float(taker_trades[i]["price"]) - float(maker_trades[i]["price"])
+                try:
+                    profit = float(maker_trades[i]["price"]) - float(taker_trades[i]["price"])
+                except IndexError:
+                    break
             else:
-                profit = float(maker_trades[i]["price"]) - float(taker_trades[i]["price"])
-
+                try:
+                    profit = float(taker_trades[i]["price"]) - float(maker_trades[i]["price"])
+                except IndexError:
+                    break
             trade_profits.append(profit)
 
+        if len(trade_profits) == 0:
+            return 0
         average_profit = np.mean(trade_profits)
         return average_profit
 
