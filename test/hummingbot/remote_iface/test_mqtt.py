@@ -458,14 +458,14 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
     @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
-    @patch("hummingbot.client.command.import_command.ImportCommand.import_command")
+    @patch("hummingbot.client.command.import_command.ImportCommand.import_config_file", new_callable=AsyncMock)
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_command_import_failure(self,
                                          mock_mqtt,
-                                         import_mock: MagicMock,
+                                         import_mock: AsyncMock,
                                          status_check_all_mock: MagicMock,
                                          load_strategy_config_map_from_file: MagicMock):
-        import_mock.side_effect = self._create_exception_and_unlock_test_with_event
+        import_mock.side_effect = self._create_exception_and_unlock_test_with_event_async
         self.start_mqtt(mock_mqtt=mock_mqtt)
         self.send_fake_import_cmd(status_check_all_mock=status_check_all_mock,
                                   load_strategy_config_map_from_file=load_strategy_config_map_from_file,
