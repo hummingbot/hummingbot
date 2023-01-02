@@ -423,16 +423,17 @@ class XEMining(ScriptStrategyBase):
             return 0
         maker_trades = []
         taker_trades = []
-
-        # get first row of df to get maker_exchange_name
-        maker_exchange_name = df.iloc[0]["market"]
+        perp_trades = []
 
         for index, row in df.iterrows():
-            if row["market"] == maker_exchange_name:
+            if row["market"] == self.maker_exchange:
                 maker_trades.append(row)
-            else:
+            elif row["market"] == self.taker_exchange:
                 taker_trades.append(row)
+            elif row["market"] == self.perp_exchange:
+                perp_trades.append(row)
 
+        self.logger().info("perp_trades: %s", perp_trades)
         trade_profits = []
 
         for i in range(0, len(maker_trades)):
