@@ -176,7 +176,7 @@ class MQTTCommands:
         if strategy_name is not None:
             strategy_file_name = f'{strategy_name}.yml'
             try:
-                self._hb_app.import_command(strategy_file_name)
+                self._ev_loop.run_until_complete(self._hb_app.import_config_file(strategy_file_name))
             except Exception as e:
                 self._hb_app.notify(str(e))
                 response.status = MQTT_STATUS_CODE.ERROR
