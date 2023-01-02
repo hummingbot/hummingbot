@@ -171,7 +171,7 @@ class Serum:
         return await self.__gateway_http_client.add_wallet(
             self.__helper.configuration['chain'],
             self.__helper.configuration['network'],
-            private_key
+            id=private_key
         )
 
     async def auto_create_token_accounts(self, market_names: List[str] = None):
