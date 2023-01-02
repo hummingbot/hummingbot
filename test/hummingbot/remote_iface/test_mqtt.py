@@ -30,6 +30,7 @@ class RemoteIfaceMQTTTests(TestCase):
         cls.client_config_map = ClientConfigAdapter(ClientConfigMap())
         cls.hbapp = HummingbotApplication(client_config_map=cls.client_config_map)
         cls.client_config_map.mqtt_bridge.mqtt_port = 1888
+        cls.prev_instance_id = cls.client_config_map.instance_id
         cls.client_config_map.instance_id = cls.instance_id
         cls.command_topics = [
             'start',
@@ -40,6 +41,7 @@ class RemoteIfaceMQTTTests(TestCase):
             'history',
             'balance/limit',
             'balance/paper',
+            'command_shortcuts',
         ]
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.START_URI = 'hbot/$instance_id/start'
@@ -50,10 +52,12 @@ class RemoteIfaceMQTTTests(TestCase):
         cls.HISTORY_URI = 'hbot/$instance_id/history'
         cls.BALANCE_LIMIT_URI = 'hbot/$instance_id/balance/limit'
         cls.BALANCE_PAPER_URI = 'hbot/$instance_id/balance/paper'
+        cls.COMMAND_SHORTCUT_URI = 'hbot/$instance_id/command_shortcuts'
         cls.fake_mqtt_broker = FakeMQTTBroker()
 
     @classmethod
     def tearDownClass(cls) -> None:
+        cls.client_config_map.instance_id = cls.prev_instance_id
         super().tearDownClass()
 
     def setUp(self) -> None:
@@ -86,17 +90,8 @@ class RemoteIfaceMQTTTests(TestCase):
         self.resume_test_event.set()
         raise RuntimeError(self.fake_err_msg)
 
-    def is_msg_received(self, topic, content=None, msg_key = 'msg'):
-        msg_found = False
-        if topic in self.fake_mqtt_broker.received_msgs:
-            if not content:
-                msg_found = True
-            else:
-                for msg in self.fake_mqtt_broker.received_msgs[topic]:
-                    if content == msg[msg_key]:
-                        msg_found = True
-                        break
-        return msg_found
+    def is_msg_received(self, *args, **kwargs):
+        return self.fake_mqtt_broker.is_msg_received(*args, **kwargs)
 
     async def wait_for_rcv(self, topic, content=None, msg_key = 'msg'):
         try:
@@ -316,6 +311,46 @@ class RemoteIfaceMQTTTests(TestCase):
 
         topic = f"test_reply/hbot/{self.instance_id}/balance/paper"
         msg = {'status': 400, 'msg': self.fake_err_msg, 'data': ''}
+        self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_command_command_shortcuts(self,
+                                            mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+
+        topic = self.get_topic_for(self.COMMAND_SHORTCUT_URI)
+        shortcut_data = {"params": [["spreads", "4", "4"]]}
+
+        self.fake_mqtt_broker.publish_to_subscription(topic, shortcut_data)
+        notify_topic = f"hbot/{self.instance_id}/notify"
+        notify_msgs = [
+            "  >>> config bid_spread 4",
+            "  >>> config ask_spread 4",
+            "Invalid key, please choose from the list.",
+        ]
+        reply_topic = f"test_reply/hbot/{self.instance_id}/command_shortcuts"
+        reply_data = {'success': [True], 'status': 200, 'msg': ''}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(reply_topic, reply_data, msg_key='data'))
+        for notify_msg in notify_msgs:
+            self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
+
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication._handle_shortcut")
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_command_command_shortcuts_failure(self,
+                                                    mock_mqtt,
+                                                    command_shortcuts_mock: MagicMock):
+        command_shortcuts_mock.side_effect = self._create_exception_and_unlock_test_with_event
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+
+        topic = self.get_topic_for(self.COMMAND_SHORTCUT_URI)
+        shortcut_data = {"params": [["spreads", "4", "4"]]}
+
+        self.fake_mqtt_broker.publish_to_subscription(topic, shortcut_data)
+
+        self.async_run_with_timeout(self.resume_test_event.wait())
+
+        topic = f"test_reply/hbot/{self.instance_id}/command_shortcuts"
+        msg = {'success': [], 'status': 400, 'msg': self.fake_err_msg}
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
@@ -686,3 +721,13 @@ class RemoteIfaceMQTTTests(TestCase):
         s = self.gateway.create_subscriber(topic='TEST', on_message=lambda x: {})
         s.run()
         self.assertTrue(self.gateway.check_health())
+        s._transport._connected = False
+        self.assertFalse(self.gateway.check_health())
+        prev_pub = self.gateway._publishers
+        prev__sub = self.gateway._subscribers
+        self.gateway._publishers = []
+        self.gateway._subscribers = []
+        self.gateway._rpc_services[0]._transport._connected = False
+        self.assertFalse(self.gateway.check_health())
+        self.gateway._publishers = prev_pub
+        self.gateway._subscribers = prev__sub
