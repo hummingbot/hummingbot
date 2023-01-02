@@ -154,25 +154,9 @@ class GatewaySOLCLOB(ConnectorBase):
     def connector_name(self):
         return self._connector_name
 
-    async def all_trading_pairs(self, chain: str, network: str) -> List[str]:
+    async def all_trading_pairs(self) -> List[str]:
         # Since the solana tokens trading pairs would be too much, we are returning an empty list here.
         return []
-
-        # """
-        # Calls the token's endpoint on the Gateway.
-        # """
-        # try:
-        #     tokens = await self._get_gateway_instance().get_tokens(chain, network)
-        #     token_symbols = [token["symbol"] for token in tokens["tokens"]]
-        #     trading_pairs = []
-        #     for base, quote in it.permutations(token_symbols, 2):
-        #         trading_pairs.append(f"{base}-{quote}")
-        #
-        #     return trading_pairs
-        # except (Exception,):
-        #     GatewaySOLCLOB.logger().warning(f"""No trading pairs found for {chain}/{network}.""")
-        #
-        #     return []
 
     @staticmethod
     def is_order(in_flight_order: CLOBInFlightOrder) -> bool:
