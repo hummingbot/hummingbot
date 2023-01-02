@@ -27,6 +27,7 @@ from hummingbot.remote_iface.messages import (
     MQTT_STATUS_CODE,
     BalanceLimitCommandMessage,
     BalancePaperCommandMessage,
+    CommandShortcutMessage,
     ConfigCommandMessage,
     EventMessage,
     HistoryCommandMessage,
@@ -50,6 +51,7 @@ class MQTTCommands:
     HISTORY_URI = '/$instance_id/history'
     BALANCE_LIMIT_URI = '/$instance_id/balance/limit'
     BALANCE_PAPER_URI = '/$instance_id/balance/paper'
+    COMMAND_SHORTCUT_URI = '/$instance_id/command_shortcuts'
 
     def __init__(self,
                  hb_app: "HummingbotApplication",
@@ -77,6 +79,8 @@ class MQTTCommands:
         self.BALANCE_PAPER_URI = self.BALANCE_PAPER_URI.replace(
             '$instance_id', hb_app.instance_id)
         self.BALANCE_PAPER_URI = f'{self._mqtt_node.namespace}{self.BALANCE_PAPER_URI}'
+        self.COMMAND_SHORTCUT_URI = self.COMMAND_SHORTCUT_URI.replace('$instance_id', hb_app.instance_id)
+        self.COMMAND_SHORTCUT_URI = f'{self._mqtt_node.namespace}{self.COMMAND_SHORTCUT_URI}'
         self._init_commands()
 
     def _init_commands(self):
@@ -119,6 +123,11 @@ class MQTTCommands:
             rpc_name=self.BALANCE_PAPER_URI,
             msg_type=BalancePaperCommandMessage,
             on_request=self._on_cmd_balance_paper
+        )
+        self._mqtt_node.create_rpc(
+            rpc_name=self.COMMAND_SHORTCUT_URI,
+            msg_type=CommandShortcutMessage,
+            on_request=self._on_cmd_command_shortcut
         )
 
     def _on_cmd_start(self, msg: StartCommandMessage.Request):
@@ -217,6 +226,16 @@ class MQTTCommands:
                 [msg.asset, msg.amount]
             )
             response.data = data
+        except Exception as e:
+            response.status = MQTT_STATUS_CODE.ERROR
+            response.msg = str(e)
+        return response
+
+    def _on_cmd_command_shortcut(self, msg: CommandShortcutMessage.Request):
+        response = CommandShortcutMessage.Response()
+        try:
+            for param in msg.params:
+                response.success.append(self._hb_app._handle_shortcut(param))
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
             response.msg = str(e)
