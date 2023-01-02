@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict
 
 import ujson
@@ -41,6 +42,18 @@ class FakeMQTTBroker:
     def received_msgs(self):
         return self._transport._received_msgs
 
+    def is_msg_received(self, topic, content=None, msg_key = 'msg'):
+        msg_found = False
+        if topic in self.received_msgs:
+            if not content:
+                msg_found = True
+            else:
+                for msg in self.received_msgs[topic]:
+                    if content == msg[msg_key]:
+                        msg_found = True
+                        break
+        return msg_found
+
 
 class FakeMQTTTransport:
 
@@ -63,7 +76,7 @@ class FakeMQTTTransport:
     #     pass
 
     def publish(self, topic: str, payload: Dict[str, Any], qos: Any, retain: bool = False):
-        print(f"\nFakeMQTT publish on\n> {topic}\n     {payload}\n")
+        logging.info(f"\nFakeMQTT publish on\n> {topic}\n     {payload}\n")
         if not self._received_msgs.get(topic):
             self._received_msgs[topic] = []
         self._received_msgs[topic].append(payload)
