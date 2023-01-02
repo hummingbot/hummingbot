@@ -87,6 +87,7 @@ class HedgeStrategy(StrategyPyBase):
         self._last_hedge_check_timestamp = 0
         self._all_markets_ready = False
         self._max_order_age = max_order_age
+        self._status_messages = []
         if config_map.value_mode:
             self.hedge = self.hedge_by_value
             self._hedge_market_pair = hedge_market_pairs[0]
@@ -257,6 +258,12 @@ class HedgeStrategy(StrategyPyBase):
             if self._last_timestamp == 0:
                 return ["  Last checked: Not started."]
             return [f"  Last checked {self.current_timestamp - self._last_hedge_check_timestamp} seconds ago."]
+
+        def get_status_messages() -> List[str]:
+            if self._status_messages:
+                return ["", "  Status Messages:"] + ["    " + line for line in self._status_messages]
+            return []
+
         lines = (
             get_wallet_status_str()
             + get_asset_status_str()
@@ -265,6 +272,7 @@ class HedgeStrategy(StrategyPyBase):
             + get_value_mode_status_str(self._value_mode)
             + get_amount_mode_status_str(self._value_mode)
             + get_last_checked_seconds_str()
+            + get_status_messages()
         )
         warning_lines = self.network_warning(self._all_markets)
         return "\n".join(lines) + "\n" + "\n".join(warning_lines)
@@ -327,6 +335,7 @@ class HedgeStrategy(StrategyPyBase):
             self.logger().info("Active orders present.")
             return
         self.logger().debug("Checking hedge conditions...")
+        self._status_messages = []
         self._last_hedge_check_timestamp = timestamp
         self.hedge()
 
@@ -427,6 +436,7 @@ class HedgeStrategy(StrategyPyBase):
         price, amount = self.calculate_hedge_price_and_amount(is_buy, value_to_hedge)
         if amount == Decimal("0"):
             self.logger().debug("No hedge required.")
+            self._status_messages.append("No hedge required.")
             return
         self.logger().info(
             f"Hedging by value. Hedge direction: {'buy' if is_buy else 'sell'}. "
@@ -435,6 +445,7 @@ class HedgeStrategy(StrategyPyBase):
         order_candidates = self.get_order_candidates(self._hedge_market_pair, is_buy, amount, price)
         if not order_candidates:
             self.logger().info("No order candidates.")
+            self._status_messages.append("No order candidates.")
             return
         self.place_orders(self._hedge_market_pair, order_candidates)
 
@@ -462,14 +473,18 @@ class HedgeStrategy(StrategyPyBase):
             is_buy, amount_to_hedge = self.get_hedge_direction_and_amount_by_asset(hedge_market, market_list)
             asset = hedge_market.trading_pair.split("-")[0]
             self.logger().debug("Hedge by amount for %s: %s", asset, amount_to_hedge)
+            self._status_messages.append(f"Hedge by amount for {asset}: {amount_to_hedge}")
             if amount_to_hedge == 0:
                 self.logger().debug("No hedge required for %s.", asset)
+                self._status_messages.append(f"No hedge required for {asset}.")
                 continue
             price = hedge_market.get_vwap_for_volume(is_buy, amount_to_hedge).result_price * self.get_slippage_ratio(
                 is_buy
             )
             order_candidates = self.get_order_candidates(hedge_market, is_buy, amount_to_hedge, price)
             if not order_candidates:
+                self.logger().info("Difference in hedge_amount found but no order candidates for %s is available. “This is either due to insufficient balance to perform hedge or min trade size not reached or minimum exchange trade size not met", asset)
+                self._status_messages.append(f"No order candidates for {asset}.")
                 continue
             self.place_orders(hedge_market, order_candidates)
 
