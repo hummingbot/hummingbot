@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../services/error-handler';
 import { DefiraConfig } from './defira/defira.config';
 import { DefikingdomsConfig } from './defikingdoms/defikingdoms.config';
+import { MadMeerkatConfig } from './mad_meerkat/mad_meerkat.config';
 import { OpenoceanConfig } from './openocean/openocean.config';
 import { PangolinConfig } from './pangolin/pangolin.config';
 import { PerpConfig } from './perp/perp.config';
@@ -10,6 +11,9 @@ import { SerumConfig } from './serum/serum.config';
 import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
+import { VVSConfig } from './vvs/vvs.config';
+import { RefConfig } from './ref/ref.config';
+import { PancakeSwapConfig } from './pancakeswap/pancakeswap.config';
 
 export namespace ConnectorsRoutes {
   export const router = Router();
@@ -76,6 +80,26 @@ export namespace ConnectorsRoutes {
             name: 'serum',
             trading_type: SerumConfig.config.tradingTypes,
             available_networks: SerumConfig.config.availableNetworks,
+          },
+          {
+            name: 'mad_meerkat',
+            trading_type: MadMeerkatConfig.config.tradingTypes,
+            available_networks: MadMeerkatConfig.config.availableNetworks,
+          },
+          {
+            name: 'vvs',
+            trading_type: VVSConfig.config.tradingTypes,
+            available_networks: VVSConfig.config.availableNetworks,
+          },
+          {
+            name: 'ref',
+            trading_type: RefConfig.config.tradingTypes,
+            available_networks: RefConfig.config.availableNetworks,
+          },
+          {
+            name: 'pancakeswap',
+            trading_type: PancakeSwapConfig.config.tradingTypes,
+            available_networks: PancakeSwapConfig.config.availableNetworks,
           },
         ],
       });

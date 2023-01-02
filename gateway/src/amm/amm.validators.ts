@@ -203,7 +203,6 @@ export const validateTradeRequest: RequestValidator = mkRequestValidator([
   validateQuote,
   validateBase,
   validateAmount,
-  validateAddress,
   validateSide,
   validateLimitPrice,
   validateNonce,

@@ -3,21 +3,9 @@
     "err": null,
     "fee": 5000,
     "innerInstructions": [],
-    "postBalances": [
-      499998932500,
-      26858640,
-      1,
-      1,
-      1
-    ],
+    "postBalances": [499998932500, 26858640, 1, 1, 1],
     "postTokenBalances": [],
-    "preBalances": [
-      499998937500,
-      26858640,
-      1,
-      1,
-      1
-    ],
+    "preBalances": [499998937500, 26858640, 1, 1, 1],
     "preTokenBalances": [],
     "status": {
       "Ok": null
@@ -40,12 +28,7 @@
       },
       "instructions": [
         {
-          "accounts": [
-            1,
-            2,
-            3,
-            0
-          ],
+          "accounts": [1, 2, 3, 0],
           "data": "37u9WtQpcm6ULa3WRQHmj49EPs4if7o9f1jSRVZpm2dvihR9C8jY4NqEwXUbLwx15HBSNcP1",
           "programIdIndex": 4
         }

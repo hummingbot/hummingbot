@@ -244,7 +244,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
     @staticmethod
     @lru_cache(maxsize=10)
     def is_gateway_market(market_info: MarketTradingPairTuple) -> bool:
-        return market_info.market.name in AllConnectorSettings.get_gateway_evm_amm_connector_names()
+        return market_info.market.name in AllConnectorSettings.get_gateway_amm_connector_names()
 
     def get_conversion_rates(self, market_pair: MarketTradingPairTuple):
         quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source,\
@@ -1154,7 +1154,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             else:
                 try:
                     taker_price = taker_market.get_price_for_quote_volume(
-                        taker_trading_pair, True, size
+                        taker_trading_pair, True, taker_balance_in_quote
                     ).result_price
                 except ZeroDivisionError:
                     assert size == s_decimal_zero
@@ -1585,7 +1585,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             taker_slippage_adjustment_factor = Decimal("1") + self.slippage_buffer
 
             base_asset_amount = maker_market.get_balance(market_pair.maker.base_asset)
-            quote_asset_amount = taker_market.get_balance(market_pair.taker.quote_asset) * quote_rate
+            quote_asset_amount = taker_market.get_balance(market_pair.taker.quote_asset)
 
             if self.is_gateway_market(market_pair.taker):
                 taker_price = await taker_market.get_order_price(taker_trading_pair,
@@ -1597,11 +1597,10 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     return False
             else:
                 taker_price = taker_market.get_price_for_quote_volume(
-                    taker_trading_pair, True, size
+                    taker_trading_pair, True, quote_asset_amount
                 ).result_price
 
-            taker_price *= self.markettaker_to_maker_base_conversion_rate(market_pair)
-            adjusted_taker_price = taker_price * taker_slippage_adjustment_factor
+            adjusted_taker_price = (taker_price / base_rate) * taker_slippage_adjustment_factor
             order_size_limit = min(base_asset_amount, quote_asset_amount / adjusted_taker_price)
 
         quantized_size_limit = maker_market.quantize_order_amount(active_order.trading_pair, order_size_limit)
