@@ -183,6 +183,24 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             if not in_flight_order.is_done
         }
 
+    def position_key(self, perpetual_pair: str, side: PositionSide = None) -> str:
+        """
+        Returns a key to a position in account_positions. On OneWay position mode this is the trading pair.
+        On Hedge position mode this is a combination of trading pair and position side
+        :param perpetual_pair: The market trading pair
+        :param side: The position side (long or short)
+        :return: A key to the position in account_positions dictionary
+        """
+        if not BinancePerpetualAPIOrderBookDataSource.trading_pair_symbol_map_ready(domain=self._domain) or perpetual_pair not in BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map[self._domain]:
+            trading_pair = perpetual_pair
+        else:
+            trading_pair = BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map[self._domain][perpetual_pair]
+
+        if self._position_mode == PositionMode.ONEWAY:
+            return trading_pair
+        elif self._position_mode == PositionMode.HEDGE:
+            return f"{trading_pair}:{side.name}"
+
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
         Restore in-flight orders from saved tracking states; this is such that the connector can pick up

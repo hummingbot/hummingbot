@@ -1,0 +1,10 @@
+{
+  "address": "$BSC_ADDRESS",
+  "quote": "DAI",
+  "base": "WBNB",
+  "amount": "0.045",
+  "side": "SELL",
+  "chain": "binance-smart-chain",
+  "network": "mainnet",
+  "connector": "sushiswap"
+}
