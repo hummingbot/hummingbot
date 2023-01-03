@@ -59,6 +59,10 @@ class XEMining(ScriptStrategyBase):
         self.logger().info(f"Unrealized PnL: {unrealized_pnl}, type: {type(unrealized_pnl)}")
         self.logger().info(f"Price timestamp: {self.price_timestamp}")
         self.logger().info(f"Current timestamp: {self.current_timestamp}")
+        average_profit = self.calculate_average_profitability()
+        self.logger().info(f"Average Profitability: {average_profit}")
+        annualized_vol = self.calculate_annualized_volatility()
+        self.logger().info(f"Annualized Volatility: {annualized_vol}")
 
         if amount == 0:
             self.logger().info("Amount is 0, create new hedge position")
@@ -105,8 +109,6 @@ class XEMining(ScriptStrategyBase):
             return
 
         if self.price_timestamp <= self.current_timestamp:
-            annualized_vol = self.calculate_annualized_volatility()
-            self.logger().info(f"Annualized Volatility: {annualized_vol}")
             # adjust spread_bps based on volatility by multiplying spread_bps by volatility
             if annualized_vol > 5 and annualized_vol < 10:
                 self.spread_bps = 35
@@ -115,8 +117,6 @@ class XEMining(ScriptStrategyBase):
             else:
                 self.spread_bps = 25
 
-            average_profit = self.calculate_average_profitability()
-            self.logger().info(f"Average Profitability: {average_profit}")
             if average_profit < 0:
                 self.spread_bps += 5
             elif average_profit > 0:
@@ -433,7 +433,7 @@ class XEMining(ScriptStrategyBase):
             elif row["market"] == self.perp_exchange:
                 perp_trades.append(row)
 
-        self.logger().info("perp_trades: %s", perp_trades)
+        # self.logger().info("perp_trades: %s", perp_trades)
         trade_profits = []
 
         for i in range(0, len(maker_trades)):
