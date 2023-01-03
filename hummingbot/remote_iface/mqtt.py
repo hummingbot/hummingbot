@@ -59,7 +59,7 @@ class MQTTCommands:
         self._hb_app = hb_app
         self._mqtt_node = mqtt_node
         self.logger = self._hb_app.logger
-        self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
 
         self.START_URI = self.START_URI.replace('$instance_id', hb_app.instance_id)
         self.START_URI = f'{self._mqtt_node.namespace}{self.START_URI}'
@@ -255,15 +255,13 @@ class MQTTEventForwarder:
     def __init__(self,
                  hb_app: "HummingbotApplication",
                  mqtt_node: Node):
-
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
             raise EnvironmentError(
                 "MQTTEventForwarder can only be initialized from the main thread."
             )
-
-        self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self._hb_app = hb_app
         self._mqtt_node = mqtt_node
+        self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
         self._markets: List[ConnectorBase] = list(self._hb_app.markets.values())
 
         self.EVENT_URI = self.EVENT_URI.replace('$instance_id', self._hb_app.instance_id)
@@ -541,8 +539,13 @@ class MQTTLogHandler(logging.Handler):
                  hb_app: "HummingbotApplication",
                  mqtt_node: Node,
                  mqtt_topic: str = ''):
+        if threading.current_thread() != threading.main_thread():  # pragma: no cover
+            raise EnvironmentError(
+                "MQTTEventForwarder can only be initialized from the main thread."
+            )
         self._hb_app = hb_app
         self._mqtt_node = mqtt_node
+        self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
         if mqtt_topic in ('', None):
             self.MQTT_URI = self.MQTT_URI.replace('$instance_id',
                                                   self._hb_app.instance_id)
@@ -552,6 +555,9 @@ class MQTTLogHandler(logging.Handler):
                                                         msg_type=LogMessage)
 
     def emit(self, record: logging.LogRecord):
+        if threading.current_thread() != threading.main_thread():  # pragma: no cover
+            self._ev_loop.call_soon_threadsafe(self.emit, record)
+            return
         msg_str = self.format(record)
         msg = LogMessage(
             timestamp=time.time(),
@@ -562,4 +568,3 @@ class MQTTLogHandler(logging.Handler):
 
         )
         self.log_pub.publish(msg)
-        return msg
