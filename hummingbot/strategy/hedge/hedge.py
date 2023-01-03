@@ -91,9 +91,11 @@ class HedgeStrategy(StrategyPyBase):
         if config_map.value_mode:
             self.hedge = self.hedge_by_value
             self._hedge_market_pair = hedge_market_pairs[0]
+            self.logger().info(f"Hedge market pair: {self._hedge_market_pair}")
         else:
             self.hedge = self.hedge_by_amount
             self._market_pair_by_asset = self.get_market_pair_by_asset()
+            self.logger().info(f"Market pair by asset: {self._market_pair_by_asset}")
 
         derivative_markets = AllConnectorSettings.get_derivative_names()
         self._derivatives_list = [
@@ -113,9 +115,11 @@ class HedgeStrategy(StrategyPyBase):
         sort market pair belonging to the same market as hedge market together
         :return: market pair belonging to the same market as hedge market together
         """
+        self.logger().info(f"Market pairs: {self._market_pairs}")
         return {
             hedge_pair: [
-                market_pair for market_pair in self._market_pairs if market_pair.trading_pair == hedge_pair.trading_pair
+                market_pair for market_pair in self._market_pairs
+                if market_pair.trading_pair.split("-")[0] == hedge_pair.trading_pair.split("-")[0]
             ]
             for hedge_pair in self._hedge_market_pairs
         }
