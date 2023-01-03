@@ -380,6 +380,9 @@ class HedgeStrategy(StrategyPyBase):
         :returns: The amount of the base asset of the market pair.
         """
         if self.is_derivative(market_pair):
+            self._status_messages.append(
+                f"Market {market_pair.market.name} is a derivative market. "
+                f"Using derivative base amount calculation.")
             return self.get_derivative_base_amount(market_pair)
         return market_pair.base_balance + self._offsets[market_pair]
 
@@ -459,11 +462,20 @@ class HedgeStrategy(StrategyPyBase):
         :params market_list: The list of markets to get the amount of the base asset of.
         :returns: The direction to hedge (buy/sell) and the amount of the base asset of the market pair.
         """
-        total_amount = sum(self.get_base_amount(market_pair) for market_pair in market_list)
+        total_amount = 0
+        self._status_messages.append(f"Hedge pair: {hedge_pair}, market list: {market_list}")
+        for market_pair in market_list:
+            amount = self.get_base_amount(market_pair)
+            total_amount += self.get_base_amount(market_pair)
+            self.logger().debug("Market pair: %s amount: %s, total_amount: %s", market_pair, amount, total_amount)
+            self._status_messages.append(f"Market pair: {market_pair} amount: {amount} total_amount: {total_amount}")
+
         hedge_amount = self.get_base_amount(hedge_pair)
         net_amount = total_amount * self._hedge_ratio + hedge_amount
         is_buy = net_amount < 0
         amount_to_hedge = abs(net_amount)
+        self.logger().debug("Hedge direction: %s, amount to hedge: %s net amount: %s", is_buy, amount_to_hedge, net_amount)
+        self._status_messages.append(f"Hedge direction: {is_buy}, amount to hedge: {amount_to_hedge} net amount: {net_amount}")
         return is_buy, amount_to_hedge
 
     def hedge_by_amount(self) -> None:
