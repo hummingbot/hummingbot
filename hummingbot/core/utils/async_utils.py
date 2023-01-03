@@ -42,3 +42,8 @@ async def run_command(*args):
         stdout=asyncio.subprocess.PIPE)
     stdout, stderr = await process.communicate()
     return stdout.decode().strip()
+
+
+def call_sync(coro,
+              loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()) -> asyncio.Future:
+    return asyncio.run_coroutine_threadsafe(coro, loop)

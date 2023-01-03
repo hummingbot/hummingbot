@@ -22,6 +22,7 @@ from commlib.transports.mqtt import ConnectionParameters as MQTTConnectionParame
 from hummingbot.core.event import events
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.pubsub import PubSub
+from hummingbot.core.utils.async_utils import call_sync
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.remote_iface.messages import (
     MQTT_STATUS_CODE,
@@ -173,22 +174,45 @@ class MQTTCommands:
     def _on_cmd_import(self, msg: ImportCommandMessage.Request):
         response = ImportCommandMessage.Response()
         strategy_name = msg.strategy
-        if strategy_name is not None:
-            strategy_file_name = f'{strategy_name}.yml'
-            try:
-                self._ev_loop.run_until_complete(self._hb_app.import_config_file(strategy_file_name))
-            except Exception as e:
-                self._hb_app.notify(str(e))
-                response.status = MQTT_STATUS_CODE.ERROR
-                response.msg = str(e)
+        if strategy_name in (None, ''):
+            response.status = MQTT_STATUS_CODE.ERROR
+            response.msg = 'Empty strategy_name given!'
+            return response
+        strategy_file_name = f'{strategy_name}.yml'
+        try:
+            fut = call_sync(
+                self._hb_app.import_config_file(strategy_file_name),
+                self._ev_loop
+            )
+            res = fut.result(30)
+            exc = fut.exception()
+            if exc is not None:
+                raise exc
+            response.msg = res if res is not None else ''
+        except Exception as e:
+            self._hb_app.logger().error(e)
+            response.status = MQTT_STATUS_CODE.ERROR
+            response.msg = str(e)
         return response
 
     def _on_cmd_status(self, msg: StatusCommandMessage.Request):
         response = StatusCommandMessage.Response()
+        if self._hb_app.strategy is None:
+            response.status = MQTT_STATUS_CODE.ERROR
+            response.msg = 'No strategy is currently running!'
+            return response
         try:
-            _status = self._ev_loop.run_until_complete(self._hb_app.strategy_status()).strip()
-            response.data = _status
+            fut = call_sync(
+                self._hb_app.strategy_status(),
+                self._ev_loop
+            )
+            res = fut.result(30)
+            exc = fut.exception()
+            if exc is not None:
+                raise exc
+            response.msg = res if res is not None else ''
         except Exception as e:
+            self._hb_app.logger().error(e)
             response.status = MQTT_STATUS_CODE.ERROR
             response.msg = str(e)
         return response
@@ -295,7 +319,12 @@ class MQTTEventForwarder:
 
     def _send_mqtt_event(self, event_tag: int, pubsub: PubSub, event):
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
-            self._ev_loop.call_soon_threadsafe(self._send_mqtt_event, event_tag, pubsub, event)
+            self._ev_loop.call_soon_threadsafe(
+                self._send_mqtt_event,
+                event_tag,
+                pubsub,
+                event
+            )
             return
 
         try:
