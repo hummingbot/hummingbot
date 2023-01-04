@@ -8,6 +8,7 @@ import {
   ethers,
 } from 'ethers';
 import { EthereumBase } from './ethereum-base';
+import { CosmosBase } from './cosmos-base';
 import { Provider } from '@ethersproject/abstract-provider';
 import { CurrencyAmount, Token, Trade as TradeUniswap } from '@uniswap/sdk';
 import { Trade } from '@uniswap/router-sdk';
@@ -620,6 +621,11 @@ export interface Ethereumish extends BasicChainMethods, EthereumBase {
 export interface Nearish extends BasicChainMethods, NearBase {
   cancelTx(account: Account, nonce: number): Promise<string>;
   getContract(tokenAddress: string, account: Account): NearContract;
+}
+export interface Cosmosish extends CosmosBase {
+  gasPrice: number;
+  nativeTokenSymbol: string;
+  chain: string;
 }
 
 export interface NetworkSelectionRequest {
