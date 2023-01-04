@@ -39,7 +39,15 @@ class ImportCommand:
             self.app.to_stop_config = False
             return
         strategy_path = STRATEGIES_CONF_DIR_PATH / file_name
-        config_map = await load_strategy_config_map_from_file(strategy_path)
+        try:
+            config_map = await load_strategy_config_map_from_file(strategy_path)
+        except Exception as e:
+            self.notify(f'Strategy import error: {str(e)}')
+            # Reset prompt settings
+            self.placeholder_mode = False
+            self.app.hide_input = False
+            self.app.change_prompt(prompt=">>> ")
+            raise
         self.strategy_file_name = file_name
         self.strategy_name = (
             config_map.strategy
