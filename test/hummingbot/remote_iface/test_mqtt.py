@@ -108,11 +108,6 @@ class RemoteIfaceMQTTTests(TestCase):
         mock_mqtt.side_effect = self.fake_mqtt_broker.create_transport
         self.gateway.start()
 
-    def hb_status_notify(self, *args, **kwargs):
-        msg = "FAKE STATUS MOCK"
-        self.hbapp.notify(msg)
-        return msg
-
     def get_topic_for(self,
                       topic):
         return topic.replace('$instance_id', self.hbapp.instance_id)
@@ -471,10 +466,8 @@ class RemoteIfaceMQTTTests(TestCase):
                                   load_strategy_config_map_from_file=load_strategy_config_map_from_file,
                                   invalid_strategy=False)
 
-        self.async_run_with_timeout(self.resume_test_event.wait())
-
         topic = f"test_reply/hbot/{self.instance_id}/import"
-        msg = {'status': 400, 'msg': self.fake_err_msg}
+        msg = {'status': 400, 'msg': ''}
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
@@ -509,11 +502,7 @@ class RemoteIfaceMQTTTests(TestCase):
                                         start_mock: MagicMock):
         start_mock.side_effect = self._create_exception_and_unlock_test_with_event
         self.start_mqtt(mock_mqtt=mock_mqtt)
-
         self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.START_URI), {})
-
-        self.async_run_with_timeout(self.resume_test_event.wait())
-
         topic = f"test_reply/hbot/{self.instance_id}/start"
         msg = {'status': 400, 'msg': self.fake_err_msg}
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
@@ -522,21 +511,13 @@ class RemoteIfaceMQTTTests(TestCase):
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_command_status(self,
                                  mock_mqtt,
-                                 strategy_status_mock: AsyncMock
-                                 ):
-        strategy_status_mock.side_effect = self.hb_status_notify
-
+                                 strategy_status_mock: AsyncMock):
+        strategy_status_mock.side_effect = self._create_exception_and_unlock_test_with_event_async
         self.start_mqtt(mock_mqtt=mock_mqtt)
-
-        topic = self.get_topic_for(self.STATUS_URI)
-
-        self.fake_mqtt_broker.publish_to_subscription(topic, {})
-
-        notify_topic = f"hbot/{self.instance_id}/notify"
-        self.fake_mqtt_broker.publish_to_subscription(topic, {})
-        notify_msg = "FAKE STATUS MOCK"
-        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
-        self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
+        self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.STATUS_URI), {})
+        topic = f"test_reply/hbot/{self.instance_id}/status"
+        msg = {'status': 400, 'msg': 'No strategy is currently running!', 'data': ''}
+        self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
     @patch("commlib.transports.mqtt.MQTTTransport")
@@ -545,13 +526,9 @@ class RemoteIfaceMQTTTests(TestCase):
                                          strategy_status_mock: AsyncMock):
         strategy_status_mock.side_effect = self._create_exception_and_unlock_test_with_event_async
         self.start_mqtt(mock_mqtt=mock_mqtt)
-
         self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.STATUS_URI), {})
-
-        self.async_run_with_timeout(self.resume_test_event.wait())
-
         topic = f"test_reply/hbot/{self.instance_id}/status"
-        msg = {'status': 400, 'msg': self.fake_err_msg, 'data': ''}
+        msg = {'status': 400, 'msg': 'No strategy is currently running!', 'data': ''}
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
