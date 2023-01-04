@@ -13,7 +13,7 @@ from hummingbot.client.settings import CONF_PREFIX, STRATEGIES_CONF_DIR_PATH, re
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 class ImportCommand:
