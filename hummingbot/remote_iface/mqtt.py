@@ -57,6 +57,10 @@ class MQTTCommands:
     def __init__(self,
                  hb_app: "HummingbotApplication",
                  mqtt_node: Node):
+        if threading.current_thread() != threading.main_thread():  # pragma: no cover
+            raise EnvironmentError(
+                "MQTTCommands can only be initialized from the main thread."
+            )
         self._hb_app = hb_app
         self._mqtt_node = mqtt_node
         self.logger = self._hb_app.logger
@@ -184,7 +188,7 @@ class MQTTCommands:
                 self._hb_app.import_config_file(strategy_file_name),
                 self._ev_loop
             )
-            res = fut.result(30)
+            res = fut.result(5)
             exc = fut.exception()
             if exc is not None:
                 raise exc
@@ -206,7 +210,7 @@ class MQTTCommands:
                 self._hb_app.strategy_status(),
                 self._ev_loop
             )
-            res = fut.result(30)
+            res = fut.result(5)
             exc = fut.exception()
             if exc is not None:
                 raise exc
@@ -407,6 +411,9 @@ class MQTTNotifier(NotifierBase):
                                                            msg_type=NotifyMessage)
 
     def add_msg_to_queue(self, msg: str):
+        if threading.current_thread() != threading.main_thread():  # pragma: no cover
+            self._ev_loop.call_soon_threadsafe(self.add_msg_to_queue, msg)
+            return
         self.notify_pub.publish(NotifyMessage(msg=msg))
 
     def start(self) -> None:
@@ -465,7 +472,7 @@ class MQTTGateway(Node):
 
     def start_logger(self):
         self._logh = MQTTLogHandler(self._hb_app, self)
-        self.patch_loggers()
+        # self.patch_loggers()
 
     def patch_loggers(self):
         loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
@@ -570,7 +577,7 @@ class MQTTLogHandler(logging.Handler):
                  mqtt_topic: str = ''):
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
             raise EnvironmentError(
-                "MQTTEventForwarder can only be initialized from the main thread."
+                "MQTTLogHandler can only be initialized from the main thread."
             )
         self._hb_app = hb_app
         self._mqtt_node = mqtt_node
