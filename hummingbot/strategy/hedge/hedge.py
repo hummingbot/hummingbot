@@ -490,9 +490,7 @@ class HedgeStrategy(StrategyPyBase):
                 self.logger().debug("No hedge required for %s.", asset)
                 self._status_messages.append(f"No hedge required for {asset}.")
                 continue
-            price = hedge_market.get_vwap_for_volume(is_buy, amount_to_hedge).result_price * self.get_slippage_ratio(
-                is_buy
-            )
+            price = hedge_market.get_mid_price() * self.get_slippage_ratio(is_buy)
             order_candidates = self.get_order_candidates(hedge_market, is_buy, amount_to_hedge, price)
             if not order_candidates:
                 self.logger().info("Difference in hedge_amount found but no order candidates for %s is available. “This is either due to insufficient balance to perform hedge or min trade size not reached or minimum exchange trade size not met", asset)
