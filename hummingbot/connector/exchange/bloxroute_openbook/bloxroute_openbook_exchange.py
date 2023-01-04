@@ -12,8 +12,10 @@ from hummingbot.connector.exchange.bitmart import (
     bitmart_utils,
     bitmart_web_utils as web_utils,
 )
-from hummingbot.connector.exchange.bitmart.bitmart_api_order_book_data_source import BitmartAPIOrderBookDataSource
-from hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source import BitmartAPIUserStreamDataSource
+from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_api_orderbook_data_source import (
+    BloxrouteOpenbookAPIOrderBookDataSource,
+)
+from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_api_user_stream_data_source import *
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_auth import BloxrouteOpenbookAuth
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_utils import (
     OrderTypeToBlxrOrderType,
@@ -60,7 +62,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
-                 provider: provider.Provider,
+                 rpc_provider: provider.Provider,
                  auth_header: str,
                  private_key: str,
                  trading_pairs_to_payer_address: Optional[Dict[str, str]] = None,
@@ -73,7 +75,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         :param trading_required: Whether actual trading is needed.
         """
         self._auth_header: str = auth_header
-        self._provider = provider
+        self._rpc_provider = rpc_provider
         self._private_key: str = private_key
         self._trading_required = trading_required
         self._trading_pairs_to_payer_address = trading_pairs_to_payer_address
@@ -151,7 +153,8 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
             auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        return BitmartAPIOrderBookDataSource(
+        return BloxrouteOpenbookAPIOrderBookDataSource(
+            provider=self._rpc_provider,
             trading_pairs=self._trading_pairs,
             connector=self,
             api_factory=self._web_assistants_factory)
@@ -200,11 +203,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
             trade_type=[OrderTypeToBlxrOrderType(order_type)],
             amount=amount,
             price=price,
-            open_orders_address=self.
-
-
-
-
+            open_orders_address="",
         )
         return exchange_order_id, self.current_timestamp
 
