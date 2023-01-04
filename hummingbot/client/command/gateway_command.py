@@ -75,6 +75,7 @@ class GatewayCommand(GatewayChainApiManager):
     def gateway_approve_tokens(self, connector_chain_network: Optional[str], tokens: Optional[str]):
         if connector_chain_network is not None and tokens is not None:
             safe_ensure_future(self._update_gateway_approve_tokens(connector_chain_network, tokens), loop=self.ev_loop)
+
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
 
@@ -631,8 +632,6 @@ class GatewayCommand(GatewayChainApiManager):
         Allow the user to input token addresses to approve for spending.
         """
         conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
-        address = GatewayConnectionSetting
-
         if conf is None:
             self.notify(f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
         else:
@@ -646,9 +645,8 @@ class GatewayCommand(GatewayChainApiManager):
                 wallets = []
             else:
                 wallets = matching_wallets[0]['walletAddresses']
-            await self._get_gateway_instance().approve_token(conf['chain'],conf['network'],wallets[0], tokens,conf['connector'])
+            await self._get_gateway_instance().approve_token(conf['chain'], conf['network'], wallets[0], tokens, conf['connector'])
             self.notify(f"Tokens {tokens} is approved for spending for '{conf['connector']}' for Wallets: {wallets[0]}.")
-            
 
     def _get_gateway_instance(
         self  # type: HummingbotApplication
