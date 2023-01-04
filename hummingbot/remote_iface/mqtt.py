@@ -277,7 +277,7 @@ class MQTTEventForwarder:
     def logger(cls) -> HummingbotLogger:
         global mqtts_logger
         if mqtts_logger is None:
-            mqtts_logger = HummingbotLogger("MQTTGateway")
+            mqtts_logger = HummingbotLogger(__name__)
         return mqtts_logger
 
     def __init__(self,
@@ -431,7 +431,7 @@ class MQTTGateway(Node):
     def logger(cls) -> HummingbotLogger:
         global mqtts_logger
         if mqtts_logger is None:
-            mqtts_logger = HummingbotLogger("MQTTGateway")
+            mqtts_logger = HummingbotLogger(__name__)
         return mqtts_logger
 
     def __init__(self,
@@ -441,7 +441,8 @@ class MQTTGateway(Node):
         self._event_forwarder: MQTTEventForwarder = None
         self._commands: MQTTCommands = None
         self._logh: MQTTLogHandler = None
-        self._hb_app = hb_app
+        self._hb_app: "HummingbotApplication" = hb_app
+        self._ev_loop = self._hb_app.ev_loop
         self._params = self._create_mqtt_params_from_conf()
         self.namespace = self._hb_app.client_config_map.mqtt_bridge.mqtt_namespace
         if self.namespace[-1] in ('/', '.'):
@@ -472,7 +473,7 @@ class MQTTGateway(Node):
 
     def start_logger(self):
         self._logh = MQTTLogHandler(self._hb_app, self)
-        # self.patch_loggers()
+        self.patch_loggers()
 
     def patch_loggers(self):
         loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
@@ -557,6 +558,9 @@ class MQTTGateway(Node):
         return True
 
     def start(self) -> None:
+        if threading.current_thread() != threading.main_thread():  # pragma: no cover
+            self._ev_loop.call_soon_threadsafe(self.start)
+            return
         self.start_logger()
         self.start_notifier()
         self.start_commands()
