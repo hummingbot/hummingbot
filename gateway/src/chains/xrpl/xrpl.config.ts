@@ -2,9 +2,9 @@ import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
 export interface NetworkConfig {
   name: string;
-  nodeUrl: string; // example: wss://s1.ripple.com/
+  nodeUrl: string; // example: wss://xrplcluster.com/
   tokenListType: string; // default: FILE
-  tokenListSource: string; // default: src/chains/ripple/ripple_tokens.json
+  tokenListSource: string; // default: src/chains/xrpl/xrpl_tokens.json
   nativeCurrencySymbol: string; // XRP
 }
 
@@ -18,10 +18,7 @@ export interface Config {
 }
 
 // @todo: find out which configs are required
-export function getRippleConfig(
-  chainName: string,
-  networkName: string
-): Config {
+export function getXRPLConfig(chainName: string, networkName: string): Config {
   const configManager = ConfigManagerV2.getInstance();
   return {
     network: {

@@ -1,1 +1,0 @@
-// TODO: add some ripple constants

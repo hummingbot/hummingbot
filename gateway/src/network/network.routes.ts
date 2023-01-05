@@ -3,7 +3,7 @@ import { NextFunction, Request, Response, Router } from 'express';
 import * as ethereumControllers from '../chains/ethereum/ethereum.controllers';
 import { Solanaish } from '../chains/solana/solana';
 import * as solanaControllers from '../chains/solana/solana.controllers';
-import * as rippleControllers from '../chains/ripple/ripple.controllers';
+import * as xrplControllers from '../chains/xrpl/xrpl.controllers';
 import { Ethereumish } from '../services/common-interfaces';
 import { ConfigManagerV2 } from '../services/config-manager-v2';
 import { getChain } from '../services/connection-manager';
@@ -33,16 +33,16 @@ import {
   validateSolanaBalanceRequest,
   validateSolanaPollRequest,
 } from '../chains/solana/solana.validators';
-import { Rippleish } from '../chains/ripple/ripple';
+import { XRPLish } from '../chains/xrpl/xrpl';
 import {
-  validateRippleBalanceRequest,
-  validateRipplePollRequest,
-} from '../chains/ripple/ripple.validators';
+  validateXRPLBalanceRequest,
+  validateXRPLPollRequest,
+} from '../chains/xrpl/xrpl.validators';
 import {
-  RippleBalanceResponse,
-  RipplePollRequest,
-  RipplePollResponse,
-} from '../chains/ripple/ripple.requests';
+  XRPLBalanceResponse,
+  XRPLPollRequest,
+  XRPLPollResponse,
+} from '../chains/xrpl/xrpl.requests';
 
 export const validatePollRequest: RequestValidator = mkRequestValidator([
   validateTxHash,
@@ -77,10 +77,10 @@ export namespace NetworkRoutes {
     asyncHandler(
       async (
         req: Request<{}, {}, BalanceRequest>,
-        res: Response<BalanceResponse | RippleBalanceResponse | string, {}>,
+        res: Response<BalanceResponse | XRPLBalanceResponse | string, {}>,
         _next: NextFunction
       ) => {
-        let chain: Ethereumish | Solanaish | Rippleish;
+        let chain: Ethereumish | Solanaish | XRPLish;
         switch (req.body.chain) {
           case 'solana':
             validateSolanaBalanceRequest(req.body);
@@ -97,17 +97,17 @@ export namespace NetworkRoutes {
               );
             break;
 
-          case 'ripple':
-            validateRippleBalanceRequest(req.body);
+          case 'xrpl':
+            validateXRPLBalanceRequest(req.body);
 
-            chain = await getChain<Rippleish>(req.body.chain, req.body.network);
+            chain = await getChain<XRPLish>(req.body.chain, req.body.network);
             res
               .status(200)
               .json(
-                (await rippleControllers.balances(
+                (await xrplControllers.balances(
                   chain,
                   req.body
-                )) as RippleBalanceResponse
+                )) as XRPLBalanceResponse
               );
 
             break;
@@ -133,8 +133,8 @@ export namespace NetworkRoutes {
     '/poll',
     asyncHandler(
       async (
-        req: Request<{}, {}, PollRequest | RipplePollRequest>,
-        res: Response<PollResponse | RipplePollResponse, {}>
+        req: Request<{}, {}, PollRequest | XRPLPollRequest>,
+        res: Response<PollResponse | XRPLPollResponse, {}>
       ) => {
         if (req.body.chain == 'solana') {
           validateSolanaPollRequest(req.body);
@@ -145,15 +145,15 @@ export namespace NetworkRoutes {
           );
 
           res.status(200).json(await solanaControllers.poll(chain, req.body));
-        } else if (req.body.chain == 'ripple') {
-          validateRipplePollRequest(req.body);
+        } else if (req.body.chain == 'xrpl') {
+          validateXRPLPollRequest(req.body);
 
-          const chain = await getChain<Rippleish>(
+          const chain = await getChain<XRPLish>(
             req.body.chain,
             req.body.network
           );
 
-          res.status(200).json(await rippleControllers.poll(chain, req.body));
+          res.status(200).json(await xrplControllers.poll(chain, req.body));
         } else {
           validatePollRequest(req.body);
 

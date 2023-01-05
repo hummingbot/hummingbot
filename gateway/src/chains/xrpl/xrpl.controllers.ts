@@ -1,5 +1,5 @@
 import { Wallet, TxResponse } from 'xrpl';
-import { Rippleish } from './ripple';
+import { XRPLish } from './xrpl';
 import { latency } from '../../services/base';
 import {
   HttpException,
@@ -9,21 +9,21 @@ import {
 import { getNotNullOrThrowError } from '../../connectors/serum/serum.helpers';
 
 import {
-  RippleBalanceRequest,
-  RippleBalanceResponse,
-  RipplePollRequest,
-  RipplePollResponse,
-} from './ripple.requests';
+  XRPLBalanceRequest,
+  XRPLBalanceResponse,
+  XRPLPollRequest,
+  XRPLPollResponse,
+} from './xrpl.requests';
 
 export async function balances(
-  rippleish: Rippleish,
-  req: RippleBalanceRequest
-): Promise<RippleBalanceResponse> {
+  xrplish: XRPLish,
+  req: XRPLBalanceRequest
+): Promise<XRPLBalanceResponse> {
   const initTime = Date.now();
   let wallet: Wallet;
 
   try {
-    wallet = await rippleish.getWallet(req.address);
+    wallet = await xrplish.getWallet(req.address);
   } catch (err) {
     throw new HttpException(
       500,
@@ -32,10 +32,10 @@ export async function balances(
     );
   }
 
-  const balances = await rippleish.getAllBalance(wallet);
+  const balances = await xrplish.getAllBalance(wallet);
 
   return {
-    network: rippleish.network,
+    network: xrplish.network,
     timestamp: initTime,
     latency: latency(initTime, Date.now()),
     balances,
@@ -43,18 +43,18 @@ export async function balances(
 }
 
 export async function poll(
-  rippleish: Rippleish,
-  req: RipplePollRequest
-): Promise<RipplePollResponse> {
+  xrplish: XRPLish,
+  req: XRPLPollRequest
+): Promise<XRPLPollResponse> {
   const initTime = Date.now();
-  const currentLedgerIndex = await rippleish.getCurrentLedgerIndex();
+  const currentLedgerIndex = await xrplish.getCurrentLedgerIndex();
   const txData = getNotNullOrThrowError<TxResponse>(
-    await rippleish.getTransaction(req.txHash)
+    await xrplish.getTransaction(req.txHash)
   );
-  const txStatus = await rippleish.getTransactionStatusCode(txData);
+  const txStatus = await xrplish.getTransactionStatusCode(txData);
 
   return {
-    network: rippleish.network,
+    network: xrplish.network,
     timestamp: initTime,
     currentLedgerIndex: currentLedgerIndex,
     txHash: req.txHash,

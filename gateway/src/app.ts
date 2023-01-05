@@ -32,9 +32,9 @@ import { SerumRoutes } from './connectors/serum/serum.routes';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
 import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.config';
 import { SerumConfig } from './connectors/serum/serum.config';
-import { RippleDEXConfig } from './connectors/rippledex/rippledex.config';
-import { RippleDEXRoutes } from './connectors/rippledex/rippledex.routes';
-import { RippleRoutes } from './chains/ripple/ripple.routes';
+import { XRPLDEXConfig } from './connectors/xrpldex/xrpldex.config';
+import { XRPLDEXRoutes } from './connectors/xrpldex/xrpldex.routes';
+import { XRPLRoutes } from './chains/xrpl/xrpl.routes';
 import { PancakeSwapConfig } from './connectors/pancakeswap/pancakeswap.config';
 
 import swaggerUi from 'swagger-ui-express';
@@ -73,8 +73,8 @@ gatewayApp.use('/clob', ClobRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
 gatewayApp.use('/serum', SerumRoutes.router);
-gatewayApp.use('/rippledex', RippleDEXRoutes.router);
-gatewayApp.use('/ripple', RippleRoutes.router);
+gatewayApp.use('/xrpldex', XRPLDEXRoutes.router);
+gatewayApp.use('/xrpl', XRPLRoutes.router);
 gatewayApp.use('/near', NearRoutes.router);
 
 // a simple route to test that the server is running
@@ -98,7 +98,7 @@ gatewayApp.get(
       traderjoe: TraderjoeConfig.config.availableNetworks,
       defikingdoms: DefikingdomsConfig.config.availableNetworks,
       serum: SerumConfig.config.availableNetworks,
-      rippledex: RippleDEXConfig.config.availableNetworks,
+      xrpldex: XRPLDEXConfig.config.availableNetworks,
       mad_meerkat: MadMeerkatConfig.config.availableNetworks,
       vvs: VVSConfig.config.availableNetworks,
       pancakeswap: PancakeSwapConfig.config.availableNetworks,

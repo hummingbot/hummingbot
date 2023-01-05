@@ -6,7 +6,7 @@ import { Ethereum } from '../../chains/ethereum/ethereum';
 import { Polygon } from '../../chains/polygon/polygon';
 import { Solana } from '../../chains/solana/solana';
 import { Harmony } from '../../chains/harmony/harmony';
-import { Ripple } from '../../chains/ripple/ripple';
+import { XRPL } from '../../chains/xrpl/xrpl';
 
 import {
   AddWalletRequest,
@@ -44,7 +44,7 @@ export async function addWallet(
   if (!passphrase) {
     throw new Error('There is no passphrase');
   }
-  let connection: EthereumBase | Solana | Near | Ripple;
+  let connection: EthereumBase | Solana | Near | XRPL;
   let address: string | undefined;
   let encryptedPrivateKey: string | undefined;
 
@@ -54,8 +54,8 @@ export async function addWallet(
     connection = Avalanche.getInstance(req.network);
   } else if (req.chain === 'harmony') {
     connection = Harmony.getInstance(req.network);
-  } else if (req.chain === 'ripple') {
-    connection = Ripple.getInstance(req.network);
+  } else if (req.chain === 'xrpl') {
+    connection = XRPL.getInstance(req.network);
   } else if (req.chain === 'cronos') {
     connection = Cronos.getInstance(req.network);
   } else if (req.chain === 'solana') {
@@ -99,7 +99,7 @@ export async function addWallet(
         req.privateKey,
         passphrase
       );
-    } else if (connection instanceof Ripple) {
+    } else if (connection instanceof XRPL) {
       address = connection.getWalletFromSeed(req.privateKey).classicAddress;
       encryptedPrivateKey = await connection.encrypt(
         req.privateKey,

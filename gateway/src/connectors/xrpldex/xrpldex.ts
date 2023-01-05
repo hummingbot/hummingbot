@@ -1,9 +1,4 @@
-// import { RippleDEXConfig } from './rippledex.config';
-// import {
-//   Config as RippleConfig,
-//   getRippleConfig,
-// } from '../../chains/ripple/ripple.config';
-import { Ripple } from '../../chains/ripple/ripple';
+import { XRPL } from '../../chains/xrpl/xrpl';
 import {
   Client,
   OfferCancel,
@@ -32,29 +27,25 @@ import {
   OrderSide,
   GetOrdersResponse,
   GetOrderRequest,
-} from './rippledex.types';
+} from './xrpldex.types';
 import { promiseAllInBatches } from '../serum/serum.helpers';
 import { isIssuedCurrency } from 'xrpl/dist/npm/models/transactions/common';
 
-export type RippleDEXish = RippleDEX;
+export type XRPLDEXish = XRPLDEX;
 
-export class RippleDEX {
-  private static _instances: { [name: string]: RippleDEX };
-  // private initializing: boolean = false;
-
-  // private readonly config: RippleDEXConfig.Config;
-  // private readonly rippleConfig: RippleConfig;
+export class XRPLDEX {
+  private static _instances: { [name: string]: XRPLDEX };
   private readonly _client: Client;
-  private readonly _ripple: Ripple;
-  // private ripple!: Ripple;
+  private readonly _xrpl: XRPL;
   private _ready: boolean = false;
 
+  initializing: boolean = false;
   chain: string;
   network: string;
-  readonly connector: string = 'rippleDEX';
+  readonly connector: string = 'xrplDEX';
 
   /**
-   * Creates a new instance of Serum.
+   * Creates a new instance of xrplDEX.
    *
    * @param chain
    * @param network
@@ -64,27 +55,40 @@ export class RippleDEX {
     this.chain = chain;
     this.network = network;
 
-    // this.config = RippleDEXConfig.config;
-    // this._rippleConfig = getRippleConfig(chain, network);
+    this._xrpl = XRPL.getInstance(network);
+    this._client = this._xrpl.client;
+  }
 
-    this._ripple = Ripple.getInstance(network);
+  /**
+   * Initialize the xrplDEX instance.
+   *
+   */
+  async init() {
+    if (!this._ready && !this.initializing) {
+      this.initializing = true;
 
-    this._client = this._ripple.client;
+      if (!this._xrpl.ready()) {
+        await this._xrpl.init();
+      }
 
-    if (!this._client.isConnected()) {
-      this._client.connect();
+      if (!this._client.isConnected()) {
+        await this._client.connect();
+      }
+
+      this._ready = true;
+      this.initializing = false;
     }
   }
 
-  public static getInstance(chain: string, network: string): RippleDEX {
-    if (RippleDEX._instances === undefined) {
-      RippleDEX._instances = {};
+  public static getInstance(chain: string, network: string): XRPLDEX {
+    if (XRPLDEX._instances === undefined) {
+      XRPLDEX._instances = {};
     }
-    if (!(network in RippleDEX._instances)) {
-      RippleDEX._instances[network] = new RippleDEX(chain, network);
+    if (!(network in XRPLDEX._instances)) {
+      XRPLDEX._instances[network] = new XRPLDEX(chain, network);
     }
 
-    return RippleDEX._instances[network];
+    return XRPLDEX._instances[network];
   }
 
   /**
@@ -435,8 +439,8 @@ export class RippleDEX {
 
     const market = await this.getMarket(order.marketName);
 
-    const ripple = Ripple.getInstance(this.network);
-    const wallet = await ripple.getWallet(order.walletAddress);
+    const xrpl = XRPL.getInstance(this.network);
+    const wallet = await xrpl.getWallet(order.walletAddress);
     const total = order.price * order.amount;
     let fee = 0;
 
@@ -612,8 +616,8 @@ export class RippleDEX {
   }
 
   async cancelOrder(order: CancelOrderRequest): Promise<CancelOrderResponse> {
-    const ripple = Ripple.getInstance(this.network);
-    const wallet = await ripple.getWallet(order.walletAddress);
+    const xrpl = XRPL.getInstance(this.network);
+    const wallet = await xrpl.getWallet(order.walletAddress);
     const request: OfferCancel = {
       TransactionType: 'OfferCancel',
       Account: wallet.classicAddress,

@@ -1,4 +1,4 @@
-import { TrustlineInfo } from '../chains/ripple/ripple';
+import { TrustlineInfo } from '../chains/xrpl/xrpl';
 import {
   CustomTransactionReceipt,
   CustomTransactionResponse,

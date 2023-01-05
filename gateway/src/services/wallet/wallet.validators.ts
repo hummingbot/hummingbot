@@ -8,9 +8,9 @@ import {
 } from '../validators';
 import bs58 from 'bs58';
 import {
-  invalidRipplePrivateKeyError,
-  isRippleSeedKey,
-} from '../../chains/ripple/ripple.validators';
+  invalidXRPLPrivateKeyError,
+  isXRPLSeedKey,
+} from '../../chains/xrpl/xrpl.validators';
 
 export const invalidEthPrivateKeyError: string =
   'The privateKey param is not a valid Ethereum private key (64 hexadecimal characters).';
@@ -82,10 +82,10 @@ export const validatePrivateKey: Validator = mkSelectingValidator(
       invalidEthPrivateKeyError,
       (val) => typeof val === 'string' && isEthPrivateKey(val)
     ),
-    ripple: mkValidator(
+    xrpl: mkValidator(
       'privateKey',
-      invalidRipplePrivateKeyError,
-      (val) => typeof val === 'string' && isRippleSeedKey(val)
+      invalidXRPLPrivateKeyError,
+      (val) => typeof val === 'string' && isXRPLSeedKey(val)
     ),
   }
 );
@@ -109,7 +109,7 @@ export const validateChain: Validator = mkValidator(
       val === 'solana' ||
       val == 'near' ||
       val === 'harmony' ||
-      val === 'ripple' ||
+      val === 'xrpl' ||
       val === 'cronos' ||
       val === 'binance-smart-chain')
 );

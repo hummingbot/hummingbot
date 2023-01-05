@@ -5,7 +5,7 @@ import { BinanceSmartChain } from '../chains/binance-smart-chain/binance-smart-c
 import { Harmony } from '../chains/harmony/harmony';
 import { Solana, Solanaish } from '../chains/solana/solana';
 import { Polygon } from '../chains/polygon/polygon';
-import { Ripple, Rippleish } from '../chains/ripple/ripple';
+import { XRPL, XRPLish } from '../chains/xrpl/xrpl';
 import { MadMeerkat } from '../connectors/mad_meerkat/mad_meerkat';
 import { Openocean } from '../connectors/openocean/openocean';
 import { Pangolin } from '../connectors/pangolin/pangolin';
@@ -13,6 +13,7 @@ import { Perp } from '../connectors/perp/perp';
 import { Quickswap } from '../connectors/quickswap/quickswap';
 import { PancakeSwap } from '../connectors/pancakeswap/pancakeswap';
 import { Serum } from '../connectors/serum/serum';
+import { XRPLDEX } from '../connectors/xrpldex/xrpldex';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { VVSConnector } from '../connectors/vvs/vvs';
@@ -29,17 +30,18 @@ import { Sushiswap } from '../connectors/sushiswap/sushiswap';
 import { Defikingdoms } from '../connectors/defikingdoms/defikingdoms';
 import { Defira } from '../connectors/defira/defira';
 import { Serumish } from '../connectors/serum/serum';
+import { XRPLDEXish } from '../connectors/xrpldex/xrpldex';
 import { Near } from '../chains/near/near';
 import { Ref } from '../connectors/ref/ref';
 
-export type ChainUnion = Ethereumish | Solanaish | Nearish | Rippleish;
+export type ChainUnion = Ethereumish | Solanaish | Nearish | XRPLish;
 
 export type Chain<T> = T extends Ethereumish
   ? Ethereumish
   : T extends Solanaish
   ? Solanaish
-  : T extends Rippleish
-  ? Rippleish
+  : T extends XRPLish
+  ? XRPLish
   : T extends Nearish
   ? Nearish
   : never;
@@ -58,7 +60,7 @@ export async function getChain<T>(
   else if (chain === 'near') chainInstance = Near.getInstance(network);
   else if (chain === 'solana')
     chainInstance = await Solana.getInstance(network);
-  else if (chain === 'ripple') chainInstance = Ripple.getInstance(network);
+  else if (chain === 'xrpl') chainInstance = XRPL.getInstance(network);
   else if (chain === 'binance-smart-chain')
     chainInstance = BinanceSmartChain.getInstance(network);
   else if (chain === 'cronos') chainInstance = Cronos.getInstance(network);
@@ -76,6 +78,7 @@ type ConnectorUnion =
   | UniswapLPish
   | Perpish
   | Serumish
+  | XRPLDEXish
   | RefAMMish;
 
 export type Connector<T> = T extends Uniswapish
@@ -86,6 +89,8 @@ export type Connector<T> = T extends Uniswapish
   ? Perpish
   : T extends Serumish
   ? Serumish
+  : T extends XRPLDEXish
+  ? XRPLDEXish
   : T extends RefAMMish
   ? RefAMMish
   : never;
@@ -124,6 +129,8 @@ export async function getConnector<T>(
     connectorInstance = Defira.getInstance(chain, network);
   } else if (chain === 'solana' && connector === 'serum') {
     connectorInstance = await Serum.getInstance(chain, network);
+  } else if (chain === 'xrpl' && connector === 'xrplDEX') {
+    connectorInstance = XRPLDEX.getInstance(chain, network);
   } else if (chain === 'cronos' && connector === 'mad_meerkat') {
     connectorInstance = MadMeerkat.getInstance(chain, network);
   } else if (chain === 'cronos' && connector === 'vvs') {
@@ -136,7 +143,7 @@ export async function getConnector<T>(
     connectorInstance = Sushiswap.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
-  } // TODO: Add Ripple DEX connector
+  }
 
   if (!connectorInstance.ready()) {
     await connectorInstance.init();

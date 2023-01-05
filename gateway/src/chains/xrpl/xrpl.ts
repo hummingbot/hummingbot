@@ -16,9 +16,9 @@ import crypto from 'crypto';
 import fse from 'fs-extra';
 import { TokenListType, walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
-import { getRippleConfig } from './ripple.config';
+import { getXRPLConfig } from './xrpl.config';
 import { logger } from '../../services/logger';
-import { TransactionResponseStatusCode } from './ripple.requests';
+import { TransactionResponseStatusCode } from './xrpl.requests';
 
 export type TrustlineInfo = {
   id: number;
@@ -35,8 +35,8 @@ export type TokenBalance = {
   value: string;
 };
 
-export class Ripple implements Rippleish {
-  private static _instances: { [name: string]: Ripple };
+export class XRPL implements XRPLish {
+  private static _instances: { [name: string]: XRPL };
   public rpcUrl;
 
   protected tokenList: TrustlineInfo[] = [];
@@ -55,9 +55,9 @@ export class Ripple implements Rippleish {
   private initializing: boolean = false;
 
   private constructor(network: string) {
-    const config = getRippleConfig('ripple', network);
+    const config = getXRPLConfig('xrpl', network);
 
-    this._chain = 'ripple';
+    this._chain = 'xrpl';
     this._network = network;
     this.rpcUrl = config.network.nodeUrl;
     this._nativeTokenSymbol = config.network.nativeCurrencySymbol;
@@ -71,7 +71,7 @@ export class Ripple implements Rippleish {
       maxFeeXRP: config.maxFeeXRP,
     });
 
-    this._client.connect();
+    // this._client.connect();
 
     this._requestCount = 0;
     this._metricsLogInterval = 300000; // 5 minutes
@@ -80,19 +80,19 @@ export class Ripple implements Rippleish {
     setInterval(this.metricLogger.bind(this), this.metricsLogInterval);
   }
 
-  public static getInstance(network: string): Ripple {
-    if (Ripple._instances === undefined) {
-      Ripple._instances = {};
+  public static getInstance(network: string): XRPL {
+    if (XRPL._instances === undefined) {
+      XRPL._instances = {};
     }
-    if (!(network in Ripple._instances)) {
-      Ripple._instances[network] = new Ripple(network);
+    if (!(network in XRPL._instances)) {
+      XRPL._instances[network] = new XRPL(network);
     }
 
-    return Ripple._instances[network];
+    return XRPL._instances[network];
   }
 
-  public static getConnectedInstances(): { [name: string]: Ripple } {
-    return Ripple._instances;
+  public static getConnectedInstances(): { [name: string]: XRPL } {
+    return XRPL._instances;
   }
 
   public get client() {
@@ -140,6 +140,7 @@ export class Ripple implements Rippleish {
   async init(): Promise<void> {
     if (!this.ready() && !this.initializing) {
       this.initializing = true;
+      await this._client.connect();
       await this.loadTokens(this._tokenListSource, this._tokenListType);
       this._ready = true;
       this.initializing = false;
@@ -312,7 +313,6 @@ export class Ripple implements Rippleish {
     return this._metricsLogInterval;
   }
 
-  // returns the current block number
   public async getCurrentLedgerIndex(): Promise<number> {
     await this.ensureConnection();
     const currentIndex = await this.client.getLedgerIndex();
@@ -359,11 +359,11 @@ export class Ripple implements Rippleish {
   }
 
   async close() {
-    if (this._network in Ripple._instances) {
-      delete Ripple._instances[this._network];
+    if (this._network in XRPL._instances) {
+      delete XRPL._instances[this._network];
     }
   }
 }
 
-export type Rippleish = Ripple;
-export const Rippleish = Ripple;
+export type XRPLish = XRPL;
+export const XRPLish = XRPL;

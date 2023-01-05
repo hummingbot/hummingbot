@@ -10,7 +10,7 @@ import { BinanceSmartChain } from '../chains/binance-smart-chain/binance-smart-c
 import { Ethereum } from '../chains/ethereum/ethereum';
 import { Harmony } from '../chains/harmony/harmony';
 import { Polygon } from '../chains/polygon/polygon';
-import { Ripple, TrustlineInfo } from '../chains/ripple/ripple';
+import { XRPL, TrustlineInfo } from '../chains/xrpl/xrpl';
 import { TokenInfo } from '../services/ethereum-base';
 import {
   HttpException,
@@ -46,8 +46,8 @@ export async function getStatus(
       connections.push(Polygon.getInstance(req.network as string));
     } else if (req.chain === 'solana') {
       connections.push(await Solana.getInstance(req.network as string));
-    } else if (req.chain === 'ripple') {
-      connections.push(Ripple.getInstance(req.network as string));
+    } else if (req.chain === 'xrpl') {
+      connections.push(XRPL.getInstance(req.network as string));
     } else if (req.chain === 'near') {
       connections.push(Near.getInstance(req.network as string));
     } else if (req.chain === 'cronos') {
@@ -85,9 +85,9 @@ export async function getStatus(
       solanaConnections ? Object.values(solanaConnections) : []
     );
 
-    const rippleConnections = Ripple.getConnectedInstances();
+    const xrplConnections = XRPL.getConnectedInstances();
     connections = connections.concat(
-      rippleConnections ? Object.values(rippleConnections) : []
+      xrplConnections ? Object.values(xrplConnections) : []
     );
 
     const cronosConnections = Cronos.getConnectedInstances();
@@ -133,7 +133,7 @@ export async function getStatus(
 }
 
 export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
-  let connection: EthereumBase | Solanaish | Nearish | Ripple;
+  let connection: EthereumBase | Solanaish | Nearish | XRPL;
   let tokens: (TokenInfo | TrustlineInfo)[] = [];
 
   if (req.chain && req.network) {
@@ -149,8 +149,8 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
       connection = Polygon.getInstance(req.network);
     } else if (req.chain === 'solana') {
       connection = await Solana.getInstance(req.network);
-    } else if (req.chain === 'ripple') {
-      connection = await Ripple.getInstance(req.network);
+    } else if (req.chain === 'xrpl') {
+      connection = await XRPL.getInstance(req.network);
     } else if (req.chain === 'near') {
       connection = Near.getInstance(req.network);
     } else if (req.chain === 'cronos') {
@@ -179,7 +179,7 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
     return { tokens };
   }
 
-  if (req.chain === `ripple`) {
+  if (req.chain === `xrpl`) {
     for (const t of req.tokenSymbols as []) {
       const trustlines = connection.getTokenForSymbol(t) as TrustlineInfo[];
       for (const tl of trustlines) {

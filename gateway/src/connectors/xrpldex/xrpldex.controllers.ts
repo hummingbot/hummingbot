@@ -1,24 +1,24 @@
 import { StatusCodes } from 'http-status-codes';
-import { Rippleish } from '../../chains/ripple/ripple';
+import { XRPLish } from '../../chains/xrpl/xrpl';
 import { ResponseWrapper } from '../../services/common-interfaces';
 import { HttpException } from '../../services/error-handler';
-import { RippleDEXish } from './rippledex';
+import { XRPLDEXish } from './xrpldex';
 import {
-  RippleCancelOrdersRequest,
-  RippleCancelOrdersResponse,
-  RippleCreateOrdersRequest,
-  RippleCreateOrdersResponse,
-  RippleGetMarketsRequest,
-  RippleGetMarketsResponse,
-  RippleGetOpenOrdersRequest,
-  RippleGetOpenOrdersResponse,
-  RippleGetOrderBooksRequest,
-  RippleGetOrderBooksResponse,
-  RippleGetTickersRequest,
-  RippleGetTickersResponse,
-  RippleGetOrdersRequest,
-  RippleGetOrdersResponse,
-} from './rippledex.requests';
+  XRPLCancelOrdersRequest,
+  XRPLCancelOrdersResponse,
+  XRPLCreateOrdersRequest,
+  XRPLCreateOrdersResponse,
+  XRPLGetMarketsRequest,
+  XRPLGetMarketsResponse,
+  XRPLGetOpenOrdersRequest,
+  XRPLGetOpenOrdersResponse,
+  XRPLGetOrderBooksRequest,
+  XRPLGetOrderBooksResponse,
+  XRPLGetTickersRequest,
+  XRPLGetTickersResponse,
+  XRPLGetOrdersRequest,
+  XRPLGetOrdersResponse,
+} from './xrpldex.requests';
 
 import {
   validateGetMarketRequest,
@@ -27,29 +27,29 @@ import {
   validateGetTickersRequest,
   validateGetOrderBookRequest,
   validateGetOrderBooksRequest,
-} from './rippledex.validators';
+} from './xrpldex.validators';
 
-import { MarketNotFoundError } from './rippledex.types';
+import { MarketNotFoundError } from './xrpldex.types';
 
 /**
  * Get the mid price of a token pair
  *
- * @param _ripple
- * @param rippledex
+ * @param _xrpl
+ * @param xrpldex
  * @param request
  */
 export async function getMarkets(
-  _ripple: Rippleish,
-  rippledex: RippleDEXish,
-  request: RippleGetMarketsRequest
-): Promise<ResponseWrapper<RippleGetMarketsResponse>> {
-  const response = new ResponseWrapper<RippleGetMarketsResponse>();
+  _xrpl: XRPLish,
+  xrpldex: XRPLDEXish,
+  request: XRPLGetMarketsRequest
+): Promise<ResponseWrapper<XRPLGetMarketsResponse>> {
+  const response = new ResponseWrapper<XRPLGetMarketsResponse>();
 
   if ('name' in request) {
     validateGetMarketRequest(request);
 
     try {
-      response.body = await rippledex.getMarket(request.name);
+      response.body = await xrpldex.getMarket(request.name);
       response.status = StatusCodes.OK;
 
       return response;
@@ -66,7 +66,7 @@ export async function getMarkets(
     validateGetMarketsRequest(request);
 
     try {
-      response.body = await rippledex.getMarkets(request.names);
+      response.body = await xrpldex.getMarkets(request.names);
 
       response.status = StatusCodes.OK;
 
@@ -86,22 +86,22 @@ export async function getMarkets(
 /**
  * Get the mid price of a token pair
  *
- * @param _ripple
- * @param rippledex
+ * @param _xrpl
+ * @param xrpldex
  * @param request
  */
 export async function getTickers(
-  _ripple: Rippleish,
-  rippledex: RippleDEXish,
-  request: RippleGetTickersRequest
-): Promise<ResponseWrapper<RippleGetTickersResponse>> {
-  const response = new ResponseWrapper<RippleGetTickersResponse>();
+  _xrpl: XRPLish,
+  xrpldex: XRPLDEXish,
+  request: XRPLGetTickersRequest
+): Promise<ResponseWrapper<XRPLGetTickersResponse>> {
+  const response = new ResponseWrapper<XRPLGetTickersResponse>();
 
   if ('marketName' in request) {
     validateGetTickerRequest(request);
 
     try {
-      response.body = await rippledex.getTicker(request.marketName);
+      response.body = await xrpldex.getTicker(request.marketName);
       response.status = StatusCodes.OK;
 
       return response;
@@ -118,7 +118,7 @@ export async function getTickers(
     validateGetTickersRequest(request);
 
     try {
-      response.body = await rippledex.getTickers(request.marketNames);
+      response.body = await xrpldex.getTickers(request.marketNames);
 
       response.status = StatusCodes.OK;
 
@@ -138,22 +138,22 @@ export async function getTickers(
 /**
  * Get the order book of a token pair
  *
- * @param _ripple
- * @param rippledex
+ * @param _xrpl
+ * @param xrpldex
  * @param request
  */
 export async function getOrderBooks(
-  _ripple: Rippleish,
-  rippledex: RippleDEXish,
-  request: RippleGetOrderBooksRequest
-): Promise<ResponseWrapper<RippleGetOrderBooksResponse>> {
-  const response = new ResponseWrapper<RippleGetOrderBooksResponse>();
+  _xrpl: XRPLish,
+  xrpldex: XRPLDEXish,
+  request: XRPLGetOrderBooksRequest
+): Promise<ResponseWrapper<XRPLGetOrderBooksResponse>> {
+  const response = new ResponseWrapper<XRPLGetOrderBooksResponse>();
 
   if ('marketName' in request) {
     validateGetOrderBookRequest(request);
 
     try {
-      response.body = await rippledex.getOrderBook(
+      response.body = await xrpldex.getOrderBook(
         request.marketName,
         request.limit
       );
@@ -173,7 +173,7 @@ export async function getOrderBooks(
     validateGetOrderBooksRequest(request);
 
     try {
-      response.body = await rippledex.getOrderBooks(
+      response.body = await xrpldex.getOrderBooks(
         request.marketNames,
         request.limit
       );
@@ -196,18 +196,18 @@ export async function getOrderBooks(
 /**
  * Get the detail on the created order
  *
- * @param _ripple
- * @param rippledex
+ * @param _xrpl
+ * @param xrpldex
  * @param request
  */
 export async function getOrders(
-  _ripple: Rippleish,
-  rippledex: RippleDEXish,
-  request: RippleGetOrdersRequest
-): Promise<ResponseWrapper<RippleGetOrdersResponse>> {
+  _xrpl: XRPLish,
+  xrpldex: XRPLDEXish,
+  request: XRPLGetOrdersRequest
+): Promise<ResponseWrapper<XRPLGetOrdersResponse>> {
   const response = new ResponseWrapper<any>();
 
-  response.body = await rippledex.getOrders(request.orders);
+  response.body = await xrpldex.getOrders(request.orders);
 
   response.status = StatusCodes.OK;
 
@@ -217,21 +217,21 @@ export async function getOrders(
 /**
  * Create an order on order book
  *
- * @param _ripple
- * @param rippledex
+ * @param _xrpl
+ * @param xrpldex
  * @param request
  */
 export async function createOrders(
-  _ripple: Rippleish,
-  rippledex: RippleDEXish,
-  request: RippleCreateOrdersRequest
-): Promise<ResponseWrapper<RippleCreateOrdersResponse>> {
-  const response = new ResponseWrapper<RippleCreateOrdersResponse>();
+  _xrpl: XRPLish,
+  xrpldex: XRPLDEXish,
+  request: XRPLCreateOrdersRequest
+): Promise<ResponseWrapper<XRPLCreateOrdersResponse>> {
+  const response = new ResponseWrapper<XRPLCreateOrdersResponse>();
 
   if ('order' in request) {
     // validateCreateOrderRequest(request.order); TODO: add createOrder validator
 
-    response.body = await rippledex.createOrders(
+    response.body = await xrpldex.createOrders(
       [request.order],
       request.waitUntilIncludedInBlock
     );
@@ -244,7 +244,7 @@ export async function createOrders(
   if ('orders' in request) {
     // validateCreateOrdersRequest(request.orders); TODO: add createOrders validator
 
-    response.body = await rippledex.createOrders(
+    response.body = await xrpldex.createOrders(
       request.orders,
       request.waitUntilIncludedInBlock
     );
@@ -263,21 +263,21 @@ export async function createOrders(
 /**
  * Cancel an order on order book
  *
- * @param _ripple
- * @param rippledex
+ * @param _xrpl
+ * @param xrpldex
  * @param request
  */
 export async function cancelOrders(
-  _ripple: Rippleish,
-  rippledex: RippleDEXish,
-  request: RippleCancelOrdersRequest
-): Promise<ResponseWrapper<RippleCancelOrdersResponse>> {
-  const response = new ResponseWrapper<RippleCancelOrdersResponse>();
+  _xrpl: XRPLish,
+  xrpldex: XRPLDEXish,
+  request: XRPLCancelOrdersRequest
+): Promise<ResponseWrapper<XRPLCancelOrdersResponse>> {
+  const response = new ResponseWrapper<XRPLCancelOrdersResponse>();
 
   if ('order' in request) {
     // validateCancelOrderRequest(request.order); TODO: add createOrder validator
 
-    response.body = await rippledex.cancelOrders(
+    response.body = await xrpldex.cancelOrders(
       [request.order],
       request.waitUntilIncludedInBlock
     );
@@ -290,7 +290,7 @@ export async function cancelOrders(
   if ('orders' in request) {
     // validateCancelOrdersRequest(request.orders); TODO: add createOrders validator
 
-    response.body = await rippledex.cancelOrders(
+    response.body = await xrpldex.cancelOrders(
       request.orders,
       request.waitUntilIncludedInBlock
     );
@@ -309,21 +309,21 @@ export async function cancelOrders(
 /**
  * Get open orders of a token pair
  *
- * @param _ripple
- * @param rippledex
+ * @param _xrpl
+ * @param xrpldex
  * @param request
  */
 export async function getOpenOrders(
-  _ripple: Rippleish,
-  rippledex: RippleDEXish,
-  request: RippleGetOpenOrdersRequest
-): Promise<ResponseWrapper<RippleGetOpenOrdersResponse>> {
-  const response = new ResponseWrapper<RippleGetOpenOrdersResponse>();
+  _xrpl: XRPLish,
+  xrpldex: XRPLDEXish,
+  request: XRPLGetOpenOrdersRequest
+): Promise<ResponseWrapper<XRPLGetOpenOrdersResponse>> {
+  const response = new ResponseWrapper<XRPLGetOpenOrdersResponse>();
 
   if ('order' in request) {
     // validateOpenOrderRequest(request.order); TODO: add createOrder validator
 
-    response.body = await rippledex.getOpenOrders({ market: request.order });
+    response.body = await xrpldex.getOpenOrders({ market: request.order });
 
     response.status = StatusCodes.OK;
 
@@ -333,7 +333,7 @@ export async function getOpenOrders(
   if ('orders' in request) {
     // validateOpenOrdersRequest(request.orders); TODO: add createOrders validator
 
-    response.body = await rippledex.getOpenOrders({ markets: request.orders });
+    response.body = await xrpldex.getOpenOrders({ markets: request.orders });
 
     response.status = StatusCodes.OK;
 

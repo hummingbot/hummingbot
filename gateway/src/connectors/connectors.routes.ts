@@ -11,7 +11,7 @@ import { SerumConfig } from './serum/serum.config';
 import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
-import { RippleDEXConfig } from './rippledex/rippledex.config';
+import { XRPLDEXConfig } from './xrpldex/xrpldex.config';
 import { VVSConfig } from './vvs/vvs.config';
 import { RefConfig } from './ref/ref.config';
 import { PancakeSwapConfig } from './pancakeswap/pancakeswap.config';
@@ -83,9 +83,9 @@ export namespace ConnectorsRoutes {
             available_networks: SerumConfig.config.availableNetworks,
           },
           {
-            name: 'rippledex',
-            trading_type: RippleDEXConfig.config.tradingTypes,
-            available_networks: RippleDEXConfig.config.availableNetworks,
+            name: 'xrpldex',
+            trading_type: XRPLDEXConfig.config.tradingTypes,
+            available_networks: XRPLDEXConfig.config.availableNetworks,
           },
           {
             name: 'mad_meerkat',

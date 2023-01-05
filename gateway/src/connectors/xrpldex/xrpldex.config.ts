@@ -1,7 +1,7 @@
 // import { ConfigManagerV2 } from '../../services/config-manager-v2';
 import { AvailableNetworks } from '../../services/config-manager-types';
 
-export namespace RippleDEXConfig {
+export namespace XRPLDEXConfig {
   export interface Config {
     availableNetworks: Array<AvailableNetworks>;
     tradingTypes: Array<string>;
@@ -21,7 +21,7 @@ export namespace RippleDEXConfig {
   }
 
   export const config: Config = {
-    tradingTypes: ['RIPPLEDEX_CLOB'],
+    tradingTypes: ['XRPLDEX_CLOB'],
     // markets: {
     //   url: ConfigManagerV2.getInstance().get(`rippledex.markets.url`),
     //   blacklist: ConfigManagerV2.getInstance().get(
@@ -37,7 +37,7 @@ export namespace RippleDEXConfig {
     // },
     availableNetworks: [
       {
-        chain: 'ripple',
+        chain: 'xrpl',
         networks: ['mainnet', 'testnet'],
       },
     ],

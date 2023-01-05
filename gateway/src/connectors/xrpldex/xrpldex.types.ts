@@ -187,6 +187,6 @@ export type GetOpenOrdersResponse =
   | IMap<number, GetOpenOrderResponse>
   | GetOpenOrderResponse;
 
-export class RippleDEXishError extends Error {}
+export class XRPLDEXishError extends Error {}
 
-export class MarketNotFoundError extends RippleDEXishError {}
+export class MarketNotFoundError extends XRPLDEXishError {}

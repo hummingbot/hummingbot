@@ -92,9 +92,9 @@ configurations:
     configurationPath: serum.yml
     schemaPath: serum-schema.json
 
-  $namespace ripple:
-    configurationPath: ripple.yml
-    schemaPath: ripple-schema.json
+  $namespace xrpl:
+    configurationPath: xrpl.yml
+    schemaPath: xrpl-schema.json
 
   $namespace cronos:
     configurationPath: cronos.yml
