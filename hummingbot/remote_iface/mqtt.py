@@ -404,6 +404,7 @@ class MQTTNotifier(NotifierBase):
         super().__init__()
         self._mqtt_node = mqtt_node
         self._hb_app = hb_app
+        self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
         if topic in (None, ''):
             self.NOTIFY_URI = self.NOTIFY_URI.replace('$instance_id', hb_app.instance_id)
             self.NOTIFY_URI = f'{self._mqtt_node.namespace}{self.NOTIFY_URI}'
