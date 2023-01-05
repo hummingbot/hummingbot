@@ -259,6 +259,7 @@ class XRPLCLOBPMMExample(ScriptStrategyBase):
             self._is_busy = True
 
             if self._configuration["strategy"]["cancel_all_orders_on_stop"]:
+                await asyncio.sleep(5)
                 await self._cancel_all_orders()
 
             super().stop(clock)
