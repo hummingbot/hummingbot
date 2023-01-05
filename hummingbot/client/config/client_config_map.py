@@ -125,6 +125,14 @@ class MQTTBridgeConfigMap(BaseClientModel):
             ),
         ),
     )
+    mqtt_external_events: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable External MQTT Event listener"
+            ),
+        ),
+    )
     mqtt_autostart: bool = Field(
         default=False,
         client_data=ClientFieldData(

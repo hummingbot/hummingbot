@@ -6,7 +6,7 @@ import threading
 import time
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, List, Tuple
 
 from hummingbot import get_logging_conf
 from hummingbot.connector.connector_base import ConnectorBase
@@ -30,9 +30,10 @@ from hummingbot.remote_iface.messages import (
     BalancePaperCommandMessage,
     CommandShortcutMessage,
     ConfigCommandMessage,
-    EventMessage,
+    ExternalEventMessage,
     HistoryCommandMessage,
     ImportCommandMessage,
+    InternalEventMessage,
     LogMessage,
     NotifyMessage,
     StartCommandMessage,
@@ -317,7 +318,7 @@ class MQTTEventForwarder:
         self._app_event_pairs: List[Tuple[int, EventListener]] = []
 
         self.event_fw_pub = self._mqtt_node.create_publisher(
-            topic=self.EVENT_URI, msg_type=EventMessage
+            topic=self.EVENT_URI, msg_type=InternalEventMessage
         )
         self.start_event_listener()
 
@@ -369,7 +370,7 @@ class MQTTEventForwarder:
             timestamp = datetime.now().timestamp()
 
         self.event_fw_pub.publish(
-            EventMessage(
+            InternalEventMessage(
                 timestamp=int(timestamp),
                 type=event_type,
                 data=event_data
@@ -442,6 +443,7 @@ class MQTTGateway(Node):
         self._event_forwarder: MQTTEventForwarder = None
         self._commands: MQTTCommands = None
         self._logh: MQTTLogHandler = None
+        self._external_events: MQTTExternalEvents = None
         self._hb_app: "HummingbotApplication" = hb_app
         self._ev_loop = self._hb_app.ev_loop
         self._params = self._create_mqtt_params_from_conf()
@@ -514,19 +516,33 @@ class MQTTGateway(Node):
 
     def start_notifier(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_notifier:
-            self.logger().info('Starting MQTT Notifier')
+            self.logger().info('Starting MQTT Notify Publisher')
             self._notifier = MQTTNotifier(self._hb_app, self)
             self._hb_app.notifiers.append(self._notifier)
 
     def start_commands(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_commands:
-            self.logger().info('Starting MQTT Remote Commands')
+            self.logger().info('Starting MQTT Remote Commands RPCs')
             self._commands = MQTTCommands(self._hb_app, self)
 
     def start_event_fw(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_events:
-            self.logger().info('Starting MQTT Remote Events')
+            self.logger().info('Starting MQTT Internal Events Publisher')
             self._event_forwarder = MQTTEventForwarder(self._hb_app, self)
+
+    def start_external_events(self):
+        if self._hb_app.client_config_map.mqtt_bridge.mqtt_external_events:
+            self.logger().info('Starting MQTT External Events Listener')
+            self._hb_app.notify('Starting MQTT External Events Listener')
+            self._external_events = MQTTExternalEvents(self._hb_app, self)
+
+    def add_external_event_listener(self,
+                                    callback: Callable[[ExternalEventMessage, str], None]):
+        self._external_events.add_listener(callback)
+
+    def remove_external_event_listener(self,
+                                       callback: Callable[[ExternalEventMessage, str], None]):
+        self._external_events.remove_listener(callback)
 
     def _create_mqtt_params_from_conf(self):
         host = self._hb_app.client_config_map.mqtt_bridge.mqtt_host
@@ -566,6 +582,7 @@ class MQTTGateway(Node):
         self.start_notifier()
         self.start_commands()
         self.start_event_fw()
+        self.start_external_events()
         self.run()
 
     def stop(self):
@@ -609,3 +626,59 @@ class MQTTLogHandler(logging.Handler):
 
         )
         self.log_pub.publish(msg)
+
+
+class MQTTExternalEvents:
+    EXTERNAL_EVENTS_URI = '/$instance_id/external/events/*'
+
+    def __init__(self,
+                 hb_app: "HummingbotApplication",
+                 mqtt_node: Node,
+                 topic: str = '') -> None:
+        self._node: Node = mqtt_node
+        self._hb_app: 'HummingbotApplication' = hb_app
+        self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
+        if topic in (None, ''):
+            self.EXTERNAL_EVENTS_URI = self.EXTERNAL_EVENTS_URI.replace(
+                '$instance_id', self._hb_app.instance_id)
+            self.EXTERNAL_EVENTS_URI = f'{self._node.namespace}{self.EXTERNAL_EVENTS_URI}'
+        else:
+            self.EXTERNAL_EVENTS_URI = topic
+        self._node.create_psubscriber(
+            topic=self.EXTERNAL_EVENTS_URI,
+            msg_type=ExternalEventMessage,
+            on_message=self._on_event_arrived
+        )
+        self._listeners: Dict[str, List[Callable[ExternalEventMessage, str], None]] = {'*': []}
+
+    def _event_uri_to_name(self, topic: str) -> str:
+        return topic.split('events/')[1].replace('/', '.')
+
+    def _on_event_arrived(self, msg: ExternalEventMessage, topic: str):
+        self._hb_app.logger().debug(f'Received event: {topic} -> {msg}')
+        for fenc in self._callbacks:
+            fenc(msg, self._event_uri_to_name(topic))
+
+    def add_listener(self,
+                     event_name: str,
+                     callback: Callable[[str, ExternalEventMessage], None]):
+        # TODO validate event_name with regex
+        if event_name in self._listeners:
+            self._listeners.get(event_name).append(callback)
+
+    def remove_listener(self,
+                        event_name: str,
+                        callback: Callable[[str, ExternalEventMessage], None]):
+        # TODO validate event_name with regex
+        if event_name in self._listeners:
+            self._listeners.get(event_name).remove(callback)
+
+    def add_global_listener(self,
+                            callback: Callable[[str, ExternalEventMessage], None]):
+        if '*' in self._listeners:
+            self._listeners.get('*').append(callback)
+
+    def remove_global_listener(self,
+                               callback: Callable[[str, ExternalEventMessage], None]):
+        if '*' in self._listeners:
+            self._listeners.get('*').remove(callback)
