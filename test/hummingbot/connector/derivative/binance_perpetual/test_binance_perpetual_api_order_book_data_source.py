@@ -235,7 +235,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_funding_info(self, mock_api):
-
         url = web_utils.rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -273,27 +272,17 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_logs_exception(self, mock_ws, *_):
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.close.return_value = None
-        incomplete_resp = {
-            "m": 1,
-            "i": 2,
-        }
-        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(incomplete_resp))
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            mock_ws.return_value, json.dumps(self._orderbook_update_event())
-        )
+    def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
+        sleep_mock.side_effect = asyncio.CancelledError
+        mock_ws.side_effect = Exception("TEST ERROR.")
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
-
-        try:
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
             self.async_run_with_timeout(self.listening_task)
-        except asyncio.exceptions.TimeoutError:
-            pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error with Websocket connection. Retrying after 30 seconds...")
+            self._is_logged("ERROR",
+                            "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...")
         )
 
     def test_subscribe_to_channels_raises_cancel_exception(self):
@@ -447,7 +436,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(self.trading_pair, result.content["trading_pair"])
 
     def test_listen_for_funding_info_cancelled_error_raised(self):
-
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError
         self.data_source._message_queue[CONSTANTS.FUNDING_INFO_STREAM_ID] = mock_queue
