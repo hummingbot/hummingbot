@@ -115,33 +115,31 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             self._current_listen_key = None
             self._listen_key_initialized_event.clear()
 
-    async def listen_for_user_stream(self, output: asyncio.Queue):
-        ws = None
-        while True:
-            try:
-                self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
-                await self._listen_key_initialized_event.wait()
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        """
+        Creates an instance of WSAssistant connected to the exchange
+        """
+        self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+        await self._listen_key_initialized_event.wait()
 
-                url = f"{web_utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self._domain)}/{self._current_listen_key}"
-                ws: WSAssistant = await self._get_ws_assistant()
-                await ws.connect(ws_url=url, ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
-                await ws.ping()  # to update last_recv_timestamp
+        ws: WSAssistant = await self._get_ws_assistant()
+        url = f"{web_utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self._domain)}/{self._current_listen_key}"
+        await ws.connect(ws_url=url, ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
+        return ws
 
-                async for msg in ws.iter_messages():
-                    if len(msg.data) > 0:
-                        output.put_nowait(msg.data)
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(
-                    f"Unexpected error while listening to user stream. Retrying after 5 seconds... "
-                    f"Error: {e}",
-                    exc_info=True,
-                )
-            finally:
-                # Make sure no background task is leaked.
-                ws and await ws.disconnect()
-                self._manage_listen_key_task and self._manage_listen_key_task.cancel()
-                self._current_listen_key = None
-                self._listen_key_initialized_event.clear()
-                await self._sleep(5)
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
+        """
+        Subscribes to the trade events and diff orders events through the provided websocket connection.
+
+        Binance does not require any channel subscription.
+
+        :param websocket_assistant: the websocket assistant used to connect to the exchange
+        """
+        pass
+
+    async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
+        websocket_assistant and await websocket_assistant.disconnect()
+        self._manage_listen_key_task and self._manage_listen_key_task.cancel()
+        self._current_listen_key = None
+        self._listen_key_initialized_event.clear()
+        await self._sleep(5)

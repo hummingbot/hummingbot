@@ -14,25 +14,11 @@ DEFAULT_FEES = TradeFeeSchema(
     buy_percent_fee_deducted_from_returns=True
 )
 
-
 CENTRALIZED = True
-
 
 EXAMPLE_PAIR = "BTC-USDT"
 
-
 BROKER_ID = "x-3QreWesy"
-
-
-def get_client_order_id(order_side: str, trading_pair: object):
-    nonce = get_tracking_nonce()
-    symbols: str = trading_pair.split("-")
-    base: str = symbols[0].upper()
-    quote: str = symbols[1].upper()
-    base_str = f"{base[0]}{base[-1]}"
-    quote_str = f"{quote[0]}{quote[-1]}"
-    client_instance_id = hex(abs(hash(f"{socket.gethostname()}{os.getpid()}")))[2:6]
-    return f"{BROKER_ID}-{order_side.upper()[0]}{base_str}{quote_str}{client_instance_id}{nonce}"
 
 
 class BinancePerpetualConfigMap(BaseConnectorConfigMap):
