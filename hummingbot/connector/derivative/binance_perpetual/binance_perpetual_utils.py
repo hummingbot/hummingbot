@@ -1,12 +1,9 @@
-import os
-import socket
 from decimal import Decimal
 
 from pydantic import Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.0002"),
