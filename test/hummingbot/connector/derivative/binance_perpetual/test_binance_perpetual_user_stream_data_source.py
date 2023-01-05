@@ -222,7 +222,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                "Unexpected error while listening to user stream. Retrying after 5 seconds... Error: TEST ERROR.",
+                "Unexpected error while listening to user stream. Retrying after 5 seconds...",
             )
         )
 
@@ -290,7 +290,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                "Unexpected error while listening to user stream. Retrying after 5 seconds... Error: TEST ERROR.",
+                "Unexpected error while listening to user stream. Retrying after 5 seconds..."
             )
         )
 
@@ -321,7 +321,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                "Unexpected error while listening to user stream. Retrying after 5 seconds... Error: TEST ERROR",
+                "Unexpected error while listening to user stream. Retrying after 5 seconds..."
             )
         )
 
