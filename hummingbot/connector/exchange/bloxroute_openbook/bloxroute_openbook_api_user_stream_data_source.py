@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 
 
-class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
+class BloxrouteOpenbookAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     LISTEN_KEY_KEEP_ALIVE_INTERVAL = 1800  # Recommended to Ping/Update listen key to keep connection alive
     HEARTBEAT_TIME_INTERVAL = 30.0

@@ -1,17 +1,17 @@
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
-
+from bxsolana.provider import constants
+from bxsolana_trader_proto import api
 DEFAULT_DOMAIN = "com"
 
 HBOT_ORDER_ID_PREFIX = "x-XEKWYICX"
 MAX_ORDER_ID_LEN = 32
 
-# Base URL
-REST_URL = "https://api.binance.{}/api/"
-WSS_URL = "wss://stream.binance.{}:9443/ws"
+OPENBOOK_PROJECT = api.Project.P_OPENBOOK
 
-PUBLIC_API_VERSION = "v3"
-PRIVATE_API_VERSION = "v3"
+# Base URL
+WSS_URL = constants.MAINNET_API_WS
+
 
 # Public API endpoints or BinanceClient function
 TICKER_PRICE_CHANGE_PATH_URL = "/ticker/24hr"

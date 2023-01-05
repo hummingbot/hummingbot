@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 s_logger = None
 
 
-class BinanceExchange(ExchangePyBase):
+class BloxrouteOpenbookExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
 
     web_utils = web_utils
@@ -173,7 +173,7 @@ class BinanceExchange(ExchangePyBase):
         order_result = None
         amount_str = f"{amount:f}"
         price_str = f"{price:f}"
-        type_str = BinanceExchange.binance_order_type(order_type)
+        type_str = BloxrouteOpenbookExchange.binance_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         api_params = {"symbol": symbol,

@@ -4,18 +4,21 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
+from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
+from bxsolana.provider import WsProvider, HttpProvider
+from aiostream import stream
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
+    from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_exchange import BloxrouteOpenbookExchange
 
 
-class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource):
     HEARTBEAT_TIME_INTERVAL = 30.0
     TRADE_STREAM_ID = 1
     DIFF_STREAM_ID = 2
@@ -24,11 +27,15 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(self,
+                 ws_provider: WsProvider,
+                 rpc_provider: HttpProvider,
                  trading_pairs: List[str],
-                 connector: 'BinanceExchange',
+                 connector: 'BloxrouteOpenbookExchange',
                  api_factory: WebAssistantsFactory,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__(trading_pairs)
+        self._ws_provider = ws_provider
+        self._rpc_provider = rpc_provider
         self._connector = connector
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
         self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
@@ -38,7 +45,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
                                      domain: Optional[str] = None) -> Dict[str, float]:
-        return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
+        return await self._rpc_provider.get_price() # TODO we need to create an endpoint for trading_pairs
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         """
@@ -48,20 +55,9 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         :return: the response from the exchange (JSON dictionary)
         """
-        params = {
-            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "limit": "1000"
-        }
 
-        rest_assistant = await self._api_factory.get_rest_assistant()
-        data = await rest_assistant.execute_request(
-            url=web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self._domain),
-            params=params,
-            method=RESTMethod.GET,
-            throttler_limit_id=CONSTANTS.SNAPSHOT_PATH_URL,
-        )
-
-        return data
+        orderbook = await self._rpc_provider.get_orderbook(market=trading_pair, project=OPENBOOK_PROJECT)
+        return orderbook.to_dict()
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
@@ -69,28 +65,13 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param ws: the websocket assistant used to connect to the exchange
         """
         try:
-            trade_params = []
-            depth_params = []
+            trade_streams = []
             for trading_pair in self._trading_pairs:
-                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                trade_params.append(f"{symbol.lower()}@trade")
-                depth_params.append(f"{symbol.lower()}@depth@100ms")
-            payload = {
-                "method": "SUBSCRIBE",
-                "params": trade_params,
-                "id": 1
-            }
-            subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
+                trades_stream = self._ws_provider.get_trades_stream(market=trading_pair, project=OPENBOOK_PROJECT)
+                trade_streams.append(trades_stream)
 
-            payload = {
-                "method": "SUBSCRIBE",
-                "params": depth_params,
-                "id": 2
-            }
-            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
-
-            await ws.send(subscribe_trade_request)
-            await ws.send(subscribe_orderbook_request)
+            self._combined_trade_stream = stream.merge(*trade_streams)
+            self._combined_orderbook_stream = self._ws_provider.get_orderbooks_stream(markets=self._trading_pairs, project=OPENBOOK_PROJECT)
 
             self.logger().info("Subscribed to public order book and trade channels...")
         except asyncio.CancelledError:
@@ -103,10 +84,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
-        ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=CONSTANTS.WSS_URL.format(self._domain),
-                         ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
-        return ws
+        await self._ws_provider.connect()
+        await self._rpc_provider.connect()
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
@@ -139,3 +118,6 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             channel = (self._diff_messages_queue_key if event_type == CONSTANTS.DIFF_EVENT_TYPE
                        else self._trade_messages_queue_key)
         return channel
+
+    async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        raise Exception("Bloxroute Openbook does not use orderbook diffs")
