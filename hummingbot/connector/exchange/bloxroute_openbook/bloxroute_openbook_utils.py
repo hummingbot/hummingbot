@@ -1,21 +1,86 @@
+from decimal import Decimal
+from typing import Any, Dict
 
-import bxsolana_trader_proto.api as api
+from pydantic import Field, SecretStr
 
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+
+CENTRALIZED = True
+EXAMPLE_PAIR = "ZRX-ETH"
+
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.001"),
+    taker_percent_fee_decimal=Decimal("0.001"),
+    buy_percent_fee_deducted_from_returns=True
+)
 
 
-def TradeTypeToSide(type: TradeType) -> api.Side:
-    if type.value == type.BUY:
-        return api.Side.S_BID
-    elif type.value == type.SELL:
-        return api.Side.S_ASK
-    else:
-        return api.Side.S_UNKNOWN
+def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its exchange information
+    :param exchange_info: the exchange information for a trading pair
+    :return: True if the trading pair is enabled, False otherwise
+    """
+    return exchange_info.get("status", None) == "TRADING" and "SPOT" in exchange_info.get("permissions", list())
 
-def OrderTypeToBlxrOrderType(orderType: OrderType) -> api.OrderType:
-    if orderType.value == orderType.MARKET:
-        return api.OrderType.OT_MARKET
-    elif orderType.value == orderType.LIMIT:
-        return api.OrderType.OT_LIMIT
-    else:
-        raise Exception(f"unknown order type ${orderType.value}") # TODO need unknown value
+
+class BinanceConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="binance", const=True, client_data=None)
+    binance_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    binance_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "binance"
+
+
+KEYS = BinanceConfigMap.construct()
+
+OTHER_DOMAINS = ["binance_us"]
+OTHER_DOMAINS_PARAMETER = {"binance_us": "us"}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"binance_us": "BTC-USDT"}
+OTHER_DOMAINS_DEFAULT_FEES = {"binance_us": DEFAULT_FEES}
+
+
+class BinanceUSConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="binance_us", const=True, client_data=None)
+    binance_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance US API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    binance_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Binance US API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+    class Config:
+        title = "binance_us"
+
+
+OTHER_DOMAINS_KEYS = {"binance_us": BinanceUSConfigMap.construct()}
