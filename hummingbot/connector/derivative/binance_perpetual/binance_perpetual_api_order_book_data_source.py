@@ -85,56 +85,53 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         }, timestamp=snapshot_timestamp)
         return snapshot_msg
 
-    async def _subscribe_to_order_book_streams(self) -> WSAssistant:
+    async def _connected_websocket_assistant(self) -> WSAssistant:
         url = f"{web_utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)}"
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         await ws.connect(ws_url=url, ping_timeout=CONSTANTS.HEARTBEAT_TIME_INTERVAL)
-
-        stream_id_channel_pairs = [
-            (CONSTANTS.DIFF_STREAM_ID, "@depth"),
-            (CONSTANTS.TRADE_STREAM_ID, "@aggTrade"),
-            (CONSTANTS.FUNDING_INFO_STREAM_ID, "@markPrice"),
-        ]
-        for stream_id, channel in stream_id_channel_pairs:
-            params = []
-            for trading_pair in self._trading_pairs:
-                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                params.append(f"{symbol.lower()}{channel}")
-            payload = {
-                "method": "SUBSCRIBE",
-                "params": params,
-                "id": stream_id,
-            }
-            subscribe_request: WSJSONRequest = WSJSONRequest(payload)
-            await ws.send(subscribe_request)
-
         return ws
 
-    async def listen_for_subscriptions(self):
-        ws = None
-        while True:
-            try:
-                ws = await self._subscribe_to_order_book_streams()
+    async def _subscribe_channels(self, ws: WSAssistant):
+        """
+        Subscribes to the trade events and diff orders events through the provided websocket connection.
+        :param ws: the websocket assistant used to connect to the exchange
+        """
+        try:
+            stream_id_channel_pairs = [
+                (CONSTANTS.DIFF_STREAM_ID, "@depth"),
+                (CONSTANTS.TRADE_STREAM_ID, "@aggTrade"),
+                (CONSTANTS.FUNDING_INFO_STREAM_ID, "@markPrice"),
+            ]
+            for stream_id, channel in stream_id_channel_pairs:
+                params = []
+                for trading_pair in self._trading_pairs:
+                    symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                    params.append(f"{symbol.lower()}{channel}")
+                payload = {
+                    "method": "SUBSCRIBE",
+                    "params": params,
+                    "id": stream_id,
+                }
+                subscribe_request: WSJSONRequest = WSJSONRequest(payload)
+                await ws.send(subscribe_request)
+            self.logger().info("Subscribed to public order book, trade and funding info channels...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception("Unexpected error occurred subscribing to order book trading and delta streams...")
+            raise
 
-                async for msg in ws.iter_messages():
-                    data: Dict[str, Any] = msg.data
-                    if "result" in msg.data:
-                        continue
-                    if "@depth" in msg.data["stream"]:
-                        self._message_queue[CONSTANTS.DIFF_STREAM_ID].put_nowait(data)
-                    elif "@aggTrade" in msg.data["stream"]:
-                        self._message_queue[CONSTANTS.TRADE_STREAM_ID].put_nowait(data)
-                    elif "@markPrice" in msg.data["stream"]:
-                        self._message_queue[CONSTANTS.FUNDING_INFO_STREAM_ID].put_nowait(data)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error(
-                    "Unexpected error with Websocket connection. Retrying after 30 seconds...", exc_info=True
-                )
-                await self._sleep(30.0)
-            finally:
-                ws and await ws.disconnect()
+    def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
+        channel = ""
+        if "result" not in event_message:
+            stream_name = event_message.get("stream")
+            if "@depth" in stream_name:
+                channel = self._diff_messages_queue_key
+            elif "@aggTrade" in stream_name:
+                channel = self._trade_messages_queue_key
+            elif "@markPrice" in stream_name:
+                channel = self._funding_info_messages_queue_key
+        return channel
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         timestamp: float = time.time()
@@ -205,6 +202,3 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             params={"symbol": ex_trading_pair},
             is_auth_required=True)
         return data
-
-    async def _subscribe_channels(self, ws: WSAssistant):
-        pass  # unused

@@ -4,7 +4,7 @@ import re
 import unittest
 from decimal import Decimal
 from typing import Any, Awaitable, Dict, List
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses.core import aioresponses
 from bidict import bidict
@@ -295,6 +295,43 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error with Websocket connection. Retrying after 30 seconds...")
         )
+
+    def test_subscribe_to_channels_raises_cancel_exception(self):
+        mock_ws = MagicMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source._subscribe_channels(mock_ws)
+            )
+            self.async_run_with_timeout(self.listening_task)
+
+    def test_subscribe_to_channels_raises_exception_and_logs_error(self):
+        mock_ws = MagicMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+
+        with self.assertRaises(Exception):
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source._subscribe_channels(mock_ws)
+            )
+            self.async_run_with_timeout(self.listening_task)
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book trading and delta streams...")
+        )
+
+    def test_channel_originating_message_returns_correct(self):
+        event_type = self._orderbook_update_event()
+        event_message = self.data_source._channel_originating_message(event_type)
+        self.assertEqual(self.data_source._diff_messages_queue_key, event_message)
+
+        event_type = self._funding_info_event()
+        event_message = self.data_source._channel_originating_message(event_type)
+        self.assertEqual(self.data_source._funding_info_messages_queue_key, event_message)
+
+        event_type = self._orderbook_trade_event()
+        event_message = self.data_source._channel_originating_message(event_type)
+        self.assertEqual(self.data_source._trade_messages_queue_key, event_message)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_successful(self, mock_ws):
