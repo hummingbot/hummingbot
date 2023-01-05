@@ -13,7 +13,13 @@ class BloxrouteOpenbookAuth(AuthBase):
         Adds the Bloxroute authentication header to the HTTP request
         """
 
-        request.headers = {"Authentication": self.auth_header}
+
+        headers = {}
+        if request.headers is not None:
+            headers.update(request.headers)
+        headers.update(self.authentication_headers(request=request))
+        request.headers = headers
+
         return request
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
@@ -23,3 +29,21 @@ class BloxrouteOpenbookAuth(AuthBase):
         """
 
         return request  # pass-through
+
+    def authentication_headers(self, request: RESTRequest) -> Dict[str, Any]:
+        timestamp = str(int(self.time_provider.time() * 1e3))
+
+        params = json.dumps(request.params) if request.params is not None else request.data
+
+        sign = self._generate_signature(timestamp=timestamp, body=params)
+
+        header = {
+            "X-BM-KEY": self.api_key,
+            "X-BM-SIGN": sign,
+            "X-BM-TIMESTAMP": timestamp,
+            "X-BM-BROKER-ID": CONSTANTS.BROKER_ID,
+        }
+
+        return header
+
+
