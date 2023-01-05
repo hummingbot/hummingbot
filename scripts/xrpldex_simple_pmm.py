@@ -14,9 +14,9 @@ import numpy as np
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.gateway.clob.clob_types import OrderSide as RippleOrderSide, OrderType as RippleOrderType
+from hummingbot.connector.gateway.clob.clob_types import OrderSide as XRPLOrderSide, OrderType as XRPLOrderType
 from hummingbot.connector.gateway.clob.clob_utils import convert_order_side, convert_trading_pair
-from hummingbot.connector.gateway.clob.gateway_rippledex_clob import GatewayRippledexCLOB
+from hummingbot.connector.gateway.clob.gateway_xrpldex_clob import GatewayXrpldexCLOB
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
@@ -29,11 +29,11 @@ decimal_zero = Decimal(0)
 alignment_column = 11
 
 
-class RippleCLOBPMMExample(ScriptStrategyBase):
+class XRPLCLOBPMMExample(ScriptStrategyBase):
     # Set your network and trading pair here
-    _connector_id: str = "rippleDEX_ripple_testnet"
-    _base_token: str = "XRP"
-    # _base_token: str = "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
+    _connector_id: str = "xrpldex_xrpl_testnet"
+    # _base_token: str = "XRP"
+    _base_token: str = "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
     _quote_token: str = "VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
     _trading_pair = f"{_base_token}-{_quote_token}"
 
@@ -54,9 +54,9 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
             self._can_run: bool = True
             self._script_name = path.basename(Path(__file__))
             self._configuration = {
-                "chain": "ripple",
+                "chain": "xrpl",
                 "network": "testnet",
-                "connector": "rippleDEX",
+                "connector": "xrpldex",
                 "strategy": {
                     "layers": [
                         {
@@ -97,7 +97,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                         },
                     ],
                     "tick_interval": 30,
-                    "rippledex_order_type": "LIMIT",
+                    "xrpldex_order_type": "LIMIT",
                     "price_strategy": "middle",
                     "middle_price_strategy": "VWAP",
                     "cancel_all_orders_on_start": True,
@@ -138,7 +138,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
             self._refresh_timestamp: int = self.current_timestamp
             self._market: str
             self._gateway: GatewayHttpClient
-            self._connector: GatewayRippledexCLOB
+            self._connector: GatewayXrpldexCLOB
             self._market_info: Dict[str, Any]
             self._balances: Dict[str, Any] = {}
             self._tickers: Dict[str, Any]
@@ -174,7 +174,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
             self._market = convert_trading_pair(self._hb_trading_pair)
 
             # noinspection PyTypeChecker
-            self._connector: GatewayRippledexCLOB = self.connectors[self._connector_id]
+            self._connector: GatewayXrpldexCLOB = self.connectors[self._connector_id]
             self._gateway: GatewayHttpClient = self._connector.get_gateway_instance()
 
             self._owner_address = self._connector.address
@@ -473,7 +473,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                 if use_cache and self._balances is not None:
                     response = self._balances
                 else:
-                    response = await self._gateway.ripple_get_balances(**request)
+                    response = await self._gateway.xrpl_get_balances(**request)
 
                     self._balances = {"balances": {}}
                     for (token, balance) in dict(response["balances"]).items():
@@ -490,7 +490,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(INFO, f"""gateway.ripple_get_balances:\nresponse:\n{self._dump(response)}""")
+                self._log(INFO, f"""gateway.xrpl_get_balances:\nresponse:\n{self._dump(response)}""")
         finally:
             self._log(DEBUG, """_get_balances... end""")
 
@@ -508,7 +508,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                     "name": self._market
                 }
 
-                response = await self._gateway.rippledex_get_markets(**request)
+                response = await self._gateway.xrpldex_get_markets(**request)
 
                 return response
             except Exception as exception:
@@ -517,7 +517,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                 raise exception
             finally:
                 self._log(INFO,
-                          f"""gateway.rippledex_get_markets:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
+                          f"""gateway.xrpldex_get_markets:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
         finally:
             self._log(DEBUG, """_get_market... end""")
 
@@ -535,7 +535,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                     "market_name": self._market
                 }
 
-                response = await self._gateway.rippledex_get_order_books(**request)
+                response = await self._gateway.xrpldex_get_order_books(**request)
 
                 return response
             except Exception as exception:
@@ -544,7 +544,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                 raise exception
             finally:
                 self._log(INFO,
-                          f"""gateway.rippledex_get_order_books:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
+                          f"""gateway.xrpldex_get_order_books:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
         finally:
             self._log(DEBUG, """_get_order_book... end""")
 
@@ -565,7 +565,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                 if use_cache and self._tickers is not None:
                     response = self._tickers
                 else:
-                    response = await self._gateway.rippledex_get_tickers(**request)
+                    response = await self._gateway.xrpldex_get_tickers(**request)
 
                     self._tickers = response
 
@@ -576,7 +576,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                 raise exception
             finally:
                 self._log(INFO,
-                          f"""gateway.rippledex_get_tickers:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
+                          f"""gateway.xrpldex_get_tickers:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
 
         finally:
             self._log(DEBUG, """_get_tickers... end""")
@@ -601,7 +601,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                 if use_cache and self._open_orders is not None:
                     response = self._open_orders
                 else:
-                    response = await self._gateway.rippledex_get_open_orders(**request)
+                    response = await self._gateway.xrpldex_get_open_orders(**request)
                     self._open_orders = response
 
                 return response
@@ -611,7 +611,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                 raise exception
             finally:
                 self._log(INFO,
-                          f"""gateway.rippledex_get_open_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
+                          f"""gateway.xrpldex_get_open_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")
         finally:
             self._log(DEBUG, """_get_open_orders... end""")
 
@@ -633,7 +633,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                             self._round_to_significant_digits(candidate.amount,
                                                               int(self._market_info["minimumOrderSize"]))),
                         "type":
-                            RippleOrderType[self._configuration["strategy"].get("rippledex_order_type", "LIMIT")].value[
+                            XRPLOrderType[self._configuration["strategy"].get("xrpldex_order_type", "LIMIT")].value[
                                 0],
                     })
 
@@ -646,7 +646,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                 }
 
                 if len(orders):
-                    response = await self._gateway.rippledex_post_orders(**request)
+                    response = await self._gateway.xrpldex_post_orders(**request)
                 else:
                     self._log(WARNING, "No order was defined for placement/replacement. Skipping.", True)
                     response = []
@@ -678,7 +678,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                     "orders": orders
                 }
 
-                response = await self._gateway.rippledex_delete_orders(**request)
+                response = await self._gateway.xrpldex_delete_orders(**request)
 
                 return response
             except Exception as exception:
@@ -687,7 +687,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
                 raise exception
             finally:
                 self._log(INFO,
-                          f"""gateway.rippledex_delete_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
+                          f"""gateway.xrpldex_delete_orders:\nrequest:\n{self._dump(request)}\nresponse:\n{self._dump(response)}""")  # noqa
         finally:
             self._log(DEBUG, """_cancel_orders... end""")
         pass
@@ -767,7 +767,7 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
         return vwap
 
     # noinspection PyMethodMayBeStatic
-    def _remove_outliers(self, order_book: [Dict[str, Any]], side: RippleOrderSide) -> [Dict[str, Any]]:
+    def _remove_outliers(self, order_book: [Dict[str, Any]], side: XRPLOrderSide) -> [Dict[str, Any]]:
         prices = [float(order['price']) for order in order_book]
 
         q75, q25 = np.percentile(prices, [75, 25])
@@ -781,9 +781,9 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
         min_threshold = q25 * 0.5
 
         orders = []
-        if side == RippleOrderSide.SELL:
+        if side == XRPLOrderSide.SELL:
             orders = [order for order in order_book if float(order['price']) < max_threshold]
-        elif side == RippleOrderSide.BUY:
+        elif side == XRPLOrderSide.BUY:
             orders = [order for order in order_book if float(order['price']) > min_threshold]
 
         return orders
@@ -834,10 +834,10 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
             bids, asks = self._split_percentage(bids, asks)
 
             if len(bids) > 0:
-                bids = self._remove_outliers(bids, RippleOrderSide.BUY)
+                bids = self._remove_outliers(bids, XRPLOrderSide.BUY)
 
             if len(asks) > 0:
-                asks = self._remove_outliers(asks, RippleOrderSide.SELL)
+                asks = self._remove_outliers(asks, XRPLOrderSide.SELL)
 
             book = [*bids, *asks]
 
@@ -855,9 +855,9 @@ class RippleCLOBPMMExample(ScriptStrategyBase):
         open_orders_base_amount = decimal_zero
         open_orders_quote_amount = decimal_zero
         for order in open_orders[self._market].values():
-            if order['side'] == RippleOrderSide.BUY.value[0]:
+            if order['side'] == XRPLOrderSide.BUY.value[0]:
                 open_orders_base_amount += Decimal(order["amount"])
-            if order['side'] == RippleOrderSide.SELL.value[0]:
+            if order['side'] == XRPLOrderSide.SELL.value[0]:
                 open_orders_quote_amount += Decimal(order["amount"]) * Decimal(order['price'])
 
         return {"base": open_orders_base_amount, "quote": open_orders_quote_amount}

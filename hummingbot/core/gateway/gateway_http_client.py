@@ -857,7 +857,6 @@ class GatewayHttpClient:
             "connector": connector,
         }, use_body=True)
 
-    # This should be implement in ripple first
     async def clob_get_markets(
         self,
         chain: str,
@@ -880,7 +879,6 @@ class GatewayHttpClient:
 
         return await self.api_request("get", "clob/markets", request, use_body=True)
 
-    # This should be implement in ripple first
     async def clob_get_order_books(
         self,
         chain: str,
@@ -903,7 +901,6 @@ class GatewayHttpClient:
 
         return await self.api_request("get", "clob/orderBooks", request, use_body=True)
 
-    # This should be implement in ripple first
     async def clob_get_tickers(
         self,
         chain: str,
@@ -926,7 +923,6 @@ class GatewayHttpClient:
 
         return await self.api_request("get", "clob/tickers", request, use_body=True)
 
-    # Can this be implement later?
     async def clob_get_orders(
         self,
         chain: str,
@@ -953,7 +949,6 @@ class GatewayHttpClient:
 
         return await self.api_request("get", "clob/orders", request, use_body=True)
 
-    # This should be implement in ripple first
     async def clob_post_orders(
         self,
         chain: str,
@@ -976,7 +971,6 @@ class GatewayHttpClient:
 
         return await self.api_request("post", "clob/orders", request)
 
-    # This should be implement in ripple first
     async def clob_delete_orders(
         self,
         chain: str,
@@ -1003,7 +997,6 @@ class GatewayHttpClient:
 
         return await self.api_request("delete", "clob/orders", request)
 
-    # This should be implement in ripple first
     async def clob_get_open_orders(
         self,
         chain: str,
@@ -1030,7 +1023,6 @@ class GatewayHttpClient:
 
         return await self.api_request("get", "clob/orders/open", request, use_body=True)
 
-    # Can this be implement later?
     async def clob_get_filled_orders(
         self,
         chain: str,
@@ -1083,19 +1075,19 @@ class GatewayHttpClient:
 
         return await self.api_request("post", "clob/settleFunds", request)
 
-    async def ripple_get_balances(
+    async def xrpl_get_balances(
         self,
         network: str,
         address: str,
         token_symbols: List[str]
     ) -> Dict[str, Any]:
-        return await self.api_request("get", "ripple/balances", {
+        return await self.api_request("get", "xrpl/balances", {
             "network": network,
             "address": address,
             "tokenSymbols": token_symbols
         }, use_body=True)
 
-    async def rippledex_get_markets(
+    async def xrpldex_get_markets(
         self,
         chain: str,
         network: str,
@@ -1115,9 +1107,9 @@ class GatewayHttpClient:
         if names is not None:
             request["names"] = names
 
-        return await self.api_request("get", "rippledex/markets", request, use_body=True)
+        return await self.api_request("get", "xrpldex/markets", request, use_body=True)
 
-    async def rippledex_get_order_books(
+    async def xrpldex_get_order_books(
         self,
         chain: str,
         network: str,
@@ -1137,9 +1129,9 @@ class GatewayHttpClient:
         if market_names is not None:
             request["marketNames"] = market_names
 
-        return await self.api_request("get", "rippledex/orderBooks", request, use_body=True)
+        return await self.api_request("get", "xrpldex/orderBooks", request, use_body=True)
 
-    async def rippledex_get_tickers(
+    async def xrpldex_get_tickers(
         self,
         chain: str,
         network: str,
@@ -1159,9 +1151,9 @@ class GatewayHttpClient:
         if market_names is not None:
             request["marketNames"] = market_names
 
-        return await self.api_request("get", "rippledex/tickers", request, use_body=True)
+        return await self.api_request("get", "xrpldex/tickers", request, use_body=True)
 
-    async def rippledex_post_orders(
+    async def xrpldex_post_orders(
         self,
         chain: str,
         network: str,
@@ -1183,9 +1175,9 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("post", "rippledex/orders", request)
+        return await self.api_request("post", "xrpldex/orders", request)
 
-    async def rippledex_delete_orders(
+    async def xrpldex_delete_orders(
         self,
         chain: str,
         network: str,
@@ -1207,9 +1199,9 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("delete", "rippledex/orders", request)
+        return await self.api_request("delete", "xrpldex/orders", request)
 
-    async def rippledex_get_open_orders(
+    async def xrpldex_get_open_orders(
         self,
         chain: str,
         network: str,
@@ -1229,9 +1221,9 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("get", "rippledex/orders/open", request, use_body=True)
+        return await self.api_request("get", "xrpldex/orders/open", request, use_body=True)
 
-    async def rippledex_get_orders(
+    async def xrpldex_get_orders(
         self,
         chain: str,
         network: str,
@@ -1247,4 +1239,4 @@ class GatewayHttpClient:
         if orders is not None:
             request["orders"] = orders
 
-        return await self.api_request("get", "rippledex/orders", request, use_body=True)
+        return await self.api_request("get", "xrpldex/orders", request, use_body=True)

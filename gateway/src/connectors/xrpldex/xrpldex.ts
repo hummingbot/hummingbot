@@ -42,7 +42,7 @@ export class XRPLDEX {
   initializing: boolean = false;
   chain: string;
   network: string;
-  readonly connector: string = 'xrplDEX';
+  readonly connector: string = 'xrpldex';
 
   /**
    * Creates a new instance of xrplDEX.

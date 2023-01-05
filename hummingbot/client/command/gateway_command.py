@@ -524,7 +524,7 @@ class GatewayCommand(GatewayChainApiManager):
                             self.notify("Error: Invalid wallet address")
 
                     # they want to create a new wallet even though they have other ones
-                    # TODO: Add ripple specific add wallet route here
+                    # TODO: Add xrpl specific add wallet route here
                     else:
                         while True:
                             try:

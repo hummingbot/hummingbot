@@ -40,7 +40,7 @@ s_logger = None
 
 
 # TODO remove references to the EVM AMM strategy and class.
-class GatewayRippledexCLOB(ConnectorBase):
+class GatewayXrpldexCLOB(ConnectorBase):
     """
     Defines basic functions common to connectors that interact with the Gateway.
     """
@@ -145,7 +145,7 @@ class GatewayRippledexCLOB(ConnectorBase):
         return self._connector_name
 
     async def all_trading_pairs(self, chain: str, network: str) -> List[str]:
-        # Since the ripple tokens trading pairs would be too much, we are returning an empty list here.
+        # Since the xrpl tokens trading pairs would be too much, we are returning an empty list here.
         return []
 
         # """
@@ -171,7 +171,7 @@ class GatewayRippledexCLOB(ConnectorBase):
     # Added for compatibility
     @staticmethod
     def is_amm_order(in_flight_order: CLOBInFlightOrder) -> bool:
-        return GatewayRippledexCLOB.is_order(in_flight_order)
+        return GatewayXrpldexCLOB.is_order(in_flight_order)
 
     @property
     def orders(self) -> List[CLOBInFlightOrder]:
@@ -258,7 +258,7 @@ class GatewayRippledexCLOB(ConnectorBase):
                 chain=self.chain, network=self.network
             )
             if type(self._chain_info) != list:
-                self._native_currency = self._chain_info.get("nativeCurrency", Chain.RIPPLE.native_currency)
+                self._native_currency = self._chain_info.get("nativeCurrency", Chain.XRPL.native_currency)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -270,7 +270,7 @@ class GatewayRippledexCLOB(ConnectorBase):
 
     async def get_markets(self):
         try:
-            self._markets = await self._get_gateway_instance().rippledex_get_markets(
+            self._markets = await self._get_gateway_instance().xrpldex_get_markets(
                 chain=self.chain,
                 network=self.network,
                 connector=self.connector,
@@ -287,7 +287,7 @@ class GatewayRippledexCLOB(ConnectorBase):
 
     async def set_order_price_and_order_size_quantum(self):
         for trading_pair in self._trading_pairs:
-            market = await self._get_gateway_instance().rippledex_get_markets(
+            market = await self._get_gateway_instance().xrpldex_get_markets(
                 self.chain, self.network, self.connector, name=convert_trading_pair(trading_pair)
             )
 
@@ -307,7 +307,7 @@ class GatewayRippledexCLOB(ConnectorBase):
         :return: A dictionary of token and its allowance.
         """
         ret_val = {}
-        resp: Dict[str, Any] = await self._get_gateway_instance().ripple_get_balances(
+        resp: Dict[str, Any] = await self._get_gateway_instance().xrpl_get_balances(
             self.network, self.address, list(self._tokens)
         )
         for token, amount in resp['balances'].items():
@@ -358,7 +358,7 @@ class GatewayRippledexCLOB(ConnectorBase):
 
         # Pull the price from gateway.
         try:
-            ticker = await self._get_gateway_instance().rippledex_get_tickers(
+            ticker = await self._get_gateway_instance().xrpldex_get_tickers(
                 self.chain, self.network, self.connector, market_name=convert_trading_pair(trading_pair)
             )
             gas_limit: int = constant.FIVE_THOUSAND_LAMPORTS
@@ -481,7 +481,7 @@ class GatewayRippledexCLOB(ConnectorBase):
         try:
             numeric_order_id = order_id.split('-')[3]
 
-            order_result: Dict[str, Any] = await self._get_gateway_instance().rippledex_post_orders(
+            order_result: Dict[str, Any] = await self._get_gateway_instance().xrpldex_post_orders(
                 self.chain,
                 self.network,
                 self.connector,
@@ -809,7 +809,7 @@ class GatewayRippledexCLOB(ConnectorBase):
         #     "walletAddress": self.address,
         # } for trading_pair in self._trading_pairs]
         #
-        # open_orders_on_all_markets = await self._get_gateway_instance().rippledex_get_open_orders(
+        # open_orders_on_all_markets = await self._get_gateway_instance().xrpldex_get_open_orders(
         #     chain=self.chain,
         #     network=self.network,
         #     connector=self.connector,
@@ -825,7 +825,7 @@ class GatewayRippledexCLOB(ConnectorBase):
         #         })
         #
         # asyncio.ensure_future(
-        #     self._get_gateway_instance().rippledex_delete_orders(
+        #     self._get_gateway_instance().xrpldex_delete_orders(
         #         chain=self.chain,
         #         network=self.network,
         #         connector=self.connector,
@@ -866,7 +866,7 @@ class GatewayRippledexCLOB(ConnectorBase):
 
             numeric_order_id = order_id.split('-')[3]
 
-            resp = await self._get_gateway_instance().rippledex_delete_orders(
+            resp = await self._get_gateway_instance().xrpldex_delete_orders(
                 self.chain,
                 self.network,
                 self.connector,

@@ -129,7 +129,7 @@ export async function getConnector<T>(
     connectorInstance = Defira.getInstance(chain, network);
   } else if (chain === 'solana' && connector === 'serum') {
     connectorInstance = await Serum.getInstance(chain, network);
-  } else if (chain === 'xrpl' && connector === 'xrplDEX') {
+  } else if (chain === 'xrpl' && connector === 'xrpldex') {
     connectorInstance = XRPLDEX.getInstance(chain, network);
   } else if (chain === 'cronos' && connector === 'mad_meerkat') {
     connectorInstance = MadMeerkat.getInstance(chain, network);

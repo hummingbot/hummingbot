@@ -282,6 +282,7 @@ class HummingbotApplication(*commands):
                 self.market_trading_pairs_map[market_name].append(hb_trading_pair)
 
         for connector_name, trading_pairs in self.market_trading_pairs_map.items():
+            # testss = AllConnectorSettings.get_connector_settings()
             conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
 
             if connector_name.endswith("paper_trade") and conn_setting.type == ConnectorType.Exchange:

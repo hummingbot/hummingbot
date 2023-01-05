@@ -11,9 +11,9 @@ import jsonpickle
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.gateway.clob.clob_types import OrderSide as RippleOrderSide
+from hummingbot.connector.gateway.clob.clob_types import OrderSide as XRPLOrderSide
 from hummingbot.connector.gateway.clob.clob_utils import convert_trading_pair
-from hummingbot.connector.gateway.clob.gateway_rippledex_clob import GatewayRippledexCLOB
+from hummingbot.connector.gateway.clob.gateway_xrpldex_clob import GatewayXrpldexCLOB
 
 # from hummingbot.core.data_type.common import OrderType, TradeType
 # from hummingbot.core.data_type.order_candidate import OrderCandidate
@@ -25,25 +25,25 @@ from .utils import decimal_zero, format_currency, format_line, parse_order_book
 # nest_asyncio.apply()
 
 
-class TestRippleDEXGateway(ScriptStrategyBase):
+class TestXRPLDEXGateway(ScriptStrategyBase):
     _initialized: bool = False
     _is_busy: bool = False
     _script_name: str
-    _connector_id: str = "rippleDEX_ripple_testnet"
+    _connector_id: str = "xrpldex_xrpl_testnet"
     # _base_token: str = "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
     _base_token: str = "XRP"
     _quote_token: str = "VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
     _trading_pair = f"{_base_token}-{_quote_token}"
     _refresh_timestamp: int
     _gateway: GatewayHttpClient
-    _connector: GatewayRippledexCLOB
+    _connector: GatewayXrpldexCLOB
     _market: str
     _market_info: Dict[str, Any]
 
     _configuration = {
-        "chain": "ripple",
+        "chain": "xrpl",
         "network": "testnet",
-        "connector": "rippleDEX",
+        "connector": "xrpldex",
         "refresh_interval": 20,
     }
 
@@ -96,7 +96,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
             self._script_name = path.basename(Path(__file__).parent)
             self._market = convert_trading_pair(self._trading_pair)
-            self._connector: GatewayRippledexCLOB = self.connectors[self._connector_id]
+            self._connector: GatewayXrpldexCLOB = self.connectors[self._connector_id]
             self._gateway: GatewayHttpClient = self._connector.get_gateway_instance()
             self._refresh_timestamp = 0
             self._initialized = True
@@ -144,7 +144,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
             sell_order = {
                 "marketName": self._market,
                 "walletAddress": self._connector.address,
-                "side": RippleOrderSide.SELL.value[0],
+                "side": XRPLOrderSide.SELL.value[0],
                 "amount": 1,
                 "price": 1000,
             }
@@ -152,7 +152,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
             buy_order = {
                 "marketName": self._market,
                 "walletAddress": self._connector.address,
-                "side": RippleOrderSide.BUY.value[0],
+                "side": XRPLOrderSide.BUY.value[0],
                 "amount": 1,
                 "price": 100,
             }
@@ -303,9 +303,9 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                     "token_symbols": [self._base_token, self._quote_token]
                 }
 
-                self._log(INFO, f"""gateway.ripple_get_balances:\nrequest:\n{self._dump(request)}""")
+                self._log(INFO, f"""gateway.xrpl_get_balances:\nrequest:\n{self._dump(request)}""")
 
-                response = await self._gateway.ripple_get_balances(**request)
+                response = await self._gateway.xrpl_get_balances(**request)
 
                 return response
             except Exception as exception:
@@ -313,7 +313,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
 
                 raise exception
             finally:
-                self._log(INFO, f"""gateway.ripple_get_balances:\nresponse:\n{self._dump(response)}""")
+                self._log(INFO, f"""gateway.xrpl_get_balances:\nresponse:\n{self._dump(response)}""")
         finally:
             self._log(DEBUG, """_get_balances... end""")
 
@@ -331,7 +331,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                     "name": self._market
                 }
 
-                response = await self._gateway.rippledex_get_markets(**request)
+                response = await self._gateway.xrpldex_get_markets(**request)
 
                 return response
             except Exception as exception:
@@ -358,7 +358,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                     "orders": orders
                 }
 
-                response = await self._gateway.rippledex_get_orders(**request)
+                response = await self._gateway.xrpldex_get_orders(**request)
 
                 return response
             except Exception as exception:
@@ -385,7 +385,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                     "market_name": self._market
                 }
 
-                response = await self._gateway.rippledex_get_order_books(**request)
+                response = await self._gateway.xrpldex_get_order_books(**request)
 
                 return response
             except Exception as exception:
@@ -422,7 +422,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                     "market_name": self._market
                 }
 
-                response = await self._gateway.rippledex_get_tickers(**request)
+                response = await self._gateway.xrpldex_get_tickers(**request)
 
                 return response
             except Exception as exception:
@@ -441,9 +441,9 @@ class TestRippleDEXGateway(ScriptStrategyBase):
         open_orders_base_amount = decimal_zero
         open_orders_quote_amount = decimal_zero
         for order in open_orders[self._market].values():
-            if order['side'] == RippleOrderSide.BUY.value[0]:
+            if order['side'] == XRPLOrderSide.BUY.value[0]:
                 open_orders_base_amount += Decimal(order["amount"])
-            if order['side'] == RippleOrderSide.SELL.value[0]:
+            if order['side'] == XRPLOrderSide.SELL.value[0]:
                 open_orders_quote_amount += Decimal(order["amount"]) * Decimal(order['price'])
 
         return {"base": open_orders_base_amount, "quote": open_orders_quote_amount}
@@ -465,7 +465,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                     }
                 }
 
-                response = await self._gateway.rippledex_get_open_orders(**request)
+                response = await self._gateway.xrpldex_get_open_orders(**request)
 
                 return response
             except Exception as exception:
@@ -494,7 +494,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                     "orders": orders
                 }
 
-                response = await self._gateway.rippledex_post_orders(**request)
+                response = await self._gateway.xrpldex_post_orders(**request)
 
                 return response
             except Exception as exception:
@@ -523,7 +523,7 @@ class TestRippleDEXGateway(ScriptStrategyBase):
                     "orders": orders
                 }
 
-                response = await self._gateway.rippledex_delete_orders(**request)
+                response = await self._gateway.xrpldex_delete_orders(**request)
 
                 return response
             except Exception as exception:
