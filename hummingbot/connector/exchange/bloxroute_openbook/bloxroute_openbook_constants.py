@@ -1,7 +1,9 @@
-from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
-from hummingbot.core.data_type.in_flight_order import OrderState
 from bxsolana.provider import constants
 from bxsolana_trader_proto import api
+
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.data_type.in_flight_order import OrderState
+
 DEFAULT_DOMAIN = "com"
 
 HBOT_ORDER_ID_PREFIX = "x-XEKWYICX"
