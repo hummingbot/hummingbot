@@ -491,6 +491,10 @@ class HedgeStrategy(StrategyPyBase):
                 self._status_messages.append(f"No hedge required for {asset}.")
                 continue
             price = hedge_market.get_mid_price() * self.get_slippage_ratio(is_buy)
+            self.logger().info(
+                "Hedge by amount. Mid price: %s Hedge direction: %s. Hedge price: %s. Hedge amount: %s",
+                hedge_market.get_mid_price(), is_buy, price, amount_to_hedge
+            )
             order_candidates = self.get_order_candidates(hedge_market, is_buy, amount_to_hedge, price)
             if not order_candidates:
                 self.logger().info("Difference in hedge_amount found but no order candidates for %s is available. “This is either due to insufficient balance to perform hedge or min trade size not reached or minimum exchange trade size not met", asset)
