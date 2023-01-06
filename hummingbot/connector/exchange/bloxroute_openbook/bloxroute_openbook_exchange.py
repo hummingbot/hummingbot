@@ -10,10 +10,14 @@ from hummingbot.connector.exchange.binance import (
     binance_utils,
     binance_web_utils as web_utils,
 )
-from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_api_order_book_data_source import \
-    BloxrouteOpenbookAPIOrderBookDataSource
 from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
+from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_api_order_book_data_source import (
+    BloxrouteOpenbookAPIOrderBookDataSource,
+)
+from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_book_tracker import (
+    BloxrouteOpenbookOrderBookTracker,
+)
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair
@@ -26,8 +30,6 @@ from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_book_tracker import \
-    BloxrouteOpenbookOrderBookTracker
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter

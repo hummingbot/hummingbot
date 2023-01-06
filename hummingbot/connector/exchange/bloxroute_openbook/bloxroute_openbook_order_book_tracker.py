@@ -1,9 +1,9 @@
 from typing import List, Optional
 
+from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_api_order_book_data_source import (
+    BloxrouteOpenbookAPIOrderBookDataSource,
+)
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_api_order_book_data_source import \
-    BloxrouteOpenbookAPIOrderBookDataSource
-
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 
 

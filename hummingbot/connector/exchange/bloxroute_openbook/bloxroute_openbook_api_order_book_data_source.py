@@ -1,13 +1,13 @@
 import asyncio
 import time
 from abc import ABC
-from typing import AsyncGenerator, TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional
 
 from aiostream import stream
 from bxsolana.provider import HttpProvider, WsProvider
 
-from hummingbot.connector.exchange.bloxroute_openbook import bloxroute_openbook_constants as CONSTANTS
 from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
+from hummingbot.connector.exchange.bloxroute_openbook import bloxroute_openbook_constants as CONSTANTS
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
