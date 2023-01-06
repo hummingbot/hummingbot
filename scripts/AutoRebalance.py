@@ -17,7 +17,6 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
-
 # ------------------------------------------------------------------------------------------- #
 
 
@@ -117,21 +116,21 @@ class AutoRebalance(ScriptStrategyBase):
         "BTC": Decimal('25.00'),
         "ETH": Decimal('20.00'),
         "BNB": Decimal('15.00'),
-        "RNDR": Decimal('10.00'),
-        "DOGE": Decimal('10.00')
+        "AVAX": Decimal('10.00'),
+        "MATIC": Decimal('10.00')
     }
     dt_coin_config = {
         "BTC": Decimal('20.00'),
         "ETH": Decimal('10.00'),
         "BNB": Decimal('10.00'),
-        "RNDR": Decimal('5.00'),
-        "DOGE": Decimal('5.00')
+        "AVAX": Decimal('5.00'),
+        "MATIC": Decimal('5.00')
     }
     coin_config = ut_coin_config  # Initialize coin_config
 
     # Set rebalance threshold
-    ut_threshold = Decimal('1.00')
-    dt_threshold = Decimal('0.50')
+    ut_threshold = Decimal('2.00')
+    dt_threshold = Decimal('1.00')
     threshold = dt_threshold  # Initialize threshold
 
     # Abstract coin name and Make coin list
@@ -145,14 +144,11 @@ class AutoRebalance(ScriptStrategyBase):
     # Set status
     status = "rebalancing"
 
-    # Set active order or not
-    mm_mode = True
-
     # Set klines configuration
     last_data_ts = 0.
-    data_interval = 60  # Should be equal to interval
-    interval = "1m"
-    limit = 34  # Should be more than l_atrR_period
+    data_interval = 900  # Should be equal to interval
+    interval = "15m"
+    limit = 60  # Should be more than l_atr_period
 
     # Set long and short atr configuration
     s_atr_period = 13
@@ -173,8 +169,11 @@ class AutoRebalance(ScriptStrategyBase):
     is_uptrend = True  # Initialize is_uptrend
     _supertrend = pd.DataFrame()  # initialize _supertrend df
 
+    # Set active order or not
+    mm_mode = True
+
     # Set market making threshold
-    mm_threshold = Decimal('0.00')
+    mm_threshold = Decimal('0.50')
 
     @property
     def connector(self):
@@ -271,7 +270,6 @@ class AutoRebalance(ScriptStrategyBase):
                              Decimal(exchange.get_price(pair, False) * Decimal('0.9999')).quantize(Decimal('1.0000')))
 
             if self.mm_mode is True:
-                self.mm_threshold = self.threshold
                 if self.status == "rebalancing":
                     try:
                         self.active_orders_df()
