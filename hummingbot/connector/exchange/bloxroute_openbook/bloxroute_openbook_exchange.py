@@ -10,7 +10,8 @@ from hummingbot.connector.exchange.binance import (
     binance_utils,
     binance_web_utils as web_utils,
 )
-from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_api_order_book_data_source import \
+    BloxrouteOpenbookAPIOrderBookDataSource
 from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
@@ -25,6 +26,8 @@ from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_book_tracker import \
+    BloxrouteOpenbookOrderBookTracker
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -52,6 +55,9 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         self._last_trades_poll_binance_timestamp = 1.0
         super().__init__(client_config_map)
+
+        self._set_order_book_tracker(
+            BloxrouteOpenbookOrderBookTracker(data_source=self._orderbook_ds, trading_pairs=trading_pairs))
 
     @staticmethod
     def binance_order_type(order_type: OrderType) -> str:
@@ -129,14 +135,10 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         return is_time_synchronizer_related
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
-        return web_utils.build_api_factory(
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            domain=self._domain,
-            auth=self._auth)
+        raise Exception("Bloxroute Openbook does not use a WebAssistant")
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        return BinanceAPIOrderBookDataSource(
+        return BloxrouteOpenbookAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
             connector=self,
             domain=self.domain,
@@ -350,7 +352,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         long_interval_current_tick = self.current_timestamp / self.LONG_POLL_INTERVAL
 
         if (long_interval_current_tick > long_interval_last_tick
-                or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
+            or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
             query_time = int(self._last_trades_poll_binance_timestamp * 1e3)
             self._last_trades_poll_binance_timestamp = self._time_synchronizer.time()
             order_by_exchange_id_map = {}
