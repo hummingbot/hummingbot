@@ -8,8 +8,7 @@ from .gateway_command import GatewayCommand
 from .help_command import HelpCommand
 from .history_command import HistoryCommand
 from .import_command import ImportCommand
-from .mqtt_start_command import MQTTStartCommand
-from .mqtt_stop_command import MQTTStopCommand
+from .mqtt_command import MQTTCommand
 from .order_book_command import OrderBookCommand
 from .pmm_script_command import PMMScriptCommand
 from .previous_strategy_command import PreviousCommand
@@ -40,6 +39,5 @@ __all__ = [
     StatusCommand,
     StopCommand,
     TickerCommand,
-    MQTTStartCommand,
-    MQTTStopCommand,
+    MQTTCommand,
 ]

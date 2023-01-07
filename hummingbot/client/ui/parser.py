@@ -2,6 +2,7 @@ import argparse
 from typing import TYPE_CHECKING, Any, List
 
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
+from hummingbot.client.command.mqtt_command import SUBCOMMANDS as MQTT_SUBCOMMANDS
 from hummingbot.exceptions import ArgumentParserError
 
 if TYPE_CHECKING:
@@ -149,13 +150,18 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     previous_strategy_parser.add_argument("option", nargs="?", choices=["Yes,No"], default=None)
     previous_strategy_parser.set_defaults(func=hummingbot.previous_strategy)
 
-    mqtt_start_parser = subparsers.add_parser(
-        "mqtt_start", help="Start MQTT Bridge")
-    mqtt_start_parser.set_defaults(func=hummingbot.start_mqtt)
-
-    mqtt_stop_parser = subparsers.add_parser(
-        "mqtt_stop", help="Start MQTT Bridge")
-    mqtt_stop_parser.set_defaults(func=hummingbot.stop_mqtt)
+    mqtt_parser = subparsers.add_parser("mqtt", help="Manage MQTT Bridge to Message brokers")
+    mqtt_parser.add_argument("subcommand",
+                             type=str,
+                             choices=MQTT_SUBCOMMANDS,
+                             help="Subcommand (start/stop/restart)")
+    mqtt_parser.add_argument("-t",
+                             "--timeout",
+                             default=2.0,
+                             type=float,
+                             dest="timeout",
+                             help="Connection timeout in seconds")
+    mqtt_parser.set_defaults(func=hummingbot.mqtt_command)
 
     # add shortcuts so they appear in command help
     shortcuts = hummingbot.client_config_map.command_shortcuts
