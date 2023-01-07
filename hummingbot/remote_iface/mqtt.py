@@ -16,7 +16,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
     from hummingbot.core.event.event_listener import EventListener  # noqa: F401
 
-from commlib.node import Node
+from commlib.node import Node, NodeState
 from commlib.transports.mqtt import ConnectionParameters as MQTTConnectionParameters
 
 from hummingbot.core.event import events
@@ -661,24 +661,38 @@ class MQTTExternalEvents:
 
     def add_listener(self,
                      event_name: str,
-                     callback: Callable[[str, ExternalEventMessage], None]):
+                     callback: Callable[[ExternalEventMessage, str], None]):
         # TODO validate event_name with regex
         if event_name in self._listeners:
             self._listeners.get(event_name).append(callback)
 
     def remove_listener(self,
                         event_name: str,
-                        callback: Callable[[str, ExternalEventMessage], None]):
+                        callback: Callable[[ExternalEventMessage, str], None]):
         # TODO validate event_name with regex
         if event_name in self._listeners:
             self._listeners.get(event_name).remove(callback)
 
     def add_global_listener(self,
-                            callback: Callable[[str, ExternalEventMessage], None]):
+                            callback: Callable[[ExternalEventMessage, str], None]):
         if '*' in self._listeners:
             self._listeners.get('*').append(callback)
 
     def remove_global_listener(self,
-                               callback: Callable[[str, ExternalEventMessage], None]):
+                               callback: Callable[[ExternalEventMessage, str], None]):
         if '*' in self._listeners:
             self._listeners.get('*').remove(callback)
+
+
+class MQTTTopicListener:
+    def __init__(self,
+                 topic: str,
+                 mqtt_node: Node,
+                 on_message: Callable[[Dict, str], None]):
+        self._topic = topic
+        self._mqtt_node = mqtt_node
+        self._on_message = on_message
+        s = self._mqtt_node.create_psubscriber(topic=self._topic,
+                                               on_message=self._on_message)
+        if s.state == NodeState.RUNNING:
+            s.run()
