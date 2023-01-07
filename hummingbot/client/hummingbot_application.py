@@ -112,9 +112,6 @@ class HummingbotApplication(*commands):
         # gateway variables and monitor
         self._gateway_monitor = GatewayStatusMonitor(self)
 
-        if self.client_config_map.mqtt_bridge.mqtt_autostart:
-            self.start_mqtt()
-
         command_tabs = self.init_command_tabs()
         self.parser: ThrowingArgumentParser = load_parser(self, command_tabs)
         self.app = HummingbotCLI(
@@ -126,6 +123,9 @@ class HummingbotApplication(*commands):
         )
 
         self._init_gateway_monitor()
+        # MQTT Bridge
+        if self.client_config_map.mqtt_bridge.mqtt_autostart:
+            self.mqtt_command('start')
 
     @property
     def instance_id(self) -> str:
