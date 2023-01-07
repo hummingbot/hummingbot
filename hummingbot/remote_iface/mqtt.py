@@ -478,12 +478,12 @@ class MQTTGateway(Node):
 
     def patch_loggers(self):
         loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-        log_conf = get_logging_conf()
 
-        if 'root' not in log_conf:
-            return
-        if log_conf.get('root').get('mqtt'):
-            self.add_log_handler(self._get_root_logger())
+        log_conf = get_logging_conf()
+        if 'root' in log_conf:
+            if log_conf.get('root').get('mqtt'):
+                self.remove_log_handler(self._get_root_logger())
+                self.add_log_handler(self._get_root_logger())
 
         if 'loggers' not in log_conf:
             return
